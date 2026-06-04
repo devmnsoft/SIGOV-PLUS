@@ -1,0 +1,1 @@
+-- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
