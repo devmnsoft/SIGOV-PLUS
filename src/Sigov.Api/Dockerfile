@@ -2,6 +2,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+RUN adduser --disabled-password --gecos "" sigov
+USER sigov
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
@@ -12,5 +14,5 @@ RUN dotnet publish src/Sigov.Api/Sigov.Api.csproj -c Release -o /app/publish --n
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-COPY database/postgres/migrations /app/database/postgres/migrations
+COPY --from=build /src/database /app/database
 ENTRYPOINT ["dotnet", "Sigov.Api.dll"]

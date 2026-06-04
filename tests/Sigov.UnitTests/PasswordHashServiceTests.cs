@@ -11,10 +11,10 @@ public sealed class PasswordHashServiceTests
     {
         var service = new PasswordHashService();
 
-        var hash = service.HashPassword("Admin@12345");
+        var hash = service.HashPassword("SigovDevLocal!2026");
 
-        hash.Should().NotContain("Admin@12345");
-        service.VerifyPassword("Admin@12345", hash).Should().BeTrue();
+        hash.Should().NotContain("SigovDevLocal!2026");
+        service.VerifyPassword("SigovDevLocal!2026", hash).Should().BeTrue();
         service.VerifyPassword("senha-errada", hash).Should().BeFalse();
     }
 }

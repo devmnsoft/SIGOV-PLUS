@@ -1,4 +1,5 @@
 using Serilog;
+using Sigov.Infrastructure;
 using Sigov.Worker;
 
 var builder = Host.CreateDefaultBuilder(args)
@@ -7,6 +8,10 @@ var builder = Host.CreateDefaultBuilder(args)
         .Enrich.WithProperty("Application", "sigov")
         .Enrich.FromLogContext()
         .WriteTo.Console())
-    .ConfigureServices(services => services.AddHostedService<Worker>());
+    .ConfigureServices(services =>
+    {
+        services.AddInfrastructure();
+        services.AddHostedService<Worker>();
+    });
 
 await builder.RunConsoleAsync().ConfigureAwait(false);

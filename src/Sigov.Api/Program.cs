@@ -1,6 +1,8 @@
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Sigov.Api.Middlewares;
+using Microsoft.Extensions.Options;
+using Sigov.Application.Configuration;
 using Sigov.Infrastructure;
 using Sigov.Infrastructure.Persistence.Migrations;
 
@@ -12,6 +14,11 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .Enrich.FromLogContext()
     .WriteTo.Console());
 
+builder.Services.AddOptions<SigovOptions>()
+    .Bind(builder.Configuration.GetSection("Sigov"))
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<SigovOptions>, SigovOptionsValidator>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -26,8 +33,11 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseMiddleware<SimpleRateLimitMiddleware>();
 
-if (app.Environment.IsDevelopment())
+var sigovOptions = app.Services.GetRequiredService<IOptions<SigovOptions>>().Value;
+if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInProduction)
 {
     app.UseSwagger();
     app.UseSwaggerUI();

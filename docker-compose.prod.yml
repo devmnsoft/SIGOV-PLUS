@@ -1,0 +1,95 @@
+services:
+  sigov-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env.production.example
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sigov}
+      POSTGRES_USER: ${POSTGRES_USER:-sigov}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}
+    volumes:
+      - sigov_postgres_prod_data:/var/lib/postgresql/data
+      - ./docker/postgres/backup:/backup
+    networks:
+      - sigov-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sigov} -d ${POSTGRES_DB:-sigov}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  sigov-api:
+    build:
+      context: .
+      dockerfile: src/Sigov.Api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production.example
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Sigov__Database__Schema: sigov
+      Sigov__Database__RunMigrationsOnStartup: "false"
+    depends_on:
+      sigov-postgres:
+        condition: service_healthy
+    networks:
+      - sigov-internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health/live >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  sigov-web:
+    build:
+      context: .
+      dockerfile: src/Sigov.Web/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production.example
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Sigov__ApiBaseUrl: http://sigov-api:8080
+    depends_on:
+      - sigov-api
+    networks:
+      - sigov-internal
+
+  sigov-worker:
+    build:
+      context: .
+      dockerfile: src/Sigov.Worker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production.example
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      sigov-postgres:
+        condition: service_healthy
+    networks:
+      - sigov-internal
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - sigov-web
+      - sigov-api
+    networks:
+      - sigov-internal
+      - sigov-public
+
+volumes:
+  sigov_postgres_prod_data:
+
+networks:
+  sigov-internal:
+    internal: true
+  sigov-public:
