@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Sigov.Domain</AssemblyName>
+    <RootNamespace>Sigov.Domain</RootNamespace>
+  </PropertyGroup>
+</Project>

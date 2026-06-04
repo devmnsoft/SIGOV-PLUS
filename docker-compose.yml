@@ -1,0 +1,50 @@
+services:
+  sigov-postgres:
+    image: postgres:16-alpine
+    container_name: sigov-postgres
+    environment:
+      POSTGRES_DB: sigov
+      POSTGRES_USER: sigov
+      POSTGRES_PASSWORD: sigov_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - sigov_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sigov -d sigov"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  sigov-api:
+    container_name: sigov-api
+    build:
+      context: .
+      dockerfile: src/Sigov.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=sigov-postgres;Port=5432;Database=sigov;Username=sigov;Password=sigov_dev_password
+      Sigov__Database__Schema: sigov
+      Sigov__Database__MigrationsPath: /app/database/postgres/migrations
+      Sigov__Database__RunMigrationsOnStartup: "true"
+    ports:
+      - "5001:8080"
+    depends_on:
+      sigov-postgres:
+        condition: service_healthy
+
+  sigov-web:
+    container_name: sigov-web
+    build:
+      context: .
+      dockerfile: src/Sigov.Web/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Sigov__ApiBaseUrl: http://sigov-api:8080
+    ports:
+      - "5000:8080"
+    depends_on:
+      - sigov-api
+
+volumes:
+  sigov_postgres_data:
