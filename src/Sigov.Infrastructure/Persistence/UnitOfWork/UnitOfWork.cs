@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Sigov.Application.Abstractions;
@@ -9,13 +10,15 @@ public sealed class UnitOfWork : IUnitOfWork
 {
     private readonly NpgsqlConnectionFactory _connectionFactory;
     private readonly ILogger<UnitOfWork> _logger;
+    private readonly ICurrentTenant _currentTenant;
     private NpgsqlConnection? _connection;
     private NpgsqlTransaction? _transaction;
 
-    public UnitOfWork(NpgsqlConnectionFactory connectionFactory, ILogger<UnitOfWork> logger)
+    public UnitOfWork(NpgsqlConnectionFactory connectionFactory, ILogger<UnitOfWork> logger, ICurrentTenant currentTenant)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
+        _currentTenant = currentTenant;
     }
 
     public async Task BeginAsync(CancellationToken cancellationToken = default)
@@ -25,6 +28,10 @@ public sealed class UnitOfWork : IUnitOfWork
             _connection = _connectionFactory.CreateConnection();
             await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             _transaction = await _connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            if (_currentTenant.TenantId.HasValue)
+            {
+                await _connection.ExecuteAsync(new CommandDefinition("select set_config('sigov.tenant_id', @TenantId, true);", new { TenantId = _currentTenant.TenantId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) }, _transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {

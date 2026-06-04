@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sigov
+          POSTGRES_USER: sigov
+          POSTGRES_PASSWORD: sigov_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sigov -d sigov"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
+      Sigov__Jwt__Secret: ci-only-secret-with-more-than-thirty-two-chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+      - name: Restore
+        run: dotnet restore sigov.sln
+      - name: Build
+        run: dotnet build sigov.sln --configuration Release --no-restore
+      - name: Test
+        run: dotnet test sigov.sln --configuration Release --no-build --logger trx
+      - name: Docker build API
+        run: docker build -f src/Sigov.Api/Dockerfile -t sigov-api:${{ github.sha }} .
+      - name: Docker build Web
+        run: docker build -f src/Sigov.Web/Dockerfile -t sigov-web:${{ github.sha }} .
+      - name: Docker build Worker
+        run: docker build -f src/Sigov.Worker/Dockerfile -t sigov-worker:${{ github.sha }} .

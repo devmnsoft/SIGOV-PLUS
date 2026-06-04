@@ -33,6 +33,18 @@ services:
       sigov-postgres:
         condition: service_healthy
 
+  sigov-worker:
+    container_name: sigov-worker
+    build:
+      context: .
+      dockerfile: src/Sigov.Worker/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=sigov-postgres;Port=5432;Database=sigov;Username=sigov;Password=sigov_dev_password
+    depends_on:
+      sigov-postgres:
+        condition: service_healthy
+
   sigov-web:
     container_name: sigov-web
     build:

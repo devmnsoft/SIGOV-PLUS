@@ -11,16 +11,31 @@
   <nav class="navbar navbar-dark bg-primary">
     <div class="container-fluid">
       <span class="navbar-brand mb-0 h1">sigov</span>
-      <span class="text-white">Prefeitura Municipal de Demonstração • Exercício 2026</span>
+      <span class="text-white" id="sigov-tenant-status">Tenant atual • Entidade • Exercício</span>
     </div>
   </nav>
   <div class="container-fluid">
     <div class="row">
       <aside class="col-md-3 col-lg-2 sigov-sidebar p-3">
-        <div class="fw-bold mb-2">Módulos</div>
-        <a class="d-block" href="#">Núcleo</a>
+        <div class="fw-bold mb-2">Operação municipal</div>
+        <a class="d-block" href="/">Dashboard</a>
+        <a class="d-block" href="#">Cadastros</a>
         <a class="d-block" href="#">Segurança</a>
         <a class="d-block" href="#">Auditoria</a>
+        <a class="d-block" href="#">LGPD</a>
+        <a class="d-block" href="#">Suporte</a>
+        <a class="d-block" href="#">Módulos contratados</a>
+        <hr>
+        <div class="fw-bold mb-2">SaaS Admin</div>
+        <a class="d-block" href="/SaasAdmin/Tenants">Tenants</a>
+        <a class="d-block" href="/SaasAdmin/Planos">Planos</a>
+        <a class="d-block" href="/SaasAdmin/Modulos">Módulos</a>
+        <a class="d-block" href="/SaasAdmin/FeatureFlags">Feature Flags</a>
+        <a class="d-block" href="/SaasAdmin/Uso">Uso</a>
+        <a class="d-block" href="/SaasAdmin/Operacao">Operação</a>
+        <hr>
+        <div class="fw-bold mb-2">Administração</div>
+        <a class="d-block" href="#">Conformidade/Aderência</a>
       </aside>
       <main class="col-md-9 col-lg-10 p-4">
         <div id="sigov-alerts"></div>
@@ -28,8 +43,9 @@
       </main>
     </div>
   </div>
-  <footer class="border-top py-3 text-center text-muted">sigov Gestão Pública Municipal</footer>
+  <footer class="border-top py-3 text-center text-muted">sigov Gestão Pública Municipal SaaS</footer>
   <script src="~/js/sigov.api.js"></script>
   <script src="~/js/sigov.ui.js"></script>
+  <script src="~/js/modules/saas.tenants.js"></script>
 </body>
 </html>

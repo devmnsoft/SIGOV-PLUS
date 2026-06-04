@@ -1,13 +1,18 @@
 # sigov
 
-Plataforma de gestão pública municipal com ASP.NET Core, Dapper, PostgreSQL, Docker, Bootstrap e JavaScript puro.
+Plataforma SaaS de gestão pública municipal para operação real de prefeituras, câmaras, autarquias, fundos, secretarias e unidades descentralizadas.
+
+## Stack
+
+ASP.NET Core, C# 10, Clean Architecture, DDD, Dapper, PostgreSQL, API REST, Bootstrap 5, JavaScript puro, Serilog/ILogger, Docker e testes automatizados.
 
 ## Execução local
 
 - Web: http://localhost:5000
 - API: http://localhost:5001
-- Swagger: http://localhost:5001/swagger
-- Health: http://localhost:5001/api/health
+- Swagger Development: http://localhost:5001/swagger
+- Health live: http://localhost:5001/api/health/live
+- Health ready: http://localhost:5001/api/health/ready
 - DB Health: http://localhost:5001/api/health/db
 
 ```powershell
@@ -16,5 +21,10 @@ scripts/start-dev.ps1
 
 ## Banco de dados
 
-O PostgreSQL usa o database `sigov`, usuário `sigov` e schema físico único `sigov`.
-Os domínios permanecem organizados no código por bounded contexts, pastas e namespaces.
+O PostgreSQL usa o database `sigov`, usuário `sigov` e schema físico único `sigov`. Multi-tenancy usa banco e schema compartilhados com `tenant_id` obrigatório nas tabelas operacionais, filtros na aplicação e Row-Level Security preparado para tabelas críticas.
+
+## SaaS production-ready
+
+A camada SaaS inclui tenants, domínios, planos, assinaturas, módulos contratados, feature flags, limites, uso mensal, eventos operacionais, health checks, Docker Production, scripts de backup/restore e CI/CD.
+
+O antigo conteúdo de conformidade/aderência fica tratado como módulo acessório administrativo, sem posicionar esse conteúdo como núcleo do produto.

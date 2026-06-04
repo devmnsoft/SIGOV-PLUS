@@ -5,7 +5,7 @@ declare
     v_pessoa_id bigint;
     v_usuario_id bigint;
     v_perfil_id bigint;
-    v_admin_password text := coalesce(nullif(current_setting('sigov.admin_password', true), ''), 'Admin@12345');
+    v_admin_password text := coalesce(nullif(current_setting('sigov.admin_password', true), ''), 'SigovDevLocal!2026');
 begin
     insert into sigov.entidade (nome, cnpj, ativo, observacao)
     values ('Prefeitura Municipal de Demonstração', '00000000000191', true, 'Registro de desenvolvimento sigov')
@@ -30,7 +30,7 @@ begin
     on conflict do nothing;
 
     insert into sigov.usuario (entidade_id, exercicio_id, pessoa_id, login, email, senha_hash, ativo, observacao)
-    values (v_entidade_id, v_exercicio_id, v_pessoa_id, 'admin', 'admin@sigov.local', 'DEV_ONLY:' || v_admin_password, true, 'Senha inicial definida por SIGOV_ADMIN_PASSWORD; fallback Development Admin@12345')
+    values (v_entidade_id, v_exercicio_id, v_pessoa_id, 'admin', 'admin@sigov.local', 'DEV_ONLY:' || v_admin_password, true, 'Senha inicial definida por SIGOV_ADMIN_PASSWORD; fallback Development SigovDevLocal!2026')
     on conflict do nothing;
 
     select id into v_usuario_id from sigov.usuario where login = 'admin' and is_deleted = false limit 1;
@@ -48,13 +48,13 @@ begin
         (v_entidade_id, v_exercicio_id, 'auditoria', 'auditoria_admin', 'Permissão administrativa de auditoria', true),
         (v_entidade_id, v_exercicio_id, 'lgpd', 'lgpd_admin', 'Permissão administrativa LGPD', true),
         (v_entidade_id, v_exercicio_id, 'suporte', 'suporte_admin', 'Permissão administrativa de suporte', true),
-        (v_entidade_id, v_exercicio_id, 'poc', 'poc_admin', 'Permissão administrativa POC', true)
+        (v_entidade_id, v_exercicio_id, 'conformidade', 'aderencia_admin', 'Permissão administrativa de conformidade e aderência', true)
     on conflict do nothing;
 
     insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
     select v_perfil_id, p.id
     from sigov.permissao p
-    where p.modulo in ('core', 'seguranca', 'auditoria', 'lgpd', 'suporte', 'poc')
+    where p.modulo in ('core', 'seguranca', 'auditoria', 'lgpd', 'suporte', 'conformidade')
     on conflict do nothing;
 
     insert into sigov.grupo_acesso (entidade_id, exercicio_id, nome, descricao, ativo)

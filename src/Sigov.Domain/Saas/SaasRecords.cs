@@ -1,0 +1,21 @@
+namespace Sigov.Domain.Saas;
+
+public sealed record TenantDominio(long Id, long TenantId, string Tipo, string Dominio, bool Principal, bool Verificado);
+public sealed record TenantAmbiente(long Id, long TenantId, TipoAmbiente Tipo, bool Ativo);
+public sealed record PlanoSaas(long Id, string Codigo, string Nome, decimal? ValorMensal, bool Ativo);
+public sealed record ModuloSaas(long Id, string Codigo, string Nome, TipoModuloSaas Categoria, bool Ativo);
+public sealed record PlanoModulo(long Id, long PlanoSaasId, long ModuloSaasId, bool Ativo);
+public sealed record TenantAssinatura(long Id, long TenantId, long PlanoSaasId, StatusAssinatura Status, DateTimeOffset InicioAt, DateTimeOffset? FimAt);
+public sealed record TenantModulo(long Id, long TenantId, long ModuloSaasId, bool Habilitado, bool Contratado);
+public sealed record TenantFeatureFlag(long Id, long TenantId, long FeatureFlagDefId, bool Habilitado, string ValorJson);
+public sealed record TenantLimite(long Id, long TenantId, string Chave, decimal ValorLimite, decimal ValorAtual, string Unidade);
+public sealed record TenantConfiguracao(long Id, long TenantId, string Chave, string ValorJson, bool Secreto);
+public sealed record TenantUsoMensal(long Id, long TenantId, int Ano, int Mes, long RequisicoesApi, long ArmazenamentoBytes);
+public sealed record TenantEventoOperacional(long Id, long TenantId, string Tipo, string Severidade, string Mensagem, Guid? CorrelationId);
+public sealed record TenantBloqueio(long Id, long TenantId, string Motivo, DateTimeOffset CreatedAt);
+public sealed record TenantAuditoriaOperacional(long Id, long TenantId, string Acao, string Recurso, Guid? CorrelationId);
+public sealed record Subdominio(string Value);
+public sealed record DominioCustomizado(string Value);
+public sealed record PlanoCodigo(string Value);
+public sealed record LimiteSaas(string Chave, decimal Valor, string Unidade);
+public sealed record PeriodoAssinatura(DateTimeOffset InicioAt, DateTimeOffset? FimAt);

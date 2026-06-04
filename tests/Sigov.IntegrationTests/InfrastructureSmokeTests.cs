@@ -62,7 +62,27 @@ public sealed class InfrastructureSmokeTests
         var seed = File.ReadAllText(Path.Combine(Root, "database/postgres/migrations/011_seed_sigov_dev.sql"));
         seed.Should().Contain("admin@sigov.local");
         seed.Should().Contain("SIGOV_ADMIN_PASSWORD");
-        seed.Should().Contain("Admin@12345");
+        seed.Should().Contain("DEV_ONLY:");
+    }
+
+    [Fact]
+    public void Saas_Migrations_Devem_Criar_Tenants_E_Isolamento()
+    {
+        var sql = ReadAllMigrations().ToLowerInvariant();
+
+        sql.Should().Contain("create table if not exists sigov.tenant");
+        sql.Should().Contain("create table if not exists sigov.tenant_assinatura");
+        sql.Should().Contain("create table if not exists sigov.tenant_modulo");
+        sql.Should().Contain("create or replace function sigov.current_tenant_id()");
+        sql.Should().Contain("enable row level security");
+    }
+
+    [Fact]
+    public void Repositories_Criticos_Devem_Filtrar_Por_TenantId()
+    {
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Persistence/Repositories/PessoaRepository.cs")).Should().Contain("where tenant_id = @TenantId");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Persistence/Repositories/UsuarioRepository.cs")).Should().Contain("where tenant_id = @TenantId");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Persistence/Repositories/AuditRepository.cs")).Should().Contain("where tenant_id = @TenantId");
     }
 
     private static string ReadAllMigrations()
