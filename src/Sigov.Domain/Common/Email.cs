@@ -8,13 +8,14 @@ public sealed class Email : ValueObject
 
     public string Value { get; }
 
-    public static Result<Email> Create(string value)
+    public static Result<Email> Create(string? value)
     {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
         try
         {
-            var address = new MailAddress(value ?? string.Empty);
-            return address.Address == value
-                ? Result<Email>.Success(new Email(value))
+            var address = new MailAddress(normalized);
+            return address.Address == normalized && normalized.Contains("@", StringComparison.Ordinal)
+                ? Result<Email>.Success(new Email(normalized))
                 : Result<Email>.Failure("E-mail inválido.");
         }
         catch (FormatException)
