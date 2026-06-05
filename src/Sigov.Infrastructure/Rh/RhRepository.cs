@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Dapper;
@@ -69,6 +70,8 @@ public sealed class RhRepository : BaseRepository, IRhRepository
     public async Task ExcluirAsync(long tenantId, string recurso, long id, long? usuarioId, CancellationToken ct)
     {
         var table = Table(recurso);
+        var anterior = await ObterAsync(tenantId, recurso, id, ct).ConfigureAwait(false);
+        var auditoria = BuildAuditJson("EXCLUIR", usuarioId, anterior?.Dados, new { softDelete = true });
         using var cn = _context.CreateConnection();
         await cn.ExecuteAsync(Command($"update {table} set is_deleted = true, ativo = false, auditoria = auditoria || jsonb_build_object('ultimaOperacao','EXCLUIR','usuarioId',@UsuarioId,'recurso',@Recurso), deleted_by = @UsuarioId, deleted_at = now(), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, UsuarioId = usuarioId, Recurso = recurso }, ct)).ConfigureAwait(false);
         await RegistrarEventoAsync(cn, tenantId, recurso, "EXCLUIR", id, new Dictionary<string, object?> { ["softDelete"] = true }, usuarioId, ct).ConfigureAwait(false);
@@ -113,7 +116,7 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         var all = await ListarAsync(tenantId, recurso, new RhFiltro(1, 100), ct).ConfigureAwait(false);
         if (formato.Equals("json", StringComparison.OrdinalIgnoreCase)) return Encoding.UTF8.GetBytes(JsonSerializer.Serialize(all.Items, JsonOptions));
         var sb = new StringBuilder("id;recurso;ativo;dados\n");
-        foreach (var item in all.Items) sb.Append(item.Id).Append(';').Append(item.Recurso).Append(';').Append(item.Ativo).Append(';').Append(JsonSerializer.Serialize(item.Dados, JsonOptions).Replace(';', ',')).AppendLine();
+        foreach (var item in all.Items) sb.Append(item.Id).Append(';').Append(item.Recurso).Append(';').Append(item.Ativo).Append(';').Append(EscapeCsv(JsonSerializer.Serialize(item.Dados, JsonOptions))).AppendLine();
         return Encoding.UTF8.GetBytes(sb.ToString());
     }
 

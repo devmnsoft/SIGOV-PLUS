@@ -140,6 +140,8 @@ public sealed class RhService : IRhService
         var exercicio = await ValidarExercicioAbertoAsync(recurso, ct).ConfigureAwait(false);
         if (exercicio.IsFailure) return Result<long>.Failure(exercicio.Error ?? "Exercício encerrado.");
         if (!await CanAsync(RhPermissoes.Criar, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
+        var validation = ValidarPayload(Normalizar(recurso), request.Dados);
+        if (validation.Count > 0) return Result<long>.ValidationFailure(validation);
         try
         {
             var id = await _repo.CriarAsync(TenantId, Normalizar(recurso), request, _user.UsuarioId, ct).ConfigureAwait(false);
@@ -201,6 +203,8 @@ public sealed class RhService : IRhService
         if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
         if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");
         if (!await CanAsync(RhPermissoes.IntegrarFinanceiro, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
+        if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
+        if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");
         var eventoId = await _repo.PrepararIntegracaoFinanceiraAsync(TenantId, request, _user.UsuarioId, ct).ConfigureAwait(false);
         await _audit.RegistrarAsync("rh", "INTEGRAR_FINANCEIRO", "sigov.rh_evento", eventoId.ToString(System.Globalization.CultureInfo.InvariantCulture), null, request, ct).ConfigureAwait(false);
         return Result<long>.Success(eventoId);
@@ -210,8 +214,80 @@ public sealed class RhService : IRhService
     {
         if (!EscopoValido) return EscopoFailure<byte[]>();
         if (!RecursoValido(recurso)) return Result<byte[]>.Failure("Recurso de RH inválido.");
+        if (!formato.Equals("csv", StringComparison.OrdinalIgnoreCase) && !formato.Equals("json", StringComparison.OrdinalIgnoreCase)) return Result<byte[]>.Failure("Formato de exportação inválido. Use csv ou json.");
         if (!await CanAsync(RhPermissoes.Exportar, ct).ConfigureAwait(false)) return Result<byte[]>.Failure("403");
         await _audit.RegistrarAsync("rh", "EXPORTAR", Tabela(recurso), formato, null, new { recurso, formato }, ct).ConfigureAwait(false);
         return Result<byte[]>.Success(await _repo.ExportarAsync(TenantId, Normalizar(recurso), formato, ct).ConfigureAwait(false));
     }
+
+    private static List<ValidationError> ValidarPayload(string recurso, Dictionary<string, object?>? dados)
+    {
+        var erros = new List<ValidationError>();
+        if (dados is null)
+        {
+            erros.Add(new ValidationError("dados", "Payload JSON obrigatório."));
+            return erros;
+        }
+
+        if (CamposObrigatorios.TryGetValue(recurso, out var campos))
+        {
+            foreach (var campo in campos)
+            {
+                if (IsMissing(dados, campo)) erros.Add(new ValidationError(campo, "Campo obrigatório."));
+            }
+        }
+
+        // Validações de negócio centralizadas no backend: o cliente CSHTML/Ajax apenas antecipa UX.
+        if (recurso.Equals("servidores", StringComparison.OrdinalIgnoreCase) && TryText(dados, "cpf", out var cpf) && OnlyDigits(cpf).Length != 11)
+            erros.Add(new ValidationError("cpf", "CPF deve conter 11 dígitos."));
+        if (recurso.Equals("folhas", StringComparison.OrdinalIgnoreCase) && TryInt(dados, "mes", out var mes) && mes is < 1 or > 13)
+            erros.Add(new ValidationError("mes", "Mês da folha deve estar entre 1 e 13."));
+        if (recurso.Equals("folha-lancamentos", StringComparison.OrdinalIgnoreCase) && TryDecimal(dados, "valor", out var valor) && valor < 0)
+            erros.Add(new ValidationError("valor", "Valor do lançamento não pode ser negativo."));
+        if (recurso.Equals("ferias", StringComparison.OrdinalIgnoreCase) && TryDate(dados, "inicio", out var inicio) && TryDate(dados, "fim", out var fim) && fim < inicio)
+            erros.Add(new ValidationError("fim", "Fim das férias deve ser maior ou igual ao início."));
+        if (recurso.Equals("afastamentos", StringComparison.OrdinalIgnoreCase) && TryDate(dados, "inicio", out var afastInicio) && TryDate(dados, "fim", out var afastFim) && afastFim < afastInicio)
+            erros.Add(new ValidationError("fim", "Fim do afastamento deve ser maior ou igual ao início."));
+
+        return erros;
+    }
+
+    private static bool IsMissing(IReadOnlyDictionary<string, object?> dados, string campo) =>
+        !dados.TryGetValue(campo, out var value) || value is null || IsBlankJson(value);
+
+    private static bool IsBlankJson(object value) => value switch
+    {
+        string s => string.IsNullOrWhiteSpace(s),
+        JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => true,
+        JsonElement { ValueKind: JsonValueKind.String } element => string.IsNullOrWhiteSpace(element.GetString()),
+        _ => false
+    };
+
+    private static bool TryText(IReadOnlyDictionary<string, object?> dados, string campo, out string value)
+    {
+        value = string.Empty;
+        if (!dados.TryGetValue(campo, out var raw) || raw is null) return false;
+        value = raw is JsonElement element ? element.ToString() : Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool TryInt(IReadOnlyDictionary<string, object?> dados, string campo, out int value)
+    {
+        value = default;
+        return TryText(dados, campo, out var text) && int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryDecimal(IReadOnlyDictionary<string, object?> dados, string campo, out decimal value)
+    {
+        value = default;
+        return TryText(dados, campo, out var text) && decimal.TryParse(text, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryDate(IReadOnlyDictionary<string, object?> dados, string campo, out DateOnly value)
+    {
+        value = default;
+        return TryText(dados, campo, out var text) && DateOnly.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out value);
+    }
+
+    private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
 }
