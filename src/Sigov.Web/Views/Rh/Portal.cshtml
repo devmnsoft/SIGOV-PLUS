@@ -1,0 +1,6 @@
+@{ ViewData["Title"] = "Portal do Servidor"; }
+<h1>Portal do Servidor</h1>
+<p class="text-muted">Consulta de contracheques, férias e afastamentos do servidor autenticado ou informado pela administração.</p>
+<form id="rh-portal-form" class="row g-2 mb-3">@Html.AntiForgeryToken()<div class="col-auto"><input class="form-control" id="rh-servidor-id" type="number" min="1" placeholder="ID do servidor" required /></div><div class="col-auto"><button class="btn btn-primary">Consultar</button></div></form>
+<div id="rh-portal-result"></div>
+@section Scripts { <script src="~/js/modules/rh.js"></script> }
