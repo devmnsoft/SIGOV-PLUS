@@ -24,6 +24,11 @@
         <a class="d-block" href="#">Auditoria</a>
         <a class="d-block" href="#">LGPD</a>
         <a class="d-block" href="#">Suporte</a>
+        <div class="fw-bold mt-3 mb-2" data-module="processos">Processos Digitais</div>
+        <a class="d-block" data-permission="processos.processo.visualizar" href="/Processos">Processos</a>
+        <a class="d-block" data-permission="processos.protocolo.visualizar" href="/Protocolos">Protocolos</a>
+        <a class="d-block" data-permission="processos.ouvidoria.visualizar" href="/Ouvidoria">Ouvidoria</a>
+        <a class="d-block" data-permission="processos.diario.visualizar" href="/DiarioOficial">Diário Oficial</a>
         <a class="d-block" href="#">Módulos contratados</a>
         <hr>
         <div class="fw-bold mb-2">SaaS Admin</div>
@@ -44,8 +49,13 @@
     </div>
   </div>
   <footer class="border-top py-3 text-center text-muted">sigov Gestão Pública Municipal SaaS</footer>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.20.0/jquery.validate.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/4.0.0/jquery.validate.unobtrusive.min.js"></script>
   <script src="~/js/sigov.api.js"></script>
   <script src="~/js/sigov.ui.js"></script>
   <script src="~/js/modules/saas.tenants.js"></script>
+  @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

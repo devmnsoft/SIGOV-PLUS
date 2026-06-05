@@ -1,0 +1,14 @@
+@model Sigov.Web.Models.Processos.ProcessoDigitalFormViewModel
+@Html.AntiForgeryToken()
+<input asp-for="Id" type="hidden" />
+<div class="row g-3">
+  <div class="col-md-4"><label asp-for="TipoProcessoId" class="form-label"></label><input asp-for="TipoProcessoId" class="form-control" /><span asp-validation-for="TipoProcessoId" class="text-danger"></span></div>
+  <div class="col-md-8"><label asp-for="Assunto" class="form-label"></label><input asp-for="Assunto" class="form-control" maxlength="250" /><span asp-validation-for="Assunto" class="text-danger"></span></div>
+  <div class="col-md-12"><label asp-for="Descricao" class="form-label"></label><textarea asp-for="Descricao" class="form-control" rows="4"></textarea></div>
+  <div class="col-md-3"><label asp-for="InteressadoPessoaId" class="form-label"></label><input asp-for="InteressadoPessoaId" class="form-control" /></div>
+  <div class="col-md-3"><label asp-for="UnidadeOrigemId" class="form-label"></label><input asp-for="UnidadeOrigemId" class="form-control" /></div>
+  <div class="col-md-3"><label asp-for="Prioridade" class="form-label"></label><select asp-for="Prioridade" class="form-select"><option>NORMAL</option><option>BAIXA</option><option>ALTA</option><option>URGENTE</option></select></div>
+  <div class="col-md-3"><label asp-for="PrazoRespostaAt" class="form-label"></label><input asp-for="PrazoRespostaAt" class="form-control" /></div>
+  <div class="col-md-12 form-check ms-2"><input asp-for="Sigiloso" class="form-check-input" /><label asp-for="Sigiloso" class="form-check-label"></label></div>
+  <div class="col-md-12"><label asp-for="Observacao" class="form-label"></label><textarea asp-for="Observacao" class="form-control"></textarea></div>
+</div>

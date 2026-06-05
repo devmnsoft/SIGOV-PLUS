@@ -1,0 +1,18 @@
+@model Sigov.Web.Models.Processos.ProcessoDigitalFiltroViewModel
+@{ ViewData["Title"] = "Processos Digitais"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1>Processos Digitais</h1><a class="btn btn-primary" href="/Processos/Criar">Novo processo</a></div>
+<form id="processos-filtro" class="card card-body mb-3">
+  @Html.AntiForgeryToken()
+  <div class="row g-2">
+    <div class="col-md-2"><input asp-for="Numero" class="form-control" placeholder="Número" /></div>
+    <div class="col-md-3"><input asp-for="Assunto" class="form-control" placeholder="Assunto" /></div>
+    <div class="col-md-2"><input asp-for="TipoProcessoId" class="form-control" placeholder="Tipo" /></div>
+    <div class="col-md-2"><select asp-for="Status" class="form-select"><option value="">Status</option><option>ABERTO</option><option>EM_TRAMITACAO</option><option>ENCERRADO</option><option>CANCELADO</option></select></div>
+    <div class="col-md-2"><select asp-for="Prioridade" class="form-select"><option value="">Prioridade</option><option>BAIXA</option><option>NORMAL</option><option>ALTA</option><option>URGENTE</option></select></div>
+    <div class="col-md-1"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+  </div>
+</form>
+<div id="processos-grid"><partial name="_GridProcessos" /></div>
+<partial name="_ModalMovimentar" model="new Sigov.Web.Models.Processos.ProcessoMovimentacaoFormViewModel()" />
+<partial name="_ModalParecer" model="new Sigov.Web.Models.Processos.ProcessoParecerFormViewModel()" />
+@section Scripts { <script src="~/js/modules/processos.digital.js"></script> }
