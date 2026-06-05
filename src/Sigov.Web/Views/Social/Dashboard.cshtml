@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Social.SocialDashboardViewModel
+@{ ViewData["Title"] = "Dashboard Social"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1 class="h3">Assistência Social</h1><p class="text-muted">Famílias, benefícios, atendimentos, visitas e vigilância socioassistencial com LGPD.</p></div><a class="btn btn-primary" href="/Social/Familias">Famílias</a></div>
+<div class="row g-3" id="social-cards"></div>
+@section Scripts { <script src="~/js/modules/social.dashboard.js"></script> }
