@@ -1,0 +1,4 @@
+@model Sigov.Web.Models.Processos.ProtocoloFiltroViewModel
+<div class="d-flex justify-content-between mb-3"><h1>Protocolos</h1><a class="btn btn-primary" href="/Protocolos/Criar">Novo protocolo</a></div>
+<form id="protocolos-filtro" class="card card-body mb-3">@Html.AntiForgeryToken()<div class="row g-2"><div class="col"><input asp-for="Numero" class="form-control" placeholder="Número" /></div><div class="col"><select asp-for="Status" class="form-select"><option value="">Status</option><option>ABERTO</option><option>EM_ATENDIMENTO</option><option>CONVERTIDO_PROCESSO</option><option>ENCERRADO</option></select></div><div class="col"><button class="btn btn-outline-primary" type="submit">Filtrar</button></div></div></form><table class="table" id="protocolos-table"><thead><tr><th>Número</th><th>Assunto</th><th>Canal</th><th>Status</th><th>Ações</th></tr></thead><tbody></tbody></table>
+@section Scripts { <script src="~/js/modules/processos.protocolo.js"></script> }

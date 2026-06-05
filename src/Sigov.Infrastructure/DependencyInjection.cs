@@ -10,6 +10,8 @@ using Sigov.Application.Saas;
 using Sigov.Infrastructure.Saas;
 using Sigov.Application.Storage;
 using Sigov.Infrastructure.Storage;
+using Sigov.Application.Processos;
+using Sigov.Infrastructure.Processos;
 
 namespace Sigov.Infrastructure;
 
@@ -24,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<PessoaRepository>();
         services.AddScoped<UsuarioRepository>();
         services.AddScoped<AuditRepository>();
+        services.AddScoped<IAuditService, ProcessosAuditService>();
         services.AddScoped<ILgpdMaskingService, LgpdMaskingService>();
         services.AddScoped<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<ICorrelationIdProvider, CorrelationIdProvider>();
@@ -51,6 +54,19 @@ public static class DependencyInjection
         services.AddScoped<IFileTypeValidator, FileTypeValidator>();
         services.AddScoped<IAntivirusScanner, NoOpAntivirusScanner>();
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
+        services.AddScoped<ITipoProcessoRepository, TipoProcessoRepository>();
+        services.AddScoped<IProcessoDigitalRepository, ProcessoDigitalRepository>();
+        services.AddScoped<IProcessoMovimentacaoRepository, ProcessoMovimentacaoRepository>();
+        services.AddScoped<IProcessoParecerRepository, ProcessoParecerRepository>();
+        services.AddScoped<IProtocoloAtendimentoRepository, ProtocoloAtendimentoRepository>();
+        services.AddScoped<IOuvidoriaRepository, OuvidoriaRepository>();
+        services.AddScoped<IDiarioOficialRepository, DiarioOficialRepository>();
+        services.AddScoped<IProcessoSequencialService, ProcessoSequencialRepository>();
+        services.AddScoped<ITipoProcessoService, TipoProcessoService>();
+        services.AddScoped<IProcessoDigitalService, ProcessoDigitalService>();
+        services.AddScoped<IProtocoloAtendimentoService, ProtocoloAtendimentoService>();
+        services.AddScoped<IOuvidoriaService, OuvidoriaService>();
+        services.AddScoped<IDiarioOficialService, DiarioOficialService>();
         return services;
     }
 }
