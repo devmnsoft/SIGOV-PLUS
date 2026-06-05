@@ -21,6 +21,8 @@ using Sigov.Application.Educacao;
 using Sigov.Infrastructure.Educacao;
 using Sigov.Application.Saude;
 using Sigov.Infrastructure.Saude;
+using Sigov.Application.Saneamento;
+using Sigov.Infrastructure.Saneamento;
 
 namespace Sigov.Infrastructure;
 
@@ -169,6 +171,38 @@ public static class DependencyInjection
         services.AddScoped<IAcsSyncService, SaudeService>();
         services.AddScoped<ISaudeDashboardService, SaudeService>();
         services.AddScoped<ISaudeExportacaoService, SaudeService>();
+
+        services.AddScoped<SaneamentoRepository>();
+        services.AddScoped<ISaneamentoConsumidorRepository, SaneamentoRepository>();
+        services.AddScoped<ILigacaoSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<IUnidadeConsumidoraRepository, SaneamentoRepository>();
+        services.AddScoped<IHidrometroRepository, SaneamentoRepository>();
+        services.AddScoped<ILeituraConsumoRepository, SaneamentoRepository>();
+        services.AddScoped<IFaturaSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<IArrecadacaoSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<IParcelamentoSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<IOrdemServicoSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<IEquipeCampoSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<ILaboratorioSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<IRedeSaneamentoRepository, SaneamentoRepository>();
+        services.AddScoped<ISaneamentoDashboardRepository, SaneamentoRepository>();
+        services.AddScoped<ISaneamentoExportacaoRepository, SaneamentoRepository>();
+        services.AddScoped<ISaneamentoSequencialService, SaneamentoRepository>();
+        services.AddScoped<SaneamentoService>();
+        services.AddScoped<ISaneamentoConsumidorService, SaneamentoService>();
+        services.AddScoped<ILigacaoSaneamentoService, SaneamentoService>();
+        services.AddScoped<IUnidadeConsumidoraService, SaneamentoService>();
+        services.AddScoped<IHidrometroService, SaneamentoService>();
+        services.AddScoped<ILeituraConsumoService, SaneamentoService>();
+        services.AddScoped<IFaturaSaneamentoService, SaneamentoService>();
+        services.AddScoped<IArrecadacaoSaneamentoService, SaneamentoService>();
+        services.AddScoped<IParcelamentoSaneamentoService, SaneamentoService>();
+        services.AddScoped<IOrdemServicoSaneamentoService, SaneamentoService>();
+        services.AddScoped<IEquipeCampoSaneamentoService, SaneamentoService>();
+        services.AddScoped<ILaboratorioSaneamentoService, SaneamentoService>();
+        services.AddScoped<IRedeSaneamentoService, SaneamentoService>();
+        services.AddScoped<ISaneamentoDashboardService, SaneamentoService>();
+        services.AddScoped<ISaneamentoExportacaoService, SaneamentoService>();
         return services;
     }
 }

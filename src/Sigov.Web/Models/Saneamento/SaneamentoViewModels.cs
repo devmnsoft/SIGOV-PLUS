@@ -1,0 +1,18 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace Sigov.Web.Models.Saneamento;
+
+public sealed class SaneamentoConsumidorFormViewModel { [Required] public long PessoaId { get; set; } public string? CodigoConsumidor { get; set; } public string TipoConsumidor { get; set; } = "PESSOA_FISICA"; public string Situacao { get; set; } = "ATIVO"; }
+public sealed class LigacaoSaneamentoFormViewModel { [Required] public long ConsumidorId { get; set; } public string? NumeroLigacao { get; set; } public string TipoLigacao { get; set; } = "AGUA"; public string Situacao { get; set; } = "ATIVA"; public string Categoria { get; set; } = "RESIDENCIAL"; }
+public sealed class UnidadeConsumidoraFormViewModel { [Required] public long ConsumidorId { get; set; } public long? LigacaoId { get; set; } public string? CodigoUnidade { get; set; } public string EnderecoJson { get; set; } = "{}"; public string? Bairro { get; set; } public string? Rota { get; set; } public decimal? Latitude { get; set; } public decimal? Longitude { get; set; } public string Situacao { get; set; } = "ATIVA"; }
+public sealed class HidrometroFormViewModel { [Required] public long UnidadeConsumidoraId { get; set; } [Required] public string NumeroSerie { get; set; } = string.Empty; public string Situacao { get; set; } = "INSTALADO"; }
+public sealed class LeituraConsumoFormViewModel { [Required] public long UnidadeConsumidoraId { get; set; } public long? HidrometroId { get; set; } [Required] public string Competencia { get; set; } = DateTime.UtcNow.ToString("yyyy-MM"); public decimal LeituraAnterior { get; set; } public decimal LeituraAtual { get; set; } public string TipoLeitura { get; set; } = "NORMAL"; }
+public sealed class FaturaSaneamentoFormViewModel { [Required] public long UnidadeConsumidoraId { get; set; } public long? LeituraId { get; set; } [Required] public string Competencia { get; set; } = DateTime.UtcNow.ToString("yyyy-MM"); public DateOnly DataVencimento { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)); public decimal ValorAgua { get; set; } }
+public sealed class ArrecadacaoSaneamentoFormViewModel { [Required] public long FaturaId { get; set; } public decimal ValorPago { get; set; } }
+public sealed class ParcelamentoSaneamentoFormViewModel { [Required] public long ConsumidorId { get; set; } public int QuantidadeParcelas { get; set; } = 1; public decimal ValorTotal { get; set; } }
+public sealed class OrdemServicoSaneamentoFormViewModel { public long? UnidadeConsumidoraId { get; set; } public long? ConsumidorId { get; set; } [Required] public string TipoServico { get; set; } = string.Empty; public string Prioridade { get; set; } = "MEDIA"; [Required] public string Descricao { get; set; } = string.Empty; }
+public sealed class EquipeCampoSaneamentoFormViewModel { public string? Codigo { get; set; } [Required] public string Nome { get; set; } = string.Empty; }
+public sealed class LaboratorioAmostraFormViewModel { public string? Numero { get; set; } [Required] public string PontoColeta { get; set; } = string.Empty; public DateTimeOffset DataColeta { get; set; } = DateTimeOffset.UtcNow; }
+public sealed class LaboratorioResultadoFormViewModel { [Required] public string Parametro { get; set; } = string.Empty; [Required] public string Valor { get; set; } = string.Empty; public bool? Conforme { get; set; } }
+public sealed class RedeSaneamentoTrechoFormViewModel { public string? Codigo { get; set; } [Required] public string TipoRede { get; set; } = "AGUA"; public string? Material { get; set; } public decimal? ExtensaoMetros { get; set; } public string Situacao { get; set; } = "ATIVA"; }
+public sealed class SaneamentoDashboardViewModel { public string ApiBase { get; set; } = "/api/saneamento"; }
