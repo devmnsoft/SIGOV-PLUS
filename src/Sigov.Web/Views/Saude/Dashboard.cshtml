@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Saude.SaudeDashboardViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<h1>@Model.Titulo</h1><p class="text-muted">Indicadores carregados via jQuery/Ajax com tenant atual.</p>
+<div id="saude-dashboard" class="row g-3" data-api="/api/saude/dashboard"></div>
+@section Scripts { <script src="~/js/modules/saude.dashboard.js"></script> }

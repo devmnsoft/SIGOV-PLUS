@@ -1,0 +1,6 @@
+@model Sigov.Web.Models.Saude.AgendaSaudeFormViewModel
+@{ ViewData["Title"] = "Agenda de Saúde"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Agenda de Saúde</h1><p class="text-muted">Dados sensíveis são mascarados por padrão e carregados via Ajax.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saudeFormModal">Novo</button></div>
+<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-striped" id="saude-grid" data-api="/api/saude/agenda"><thead><tr><th>ID</th><th>Descrição</th><th>Status</th></tr></thead><tbody><tr><td colspan="3">Carregando...</td></tr></tbody></table></div></div></div>
+<div class="modal fade" id="saudeFormModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Agenda de Saúde</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">@Html.AntiForgeryToken()<partial name="_FormAgenda" model="Model" /></div></div></div></div>
+@section Scripts { <script src="~/js/modules/saude.agenda.js"></script> }

@@ -19,6 +19,8 @@ using Sigov.Application.Rh;
 using Sigov.Infrastructure.Rh;
 using Sigov.Application.Educacao;
 using Sigov.Infrastructure.Educacao;
+using Sigov.Application.Saude;
+using Sigov.Infrastructure.Saude;
 
 namespace Sigov.Infrastructure;
 
@@ -135,6 +137,38 @@ public static class DependencyInjection
         services.AddScoped<IEducacensoService, EducacaoService>();
         services.AddScoped<IEducacaoDashboardService, EducacaoService>();
         services.AddScoped<IEducacaoExportacaoService, EducacaoService>();
+        services.AddScoped<SaudeRepository>();
+        services.AddScoped<ISaudeCrudRepository, SaudeRepository>();
+        services.AddScoped<IUnidadeSaudeRepository, SaudeRepository>();
+        services.AddScoped<IProfissionalSaudeRepository, SaudeRepository>();
+        services.AddScoped<IPacienteRepository, SaudeRepository>();
+        services.AddScoped<IProntuarioRepository, SaudeRepository>();
+        services.AddScoped<IAtendimentoSaudeRepository, SaudeRepository>();
+        services.AddScoped<IAgendaSaudeRepository, SaudeRepository>();
+        services.AddScoped<IFarmaciaRepository, SaudeRepository>();
+        services.AddScoped<IVacinacaoRepository, SaudeRepository>();
+        services.AddScoped<ILaboratorioRepository, SaudeRepository>();
+        services.AddScoped<IRegulacaoRepository, SaudeRepository>();
+        services.AddScoped<IAcsRepository, SaudeRepository>();
+        services.AddScoped<IAcsSyncRepository, SaudeRepository>();
+        services.AddScoped<ISaudeDashboardRepository, SaudeRepository>();
+        services.AddScoped<ISaudeExportacaoRepository, SaudeRepository>();
+        services.AddScoped<ISaudeSequencialService, SaudeRepository>();
+        services.AddScoped<SaudeService>();
+        services.AddScoped<IUnidadeSaudeService, SaudeService>();
+        services.AddScoped<IProfissionalSaudeService, SaudeService>();
+        services.AddScoped<IPacienteService, SaudeService>();
+        services.AddScoped<IProntuarioService, SaudeService>();
+        services.AddScoped<IAtendimentoSaudeService, SaudeService>();
+        services.AddScoped<IAgendaSaudeService, SaudeService>();
+        services.AddScoped<IFarmaciaService, SaudeService>();
+        services.AddScoped<IVacinacaoService, SaudeService>();
+        services.AddScoped<ILaboratorioService, SaudeService>();
+        services.AddScoped<IRegulacaoService, SaudeService>();
+        services.AddScoped<IAcsService, SaudeService>();
+        services.AddScoped<IAcsSyncService, SaudeService>();
+        services.AddScoped<ISaudeDashboardService, SaudeService>();
+        services.AddScoped<ISaudeExportacaoService, SaudeService>();
         return services;
     }
 }
