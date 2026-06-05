@@ -1,0 +1,33 @@
+@model Sigov.Web.Models.Core.PessoaFormViewModel
+@{
+    ViewData["Title"] = "Pessoas e Endereços";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1>Pessoas e Endereços</h1>
+    <p class="text-muted mb-0">Cadastro central LGPD para contribuintes, servidores, pacientes, alunos, fornecedores e cidadãos.</p>
+  </div>
+  <div class="btn-group">
+    <a class="btn btn-primary" href="/Pessoas/Criar">Nova pessoa</a>
+    <a class="btn btn-outline-secondary" href="http://localhost:5001/api/pessoas/export.csv">CSV</a>
+    <a class="btn btn-outline-secondary" href="http://localhost:5001/api/pessoas/export.json">JSON</a>
+    <a class="btn btn-outline-secondary" href="http://localhost:5001/api/pessoas/export.xml">XML</a>
+  </div>
+</div>
+<form id="pessoas-filtro" class="card card-body mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-5"><label class="form-label" for="Termo">Busca</label><input id="Termo" name="Termo" class="form-control" placeholder="Nome ou CPF/CNPJ" /></div>
+    <div class="col-md-2"><label class="form-label" for="TipoPessoa">Tipo</label><select id="TipoPessoa" name="TipoPessoa" class="form-select"><option value="">Todos</option><option value="F">Física</option><option value="J">Jurídica</option></select></div>
+    <div class="col-md-2"><label class="form-label" for="Ativo">Status</label><select id="Ativo" name="Ativo" class="form-select"><option value="">Todos</option><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+    <div class="col-md-3"><button class="btn btn-primary w-100" type="submit">Pesquisar</button></div>
+  </div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table id="pessoas-table" class="table table-striped table-hover mb-0">
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>Endereço</th><th>Status</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+@section Scripts { <script src="~/js/modules/core.pessoas.js"></script> }

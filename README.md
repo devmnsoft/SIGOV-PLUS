@@ -28,3 +28,10 @@ O PostgreSQL usa o database `sigov`, usuário `sigov` e schema físico único `s
 A camada SaaS inclui tenants, domínios, planos, assinaturas, módulos contratados, feature flags, limites, uso mensal, eventos operacionais, health checks, Docker Production, scripts de backup/restore e CI/CD.
 
 O antigo conteúdo de conformidade/aderência fica tratado como módulo acessório administrativo, sem posicionar esse conteúdo como núcleo do produto.
+
+## Etapas implementadas
+
+- Etapa 1: estrutura Clean Architecture, Docker Compose, PostgreSQL `sigov`, migrações, SaaS/multi-tenancy e módulos base.
+- Etapa 2: módulo Pessoa e Endereço com API REST, Dapper, auditoria LGPD, UI CSHTML/jQuery/Ajax e exportação CSV/JSON/XML. Consulte `docs/etapas/02-pessoas-enderecos.md`.
+
+Etapa concluída: Pessoa e Endereço – Próxima etapa: Contratos e Obras.
