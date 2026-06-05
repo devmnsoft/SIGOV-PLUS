@@ -101,6 +101,7 @@ public static class DependencyInjection
         services.AddScoped<IFinanceiroExportacaoService, FinanceiroExportacaoService>();
         services.AddScoped<IRhRepository, RhRepository>();
         services.AddScoped<IRhService, RhService>();
+        services.AddScoped<IRhTypedService, RhTypedService>();
         services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();
         return services;
     }

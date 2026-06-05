@@ -203,8 +203,10 @@ public sealed class RhService : IRhService
         if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
         if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");
         if (!await CanAsync(RhPermissoes.IntegrarFinanceiro, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
-        if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
-        if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");
+        var folha = await _repo.ObterAsync(TenantId, "folhas", request.FolhaId, ct).ConfigureAwait(false);
+        if (folha is null) return Result<long>.Failure("Folha não encontrada para integração financeira.");
+        var status = folha.Dados.TryGetValue("status", out var statusValue) ? Convert.ToString(statusValue, System.Globalization.CultureInfo.InvariantCulture) : "Aberta";
+        if (status is not ("Aberta" or "Calculada" or "Fechada")) return Result<long>.Failure("Folha em status inválido para integração financeira.");
         var eventoId = await _repo.PrepararIntegracaoFinanceiraAsync(TenantId, request, _user.UsuarioId, ct).ConfigureAwait(false);
         await _audit.RegistrarAsync("rh", "INTEGRAR_FINANCEIRO", "sigov.rh_evento", eventoId.ToString(System.Globalization.CultureInfo.InvariantCulture), null, request, ct).ConfigureAwait(false);
         return Result<long>.Success(eventoId);
