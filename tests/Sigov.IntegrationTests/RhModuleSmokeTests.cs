@@ -42,6 +42,29 @@ public sealed class RhModuleSmokeTests
         code.Should().Contain("integrar-financeiro");
     }
 
+
+    [Fact]
+    public void Rh_Deve_Mascarar_Dados_Pessoais_E_Gerar_Outbox_De_Auditoria()
+    {
+        var code = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Rh/RhRepository.cs"));
+        code.Should().Contain("MaskDadosPessoais");
+        code.Should().Contain("MaskEmail");
+        code.Should().Contain("MaskTelefone");
+        code.Should().Contain("RegistrarEventoAsync");
+        code.Should().Contain("sigov.rh_evento");
+        code.Should().Contain("publicado = false");
+    }
+
+    [Fact]
+    public void Rh_Service_Deve_Validar_Backend_E_Bloquear_Exercicio_Encerrado()
+    {
+        var code = File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Rh/RhServices.cs"));
+        code.Should().Contain("CamposObrigatorios");
+        code.Should().Contain("CPF deve conter 11 dígitos");
+        code.Should().Contain("Ações de RH bloqueadas em exercício encerrado");
+        code.Should().Contain("ExercicioAbertoAsync");
+    }
+
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

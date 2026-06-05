@@ -35,6 +35,7 @@ public interface IRhRepository
     Task<RhPortalResumoResponse?> PortalServidorAsync(long tenantId, long servidorId, CancellationToken ct);
     Task<long> PrepararIntegracaoFinanceiraAsync(long tenantId, RhFinanceiroIntegracaoRequest request, long? usuarioId, CancellationToken ct);
     Task<byte[]> ExportarAsync(long tenantId, string recurso, string formato, CancellationToken ct);
+    Task<bool> ExercicioAbertoAsync(long tenantId, long? exercicioId, CancellationToken ct);
 }
 
 public interface IRhService
