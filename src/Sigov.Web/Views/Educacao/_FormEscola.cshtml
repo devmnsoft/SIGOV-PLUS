@@ -1,0 +1,11 @@
+@model Sigov.Web.Models.Educacao.EscolaFormViewModel
+<form id="form-escola" class="card card-body" data-api="/api/educacao/escolas">
+  @Html.AntiForgeryToken()
+  <div class="row g-3">
+    <div class="col-md-2"><label asp-for="Codigo" class="form-label"></label><input asp-for="Codigo" class="form-control" required /></div>
+    <div class="col-md-5"><label asp-for="Nome" class="form-label"></label><input asp-for="Nome" class="form-control" required /></div>
+    <div class="col-md-2"><label asp-for="TipoEscola" class="form-label"></label><input asp-for="TipoEscola" class="form-control" /></div>
+    <div class="col-md-2"><label asp-for="Situacao" class="form-label"></label><input asp-for="Situacao" class="form-control" /></div>
+    <div class="col-md-1 d-flex align-items-end"><button class="btn btn-primary w-100" data-permission="educacao.escola.criar">Salvar</button></div>
+  </div>
+</form>

@@ -1,0 +1,2 @@
+@model Sigov.Web.Models.Educacao.NotaFormViewModel
+<form id="form-nota" class="card card-body mt-2">@Html.AntiForgeryToken()<div class="row g-3"><div class="col"><input id="avaliacaoId" class="form-control" placeholder="Avaliação" /></div><div class="col"><input asp-for="AlunoId" class="form-control" placeholder="Aluno" /></div><div class="col"><input asp-for="Valor" class="form-control" /></div><div class="col"><button class="btn btn-primary">Registrar nota</button></div></div></form>

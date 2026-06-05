@@ -17,6 +17,8 @@ using Sigov.Application.Core;
 using Sigov.Infrastructure.Financeiro;
 using Sigov.Application.Rh;
 using Sigov.Infrastructure.Rh;
+using Sigov.Application.Educacao;
+using Sigov.Infrastructure.Educacao;
 
 namespace Sigov.Infrastructure;
 
@@ -103,6 +105,36 @@ public static class DependencyInjection
         services.AddScoped<IRhService, RhService>();
         services.AddScoped<IRhTypedService, RhTypedService>();
         services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();
+        services.AddScoped<EducacaoRepository>();
+        services.AddScoped<IEducacaoRepository, EducacaoRepository>();
+        services.AddScoped<IEscolaRepository, EducacaoRepository>();
+        services.AddScoped<IAnoLetivoRepository, EducacaoRepository>();
+        services.AddScoped<ICursoRepository, EducacaoRepository>();
+        services.AddScoped<ITurmaRepository, EducacaoRepository>();
+        services.AddScoped<IAlunoRepository, EducacaoRepository>();
+        services.AddScoped<IMatriculaRepository, EducacaoRepository>();
+        services.AddScoped<IProfessorRepository, EducacaoRepository>();
+        services.AddScoped<IFrequenciaRepository, EducacaoRepository>();
+        services.AddScoped<IAvaliacaoRepository, EducacaoRepository>();
+        services.AddScoped<IPreMatriculaRepository, EducacaoRepository>();
+        services.AddScoped<IEducacensoRepository, EducacaoRepository>();
+        services.AddScoped<IEducacaoDashboardRepository, EducacaoRepository>();
+        services.AddScoped<IEducacaoExportacaoRepository, EducacaoRepository>();
+        services.AddScoped<IEducacaoSequencialService, EducacaoRepository>();
+        services.AddScoped<EducacaoService>();
+        services.AddScoped<IEscolaService, EducacaoService>();
+        services.AddScoped<IAnoLetivoService, EducacaoService>();
+        services.AddScoped<ICursoService, EducacaoService>();
+        services.AddScoped<ITurmaService, EducacaoService>();
+        services.AddScoped<IAlunoService, EducacaoService>();
+        services.AddScoped<IMatriculaService, EducacaoService>();
+        services.AddScoped<IProfessorService, EducacaoService>();
+        services.AddScoped<IFrequenciaService, EducacaoService>();
+        services.AddScoped<IAvaliacaoService, EducacaoService>();
+        services.AddScoped<IPreMatriculaService, EducacaoService>();
+        services.AddScoped<IEducacensoService, EducacaoService>();
+        services.AddScoped<IEducacaoDashboardService, EducacaoService>();
+        services.AddScoped<IEducacaoExportacaoService, EducacaoService>();
         return services;
     }
 }

@@ -1,0 +1,9 @@
+@model Sigov.Web.Models.Educacao.TurmaFormViewModel
+<form id="form-turma" class="card card-body" data-api="/api/educacao/turmas">
+  @Html.AntiForgeryToken()
+  <div class="row g-3">
+    <div class="col-md-1"><input asp-for="EscolaId" class="form-control" placeholder="Escola" /></div><div class="col-md-1"><input asp-for="AnoLetivoId" class="form-control" placeholder="Ano" /></div><div class="col-md-1"><input asp-for="CursoId" class="form-control" placeholder="Curso" /></div><div class="col-md-1"><input asp-for="SerieAnoId" class="form-control" placeholder="Série" /></div>
+    <div class="col-md-2"><input asp-for="Codigo" class="form-control" placeholder="Código" required /></div><div class="col-md-2"><input asp-for="Nome" class="form-control" placeholder="Nome" required /></div><div class="col-md-1"><input asp-for="Turno" class="form-control" /></div><div class="col-md-1"><input asp-for="Capacidade" class="form-control" /></div><div class="col-md-1"><input asp-for="Status" class="form-control" /></div>
+    <div class="col-md-1"><button class="btn btn-primary w-100">Salvar</button></div>
+  </div>
+</form>
