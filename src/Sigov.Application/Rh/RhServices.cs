@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Common;
@@ -14,23 +14,29 @@ public sealed class RhService : IRhService
         "pontos", "ferias", "afastamentos", "saude-ocupacional", "esocial", "portal-usuarios", "portal-acessos", "eventos"
     };
 
-    private static readonly Dictionary<string, string[]> CamposObrigatorios = new(StringComparer.OrdinalIgnoreCase)
+    // Regras estruturais do RH: todo CRUD continua flexível em JSONB, mas o backend é a autoridade final
+    // para campos mínimos, LGPD, competência/exercício e integrações de folha.
+    private static readonly IReadOnlyDictionary<string, string[]> CamposObrigatorios = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
-        ["servidores"] = new[] { "matricula", "nome", "cpf", "dataNascimento" },
+        ["servidores"] = new[] { "matricula", "nome", "cpf" },
         ["cargos"] = new[] { "codigo", "nome" },
         ["lotacoes"] = new[] { "codigo", "nome" },
         ["vinculos"] = new[] { "servidorId", "cargoId", "lotacaoId", "tipo", "dataAdmissao" },
-        ["folhas"] = new[] { "ano", "mes", "tipo" },
+        ["folhas"] = new[] { "ano", "mes", "tipo", "status" },
         ["folha-eventos"] = new[] { "codigo", "descricao", "tipo" },
         ["folha-lancamentos"] = new[] { "folhaId", "servidorId", "eventoId", "valor" },
         ["pontos"] = new[] { "servidorId", "dataHora", "tipo" },
-        ["ferias"] = new[] { "servidorId", "inicio", "fim" },
-        ["afastamentos"] = new[] { "servidorId", "motivo", "inicio" },
-        ["saude-ocupacional"] = new[] { "servidorId", "tipo", "data" },
-        ["esocial"] = new[] { "evento", "status" },
-        ["portal-usuarios"] = new[] { "servidorId", "login" },
-        ["portal-acessos"] = new[] { "portalUsuarioId", "acessadoEm" },
-        ["eventos"] = new[] { "tipo", "agregado", "agregadoId" }
+        ["ferias"] = new[] { "servidorId", "inicio", "fim", "status" },
+        ["afastamentos"] = new[] { "servidorId", "inicio", "motivo", "status" },
+        ["saude-ocupacional"] = new[] { "servidorId", "tipo", "dataAtendimento", "status" },
+        ["esocial"] = new[] { "evento", "servidorId", "status" },
+        ["portal-usuarios"] = new[] { "servidorId", "email" },
+        ["portal-acessos"] = new[] { "portalUsuarioId", "dataHora", "acao" }
+    };
+
+    private static readonly HashSet<string> RecursosPorExercicio = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "folhas", "folha-lancamentos", "pontos", "ferias", "afastamentos", "saude-ocupacional", "esocial"
     };
 
     private readonly IRhRepository _repo;
@@ -53,6 +59,44 @@ public sealed class RhService : IRhService
     private static Result EscopoFailure() => Result.Failure("Tenant obrigatório para operações de RH.");
 
     private static bool RecursoValido(string recurso) => Recursos.Contains(Normalizar(recurso));
+
+    private static Result Validar(string recurso, Dictionary<string, object?>? dados)
+    {
+        if (dados is null) return Result.Failure("Dados do registro são obrigatórios.");
+        if (CamposObrigatorios.TryGetValue(recurso, out var campos))
+        {
+            foreach (var campo in campos)
+            {
+                if (!dados.TryGetValue(campo, out var value) || IsEmpty(value)) return Result.Failure($"Campo obrigatório para {recurso}: {campo}.");
+            }
+        }
+
+        if (dados.TryGetValue("cpf", out var cpf) && OnlyDigits(cpf).Length != 11) return Result.Failure("CPF deve conter 11 dígitos.");
+        if (dados.TryGetValue("cnpj", out var cnpj) && OnlyDigits(cnpj).Length != 14) return Result.Failure("CNPJ deve conter 14 dígitos.");
+        if (dados.TryGetValue("email", out var email) && !IsEmail(email)) return Result.Failure("E-mail inválido.");
+        if (dados.TryGetValue("emailInstitucional", out var emailInstitucional) && !IsEmail(emailInstitucional)) return Result.Failure("E-mail institucional inválido.");
+        if (dados.TryGetValue("telefone", out var telefone) && OnlyDigits(telefone).Length is < 10 or > 13) return Result.Failure("Telefone deve conter DDD e número.");
+        if (dados.TryGetValue("mes", out var mes) && TryInt(mes, out var mesNumero) && mesNumero is < 1 or > 13) return Result.Failure("Mês da folha deve estar entre 1 e 13.");
+        if (dados.TryGetValue("valor", out var valor) && TryDecimal(valor, out var decimalValor) && decimalValor < 0m) return Result.Failure("Valor não pode ser negativo.");
+        if (TryDateOnly(dados, "inicio", out var inicio) && TryDateOnly(dados, "fim", out var fim) && fim < inicio) return Result.Failure("Data final não pode ser anterior à inicial.");
+        if (IsExercicioEncerradoNoPayload(dados)) return Result.Failure("Ações de RH bloqueadas em exercício encerrado.");
+        return Result.Success();
+    }
+
+    private async Task<Result> ValidarExercicioAbertoAsync(string recurso, CancellationToken ct)
+    {
+        if (!RecursosPorExercicio.Contains(recurso)) return Result.Success();
+        if (await _repo.ExercicioAbertoAsync(TenantId, _tenant.ExercicioId, ct).ConfigureAwait(false)) return Result.Success();
+        return Result.Failure("Ações de RH bloqueadas em exercício encerrado.");
+    }
+
+    private static bool IsEmpty(object? value) => value is null || string.IsNullOrWhiteSpace(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)) || Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) == "null";
+    private static string OnlyDigits(object? value) => Regex.Replace(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty, "\\D", string.Empty);
+    private static bool IsEmail(object? value) => Regex.IsMatch(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty, "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static bool TryInt(object? value, out int parsed) => int.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out parsed);
+    private static bool TryDecimal(object? value, out decimal parsed) => decimal.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out parsed);
+    private static bool TryDateOnly(Dictionary<string, object?> dados, string key, out DateOnly value) => dados.TryGetValue(key, out var raw) && DateOnly.TryParse(Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out value);
+    private static bool IsExercicioEncerradoNoPayload(Dictionary<string, object?> dados) => dados.Any(kv => kv.Key.Equals("exercicioEncerrado", StringComparison.OrdinalIgnoreCase) && Convert.ToString(kv.Value, System.Globalization.CultureInfo.InvariantCulture)?.Equals("true", StringComparison.OrdinalIgnoreCase) == true) || dados.Any(kv => kv.Key.Equals("statusExercicio", StringComparison.OrdinalIgnoreCase) && Convert.ToString(kv.Value, System.Globalization.CultureInfo.InvariantCulture)?.Equals("Encerrado", StringComparison.OrdinalIgnoreCase) == true);
 
     private async Task<bool> CanAsync(string chave, CancellationToken ct)
     {
@@ -90,6 +134,11 @@ public sealed class RhService : IRhService
     {
         if (!EscopoValido) return EscopoFailure<long>();
         if (!RecursoValido(recurso)) return Result<long>.Failure("Recurso de RH inválido.");
+        recurso = Normalizar(recurso);
+        var validacao = Validar(recurso, request.Dados);
+        if (validacao.IsFailure) return Result<long>.Failure(validacao.Error ?? "Dados inválidos.");
+        var exercicio = await ValidarExercicioAbertoAsync(recurso, ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<long>.Failure(exercicio.Error ?? "Exercício encerrado.");
         if (!await CanAsync(RhPermissoes.Criar, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
         var validation = ValidarPayload(Normalizar(recurso), request.Dados);
         if (validation.Count > 0) return Result<long>.ValidationFailure(validation);
@@ -106,11 +155,14 @@ public sealed class RhService : IRhService
     {
         if (!EscopoValido) return EscopoFailure();
         if (!RecursoValido(recurso)) return Result.Failure("Recurso de RH inválido.");
+        recurso = Normalizar(recurso);
+        var validacao = Validar(recurso, request.Dados);
+        if (validacao.IsFailure) return Result.Failure(validacao.Error ?? "Dados inválidos.");
+        var exercicio = await ValidarExercicioAbertoAsync(recurso, ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result.Failure(exercicio.Error ?? "Exercício encerrado.");
         if (!await CanAsync(RhPermissoes.Editar, ct).ConfigureAwait(false)) return Result.Failure("403");
-        var validation = ValidarPayload(Normalizar(recurso), request.Dados);
-        if (validation.Count > 0) return Result.ValidationFailure(validation);
-        var anterior = await _repo.ObterAsync(TenantId, Normalizar(recurso), id, ct).ConfigureAwait(false);
-        await _repo.AtualizarAsync(TenantId, Normalizar(recurso), id, request, _user.UsuarioId, ct).ConfigureAwait(false);
+        var anterior = await _repo.ObterAsync(TenantId, recurso, id, ct).ConfigureAwait(false);
+        await _repo.AtualizarAsync(TenantId, recurso, id, request, _user.UsuarioId, ct).ConfigureAwait(false);
         await _audit.RegistrarAsync("rh", "EDITAR", Tabela(recurso), id.ToString(System.Globalization.CultureInfo.InvariantCulture), anterior, request.Dados, ct).ConfigureAwait(false);
         return Result.Success();
     }
@@ -119,8 +171,11 @@ public sealed class RhService : IRhService
     {
         if (!EscopoValido) return EscopoFailure();
         if (!RecursoValido(recurso)) return Result.Failure("Recurso de RH inválido.");
+        recurso = Normalizar(recurso);
+        var exercicio = await ValidarExercicioAbertoAsync(recurso, ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result.Failure(exercicio.Error ?? "Exercício encerrado.");
         if (!await CanAsync(RhPermissoes.Excluir, ct).ConfigureAwait(false)) return Result.Failure("403");
-        await _repo.ExcluirAsync(TenantId, Normalizar(recurso), id, _user.UsuarioId, ct).ConfigureAwait(false);
+        await _repo.ExcluirAsync(TenantId, recurso, id, _user.UsuarioId, ct).ConfigureAwait(false);
         await _audit.RegistrarAsync("rh", "EXCLUIR", Tabela(recurso), id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, new { softDelete = true }, ct).ConfigureAwait(false);
         return Result.Success();
     }
@@ -143,6 +198,10 @@ public sealed class RhService : IRhService
     public async Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct)
     {
         if (!EscopoValido) return EscopoFailure<long>();
+        var exercicio = await ValidarExercicioAbertoAsync("folhas", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<long>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
+        if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");
         if (!await CanAsync(RhPermissoes.IntegrarFinanceiro, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
         if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
         if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");

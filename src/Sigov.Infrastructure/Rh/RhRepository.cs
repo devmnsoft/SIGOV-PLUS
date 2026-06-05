@@ -51,12 +51,9 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         var table = Table(recurso);
         var dados = EnriquecerDados(recurso, request.Dados);
         var json = JsonSerializer.Serialize(dados, JsonOptions);
-        var auditoria = BuildAuditJson("CRIAR", usuarioId, null, dados);
         using var cn = _context.CreateConnection();
-        var id = await cn.ExecuteScalarAsync<long>(Command($"insert into {table} (tenant_id, dados, auditoria, created_by) values (@TenantId, cast(@Dados as jsonb), cast(@Auditoria as jsonb), @UsuarioId) returning id;", new { TenantId = tenantId, Dados = json, Auditoria = auditoria, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
-
-        // Outbox registrado no mesmo fluxo de persistência para integrações futuras (Financeiro/SIAFIC, eSocial e BI).
-        await RegistrarOutboxAsync(cn, tenantId, recurso, "criado", id, dados, usuarioId, ct).ConfigureAwait(false);
+        var id = await cn.ExecuteScalarAsync<long>(Command($"insert into {table} (tenant_id, dados, auditoria, created_by) values (@TenantId, cast(@Dados as jsonb), jsonb_build_object('operacao','CRIAR','usuarioId',@UsuarioId,'recurso',@Recurso), @UsuarioId) returning id;", new { TenantId = tenantId, Dados = json, UsuarioId = usuarioId, Recurso = recurso }, ct)).ConfigureAwait(false);
+        await RegistrarEventoAsync(cn, tenantId, recurso, "CRIAR", id, dados, usuarioId, ct).ConfigureAwait(false);
         return id;
     }
 
@@ -65,12 +62,9 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         var table = Table(recurso);
         var dados = EnriquecerDados(recurso, request.Dados);
         var json = JsonSerializer.Serialize(dados, JsonOptions);
-        var anterior = await ObterAsync(tenantId, recurso, id, ct).ConfigureAwait(false);
-        var auditoria = BuildAuditJson("EDITAR", usuarioId, anterior?.Dados, dados);
         using var cn = _context.CreateConnection();
-        var affected = await cn.ExecuteAsync(Command($"update {table} set dados = cast(@Dados as jsonb), ativo = @Ativo, auditoria = cast(@Auditoria as jsonb), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, Dados = json, Auditoria = auditoria, request.Ativo, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
-        if (affected == 0) throw new InvalidOperationException("Registro de RH não encontrado para atualização.");
-        await RegistrarOutboxAsync(cn, tenantId, recurso, "alterado", id, dados, usuarioId, ct).ConfigureAwait(false);
+        await cn.ExecuteAsync(Command($"update {table} set dados = cast(@Dados as jsonb), ativo = @Ativo, auditoria = auditoria || jsonb_build_object('ultimaOperacao','EDITAR','usuarioId',@UsuarioId,'recurso',@Recurso), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, Dados = json, request.Ativo, UsuarioId = usuarioId, Recurso = recurso }, ct)).ConfigureAwait(false);
+        await RegistrarEventoAsync(cn, tenantId, recurso, "EDITAR", id, dados, usuarioId, ct).ConfigureAwait(false);
     }
 
     public async Task ExcluirAsync(long tenantId, string recurso, long id, long? usuarioId, CancellationToken ct)
@@ -79,9 +73,8 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         var anterior = await ObterAsync(tenantId, recurso, id, ct).ConfigureAwait(false);
         var auditoria = BuildAuditJson("EXCLUIR", usuarioId, anterior?.Dados, new { softDelete = true });
         using var cn = _context.CreateConnection();
-        var affected = await cn.ExecuteAsync(Command($"update {table} set is_deleted = true, ativo = false, auditoria = cast(@Auditoria as jsonb), deleted_by = @UsuarioId, deleted_at = now(), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, Auditoria = auditoria, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
-        if (affected == 0) throw new InvalidOperationException("Registro de RH não encontrado para exclusão.");
-        await RegistrarOutboxAsync(cn, tenantId, recurso, "excluido", id, new { softDelete = true }, usuarioId, ct).ConfigureAwait(false);
+        await cn.ExecuteAsync(Command($"update {table} set is_deleted = true, ativo = false, auditoria = auditoria || jsonb_build_object('ultimaOperacao','EXCLUIR','usuarioId',@UsuarioId,'recurso',@Recurso), deleted_by = @UsuarioId, deleted_at = now(), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, UsuarioId = usuarioId, Recurso = recurso }, ct)).ConfigureAwait(false);
+        await RegistrarEventoAsync(cn, tenantId, recurso, "EXCLUIR", id, new Dictionary<string, object?> { ["softDelete"] = true }, usuarioId, ct).ConfigureAwait(false);
     }
 
     public async Task<RhDashboardResponse> DashboardAsync(long tenantId, CancellationToken ct)
@@ -113,7 +106,7 @@ public sealed class RhRepository : BaseRepository, IRhRepository
 
     public async Task<long> PrepararIntegracaoFinanceiraAsync(long tenantId, RhFinanceiroIntegracaoRequest request, long? usuarioId, CancellationToken ct)
     {
-        var payload = JsonSerializer.Serialize(new { tipo = "folha.financeiro.integracao.solicitada", request.FolhaId, request.DataCompetencia, request.NaturezaDespesaId, request.FonteRecursoId, request.Historico }, JsonOptions);
+        var payload = JsonSerializer.Serialize(new { tipo = "folha.financeiro.integracao.solicitada", destino = "financeiro-siafic", publicado = false, request.FolhaId, request.DataCompetencia, request.NaturezaDespesaId, request.FonteRecursoId, request.Historico }, JsonOptions);
         using var cn = _context.CreateConnection();
         return await cn.ExecuteScalarAsync<long>(Command("insert into sigov.rh_evento (tenant_id, dados, created_by) values (@TenantId, cast(@Dados as jsonb), @UsuarioId) returning id;", new { TenantId = tenantId, Dados = payload, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
     }
@@ -127,82 +120,74 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         return Encoding.UTF8.GetBytes(sb.ToString());
     }
 
+    public async Task<bool> ExercicioAbertoAsync(long tenantId, long? exercicioId, CancellationToken ct)
+    {
+        if (!exercicioId.HasValue) return true;
+        using var cn = _context.CreateConnection();
+        const string sql = "select exists (select 1 from sigov.exercicio where id=@ExercicioId and is_deleted=false and ativo=true);";
+        return await cn.ExecuteScalarAsync<bool>(Command(sql, new { TenantId = tenantId, ExercicioId = exercicioId.Value }, ct)).ConfigureAwait(false);
+    }
+
+    private static Dictionary<string, object?> EnriquecerDados(string recurso, Dictionary<string, object?>? dados)
+    {
+        var copy = dados is null ? new Dictionary<string, object?>() : new Dictionary<string, object?>(dados, StringComparer.OrdinalIgnoreCase);
+        copy["tenantIsolation"] = true;
+        copy["softDelete"] = true;
+        if (recurso.Equals("servidores", StringComparison.OrdinalIgnoreCase) || copy.ContainsKey("cpf") || copy.ContainsKey("cnpj") || copy.ContainsKey("email") || copy.ContainsKey("telefone"))
+        {
+            copy["classificacaoLgpd"] = "dados_pessoais_sensiveis";
+        }
+
+        return copy;
+    }
+
+    private async Task RegistrarEventoAsync(System.Data.IDbConnection cn, long tenantId, string recurso, string operacao, long registroId, Dictionary<string, object?> dados, long? usuarioId, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Serialize(new { tipo = $"rh.{recurso}.{operacao.ToLowerInvariant()}", recurso, operacao, registroId, publicado = false, dados }, JsonOptions);
+        await cn.ExecuteAsync(Command("insert into sigov.rh_evento (tenant_id, dados, created_by) values (@TenantId, cast(@Dados as jsonb), @UsuarioId);", new { TenantId = tenantId, Dados = payload, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+    }
+
     private static string Table(string recurso) => Tabelas.TryGetValue(recurso, out var table) ? table : throw new InvalidOperationException("Recurso de RH inválido.");
     private static RhRegistroResponse ToResponse(string recurso, Row row)
     {
         var dados = JsonSerializer.Deserialize<Dictionary<string, object?>>(row.Dados ?? "{}", JsonOptions) ?? new();
-        foreach (var (key, type) in LgpdFields) Mask(dados, key, type);
-        if (recurso.Equals("servidores", StringComparison.OrdinalIgnoreCase)) dados["classificacaoLgpd"] = "dados_pessoais_sensiveis";
+        MaskDadosPessoais(dados);
 
         return new RhRegistroResponse(row.Id, recurso, dados, row.Ativo, row.CreatedAt, row.UpdatedAt);
     }
 
-    private static readonly (string Key, string Type)[] LgpdFields =
+    private static void MaskDadosPessoais(IDictionary<string, object?> dados)
     {
-        ("cpf", "CPF"), ("cnpj", "CNPJ"), ("documento", "DOCUMENTO"), ("email", "EMAIL"),
-        ("emailInstitucional", "EMAIL"), ("telefone", "TELEFONE"), ("celular", "TELEFONE"), ("fone", "TELEFONE")
-    };
-
-    private static Dictionary<string, object?> EnriquecerDados(string recurso, Dictionary<string, object?>? dados)
-    {
-        var copy = dados is null ? new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) : new Dictionary<string, object?>(dados, StringComparer.OrdinalIgnoreCase);
-        copy["modulo"] = "rh";
-        copy["recurso"] = recurso;
-        copy["classificacaoLgpd"] = recurso.Equals("servidores", StringComparison.OrdinalIgnoreCase) ? "dados_pessoais_sensiveis" : "dados_operacionais";
-        return copy;
+        MaskDocumento(dados, "cpf", 3, 2);
+        MaskDocumento(dados, "cnpj", 2, 2);
+        MaskDocumento(dados, "documento", 3, 2);
+        MaskEmail(dados, "email");
+        MaskEmail(dados, "emailInstitucional");
+        MaskTelefone(dados, "telefone");
     }
 
-    private static string BuildAuditJson(string acao, long? usuarioId, object? anterior, object? novo) =>
-        JsonSerializer.Serialize(new { modulo = "rh", acao, usuarioId, dataHora = DateTimeOffset.UtcNow, anterior, novo }, JsonOptions);
-
-    private static string BuildOutboxPayload(string recurso, string acao, long id, object payload) =>
-        JsonSerializer.Serialize(new { tipo = $"rh.{recurso}.{acao}", recurso, acao, agregadoId = id, payload, publicado = false, criadoEm = DateTimeOffset.UtcNow }, JsonOptions);
-
-    private static async Task RegistrarOutboxAsync(System.Data.IDbConnection cn, long tenantId, string recurso, string acao, long id, object payload, long? usuarioId, CancellationToken ct)
-    {
-        if (recurso.Equals("eventos", StringComparison.OrdinalIgnoreCase)) return;
-        var outbox = BuildOutboxPayload(recurso, acao, id, payload);
-        await cn.ExecuteAsync(Command("insert into sigov.rh_evento (tenant_id, dados, auditoria, created_by) values (@TenantId, cast(@Dados as jsonb), cast(@Auditoria as jsonb), @UsuarioId);", new { TenantId = tenantId, Dados = outbox, Auditoria = BuildAuditJson("OUTBOX", usuarioId, null, payload), UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
-    }
-
-    private static string EscapeCsv(string value)
-    {
-        var normalized = value.Replace("\r", " ").Replace("\n", " ");
-        return normalized.Contains(';', StringComparison.Ordinal) || normalized.Contains('"', StringComparison.Ordinal)
-            ? $"\"{normalized.Replace("\"", "\"\"")}\""
-            : normalized;
-    }
-
-    private static void Mask(IDictionary<string, object?> dados, string key, string type)
+    private static void MaskDocumento(IDictionary<string, object?> dados, string key, int visibleStart, int visibleEnd)
     {
         if (!dados.TryGetValue(key, out var value) || value is null) return;
-        var text = Convert.ToString(value, CultureInfo.InvariantCulture);
+        var text = Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         if (string.IsNullOrWhiteSpace(text)) return;
-        dados[key] = type switch
-        {
-            "CPF" => MaskDigits(text, 3, 2),
-            "CNPJ" => MaskDigits(text, 2, 3),
-            "EMAIL" => MaskEmail(text),
-            "TELEFONE" => MaskDigits(text, 0, 4),
-            _ => MaskDigits(text, 0, 4)
-        };
+        dados[key] = text.Length <= visibleStart + visibleEnd ? "***" : text[..visibleStart] + new string('*', Math.Max(0, text.Length - visibleStart - visibleEnd)) + text[^visibleEnd..];
     }
 
-    private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
-
-    private static string MaskDigits(string value, int visibleStart, int visibleEnd)
+    private static void MaskEmail(IDictionary<string, object?> dados, string key)
     {
-        var digits = OnlyDigits(value);
-        if (digits.Length == 0) return "***";
-        if (digits.Length <= visibleStart + visibleEnd) return new string('*', digits.Length);
-        return digits[..visibleStart] + new string('*', digits.Length - visibleStart - visibleEnd) + digits[^visibleEnd..];
+        if (!dados.TryGetValue(key, out var value) || value is null) return;
+        var text = Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        var at = text.IndexOf('@', StringComparison.Ordinal);
+        if (at <= 1) { dados[key] = "***"; return; }
+        dados[key] = text[0] + "***" + text[at..];
     }
 
-    private static string MaskEmail(string value)
+    private static void MaskTelefone(IDictionary<string, object?> dados, string key)
     {
-        var parts = value.Split('@', 2);
-        if (parts.Length != 2 || parts[0].Length == 0) return "***";
-        return parts[0][0] + "***@" + parts[1];
+        if (!dados.TryGetValue(key, out var value) || value is null) return;
+        var text = Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        dados[key] = text.Length <= 4 ? "***" : "***" + text[^4..];
     }
 
     private sealed class Row
