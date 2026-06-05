@@ -49,9 +49,23 @@ public sealed class RhTypedServiceTests
         afastamento.IsFailure.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task Service_Tipado_Valida_Historico_Antes_Da_Integracao_Financeira()
+    {
+        var inner = new FakeRhService();
+        var service = new RhTypedService(inner, NullLogger<RhTypedService>.Instance);
+
+        var result = await service.IntegrarFinanceiroAsync(new RhFinanceiroIntegracaoRequest(1, new DateOnly(2026, 1, 1), null, null, " "), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Contain("Histórico");
+        inner.IntegrarChamadas.Should().Be(0);
+    }
+
     private sealed class FakeRhService : IRhService
     {
         public int CriarChamadas { get; private set; }
+        public int IntegrarChamadas { get; private set; }
         public Task<Result<PagedResult<RhRegistroResponse>>> ListarAsync(string recurso, RhFiltro filtro, CancellationToken ct) => Task.FromResult(Result<PagedResult<RhRegistroResponse>>.Success(PagedResult<RhRegistroResponse>.Empty(filtro.Page, filtro.PageSize)));
         public Task<Result<RhRegistroResponse>> ObterAsync(string recurso, long id, CancellationToken ct) => Task.FromResult(Result<RhRegistroResponse>.Failure("not found"));
         public Task<Result<long>> CriarAsync(string recurso, RhRegistroCreateRequest request, CancellationToken ct) { CriarChamadas++; return Task.FromResult(Result<long>.Success(1)); }
@@ -59,7 +73,11 @@ public sealed class RhTypedServiceTests
         public Task<Result> ExcluirAsync(string recurso, long id, CancellationToken ct) => Task.FromResult(Result.Success());
         public Task<Result<RhDashboardResponse>> DashboardAsync(CancellationToken ct) => Task.FromResult(Result<RhDashboardResponse>.Success(new RhDashboardResponse(0, 0, 0, 0, 0, 0m)));
         public Task<Result<RhPortalResumoResponse>> PortalServidorAsync(long servidorId, CancellationToken ct) => Task.FromResult(Result<RhPortalResumoResponse>.Failure("not found"));
-        public Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct) => Task.FromResult(Result<long>.Failure("Histórico obrigatório para integração financeira."));
+        public Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct)
+        {
+            IntegrarChamadas++;
+            return Task.FromResult(Result<long>.Success(99));
+        }
         public Task<Result<byte[]>> ExportarAsync(string recurso, string formato, CancellationToken ct) => Task.FromResult(Result<byte[]>.Success(Array.Empty<byte>()));
     }
 }

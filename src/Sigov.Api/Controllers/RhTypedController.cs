@@ -70,6 +70,10 @@ public sealed class RhTypedController : ProcessosControllerBase
     public async Task<ActionResult<ApiResponse<object>>> FecharFolha(long id, CancellationToken ct) =>
         FromResult(await _service.FecharFolhaAsync(id, ct).ConfigureAwait(false));
 
+    [HttpPost("folhas-tipado/integrar-financeiro")]
+    public async Task<ActionResult<ApiResponse<long>>> IntegrarFinanceiro([FromBody] RhFinanceiroIntegracaoRequest request, CancellationToken ct) =>
+        FromResult(await _service.IntegrarFinanceiroAsync(request, ct).ConfigureAwait(false));
+
     [HttpPost("folhas-tipado/eventos")]
     public async Task<ActionResult<ApiResponse<long>>> CriarEventoFolha([FromBody] FolhaEventoCreateRequest request, CancellationToken ct) =>
         FromResult(await _service.CriarEventoFolhaAsync(request, ct).ConfigureAwait(false));

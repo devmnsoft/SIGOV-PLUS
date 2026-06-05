@@ -14,6 +14,7 @@ public sealed class RhTypedApiTests
 
         typed.Should().Contain("servidores-tipado");
         typed.Should().Contain("folhas-tipado/{folhaId:long}/lancamentos");
+        typed.Should().Contain("folhas-tipado/integrar-financeiro");
         typed.Should().Contain("portal-tipado/servidores/{servidorId:long}");
         generic.Should().Contain("{recurso}");
         generic.Should().Contain("export/{recurso}.{formato}");

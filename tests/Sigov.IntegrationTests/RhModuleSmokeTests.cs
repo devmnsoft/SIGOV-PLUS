@@ -46,6 +46,8 @@ public sealed class RhModuleSmokeTests
         code.Should().Contain("Formato de exportação inválido");
         code.Should().Contain("Ações de RH bloqueadas em exercício encerrado");
         code.Should().Contain("ExercicioAbertoAsync");
+        code.Should().Contain("TotalLancamentosFolhaAsync");
+        code.Should().Contain("Folha deve possuir lançamentos válidos");
     }
 
     [Fact]
@@ -74,6 +76,7 @@ public sealed class RhModuleSmokeTests
         generic.Should().Contain("integrar-financeiro");
         typed.Should().Contain("servidores-tipado");
         typed.Should().Contain("folhas-tipado/{folhaId:long}/lancamentos");
+        typed.Should().Contain("folhas-tipado/integrar-financeiro");
         typed.Should().Contain("portal-tipado/servidores");
     }
 
