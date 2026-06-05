@@ -12,6 +12,8 @@ using Sigov.Application.Storage;
 using Sigov.Infrastructure.Storage;
 using Sigov.Application.Processos;
 using Sigov.Infrastructure.Processos;
+using Sigov.Application.Financeiro;
+using Sigov.Infrastructure.Financeiro;
 
 namespace Sigov.Infrastructure;
 
@@ -67,6 +69,32 @@ public static class DependencyInjection
         services.AddScoped<IProtocoloAtendimentoService, ProtocoloAtendimentoService>();
         services.AddScoped<IOuvidoriaService, OuvidoriaService>();
         services.AddScoped<IDiarioOficialService, DiarioOficialService>();
+        services.AddScoped<IPlanoContasRepository, PlanoContasRepository>();
+        services.AddScoped<IFonteRecursoRepository, FonteRecursoRepository>();
+        services.AddScoped<IProgramaRepository, ProgramaRepository>();
+        services.AddScoped<IAcaoRepository, AcaoRepository>();
+        services.AddScoped<INaturezaReceitaRepository, NaturezaReceitaRepository>();
+        services.AddScoped<INaturezaDespesaRepository, NaturezaDespesaRepository>();
+        services.AddScoped<IOrcamentoRepository, OrcamentoRepository>();
+        services.AddScoped<IEmpenhoRepository, EmpenhoRepository>();
+        services.AddScoped<ILiquidacaoRepository, LiquidacaoRepository>();
+        services.AddScoped<IPagamentoRepository, PagamentoRepository>();
+        services.AddScoped<IReceitaRepository, ReceitaRepository>();
+        services.AddScoped<IFinanceiroSequencialService, FinanceiroSequencialRepository>();
+        services.AddScoped<IFinanceiroDashboardRepository, FinanceiroDashboardRepository>();
+        services.AddScoped<IPlanoContasService, PlanoContasService>();
+        services.AddScoped<IFonteRecursoService, FonteRecursoService>();
+        services.AddScoped<IProgramaService, ProgramaService>();
+        services.AddScoped<IAcaoService, AcaoService>();
+        services.AddScoped<INaturezaReceitaService, NaturezaReceitaService>();
+        services.AddScoped<INaturezaDespesaService, NaturezaDespesaService>();
+        services.AddScoped<IOrcamentoService, OrcamentoService>();
+        services.AddScoped<IEmpenhoService, EmpenhoService>();
+        services.AddScoped<ILiquidacaoService, LiquidacaoService>();
+        services.AddScoped<IPagamentoService, PagamentoService>();
+        services.AddScoped<IReceitaService, ReceitaService>();
+        services.AddScoped<IFinanceiroDashboardService, FinanceiroDashboardService>();
+        services.AddScoped<IFinanceiroExportacaoService, FinanceiroExportacaoService>();
         return services;
     }
 }

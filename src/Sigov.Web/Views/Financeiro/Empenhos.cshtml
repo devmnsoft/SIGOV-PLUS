@@ -1,0 +1,14 @@
+@{ ViewData["Title"] = "Empenhos"; }
+<h1>Empenhos</h1>
+<form id="filtro-empenhos" class="row g-2 mb-3">
+  @Html.AntiForgeryToken()
+  <div class="col-md-2"><input class="form-control" name="numero" placeholder="Número" /></div>
+  <div class="col-md-2"><input class="form-control" name="fornecedor" placeholder="Fornecedor" /></div>
+  <div class="col-md-2"><select class="form-select" name="status"><option value="">Status</option><option>EMITIDO</option><option>ANULADO</option><option>PAGO_TOTAL</option></select></div>
+  <div class="col-md-2"><input class="form-control" name="inicio" type="date" /></div>
+  <div class="col-md-2"><input class="form-control" name="fim" type="date" /></div>
+  <div class="col-md-2"><button class="btn btn-primary w-100">Filtrar</button></div>
+</form>
+<a class="btn btn-success mb-3" href="/Financeiro/EmpenhoCriar">Novo empenho</a>
+<partial name="_GridEmpenhos" />
+@section Scripts { <script src="~/js/modules/financeiro.empenhos.js"></script><script src="~/js/modules/financeiro.exportacao.js"></script> }

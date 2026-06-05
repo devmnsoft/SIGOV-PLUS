@@ -1,0 +1,14 @@
+@model Sigov.Web.Models.Financeiro.LiquidacaoFormViewModel
+@{ ViewData["Title"] = "Liquidações"; }
+<h1>Liquidações</h1>
+<div class="card mb-3"><div class="card-body">
+<form id="form-Liquidacoes" class="row g-3 financeiro-form" data-api="/api/financeiro/liquidacoes" method="post">
+  @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+  <div class="col-md-3"><label class="form-label">Código/Referência</label><input class="form-control" name="codigo" required /></div>
+  <div class="col-md-5"><label class="form-label">Nome/Histórico</label><input class="form-control" name="nome" required /></div>
+  <div class="col-md-2"><label class="form-label">Valor</label><input class="form-control money" name="valor" inputmode="decimal" /></div>
+  <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Salvar</button></div>
+</form></div></div>
+<div class="card"><div class="card-header d-flex justify-content-between"><span>Grid paginado</span><button class="btn btn-sm btn-outline-secondary btn-export" data-resource="liquidacoes">Exportar CSV/JSON</button></div><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>Id</th><th>Número/Código</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead><tbody id="grid-Liquidacoes"><tr><td colspan="5" class="text-muted">Use os filtros para carregar dados via Ajax.</td></tr></tbody></table></div></div>
+@section Scripts { <script src="~/js/modules/financeiro.liquidacoes.js"></script><script src="~/js/modules/financeiro.exportacao.js"></script> }
