@@ -1,0 +1,24 @@
+@model Sigov.Web.Models.Rh.RhRegistroViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div><h1>@Model.Titulo</h1><p class="text-muted">CRUD com isolamento por tenant, soft delete, auditoria JSONB e exportação CSV/JSON.</p></div>
+  <div class="btn-group"><a class="btn btn-outline-secondary" href="/api/rh/export/@Model.Recurso.csv">CSV</a><a class="btn btn-outline-secondary" href="/api/rh/export/@Model.Recurso.json">JSON</a></div>
+</div>
+<form id="rh-form" class="card mb-3" data-recurso="@Model.Recurso">
+  @Html.AntiForgeryToken()
+  <div class="card-body">
+    <input type="hidden" id="rh-id" />
+    <label class="form-label" for="rh-json">Dados do registro (JSON)</label>
+    <textarea class="form-control font-monospace" id="rh-json" rows="8" required>{
+  "nome": "",
+  "codigo": "",
+  "matricula": "",
+  "servidorId": null,
+  "valor": 0,
+  "status": "Ativo"
+}</textarea>
+    <div class="form-text">O backend valida tenant/permissões e grava dados pessoais conforme LGPD. Evite inserir dados sensíveis sem base legal.</div>
+  </div>
+  <div class="card-footer d-flex gap-2"><button class="btn btn-primary" type="submit">Salvar</button><button class="btn btn-outline-secondary" type="button" id="rh-clear">Novo</button></div>
+</form>
+<div class="card"><div class="card-header">Registros</div><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>ID</th><th>Ativo</th><th>Dados</th><th>Ações</th></tr></thead><tbody id="rh-grid"></tbody></table></div></div>

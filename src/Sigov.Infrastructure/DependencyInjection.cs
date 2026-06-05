@@ -15,6 +15,8 @@ using Sigov.Infrastructure.Processos;
 using Sigov.Application.Financeiro;
 using Sigov.Application.Core;
 using Sigov.Infrastructure.Financeiro;
+using Sigov.Application.Rh;
+using Sigov.Infrastructure.Rh;
 
 namespace Sigov.Infrastructure;
 
@@ -97,6 +99,8 @@ public static class DependencyInjection
         services.AddScoped<IReceitaService, ReceitaService>();
         services.AddScoped<IFinanceiroDashboardService, FinanceiroDashboardService>();
         services.AddScoped<IFinanceiroExportacaoService, FinanceiroExportacaoService>();
+        services.AddScoped<IRhRepository, RhRepository>();
+        services.AddScoped<IRhService, RhService>();
         services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();
         return services;
     }

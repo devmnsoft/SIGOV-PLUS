@@ -1,0 +1,22 @@
+@{ ViewData["Title"] = "Dashboard RH"; }
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div><h1>Dashboard de Recursos Humanos</h1><p class="text-muted">Indicadores de servidores, folha, frequência, férias e afastamentos por tenant.</p></div>
+  <div><a class="btn btn-outline-primary" href="/Rh/Servidores">Servidores</a></div>
+</div>
+<div class="row g-3" id="rh-dashboard-cards">
+  <div class="col-md-2"><div class="card"><div class="card-body"><small>Servidores ativos</small><h3 data-field="servidoresAtivos">0</h3></div></div></div>
+  <div class="col-md-2"><div class="card"><div class="card-body"><small>Vínculos ativos</small><h3 data-field="vinculosAtivos">0</h3></div></div></div>
+  <div class="col-md-2"><div class="card"><div class="card-body"><small>Folhas abertas</small><h3 data-field="folhasAbertas">0</h3></div></div></div>
+  <div class="col-md-2"><div class="card"><div class="card-body"><small>Férias</small><h3 data-field="feriasProgramadas">0</h3></div></div></div>
+  <div class="col-md-2"><div class="card"><div class="card-body"><small>Afastamentos</small><h3 data-field="afastamentosAtivos">0</h3></div></div></div>
+  <div class="col-md-2"><div class="card"><div class="card-body"><small>Total folha</small><h3 data-field="totalFolhaMes">0</h3></div></div></div>
+</div>
+<hr />
+<h2>Atalhos operacionais</h2>
+<div class="row g-2">
+@foreach (var item in new[]{("Servidores","/Rh/Servidores"),("Cargos","/Rh/Cargos"),("Lotações","/Rh/Lotacoes"),("Vínculos","/Rh/Vinculos"),("Folhas","/Rh/Folhas"),("Ponto","/Rh/Pontos"),("Férias","/Rh/Ferias"),("Afastamentos","/Rh/Afastamentos"),("Saúde Ocupacional","/Rh/SaudeOcupacional"),("eSocial","/Rh/Esocial"),("Portal","/Rh/Portal")})
+{
+  <div class="col-md-3"><a class="btn btn-light border w-100 text-start" href="@item.Item2">@item.Item1</a></div>
+}
+</div>
+@section Scripts { <script src="~/js/modules/rh.js"></script> }
