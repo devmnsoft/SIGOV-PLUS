@@ -1,0 +1,10 @@
+@{
+    ViewData["Title"] = "Financeiro/SIAFIC";
+}
+<div class="d-flex justify-content-between align-items-center mb-3"><h1>Financeiro/SIAFIC</h1><a class="btn btn-primary" href="/Financeiro/Dashboard">Dashboard financeiro</a></div>
+<div class="row g-3">
+@foreach (var item in new[] { ("Plano de Contas","PlanoContas"),("Fontes de Recurso","FontesRecurso"),("Programas","Programas"),("Ações","Acoes"),("Naturezas de Despesa","NaturezasDespesa"),("Naturezas de Receita","NaturezasReceita"),("Orçamento da Despesa","OrcamentoDespesa"),("Orçamento da Receita","OrcamentoReceita"),("Empenhos","Empenhos"),("Liquidações","Liquidacoes"),("Pagamentos","Pagamentos"),("Receitas","Receitas") })
+{
+  <div class="col-md-3"><a class="card text-decoration-none h-100" href="/Financeiro/@item.Item2"><div class="card-body"><strong>@item.Item1</strong><p class="text-muted mb-0">Cadastro e operação com isolamento por tenant.</p></div></a></div>
+}
+</div>

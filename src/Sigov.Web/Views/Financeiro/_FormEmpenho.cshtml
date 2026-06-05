@@ -1,0 +1,16 @@
+@model Sigov.Web.Models.Financeiro.EmpenhoFormViewModel
+<form id="form-empenho" class="financeiro-form" data-api="/api/financeiro/empenhos" method="post">
+  @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+  <div class="row g-3">
+    <div class="col-md-3"><label asp-for="DataEmpenho" class="form-label"></label><input asp-for="DataEmpenho" class="form-control" type="date" /></div>
+    <div class="col-md-3"><label asp-for="FornecedorPessoaId" class="form-label"></label><input asp-for="FornecedorPessoaId" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="OrcamentoDespesaId" class="form-label"></label><input asp-for="OrcamentoDespesaId" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="TipoEmpenho" class="form-label"></label><select asp-for="TipoEmpenho" class="form-select"><option>ORDINARIO</option><option>GLOBAL</option><option>ESTIMATIVO</option></select></div>
+    <div class="col-12"><label asp-for="Historico" class="form-label"></label><textarea asp-for="Historico" class="form-control" required></textarea><span asp-validation-for="Historico" class="text-danger"></span></div>
+    <div class="col-12"><partial name="_FormEmpenhoItem" /></div>
+    <div class="col-md-3"><label class="form-label">Valor total</label><input id="valor-total-empenho" class="form-control" readonly /></div>
+    <div class="col-12"><label asp-for="Observacoes" class="form-label"></label><textarea asp-for="Observacoes" class="form-control"></textarea></div>
+  </div>
+  <button class="btn btn-primary mt-3" type="submit">Emitir empenho</button>
+</form>

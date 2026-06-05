@@ -1,0 +1,10 @@
+@model Sigov.Web.Models.Financeiro.FinanceiroDashboardViewModel
+@{ ViewData["Title"] = "Dashboard Financeiro"; }
+<h1>Dashboard Financeiro</h1>
+<div class="row g-3 financeiro-dashboard" data-module="financeiro-dashboard">
+@foreach (var card in new[] { "Orçamento autorizado", "Empenhado", "Liquidado", "Pago", "Saldo disponível", "Receita prevista", "Receita lançada", "Receita arrecadada" })
+{
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><span class="text-muted">@card</span><h3 class="valor">R$ 0,00</h3></div></div></div>
+}
+</div>
+@section Scripts { <script src="~/js/modules/financeiro.dashboard.js"></script> }
