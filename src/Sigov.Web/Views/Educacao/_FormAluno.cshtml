@@ -1,0 +1,6 @@
+@model Sigov.Web.Models.Educacao.AlunoFormViewModel
+<form id="form-aluno" class="card card-body" data-api="/api/educacao/alunos">
+  @Html.AntiForgeryToken()
+  <div class="alert alert-info py-2">Dados pessoais são mascarados por padrão; dados sensíveis do aluno não são exibidos no grid.</div>
+  <div class="row g-3"><div class="col-md-2"><input asp-for="PessoaId" class="form-control" placeholder="PessoaId" /></div><div class="col-md-3"><input asp-for="CodigoAluno" class="form-control" placeholder="Código aluno" required /></div><div class="col-md-2"><input asp-for="Nis" class="form-control" placeholder="NIS" /></div><div class="col-md-2"><input asp-for="CartaoSus" class="form-control" placeholder="Cartão SUS" /></div><div class="col-md-2"><input asp-for="Situacao" class="form-control" /></div><div class="col-md-1"><button class="btn btn-primary w-100">Salvar</button></div></div>
+</form>

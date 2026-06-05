@@ -1,0 +1,25 @@
+@model Sigov.Web.Models.Educacao.EducacaoDashboardViewModel
+@{ ViewData["Title"] = "Dashboard Educação"; }
+@{
+    ViewData["Title"] = ViewData["Title"] ?? "Educação";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3">@ViewData["Title"]</h1>
+    <p class="text-muted mb-0">Módulo Educação Base com dados paginados, LGPD, auditoria e tenant_id.</p>
+  </div>
+  <div class="btn-group">
+    <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
+    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.csv">CSV</a>
+    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.json">JSON</a>
+  </div>
+</div>
+<div id="educacao-toast" class="alert d-none" role="alert"></div>
+<div class="row g-3" id="educacao-dashboard-cards">
+  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Escolas</div><div class="display-6" data-field="totalEscolas">0</div></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Alunos ativos</div><div class="display-6" data-field="totalAlunosAtivos">0</div></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Matrículas</div><div class="display-6" data-field="totalMatriculasAtivas">0</div></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Turmas abertas</div><div class="display-6" data-field="totalTurmasAbertas">0</div></div></div></div>
+</div>
+<div class="card mt-3"><div class="card-body"><h2 class="h5">Alertas</h2><ul id="educacao-alertas" class="mb-0"></ul></div></div>
+@section Scripts { <script src="~/js/modules/educacao.dashboard.js"></script> }
