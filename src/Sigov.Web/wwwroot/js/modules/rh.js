@@ -24,7 +24,7 @@
       const res = await api.request('/api/rh/dashboard');
       const data = res.data || {};
       Object.keys(data).forEach(k => $(`[data-field="${k}"]`).text(data[k]));
-    } catch (e) { window.sigovUi?.notify?.('Dashboard RH indisponível: ' + e.message, 'warning'); }
+    } catch (e) { notifyHttpError(e, 'Dashboard RH indisponível'); }
   }
 
   function currentRecurso() { return $('#rh-form').data('recurso'); }
@@ -67,14 +67,14 @@
     $('#rh-json').val(JSON.stringify(extras, null, 2));
   }
 
-  async function loadGrid() {
-    const recurso = currentRecurso();
+  async function loadGrid(recursoOverride) {
+    const recurso = recursoOverride || currentRecurso();
     if (!recurso) return;
     try {
       const res = await api.request(`/api/rh/${recurso}?page=1&pageSize=25`);
       const rows = (res.data && res.data.items) || [];
       $('#rh-grid').html(rows.map(r => `<tr><td>${r.id}</td><td>${r.ativo ? 'Sim' : 'Não'}</td><td><pre class="mb-0 small">${escapeHtml(JSON.stringify(r.dados, null, 2))}</pre></td><td><button class="btn btn-sm btn-outline-primary rh-edit" data-id="${r.id}">Editar</button> <button class="btn btn-sm btn-outline-danger rh-del" data-id="${r.id}">Excluir</button></td></tr>`).join(''));
-    } catch (e) { window.sigovUi?.notify?.('Listagem RH indisponível: ' + e.message, 'warning'); }
+    } catch (e) { notifyHttpError(e, 'Listagem RH indisponível'); }
   }
 
   async function save(e) {
@@ -86,9 +86,12 @@
     const method = id ? 'PUT' : 'POST';
     const path = id ? `/api/rh/${recurso}/${id}` : `/api/rh/${recurso}`;
     const body = id ? { dados, ativo: true } : { dados };
-    await api.request(path, { method, headers: antiforgeryHeaders(), body: JSON.stringify(body) });
-    clearForm();
-    await loadGrid();
+    try {
+      await api.request(path, { method, headers: antiforgeryHeaders(), body: JSON.stringify(body) });
+      window.sigovUi?.notify?.('Registro RH salvo com sucesso.', 'success');
+      clearForm();
+      await loadGrid();
+    } catch (e) { notifyHttpError(e, 'Não foi possível salvar o registro RH'); }
   }
 
   async function edit() {
@@ -101,14 +104,18 @@
 
   async function del() {
     if (!confirm('Excluir logicamente este registro?')) return;
-    await api.request(`/api/rh/${currentRecurso()}/${$(this).data('id')}`, { method: 'DELETE', headers: antiforgeryHeaders() });
-    await loadGrid();
+    try {
+      await api.request(`/api/rh/${currentRecurso()}/${$(this).data('id')}`, { method: 'DELETE', headers: antiforgeryHeaders() });
+      window.sigovUi?.notify?.('Registro RH excluído logicamente.', 'success');
+      await loadGrid();
+    } catch (e) { notifyHttpError(e, 'Não foi possível excluir o registro RH'); }
   }
 
   async function portal(e) {
     e.preventDefault();
     const id = $('#rh-servidor-id').val();
-    const res = await api.request(`/api/rh/portal/servidores/${id}`);
+    let res;
+    try { res = await api.request(`/api/rh/portal/servidores/${id}`); } catch (e) { notifyHttpError(e, 'Portal do servidor indisponível'); return; }
     const p = res.data;
     $('#rh-portal-result').html(`<div class="card"><div class="card-body"><h2>${escapeHtml(p.nome)}</h2><h3>Contracheques</h3><pre>${escapeHtml(JSON.stringify(p.contracheques, null, 2))}</pre><h3>Férias</h3><pre>${escapeHtml(JSON.stringify(p.ferias, null, 2))}</pre><h3>Afastamentos</h3><pre>${escapeHtml(JSON.stringify(p.afastamentos, null, 2))}</pre></div></div>`);
   }
@@ -122,12 +129,31 @@
       fonteRecursoId: Number($('#rh-integrar-fonte-id').val()) || null,
       historico: $('#rh-integrar-historico').val()
     };
-    const res = await api.request('/api/rh/folhas/integrar-financeiro', { method: 'POST', headers: antiforgeryHeaders(), body: JSON.stringify(body) });
-    window.sigovUi?.notify?.(`Evento outbox #${res.data} preparado para Financeiro/SIAFIC.`, 'success');
+    try {
+      const res = await api.request('/api/rh/folhas/integrar-financeiro', { method: 'POST', headers: antiforgeryHeaders(), body: JSON.stringify(body) });
+      window.sigovUi?.notify?.(`Evento outbox #${res.data} preparado para Financeiro/SIAFIC.`, 'success');
+    } catch (e) { notifyHttpError(e, 'Não foi possível integrar a folha ao Financeiro'); }
   }
 
   function clearForm() { $('#rh-id').val(''); $('.rh-field').val('').prop('checked', false); $('#rh-json').val('{}'); }
   function escapeHtml(s) { return String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
+
+  function notifyHttpError(e, prefix) {
+    const status = e && (e.status || e.statusCode);
+    if (status === 401) { window.sigovUi?.notify?.('Sessão expirada. Faça login novamente.', 'warning'); return; }
+    if (status === 403) { window.sigovUi?.notify?.('Você não tem permissão para esta operação de RH.', 'warning'); return; }
+    window.sigovUi?.notify?.(`${prefix}: ${e && e.message ? e.message : 'erro de negócio ou validação.'}`, 'warning');
+  }
+
+  async function postTyped(path, payload) {
+    return api.request(path, { method: 'POST', headers: antiforgeryHeaders(), body: JSON.stringify(payload || {}) });
+  }
+
+  async function getTyped(path) { return api.request(path); }
+
+  async function deleteTyped(path) { return api.request(path, { method: 'DELETE', headers: antiforgeryHeaders() }); }
+
+  window.SigovRh = { loadDashboard, loadGrid, postTyped, getTyped, deleteTyped, carregarDashboardRh: loadDashboard, carregarServidores: () => loadGrid('servidores'), carregarFolhas: () => loadGrid('folhas') };
 
   $(document).on('submit', '#rh-form', save);
   $(document).on('submit', '#rh-integrar-form', integrarFinanceiro);

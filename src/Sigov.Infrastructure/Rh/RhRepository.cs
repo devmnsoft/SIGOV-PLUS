@@ -106,8 +106,24 @@ public sealed class RhRepository : BaseRepository, IRhRepository
 
     public async Task<long> PrepararIntegracaoFinanceiraAsync(long tenantId, RhFinanceiroIntegracaoRequest request, long? usuarioId, CancellationToken ct)
     {
-        var payload = JsonSerializer.Serialize(new { tipo = "folha.financeiro.integracao.solicitada", destino = "financeiro-siafic", publicado = false, request.FolhaId, request.DataCompetencia, request.NaturezaDespesaId, request.FonteRecursoId, request.Historico }, JsonOptions);
         using var cn = _context.CreateConnection();
+        var totalFolha = await cn.ExecuteScalarAsync<decimal>(Command("select coalesce(sum((dados->>'valor')::numeric),0) from sigov.folha_lancamento where tenant_id=@TenantId and is_deleted=false and (dados->>'folhaId')::bigint=@FolhaId;", new { TenantId = tenantId, request.FolhaId }, ct)).ConfigureAwait(false);
+        var correlationId = Guid.NewGuid().ToString("N");
+        var payload = JsonSerializer.Serialize(new
+        {
+            tipo = "folha.financeiro.integracao.solicitada",
+            destino = "financeiro-siafic",
+            publicado = false,
+            tenantId,
+            folhaId = request.FolhaId,
+            competencia = request.DataCompetencia,
+            valorTotal = totalFolha,
+            naturezaDespesaId = request.NaturezaDespesaId,
+            fonteRecursoId = request.FonteRecursoId,
+            historico = request.Historico,
+            usuarioId,
+            correlationId
+        }, JsonOptions);
         return await cn.ExecuteScalarAsync<long>(Command("insert into sigov.rh_evento (tenant_id, dados, created_by) values (@TenantId, cast(@Dados as jsonb), @UsuarioId) returning id;", new { TenantId = tenantId, Dados = payload, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
     }
 
@@ -164,6 +180,21 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         MaskEmail(dados, "email");
         MaskEmail(dados, "emailInstitucional");
         MaskTelefone(dados, "telefone");
+        MaskSensitive(dados, "dadosBancarios");
+        MaskSensitive(dados, "banco");
+        MaskSensitive(dados, "agencia");
+        MaskSensitive(dados, "conta");
+        MaskSensitive(dados, "resultadoExame");
+        MaskSensitive(dados, "resultado");
+        MaskSensitive(dados, "laudo");
+        MaskSensitive(dados, "cid");
+        MaskSensitive(dados, "motivoSensivel");
+        MaskSensitive(dados, "observacaoSaude");
+    }
+
+    private static void MaskSensitive(IDictionary<string, object?> dados, string key)
+    {
+        if (dados.ContainsKey(key)) dados[key] = "***";
     }
 
     private static void MaskDocumento(IDictionary<string, object?> dados, string key, int visibleStart, int visibleEnd)

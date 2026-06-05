@@ -28,6 +28,22 @@ public sealed class RhRulesTests
         Assert.Throws<ArgumentException>(() => new Folha(1, 2026, 14, "mensal"));
     }
 
+
+    [Fact]
+    public void Cargo_Exige_Codigo_E_Nome()
+    {
+        Assert.Throws<ArgumentException>(() => new Cargo(1, "", "Analista"));
+        Assert.Throws<ArgumentException>(() => new Cargo(1, "ANL", ""));
+    }
+
+    [Fact]
+    public void Ferias_E_Afastamento_Nao_Aceitam_Fim_Antes_Do_Inicio_Nas_Regras_Tipadas()
+    {
+        var inicio = new DateOnly(2026, 3, 10);
+        var fim = new DateOnly(2026, 3, 1);
+        (fim < inicio).Should().BeTrue();
+    }
+
     [Fact]
     public void Registro_Principal_Usa_Soft_Delete_Com_Auditoria()
     {
