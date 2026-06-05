@@ -29,6 +29,31 @@ public sealed class RhModuleSmokeTests
         code.Should().Contain("where tenant_id = @TenantId");
         code.Should().Contain("Command(");
         code.Should().Contain("cast(@Dados as jsonb)");
+        code.Should().Contain("auditoria = cast(@Auditoria as jsonb)");
+        code.Should().Contain("RegistrarOutboxAsync");
+        code.Should().Contain("rh_evento");
+    }
+
+    [Fact]
+    public void Rh_Service_Deve_Validar_Payloads_Criticos_No_Backend()
+    {
+        var code = File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Rh/RhServices.cs"));
+        code.Should().Contain("CamposObrigatorios");
+        code.Should().Contain("CPF deve conter 11 dígitos");
+        code.Should().Contain("Mês da folha deve estar entre 1 e 13");
+        code.Should().Contain("Valor do lançamento não pode ser negativo");
+        code.Should().Contain("Formato de exportação inválido");
+    }
+
+    [Fact]
+    public void Rh_Repository_Deve_Mascarar_Dados_Lgpd_Nas_Respostas()
+    {
+        var code = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Rh/RhRepository.cs"));
+        code.Should().Contain("(\"cpf\", \"CPF\")");
+        code.Should().Contain("(\"cnpj\", \"CNPJ\")");
+        code.Should().Contain("(\"email\", \"EMAIL\")");
+        code.Should().Contain("(\"telefone\", \"TELEFONE\")");
+        code.Should().Contain("classificacaoLgpd");
     }
 
     [Fact]

@@ -34,4 +34,6 @@ O antigo conteúdo de conformidade/aderência fica tratado como módulo acessór
 - Etapa 1: estrutura Clean Architecture, Docker Compose, PostgreSQL `sigov`, migrações, SaaS/multi-tenancy e módulos base.
 - Etapa 2: módulo Pessoa e Endereço com API REST, Dapper, auditoria LGPD, UI CSHTML/jQuery/Ajax e exportação CSV/JSON/XML. Consulte `docs/etapas/02-pessoas-enderecos.md`.
 
-Etapa concluída: Pessoa e Endereço – Próxima etapa: Contratos e Obras.
+- Etapa RH: módulo Recursos Humanos com cadastros de servidores/cargos/lotações/vínculos, folha inicial, ponto/frequência, férias/afastamentos, saúde ocupacional, eSocial estrutural, portal do servidor, dashboards, exportação CSV/JSON, auditoria JSONB, LGPD, outbox e integração preparada com Financeiro/SIAFIC.
+
+Etapa concluída: Recursos Humanos – Próxima etapa: Gestão de Patrimônio/Inventário/Obras (integração RH e Financeiro).
