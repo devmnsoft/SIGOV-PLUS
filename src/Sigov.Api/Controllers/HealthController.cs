@@ -9,14 +9,9 @@ namespace Sigov.Api.Controllers;
 [Route("api/health")]
 public sealed class HealthController : ControllerBase
 {
-    private readonly NpgsqlConnectionFactory _connectionFactory;
     private readonly ILogger<HealthController> _logger;
 
-    public HealthController(NpgsqlConnectionFactory connectionFactory, ILogger<HealthController> logger)
-    {
-        _connectionFactory = connectionFactory;
-        _logger = logger;
-    }
+    public HealthController(ILogger<HealthController> logger) => _logger = logger;
 
     [HttpGet]
     public ActionResult<ApiResponse<object>> Get() => GetLive();
@@ -28,9 +23,9 @@ public sealed class HealthController : ControllerBase
     }
 
     [HttpGet("ready")]
-    public async Task<ActionResult<ApiResponse<object>>> GetReady(CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<object>>> GetReady([FromServices] NpgsqlConnectionFactory connectionFactory, CancellationToken cancellationToken)
     {
-        var db = await CheckDatabaseAsync(cancellationToken).ConfigureAwait(false);
+        var db = await CheckDatabaseAsync(connectionFactory, cancellationToken).ConfigureAwait(false);
         return db.schemaExists
             ? Ok(ApiResponse<object>.Ok(new { status = "Ready", db.database, schema = "sigov" }))
             : StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<object>.Fail("Schema sigov indisponível."));
@@ -46,11 +41,11 @@ public sealed class HealthController : ControllerBase
     public ActionResult<ApiResponse<object>> GetVersion() => Ok(ApiResponse<object>.Ok(new { application = "sigov", version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "dev" }));
 
     [HttpGet("db")]
-    public async Task<ActionResult<ApiResponse<object>>> GetDb(CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<object>>> GetDb([FromServices] NpgsqlConnectionFactory connectionFactory, CancellationToken cancellationToken)
     {
         try
         {
-            var (database, schemaExists) = await CheckDatabaseAsync(cancellationToken).ConfigureAwait(false);
+            var (database, schemaExists) = await CheckDatabaseAsync(connectionFactory, cancellationToken).ConfigureAwait(false);
             return Ok(ApiResponse<object>.Ok(new { status = "Healthy", database, schema = "sigov", schemaExists }));
         }
         catch (Exception ex)
@@ -60,9 +55,9 @@ public sealed class HealthController : ControllerBase
         }
     }
 
-    private async Task<(string database, bool schemaExists)> CheckDatabaseAsync(CancellationToken cancellationToken)
+    private static async Task<(string database, bool schemaExists)> CheckDatabaseAsync(NpgsqlConnectionFactory connectionFactory, CancellationToken cancellationToken)
     {
-        await using var connection = _connectionFactory.CreateConnection();
+        await using var connection = connectionFactory.CreateConnection();
         var database = await connection.ExecuteScalarAsync<string>(new CommandDefinition("select current_database();", cancellationToken: cancellationToken)).ConfigureAwait(false) ?? "unknown";
         var schemaExists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists (select 1 from information_schema.schemata where schema_name = 'sigov');", cancellationToken: cancellationToken)).ConfigureAwait(false);
         return (database, schemaExists);

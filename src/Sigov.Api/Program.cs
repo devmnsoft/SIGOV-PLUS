@@ -37,17 +37,17 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseMiddleware<SimpleRateLimitMiddleware>();
 
 var sigovOptions = app.Services.GetRequiredService<IOptions<SigovOptions>>().Value;
+if (app.Configuration.GetValue("Sigov:Database:RunMigrationsOnStartup", false))
+{
+    using var scope = app.Services.CreateScope();
+    var runner = scope.ServiceProvider.GetRequiredService<MigrationRunner>();
+    await runner.RunAsync().ConfigureAwait(false);
+}
+
 if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInProduction)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-
-    if (app.Configuration.GetValue("Sigov:Database:RunMigrationsOnStartup", false))
-    {
-        using var scope = app.Services.CreateScope();
-        var runner = scope.ServiceProvider.GetRequiredService<MigrationRunner>();
-        await runner.RunAsync().ConfigureAwait(false);
-    }
 }
 
 app.MapControllers();
