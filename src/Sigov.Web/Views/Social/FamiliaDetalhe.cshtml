@@ -1,0 +1,5 @@
+@{ ViewData["Title"] = "Assistência Social - FamiliaDetalhe"; }
+<h1 class="h3">FamiliaDetalhe</h1>
+<form id="form-social-familiadetalhe" class="card card-body mb-3">@Html.AntiForgeryToken()<div class="alert alert-info">Dados pessoais e sensíveis são mascarados por padrão. Backend valida permissões, tenant e módulo contratado.</div><button class="btn btn-primary" type="submit">Salvar</button></form>
+<div class="table-responsive"><table class="table table-striped"><tbody id="grid-social-familiadetalhe"><tr><td>Carregando...</td></tr></tbody></table></div>
+@section Scripts { <script src="~/js/modules/social.familiadetalhe.js"></script> }

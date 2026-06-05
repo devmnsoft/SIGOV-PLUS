@@ -23,6 +23,8 @@ using Sigov.Application.Saude;
 using Sigov.Infrastructure.Saude;
 using Sigov.Application.Saneamento;
 using Sigov.Infrastructure.Saneamento;
+using Sigov.Application.Social;
+using Sigov.Infrastructure.Social;
 
 namespace Sigov.Infrastructure;
 
@@ -203,6 +205,35 @@ public static class DependencyInjection
         services.AddScoped<IRedeSaneamentoService, SaneamentoService>();
         services.AddScoped<ISaneamentoDashboardService, SaneamentoService>();
         services.AddScoped<ISaneamentoExportacaoService, SaneamentoService>();
+        services.AddScoped<SocialRepository>();
+        services.AddScoped<ISocialUnidadeRepository, SocialRepository>();
+        services.AddScoped<ISocialFamiliaRepository, SocialRepository>();
+        services.AddScoped<ISocialPessoaRepository, SocialRepository>();
+        services.AddScoped<ISocialCadastroRepository, SocialRepository>();
+        services.AddScoped<ISocialProgramaRepository, SocialRepository>();
+        services.AddScoped<ISocialBeneficioRepository, SocialRepository>();
+        services.AddScoped<ISocialAtendimentoRepository, SocialRepository>();
+        services.AddScoped<ISocialVisitaRepository, SocialRepository>();
+        services.AddScoped<ISocialParecerRepository, SocialRepository>();
+        services.AddScoped<ISocialAcompanhamentoRepository, SocialRepository>();
+        services.AddScoped<ISocialVigilanciaRepository, SocialRepository>();
+        services.AddScoped<ISocialDashboardRepository, SocialRepository>();
+        services.AddScoped<ISocialExportacaoRepository, SocialRepository>();
+        services.AddScoped<ISocialSequencialService, SocialRepository>();
+        services.AddScoped<SocialService>();
+        services.AddScoped<ISocialUnidadeService, SocialService>();
+        services.AddScoped<ISocialFamiliaService, SocialService>();
+        services.AddScoped<ISocialPessoaService, SocialService>();
+        services.AddScoped<ISocialCadastroService, SocialService>();
+        services.AddScoped<ISocialProgramaService, SocialService>();
+        services.AddScoped<ISocialBeneficioService, SocialService>();
+        services.AddScoped<ISocialAtendimentoService, SocialService>();
+        services.AddScoped<ISocialVisitaService, SocialService>();
+        services.AddScoped<ISocialParecerService, SocialService>();
+        services.AddScoped<ISocialAcompanhamentoService, SocialService>();
+        services.AddScoped<ISocialVigilanciaService, SocialService>();
+        services.AddScoped<ISocialDashboardService, SocialService>();
+        services.AddScoped<ISocialExportacaoService, SocialService>();
         return services;
     }
 }
