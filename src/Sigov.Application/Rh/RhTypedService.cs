@@ -48,6 +48,14 @@ public sealed class RhTypedService : IRhTypedService
     public Task<Result<long>> RegistrarSaudeOcupacionalAsync(SaudeOcupacionalCreateRequest request, CancellationToken ct) => CreateAsync("saude-ocupacional", RhTypedMapper.ToCreate(request), ValidateIds(("servidorId", request.ServidorId)), ct);
     public Task<Result<long>> CriarEventoEsocialAsync(EsocialEventoCreateRequest request, CancellationToken ct) => CreateAsync("esocial", RhTypedMapper.ToCreate(request), ValidateRequired(("evento", request.Evento)), ct);
 
+    public async Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct)
+    {
+        if (request.FolhaId <= 0) return Result<long>.Failure("Folha obrigatória para integração financeira.");
+        if (string.IsNullOrWhiteSpace(request.Historico)) return Result<long>.Failure("Histórico obrigatório para integração financeira.");
+        _logger.LogInformation("Preparando integração financeira tipada da folha RH #{FolhaId}.", request.FolhaId);
+        return await _service.IntegrarFinanceiroAsync(request, ct).ConfigureAwait(false);
+    }
+
     public async Task<Result<PortalServidorResponse>> ObterPortalServidorAsync(long servidorId, CancellationToken ct)
     {
         var result = await _service.PortalServidorAsync(servidorId, ct).ConfigureAwait(false);

@@ -207,6 +207,8 @@ public sealed class RhService : IRhService
         if (folha is null) return Result<long>.Failure("Folha não encontrada para integração financeira.");
         var status = folha.Dados.TryGetValue("status", out var statusValue) ? Convert.ToString(statusValue, System.Globalization.CultureInfo.InvariantCulture) : "Aberta";
         if (status is not ("Aberta" or "Calculada" or "Fechada")) return Result<long>.Failure("Folha em status inválido para integração financeira.");
+        var totalLancamentos = await _repo.TotalLancamentosFolhaAsync(TenantId, request.FolhaId, ct).ConfigureAwait(false);
+        if (totalLancamentos <= 0m) return Result<long>.Failure("Folha deve possuir lançamentos válidos para integração financeira.");
         var eventoId = await _repo.PrepararIntegracaoFinanceiraAsync(TenantId, request, _user.UsuarioId, ct).ConfigureAwait(false);
         await _audit.RegistrarAsync("rh", "INTEGRAR_FINANCEIRO", "sigov.rh_evento", eventoId.ToString(System.Globalization.CultureInfo.InvariantCulture), null, request, ct).ConfigureAwait(false);
         return Result<long>.Success(eventoId);

@@ -104,10 +104,17 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         return new RhPortalResumoResponse(servidorId, nome, contracheques.Select(r => ToResponse("folha-lancamentos", r)).ToArray(), ferias.Select(r => ToResponse("ferias", r)).ToArray(), afastamentos.Select(r => ToResponse("afastamentos", r)).ToArray());
     }
 
+    public async Task<decimal> TotalLancamentosFolhaAsync(long tenantId, long folhaId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = "select coalesce(sum((dados->>'valor')::numeric),0) from sigov.folha_lancamento where tenant_id=@TenantId and is_deleted=false and (dados->>'folhaId')::bigint=@FolhaId and (dados->>'valor') ~ '^-?[0-9]+(\\.[0-9]+)?$' and (dados->>'valor')::numeric >= 0;";
+        return await cn.ExecuteScalarAsync<decimal>(Command(sql, new { TenantId = tenantId, FolhaId = folhaId }, ct)).ConfigureAwait(false);
+    }
+
     public async Task<long> PrepararIntegracaoFinanceiraAsync(long tenantId, RhFinanceiroIntegracaoRequest request, long? usuarioId, CancellationToken ct)
     {
         using var cn = _context.CreateConnection();
-        var totalFolha = await cn.ExecuteScalarAsync<decimal>(Command("select coalesce(sum((dados->>'valor')::numeric),0) from sigov.folha_lancamento where tenant_id=@TenantId and is_deleted=false and (dados->>'folhaId')::bigint=@FolhaId;", new { TenantId = tenantId, request.FolhaId }, ct)).ConfigureAwait(false);
+        var totalFolha = await TotalLancamentosFolhaAsync(tenantId, request.FolhaId, ct).ConfigureAwait(false);
         var correlationId = Guid.NewGuid().ToString("N");
         var payload = JsonSerializer.Serialize(new
         {

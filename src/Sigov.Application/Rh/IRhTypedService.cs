@@ -28,5 +28,6 @@ public interface IRhTypedService
     Task<Result<long>> RegistrarAfastamentoAsync(AfastamentoCreateRequest request, CancellationToken ct);
     Task<Result<long>> RegistrarSaudeOcupacionalAsync(SaudeOcupacionalCreateRequest request, CancellationToken ct);
     Task<Result<long>> CriarEventoEsocialAsync(EsocialEventoCreateRequest request, CancellationToken ct);
+    Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct);
     Task<Result<PortalServidorResponse>> ObterPortalServidorAsync(long servidorId, CancellationToken ct);
 }
