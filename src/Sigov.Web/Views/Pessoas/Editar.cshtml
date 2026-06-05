@@ -1,0 +1,12 @@
+@model Sigov.Web.Models.Core.PessoaFormViewModel
+@{
+    ViewData["Title"] = "Editar pessoa";
+}
+<h1>Editar pessoa</h1>
+<input type="hidden" id="pessoa-id" value="@Model.Id" />
+<form id="pessoa-form" class="card card-body">
+  @Html.AntiForgeryToken()
+  <partial name="_FormPessoa" model="Model" />
+  <button class="btn btn-primary mt-3" type="submit">Salvar alterações</button>
+</form>
+@section Scripts { <script src="~/js/modules/core.pessoas.js"></script> }

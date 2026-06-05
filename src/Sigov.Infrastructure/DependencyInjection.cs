@@ -13,6 +13,7 @@ using Sigov.Infrastructure.Storage;
 using Sigov.Application.Processos;
 using Sigov.Infrastructure.Processos;
 using Sigov.Application.Financeiro;
+using Sigov.Application.Core;
 using Sigov.Infrastructure.Financeiro;
 
 namespace Sigov.Infrastructure;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
         services.AddScoped<PessoaRepository>();
+        services.AddScoped<IPessoaCadastroRepository, PessoaRepository>();
         services.AddScoped<UsuarioRepository>();
         services.AddScoped<AuditRepository>();
         services.AddScoped<IAuditService, ProcessosAuditService>();
@@ -95,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<IReceitaService, ReceitaService>();
         services.AddScoped<IFinanceiroDashboardService, FinanceiroDashboardService>();
         services.AddScoped<IFinanceiroExportacaoService, FinanceiroExportacaoService>();
+        services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();
         return services;
     }
 }

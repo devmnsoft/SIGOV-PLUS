@@ -14,7 +14,7 @@ window.sigovApi = (() => {
 
     if (!response.ok) {
       const problem = await response.json().catch(() => ({ title: 'Erro inesperado' }));
-      throw new Error(problem.detail || problem.title || 'Falha ao processar solicitação.');
+      throw new Error(problem.detail || problem.title || problem.message || 'Falha ao processar solicitação.');
     }
 
     return response.json();

@@ -1,0 +1,22 @@
+@model Sigov.Web.Models.Core.PessoaFormViewModel
+@{
+    ViewData["Title"] = "Nova pessoa";
+}
+<h1>Nova pessoa</h1>
+<form id="pessoa-form" class="card card-body">
+  @Html.AntiForgeryToken()
+  <partial name="_FormPessoa" model="Model" />
+  <hr />
+  <h2 class="h5">Endereço inicial</h2>
+  <div class="row g-3" id="endereco-inicial">
+    <div class="col-md-5"><label class="form-label" for="Logradouro">Logradouro</label><input id="Logradouro" name="Logradouro" class="form-control" /></div>
+    <div class="col-md-2"><label class="form-label" for="Numero">Número</label><input id="Numero" name="Numero" class="form-control" /></div>
+    <div class="col-md-3"><label class="form-label" for="Bairro">Bairro</label><input id="Bairro" name="Bairro" class="form-control" /></div>
+    <div class="col-md-2"><label class="form-label" for="Cep">CEP</label><input id="Cep" name="Cep" class="form-control" /></div>
+    <div class="col-md-5"><label class="form-label" for="Municipio">Município</label><input id="Municipio" name="Municipio" class="form-control" /></div>
+    <div class="col-md-2"><label class="form-label" for="Uf">UF</label><input id="Uf" name="Uf" maxlength="2" class="form-control text-uppercase" /></div>
+    <div class="col-md-5"><label class="form-label" for="Complemento">Complemento</label><input id="Complemento" name="Complemento" class="form-control" /></div>
+  </div>
+  <button class="btn btn-primary mt-3" type="submit">Salvar</button>
+</form>
+@section Scripts { <script src="~/js/modules/core.pessoas.js"></script> }
