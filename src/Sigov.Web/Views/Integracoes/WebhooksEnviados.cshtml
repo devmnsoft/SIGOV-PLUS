@@ -1,0 +1,8 @@
+@model Sigov.Web.Models.Integracoes.WebhookEnviadoViewModel
+@{ ViewData["Title"] = "Webhooks Enviados"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1 class="h3 mb-0">Webhooks Enviados</h1><p class="text-muted mb-0">Módulo Integrações • sigov • Bootstrap 5, jQuery/Ajax e antiforgery.</p></div><span class="badge bg-primary">Estrutural</span></div>
+<div id="integracoes-toast" class="alert alert-warning d-none"></div>
+@await Html.PartialAsync("_FormWebhookDev")
+@await Html.PartialAsync("_GridWebhooks")
+@await Html.PartialAsync("_AuditoriaIntegracoes")
+@section Scripts { <script src="~/js/modules/integracoes.webhooks.js" asp-append-version="true"></script> }
