@@ -25,6 +25,8 @@ using Sigov.Application.Saneamento;
 using Sigov.Infrastructure.Saneamento;
 using Sigov.Application.Social;
 using Sigov.Infrastructure.Social;
+using Sigov.Infrastructure.Integracoes;
+using Sigov.Application.Integracoes;
 
 namespace Sigov.Infrastructure;
 
@@ -36,6 +38,30 @@ public static class DependencyInjection
         services.AddScoped<DapperContext>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
+
+        services.AddScoped<IApiCredentialRepository, ApiCredentialRepository>();
+        services.AddScoped<IIntegracaoSistemaRepository, IntegracaoSistemaRepository>();
+        services.AddScoped<IWebhookRepository, WebhookRepository>();
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<IIntegracaoLogRepository, IntegracaoLogRepository>();
+        services.AddScoped<IRemessaOficialRepository, RemessaOficialRepository>();
+        services.AddScoped<ICertificadoDigitalRepository, CertificadoDigitalRepository>();
+        services.AddScoped<IIntegracaoDashboardRepository, IntegracaoDashboardRepository>();
+        services.AddScoped<IIntegracaoExportacaoRepository, IntegracaoExportacaoRepository>();
+        services.AddScoped<IApiKeyHasher, ApiKeyHasher>();
+        services.AddScoped<IWebhookSignatureService, WebhookSignatureService>();
+        services.AddScoped<IApiCredentialService, ApiCredentialService>();
+        services.AddScoped<IIntegracaoSistemaService, IntegracaoSistemaService>();
+        services.AddScoped<IWebhookService, WebhookService>();
+        services.AddScoped<IIdempotencyService, IdempotencyService>();
+        services.AddScoped<IOutboxService, OutboxService>();
+        services.AddScoped<IIntegracaoLogService, IntegracaoLogService>();
+        services.AddScoped<IRemessaOficialService, RemessaOficialService>();
+        services.AddScoped<ICertificadoDigitalService, CertificadoDigitalService>();
+        services.AddScoped<IGovBrAdapter, GovBrEstruturalService>();
+        services.AddScoped<IAssinadorDigitalService, AssinadorDigitalEstruturalService>();
+        services.AddScoped<IIntegracaoDashboardService, IntegracaoDashboardService>();
+        services.AddScoped<IIntegracaoExportacaoService, IntegracaoExportacaoService>();
         services.AddScoped<PessoaRepository>();
         services.AddScoped<IPessoaCadastroRepository, PessoaRepository>();
         services.AddScoped<UsuarioRepository>();

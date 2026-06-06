@@ -1,0 +1,8 @@
+@model Sigov.Web.Models.Integracoes.OutboxEventoViewModel
+@{ ViewData["Title"] = "Outbox"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1 class="h3 mb-0">Outbox</h1><p class="text-muted mb-0">Módulo Integrações • sigov • Bootstrap 5, jQuery/Ajax e antiforgery.</p></div><span class="badge bg-primary">Estrutural</span></div>
+<div id="integracoes-toast" class="alert alert-warning d-none"></div>
+@await Html.PartialAsync("_GridOutbox")
+@await Html.PartialAsync("_ModalReprocessarOutbox")
+@await Html.PartialAsync("_AuditoriaIntegracoes")
+@section Scripts { <script src="~/js/modules/integracoes.outbox.js" asp-append-version="true"></script> }
