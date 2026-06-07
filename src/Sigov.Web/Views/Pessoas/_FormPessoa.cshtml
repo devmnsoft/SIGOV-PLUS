@@ -1,9 +1,12 @@
 @model Sigov.Web.Models.Core.PessoaFormViewModel
 <div class="row g-3">
-  <div class="col-md-2"><label asp-for="TipoPessoa" class="form-label"></label><select asp-for="TipoPessoa" class="form-select"><option value="F">Física</option><option value="J">Jurídica</option></select></div>
-  <div class="col-md-5"><label asp-for="Nome" class="form-label"></label><input asp-for="Nome" class="form-control" required /></div>
-  <div class="col-md-3"><label asp-for="NomeSocial" class="form-label"></label><input asp-for="NomeSocial" class="form-control" /></div>
-  <div class="col-md-2"><label asp-for="Documento" class="form-label"></label><input asp-for="Documento" class="form-control" /></div>
-  <div class="col-12"><label asp-for="Observacao" class="form-label"></label><textarea asp-for="Observacao" class="form-control"></textarea></div>
-  <div class="col-12 form-check ms-2"><input asp-for="Ativo" class="form-check-input" /><label asp-for="Ativo" class="form-check-label"></label></div>
+  <div class="col-md-2"><label asp-for="TipoPessoa" class="form-label"></label><select asp-for="TipoPessoa" class="form-select" required><option value="F">Física</option><option value="J">Jurídica</option></select><span asp-validation-for="TipoPessoa" class="text-danger small"></span></div>
+  <div class="col-md-4"><label asp-for="Nome" class="form-label">Nome/Razão social</label><input asp-for="Nome" class="form-control" required maxlength="250" /><span asp-validation-for="Nome" class="text-danger small"></span></div>
+  <div class="col-md-3"><label asp-for="NomeSocial" class="form-label">Nome social/Fantasia</label><input asp-for="NomeSocial" class="form-control" maxlength="250" /></div>
+  <div class="col-md-3"><label asp-for="Documento" class="form-label"></label><input asp-for="Documento" class="form-control" data-sigov-mask="cpfcnpj" inputmode="numeric" autocomplete="off" /><span class="form-text">Mascarado nas listagens.</span><span asp-validation-for="Documento" class="text-danger small"></span></div>
+  <div class="col-md-4"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" type="email" autocomplete="email" /><span asp-validation-for="Email" class="text-danger small"></span></div>
+  <div class="col-md-3"><label asp-for="Telefone" class="form-label"></label><input asp-for="Telefone" class="form-control" data-sigov-mask="phone" autocomplete="tel" /></div>
+  <div class="col-md-3"><label asp-for="ClassificacaoLgpd" class="form-label"></label><select asp-for="ClassificacaoLgpd" class="form-select"><option>Pessoal</option><option>Sensível</option><option>Operacional</option><option>Anonimizado</option></select></div>
+  <div class="col-md-2 d-flex align-items-end"><div class="form-check form-switch mb-2"><input asp-for="Ativo" class="form-check-input" /><label asp-for="Ativo" class="form-check-label"></label></div></div>
+  <div class="col-12"><label asp-for="Observacao" class="form-label"></label><textarea asp-for="Observacao" class="form-control" rows="3" maxlength="500"></textarea><span asp-validation-for="Observacao" class="text-danger small"></span></div>
 </div>

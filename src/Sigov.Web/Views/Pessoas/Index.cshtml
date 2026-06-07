@@ -1,33 +1,41 @@
 @model Sigov.Web.Models.Core.PessoaFormViewModel
 @{
-    ViewData["Title"] = "Pessoas e Endereços";
+    ViewData["Title"] = "Pessoas";
 }
-<div class="d-flex justify-content-between align-items-center mb-3">
+@await Html.PartialAsync("_Breadcrumb")
+<section class="sigov-page-header d-flex justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <h1>Pessoas e Endereços</h1>
-    <p class="text-muted mb-0">Cadastro central LGPD para contribuintes, servidores, pacientes, alunos, fornecedores e cidadãos.</p>
+    <span class="badge text-bg-primary mb-2">Core / Cadastros</span>
+    <h1 class="h2 mb-1">Pessoas</h1>
+    <p class="text-muted mb-0">Cadastro central com LGPD, documentos mascarados, endereços, contatos e auditoria por tenant.</p>
   </div>
-  <div class="btn-group">
+  <div class="btn-group" data-sigov-permission="core.pessoas.criar">
     <a class="btn btn-primary" href="/Pessoas/Criar">Nova pessoa</a>
-    <a class="btn btn-outline-secondary" href="http://localhost:5001/api/pessoas/export.csv">CSV</a>
-    <a class="btn btn-outline-secondary" href="http://localhost:5001/api/pessoas/export.json">JSON</a>
-    <a class="btn btn-outline-secondary" href="http://localhost:5001/api/pessoas/export.xml">XML</a>
+    <a class="btn btn-outline-secondary" href="/api/pessoas/export.csv">CSV</a>
+    <a class="btn btn-outline-secondary" href="/api/pessoas/export.json">JSON</a>
   </div>
-</div>
-<form id="pessoas-filtro" class="card card-body mb-3">
+</section>
+
+<form id="pessoas-filtro" class="card sigov-filter-card card-body mb-3" method="get" data-sigov-grid-filter="pessoas">
   <div class="row g-3 align-items-end">
-    <div class="col-md-5"><label class="form-label" for="Termo">Busca</label><input id="Termo" name="Termo" class="form-control" placeholder="Nome ou CPF/CNPJ" /></div>
+    <div class="col-lg-4"><label class="form-label" for="Termo">Busca</label><input id="Termo" name="Termo" class="form-control" placeholder="Nome ou CPF/CNPJ" /></div>
     <div class="col-md-2"><label class="form-label" for="TipoPessoa">Tipo</label><select id="TipoPessoa" name="TipoPessoa" class="form-select"><option value="">Todos</option><option value="F">Física</option><option value="J">Jurídica</option></select></div>
     <div class="col-md-2"><label class="form-label" for="Ativo">Status</label><select id="Ativo" name="Ativo" class="form-select"><option value="">Todos</option><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
-    <div class="col-md-3"><button class="btn btn-primary w-100" type="submit">Pesquisar</button></div>
+    <div class="col-md-2"><label class="form-label" for="ClassificacaoLgpd">LGPD</label><select id="ClassificacaoLgpd" name="ClassificacaoLgpd" class="form-select"><option value="">Todas</option><option>Pessoal</option><option>Sensível</option><option>Operacional</option></select></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Pesquisar</button></div>
   </div>
 </form>
-<div class="card">
+
+<div class="card sigov-grid" data-sigov-grid="pessoas">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Resultado</strong><span class="text-muted small">Documentos mascarados por padrão</span>
+  </div>
   <div class="table-responsive">
-    <table id="pessoas-table" class="table table-striped table-hover mb-0">
-      <thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>Endereço</th><th>Status</th><th></th></tr></thead>
-      <tbody></tbody>
+    <table id="pessoas-table" class="table table-hover align-middle mb-0">
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>LGPD</th><th>Endereço</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
+      <tbody><tr><td colspan="7">@await Html.PartialAsync("_Loading")</td></tr></tbody>
     </table>
   </div>
+  <div class="card-footer d-flex justify-content-between align-items-center"><small class="text-muted">Paginação obrigatória por tenant_id.</small><nav aria-label="Paginação de pessoas"><ul id="pessoas-pagination" class="pagination pagination-sm mb-0"><li class="page-item active"><span class="page-link">1</span></li></ul></nav></div>
 </div>
 @section Scripts { <script src="~/js/modules/core.pessoas.js"></script> }

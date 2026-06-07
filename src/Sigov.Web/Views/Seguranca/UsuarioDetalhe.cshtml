@@ -1,0 +1,5 @@
+@model long
+@{ ViewData["Title"] = "Detalhe do usuário"; }
+<section class="sigov-page-header mb-4"><span class="badge text-bg-dark mb-2">Segurança</span><h1 class="h2">Detalhe do usuário</h1><p class="text-muted">Ações críticas auditadas e protegidas por permissão.</p></section>
+<div class="row g-3"><div class="col-lg-8"><div class="card card-body"><h2 class="h5">Conta #@Model</h2><p>Login mascarado: usu***</p><div class="btn-group flex-wrap"><button class="btn btn-outline-secondary">Resetar senha</button><button class="btn btn-outline-warning">Bloquear</button><button class="btn btn-outline-success">Desbloquear</button><button class="btn btn-outline-danger">Revogar sessões</button><a class="btn btn-outline-primary" href="/Seguranca/HistoricoLogin">Ver histórico</a></div></div></div><div class="col-lg-4"><div class="card card-body"><h2 class="h5">Permissões</h2><p class="text-muted">Perfis, grupos, entidades e exercícios permitidos.</p></div></div></div>
+@section Scripts { <script src="~/js/modules/seguranca.usuarios.js"></script> }

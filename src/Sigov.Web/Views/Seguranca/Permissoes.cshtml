@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Lote1.PermissaoMatrixViewModel
+@{ ViewData["Title"] = "Permissões"; }
+<section class="sigov-page-header mb-4"><span class="badge text-bg-dark mb-2">Segurança</span><h1 class="h2">Permissões</h1><p class="text-muted">Matriz por módulo com proteção contra remover a própria permissão crítica.</p></section>
+<form class="card card-body" method="post">@Html.AntiForgeryToken()<div class="table-responsive"><table class="table align-middle"><thead><tr><th>Módulo</th><th>Visualizar</th><th>Criar</th><th>Editar</th><th>Excluir</th><th>Auditar</th></tr></thead><tbody><tr><td>Core/Pessoas</td><td><input type="checkbox" checked /></td><td><input type="checkbox" checked /></td><td><input type="checkbox" checked /></td><td><input type="checkbox" /></td><td><input type="checkbox" checked /></td></tr><tr><td>SaaS Admin</td><td colspan="5"><span class="badge text-bg-warning">Somente SIGOV_ADMIN</span></td></tr></tbody></table></div><button class="btn btn-primary align-self-start">Salvar matriz</button></form>
+@section Scripts { <script src="~/js/modules/seguranca.permissoes.js"></script> }
