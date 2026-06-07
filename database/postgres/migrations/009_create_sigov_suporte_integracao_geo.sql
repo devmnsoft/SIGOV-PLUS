@@ -61,7 +61,7 @@ create table if not exists sigov.satisfacao_atendimento (
     correlation_id uuid null
 );
 
-create table if not exists sigov.poc_requisito (
+create table if not exists sigov.validacao_requisito (
     id bigint generated always as identity primary key,
     entidade_id bigint null references sigov.entidade(id),
     exercicio_id bigint null references sigov.exercicio(id),
@@ -81,11 +81,11 @@ create table if not exists sigov.poc_requisito (
     correlation_id uuid null
 );
 
-create table if not exists sigov.poc_resultado (
+create table if not exists sigov.validacao_resultado (
     id bigint generated always as identity primary key,
     entidade_id bigint null references sigov.entidade(id),
     exercicio_id bigint null references sigov.exercicio(id),
-    poc_requisito_id bigint not null references sigov.poc_requisito(id),
+    validacao_requisito_id bigint not null references sigov.validacao_requisito(id),
     status varchar(30) not null,
     evidencias jsonb null,
     codigo_externo varchar(100) null,
