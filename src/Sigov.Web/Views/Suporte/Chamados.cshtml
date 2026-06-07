@@ -1,0 +1,40 @@
+@{
+    ViewData["Title"] = "Suporte / Chamados";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Suporte / Chamados", "Acompanhe solicitações, SLAs e retorno da operação SaaS sem expor dados sensíveis.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Suporte", "/Suporte/Chamados", true) }, "Novo chamado", "/Suporte/NovoChamado"))
+
+<section class="sigov-grid" data-sigov-grid="chamados-suporte" data-sigov-empty-message="Nenhum chamado encontrado para este tenant.">
+  <div class="sigov-grid-toolbar">
+    <label class="form-label" for="buscaChamados">Buscar chamados</label>
+    <input class="form-control" id="buscaChamados" type="search" placeholder="Assunto, protocolo ou situação" data-sigov-grid-search="true">
+    <a class="btn btn-primary" href="/Suporte/NovoChamado">Abrir chamado</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th scope="col">Protocolo</th>
+          <th scope="col">Assunto</th>
+          <th scope="col">Prioridade</th>
+          <th scope="col">SLA</th>
+          <th scope="col">Situação</th>
+          <th scope="col" class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-sigov-empty-row="true">
+          <td colspan="6">
+            <div class="sigov-empty-state">
+              <strong>Central pronta para operação assistida.</strong>
+              <p>Quando a API de chamados estiver habilitada, os registros serão carregados via SigovAjax com tratamento amigável de falhas.</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@section Scripts {
+  <script src="~/js/modules/suporte.chamados.js"></script>
+}

@@ -35,6 +35,8 @@ using Sigov.Application.Release;
 using Sigov.Application.Homologacao;
 using Sigov.Infrastructure.Homologacao;
 using Sigov.Infrastructure.Release;
+using Sigov.Infrastructure.Ui;
+using Sigov.Infrastructure.Onboarding;
 
 namespace Sigov.Infrastructure;
 
@@ -46,6 +48,8 @@ public static class DependencyInjection
         services.AddScoped<DapperContext>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
+        services.AddScoped<UserPreferenceRepository>();
+        services.AddScoped<OnboardingRepository>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
         services.AddSingleton<IReleaseInfoProvider, ReleaseInfoProvider>();
         services.AddSingleton<ReleaseMetadataReader>();
