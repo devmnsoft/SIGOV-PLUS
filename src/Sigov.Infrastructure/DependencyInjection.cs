@@ -27,6 +27,10 @@ using Sigov.Application.Social;
 using Sigov.Infrastructure.Social;
 using Sigov.Infrastructure.Integracoes;
 using Sigov.Application.Integracoes;
+using Sigov.Application.Health;
+using Sigov.Infrastructure.Health;
+using Sigov.Application.Lgpd;
+using Sigov.Infrastructure.Lgpd;
 
 namespace Sigov.Infrastructure;
 
@@ -38,6 +42,11 @@ public static class DependencyInjection
         services.AddScoped<DapperContext>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
+        services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
+        services.AddScoped<IHealthCheckService, HealthCheckService>();
+        services.AddScoped<IHealthCheck, DatabaseHealthCheck>();
+        services.AddScoped<IHealthCheck, OutboxHealthCheck>();
+        services.AddScoped<IHealthCheck, StorageHealthCheck>();
 
         services.AddScoped<IApiCredentialRepository, ApiCredentialRepository>();
         services.AddScoped<IIntegracaoSistemaRepository, IntegracaoSistemaRepository>();
@@ -68,6 +77,9 @@ public static class DependencyInjection
         services.AddScoped<AuditRepository>();
         services.AddScoped<IAuditService, ProcessosAuditService>();
         services.AddScoped<ILgpdMaskingService, LgpdMaskingService>();
+        services.AddScoped<ILgpdClassificationService, LgpdClassificationService>();
+        services.AddScoped<ILgpdMaskingPolicy, LgpdMaskingPolicy>();
+        services.AddScoped<ILgpdAccessLogger, LgpdAccessLogger>();
         services.AddScoped<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<ICorrelationIdProvider, CorrelationIdProvider>();
         services.AddScoped<ICurrentUser, CurrentUser>();
