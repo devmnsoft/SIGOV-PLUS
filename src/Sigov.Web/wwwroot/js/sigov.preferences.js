@@ -1,0 +1,1 @@
+(function (window, $) { $('[data-sigov-preference]').on('change', function () { localStorage.setItem('sigov.preference.' + $(this).data('sigov-preference'), $(this).val()); }); })(window, window.jQuery);

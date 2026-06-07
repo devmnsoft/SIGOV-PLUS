@@ -1,0 +1,14 @@
+@model IReadOnlyList<Sigov.Application.Commercial.ModuleCatalogItem>
+@{
+  ViewData["Title"] = "Catálogo de módulos";
+  var categories = Model.Select(m => m.Category).Distinct().OrderBy(c => c).ToArray();
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Catálogo comercial de módulos", "Visão clara do que o sigov entrega por área, status e benefícios.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Módulos", "/Modulos", true) }))
+<div class="mb-3 d-flex flex-wrap gap-2"><button class="btn btn-outline-primary btn-sm" data-module-category-button="Todos">Todos</button>@foreach (var category in categories) { <button class="btn btn-outline-primary btn-sm" data-module-category-button="@category">@category</button> }</div>
+<div class="row g-3">
+@foreach (var module in Model)
+{
+  <div class="col-md-6 col-xl-4" data-module-category="@module.Category"><div class="card sigov-module-card h-100"><div class="card-body"><div class="d-flex justify-content-between gap-2"><h2 class="h5">@module.Name</h2><span class="badge bg-primary">@module.Status</span></div><p class="text-muted">@module.ShortDescription</p><ul>@foreach (var feature in module.Features.Take(2)) { <li>@feature.Name</li> }</ul><div class="d-flex gap-2"><a class="btn btn-primary btn-sm" href="@module.Route">Abrir módulo</a><a class="btn btn-outline-primary btn-sm" href="/Modulos/Detalhe/@module.Code">Ver funcionalidades</a><button class="btn btn-outline-secondary btn-sm" type="button">Solicitar habilitação</button></div></div></div></div>
+}
+</div>
+@section Scripts { <script src="~/js/modules/modulos.catalogo.js"></script> }

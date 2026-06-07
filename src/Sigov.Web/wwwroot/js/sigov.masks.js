@@ -1,0 +1,1 @@
+(function (window, $) { function digits(value) { return (value || '').replace(/\D/g, ''); } window.Sigov = window.Sigov || {}; window.Sigov.masks = { cpfCnpj: digits, money: function (value) { return digits(value).replace(/(\d)(\d{2})$/, '$1,$2'); } }; $('[data-sigov-mask="cpfcnpj"]').on('input', function () { this.value = digits(this.value); }); })(window, window.jQuery);

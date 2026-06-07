@@ -1,0 +1,1 @@
+(function (window, $) { window.Sigov = window.Sigov || {}; window.Sigov.permissions = { apply: function () { $('[data-permission]').attr('data-sigov-permission-checked', 'true'); } }; $(window.Sigov.permissions.apply); })(window, window.jQuery);

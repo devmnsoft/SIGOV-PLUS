@@ -1,4 +1,11 @@
 using Serilog;
+using Sigov.Application.BusinessRules;
+using Sigov.Application.Commercial;
+using Sigov.Application.Demo;
+using Sigov.Application.Executive;
+using Sigov.Application.Onboarding;
+using Sigov.Application.Ui;
+using Sigov.Web.Branding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +16,17 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .WriteTo.Console());
 
 builder.Services.AddControllersWithViews();
+builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));
+builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
+builder.Services.AddSingleton<ISigovBrandProvider, SigovBrandProvider>();
+builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
+builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
+builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
+builder.Services.AddSingleton<IOnboardingService, OnboardingService>();
+builder.Services.AddSingleton<IDemoModeService, DemoModeService>();
+builder.Services.AddSingleton<IUserPreferenceService, UserPreferenceService>();
+builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>();
+builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardService>();
 
 var app = builder.Build();
 

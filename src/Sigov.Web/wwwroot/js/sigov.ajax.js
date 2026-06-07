@@ -1,0 +1,1 @@
+(function (window, $) { window.Sigov = window.Sigov || {}; window.Sigov.ajax = function (options) { return $.ajax(options).fail(function (xhr) { if (window.Sigov.toast && window.Sigov.errorMapper) { window.Sigov.toast.show(window.Sigov.errorMapper.message(xhr.status), 'danger'); } }); }; })(window, window.jQuery);

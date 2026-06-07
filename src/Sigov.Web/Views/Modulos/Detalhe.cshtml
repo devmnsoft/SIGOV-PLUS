@@ -1,0 +1,4 @@
+@model Sigov.Application.Commercial.ModuleCatalogItem
+@{ ViewData["Title"] = Model.Name; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel(Model.Name, Model.ShortDescription, new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Módulos", "/Modulos"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel(Model.Name, Context.Request.Path, true) }, "Abrir módulo", Model.Route))
+<div class="row g-3"><div class="col-lg-6"><div class="card p-4 h-100"><h2 class="h5">Funcionalidades-chave</h2><ul>@foreach (var item in Model.Features) { <li><strong>@item.Name:</strong> @item.Description</li> }</ul></div></div><div class="col-lg-6"><div class="card p-4 h-100"><h2 class="h5">Benefícios</h2><ul>@foreach (var item in Model.Benefits) { <li><strong>@item.Title:</strong> @item.Description</li> }</ul></div></div></div>

@@ -1,0 +1,1 @@
+(function (window) { window.Sigov = window.Sigov || {}; window.Sigov.savedFilters = { save: function (key, value) { localStorage.setItem('sigov.filter.' + key, JSON.stringify(value || {})); }, load: function (key) { return JSON.parse(localStorage.getItem('sigov.filter.' + key) || '{}'); } }; })(window);

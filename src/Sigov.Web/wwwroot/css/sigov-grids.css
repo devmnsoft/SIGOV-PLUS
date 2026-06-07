@@ -1,0 +1,3 @@
+.sigov-grid-shell { background: var(--sigov-surface); border: 1px solid var(--sigov-border); border-radius: var(--sigov-radius); overflow: hidden; }
+.sigov-grid-toolbar { padding: 1rem; border-bottom: 1px solid var(--sigov-border); }
+.sigov-grid-table { margin-bottom: 0; }

@@ -1,0 +1,7 @@
+.sigov-page-header { background: var(--sigov-surface); border: 1px solid var(--sigov-border); border-radius: var(--sigov-radius); padding: 1.25rem; box-shadow: var(--sigov-shadow); }
+.sigov-module-card { transition: transform .15s ease, box-shadow .15s ease; }
+.sigov-module-card:hover { transform: translateY(-2px); box-shadow: var(--sigov-shadow); }
+.sigov-empty-icon { font-size: 2.5rem; color: var(--sigov-primary); }
+.sigov-loading { display: inline-flex; align-items: center; gap: .5rem; }
+.sigov-kpi { border-left: 4px solid var(--sigov-primary); }
+:focus-visible { outline: 3px solid rgba(20,184,166,.55); outline-offset: 2px; }

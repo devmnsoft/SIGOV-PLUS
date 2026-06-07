@@ -1,0 +1,3 @@
+@{ ViewData["Title"] = "Artigo de ajuda"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Artigo de ajuda", "Conteúdo operacional para implantação assistida.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Ajuda", "/Ajuda"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Artigo", Context.Request.Path, true) }))
+<article class="card p-4"><h2 class="h5">@ViewData["Artigo"]</h2><p>Use os menus, filtros, validações e estados padronizados para operar o sigov com segurança, auditoria e LGPD.</p><button class="btn btn-outline-primary" type="button">Este artigo ajudou?</button></article>

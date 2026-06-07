@@ -1,0 +1,2 @@
+@{ var id = ViewData["FieldId"]?.ToString() ?? "Email"; var label = ViewData["Label"]?.ToString() ?? "E-mail"; }
+<div class="col-md-6"><label class="form-label" for="@id">@label</label><input id="@id" name="@id" type="email" class="form-control" placeholder="@(ViewData["Placeholder"] ?? label)" aria-describedby="@($"{id}Help")" /><div id="@($"{id}Help")" class="form-text">@(ViewData["Help"] ?? "")</div><span class="field-validation-valid" data-valmsg-for="@id" data-valmsg-replace="true"></span></div>

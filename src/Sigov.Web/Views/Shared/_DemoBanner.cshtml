@@ -1,0 +1,4 @@
+@if (Context.RequestServices.GetService(typeof(Sigov.Application.Demo.IDemoModeService)) is Sigov.Application.Demo.IDemoModeService demo && demo.GetState().ShowBanner)
+{
+  <div class="alert alert-warning rounded-0 mb-0 text-center" role="status">Modo demonstração/homologação ativo. Dados fake devem estar claramente marcados e não misturados com clientes reais.</div>
+}
