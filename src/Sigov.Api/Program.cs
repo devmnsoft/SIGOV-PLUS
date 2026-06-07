@@ -25,6 +25,17 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "sigov API", Version = "v1" });
 });
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("SigovCors", policy =>
+    {
+        var origins = builder.Configuration.GetSection("Sigov:Security:CorsAllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+        if (origins.Length > 0)
+        {
+            policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+        }
+    });
+});
 builder.Services.AddInfrastructure();
 
 var app = builder.Build();
@@ -34,9 +45,15 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseCors("SigovCors");
 app.UseMiddleware<SimpleRateLimitMiddleware>();
 
 var sigovOptions = app.Services.GetRequiredService<IOptions<SigovOptions>>().Value;
+if (app.Environment.IsProduction() && string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("DefaultConnection")))
+{
+    throw new InvalidOperationException("ConnectionStrings:DefaultConnection deve ser fornecida por variável de ambiente/secret manager em Production.");
+}
+
 if (app.Configuration.GetValue("Sigov:Database:RunMigrationsOnStartup", false))
 {
     using var scope = app.Services.CreateScope();
@@ -46,6 +63,21 @@ if (app.Configuration.GetValue("Sigov:Database:RunMigrationsOnStartup", false))
 
 if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInProduction)
 {
+    if (app.Environment.IsProduction())
+    {
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(context.Request.Headers["X-Sigov-Bootstrap-Token"].ToString(), sigovOptions.Security.BootstrapToken, StringComparison.Ordinal))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            await next().ConfigureAwait(false);
+        });
+    }
+
     app.UseSwagger();
     app.UseSwaggerUI();
 }
