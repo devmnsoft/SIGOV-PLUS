@@ -40,7 +40,14 @@ public sealed class HealthCheckService : IHealthCheckService
         return storage.CheckAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    public object GetVersion() => new { application = _versionInfoProvider.Application, version = _versionInfoProvider.Version };
+    public object GetVersion() => new
+    {
+        application = _versionInfoProvider.Application,
+        version = _versionInfoProvider.Version,
+        commit = _versionInfoProvider.Commit,
+        environment = _versionInfoProvider.EnvironmentName,
+        buildDate = _versionInfoProvider.BuildDate
+    };
 
     private async Task<HealthCheckResult> RunByNameAsync(string name, CancellationToken cancellationToken)
     {

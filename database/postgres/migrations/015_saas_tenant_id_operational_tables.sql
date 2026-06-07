@@ -7,7 +7,7 @@ declare
         'trilha_auditoria','log_aplicacao','log_erro','fila_evento','acesso_dado_pessoal','consentimento','solicitacao_titular',
         'relatorio_titular','incidente_seguranca','chamado','chamado_interacao','satisfacao_atendimento','api_credential',
         'notificacao','tarefa','agenda_obrigacao','controle_sequencial','usuario_entidade','usuario_exercicio','grupo_perfil',
-        'poc_requisito','poc_resultado','termo_aceite','integracao_sistema','webhook_recebido','camada','geolocalizacao'
+        'validacao_requisito','validacao_resultado','termo_aceite','integracao_sistema','webhook_recebido','camada','geolocalizacao'
     ];
     default_tenant_id bigint;
 begin
