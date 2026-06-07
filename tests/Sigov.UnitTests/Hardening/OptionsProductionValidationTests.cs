@@ -33,6 +33,15 @@ public sealed class OptionsProductionValidationTests
         CreateValidator("Production").Validate(null, options).Failed.Should().BeTrue();
     }
 
+
+    [Fact]
+    public void Production_Deve_Falhar_Com_Jwt_Placeholder()
+    {
+        var result = CreateValidator("Production").Validate(null, CreateProductionOptions(jwtSecret: "REPLACE_WITH_32_PLUS_CHARACTER_SECRET"));
+
+        result.Failed.Should().BeTrue();
+    }
+
     [Fact]
     public void Development_Deve_Permitir_Seed_Demo()
     {

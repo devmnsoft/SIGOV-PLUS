@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sigov}
       POSTGRES_USER: ${POSTGRES_USER:-sigov}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-REPLACE_WITH_SECRET}
     volumes:
       - sigov_postgres_prod_data:/var/lib/postgresql/data
       - ./docker/postgres/backup:/backup

@@ -26,9 +26,9 @@ public sealed class SigovOptionsValidator : IValidateOptions<SigovOptions>
             return ValidateOptionsResult.Fail("Seed demo é proibido em Production.");
         }
 
-        if (string.IsNullOrWhiteSpace(options.Jwt.Secret) || options.Jwt.Secret.Length < 32)
+        if (string.IsNullOrWhiteSpace(options.Jwt.Secret) || options.Jwt.Secret.Length < 32 || IsPlaceholder(options.Jwt.Secret))
         {
-            return ValidateOptionsResult.Fail("Sigov:Jwt:Secret deve ser fornecido por variável de ambiente/secret manager em Production e ter pelo menos 32 caracteres.");
+            return ValidateOptionsResult.Fail("Sigov:Jwt:Secret deve ser fornecido por variável de ambiente/secret manager em Production, não pode ser placeholder e deve ter pelo menos 32 caracteres.");
         }
 
         if (options.Security.CorsAllowedOrigins.Length == 0 || options.Security.CorsAllowedOrigins.Any(origin => origin == "*"))
@@ -43,4 +43,9 @@ public sealed class SigovOptionsValidator : IValidateOptions<SigovOptions>
 
         return ValidateOptionsResult.Success;
     }
+
+    private static bool IsPlaceholder(string value) =>
+        value.Contains("REPLACE_WITH", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase);
 }
