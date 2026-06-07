@@ -1,0 +1,5 @@
+@model long
+@{ ViewData["Title"] = "Detalhe da auditoria"; }
+<section class="sigov-page-header mb-4"><span class="badge text-bg-secondary mb-2">Auditoria</span><h1 class="h2">Detalhe da trilha #@Model</h1><p class="text-muted">Antes/depois, IP, UserAgent e correlationId com visualização segura.</p></section>
+<div class="row g-3"><div class="col-lg-6"><div class="card card-body"><h2 class="h5">Dados anteriores</h2><pre class="bg-light p-3 rounded">{"documento":"***.***.***-**","nome":"Maria"}</pre></div></div><div class="col-lg-6"><div class="card card-body"><h2 class="h5">Dados novos</h2><pre class="bg-light p-3 rounded">{"documento":"***.***.***-**","nome":"Maria Silva"}</pre></div></div></div><div class="card card-body mt-3"><span><strong>IP:</strong> ***.***.0.10 • <strong>UserAgent:</strong> Navegador mascarado • <strong>CorrelationId:</strong> 00000000-0000</span><button class="btn btn-sm btn-outline-secondary mt-2 align-self-start" data-sigov-copy-json>Copiar JSON</button></div>
+@section Scripts { <script src="~/js/modules/auditoria.trilhas.js"></script> }

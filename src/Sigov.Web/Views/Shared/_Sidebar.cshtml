@@ -2,35 +2,43 @@
   <div class="fw-bold mb-2 text-white">Operação municipal</div>
   <a class="d-block" href="/">Dashboard</a>
   <a class="d-block" href="/Executivo">Painel executivo</a>
-  <a class="d-block" href="/Comercial">Apresentação comercial</a>
   <a class="d-block" href="/Modulos">Catálogo de módulos</a>
   <a class="d-block" href="/Onboarding">Onboarding</a>
   <a class="d-block" href="/Preferencias">Preferências</a>
   <a class="d-block" href="/DesignSystem">Design system</a>
   <a class="d-block" href="/RegrasNegocio">Regras de negócio</a>
   <a class="d-block" href="/Ajuda">Central de ajuda</a>
-  <a class="d-block" href="/Suporte/Chamados">Suporte / Chamados</a>
-  <a class="d-block" href="/Operacao/Health">Operação / Health</a>
   <hr />
-  <div class="fw-bold mb-2 text-white">Módulos existentes</div>
-  <a class="d-block" data-permission="core.pessoas.visualizar" href="/Pessoas">Pessoas e Endereços</a>
-  <a class="d-block" data-permission="processos.processo.visualizar" href="/Processos">Processos</a>
-  <a class="d-block" data-permission="processos.protocolo.visualizar" href="/Protocolos">Protocolos</a>
-  <a class="d-block" data-permission="processos.ouvidoria.visualizar" href="/Ouvidoria">Ouvidoria</a>
-  <a class="d-block" data-permission="processos.diario.visualizar" href="/DiarioOficial">Diário Oficial</a>
-  <a class="d-block" data-permission="financeiro.dashboard.visualizar" href="/Financeiro/Dashboard">Financeiro/SIAFIC</a>
-  <a class="d-block" data-permission="rh.dashboard.visualizar" href="/Rh/Dashboard">RH/Folha/Ponto</a>
-  <a class="d-block" data-permission="educacao.dashboard.visualizar" href="/Educacao/Dashboard">Educação</a>
-  <a class="d-block" data-permission="saude.dashboard.visualizar" href="/Saude/Dashboard">Saúde/ACS</a>
-  <a class="d-block" data-permission="social.dashboard.visualizar" href="/Social/Dashboard">Assistência Social</a>
-  <a class="d-block" data-permission="saneamento.dashboard.visualizar" href="/Saneamento/Dashboard">Saneamento</a>
-  <a class="d-block" data-permission="integracao.dashboard.visualizar" href="/Integracoes/Dashboard">Integrações</a>
+  <div class="fw-bold mb-2 text-white">Administração</div>
+  <a class="d-block" data-module="core" data-permission="core.pessoas.visualizar" href="/Pessoas">Pessoas</a>
+  <a class="d-block" data-module="core" data-permission="core.entidades.visualizar" href="/Core/Entidades">Entidades</a>
+  <a class="d-block" data-module="core" data-permission="core.exercicios.visualizar" href="/Core/Exercicios">Exercícios</a>
+  <a class="d-block" data-module="core" data-permission="core.unidades.visualizar" href="/Core/Unidades">Unidades</a>
+  <hr />
+  <div class="fw-bold mb-2 text-white">Segurança</div>
+  <a class="d-block" data-module="seguranca" data-permission="seguranca.usuarios.visualizar" href="/Seguranca/Usuarios">Usuários</a>
+  <a class="d-block" data-module="seguranca" data-permission="seguranca.perfis.visualizar" href="/Seguranca/Perfis">Perfis</a>
+  <a class="d-block" data-module="seguranca" data-permission="seguranca.grupos.visualizar" href="/Seguranca/Grupos">Grupos</a>
+  <a class="d-block" data-module="seguranca" data-permission="seguranca.permissoes.visualizar" href="/Seguranca/Permissoes">Permissões</a>
+  <a class="d-block" data-module="seguranca" data-permission="seguranca.historico.visualizar" href="/Seguranca/HistoricoLogin">Histórico de Login</a>
   <hr />
   <div class="fw-bold mb-2 text-white">SaaS Admin</div>
-  <a class="d-block" href="/SaasAdmin/Tenants">Tenants</a>
-  <a class="d-block" href="/SaasAdmin/Planos">Planos</a>
-  <a class="d-block" href="/SaasAdmin/Modulos">Módulos</a>
-  <a class="d-block" href="/SaasAdmin/FeatureFlags">Feature Flags</a>
-  <a class="d-block" href="/SaasAdmin/Uso">Uso</a>
-  <a class="d-block" href="/SaasAdmin/Operacao">Operação SaaS Admin</a>
+  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Tenants">Tenants</a>
+  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Planos">Planos</a>
+  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Modulos">Módulos</a>
+  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Assinaturas">Assinaturas</a>
+  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/FeatureFlags">Feature Flags</a>
+  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Uso">Uso</a>
+  <hr />
+  <div class="fw-bold mb-2 text-white">Auditoria</div>
+  <a class="d-block" data-module="auditoria" data-permission="auditoria.trilhas.visualizar" href="/Auditoria/Trilhas">Trilhas</a>
+  <a class="d-block" data-module="auditoria" data-permission="auditoria.dadospessoais.visualizar" href="/Auditoria/AcessosDadosPessoais">Acessos a Dados Pessoais</a>
+  <a class="d-block" data-module="auditoria" data-permission="auditoria.timeline.visualizar" href="/Auditoria/Timeline">Timeline</a>
+  <hr />
+  <div class="fw-bold mb-2 text-white">LGPD</div>
+  <a class="d-block" data-module="lgpd" data-permission="lgpd.dashboard.visualizar" href="/Lgpd">Dashboard</a>
+  <a class="d-block" data-module="lgpd" data-permission="lgpd.consentimentos.visualizar" href="/Lgpd/Consentimentos">Consentimentos</a>
+  <a class="d-block" data-module="lgpd" data-permission="lgpd.solicitacoes.visualizar" href="/Lgpd/Solicitacoes">Solicitações do Titular</a>
+  <a class="d-block" data-module="lgpd" data-permission="lgpd.incidentes.visualizar" href="/Lgpd/Incidentes">Incidentes</a>
+  <a class="d-block" data-module="lgpd" data-permission="lgpd.relatorio.visualizar" href="/Lgpd/RelatorioTitular">Relatório do Titular</a>
 </aside>

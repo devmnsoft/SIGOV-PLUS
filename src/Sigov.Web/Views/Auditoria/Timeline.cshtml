@@ -1,0 +1,4 @@
+@model string
+@{ ViewData["Title"] = "Timeline de auditoria"; }
+<section class="sigov-page-header mb-4"><span class="badge text-bg-secondary mb-2">Auditoria</span><h1 class="h2">Timeline por registro</h1><p class="text-muted">Registro: @(string.IsNullOrWhiteSpace(Model) ? "não informado" : Model)</p></section><ol class="list-group list-group-numbered"><li class="list-group-item">Criação auditada</li><li class="list-group-item">Alteração com antes/depois</li><li class="list-group-item">Consulta de dado pessoal registrada</li></ol>
+@section Scripts { <script src="~/js/modules/auditoria.timeline.js"></script> }

@@ -1,4 +1,4 @@
 @model Sigov.Web.Models.Processos.ProcessoDigitalFormViewModel
 <h1>Editar processo</h1>
-<form id="processo-form" asp-action="Editar" method="post" class="card card-body"><partial name="_FormProcesso" model="Model" /><div class="mt-3"><button class="btn btn-primary" type="submit">Salvar</button><a class="btn btn-secondary" href="/Processos">Voltar</a></div></form>
+<form id="processo-form" asp-action="Editar" method="post" class="card card-body">@Html.AntiForgeryToken()<partial name="_FormProcesso" model="Model" /><div class="mt-3"><button class="btn btn-primary" type="submit">Salvar</button><a class="btn btn-secondary" href="/Processos">Voltar</a></div></form>
 @section Scripts { <script src="~/js/modules/processos.digital.js"></script> }

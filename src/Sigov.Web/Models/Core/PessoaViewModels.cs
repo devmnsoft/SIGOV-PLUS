@@ -21,6 +21,19 @@ public sealed class PessoaFormViewModel
     [StringLength(20)]
     public string? Documento { get; set; }
 
+    [Display(Name = "E-mail")]
+    [EmailAddress]
+    [StringLength(250)]
+    public string? Email { get; set; }
+
+    [Display(Name = "Telefone")]
+    [StringLength(30)]
+    public string? Telefone { get; set; }
+
+    [Display(Name = "Classificação LGPD")]
+    [StringLength(40)]
+    public string ClassificacaoLgpd { get; set; } = "Pessoal";
+
     [StringLength(500)]
     public string? Observacao { get; set; }
 

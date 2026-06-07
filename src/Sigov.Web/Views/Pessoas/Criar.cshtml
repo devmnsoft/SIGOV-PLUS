@@ -2,21 +2,16 @@
 @{
     ViewData["Title"] = "Nova pessoa";
 }
-<h1>Nova pessoa</h1>
-<form id="pessoa-form" class="card card-body">
+<section class="sigov-page-header mb-4"><span class="badge text-bg-primary mb-2">Core / Pessoas</span><h1 class="h2">Nova pessoa</h1><p class="text-muted">Formulário padronizado com antiforgery, validação client-side/server-side e submit Ajax.</p></section>
+<form id="pessoa-form" class="card card-body sigov-form" method="post" data-sigov-form="true" data-sigov-ajax="true" data-sigov-success-message="Pessoa salva com sucesso.">
   @Html.AntiForgeryToken()
   <partial name="_FormPessoa" model="Model" />
   <hr />
-  <h2 class="h5">Endereço inicial</h2>
-  <div class="row g-3" id="endereco-inicial">
-    <div class="col-md-5"><label class="form-label" for="Logradouro">Logradouro</label><input id="Logradouro" name="Logradouro" class="form-control" /></div>
-    <div class="col-md-2"><label class="form-label" for="Numero">Número</label><input id="Numero" name="Numero" class="form-control" /></div>
-    <div class="col-md-3"><label class="form-label" for="Bairro">Bairro</label><input id="Bairro" name="Bairro" class="form-control" /></div>
-    <div class="col-md-2"><label class="form-label" for="Cep">CEP</label><input id="Cep" name="Cep" class="form-control" /></div>
-    <div class="col-md-5"><label class="form-label" for="Municipio">Município</label><input id="Municipio" name="Municipio" class="form-control" /></div>
-    <div class="col-md-2"><label class="form-label" for="Uf">UF</label><input id="Uf" name="Uf" maxlength="2" class="form-control text-uppercase" /></div>
-    <div class="col-md-5"><label class="form-label" for="Complemento">Complemento</label><input id="Complemento" name="Complemento" class="form-control" /></div>
-  </div>
-  <button class="btn btn-primary mt-3" type="submit">Salvar</button>
+  <h2 class="h5">Endereço principal</h2>
+  <partial name="_Enderecos" />
+  <hr />
+  <h2 class="h5">Contato principal</h2>
+  <partial name="_Contatos" />
+  <div class="d-flex justify-content-end gap-2 mt-4"><a class="btn btn-outline-secondary" href="/Pessoas">Cancelar</a><button class="btn btn-primary" type="submit">Salvar pessoa</button></div>
 </form>
 @section Scripts { <script src="~/js/modules/core.pessoas.js"></script> }

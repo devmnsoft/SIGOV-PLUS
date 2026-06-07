@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Lote1.GrupoFormViewModel
+@{ ViewData["Title"] = "Grupos"; }
+<section class="sigov-page-header mb-4"><span class="badge text-bg-dark mb-2">Segurança</span><h1 class="h2">Grupos</h1><p class="text-muted">Agrupamento de usuários por responsabilidades e entidades.</p></section>
+<form class="card card-body mb-3" method="post">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label asp-for="Codigo" class="form-label"></label><input asp-for="Codigo" class="form-control" required /></div><div class="col-md-6"><label asp-for="Nome" class="form-label"></label><input asp-for="Nome" class="form-control" required /></div><div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100">Salvar</button></div></div></form><div class="card card-body sigov-empty-state">Nenhum grupo filtrado. Cadastre grupos para atribuição em massa.</div>
+@section Scripts { <script src="~/js/modules/seguranca.grupos.js"></script> }
