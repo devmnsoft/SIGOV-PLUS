@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Sigov.Application.Health;
+using Sigov.Application.Release;
 
 namespace Sigov.Infrastructure.Health;
 
@@ -7,12 +8,14 @@ public sealed class HealthCheckService : IHealthCheckService
 {
     private readonly IReadOnlyCollection<IHealthCheck> _checks;
     private readonly IVersionInfoProvider _versionInfoProvider;
+    private readonly IReleaseInfoProvider _releaseInfoProvider;
     private readonly ILogger<HealthCheckService> _logger;
 
-    public HealthCheckService(IEnumerable<IHealthCheck> checks, IVersionInfoProvider versionInfoProvider, ILogger<HealthCheckService> logger)
+    public HealthCheckService(IEnumerable<IHealthCheck> checks, IVersionInfoProvider versionInfoProvider, IReleaseInfoProvider releaseInfoProvider, ILogger<HealthCheckService> logger)
     {
         _checks = checks.ToArray();
         _versionInfoProvider = versionInfoProvider;
+        _releaseInfoProvider = releaseInfoProvider;
         _logger = logger;
     }
 
@@ -40,14 +43,7 @@ public sealed class HealthCheckService : IHealthCheckService
         return storage.CheckAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    public object GetVersion() => new
-    {
-        application = _versionInfoProvider.Application,
-        version = _versionInfoProvider.Version,
-        commit = _versionInfoProvider.Commit,
-        environment = _versionInfoProvider.EnvironmentName,
-        buildDate = _versionInfoProvider.BuildDate
-    };
+    public ReleaseInfoResponse GetVersion() => _releaseInfoProvider.GetReleaseInfo();
 
     private async Task<HealthCheckResult> RunByNameAsync(string name, CancellationToken cancellationToken)
     {

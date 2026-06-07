@@ -28,7 +28,7 @@ public sealed class ApiContractRegressionTests : IClassFixture<WebApplicationFac
     }
 
     [Fact]
-    public async Task VersionEndpoint_Deve_Expor_Metadados_De_Release_Candidate()
+    public async Task VersionEndpoint_Deve_Expor_Metadados_De_Release_Final()
     {
         var previousVersion = Environment.GetEnvironmentVariable("SIGOV_VERSION");
         var previousCommit = Environment.GetEnvironmentVariable("SIGOV_COMMIT_SHA");
@@ -37,7 +37,7 @@ public sealed class ApiContractRegressionTests : IClassFixture<WebApplicationFac
 
         try
         {
-            Environment.SetEnvironmentVariable("SIGOV_VERSION", "v1.0.0-rc.1");
+            Environment.SetEnvironmentVariable("SIGOV_VERSION", "v1.0.0");
             Environment.SetEnvironmentVariable("SIGOV_COMMIT_SHA", "test-sha");
             Environment.SetEnvironmentVariable("SIGOV_BUILD_DATE", "2026-06-07T00:00:00Z");
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development");
@@ -48,10 +48,13 @@ public sealed class ApiContractRegressionTests : IClassFixture<WebApplicationFac
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             content.Should().Contain("\"application\":\"sigov\"");
-            content.Should().Contain("\"version\":\"v1.0.0-rc.1\"");
-            content.Should().Contain("\"commit\":\"test-sha\"");
-            content.Should().Contain("\"environment\":\"Development\"");
+            content.Should().Contain("\"version\":\"v1.0.0\"");
+            content.Should().Contain("\"commitSha\":\"test-sha\"");
+            content.Should().Contain("\"environment\":");
             content.Should().Contain("\"buildDate\":\"2026-06-07T00:00:00Z\"");
+            content.Should().Contain("\"releaseChannel\":");
+            content.Should().Contain("\"database\":\"sigov\"");
+            content.Should().Contain("\"schema\":\"sigov\"");
         }
         finally
         {

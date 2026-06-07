@@ -1,3 +1,5 @@
+using Sigov.Application.Release;
+
 namespace Sigov.Application.Health;
 
 public interface IHealthCheckService
@@ -7,5 +9,5 @@ public interface IHealthCheckService
     Task<HealthCheckResult> GetDatabaseAsync(CancellationToken cancellationToken);
     Task<HealthCheckResult> GetOutboxAsync(CancellationToken cancellationToken);
     HealthCheckResult GetStorage();
-    object GetVersion();
+    ReleaseInfoResponse GetVersion();
 }

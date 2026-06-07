@@ -31,6 +31,10 @@ using Sigov.Application.Health;
 using Sigov.Infrastructure.Health;
 using Sigov.Application.Lgpd;
 using Sigov.Infrastructure.Lgpd;
+using Sigov.Application.Release;
+using Sigov.Application.Homologacao;
+using Sigov.Infrastructure.Homologacao;
+using Sigov.Infrastructure.Release;
 
 namespace Sigov.Infrastructure;
 
@@ -43,6 +47,14 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
+        services.AddSingleton<IReleaseInfoProvider, ReleaseInfoProvider>();
+        services.AddSingleton<ReleaseMetadataReader>();
+        services.AddSingleton<BuildInfoProvider>();
+        services.AddSingleton<IGoLiveChecklistService, GoLiveChecklistService>();
+        services.AddSingleton<ISmokeTestPlanService, SmokeTestPlanService>();
+        services.AddSingleton<IHomologacaoValidator, HomologacaoValidator>();
+        services.AddScoped<IHomologacaoSeedService, HomologacaoSeedService>();
+        services.AddScoped<HomologacaoRepository>();
         services.AddScoped<IHealthCheckService, HealthCheckService>();
         services.AddScoped<IHealthCheck, DatabaseHealthCheck>();
         services.AddScoped<IHealthCheck, OutboxHealthCheck>();

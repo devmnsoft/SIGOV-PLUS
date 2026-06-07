@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.0.0 - 2026-06-07
+
+### Adicionado
+- Versionamento final `v1.0.0` com `VERSION`, release notes final, checklist de release e documentação operacional mínima.
+- Metadados de build em `/api/health/version` por `SIGOV_VERSION`, `SIGOV_COMMIT_SHA`, `SIGOV_BUILD_DATE` e `SIGOV_RELEASE_CHANNEL`, mantendo `application`, `database` e `schema` como `sigov`.
+- Scripts executáveis de validação final, smoke test, homologação, go-live, rollback e empacotamento de release.
+- Pacote local de release em `artifacts/release/v1.0.0/` gerado por script com manifest, migrations, projetos e checksums.
+- Workflow manual `.github/workflows/release.yml` para preparar artefato de release sem publicar imagens sem secrets configurados.
+- Testes de release para metadados, checklist de go-live, homologação segura, pacote e health version.
+
+### Corrigido
+- Endpoint de versão passou a retornar contrato final com `releaseChannel`, `commitSha`, `buildDate`, `environment`, `database` e `schema`.
+- Checklist de go-live deixou de ser apenas informativo e passou a retornar PASS/WARN/FAIL com exit code em falhas.
+- Rollback passou a validar backup, checksum, versões, restore protegido e plano documentado sem executar restore.
+
+### Segurança operacional
+- Homologação bloqueada em `Production` por script e validador de aplicação.
+- Swagger Production permanece desabilitado por padrão e, quando habilitado, exige proteção explícita já validada por options.
+- CORS wildcard, seed demo, admin default e adapters dev são bloqueados/validados para Production.
+- Pacote de release não inclui dumps reais, certificados, tokens ou secrets.
+
+### Pendências pós-release
+- Executar homologação assistida com banco real e evidências assinadas pelo cliente.
+- Ampliar testes E2E autenticados completos por perfil funcional em releases futuras.
+- Evoluir módulos estruturais/parciais em backlog próprio, sem bloquear o pacote v1.0.0 homologável.
+
 ## v1.0.0-rc.1 - 2026-06-07
 
 ### Adicionado
