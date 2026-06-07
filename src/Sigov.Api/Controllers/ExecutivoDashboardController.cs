@@ -5,6 +5,7 @@ using Sigov.Application.Executive;
 namespace Sigov.Api.Controllers;
 
 [ApiController]
+[Route("api/ui/executivo/dashboard")]
 [Route("api/executivo/dashboard")]
 public sealed class ExecutivoDashboardController : ControllerBase
 {

@@ -64,9 +64,25 @@ public sealed class BusinessRuleCatalog : IBusinessRuleCatalog
 
     public IReadOnlyList<IBusinessRule> GetRules() => Rules;
 
-    public IReadOnlyList<IBusinessRule> GetRulesByModule(string module) => Rules
-        .Where(rule => string.Equals(rule.Module, module, StringComparison.OrdinalIgnoreCase))
-        .ToArray();
+    public IReadOnlyList<IBusinessRule> GetRulesByModule(string module)
+    {
+        var normalized = NormalizeModuleName(module);
+        return Rules
+            .Where(rule => string.Equals(rule.Module, normalized, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
+
+    private static string NormalizeModuleName(string module)
+    {
+        return module.Trim().ToUpperInvariant() switch
+        {
+            "CORE" or "PESSOAS" => "Core/Pessoas",
+            "SUPORTE" or "OPERACAO" or "OPERAÇÃO" => "Suporte/Operação",
+            "BI" or "RELATORIOS" or "RELATÓRIOS" => "Relatórios/BI",
+            _ => module
+        };
+    }
 
     private static IReadOnlyList<IBusinessRule> BuildRules()
     {

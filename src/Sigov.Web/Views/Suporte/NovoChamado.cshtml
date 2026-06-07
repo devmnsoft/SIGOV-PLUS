@@ -1,0 +1,40 @@
+@{
+    ViewData["Title"] = "Novo chamado";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Novo chamado de suporte", "Registre uma solicitação com informações objetivas e sem anexar dados pessoais desnecessários.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Chamados", "/Suporte/Chamados"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Novo", "/Suporte/NovoChamado", true) }))
+
+<form method="post" data-sigov-form="true" data-sigov-ajax="true" data-sigov-success-message="Chamado registrado com sucesso." data-sigov-error-message="Não foi possível registrar o chamado agora.">
+  @Html.AntiForgeryToken()
+  <div class="card sigov-form-shell">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label" for="Assunto">Assunto</label>
+          <input class="form-control" id="Assunto" name="Assunto" maxlength="150" required>
+          <div class="form-text">Informe um resumo claro da necessidade.</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="Prioridade">Prioridade</label>
+          <select class="form-select" id="Prioridade" name="Prioridade" required>
+            <option value="Normal">Normal</option>
+            <option value="Alta">Alta</option>
+            <option value="Crítica">Crítica</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="Descricao">Descrição</label>
+          <textarea class="form-control" id="Descricao" name="Descricao" rows="6" required></textarea>
+          <div class="form-text">Não informe senhas, tokens, chaves de API ou dados pessoais além do necessário.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <a class="btn btn-outline-secondary" href="/Suporte/Chamados">Cancelar</a>
+      <button class="btn btn-primary" type="submit">Enviar chamado</button>
+    </div>
+  </div>
+</form>
+
+@section Scripts {
+  <script src="~/js/modules/suporte.chamados.js"></script>
+}

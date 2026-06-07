@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Operação / Health";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Operação / Health", "Validação operacional da plataforma, versão, dependências e sinais de disponibilidade.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Operação", "/Operacao/Health", true) }))
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card sigov-dashboard-card"><div class="card-body"><span class="sigov-kpi-label">API</span><strong class="sigov-kpi-value">/api/health</strong><span class="badge bg-success">monitorado</span></div></div></div>
+  <div class="col-md-4"><div class="card sigov-dashboard-card"><div class="card-body"><span class="sigov-kpi-label">Versão</span><strong class="sigov-kpi-value">/api/health/version</strong><span class="badge bg-info">publicável</span></div></div></div>
+  <div class="col-md-4"><div class="card sigov-dashboard-card"><div class="card-body"><span class="sigov-kpi-label">Tenant</span><strong class="sigov-kpi-value">isolado</strong><span class="badge bg-primary">sigov</span></div></div></div>
+</div>
+
+<section class="sigov-grid" data-sigov-grid="operacao-health">
+  <div class="sigov-grid-toolbar">
+    <button class="btn btn-primary" type="button" data-health-refresh="true">Atualizar health</button>
+    <a class="btn btn-outline-primary" href="/DesignSystem">Ver Design System</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th scope="col">Check</th><th scope="col">Endpoint</th><th scope="col">Status esperado</th><th scope="col">Observação</th></tr></thead>
+      <tbody>
+        <tr><td>Live</td><td>/api/health/live</td><td><span class="badge bg-success">OK</span></td><td>Não exibe stack trace.</td></tr>
+        <tr><td>Readiness</td><td>/api/health</td><td><span class="badge bg-success">OK</span></td><td>Resumo amigável de dependências.</td></tr>
+        <tr><td>Versão</td><td>/api/health/version</td><td><span class="badge bg-info">Metadados</span></td><td>Aplicação, schema sigov e ambiente.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@section Scripts {
+  <script src="~/js/modules/operacao.health.js"></script>
+}
