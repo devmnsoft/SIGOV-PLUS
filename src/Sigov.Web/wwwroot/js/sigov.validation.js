@@ -1,0 +1,1 @@
+(function (window, $) { window.Sigov = window.Sigov || {}; window.Sigov.validation = { refresh: function (scope) { if ($.validator && $.validator.unobtrusive) { $.validator.unobtrusive.parse(scope || document); } } }; })(window, window.jQuery);

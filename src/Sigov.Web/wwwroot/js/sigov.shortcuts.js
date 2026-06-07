@@ -1,0 +1,1 @@
+(function (window, $) { $(document).on('keydown', function (event) { if (event.altKey && event.key.toLowerCase() === 'h') { window.location.href = '/Ajuda'; } if (event.altKey && event.key.toLowerCase() === 'm') { window.location.href = '/Modulos'; } }); })(window, window.jQuery);

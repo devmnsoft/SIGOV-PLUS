@@ -1,0 +1,16 @@
+@{
+  ViewData["Title"] = "Design system";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Design system sigov", "Identidade visual, componentes, forms, grids e estados reutilizáveis.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Design system", "/DesignSystem", true) }))
+<section class="row g-3 mb-4">
+  <div class="col-lg-4"><div class="card sigov-brand-card p-4"><img src="~/img/sigov-logo.svg" alt="Logo sigov" class="img-fluid"><p class="text-muted mb-0">Logo SVG próprio, editável e sem dependência externa.</p></div></div>
+  <div class="col-lg-8"><div class="card sigov-brand-card p-4"><h2 class="h5">Paleta</h2><div class="d-flex flex-wrap gap-2"><span class="badge" style="background:var(--sigov-primary)">Primary</span><span class="badge" style="background:var(--sigov-secondary)">Secondary</span><span class="badge" style="background:var(--sigov-accent)">Accent</span><span class="badge bg-success">Success</span><span class="badge bg-warning text-dark">Warning</span><span class="badge bg-danger">Danger</span><span class="badge bg-info">Info</span></div></div></div>
+</section>
+<section class="row g-3">
+  <div class="col-lg-6"><div class="card p-4"><h2 class="h5">Botões e badges</h2><button class="btn btn-primary me-2">Primário</button><button class="btn btn-outline-primary me-2">Secundário</button><sigov-badge variant="success">Habilitado</sigov-badge></div></div>
+  <div class="col-lg-6"><div class="card p-4"><h2 class="h5">Alertas</h2><div class="alert alert-info mb-0">Mensagem amigável, sem stack trace.</div></div></div>
+  <div class="col-lg-6"><div class="card p-4"><h2 class="h5">Form padrão</h2><form method="post" data-sigov-form="true" data-sigov-ajax="true">@Html.AntiForgeryToken()<label class="form-label sigov-required" for="nomeDemo">Nome</label><input class="form-control" id="nomeDemo" name="nomeDemo" required><span class="field-validation-valid" data-valmsg-for="nomeDemo"></span><button class="btn btn-primary mt-3" type="submit">Salvar</button></form></div></div>
+  <div class="col-lg-6"><div class="sigov-grid-shell"><div class="sigov-grid-toolbar">Tabela padrão</div><table class="table mb-0"><thead><tr><th>Coluna</th><th>Status</th></tr></thead><tbody><tr><td>Exemplo</td><td><span class="badge bg-success">Ativo</span></td></tr></tbody></table></div></div>
+  <div class="col-lg-6">@await Component.InvokeAsync("EmptyState", new Sigov.Web.Models.Ui.EmptyStateViewModel("Empty state", "Use quando não houver dados para exibir.", "bi-inbox", "Criar registro", "/"))</div>
+  <div class="col-lg-6"><div class="sigov-dashboard-card p-4"><h2 class="h5">Dashboard card</h2><p class="display-6 mb-0">0</p><p class="text-muted">Indicador estrutural seguro</p></div></div>
+</section>

@@ -1,0 +1,4 @@
+.sigov-form-shell { background: var(--sigov-surface); border: 1px solid var(--sigov-border); border-radius: var(--sigov-radius); padding: 1.25rem; }
+.sigov-required::after { content: " *"; color: var(--sigov-danger); }
+.field-validation-error { color: var(--sigov-danger); font-size: .875rem; }
+.sigov-form-loading { opacity: .7; pointer-events: none; }

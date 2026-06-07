@@ -1,0 +1,5 @@
+@model IReadOnlyList<Sigov.Application.Commercial.ModuleCatalogItem>
+@{ ViewData["Title"] = "Comercial"; }
+<section class="sigov-gradient rounded-4 p-5 mb-4" data-sigov-tour="Visão comercial do produto"><h1 class="display-6 fw-bold">sigov para gestão pública municipal</h1><p class="lead mb-0">SaaS multi-tenant com base única, auditoria, LGPD, integrações, dashboards e implantação assistida.</p></section>
+<div class="row g-3 mb-4">@foreach (var item in new[] { "SaaS", "Multi-tenant", "Base única", "Auditoria", "LGPD", "Integração", "Dashboards", "Suporte", "Implantação", "Relatórios", "Dados abertos" }) { <div class="col-md-3"><div class="card p-3 h-100"><strong>@item</strong><span class="text-muted">Diferencial comercial e técnico.</span></div></div> }</div>
+<h2 class="h4">Módulos em destaque</h2><div class="row g-3">@foreach (var module in Model.Take(6)) { <div class="col-md-4"><div class="card p-3 h-100"><h3 class="h5">@module.Name</h3><p class="text-muted">@module.ShortDescription</p><a class="btn btn-outline-primary btn-sm" href="/Modulos/Detalhe/@module.Code">Ver benefícios</a></div></div> }</div>

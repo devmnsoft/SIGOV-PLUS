@@ -1,0 +1,4 @@
+@model IReadOnlyList<Sigov.Application.BusinessRules.IBusinessRule>
+@{ ViewData["Title"] = "Regras de negócio"; var groups = Model.GroupBy(r => r.Module).OrderBy(g => g.Key); }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Catálogo central de regras", "Regras por módulo para validação, auditoria e alinhamento de negócio.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Regras", "/RegrasNegocio", true) }))
+@foreach (var group in groups) { <section class="card p-4 mb-3"><h2 class="h5">@group.Key</h2><ol>@foreach (var rule in group) { <li><code>@rule.Code</code> — @rule.Description <span class="badge bg-danger">@rule.Severity</span></li> }</ol></section> }

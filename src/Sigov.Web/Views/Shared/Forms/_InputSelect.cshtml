@@ -1,0 +1,2 @@
+@{ var id = ViewData["FieldId"]?.ToString() ?? "Select"; var label = ViewData["Label"]?.ToString() ?? "Seleção"; }
+<div class="col-12"><label class="form-label sigov-required" for="@id">@label</label><select id="@id" name="@id" class="form-select" aria-describedby="@($"{id}Help")"><option value="">Selecione...</option></select><div id="@($"{id}Help")" class="form-text">@(ViewData["Help"] ?? "Selecione uma opção válida.")</div></div>

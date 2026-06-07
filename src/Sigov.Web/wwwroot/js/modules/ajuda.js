@@ -1,0 +1,1 @@
+(function ($) { $('#ajudaBusca').on('input', function () { var q = this.value.toLowerCase(); $('[data-ajuda-artigo]').each(function () { $(this).toggle($(this).text().toLowerCase().indexOf(q) >= 0); }); }); })(window.jQuery);

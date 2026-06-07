@@ -1,0 +1,11 @@
+@{ ViewData["Title"] = "Central de ajuda"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Central de ajuda", "Base comercial e operacional com tours guiados, FAQs e links de suporte.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Ajuda", "/Ajuda", true) }))
+<div class="card p-4 mb-4"><label class="form-label" for="ajudaBusca">Buscar artigos</label><input id="ajudaBusca" class="form-control" placeholder="Ex.: onboarding, LGPD, módulos"></div>
+<div class="row g-3">
+@foreach (var artigo in new[] { "Como começar", "Tour do dashboard", "Pessoas", "Processos", "Financeiro", "Tributário", "Relatórios", "Suporte", "Onboarding" })
+{
+  <div class="col-md-4" data-ajuda-artigo><div class="card h-100 p-3"><h2 class="h5">@artigo</h2><p class="text-muted">Orientações objetivas para operar e apresentar o módulo.</p><a href="/Ajuda/Artigo/@artigo.ToLowerInvariant().Replace(" ", "-")">Ler artigo</a></div></div>
+}
+</div>
+<button class="btn btn-primary mt-4" data-sigov-tour-start type="button">Abrir tour guiado</button>
+@section Scripts { <script src="~/js/modules/ajuda.js"></script> }

@@ -1,0 +1,6 @@
+@model Sigov.Application.Executive.ExecutiveDashboardResponse
+@{ ViewData["Title"] = "Painel executivo"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Painel executivo", "Visão comercial e operacional para demonstração e acompanhamento do tenant.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Executivo", "/Executivo", true) }))
+<div class="row g-3 mb-4"><div class="col-md-4"><div class="sigov-dashboard-card p-4"><span class="text-muted">Entidade</span><h2 class="h5">@Model.EntityName</h2></div></div><div class="col-md-4"><div class="sigov-dashboard-card p-4"><span class="text-muted">Exercício</span><h2 class="h5">@Model.FiscalYear</h2></div></div><div class="col-md-4"><div class="sigov-dashboard-card p-4"><span class="text-muted">Módulos contratados</span><h2 class="h5">@Model.ContractedModules</h2></div></div></div>
+<div class="row g-3">@foreach (var indicator in Model.Indicators) { <div class="col-md-6 col-xl-3"><div class="card sigov-kpi p-3 h-100"><span class="text-muted">@indicator.Name</span><strong class="fs-4">@indicator.Value</strong><small>@indicator.Status</small></div></div> }</div>
+@section Scripts { <script src="~/js/modules/executivo.dashboard.js"></script> }

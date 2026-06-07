@@ -5,6 +5,12 @@ using Microsoft.Extensions.Options;
 using Sigov.Application.Configuration;
 using Sigov.Infrastructure;
 using Sigov.Infrastructure.Persistence.Migrations;
+using Sigov.Application.BusinessRules;
+using Sigov.Application.Commercial;
+using Sigov.Application.Demo;
+using Sigov.Application.Executive;
+using Sigov.Application.Onboarding;
+using Sigov.Application.Ui;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +26,15 @@ builder.Services.AddOptions<SigovOptions>()
 builder.Services.AddSingleton<IValidateOptions<SigovOptions>, SigovOptionsValidator>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
+builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
+builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
+builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
+builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
+builder.Services.AddSingleton<IOnboardingService, OnboardingService>();
+builder.Services.AddSingleton<IDemoModeService, DemoModeService>();
+builder.Services.AddSingleton<IUserPreferenceService, UserPreferenceService>();
+builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>();
+builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

@@ -1,0 +1,1 @@
+(function (window, $) { $('[data-module-filter]').on('click', function () { var value = $(this).data('module-filter'); $('[data-module-category]').toggle(value === 'todos').filter('[data-module-category="' + value + '"]').show(); }); })(window, window.jQuery);

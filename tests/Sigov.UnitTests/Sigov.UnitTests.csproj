@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\Sigov.Application\Sigov.Application.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Infrastructure\Sigov.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Worker\Sigov.Worker.csproj" />
+    <ProjectReference Include="..\..\src\Sigov.Web\Sigov.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

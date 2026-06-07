@@ -1,0 +1,1 @@
+(function (window, $) { $('.sigov-onboarding-task input[type="checkbox"]').on('change', function () { $(this).closest('.sigov-onboarding-task').toggleClass('text-decoration-line-through', this.checked); }); })(window, window.jQuery);

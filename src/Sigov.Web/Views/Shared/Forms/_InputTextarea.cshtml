@@ -1,0 +1,2 @@
+@{ var id = ViewData["FieldId"]?.ToString() ?? "Textarea"; var label = ViewData["Label"]?.ToString() ?? "Descrição"; }
+<div class="col-12"><label class="form-label" for="@id">@label</label><textarea id="@id" name="@id" class="form-control" rows="4" placeholder="@(ViewData["Placeholder"] ?? label)"></textarea><span class="field-validation-valid" data-valmsg-for="@id" data-valmsg-replace="true"></span></div>

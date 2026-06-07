@@ -1,0 +1,2 @@
+@{ var id = ViewData["FieldId"]?.ToString() ?? "DateTime"; var label = ViewData["Label"]?.ToString() ?? "Data e hora"; }
+<div class="col-md-6"><label class="form-label" for="@id">@label</label><input id="@id" name="@id" type="datetime-local" class="form-control" placeholder="@(ViewData["Placeholder"] ?? label)" aria-describedby="@($"{id}Help")" /><div id="@($"{id}Help")" class="form-text">@(ViewData["Help"] ?? "")</div><span class="field-validation-valid" data-valmsg-for="@id" data-valmsg-replace="true"></span></div>

@@ -1,0 +1,8 @@
+.sigov-app-shell { min-height: 100vh; }
+.sigov-topbar { background: var(--sigov-surface); border-bottom: 1px solid var(--sigov-border); position: sticky; top: 0; z-index: 1030; }
+.sigov-sidebar { background: #0f172a; color: #cbd5e1; min-height: calc(100vh - 66px); }
+.sigov-sidebar a { color: #cbd5e1; text-decoration: none; border-radius: .65rem; padding: .35rem .55rem; margin-bottom: .1rem; }
+.sigov-sidebar a:hover, .sigov-sidebar a:focus { background: rgba(255,255,255,.1); color: #fff; outline: 2px solid transparent; }
+.sigov-main { padding: 1.5rem; }
+.sigov-sidebar-collapsed .sigov-sidebar { display: none; }
+@media (max-width: 767.98px) { .sigov-sidebar { min-height: auto; } .sigov-main { padding: 1rem; } }

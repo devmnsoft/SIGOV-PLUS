@@ -1,0 +1,9 @@
+[data-sigov-theme="dark"] {
+  --sigov-bg: #0f172a;
+  --sigov-surface: #111827;
+  --sigov-border: #334155;
+  --sigov-text: #e5e7eb;
+  --sigov-muted: #94a3b8;
+}
+[data-sigov-theme="dark"] body, body[data-sigov-theme="dark"] { background: var(--sigov-bg); color: var(--sigov-text); }
+[data-sigov-theme="dark"] .card, [data-sigov-theme="dark"] .bg-white { background-color: var(--sigov-surface) !important; color: var(--sigov-text); border-color: var(--sigov-border); }

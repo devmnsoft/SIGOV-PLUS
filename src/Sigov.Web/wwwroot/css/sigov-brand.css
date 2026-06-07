@@ -1,0 +1,21 @@
+:root {
+  --sigov-primary: #1d4ed8;
+  --sigov-primary-dark: #1e3a8a;
+  --sigov-secondary: #0f766e;
+  --sigov-accent: #14b8a6;
+  --sigov-success: #16a34a;
+  --sigov-warning: #f59e0b;
+  --sigov-danger: #dc2626;
+  --sigov-info: #0284c7;
+  --sigov-bg: #f8fafc;
+  --sigov-surface: #ffffff;
+  --sigov-border: #dbe3ef;
+  --sigov-text: #0f172a;
+  --sigov-muted: #64748b;
+  --sigov-radius: 1rem;
+  --sigov-shadow: 0 18px 45px rgba(15, 23, 42, .08);
+}
+body { background: var(--sigov-bg); color: var(--sigov-text); }
+.sigov-logo { height: 42px; width: auto; }
+.sigov-brand-card { border: 1px solid var(--sigov-border); border-radius: var(--sigov-radius); box-shadow: var(--sigov-shadow); }
+.sigov-gradient { background: linear-gradient(135deg, var(--sigov-primary), var(--sigov-accent)); color: #fff; }
