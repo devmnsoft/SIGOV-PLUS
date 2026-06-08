@@ -1,0 +1,6 @@
+@model long
+@{ ViewData["Title"] = "Detalhe do carnê"; }
+<h1>Carnê @Model</h1>
+<div class="alert alert-info">Finalização exige itens gerados; entrega registra status e coordenadas válidas quando informadas.</div>
+<partial name="_TributarioGrid" />
+@section Scripts { <script src="~/js/modules/tributario.carnes.js"></script> }

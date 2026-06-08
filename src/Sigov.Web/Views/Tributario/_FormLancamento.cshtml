@@ -1,0 +1,16 @@
+@model Sigov.Web.Models.Tributario.LancamentoTributarioFormViewModel
+<form id="tributario-lancamento-form" class="card card-body sigov-form" method="post" data-api="/api/tributario/lancamentos">
+  @Html.AntiForgeryToken()
+  <input asp-for="Id" type="hidden" />
+  <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+  <div class="row g-3">
+    <div class="col-md-3"><label asp-for="ContribuinteId" class="form-label"></label><input asp-for="ContribuinteId" class="form-control" required /></div>
+    <div class="col-md-3"><label asp-for="Tributo" class="form-label"></label><input asp-for="Tributo" class="form-control" required maxlength="80" /></div>
+    <div class="col-md-2"><label asp-for="DataLancamento" class="form-label"></label><input asp-for="DataLancamento" class="form-control" type="date" /></div>
+    <div class="col-md-2"><label asp-for="ValorTotal" class="form-label"></label><input asp-for="ValorTotal" class="form-control money" data-sigov-money required /></div>
+    <div class="col-md-2"><label asp-for="QuantidadeParcelas" class="form-label"></label><input asp-for="QuantidadeParcelas" class="form-control" min="1" required /></div>
+    <div class="col-12"><label asp-for="Observacoes" class="form-label"></label><textarea asp-for="Observacoes" class="form-control" rows="3"></textarea></div>
+  </div>
+  <div class="alert alert-info mt-3" id="parcelas-preview">As parcelas serão recalculadas e validadas no backend antes de gravar.</div>
+  <partial name="~/Views/Shared/Forms/_FormActions.cshtml" />
+</form>

@@ -1,0 +1,7 @@
+@model Sigov.Web.Models.Tributario.CertidaoFormViewModel
+@{ ViewData["Title"] = "Certidões"; }
+<h1>Certidões</h1>
+<div class="alert alert-info">Certidão negativa só deve ser emitida quando não houver débito vencido; emissão e consulta do contribuinte são auditadas.</div>
+<form id="certidao-form" class="card card-body sigov-form" method="post" data-api="/api/tributario/certidoes">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label asp-for="ContribuinteId" class="form-label"></label><input asp-for="ContribuinteId" class="form-control" required /></div><div class="col-md-4"><label asp-for="Tipo" class="form-label"></label><select asp-for="Tipo" class="form-select"><option>NEGATIVA</option><option>POSITIVA</option><option>POSITIVA_COM_EFEITO_NEGATIVA</option></select></div><div class="col-md-4 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Emitir certidão</button></div></div></form>
+<partial name="_TributarioGrid" />
+@section Scripts { <script src="~/js/modules/tributario.certidoes.js"></script> }

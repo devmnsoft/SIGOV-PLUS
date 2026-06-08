@@ -1,0 +1,6 @@
+@model long
+@{ ViewData["Title"] = "Detalhe do lançamento"; }
+<h1>Lançamento tributário @Model</h1>
+<ul class="nav nav-tabs"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dados">Dados</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#parcelas">Parcelas</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#eventos">Eventos e auditoria</button></li></ul>
+<div class="tab-content border p-3"><div id="dados" class="tab-pane fade show active">Dados do lançamento e contribuinte mascarado.</div><div id="parcelas" class="tab-pane fade"><partial name="_TributarioGrid" /></div><div id="eventos" class="tab-pane fade">Eventos, outbox financeiro e auditoria.</div></div>
+@section Scripts { <script src="~/js/modules/tributario.lancamentos.js"></script> }
