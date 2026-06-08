@@ -6,6 +6,26 @@ Plataforma SaaS de gestão pública municipal para operação real de prefeitura
 
 ASP.NET Core, C# 10, Clean Architecture, DDD, Dapper, PostgreSQL, API REST, Bootstrap 5, JavaScript puro, Serilog/ILogger, Docker e testes automatizados.
 
+
+## Rodando com Docker
+
+O ambiente Docker local sobe PostgreSQL 16, migrations automáticas, API, Worker configurável, Web MVC/Razor e storage persistente sem exigir PostgreSQL instalado na máquina.
+
+```powershell
+copy .env.example .env
+docker compose up -d --build
+```
+
+- Web: http://localhost:8080
+- API: http://localhost:5001
+- Banco local: `localhost:5432`, database/user/senha conforme `.env`.
+- Migrations manuais: `scripts/docker-apply-migrations.ps1`.
+- Logs: `scripts/docker-logs.ps1`.
+- PSQL: `scripts/docker-psql.ps1`.
+- Reset total com confirmação: `scripts/docker-reset.ps1`.
+
+OCR/preview e workers opcionais ficam desabilitados por padrão no Docker local e podem ser habilitados por variáveis no `.env`. Consulte o guia completo em [`docs/docker-local.md`](docs/docker-local.md).
+
 ## Execução local
 
 - Web: http://localhost:5000
