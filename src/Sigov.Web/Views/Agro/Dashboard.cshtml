@@ -1,0 +1,9 @@
+@{
+    ViewData["Title"] = "Dashboard Agro";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Agro e Desenvolvimento Rural", "Fundação do módulo Agro, georreferenciamento base e indicadores iniciais.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Dashboard Agro", "/Agro/Dashboard", true) }, "Abrir Mapa Rural", "/Agro/MapaRural"))
+<div class="d-flex justify-content-end mb-3"><a class="btn btn-outline-secondary disabled" aria-disabled="true">Próxima etapa: Produtores e Propriedades</a></div>
+<div class="alert alert-info d-none" id="agroDashboardLoading">Carregando dashboard Agro...</div>
+<div class="alert alert-danger d-none" id="agroDashboardErro"></div>
+@await Html.PartialAsync("_ResumoAgro")
+@section Scripts { <script src="~/js/modules/agro.dashboard.js"></script> }

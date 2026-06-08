@@ -65,3 +65,20 @@ begin
     values (v_entidade_id, v_exercicio_id, v_usuario_id, 'sigov.usuario', v_usuario_id::varchar, 'SEED', jsonb_build_object('login', 'admin'), 'Seed inicial sigov')
     on conflict do nothing;
 end $$;
+
+-- Camadas estruturais de desenvolvimento do módulo Agro; não executar em Production.
+insert into sigov.agro_geo_camada (tenant_id, entidade_id, codigo, nome, tipo_camada, descricao, publica, created_by)
+select t.id, e.id, v.codigo, v.nome, v.codigo, 'Camada estrutural Agro criada apenas para Development.', false, null
+  from sigov.tenant t
+  left join sigov.entidade e on e.tenant_id = t.id and e.is_deleted = false
+ cross join (values
+    ('PRODUTORES','Produtores rurais'),
+    ('PROPRIEDADES','Propriedades rurais'),
+    ('TALHOES','Talhões'),
+    ('ESTRADAS','Estradas vicinais'),
+    ('PONTOS_CRITICOS','Pontos críticos'),
+    ('FEIRAS','Feiras'),
+    ('AGROINDUSTRIAS','Agroindústrias')
+ ) as v(codigo, nome)
+ where coalesce(t.ambiente, 'DEVELOPMENT') <> 'PRODUCTION'
+on conflict do nothing;
