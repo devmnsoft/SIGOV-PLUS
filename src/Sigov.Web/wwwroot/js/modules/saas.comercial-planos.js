@@ -1,0 +1,1 @@
+(function ($) { 'use strict'; $(function () { const el = $('#saasPlanos'); if (el.length) $.getJSON('/api/saas/planos').done(r => el.html(`<table class="table"><tbody>${(r.data || []).map(p => `<tr><td>${p.codigo}</td><td>${p.nome}</td><td>${p.ativo ? 'Ativo' : 'Inativo'}</td></tr>`).join('')}</tbody></table>`)); }); })(jQuery);

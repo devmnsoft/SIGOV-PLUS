@@ -1,0 +1,15 @@
+namespace Sigov.Application.Saas.Comercial;
+
+public sealed record SaasPlanoResponse(long Id, string Codigo, string Nome, string? Descricao, bool Publico, bool Destaque, int Ordem, string TipoPlano, decimal? PrecoBase, string Moeda, string Periodicidade, int? LimiteUsuarios, bool PermiteWhiteLabel, bool PermiteDominioCustomizado, bool Ativo, IReadOnlyCollection<string> Modulos);
+public sealed record SaasPlanoDetalheResponse(SaasPlanoResponse Plano, IReadOnlyCollection<SaasPlanoLimiteResponse> Limites, IReadOnlyCollection<SaasAddonResponse> Addons);
+public sealed record SaasPlanoLimiteResponse(string Codigo, string Nome, int? Valor, string? Unidade, bool Ilimitado);
+public sealed record SaasAddonResponse(long Id, string Codigo, string Nome, string TipoAddon, string? ModuloCodigo, decimal? Preco, string? Periodicidade);
+public sealed record SaasPlanoCreateRequest(string Codigo, string Nome, string? Descricao, bool Publico, bool Destaque, int Ordem, string TipoPlano, decimal? PrecoBase, string Periodicidade, int? LimiteUsuarios, int? LimiteEntidades, int? LimiteArmazenamentoMb, bool PermiteWhiteLabel, bool PermiteDominioCustomizado, IReadOnlyCollection<string> Modulos);
+public sealed record SaasPlanoUpdateRequest(string Nome, string? Descricao, bool Publico, bool Destaque, int Ordem, decimal? PrecoBase, int? LimiteUsuarios, bool PermiteWhiteLabel, bool PermiteDominioCustomizado, bool Ativo);
+public sealed record SaasAssinaturaResponse(long Id, long TenantId, long PlanoId, string PlanoCodigo, string PlanoNome, string Status, DateOnly DataInicio, DateOnly? DataFim, int UsuariosContratados, int? EntidadesContratadas, decimal? ValorContratado, string Periodicidade, IReadOnlyCollection<string> Modulos, IReadOnlyCollection<SaasPlanoLimiteResponse> Limites);
+public sealed record SaasAssinaturaUpdateRequest(string Status, DateOnly? DataFim, int UsuariosContratados, int? EntidadesContratadas, decimal? ValorContratado, bool RenovacaoAutomatica);
+public sealed record SaasSolicitacaoClienteCreateRequest(string NomeOrganizacao, string TipoCliente, string? Documento, string? Cidade, string? Uf, string NomeResponsavel, string EmailResponsavel, string? TelefoneResponsavel, string? PlanoCodigo, IReadOnlyCollection<string> ModulosInteresse, int? UsuariosEstimados, int? EntidadesEstimadas, bool DesejaWhiteLabel, bool DesejaDominioCustomizado, string? DominioDesejado, bool AceiteTermos);
+public sealed record SaasSolicitacaoClienteResponse(long Id, string Protocolo, string NomeOrganizacao, string TipoCliente, string? DocumentoMascarado, string NomeResponsavel, string EmailResponsavelMascarado, string? TelefoneMascarado, string? PlanoCodigo, int? UsuariosEstimados, bool DesejaWhiteLabel, bool DesejaDominioCustomizado, string Status, long? TenantId, DateTimeOffset CreatedAt);
+public sealed record AprovarSolicitacaoClienteRequest(string? Observacao);
+public sealed record ConverterSolicitacaoEmTenantRequest(string SlugTenant, string NomeAdministrador, string EmailAdministrador, string? Observacao);
+public sealed record RecusarSolicitacaoClienteRequest(string Motivo);
