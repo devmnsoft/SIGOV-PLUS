@@ -33,6 +33,22 @@
         $('[data-agro-kpi="horasTrabalhadasMes"]').text(data.horasTrabalhadasMes || 0);
         $('[data-agro-kpi="areaAtendidaMes"]').text(data.areaAtendidaMes || 0);
         $('[data-agro-kpi="alertasConflitoAgenda"]').text(data.alertasConflitoAgenda || 0);
+        $('[data-agro-kpi="totalEstradasVicinais"]').text(data.totalEstradasVicinais || 0);
+        $('[data-agro-kpi="totalExtensaoKm"]').text(data.totalExtensaoKm || 0);
+        $('[data-agro-kpi="pontosCriticosAbertos"]').text(data.pontosCriticosAbertos || 0);
+        $('[data-agro-kpi="pontosCriticosCriticos"]').text(data.pontosCriticosCriticos || 0);
+        $('[data-agro-kpi="ocorrenciasAbertas"]').text(data.ocorrenciasAbertas || 0);
+        $('[data-agro-kpi="manutencoesProgramadas"]').text(data.manutencoesProgramadas || 0);
+        $('[data-agro-kpi="feirasAtivas"]').text(data.feirasAtivas || 0);
+        $('[data-agro-kpi="feirantesAutorizados"]').text(data.feirantesAutorizados || 0);
+        $('[data-agro-kpi="bancasOcupadas"]').text(data.bancasOcupadas || 0);
+        $('[data-agro-kpi="agroindustriasAtivas"]').text(data.agroindustriasAtivas || 0);
+        $('[data-agro-kpi="inspecoesPendentes"]').text(data.inspecoesPendentes || 0);
+        $('[data-agro-kpi="comprasAgriculturaFamiliarMes"]').text(data.comprasAgriculturaFamiliarMes || 0);
+        $('[data-agro-kpi="valorCompradoMes"]').text(data.valorCompradoMes || 0);
+        $('[data-agro-kpi="alertasAutorizacaoVencida"]').text(data.alertasAutorizacaoVencida || 0);
+        $('[data-agro-kpi="alertasInspecaoPendente"]').text(data.alertasInspecaoPendente || 0);
+        $('[data-agro-kpi="alertasEstradaInterditada"]').text(data.alertasEstradaInterditada || 0);
       })
       .fail(function (xhr) {
         var messages = { 401: 'Faça login para acessar o Dashboard Agro.', 403: 'Você não possui permissão para visualizar o Dashboard Agro.', 404: 'Dashboard Agro não encontrado.', 422: 'Verifique os filtros informados.', 500: 'Falha interna ao carregar o Dashboard Agro.' };

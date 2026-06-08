@@ -1,0 +1,6 @@
+@{ ViewData["Title"] = "Feirantes"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Feirantes", "Gestão estrutural Agro Parte 5 com tenant isolation, LGPD, auditoria e integrações futuras por eventos.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Feirantes", "/Agro/Feirantes", true) }, "Mapa Rural", "/Agro/MapaRural"))
+@Html.AntiForgeryToken()
+<div class="alert alert-info d-none" id="agroParte5Loading">Carregando...</div><div class="alert alert-danger d-none" id="agroParte5Erro"></div>
+<div class="row g-3"><div class="col-lg-4"><div class="card"><div class="card-header">Formulário</div><div class="card-body">@await Html.PartialAsync("_FormFeirante")</div></div></div><div class="col-lg-8"><div class="card"><div class="card-header">Registros</div><div class="card-body">@await Html.PartialAsync("_AuditoriaAgro")</div></div></div></div>
+@section Scripts { <script src="~/js/modules/agro.feirantes.js"></script> }

@@ -1,0 +1,1 @@
+namespace Sigov.Infrastructure.Agro.Sql; public static class AgroAgroindustriaSql{public const string Agroindustria="sigov.agro_agroindustria"; public const string Inspecao="sigov.agro_inspecao_municipal";}

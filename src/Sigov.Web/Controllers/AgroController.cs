@@ -27,4 +27,16 @@ public sealed class AgroController : Controller
     public IActionResult AgendaMaquinas() => View();
     public IActionResult ServicosMaquina() => View();
     public IActionResult ServicoMaquinaDetalhe(long id) { ViewData["ServicoMaquinaId"] = id; return View(); }
+    public IActionResult EstradasVicinais() => View();
+    public IActionResult EstradaVicinalDetalhe(long id) { ViewData["EstradaVicinalId"] = id; return View(); }
+    public IActionResult PontosCriticos() => View();
+    public IActionResult OcorrenciasRurais() => View();
+    public IActionResult ManutencoesRurais() => View();
+    public IActionResult Feiras() => View();
+    public IActionResult FeiraDetalhe(long id) { ViewData["FeiraId"] = id; return View(); }
+    public IActionResult Feirantes() => View();
+    public IActionResult Agroindustrias() => View();
+    public IActionResult AgroindustriaDetalhe(long id) { ViewData["AgroindustriaId"] = id; return View(); }
+    public IActionResult InspecoesMunicipais() => View();
+    public IActionResult ComprasAgriculturaFamiliar() => View();
 }

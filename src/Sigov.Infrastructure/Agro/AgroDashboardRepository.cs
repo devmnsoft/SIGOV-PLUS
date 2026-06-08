@@ -44,7 +44,23 @@ public sealed class AgroDashboardRepository : IAgroDashboardRepository
                    servicos_maquina_agendados as ServicosMaquinaAgendados,
                    horas_trabalhadas_mes as HorasTrabalhadasMes,
                    area_atendida_mes as AreaAtendidaMes,
-                   alertas_conflito_agenda as AlertasConflitoAgenda
+                   alertas_conflito_agenda as AlertasConflitoAgenda,
+                   total_estradas_vicinais as TotalEstradasVicinais,
+                   total_extensao_km as TotalExtensaoKm,
+                   pontos_criticos_abertos as PontosCriticosAbertos,
+                   pontos_criticos_criticos as PontosCriticosCriticos,
+                   ocorrencias_abertas as OcorrenciasAbertas,
+                   manutencoes_programadas as ManutencoesProgramadas,
+                   feiras_ativas as FeirasAtivas,
+                   feirantes_autorizados as FeirantesAutorizados,
+                   bancas_ocupadas as BancasOcupadas,
+                   agroindustrias_ativas as AgroindustriasAtivas,
+                   inspecoes_pendentes as InspecoesPendentes,
+                   compras_agricultura_familiar_mes as ComprasAgriculturaFamiliarMes,
+                   valor_comprado_mes as ValorCompradoMes,
+                   alertas_autorizacao_vencida as AlertasAutorizacaoVencida,
+                   alertas_inspecao_pendente as AlertasInspecaoPendente,
+                   alertas_estrada_interditada as AlertasEstradaInterditada
               from sigov.vw_agro_dashboard
              where tenant_id = @TenantId
                and ((@EntidadeId is null and entidade_id is null) or entidade_id = @EntidadeId)

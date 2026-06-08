@@ -32,7 +32,23 @@ public sealed record AgroDashboardResponse(
     long ServicosMaquinaAgendados = 0,
     decimal HorasTrabalhadasMes = 0,
     decimal AreaAtendidaMes = 0,
-    long AlertasConflitoAgenda = 0);
+    long AlertasConflitoAgenda = 0,
+    long TotalEstradasVicinais = 0,
+    decimal TotalExtensaoKm = 0,
+    long PontosCriticosAbertos = 0,
+    long PontosCriticosCriticos = 0,
+    long OcorrenciasAbertas = 0,
+    long ManutencoesProgramadas = 0,
+    long FeirasAtivas = 0,
+    long FeirantesAutorizados = 0,
+    long BancasOcupadas = 0,
+    long AgroindustriasAtivas = 0,
+    long InspecoesPendentes = 0,
+    long ComprasAgriculturaFamiliarMes = 0,
+    decimal ValorCompradoMes = 0,
+    long AlertasAutorizacaoVencida = 0,
+    long AlertasInspecaoPendente = 0,
+    long AlertasEstradaInterditada = 0);
 
 public interface IAgroDashboardRepository
 {
