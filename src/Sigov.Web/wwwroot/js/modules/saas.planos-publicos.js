@@ -1,0 +1,11 @@
+(function ($) {
+    'use strict';
+    function card(plano) {
+        const badge = plano.destaque ? '<span class="badge bg-warning text-dark">Recomendado</span>' : '';
+        const modulos = (plano.modulos || []).map(m => `<span class="badge bg-light text-dark border me-1">${m}</span>`).join('');
+        return `<div class="col-md-4"><article class="card h-100 shadow-sm ${plano.destaque ? 'border-primary' : ''}"><div class="card-body d-flex flex-column"><div class="d-flex justify-content-between"><h2 class="h4">${plano.nome}</h2>${badge}</div><p class="text-muted">${plano.descricao || ''}</p><p><strong>${plano.limiteUsuarios || 'Ilimitados'}</strong> usuários inclusos</p><p>${plano.permiteWhiteLabel ? '✅ White label' : '— White label via addon'}</p><p>${plano.permiteDominioCustomizado ? '✅ Domínio customizado' : '— Domínio via addon'}</p><div class="mb-3">${modulos}</div><div class="mt-auto d-grid gap-2"><a class="btn btn-primary" href="/CadastroCliente?plano=${plano.codigo}">Começar cadastro</a><a class="btn btn-outline-secondary" href="/Planos/Detalhe/${plano.codigo}">Solicitar demonstração</a></div></div></article></div>`;
+    }
+    function renderList() { const el = $('#planosPublicos'); if (!el.length) return; $.getJSON('/api/publico/planos').done(r => el.html((r.data || []).map(card).join(''))).fail(() => el.html('<div class="alert alert-warning">Não foi possível carregar os planos.</div>')); }
+    function renderDetail() { const box = $('#planoDetalhe'); if (!box.length) return; const codigo = $('[data-plano-codigo]').data('plano-codigo'); $.getJSON(`/api/publico/planos/${codigo}`).done(r => { const d = r.data; box.html(`<h1>${d.plano.nome}</h1><p class="lead">${d.plano.descricao || ''}</p><h2>Módulos inclusos</h2><p>${(d.plano.modulos || []).join(', ')}</p><h2>Limites</h2><ul>${(d.limites || []).map(l => `<li>${l.nome}: ${l.ilimitado ? 'Ilimitado' : (l.valor || 'Conforme plano')} ${l.unidade || ''}</li>`).join('')}</ul><h2>Add-ons disponíveis</h2><ul>${(d.addons || []).map(a => `<li>${a.nome}</li>`).join('')}</ul><a class="btn btn-primary" href="/CadastroCliente?plano=${d.plano.codigo}">Começar cadastro</a>`); }); }
+    $(function () { renderList(); renderDetail(); });
+})(jQuery);

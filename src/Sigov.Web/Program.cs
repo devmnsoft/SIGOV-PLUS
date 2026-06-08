@@ -19,6 +19,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<ISigovBrandProvider, SigovBrandProvider>();
+builder.Services.AddSingleton<ITenantBrandingProvider, TenantBrandingProvider>();
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
