@@ -1,6 +1,6 @@
 namespace Sigov.Application.Agro.Produtores;
 
-public sealed class AgroProdutorMapper { public string Mask(string? value) => LgpdMasker.Mask(value); }
+public sealed class AgroProdutorMapper { public string Mask(string? value) => LgpdMasker.Mask(value) ?? string.Empty; }
 public sealed class AgroProdutorExportService { public byte[] ExportarCsv(IEnumerable<AgroProdutorResponse> rows) => System.Text.Encoding.UTF8.GetBytes(string.Join("\n", rows.Select(r => $"{r.CodigoProdutor};{r.NomePessoa};{r.Situacao}"))); }
 internal static class LgpdMasker
 {
