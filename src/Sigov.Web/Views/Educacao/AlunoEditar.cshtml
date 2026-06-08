@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Educacao.AlunoFormViewModel
+@{ ViewData["Title"] = "Editar Aluno"; }
+<partial name="_PageHeader" model='new Sigov.Web.Models.Ui.PageHeaderViewModel("Editar Aluno", "Operação padronizada com LGPD, auditoria, permissões e tenant isolation.")' />
+<partial name="_FormAluno" model="Model" />
+@section Scripts { <script src="~/js/modules/educacao.alunos.js"></script> }

@@ -73,6 +73,7 @@
     try {
       const res = await api.request(`/api/rh/${recurso}?page=1&pageSize=25`);
       const rows = (res.data && res.data.items) || [];
+      if (!rows.length) { $('#rh-grid').html('<tr><td colspan="4"><div class="text-center text-muted py-4">Nenhum registro encontrado para os filtros atuais.</div></td></tr>'); return; }
       $('#rh-grid').html(rows.map(r => `<tr><td>${r.id}</td><td>${r.ativo ? 'Sim' : 'Não'}</td><td><pre class="mb-0 small">${escapeHtml(JSON.stringify(r.dados, null, 2))}</pre></td><td><button class="btn btn-sm btn-outline-primary rh-edit" data-id="${r.id}">Editar</button> <button class="btn btn-sm btn-outline-danger rh-del" data-id="${r.id}">Excluir</button></td></tr>`).join(''));
     } catch (e) { notifyHttpError(e, 'Listagem RH indisponível'); }
   }
@@ -142,7 +143,10 @@
     const status = e && (e.status || e.statusCode);
     if (status === 401) { window.sigovUi?.notify?.('Sessão expirada. Faça login novamente.', 'warning'); return; }
     if (status === 403) { window.sigovUi?.notify?.('Você não tem permissão para esta operação de RH.', 'warning'); return; }
-    window.sigovUi?.notify?.(`${prefix}: ${e && e.message ? e.message : 'erro de negócio ou validação.'}`, 'warning');
+    if (status === 404) { window.sigovUi?.notify?.('Registro de RH não encontrado ou indisponível para este tenant.', 'warning'); return; }
+    if (status === 409) { window.sigovUi?.notify?.('Conflito de regra de negócio em RH. Verifique duplicidade, status ou competência.', 'warning'); return; }
+    if (status === 422) { window.sigovUi?.notify?.('Validação de RH não atendida. Revise campos obrigatórios e formatos.', 'warning'); return; }
+    window.sigovUi?.notify?.(`${prefix}: erro inesperado tratado sem expor detalhes técnicos.`, 'warning');
   }
 
   async function postTyped(path, payload) {

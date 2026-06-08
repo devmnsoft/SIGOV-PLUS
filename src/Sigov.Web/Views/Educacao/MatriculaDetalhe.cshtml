@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Educacao.MatriculaFormViewModel
+@{ ViewData["Title"] = "Detalhe da Matrícula"; }
+<partial name="_PageHeader" model='new Sigov.Web.Models.Ui.PageHeaderViewModel("Detalhe da Matrícula", "Operação padronizada com LGPD, auditoria, permissões e tenant isolation.")' />
+<partial name="_FormMatricula" model="Model" />
+@section Scripts { <script src="~/js/modules/educacao.matriculas.js"></script> }

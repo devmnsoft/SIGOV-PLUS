@@ -1,0 +1,4 @@
+@{ ViewData["Title"] = "Notas"; }
+<partial name="_PageHeader" model='new Sigov.Web.Models.Ui.PageHeaderViewModel("Notas", "Tela estrutural padronizada do módulo Educação.")' />
+<partial name="_EmptyState" model='new Sigov.Web.Models.Ui.EmptyStateViewModel("Notas estruturais", "Use as APIs de Educação para manter registros com auditoria e LGPD.")' />
+@section Scripts { <script src="~/js/modules/educacao.notas.js"></script> }
