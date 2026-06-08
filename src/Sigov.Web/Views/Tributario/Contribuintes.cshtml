@@ -1,0 +1,6 @@
+@model Sigov.Web.Models.Tributario.ContribuinteFormViewModel
+@{ ViewData["Title"] = "Contribuintes"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Contribuintes</h1><p class="text-muted mb-0">Documentos pessoais mascarados por padrão e consulta auditável.</p></div><a class="btn btn-primary" href="/Tributario/ContribuinteCriar">Novo contribuinte</a></div>
+<partial name="_TributarioToolbar" />
+<partial name="_TributarioGrid" />
+@section Scripts { <script src="~/js/modules/tributario.contribuintes.js"></script> }

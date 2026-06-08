@@ -1,0 +1,10 @@
+<form class="card card-body mb-3 sigov-grid-toolbar" data-sigov-grid-filter>
+  @Html.AntiForgeryToken()
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3"><label class="form-label" for="busca">Busca</label><input id="busca" name="busca" class="form-control" placeholder="Número, inscrição ou nome mascarado" /></div>
+    <div class="col-md-2"><label class="form-label" for="status">Status</label><select id="status" name="status" class="form-select"><option value="">Todos</option><option>ATIVO</option><option>ABERTO</option><option>PAGO</option><option>VENCIDO</option><option>CANCELADO</option></select></div>
+    <div class="col-md-2"><label class="form-label" for="inicio">Início</label><input id="inicio" name="inicio" type="date" class="form-control" /></div>
+    <div class="col-md-2"><label class="form-label" for="fim">Fim</label><input id="fim" name="fim" type="date" class="form-control" /></div>
+    <div class="col-md-3 d-flex gap-2"><button type="submit" class="btn btn-primary flex-fill">Filtrar</button><button type="button" class="btn btn-outline-secondary btn-export" data-export="tributario">Exportar CSV</button></div>
+  </div>
+</form>

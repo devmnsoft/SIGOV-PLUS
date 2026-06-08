@@ -1,0 +1,10 @@
+@model Sigov.Web.Models.Tributario.LancamentoTributarioFormViewModel
+@{ ViewData["Title"] = "Lançamentos Tributários"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Lançamentos Tributários</h1><p class="text-muted mb-0">Cálculo de parcelas no frontend para UX, com validação obrigatória no backend.</p></div><a class="btn btn-primary" href="/Tributario/LancamentoCriar">Novo lançamento</a></div>
+<partial name="_TributarioToolbar" />
+<partial name="_TributarioGrid" />
+<partial name="_ModalGerarParcelas" />
+<partial name="_ModalGerarDam" />
+<partial name="_ModalGerarPixDev" />
+<partial name="_ModalRegistrarPagamentoDev" />
+@section Scripts { <script src="~/js/modules/tributario.lancamentos.js"></script><script src="~/js/modules/tributario.parcelas.js"></script><script src="~/js/modules/tributario.dam-boletos.js"></script><script src="~/js/modules/tributario.pix.js"></script> }

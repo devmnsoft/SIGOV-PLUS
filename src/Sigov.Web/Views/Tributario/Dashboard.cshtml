@@ -1,0 +1,12 @@
+@model Sigov.Web.Models.Tributario.TributarioDashboardViewModel
+@{ ViewData["Title"] = "Dashboard Tributário"; }
+<partial name="~/Views/Shared/_Breadcrumb.cshtml" />
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Dashboard Tributário</h1><p class="text-muted mb-0">Visão operacional de arrecadação, lançamentos, dívida ativa e emissão.</p></div><a class="btn btn-outline-primary" href="/Tributario/Lancamentos">Ver lançamentos</a></div>
+<div class="row g-3 sigov-dashboard" data-module="tributario-dashboard">
+@foreach (var card in new[] { "Contribuintes ativos", "Imóveis ativos", "Empresas ativas", "Lançamentos do exercício", "Total lançado", "Total arrecadado", "Parcelas vencidas", "Dívida ativa", "DAMs gerados", "Carnês emitidos" })
+{
+  <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><span class="text-muted">@card</span><h3 class="valor">@(card.StartsWith("Total", StringComparison.Ordinal) || card == "Dívida ativa" ? "R$ 0,00" : "0")</h3></div></div></div>
+}
+</div>
+<section class="card mt-3"><div class="card-body"><h2 class="h5">Alertas</h2><p class="text-muted mb-0">Parcelas vencidas, débitos aptos para certidão positiva e inscrições em dívida ativa serão carregados conforme permissão e módulo contratado.</p></div></section>
+@section Scripts { <script src="~/js/modules/tributario.dashboard.js"></script> }

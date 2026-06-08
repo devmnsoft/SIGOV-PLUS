@@ -1,0 +1,7 @@
+@model Sigov.Web.Models.Tributario.CarneFormViewModel
+@{ ViewData["Title"] = "Carnês"; }
+<h1>Carnês</h1>
+<form id="carne-form" class="card card-body sigov-form mb-3" method="post" data-api="/api/tributario/carnes">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-6"><label asp-for="Descricao" class="form-label"></label><input asp-for="Descricao" class="form-control" required /></div><div class="col-md-3"><label asp-for="QuantidadeItens" class="form-label"></label><input asp-for="QuantidadeItens" class="form-control" min="1" required /></div><div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Gerar carnê</button></div></div></form>
+<partial name="_TributarioToolbar" />
+<partial name="_TributarioGrid" />
+@section Scripts { <script src="~/js/modules/tributario.carnes.js"></script> }

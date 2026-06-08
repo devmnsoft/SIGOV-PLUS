@@ -1,0 +1,7 @@
+@model long
+@{ ViewData["Title"] = "Detalhe do contribuinte"; }
+<h1>Contribuinte <span data-contribuinte-id>@Model</span></h1>
+<div class="alert alert-info">Dados completos exigem permissão específica; documento, nome e contatos são mascarados por padrão.</div>
+<ul class="nav nav-tabs"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dados">Dados</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#lancamentos">Lançamentos</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#auditoria">Auditoria LGPD</button></li></ul>
+<div class="tab-content border p-3"><div id="dados" class="tab-pane fade show active">Carregando dados mascarados...</div><div id="lancamentos" class="tab-pane fade">Sem lançamentos carregados.</div><div id="auditoria" class="tab-pane fade">Acessos a dado pessoal serão exibidos conforme permissão.</div></div>
+@section Scripts { <script src="~/js/modules/tributario.contribuintes.js"></script> }

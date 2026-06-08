@@ -1,0 +1,8 @@
+@model Sigov.Web.Models.Tributario.DividaAtivaFormViewModel
+@{ ViewData["Title"] = "Dívida Ativa"; }
+<h1>Dívida Ativa</h1>
+<div class="alert alert-warning">Somente parcela vencida, não paga e ainda não inscrita pode ser enviada para dívida ativa.</div>
+<form id="divida-ativa-form" class="card card-body sigov-form mb-3" method="post" data-api="/api/tributario/divida-ativa">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-3"><label asp-for="ParcelaId" class="form-label"></label><input asp-for="ParcelaId" class="form-control" required /></div><div class="col-md-7"><label asp-for="Justificativa" class="form-label"></label><input asp-for="Justificativa" class="form-control" required maxlength="500" /></div><div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Inscrever</button></div></div></form>
+<partial name="_TributarioToolbar" />
+<partial name="_TributarioGrid" />
+@section Scripts { <script src="~/js/modules/tributario.divida-ativa.js"></script> }
