@@ -12,7 +12,22 @@ public sealed class AgroAccessChecker : IAgroAccessChecker
     {
         AgroPermissions.GeoCriar,
         AgroPermissions.GeoEditar,
-        AgroPermissions.GeoExcluir
+        AgroPermissions.GeoExcluir,
+        AgroPermissions.ProdutorCriar,
+        AgroPermissions.ProdutorEditar,
+        AgroPermissions.ProdutorExcluir,
+        AgroPermissions.PropriedadeCriar,
+        AgroPermissions.PropriedadeEditar,
+        AgroPermissions.PropriedadeExcluir,
+        AgroPermissions.TalhaoCriar,
+        AgroPermissions.TalhaoEditar,
+        AgroPermissions.CulturaCriar,
+        AgroPermissions.CulturaEditar,
+        AgroPermissions.SafraCriar,
+        AgroPermissions.SafraEditar,
+        AgroPermissions.ProducaoCriar,
+        AgroPermissions.ProducaoEditar,
+        AgroPermissions.ProducaoExcluir
     };
 
     private static readonly ISet<string> PerfisComAcessoAoModulo = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

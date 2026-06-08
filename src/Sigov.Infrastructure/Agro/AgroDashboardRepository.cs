@@ -22,7 +22,15 @@ public sealed class AgroDashboardRepository : IAgroDashboardRepository
                    total_propriedades as TotalPropriedades,
                    total_visitas as TotalVisitas,
                    total_servicos_maquina as TotalServicosMaquina,
-                   total_pontos_criticos as TotalPontosCriticos
+                   total_pontos_criticos as TotalPontosCriticos,
+                   produtores_ativos as ProdutoresAtivos,
+                   area_total_mapeada as AreaTotalMapeada,
+                   area_produtiva as AreaProdutiva,
+                   total_talhoes as TotalTalhoes,
+                   culturas_cadastradas as CulturasCadastradas,
+                   safras_ativas as SafrasAtivas,
+                   producao_estimada as ProducaoEstimada,
+                   producao_realizada as ProducaoRealizada
               from sigov.vw_agro_dashboard
              where tenant_id = @TenantId
                and ((@EntidadeId is null and entidade_id is null) or entidade_id = @EntidadeId)

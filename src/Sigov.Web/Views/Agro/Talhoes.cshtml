@@ -1,0 +1,3 @@
+@{ ViewData["Title"] = "Talhões"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Talhões", "Áreas produtivas vinculadas a propriedades rurais.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Talhões", "/Agro/Talhoes", true) }))
+<div class="card mb-3"><div class="card-body">@await Html.PartialAsync("_FormTalhao")</div></div><table class="table" id="gridAgroTalhoes"><tbody></tbody></table>@section Scripts { <script src="~/js/modules/agro.propriedades.js"></script> }
