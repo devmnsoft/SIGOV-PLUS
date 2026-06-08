@@ -2,7 +2,13 @@ namespace Sigov.Web.Models.Ui;
 
 public sealed record BreadcrumbItemViewModel(string Text, string Url, bool IsCurrent = false);
 
-public sealed record PageHeaderViewModel(string Title, string Subtitle, IReadOnlyList<BreadcrumbItemViewModel> Breadcrumbs, string? PrimaryActionText = null, string? PrimaryActionUrl = null);
+public sealed record PageHeaderViewModel(string Title, string Subtitle, IReadOnlyList<BreadcrumbItemViewModel> Breadcrumbs, string? PrimaryActionText = null, string? PrimaryActionUrl = null)
+{
+    public PageHeaderViewModel(string title, string subtitle, string? primaryActionText = null, string? primaryActionUrl = null)
+        : this(title, subtitle, Array.Empty<BreadcrumbItemViewModel>(), primaryActionText, primaryActionUrl)
+    {
+    }
+}
 
 public sealed record ModuleCardViewModel(string Code, string Name, string Description, string Status, string Icon, string Url);
 
