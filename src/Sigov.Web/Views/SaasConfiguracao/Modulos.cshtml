@@ -1,0 +1,30 @@
+@using Sigov.Application.Saas.Modules
+@model IReadOnlyCollection<ModuleCatalogItem>
+@{
+    var packages = (IReadOnlyCollection<ModulePackageItem>?)ViewData["Packages"] ?? Array.Empty<ModulePackageItem>();
+}
+<section class="container-fluid py-3" data-saas-page="modulos">
+  <div class="alert alert-info">Backend é a autoridade final: módulo não contratado, suspenso, cancelado ou com dependência ausente retorna 403.</div>
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card"><div class="card-header fw-bold">Módulos vendáveis</div><div class="card-body table-responsive">
+        <table class="table table-striped align-middle"><thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Separado</th><th>Dependências</th><th>Ações por tenant</th></tr></thead><tbody>
+        @foreach (var module in Model)
+        {
+          <tr data-module="@module.Codigo"><td><code>@module.Codigo</code></td><td>@module.Nome</td><td>@module.Categoria</td><td>@(module.VendidoSeparadamente ? "Sim" : "Pacote/base")</td><td>@string.Join(", ", module.Dependencias)</td><td><button class="btn btn-sm btn-success js-saas-module-status" data-status="habilitar">Habilitar</button> <button class="btn btn-sm btn-warning js-saas-module-status" data-status="suspender">Suspender</button> <button class="btn btn-sm btn-danger js-saas-module-status" data-status="cancelar">Cancelar</button></td></tr>
+        }
+        </tbody></table>
+      </div></div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card"><div class="card-header fw-bold">Pacotes</div><div class="card-body">
+        @foreach (var package in packages)
+        {
+          <div class="border rounded p-2 mb-2"><div class="fw-bold">@package.Nome <code>@package.Codigo</code></div><small>@package.Descricao</small><div class="text-muted">@string.Join(", ", package.Modulos)</div></div>
+        }
+      </div></div>
+      <div class="card mt-3"><div class="card-header fw-bold">Status por tenant</div><div class="card-body"><input id="saasTenantId" class="form-control mb-2" placeholder="tenant_id" /><button id="saasLoadTenantModules" class="btn btn-primary">Carregar módulos do tenant</button><pre id="saasTenantModules" class="mt-3 small bg-light p-2"></pre></div></div>
+    </div>
+  </div>
+</section>
+<script src="~/js/modules/saas.modulos.js"></script>

@@ -22,13 +22,13 @@
   <a class="d-block" data-module="seguranca" data-permission="seguranca.permissoes.visualizar" href="/Seguranca/Permissoes">Permissões</a>
   <a class="d-block" data-module="seguranca" data-permission="seguranca.historico.visualizar" href="/Seguranca/HistoricoLogin">Histórico de Login</a>
   <hr />
-  <div class="fw-bold mb-2 text-white">SaaS Admin</div>
-  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Tenants">Tenants</a>
-  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Planos">Planos</a>
-  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Modulos">Módulos</a>
-  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Assinaturas">Assinaturas</a>
-  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/FeatureFlags">Feature Flags</a>
-  <a class="d-block" data-role="SIGOV_ADMIN" data-module="saas" href="/SaasAdmin/Uso">Uso</a>
+  <div class="fw-bold mb-2 text-white">Administração SaaS</div>
+  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.modulos.visualizar" href="/SaasConfiguracao/Modulos">Módulos e Pacotes</a>
+  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.perfis.visualizar" href="/SaasConfiguracao/Perfis">Perfis e Níveis</a>
+  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.parametros.visualizar" href="/SaasConfiguracao/Parametros">Parâmetros do Tenant</a>
+  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.modulos.gerenciar" href="/SaasAdmin/FeatureFlags">Feature Flags</a>
+  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.contexto_global.trocar" href="/SaasConfiguracao/ContextoGlobal">Contexto Global</a>
+  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.contexto_global.visualizar_logs" href="/SaasConfiguracao/ContextoGlobal#logs">Logs de Contexto</a>
   <hr />
   <div class="fw-bold mb-2 text-white">Auditoria</div>
   <a class="d-block" data-module="auditoria" data-permission="auditoria.trilhas.visualizar" href="/Auditoria/Trilhas">Trilhas</a>

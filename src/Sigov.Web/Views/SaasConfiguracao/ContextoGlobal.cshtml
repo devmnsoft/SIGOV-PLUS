@@ -1,0 +1,11 @@
+<section class="container-fluid py-3" data-saas-page="contexto-global">
+  <div class="alert alert-danger" id="globalContextBanner">Administrador geral em contexto de tenant: todas as ações permanecem auditadas.</div>
+  <div class="row g-3"><div class="col-lg-5"><div class="card"><div class="card-header fw-bold">Troca de contexto global</div><div class="card-body">
+    <input id="ctxUsuarioGlobalId" class="form-control mb-2" placeholder="usuario_global_id" />
+    <input id="ctxTenantDestinoId" class="form-control mb-2" placeholder="tenant_destino_id" />
+    <input id="ctxEntidadeDestinoId" class="form-control mb-2" placeholder="entidade_destino_id opcional" />
+    <textarea id="ctxMotivo" class="form-control mb-2" placeholder="motivo obrigatório"></textarea>
+    <button id="ctxTrocar" class="btn btn-danger">Trocar contexto com auditoria</button>
+  </div></div></div><div class="col-lg-7"><div class="card"><div class="card-header fw-bold">Logs de contexto</div><div class="card-body"><button id="ctxLogs" class="btn btn-outline-secondary">Atualizar logs</button><pre id="ctxLogsOutput" class="bg-light p-2 mt-2"></pre></div></div></div></div>
+</section>
+<script src="~/js/modules/saas.contexto-global.js"></script>
