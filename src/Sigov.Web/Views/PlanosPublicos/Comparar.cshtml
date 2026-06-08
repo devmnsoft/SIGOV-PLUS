@@ -1,0 +1,15 @@
+@model IReadOnlyCollection<Sigov.Application.Saas.B2B.B2BPlanoComparativoDto>
+@{
+    ViewData["Title"] = "Comparativo de planos";
+}
+<section class="container py-4">
+    <h1>Comparativo de planos</h1>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle"><thead><tr><th>Recurso</th><th>Essencial</th><th>Profissional</th><th>Enterprise</th><th>Revendedor</th><th>Custom</th></tr></thead><tbody>
+        @foreach (var item in Model)
+        {
+            <tr><td>@item.Recurso</td><td>@item.Essencial</td><td>@item.Profissional</td><td>@item.Enterprise</td><td>@item.Revendedor</td><td>@item.Custom</td></tr>
+        }
+        </tbody></table>
+    </div>
+</section>

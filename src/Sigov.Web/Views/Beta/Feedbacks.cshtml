@@ -1,0 +1,2 @@
+@model IReadOnlyCollection<Sigov.Application.Saas.B2B.BetaFeedbackDto>
+<section class="container py-4"><h1>Soft launch, beta e feedback</h1><div class="row g-3">@foreach (var item in Model){<div class="col-md-4"><div class="card h-100"><div class="card-body"><h2 class="h6">@item.Titulo</h2><p>@item.Severidade · @item.Status</p><span class="badge bg-primary">Satisfação @item.Satisfacao</span></div></div></div>}</div></section>

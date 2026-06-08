@@ -7,7 +7,9 @@ using Sigov.Infrastructure.Persistence.Repositories;
 using Sigov.Infrastructure.Persistence.UnitOfWork;
 using Sigov.Infrastructure.Security;
 using Sigov.Application.Saas;
+using Sigov.Application.Saas.B2B;
 using Sigov.Infrastructure.Saas;
+using Sigov.Infrastructure.Saas.B2B;
 using Sigov.Application.Storage;
 using Sigov.Infrastructure.Storage;
 using Sigov.Application.Processos;
@@ -58,6 +60,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<NpgsqlConnectionFactory>();
         services.AddScoped<DapperContext>();
+        services.AddScoped<IWhiteLabelB2BLaunchService, WhiteLabelB2BLaunchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
         services.AddScoped<UserPreferenceRepository>();

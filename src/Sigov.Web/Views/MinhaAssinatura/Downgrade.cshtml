@@ -1,0 +1,15 @@
+@model Sigov.Application.Saas.B2B.AssinaturaUsoDto
+@{
+    ViewData["Title"] = "Minha assinatura";
+}
+<section class="container py-4">
+    <h1>Minha assinatura</h1>
+    <div class="row g-3">
+        <div class="col-md-4"><div class="card"><div class="card-body"><span class="text-muted">Plano</span><strong class="d-block">@Model.PlanoCodigo</strong></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-body"><span class="text-muted">Usuários</span><strong class="d-block">@Model.UsuariosAtivos</strong></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-body"><span class="text-muted">Médicos</span><strong class="d-block">@Model.MedicosAtivos</strong></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-body"><span class="text-muted">Hospitais</span><strong class="d-block">@Model.HospitaisAtivos</strong></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-body"><span class="text-muted">Plantões/mês</span><strong class="d-block">@Model.PlantoesMes</strong></div></div></div>
+        <div class="col-md-4"><div class="card"><div class="card-body"><span class="text-muted">API/mês</span><strong class="d-block">@Model.RequisicoesApiMes</strong></div></div></div>
+    </div>
+</section>

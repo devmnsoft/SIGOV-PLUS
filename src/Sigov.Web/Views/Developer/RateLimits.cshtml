@@ -1,0 +1,14 @@
+@model Sigov.Application.Saas.B2B.DeveloperOverviewDto
+@{
+    ViewData["Title"] = "Developer Portal";
+}
+<section class="container py-4">
+    <h1>Developer Portal</h1>
+    <p class="lead">@Model.Autenticacao</p>
+    <div class="row g-4">
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h2 class="h5">Endpoints</h2><ul>@foreach (var item in Model.Endpoints){<li><code>@item</code></li>}</ul></div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h2 class="h5">Escopos</h2><ul>@foreach (var item in Model.EscoposDisponiveis){<li><code>@item</code></li>}</ul></div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h2 class="h5">Rate limits</h2><p>@Model.RateLimitResumo</p></div></div></div>
+        <div class="col-md-6"><div class="card h-100"><div class="card-body"><h2 class="h5">Webhooks</h2><ul>@foreach (var item in Model.WebhookEventos){<li><code>@item</code></li>}</ul></div></div></div>
+    </div>
+</section>
