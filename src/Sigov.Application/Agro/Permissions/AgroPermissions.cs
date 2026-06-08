@@ -101,4 +101,18 @@ public static class AgroPermissions
     public const string CompraAfEditar = "agro.compra_af.editar";
     public const string CompraAfCancelar = "agro.compra_af.cancelar";
 
+    public const string BiVisualizar = "agro.bi.visualizar";
+    public const string IndicadorVisualizar = "agro.indicador.visualizar";
+    public const string IndicadorGerenciar = "agro.indicador.gerenciar";
+    public const string RelatorioVisualizar = "agro.relatorio.visualizar";
+    public const string RelatorioGerenciar = "agro.relatorio.gerenciar";
+    public const string RelatorioExecutar = "agro.relatorio.executar";
+    public const string Exportar = "agro.exportar";
+    public const string TransparenciaVisualizar = "agro.transparencia.visualizar";
+    public const string TransparenciaGerenciar = "agro.transparencia.gerenciar";
+    public const string TransparenciaPublicar = "agro.transparencia.publicar";
+    public const string DadosAbertosVisualizar = "agro.dados_abertos.visualizar";
+    public const string ComercialVisualizar = "agro.comercial.visualizar";
+    public const string ComercialConfigurar = "agro.comercial.configurar";
+
 }

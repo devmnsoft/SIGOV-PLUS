@@ -39,4 +39,12 @@ public sealed class AgroController : Controller
     public IActionResult AgroindustriaDetalhe(long id) { ViewData["AgroindustriaId"] = id; return View(); }
     public IActionResult InspecoesMunicipais() => View();
     public IActionResult ComprasAgriculturaFamiliar() => View();
+    public IActionResult Bi() => View();
+    public IActionResult Indicadores() => View();
+    public IActionResult Relatorios() => View();
+    public IActionResult ExecutarRelatorio(long id) { ViewData["ModeloId"] = id; return View(); }
+    public IActionResult Transparencia() => View();
+    public IActionResult Datasets() => View();
+    public IActionResult DicionarioDados() => View();
+    public IActionResult PainelComercial() => View();
 }
