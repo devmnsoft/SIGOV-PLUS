@@ -74,7 +74,7 @@ public static class RhTypedMapper
     private static long? Long(IReadOnlyDictionary<string, object?> dados, string key) => long.TryParse(TextOrNull(dados, key), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
     private static int? Int(IReadOnlyDictionary<string, object?> dados, string key) => int.TryParse(TextOrNull(dados, key), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
     private static decimal? Decimal(IReadOnlyDictionary<string, object?> dados, string key) => decimal.TryParse(TextOrNull(dados, key), NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : null;
-    private static DateOnly? Date(IReadOnlyDictionary<string, object?> dados, string key) => DateOnly.TryParse(TextOrNull(dados, key), CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
+    private static DateOnly? Date(IReadOnlyDictionary<string, object?> dados, string key) => System.DateTime.TryParse(TextOrNull(dados, key), CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? DateOnly.FromDateTime(value) : null;
     private static DateTimeOffset? DateTime(IReadOnlyDictionary<string, object?> dados, string key) => DateTimeOffset.TryParse(TextOrNull(dados, key), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var value) ? value : null;
     private static bool Bool(IReadOnlyDictionary<string, object?> dados, string key) => bool.TryParse(TextOrNull(dados, key), out var value) && value;
 }

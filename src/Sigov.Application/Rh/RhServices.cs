@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Sigov.Application.Abstractions;
@@ -95,7 +97,18 @@ public sealed class RhService : IRhService
     private static bool IsEmail(object? value) => Regex.IsMatch(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty, "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static bool TryInt(object? value, out int parsed) => int.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out parsed);
     private static bool TryDecimal(object? value, out decimal parsed) => decimal.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out parsed);
-    private static bool TryDateOnly(Dictionary<string, object?> dados, string key, out DateOnly value) => dados.TryGetValue(key, out var raw) && DateOnly.TryParse(Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out value);
+    private static bool TryDateOnly(Dictionary<string, object?> dados, string key, out DateOnly value)
+    {
+        value = default;
+        if (!dados.TryGetValue(key, out var raw) || !DateTime.TryParse(Convert.ToString(raw, CultureInfo.InvariantCulture), CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate))
+        {
+            return false;
+        }
+
+        value = DateOnly.FromDateTime(parsedDate);
+        return true;
+    }
+
     private static bool IsExercicioEncerradoNoPayload(Dictionary<string, object?> dados) => dados.Any(kv => kv.Key.Equals("exercicioEncerrado", StringComparison.OrdinalIgnoreCase) && Convert.ToString(kv.Value, System.Globalization.CultureInfo.InvariantCulture)?.Equals("true", StringComparison.OrdinalIgnoreCase) == true) || dados.Any(kv => kv.Key.Equals("statusExercicio", StringComparison.OrdinalIgnoreCase) && Convert.ToString(kv.Value, System.Globalization.CultureInfo.InvariantCulture)?.Equals("Encerrado", StringComparison.OrdinalIgnoreCase) == true);
 
     private async Task<bool> CanAsync(string chave, CancellationToken ct)
@@ -271,26 +284,32 @@ public sealed class RhService : IRhService
     {
         value = string.Empty;
         if (!dados.TryGetValue(campo, out var raw) || raw is null) return false;
-        value = raw is JsonElement element ? element.ToString() : Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        value = raw is JsonElement element ? element.ToString() : Convert.ToString(raw, CultureInfo.InvariantCulture) ?? string.Empty;
         return !string.IsNullOrWhiteSpace(value);
     }
 
     private static bool TryInt(IReadOnlyDictionary<string, object?> dados, string campo, out int value)
     {
         value = default;
-        return TryText(dados, campo, out var text) && int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value);
+        return TryText(dados, campo, out var text) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 
     private static bool TryDecimal(IReadOnlyDictionary<string, object?> dados, string campo, out decimal value)
     {
         value = default;
-        return TryText(dados, campo, out var text) && decimal.TryParse(text, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out value);
+        return TryText(dados, campo, out var text) && decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
     }
 
     private static bool TryDate(IReadOnlyDictionary<string, object?> dados, string campo, out DateOnly value)
     {
         value = default;
-        return TryText(dados, campo, out var text) && DateOnly.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out value);
+        if (!TryText(dados, campo, out var text) || !DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate))
+        {
+            return false;
+        }
+
+        value = DateOnly.FromDateTime(parsedDate);
+        return true;
     }
 
     private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());

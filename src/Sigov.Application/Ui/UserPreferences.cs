@@ -17,7 +17,7 @@ public sealed class UserPreferenceService : IUserPreferenceService
 
     public UserPreferenceResponse Save(UserPreferenceUpdateRequest request)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Key);
+        EnsureNotNullOrWhiteSpace(request.Key, nameof(request.Key));
         var response = new UserPreferenceResponse(request.TenantId, request.UserId, request.Key, string.IsNullOrWhiteSpace(request.ValueJson) ? "{}" : request.ValueJson, DateTimeOffset.UtcNow);
         _preferences[BuildKey(request.TenantId, request.UserId, request.Key)] = response;
         return response;
@@ -25,13 +25,21 @@ public sealed class UserPreferenceService : IUserPreferenceService
 
     public UserPreferenceResponse Get(long? tenantId, long userId, string key)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        EnsureNotNullOrWhiteSpace(key, nameof(key));
         return _preferences.TryGetValue(BuildKey(tenantId, userId, key), out var response)
             ? response
             : new UserPreferenceResponse(tenantId, userId, key, "{}", DateTimeOffset.UtcNow);
     }
 
     private static string BuildKey(long? tenantId, long userId, string key) => $"{tenantId?.ToString() ?? "global"}:{userId}:{key}";
+
+    private static void EnsureNotNullOrWhiteSpace(string? value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Value cannot be null or whitespace.", paramName);
+        }
+    }
 }
 
 public sealed record SavedFilterResponse(long? TenantId, long UserId, string Module, string Resource, string Name, string FiltersJson);
