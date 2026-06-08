@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Serilog;
 using Sigov.Infrastructure;
 using Sigov.Worker;
@@ -10,8 +11,10 @@ var builder = Host.CreateDefaultBuilder(args)
         .Enrich.WithProperty("Application", "sigov")
         .Enrich.FromLogContext()
         .WriteTo.Console())
-    .ConfigureServices(services =>
+    .ConfigureServices((context, services) =>
     {
+        var outboxWorkerEnabled = context.Configuration.GetValue("Workers:Outbox:Enabled", true);
+
         services.AddInfrastructure();
         services.AddScoped<Sigov.Infrastructure.Outbox.IOutboxRepository, Sigov.Infrastructure.Outbox.OutboxRepository>();
         services.AddScoped<IOutboxRetryPolicy, OutboxRetryPolicy>();
@@ -24,7 +27,11 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IOutboxHandler, FinanceiroOutboxHandler>();
         services.AddScoped<IOutboxHandler, SuporteOutboxHandler>();
         services.AddScoped<IOutboxHandler, DefaultOutboxHandler>();
-        services.AddHostedService<Worker>();
+
+        if (outboxWorkerEnabled)
+        {
+            services.AddHostedService<Worker>();
+        }
     });
 
 await builder.RunConsoleAsync().ConfigureAwait(false);

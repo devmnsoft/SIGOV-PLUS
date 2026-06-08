@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+.idea/
+node_modules/
+artifacts/
+logs/
+storage/
+*.user
+*.suo
+.env
+.env.local
+.env.production
+docker-data/
+backup/
+backups/

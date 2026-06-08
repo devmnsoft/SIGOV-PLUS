@@ -1,62 +1,128 @@
 services:
-  sigov-postgres:
-    image: postgres:16-alpine
+  postgres:
+    image: postgres:16
     container_name: sigov-postgres
     environment:
-      POSTGRES_DB: sigov
-      POSTGRES_USER: sigov
-      POSTGRES_PASSWORD: sigov_dev_password
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - sigov_postgres_data:/var/lib/postgresql/data
+      - sigov_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sigov -d sigov"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres}"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
 
-  sigov-api:
-    container_name: sigov-api
+  db-migrations:
+    image: postgres:16
+    container_name: sigov-db-migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-123456}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    volumes:
+      - ./database:/database:ro
+    entrypoint: ["/bin/bash", "/database/docker/apply-migrations.sh"]
+    restart: "no"
+
+  api:
     build:
       context: .
       dockerfile: src/Sigov.Api/Dockerfile
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=sigov-postgres;Port=5432;Database=sigov;Username=sigov;Password=sigov_dev_password
-      Sigov__Database__Schema: sigov
-      Sigov__Database__MigrationsPath: /app/database/postgres/migrations
-      Sigov__Database__RunMigrationsOnStartup: "true"
-    ports:
-      - "5001:8080"
+    container_name: sigov-api
     depends_on:
-      sigov-postgres:
+      postgres:
         condition: service_healthy
+      db-migrations:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456};Pooling=true;Maximum Pool Size=50;Minimum Pool Size=0;Timeout=30;Command Timeout=60;Application Name=SigovDocker
+      Sigov__Database__Schema: sigov
+      Sigov__Database__RunMigrationsOnStartup: "false"
+      Sigov__Database__MigrationsPath: /app/database/postgres/migrations
+      Sigov__Storage__Provider: Local
+      Sigov__Storage__LocalPath: ${APP_STORAGE_PATH:-/app/storage}
+      Sigov__Security__SwaggerEnabledInProduction: "false"
+      Database__ValidateSchemaOnStartup: ${DATABASE_VALIDATE_SCHEMA_ON_STARTUP:-true}
+      Database__FailFastOnInvalidSchema: ${DATABASE_FAIL_FAST_ON_INVALID_SCHEMA:-false}
+      Database__DisableWorkersWhenSchemaInvalid: ${DATABASE_DISABLE_WORKERS_WHEN_SCHEMA_INVALID:-true}
+      OcrWorker__Enabled: ${OCR_WORKER_ENABLED:-false}
+      PreviewWorker__Enabled: ${PREVIEW_WORKER_ENABLED:-false}
+      Workers__LoanOverdue__Enabled: ${LOAN_OVERDUE_WORKER_ENABLED:-false}
+    ports:
+      - "${APP_API_HTTP_PORT:-5001}:8080"
+    volumes:
+      - sigov_storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/health/live >/dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
 
-  sigov-worker:
-    container_name: sigov-worker
+  worker:
     build:
       context: .
       dockerfile: src/Sigov.Worker/Dockerfile
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=sigov-postgres;Port=5432;Database=sigov;Username=sigov;Password=sigov_dev_password
+    container_name: sigov-worker
     depends_on:
-      sigov-postgres:
+      postgres:
         condition: service_healthy
+      db-migrations:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456};Pooling=true;Application Name=SigovWorkerDocker
+      Workers__Outbox__Enabled: ${OUTBOX_WORKER_ENABLED:-false}
+      OcrWorker__Enabled: ${OCR_WORKER_ENABLED:-false}
+      PreviewWorker__Enabled: ${PREVIEW_WORKER_ENABLED:-false}
+      Workers__LoanOverdue__Enabled: ${LOAN_OVERDUE_WORKER_ENABLED:-false}
+    restart: unless-stopped
 
-  sigov-web:
-    container_name: sigov-web
+  web:
     build:
       context: .
       dockerfile: src/Sigov.Web/Dockerfile
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      Sigov__ApiBaseUrl: http://sigov-api:8080
-    ports:
-      - "5000:8080"
+    container_name: sigov-web
     depends_on:
-      - sigov-api
+      api:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS:-http://+:8080}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456};Pooling=true;Application Name=SigovWebDocker
+      Sigov__ApiBaseUrl: http://api:8080
+      Sigov__Brand__Name: ${SIGOV_BRANDING_NAME:-SIGOV}
+      Sigov__ReleaseChannel: ${SIGOV_RELEASE_CHANNEL:-dev}
+      Storage__Local__RootPath: ${APP_STORAGE_PATH:-/app/storage}
+      OcrWorker__Enabled: ${OCR_WORKER_ENABLED:-false}
+      PreviewWorker__Enabled: ${PREVIEW_WORKER_ENABLED:-false}
+      Workers__LoanOverdue__Enabled: ${LOAN_OVERDUE_WORKER_ENABLED:-false}
+    ports:
+      - "${APP_HTTP_PORT:-8080}:8080"
+    volumes:
+      - sigov_storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/ >/dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
 
 volumes:
-  sigov_postgres_data:
+  sigov_pgdata:
+  sigov_storage:

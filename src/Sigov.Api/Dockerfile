@@ -1,18 +1,40 @@
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
-WORKDIR /app
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
-RUN adduser --disabled-password --gecos "" sigov
-USER sigov
-
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
-COPY . .
+
+COPY sigov.sln ./
+COPY Directory.Build.props Directory.Packages.props ./
+COPY src/Sigov.Domain/Sigov.Domain.csproj src/Sigov.Domain/
+COPY src/Sigov.Application/Sigov.Application.csproj src/Sigov.Application/
+COPY src/Sigov.Infrastructure/Sigov.Infrastructure.csproj src/Sigov.Infrastructure/
+COPY src/Sigov.Api/Sigov.Api.csproj src/Sigov.Api/
+COPY src/Sigov.Web/Sigov.Web.csproj src/Sigov.Web/
+COPY src/Sigov.Worker/Sigov.Worker.csproj src/Sigov.Worker/
+COPY tests/Sigov.UnitTests/Sigov.UnitTests.csproj tests/Sigov.UnitTests/
+COPY tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj tests/Sigov.IntegrationTests/
+COPY tests/Sigov.ApiTests/Sigov.ApiTests.csproj tests/Sigov.ApiTests/
+
 RUN dotnet restore sigov.sln
+
+COPY . .
 RUN dotnet publish src/Sigov.Api/Sigov.Api.csproj -c Release -o /app/publish --no-restore
 
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS final
 WORKDIR /app
-COPY --from=build /app/publish .
-COPY --from=build /src/database /app/database
+
+ENV ASPNETCORE_URLS=http://+:8080
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --disabled-password --gecos "" --uid 10001 sigov \
+    && mkdir -p /app/storage /app/database \
+    && chown -R sigov:sigov /app
+
+COPY --from=build --chown=sigov:sigov /app/publish .
+COPY --from=build --chown=sigov:sigov /src/database /app/database
+
+USER sigov
+EXPOSE 8080
+
 ENTRYPOINT ["dotnet", "Sigov.Api.dll"]
