@@ -63,4 +63,42 @@ public static class AgroPermissions
     public const string ServicoMaquinaCancelar = "agro.servico_maquina.cancelar";
     public const string ServicoMaquinaExcluir = "agro.servico_maquina.excluir";
 
+    public const string EstradaVisualizar = "agro.estrada.visualizar";
+    public const string EstradaCriar = "agro.estrada.criar";
+    public const string EstradaEditar = "agro.estrada.editar";
+    public const string EstradaExcluir = "agro.estrada.excluir";
+    public const string PontoCriticoVisualizar = "agro.ponto_critico.visualizar";
+    public const string PontoCriticoCriar = "agro.ponto_critico.criar";
+    public const string PontoCriticoEditar = "agro.ponto_critico.editar";
+    public const string PontoCriticoResolver = "agro.ponto_critico.resolver";
+    public const string OcorrenciaVisualizar = "agro.ocorrencia.visualizar";
+    public const string OcorrenciaCriar = "agro.ocorrencia.criar";
+    public const string OcorrenciaEditar = "agro.ocorrencia.editar";
+    public const string OcorrenciaResolver = "agro.ocorrencia.resolver";
+    public const string OcorrenciaCancelar = "agro.ocorrencia.cancelar";
+    public const string ManutencaoVisualizar = "agro.manutencao.visualizar";
+    public const string ManutencaoCriar = "agro.manutencao.criar";
+    public const string ManutencaoExecutar = "agro.manutencao.executar";
+    public const string ManutencaoCancelar = "agro.manutencao.cancelar";
+    public const string FeiraVisualizar = "agro.feira.visualizar";
+    public const string FeiraCriar = "agro.feira.criar";
+    public const string FeiraEditar = "agro.feira.editar";
+    public const string FeiraExcluir = "agro.feira.excluir";
+    public const string FeiranteVisualizar = "agro.feirante.visualizar";
+    public const string FeiranteCriar = "agro.feirante.criar";
+    public const string FeiranteEditar = "agro.feirante.editar";
+    public const string FeiranteAutorizar = "agro.feirante.autorizar";
+    public const string FeiranteSuspender = "agro.feirante.suspender";
+    public const string AgroindustriaVisualizar = "agro.agroindustria.visualizar";
+    public const string AgroindustriaCriar = "agro.agroindustria.criar";
+    public const string AgroindustriaEditar = "agro.agroindustria.editar";
+    public const string AgroindustriaExcluir = "agro.agroindustria.excluir";
+    public const string InspecaoVisualizar = "agro.inspecao.visualizar";
+    public const string InspecaoCriar = "agro.inspecao.criar";
+    public const string InspecaoConcluir = "agro.inspecao.concluir";
+    public const string CompraAfVisualizar = "agro.compra_af.visualizar";
+    public const string CompraAfCriar = "agro.compra_af.criar";
+    public const string CompraAfEditar = "agro.compra_af.editar";
+    public const string CompraAfCancelar = "agro.compra_af.cancelar";
+
 }

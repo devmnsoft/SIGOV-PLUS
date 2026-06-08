@@ -1,0 +1,1 @@
+namespace Sigov.Infrastructure.Agro.Sql; public static class AgroFeirasSql{public const string Feira="sigov.agro_feira"; public const string Feirante="sigov.agro_feirante"; public const string Banca="sigov.agro_banca_feira"; public const string Autorizacao="sigov.agro_autorizacao_feira";}

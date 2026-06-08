@@ -1,0 +1,1 @@
+namespace Sigov.Infrastructure.Agro.Sql; public static class AgroInfraestruturaRuralSql{public const string Estradas="sigov.agro_estrada_vicinal"; public const string PontosCriticos="sigov.agro_ponto_critico_rural"; public const string Ocorrencias="sigov.agro_ocorrencia_rural"; public const string Manutencoes="sigov.agro_manutencao_rural";}

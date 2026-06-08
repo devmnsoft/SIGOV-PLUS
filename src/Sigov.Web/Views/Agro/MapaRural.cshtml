@@ -2,7 +2,7 @@
     ViewData["Title"] = "Mapa Rural";
 }
 @await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Mapa Rural", "Visualização tabular/JSON sem dependência obrigatória de biblioteca GIS externa.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Mapa Rural", "/Agro/MapaRural", true) }, "Exportar GeoJSON", "/api/agro/geo/export.geojson"))
-<div class="alert alert-info" role="status">Mapa estrutural inicial: as próximas etapas poderão acoplar biblioteca local de mapa sem quebrar esta visualização.</div>
+<div class="alert alert-info" role="status">Mapa Rural atualizado com camadas de Estradas Vicinais, Pontos Críticos, Ocorrências Rurais, Feiras e Agroindústrias; a visualização tabular/GeoJSON não depende de biblioteca externa obrigatória.</div>
 <div class="alert alert-info d-none" id="agroMapaLoading">Carregando mapa rural...</div><div class="alert alert-danger d-none" id="agroMapaErro"></div>
 <div class="row g-3">
   <div class="col-lg-5"><div class="card h-100"><div class="card-header">Camadas</div><div class="card-body">@await Html.PartialAsync("_GridGeoCamadas")</div></div></div>

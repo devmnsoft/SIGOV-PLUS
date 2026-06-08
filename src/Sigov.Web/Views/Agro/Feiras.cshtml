@@ -1,0 +1,6 @@
+@{ ViewData["Title"] = "Feiras e Mercados"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Feiras e Mercados", "Gestão estrutural Agro Parte 5 com tenant isolation, LGPD, auditoria e integrações futuras por eventos.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Feiras e Mercados", "/Agro/Feiras", true) }, "Mapa Rural", "/Agro/MapaRural"))
+@Html.AntiForgeryToken()
+<div class="alert alert-info d-none" id="agroParte5Loading">Carregando...</div><div class="alert alert-danger d-none" id="agroParte5Erro"></div>
+<div class="row g-3"><div class="col-lg-4"><div class="card"><div class="card-header">Formulário</div><div class="card-body">@await Html.PartialAsync("_FormFeira")</div></div></div><div class="col-lg-8"><div class="card"><div class="card-header">Registros</div><div class="card-body">@await Html.PartialAsync("_GridFeiras")</div></div></div></div>
+@section Scripts { <script src="~/js/modules/agro.feiras.js"></script> }
