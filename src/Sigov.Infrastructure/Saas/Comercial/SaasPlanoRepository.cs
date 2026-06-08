@@ -51,17 +51,24 @@ group by p.id;
 
     public async Task<SaasPlanoResponse> CreateAsync(SaasPlanoCreateRequest request, long usuarioId, Guid correlationId, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.Codigo))
+        {
+            throw new ArgumentException("Código do plano é obrigatório.", nameof(request.Codigo));
+        }
+
+        var codigo = request.Codigo.Trim().ToUpperInvariant();
+
         const string sql = @"insert into sigov.saas_plano (codigo,nome,descricao,publico,destaque,ordem,tipo_plano,preco_base,periodicidade,limite_usuarios,limite_entidades,limite_armazenamento_mb,permite_white_label,permite_dominio_customizado)
 values (@Codigo,@Nome,@Descricao,@Publico,@Destaque,@Ordem,@TipoPlano,@PrecoBase,@Periodicidade,@LimiteUsuarios,@LimiteEntidades,@LimiteArmazenamentoMb,@PermiteWhiteLabel,@PermiteDominioCustomizado)
 returning id;
 ";
         using var connection = _context.CreateConnection();
-        var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, request with { Codigo = request.Codigo.Trim().ToUpperInvariant() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, request with { Codigo = codigo }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         foreach (var modulo in request.Modulos.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             await connection.ExecuteAsync(new CommandDefinition("insert into sigov.saas_plano_modulo (plano_id, modulo_codigo) values (@PlanoId,@Modulo) on conflict (plano_id, modulo_codigo) do nothing;", new { PlanoId = id, Modulo = modulo.Trim().ToLowerInvariant() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
-        return (await GetByCodigoAsync(request.Codigo, cancellationToken).ConfigureAwait(false))!.Plano;
+        return (await GetByCodigoAsync(codigo, cancellationToken).ConfigureAwait(false))!.Plano;
     }
 
     public async Task<SaasPlanoResponse> UpdateAsync(long id, SaasPlanoUpdateRequest request, long usuarioId, Guid correlationId, CancellationToken cancellationToken)
