@@ -1,0 +1,11 @@
+@{
+    ViewData["Title"] = "Mapa Rural";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Mapa Rural", "Visualização tabular/JSON sem dependência obrigatória de biblioteca GIS externa.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Mapa Rural", "/Agro/MapaRural", true) }, "Exportar GeoJSON", "/api/agro/geo/export.geojson"))
+<div class="alert alert-info" role="status">Mapa estrutural inicial: as próximas etapas poderão acoplar biblioteca local de mapa sem quebrar esta visualização.</div>
+<div class="alert alert-info d-none" id="agroMapaLoading">Carregando mapa rural...</div><div class="alert alert-danger d-none" id="agroMapaErro"></div>
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card h-100"><div class="card-header">Camadas</div><div class="card-body">@await Html.PartialAsync("_GridGeoCamadas")</div></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-header">Feições, coordenadas e GeoJSON</div><div class="card-body">@await Html.PartialAsync("_GridGeoFeicoes")<pre class="bg-light border rounded p-3 mt-3 small" id="geoJsonPreview">{ "type": "FeatureCollection", "features": [] }</pre></div></div></div>
+</div>
+@section Scripts { <script src="~/js/modules/agro.mapa-rural.js"></script> }

@@ -1,0 +1,13 @@
+@{
+    ViewData["Title"] = "Camadas Geográficas";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Camadas Geográficas", "Cadastro estrutural de camadas e feições do módulo Agro.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Camadas Geográficas", "/Agro/CamadasGeo", true) }, "Mapa Rural", "/Agro/MapaRural"))
+<div class="card mb-3"><div class="card-body"><div class="row g-2 align-items-end"><div class="col-md-6"><label class="form-label" for="agroGeoBusca">Filtro</label><input class="form-control" id="agroGeoBusca" placeholder="Buscar por nome ou código" /></div><div class="col-md-2"><button class="btn btn-primary w-100" id="btnAgroGeoBuscar">Buscar</button></div></div></div></div>
+<div class="alert alert-info d-none" id="agroGeoLoading">Carregando informações geográficas...</div><div class="alert alert-danger d-none" id="agroGeoErro"></div>
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card h-100"><div class="card-header">Nova camada</div><div class="card-body">@await Html.PartialAsync("_FormGeoCamada")</div></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-header">Camadas cadastradas</div><div class="card-body">@await Html.PartialAsync("_GridGeoCamadas")</div></div></div>
+  <div class="col-lg-5"><div class="card h-100"><div class="card-header">Nova feição</div><div class="card-body">@await Html.PartialAsync("_FormGeoFeicao")</div></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-header">Feições cadastradas</div><div class="card-body">@await Html.PartialAsync("_GridGeoFeicoes")</div></div></div>
+</div>
+@section Scripts { <script src="~/js/modules/agro.geo.js"></script> }

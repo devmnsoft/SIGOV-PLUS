@@ -1,0 +1,13 @@
+<form id="formGeoCamada" method="post" autocomplete="off">
+  @Html.AntiForgeryToken()
+  <input type="hidden" name="id" id="camadaId" />
+  <div class="row g-3">
+    <div class="col-md-4"><label class="form-label" for="camadaCodigo">Código</label><input class="form-control" id="camadaCodigo" name="codigo" maxlength="80" required /></div>
+    <div class="col-md-8"><label class="form-label" for="camadaNome">Nome</label><input class="form-control" id="camadaNome" name="nome" maxlength="250" required /></div>
+    <div class="col-md-4"><label class="form-label" for="camadaTipo">Tipo</label><select class="form-select" id="camadaTipo" name="tipoCamada" required><option value="PRODUTORES">PRODUTORES</option><option value="PROPRIEDADES">PROPRIEDADES</option><option value="TALHOES">TALHOES</option><option value="CULTURAS">CULTURAS</option><option value="ESTRADAS">ESTRADAS</option><option value="PONTOS_CRITICOS">PONTOS_CRITICOS</option><option value="FEIRAS">FEIRAS</option><option value="AGROINDUSTRIAS">AGROINDUSTRIAS</option><option value="OCORRENCIAS">OCORRENCIAS</option><option value="OUTROS">OUTROS</option></select></div>
+    <div class="col-md-8"><label class="form-label" for="camadaDescricao">Descrição</label><input class="form-control" id="camadaDescricao" name="descricao" maxlength="500" /></div>
+    <div class="col-md-12"><label class="form-label" for="camadaEstiloJson">Estilo JSON</label><textarea class="form-control" id="camadaEstiloJson" name="estiloJson" rows="2">{}</textarea></div>
+    <div class="col-md-6 form-check ms-2"><input class="form-check-input" type="checkbox" id="camadaPublica" name="publica" /><label class="form-check-label" for="camadaPublica">Camada pública</label></div>
+  </div>
+  <div class="mt-3 d-flex gap-2"><button type="submit" class="btn btn-primary">Salvar camada</button><button type="reset" class="btn btn-outline-secondary">Limpar</button></div>
+</form>
