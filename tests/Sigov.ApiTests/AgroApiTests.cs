@@ -32,8 +32,12 @@ public sealed class AgroApiTests
     {
         var service = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Agro", "Geo", "AgroGeoService.cs"));
         var repository = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Agro", "AgroModuleRepository.cs"));
-        service.Should().Contain("HasPermissionAsync");
-        service.Should().Contain("IsModuleEnabledAsync");
+        service.Should().Contain("IAgroAccessChecker");
+        service.Should().Contain("AgroPermissions.GeoVisualizar");
+        var accessChecker = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Agro", "Permissions", "AgroAccessChecker.cs"));
+        accessChecker.Should().Contain("CheckFeatureAsync");
+        accessChecker.Should().Contain("EffectivePermissionService");
+        repository = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Agro", "AgroGeoRepository.cs"));
         repository.Should().Contain("where tenant_id=@TenantId");
         repository.Should().Contain("sigov.agro_geo_camada");
         repository.Should().Contain("sigov.agro_geo_feicao");

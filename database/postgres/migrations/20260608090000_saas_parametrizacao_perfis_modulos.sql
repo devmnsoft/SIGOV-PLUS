@@ -136,6 +136,13 @@ alter table sigov.tenant_feature_flag add column if not exists modulo_codigo var
 alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
 alter table sigov.tenant_feature_flag add column if not exists ambiente varchar(40) null;
 alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
+alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
+do $$
+begin
+    if exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'tenant_feature_flag' and column_name = 'habilitado') then
+        update sigov.tenant_feature_flag set habilitada = habilitado where habilitada = false;
+    end if;
+end $$;
 update sigov.tenant_feature_flag tff set feature_codigo = ffd.codigo, modulo_codigo = coalesce(ffd.modulo, split_part(ffd.codigo, '.', 1)), parametros_json = coalesce(tff.valor, '{}'::jsonb) from sigov.feature_flag_def ffd where tff.feature_flag_def_id = ffd.id and tff.feature_codigo is null;
 create unique index if not exists ux_tenant_feature_flag_codigo on sigov.tenant_feature_flag (tenant_id, modulo_codigo, feature_codigo) where feature_codigo is not null;
 

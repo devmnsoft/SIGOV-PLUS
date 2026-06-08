@@ -42,6 +42,47 @@ select t.id, f.id, true, true
  where t.ativo = true and t.is_deleted = false
 on conflict (tenant_id, feature_flag_def_id) do nothing;
 
+
+do $$
+begin
+    if to_regclass('sigov.tenant_modulo_contratado') is not null then
+        insert into sigov.tenant_modulo_contratado (tenant_id, modulo_codigo, status, contratado_em, vigencia_inicio, ativo)
+        select t.id, 'agro', 'HABILITADO', current_date, current_date, true
+          from sigov.tenant t
+         where t.ativo = true and t.is_deleted = false
+        on conflict (tenant_id, modulo_codigo) do nothing;
+    end if;
+
+    if to_regclass('sigov.tenant_feature_flag') is not null and exists (
+        select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'tenant_feature_flag' and column_name = 'feature_codigo'
+    ) then
+        insert into sigov.tenant_feature_flag (tenant_id, modulo_codigo, feature_codigo, habilitada, parametros_json)
+        select t.id, 'agro', f.codigo, true, '{}'::jsonb
+          from sigov.tenant t
+          join sigov.feature_flag_def f on f.modulo = 'agro'
+         where t.ativo = true and t.is_deleted = false
+           and not exists (
+                select 1
+                  from sigov.tenant_feature_flag atual
+                 where atual.tenant_id = t.id
+                   and atual.modulo_codigo = 'agro'
+                   and atual.feature_codigo = f.codigo
+           );
+    end if;
+end $$;
+
+insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
+select pa.id, p.id
+  from sigov.perfil_acesso pa
+  join sigov.permissao p on p.modulo = 'agro' and p.ativo = true and p.is_deleted = false
+ where pa.ativo = true
+   and pa.is_deleted = false
+   and (
+        coalesce(pa.codigo_externo, upper(replace(pa.nome, ' ', '_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE')
+        or upper(pa.nome) like '%ADMINISTRADOR%'
+   )
+on conflict do nothing;
+
 create table if not exists sigov.agro_geo_camada (
     id bigint generated always as identity primary key,
     tenant_id bigint not null references sigov.tenant(id),
