@@ -12,18 +12,17 @@ public sealed class UserPreferenceRepository
 
     public async Task<UserPreferenceResponse?> GetAsync(long? tenantId, long userId, string key, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT tenant_id AS TenantId,
-                   usuario_id AS UserId,
-                   chave AS Key,
-                   valor::text AS ValueJson,
-                   COALESCE(updated_at, created_at) AS UpdatedAt
-              FROM sigov.usuario_preferencia
-             WHERE ((tenant_id IS NULL AND @TenantId IS NULL) OR tenant_id = @TenantId)
-               AND usuario_id = @UserId
-               AND chave = @Key
-             LIMIT 1;
-            """;
+        const string sql = @"SELECT tenant_id AS TenantId,
+       usuario_id AS UserId,
+       chave AS Key,
+       valor::text AS ValueJson,
+       COALESCE(updated_at, created_at) AS UpdatedAt
+  FROM sigov.usuario_preferencia
+ WHERE ((tenant_id IS NULL AND @TenantId IS NULL) OR tenant_id = @TenantId)
+   AND usuario_id = @UserId
+   AND chave = @Key
+ LIMIT 1;
+";
 
         cancellationToken.ThrowIfCancellationRequested();
         using var connection = _context.CreateConnection();
@@ -32,18 +31,17 @@ public sealed class UserPreferenceRepository
 
     public async Task<UserPreferenceResponse> UpsertAsync(UserPreferenceUpdateRequest request, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            INSERT INTO sigov.usuario_preferencia (tenant_id, usuario_id, chave, valor)
-            VALUES (@TenantId, @UserId, @Key, CAST(@ValueJson AS jsonb))
-            ON CONFLICT (tenant_id, usuario_id, chave)
-            DO UPDATE SET valor = EXCLUDED.valor,
-                          updated_at = now()
-            RETURNING tenant_id AS TenantId,
-                      usuario_id AS UserId,
-                      chave AS Key,
-                      valor::text AS ValueJson,
-                      COALESCE(updated_at, created_at) AS UpdatedAt;
-            """;
+        const string sql = @"INSERT INTO sigov.usuario_preferencia (tenant_id, usuario_id, chave, valor)
+VALUES (@TenantId, @UserId, @Key, CAST(@ValueJson AS jsonb))
+ON CONFLICT (tenant_id, usuario_id, chave)
+DO UPDATE SET valor = EXCLUDED.valor,
+              updated_at = now()
+RETURNING tenant_id AS TenantId,
+          usuario_id AS UserId,
+          chave AS Key,
+          valor::text AS ValueJson,
+          COALESCE(updated_at, created_at) AS UpdatedAt;
+";
 
         cancellationToken.ThrowIfCancellationRequested();
         using var connection = _context.CreateConnection();

@@ -90,25 +90,24 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
 
     public async Task<SaudeDashboardResponse> DashboardAsync(long tenantId, long entidadeId, CancellationToken ct)
     {
-        const string sql = """
-            select
-              (select count(*) from sigov.unidade_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalUnidades,
-              (select count(*) from sigov.profissional_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalProfissionais,
-              (select count(*) from sigov.paciente where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalPacientesAtivos,
-              (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento::date=current_date and is_deleted=false) as AtendimentosHoje,
-              (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento>=date_trunc('month', now()) and is_deleted=false) as AtendimentosMes,
-              (select count(*) from sigov.agenda_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_inicio::date=current_date and is_deleted=false) as AgendaHoje,
-              (select count(*) from sigov.farmacia_dispensacao where tenant_id=@TenantId and entidade_id=@EntidadeId and data_dispensacao>=date_trunc('month', now()) and is_deleted=false) as DispensacoesMes,
-              (select count(*) from sigov.farmacia_estoque where tenant_id=@TenantId and entidade_id=@EntidadeId and quantidade<=10) as EstoqueBaixo,
-              (select count(*) from sigov.vacinacao where tenant_id=@TenantId and entidade_id=@EntidadeId and data_aplicacao>=date_trunc('month', current_date)::date and is_deleted=false) as VacinacoesMes,
-              (select count(*) from sigov.laboratorio_exame where tenant_id=@TenantId and entidade_id=@EntidadeId and status in ('SOLICITADO','COLETADO') and is_deleted=false) as ExamesPendentes,
-              (select count(*) from sigov.regulacao_solicitacao where tenant_id=@TenantId and entidade_id=@EntidadeId and status in ('SOLICITADA','EM_ANALISE') and is_deleted=false) as RegulacoesPendentes,
-              (select count(*) from sigov.acs_microarea where tenant_id=@TenantId and entidade_id=@EntidadeId and ativo=true and is_deleted=false) as MicroareasAtivas,
-              (select count(*) from sigov.acs_cadastro_domiciliar where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as DomiciliosCadastrados,
-              (select count(*) from sigov.acs_cadastro_individual where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as IndividuosCadastrados,
-              (select count(*) from sigov.acs_visita where tenant_id=@TenantId and entidade_id=@EntidadeId and data_visita>=date_trunc('month', now()) and is_deleted=false) as VisitasAcsMes,
-              (select count(*) from sigov.acs_sync_lote where tenant_id=@TenantId and entidade_id=@EntidadeId and status='RECEBIDO' and is_deleted=false) as SyncsPendentes;
-            """;
+        const string sql = @"select
+  (select count(*) from sigov.unidade_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalUnidades,
+  (select count(*) from sigov.profissional_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalProfissionais,
+  (select count(*) from sigov.paciente where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalPacientesAtivos,
+  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento::date=current_date and is_deleted=false) as AtendimentosHoje,
+  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento>=date_trunc('month', now()) and is_deleted=false) as AtendimentosMes,
+  (select count(*) from sigov.agenda_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_inicio::date=current_date and is_deleted=false) as AgendaHoje,
+  (select count(*) from sigov.farmacia_dispensacao where tenant_id=@TenantId and entidade_id=@EntidadeId and data_dispensacao>=date_trunc('month', now()) and is_deleted=false) as DispensacoesMes,
+  (select count(*) from sigov.farmacia_estoque where tenant_id=@TenantId and entidade_id=@EntidadeId and quantidade<=10) as EstoqueBaixo,
+  (select count(*) from sigov.vacinacao where tenant_id=@TenantId and entidade_id=@EntidadeId and data_aplicacao>=date_trunc('month', current_date)::date and is_deleted=false) as VacinacoesMes,
+  (select count(*) from sigov.laboratorio_exame where tenant_id=@TenantId and entidade_id=@EntidadeId and status in ('SOLICITADO','COLETADO') and is_deleted=false) as ExamesPendentes,
+  (select count(*) from sigov.regulacao_solicitacao where tenant_id=@TenantId and entidade_id=@EntidadeId and status in ('SOLICITADA','EM_ANALISE') and is_deleted=false) as RegulacoesPendentes,
+  (select count(*) from sigov.acs_microarea where tenant_id=@TenantId and entidade_id=@EntidadeId and ativo=true and is_deleted=false) as MicroareasAtivas,
+  (select count(*) from sigov.acs_cadastro_domiciliar where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as DomiciliosCadastrados,
+  (select count(*) from sigov.acs_cadastro_individual where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as IndividuosCadastrados,
+  (select count(*) from sigov.acs_visita where tenant_id=@TenantId and entidade_id=@EntidadeId and data_visita>=date_trunc('month', now()) and is_deleted=false) as VisitasAcsMes,
+  (select count(*) from sigov.acs_sync_lote where tenant_id=@TenantId and entidade_id=@EntidadeId and status='RECEBIDO' and is_deleted=false) as SyncsPendentes;
+";
         using var connection = _context.CreateConnection();
         var row = await connection.QueryFirstAsync(sql, new { TenantId = tenantId, EntidadeId = entidadeId }).ConfigureAwait(false);
         return new SaudeDashboardResponse((long)row.totalunidades, (long)row.totalprofissionais, (long)row.totalpacientesativos, (long)row.atendimentoshoje, (long)row.atendimentosmes, (long)row.agendahoje, (long)row.dispensacoesmes, (long)row.estoquebaixo, (long)row.vacinacoesmes, (long)row.examespendentes, (long)row.regulacoespendentes, (long)row.microareasativas, (long)row.domicilioscadastrados, (long)row.individuoscadastrados, (long)row.visitasacsmes, (long)row.syncspendentes, Array.Empty<object>(), Array.Empty<object>(), new[] { "Saúde/ACS base operacional carregada." });

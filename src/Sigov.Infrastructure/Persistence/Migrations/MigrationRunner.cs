@@ -34,15 +34,14 @@ public sealed class MigrationRunner
             await using var connection = _connectionFactory.CreateConnection();
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition("create schema if not exists sigov;", cancellationToken: cancellationToken)).ConfigureAwait(false);
-            await connection.ExecuteAsync(new CommandDefinition("""
-                create table if not exists sigov.schema_migrations (
-                    id bigserial primary key,
-                    version varchar(50) not null unique,
-                    description varchar(250) not null,
-                    checksum varchar(128) not null,
-                    applied_at timestamptz not null default now()
-                );
-                """, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await connection.ExecuteAsync(new CommandDefinition(@"create table if not exists sigov.schema_migrations (
+    id bigserial primary key,
+    version varchar(50) not null unique,
+    description varchar(250) not null,
+    checksum varchar(128) not null,
+    applied_at timestamptz not null default now()
+);
+", cancellationToken: cancellationToken)).ConfigureAwait(false);
 
             var files = Directory.GetFiles(_migrationsPath, "*.sql").OrderBy(static file => file, StringComparer.OrdinalIgnoreCase);
             foreach (var file in files)
@@ -64,10 +63,9 @@ public sealed class MigrationRunner
                 _logger.LogInformation("Aplicando migration sigov {Version}: {Description}", version, description);
                 await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
                 await connection.ExecuteAsync(new CommandDefinition(sql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await connection.ExecuteAsync(new CommandDefinition("""
-                    insert into sigov.schema_migrations (version, description, checksum)
-                    values (@Version, @Description, @Checksum);
-                    """, new { Version = version, Description = description, Checksum = checksum }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.schema_migrations (version, description, checksum)
+values (@Version, @Description, @Checksum);
+", new { Version = version, Description = description, Checksum = checksum }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
         }

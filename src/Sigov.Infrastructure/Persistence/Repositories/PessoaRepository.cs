@@ -29,33 +29,32 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
         try
         {
             var page = new PaginationQuery(filtro.Page, filtro.PageSize);
-            const string sql = """
-                select
-                    p.id,
-                    p.tipo_pessoa as TipoPessoa,
-                    p.nome,
-                    p.nome_social as NomeSocial,
-                    p.documento,
-                    p.ativo
-                from sigov.pessoa p
-                where p.tenant_id = @TenantId
-                  and p.is_deleted = false
-                  and (@EntidadeId is null or p.entidade_id = @EntidadeId)
-                  and (@TipoPessoa is null or p.tipo_pessoa = @TipoPessoa)
-                  and (@Ativo is null or p.ativo = @Ativo)
-                  and (@Termo is null or p.nome ilike '%' || @Termo || '%' or p.documento ilike '%' || @Termo || '%')
-                order by p.nome
-                limit @Limit offset @Offset;
+            const string sql = @"select
+    p.id,
+    p.tipo_pessoa as TipoPessoa,
+    p.nome,
+    p.nome_social as NomeSocial,
+    p.documento,
+    p.ativo
+from sigov.pessoa p
+where p.tenant_id = @TenantId
+  and p.is_deleted = false
+  and (@EntidadeId is null or p.entidade_id = @EntidadeId)
+  and (@TipoPessoa is null or p.tipo_pessoa = @TipoPessoa)
+  and (@Ativo is null or p.ativo = @Ativo)
+  and (@Termo is null or p.nome ilike '%' || @Termo || '%' or p.documento ilike '%' || @Termo || '%')
+order by p.nome
+limit @Limit offset @Offset;
 
-                select count(1)
-                from sigov.pessoa p
-                where p.tenant_id = @TenantId
-                  and p.is_deleted = false
-                  and (@EntidadeId is null or p.entidade_id = @EntidadeId)
-                  and (@TipoPessoa is null or p.tipo_pessoa = @TipoPessoa)
-                  and (@Ativo is null or p.ativo = @Ativo)
-                  and (@Termo is null or p.nome ilike '%' || @Termo || '%' or p.documento ilike '%' || @Termo || '%');
-                """;
+select count(1)
+from sigov.pessoa p
+where p.tenant_id = @TenantId
+  and p.is_deleted = false
+  and (@EntidadeId is null or p.entidade_id = @EntidadeId)
+  and (@TipoPessoa is null or p.tipo_pessoa = @TipoPessoa)
+  and (@Ativo is null or p.ativo = @Ativo)
+  and (@Termo is null or p.nome ilike '%' || @Termo || '%' or p.documento ilike '%' || @Termo || '%');
+";
 
             using var connection = _context.CreateConnection();
             var args = new { TenantId = tenantId, filtro.EntidadeId, filtro.Termo, filtro.TipoPessoa, filtro.Ativo, Limit = page.SafePageSize, page.Offset };
@@ -87,11 +86,10 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     {
         try
         {
-            const string sql = """
-                select id, tipo_pessoa as TipoPessoa, nome, nome_social as NomeSocial, documento, classificacao_lgpd as ClassificacaoLgpd, observacao, ativo
-                from sigov.pessoa
-                where tenant_id = @TenantId and id = @Id and is_deleted = false;
-                """;
+            const string sql = @"select id, tipo_pessoa as TipoPessoa, nome, nome_social as NomeSocial, documento, classificacao_lgpd as ClassificacaoLgpd, observacao, ativo
+from sigov.pessoa
+where tenant_id = @TenantId and id = @Id and is_deleted = false;
+";
             using var connection = _context.CreateConnection();
             var pessoa = await connection.QuerySingleOrDefaultAsync<PessoaDetalheRow>(Command(sql, new { TenantId = tenantId, Id = id }, cancellationToken)).ConfigureAwait(false);
             if (pessoa is null) return null;
@@ -109,11 +107,10 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     {
         try
         {
-            const string sql = """
-                insert into sigov.pessoa (tenant_id, entidade_id, exercicio_id, tipo_pessoa, nome, nome_social, documento, observacao, created_by)
-                values (@TenantId, @EntidadeId, @ExercicioId, @TipoPessoa, @Nome, @NomeSocial, @Documento, @Observacao, @UsuarioId)
-                returning id;
-                """;
+            const string sql = @"insert into sigov.pessoa (tenant_id, entidade_id, exercicio_id, tipo_pessoa, nome, nome_social, documento, observacao, created_by)
+values (@TenantId, @EntidadeId, @ExercicioId, @TipoPessoa, @Nome, @NomeSocial, @Documento, @Observacao, @UsuarioId)
+returning id;
+";
             using var connection = _context.CreateConnection();
             var id = await connection.ExecuteScalarAsync<long>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, TipoPessoa = NormalizarTipo(request.TipoPessoa), Nome = request.Nome.Trim(), request.NomeSocial, Documento = Sigov.Domain.Core.Pessoa.NormalizarDocumento(request.Documento), request.Observacao, UsuarioId = usuarioId }, cancellationToken)).ConfigureAwait(false);
             foreach (var endereco in request.Enderecos ?? Array.Empty<EnderecoCreateRequest>())
@@ -134,18 +131,17 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     {
         try
         {
-            const string sql = """
-                update sigov.pessoa
-                set tipo_pessoa = @TipoPessoa,
-                    nome = @Nome,
-                    nome_social = @NomeSocial,
-                    documento = @Documento,
-                    observacao = @Observacao,
-                    ativo = @Ativo,
-                    updated_at = now(),
-                    updated_by = @UsuarioId
-                where tenant_id = @TenantId and id = @Id and is_deleted = false;
-                """;
+            const string sql = @"update sigov.pessoa
+set tipo_pessoa = @TipoPessoa,
+    nome = @Nome,
+    nome_social = @NomeSocial,
+    documento = @Documento,
+    observacao = @Observacao,
+    ativo = @Ativo,
+    updated_at = now(),
+    updated_by = @UsuarioId
+where tenant_id = @TenantId and id = @Id and is_deleted = false;
+";
             using var connection = _context.CreateConnection();
             await connection.ExecuteAsync(Command(sql, new { TenantId = tenantId, Id = id, TipoPessoa = NormalizarTipo(request.TipoPessoa), Nome = request.Nome.Trim(), request.NomeSocial, Documento = Sigov.Domain.Core.Pessoa.NormalizarDocumento(request.Documento), request.Observacao, request.Ativo, UsuarioId = usuarioId }, cancellationToken)).ConfigureAwait(false);
         }
@@ -160,14 +156,13 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     {
         try
         {
-            const string sql = """
-                update sigov.pessoa
-                set is_deleted = true, ativo = false, deleted_at = now(), deleted_by = @UsuarioId
-                where tenant_id = @TenantId and id = @Id and is_deleted = false;
-                update sigov.endereco
-                set is_deleted = true, ativo = false, deleted_at = now(), deleted_by = @UsuarioId
-                where tenant_id = @TenantId and pessoa_id = @Id and is_deleted = false;
-                """;
+            const string sql = @"update sigov.pessoa
+set is_deleted = true, ativo = false, deleted_at = now(), deleted_by = @UsuarioId
+where tenant_id = @TenantId and id = @Id and is_deleted = false;
+update sigov.endereco
+set is_deleted = true, ativo = false, deleted_at = now(), deleted_by = @UsuarioId
+where tenant_id = @TenantId and pessoa_id = @Id and is_deleted = false;
+";
             using var connection = _context.CreateConnection();
             await connection.ExecuteAsync(Command(sql, new { TenantId = tenantId, Id = id, UsuarioId = usuarioId }, cancellationToken)).ConfigureAwait(false);
         }
@@ -189,21 +184,20 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     {
         try
         {
-            const string sql = """
-                update sigov.endereco
-                set logradouro = @Logradouro,
-                    numero = @Numero,
-                    complemento = @Complemento,
-                    bairro = @Bairro,
-                    municipio = @Municipio,
-                    uf = @Uf,
-                    cep = @Cep,
-                    observacao = @Observacao,
-                    ativo = @Ativo,
-                    updated_at = now(),
-                    updated_by = @UsuarioId
-                where tenant_id = @TenantId and pessoa_id = @PessoaId and id = @EnderecoId and is_deleted = false;
-                """;
+            const string sql = @"update sigov.endereco
+set logradouro = @Logradouro,
+    numero = @Numero,
+    complemento = @Complemento,
+    bairro = @Bairro,
+    municipio = @Municipio,
+    uf = @Uf,
+    cep = @Cep,
+    observacao = @Observacao,
+    ativo = @Ativo,
+    updated_at = now(),
+    updated_by = @UsuarioId
+where tenant_id = @TenantId and pessoa_id = @PessoaId and id = @EnderecoId and is_deleted = false;
+";
             using var connection = _context.CreateConnection();
             await connection.ExecuteAsync(Command(sql, new { TenantId = tenantId, PessoaId = pessoaId, EnderecoId = enderecoId, Logradouro = request.Logradouro.Trim(), request.Numero, request.Complemento, request.Bairro, Municipio = request.Municipio.Trim(), Uf = request.Uf.Trim().ToUpperInvariant(), Cep = NormalizarCep(request.Cep), request.Observacao, request.Ativo, UsuarioId = usuarioId }, cancellationToken)).ConfigureAwait(false);
         }
@@ -218,11 +212,10 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     {
         try
         {
-            const string sql = """
-                update sigov.endereco
-                set is_deleted = true, ativo = false, deleted_at = now(), deleted_by = @UsuarioId
-                where tenant_id = @TenantId and pessoa_id = @PessoaId and id = @EnderecoId and is_deleted = false;
-                """;
+            const string sql = @"update sigov.endereco
+set is_deleted = true, ativo = false, deleted_at = now(), deleted_by = @UsuarioId
+where tenant_id = @TenantId and pessoa_id = @PessoaId and id = @EnderecoId and is_deleted = false;
+";
             using var connection = _context.CreateConnection();
             await connection.ExecuteAsync(Command(sql, new { TenantId = tenantId, PessoaId = pessoaId, EnderecoId = enderecoId, UsuarioId = usuarioId }, cancellationToken)).ConfigureAwait(false);
         }
@@ -247,23 +240,21 @@ public sealed class PessoaRepository : BaseRepository, IPessoaCadastroRepository
     private static async Task<IReadOnlyCollection<EnderecoResponse>> ListarEnderecosAsync(System.Data.IDbConnection connection, long tenantId, IReadOnlyCollection<long> pessoaIds, CancellationToken cancellationToken)
     {
         if (pessoaIds.Count == 0) return Array.Empty<EnderecoResponse>();
-        const string sql = """
-            select id, pessoa_id as PessoaId, logradouro, numero, complemento, bairro, municipio, uf, cep, observacao, ativo
-            from sigov.endereco
-            where tenant_id = @TenantId and pessoa_id = any(@PessoaIds) and is_deleted = false
-            order by id;
-            """;
+        const string sql = @"select id, pessoa_id as PessoaId, logradouro, numero, complemento, bairro, municipio, uf, cep, observacao, ativo
+from sigov.endereco
+where tenant_id = @TenantId and pessoa_id = any(@PessoaIds) and is_deleted = false
+order by id;
+";
         var rows = await connection.QueryAsync<EnderecoResponse>(Command(sql, new { TenantId = tenantId, PessoaIds = pessoaIds.ToArray() }, cancellationToken)).ConfigureAwait(false);
         return rows.AsList();
     }
 
     private static async Task<long> InserirEnderecoAsync(System.Data.IDbConnection connection, long tenantId, long? entidadeId, long? exercicioId, long pessoaId, EnderecoCreateRequest request, long? usuarioId, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.endereco (tenant_id, entidade_id, exercicio_id, pessoa_id, logradouro, numero, complemento, bairro, municipio, uf, cep, observacao, created_by)
-            values (@TenantId, @EntidadeId, @ExercicioId, @PessoaId, @Logradouro, @Numero, @Complemento, @Bairro, @Municipio, @Uf, @Cep, @Observacao, @UsuarioId)
-            returning id;
-            """;
+        const string sql = @"insert into sigov.endereco (tenant_id, entidade_id, exercicio_id, pessoa_id, logradouro, numero, complemento, bairro, municipio, uf, cep, observacao, created_by)
+values (@TenantId, @EntidadeId, @ExercicioId, @PessoaId, @Logradouro, @Numero, @Complemento, @Bairro, @Municipio, @Uf, @Cep, @Observacao, @UsuarioId)
+returning id;
+";
         return await connection.ExecuteScalarAsync<long>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, PessoaId = pessoaId, Logradouro = request.Logradouro.Trim(), request.Numero, request.Complemento, request.Bairro, Municipio = request.Municipio.Trim(), Uf = request.Uf.Trim().ToUpperInvariant(), Cep = NormalizarCep(request.Cep), request.Observacao, UsuarioId = usuarioId }, cancellationToken)).ConfigureAwait(false);
     }
 

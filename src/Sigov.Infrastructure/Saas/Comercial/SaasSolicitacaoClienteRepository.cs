@@ -14,11 +14,10 @@ public sealed class SaasSolicitacaoClienteRepository : ISaasSolicitacaoClienteRe
 
     public async Task<SaasSolicitacaoClienteResponse> CreateAsync(SaasSolicitacaoClienteCreateRequest request, string protocolo, Guid correlationId, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.saas_solicitacao_cliente (protocolo,nome_organizacao,tipo_cliente,documento,cidade,uf,nome_responsavel,email_responsavel,telefone_responsavel,plano_codigo,modulos_interesse,usuarios_estimados,entidades_estimadas,deseja_white_label,deseja_dominio_customizado,dominio_desejado,status,correlation_id)
-            values (@Protocolo,@NomeOrganizacao,@TipoCliente,@Documento,@Cidade,@Uf,@NomeResponsavel,@EmailResponsavel,@TelefoneResponsavel,@PlanoCodigo,cast(@ModulosInteresse as jsonb),@UsuariosEstimados,@EntidadesEstimadas,@DesejaWhiteLabel,@DesejaDominioCustomizado,@DominioDesejado,'RECEBIDA',@CorrelationId)
-            returning id;
-            """;
+        const string sql = @"insert into sigov.saas_solicitacao_cliente (protocolo,nome_organizacao,tipo_cliente,documento,cidade,uf,nome_responsavel,email_responsavel,telefone_responsavel,plano_codigo,modulos_interesse,usuarios_estimados,entidades_estimadas,deseja_white_label,deseja_dominio_customizado,dominio_desejado,status,correlation_id)
+values (@Protocolo,@NomeOrganizacao,@TipoCliente,@Documento,@Cidade,@Uf,@NomeResponsavel,@EmailResponsavel,@TelefoneResponsavel,@PlanoCodigo,cast(@ModulosInteresse as jsonb),@UsuariosEstimados,@EntidadesEstimadas,@DesejaWhiteLabel,@DesejaDominioCustomizado,@DominioDesejado,'RECEBIDA',@CorrelationId)
+returning id;
+";
         using var connection = _context.CreateConnection();
         var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { Protocolo = protocolo, request.NomeOrganizacao, request.TipoCliente, request.Documento, request.Cidade, Uf = request.Uf?.ToUpperInvariant(), request.NomeResponsavel, request.EmailResponsavel, request.TelefoneResponsavel, PlanoCodigo = request.PlanoCodigo?.ToUpperInvariant(), ModulosInteresse = JsonSerializer.Serialize(request.ModulosInteresse), request.UsuariosEstimados, request.EntidadesEstimadas, request.DesejaWhiteLabel, request.DesejaDominioCustomizado, request.DominioDesejado, CorrelationId = correlationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return (await GetAdminAsync(id, cancellationToken).ConfigureAwait(false))!;
@@ -54,9 +53,8 @@ public sealed class SaasSolicitacaoClienteRepository : ISaasSolicitacaoClienteRe
         await connection.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId, TipoEvento = tipoEvento, Origem = origem, OrigemId = origemId, Payload = JsonSerializer.Serialize(payload), CorrelationId = correlationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
-    private const string SelectSql = """
-        select id as Id, protocolo as Protocolo, nome_organizacao as NomeOrganizacao, tipo_cliente as TipoCliente, documento as Documento, nome_responsavel as NomeResponsavel, email_responsavel as EmailResponsavel, telefone_responsavel as TelefoneResponsavel, plano_codigo as PlanoCodigo, usuarios_estimados as UsuariosEstimados, deseja_white_label as DesejaWhiteLabel, deseja_dominio_customizado as DesejaDominioCustomizado, status as Status, tenant_id as TenantId, created_at as CreatedAt from sigov.saas_solicitacao_cliente
-        """;
+    private const string SelectSql = @"select id as Id, protocolo as Protocolo, nome_organizacao as NomeOrganizacao, tipo_cliente as TipoCliente, documento as Documento, nome_responsavel as NomeResponsavel, email_responsavel as EmailResponsavel, telefone_responsavel as TelefoneResponsavel, plano_codigo as PlanoCodigo, usuarios_estimados as UsuariosEstimados, deseja_white_label as DesejaWhiteLabel, deseja_dominio_customizado as DesejaDominioCustomizado, status as Status, tenant_id as TenantId, created_at as CreatedAt from sigov.saas_solicitacao_cliente
+";
 
     private static SaasSolicitacaoClienteResponse ToResponse(SolicitacaoRow row) => new(row.Id, row.Protocolo, row.NomeOrganizacao, row.TipoCliente, SaasSolicitacaoClienteMapper.MaskDocument(row.Documento), row.NomeResponsavel, SaasSolicitacaoClienteMapper.MaskEmail(row.EmailResponsavel) ?? string.Empty, SaasSolicitacaoClienteMapper.MaskDocument(row.TelefoneResponsavel), row.PlanoCodigo, row.UsuariosEstimados, row.DesejaWhiteLabel, row.DesejaDominioCustomizado, row.Status, row.TenantId, row.CreatedAt);
 
@@ -92,22 +90,20 @@ public sealed class SaasTenantProvisioningRepository : ISaasTenantProvisioningRe
 
     private static async Task CreatePerfisAsync(System.Data.IDbConnection connection, long tenantId, long usuarioId, Guid correlationId, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.perfil_acesso (tenant_id,nome,descricao,codigo_externo,created_by,correlation_id)
-            select @TenantId, nome, descricao, codigo, @UsuarioId, @CorrelationId from sigov.saas_perfil_template where ativo=true and nivel_base <> 'ADMINISTRADOR_GERAL'
-            on conflict do nothing;
-            """;
+        const string sql = @"insert into sigov.perfil_acesso (tenant_id,nome,descricao,codigo_externo,created_by,correlation_id)
+select @TenantId, nome, descricao, codigo, @UsuarioId, @CorrelationId from sigov.saas_perfil_template where ativo=true and nivel_base <> 'ADMINISTRADOR_GERAL'
+on conflict do nothing;
+";
         await connection.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId, UsuarioId = usuarioId, CorrelationId = correlationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private static async Task CreateOnboardingTasksAsync(System.Data.IDbConnection connection, long tenantId, long onboardingId, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.saas_onboarding_tarefa (tenant_id,onboarding_id,codigo,nome,ordem,obrigatoria)
-            select @TenantId,@OnboardingId,codigo,nome,ordem,true from (values
-            ('confirmar_dados','Confirmar dados da organização',10),('configurar_branding','Configurar branding',20),('configurar_dominio','Configurar domínio, se contratado',30),('criar_usuarios','Criar usuários',40),('revisar_perfis','Revisar perfis',50),('conferir_modulos','Conferir módulos contratados',60),('configurar_entidade','Configurar entidade',70),('configurar_exercicio','Configurar exercício',80),('parametrizar_modulos','Parametrizar módulos',90),('checklist_implantacao','Rodar checklist de implantação',100),('aceitar_termo_implantacao','Aceitar termo de implantação',110)) as t(codigo,nome,ordem)
-            on conflict do nothing;
-            """;
+        const string sql = @"insert into sigov.saas_onboarding_tarefa (tenant_id,onboarding_id,codigo,nome,ordem,obrigatoria)
+select @TenantId,@OnboardingId,codigo,nome,ordem,true from (values
+('confirmar_dados','Confirmar dados da organização',10),('configurar_branding','Configurar branding',20),('configurar_dominio','Configurar domínio, se contratado',30),('criar_usuarios','Criar usuários',40),('revisar_perfis','Revisar perfis',50),('conferir_modulos','Conferir módulos contratados',60),('configurar_entidade','Configurar entidade',70),('configurar_exercicio','Configurar exercício',80),('parametrizar_modulos','Parametrizar módulos',90),('checklist_implantacao','Rodar checklist de implantação',100),('aceitar_termo_implantacao','Aceitar termo de implantação',110)) as t(codigo,nome,ordem)
+on conflict do nothing;
+";
         await connection.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId, OnboardingId = onboardingId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 

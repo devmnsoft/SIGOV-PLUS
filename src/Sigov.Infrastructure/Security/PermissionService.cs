@@ -28,31 +28,30 @@ public sealed class PermissionService : BaseRepository, IPermissionService
 
         try
         {
-            const string sql = """
-                select exists (
-                    select 1
-                    from sigov.usuario u
-                    where u.id = @UsuarioId
-                      and u.tenant_id = @TenantId
-                      and u.ativo = true
-                      and u.is_deleted = false
-                      and (
-                          u.login = 'admin'
-                          or exists (
-                              select 1
-                              from sigov.usuario_grupo ug
-                              join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and gp.is_deleted = false
-                              join sigov.perfil_permissao pp on pp.perfil_acesso_id = gp.perfil_acesso_id
-                              join sigov.permissao p on p.id = pp.permissao_id and p.ativo = true and p.is_deleted = false
-                              where ug.usuario_id = u.id
-                                and ug.tenant_id = @TenantId
-                                and ug.is_deleted = false
-                                and p.modulo = @Modulo
-                                and (p.chave = @Chave or p.chave = @AdminChave or (p.recurso = @Recurso and p.acao = @Acao))
-                          )
-                      )
-                );
-                """;
+            const string sql = @"select exists (
+    select 1
+    from sigov.usuario u
+    where u.id = @UsuarioId
+      and u.tenant_id = @TenantId
+      and u.ativo = true
+      and u.is_deleted = false
+      and (
+          u.login = 'admin'
+          or exists (
+              select 1
+              from sigov.usuario_grupo ug
+              join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and gp.is_deleted = false
+              join sigov.perfil_permissao pp on pp.perfil_acesso_id = gp.perfil_acesso_id
+              join sigov.permissao p on p.id = pp.permissao_id and p.ativo = true and p.is_deleted = false
+              where ug.usuario_id = u.id
+                and ug.tenant_id = @TenantId
+                and ug.is_deleted = false
+                and p.modulo = @Modulo
+                and (p.chave = @Chave or p.chave = @AdminChave or (p.recurso = @Recurso and p.acao = @Acao))
+          )
+      )
+);
+";
 
             using var connection = _context.CreateConnection();
             return await connection.ExecuteScalarAsync<bool>(Command(sql, new { UsuarioId = usuarioId, TenantId = _currentTenant.TenantId.Value, Modulo = modulo, Recurso = recurso, Acao = acao, Chave = $"{recurso}.{acao}", AdminChave = $"{modulo}_admin" }, cancellationToken)).ConfigureAwait(false);

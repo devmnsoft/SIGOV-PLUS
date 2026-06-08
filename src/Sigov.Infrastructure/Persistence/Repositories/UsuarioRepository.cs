@@ -29,14 +29,13 @@ public sealed class UsuarioRepository : BaseRepository
 
         try
         {
-            const string sql = """
-                select id, login, email, ativo
-                from sigov.usuario
-                where tenant_id = @TenantId
-                  and login = @Login
-                  and is_deleted = false
-                limit 1;
-                """;
+            const string sql = @"select id, login, email, ativo
+from sigov.usuario
+where tenant_id = @TenantId
+  and login = @Login
+  and is_deleted = false
+limit 1;
+";
 
             using var connection = _context.CreateConnection();
             return await connection.QuerySingleOrDefaultAsync<UsuarioResumoDto>(Command(sql, new { TenantId = _currentTenant.TenantId.Value, Login = login }, cancellationToken)).ConfigureAwait(false);

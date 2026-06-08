@@ -15,33 +15,30 @@ public sealed class AgroRelatoriosRepository : IAgroIndicadorRepository, IAgroRe
     public async Task<IReadOnlyCollection<AgroIndicadorResponse>> ListarIndicadoresAsync(long tenantId, long? entidadeId, int page, int pageSize, CancellationToken cancellationToken) { using var cn = _context.CreateConnection(); var items = await cn.QueryAsync<AgroIndicadorResponse>(new CommandDefinition(AgroRelatoriosSql.ListarIndicadores, new { TenantId = tenantId, EntidadeId = entidadeId, PageSize = pageSize, Offset = (page - 1) * pageSize }, cancellationToken: cancellationToken)).ConfigureAwait(false); return items.ToArray(); }
     public async Task<AgroIndicadorResponse> CriarIndicadorAsync(long tenantId, long? entidadeId, long usuarioId, AgroIndicadorCreateRequest request, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.agro_indicador(tenant_id,entidade_id,codigo,nome,descricao,categoria,unidade_medida,publico,created_by)
-            values(@TenantId,@EntidadeId,@Codigo,@Nome,@Descricao,@Categoria,@UnidadeMedida,@Publico,@UsuarioId)
-            on conflict (tenant_id, entidade_id, codigo) do update set nome=excluded.nome, descricao=excluded.descricao, categoria=excluded.categoria, unidade_medida=excluded.unidade_medida, publico=excluded.publico, updated_at=now(), updated_by=@UsuarioId
-            returning id as Id, tenant_id as TenantId, entidade_id as EntidadeId, codigo as Codigo, nome as Nome, categoria as Categoria, descricao as Descricao, unidade_medida as UnidadeMedida, publico as Publico, ativo as Ativo;
-            """;
+        const string sql = @"insert into sigov.agro_indicador(tenant_id,entidade_id,codigo,nome,descricao,categoria,unidade_medida,publico,created_by)
+values(@TenantId,@EntidadeId,@Codigo,@Nome,@Descricao,@Categoria,@UnidadeMedida,@Publico,@UsuarioId)
+on conflict (tenant_id, entidade_id, codigo) do update set nome=excluded.nome, descricao=excluded.descricao, categoria=excluded.categoria, unidade_medida=excluded.unidade_medida, publico=excluded.publico, updated_at=now(), updated_by=@UsuarioId
+returning id as Id, tenant_id as TenantId, entidade_id as EntidadeId, codigo as Codigo, nome as Nome, categoria as Categoria, descricao as Descricao, unidade_medida as UnidadeMedida, publico as Publico, ativo as Ativo;
+";
         using var cn = _context.CreateConnection(); var result = await cn.QuerySingleAsync<AgroIndicadorResponse>(new CommandDefinition(sql, new { TenantId = tenantId, EntidadeId = entidadeId, request.Codigo, request.Nome, request.Descricao, request.Categoria, request.UnidadeMedida, request.Publico, UsuarioId = usuarioId }, cancellationToken: cancellationToken)).ConfigureAwait(false); await EventoAsync(cn, tenantId, entidadeId, null, "AgroIndicadorCriado", "agro_indicador", result.Id, usuarioId, new { request.Codigo }, cancellationToken).ConfigureAwait(false); return result;
     }
     public async Task<IReadOnlyCollection<AgroIndicadorValorResponse>> ListarValoresAsync(long tenantId, long? entidadeId, long indicadorId, int page, int pageSize, CancellationToken cancellationToken) { using var cn = _context.CreateConnection(); var items = await cn.QueryAsync<AgroIndicadorValorResponse>(new CommandDefinition(AgroRelatoriosSql.ListarValores, new { TenantId = tenantId, EntidadeId = entidadeId, IndicadorId = indicadorId, PageSize = pageSize, Offset = (page - 1) * pageSize }, cancellationToken: cancellationToken)).ConfigureAwait(false); return items.ToArray(); }
     public async Task<IReadOnlyCollection<AgroRelatorioModeloResponse>> ListarModelosAsync(long tenantId, long? entidadeId, int page, int pageSize, CancellationToken cancellationToken) { using var cn = _context.CreateConnection(); var items = await cn.QueryAsync<AgroRelatorioModeloResponse>(new CommandDefinition(AgroRelatoriosSql.ListarModelos, new { TenantId = tenantId, EntidadeId = entidadeId, PageSize = pageSize, Offset = (page - 1) * pageSize }, cancellationToken: cancellationToken)).ConfigureAwait(false); return items.ToArray(); }
     public async Task<AgroRelatorioModeloResponse> CriarModeloAsync(long tenantId, long? entidadeId, long usuarioId, AgroRelatorioModeloCreateRequest request, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.agro_relatorio_modelo(tenant_id,entidade_id,codigo,nome,descricao,tipo_relatorio,formato_padrao,publico_no_tenant,contem_dados_pessoais,contem_dados_sensiveis,created_by)
-            values(@TenantId,@EntidadeId,@Codigo,@Nome,@Descricao,@TipoRelatorio,@FormatoPadrao,@PublicoNoTenant,@ContemDadosPessoais,@ContemDadosSensiveis,@UsuarioId)
-            on conflict (tenant_id, entidade_id, codigo) do update set nome=excluded.nome, descricao=excluded.descricao, tipo_relatorio=excluded.tipo_relatorio, formato_padrao=excluded.formato_padrao, publico_no_tenant=excluded.publico_no_tenant, updated_at=now(), updated_by=@UsuarioId
-            returning id as Id, tenant_id as TenantId, entidade_id as EntidadeId, codigo as Codigo, nome as Nome, tipo_relatorio as TipoRelatorio, formato_padrao as FormatoPadrao, publico_no_tenant as PublicoNoTenant, contem_dados_pessoais as ContemDadosPessoais, ativo as Ativo;
-            """;
+        const string sql = @"insert into sigov.agro_relatorio_modelo(tenant_id,entidade_id,codigo,nome,descricao,tipo_relatorio,formato_padrao,publico_no_tenant,contem_dados_pessoais,contem_dados_sensiveis,created_by)
+values(@TenantId,@EntidadeId,@Codigo,@Nome,@Descricao,@TipoRelatorio,@FormatoPadrao,@PublicoNoTenant,@ContemDadosPessoais,@ContemDadosSensiveis,@UsuarioId)
+on conflict (tenant_id, entidade_id, codigo) do update set nome=excluded.nome, descricao=excluded.descricao, tipo_relatorio=excluded.tipo_relatorio, formato_padrao=excluded.formato_padrao, publico_no_tenant=excluded.publico_no_tenant, updated_at=now(), updated_by=@UsuarioId
+returning id as Id, tenant_id as TenantId, entidade_id as EntidadeId, codigo as Codigo, nome as Nome, tipo_relatorio as TipoRelatorio, formato_padrao as FormatoPadrao, publico_no_tenant as PublicoNoTenant, contem_dados_pessoais as ContemDadosPessoais, ativo as Ativo;
+";
         using var cn = _context.CreateConnection(); return await cn.QuerySingleAsync<AgroRelatorioModeloResponse>(new CommandDefinition(sql, new { TenantId = tenantId, EntidadeId = entidadeId, request.Codigo, request.Nome, request.Descricao, request.TipoRelatorio, request.FormatoPadrao, PublicoNoTenant = request.ContemDadosPessoais ? false : request.PublicoNoTenant, request.ContemDadosPessoais, request.ContemDadosSensiveis, UsuarioId = usuarioId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
     public async Task<AgroRelatorioExecucaoResponse> ExecutarAsync(long tenantId, long? entidadeId, long? exercicioId, long usuarioId, long modeloId, ExecutarAgroRelatorioRequest request, CancellationToken cancellationToken)
     {
-        const string sql = """
-            insert into sigov.agro_relatorio_execucao(tenant_id,entidade_id,exercicio_id,modelo_id,usuario_id,formato,parametros_json,status,total_linhas,finalizou_at,conteudo_resumo)
-            values(@TenantId,@EntidadeId,@ExercicioId,@ModeloId,@UsuarioId,@Formato,cast(@ParametrosJson as jsonb),'CONCLUIDO',0,now(),'{}'::jsonb)
-            returning id as Id, tenant_id as TenantId, entidade_id as EntidadeId, exercicio_id as ExercicioId, modelo_id as ModeloId, usuario_id as UsuarioId, formato as Formato, status as Status, total_linhas as TotalLinhas, iniciou_at as IniciouAt, finalizou_at as FinalizouAt, erro as Erro;
-            """;
+        const string sql = @"insert into sigov.agro_relatorio_execucao(tenant_id,entidade_id,exercicio_id,modelo_id,usuario_id,formato,parametros_json,status,total_linhas,finalizou_at,conteudo_resumo)
+values(@TenantId,@EntidadeId,@ExercicioId,@ModeloId,@UsuarioId,@Formato,cast(@ParametrosJson as jsonb),'CONCLUIDO',0,now(),'{}'::jsonb)
+returning id as Id, tenant_id as TenantId, entidade_id as EntidadeId, exercicio_id as ExercicioId, modelo_id as ModeloId, usuario_id as UsuarioId, formato as Formato, status as Status, total_linhas as TotalLinhas, iniciou_at as IniciouAt, finalizou_at as FinalizouAt, erro as Erro;
+";
         using var cn = _context.CreateConnection(); var result = await cn.QuerySingleAsync<AgroRelatorioExecucaoResponse>(new CommandDefinition(sql, new { TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, ModeloId = modeloId, UsuarioId = usuarioId, request.Formato, ParametrosJson = string.IsNullOrWhiteSpace(request.ParametrosJson) ? "{}" : request.ParametrosJson }, cancellationToken: cancellationToken)).ConfigureAwait(false); await EventoAsync(cn, tenantId, entidadeId, exercicioId, "AgroRelatorioExecutado", "agro_relatorio_modelo", modeloId, usuarioId, new { request.Formato }, cancellationToken).ConfigureAwait(false); return result;
     }
     public async Task<IReadOnlyCollection<AgroRelatorioExecucaoResponse>> ListarExecucoesAsync(long tenantId, long? entidadeId, int page, int pageSize, CancellationToken cancellationToken) { using var cn = _context.CreateConnection(); var items = await cn.QueryAsync<AgroRelatorioExecucaoResponse>(new CommandDefinition(AgroRelatoriosSql.ListarExecucoes, new { TenantId = tenantId, EntidadeId = entidadeId, PageSize = pageSize, Offset = (page - 1) * pageSize }, cancellationToken: cancellationToken)).ConfigureAwait(false); return items.ToArray(); }
