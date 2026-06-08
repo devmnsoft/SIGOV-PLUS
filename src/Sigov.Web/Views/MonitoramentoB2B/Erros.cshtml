@@ -1,0 +1,16 @@
+@model Sigov.Application.Saas.B2B.MonitoramentoB2BDto
+@{
+    ViewData["Title"] = "Monitoramento B2B";
+}
+<section class="container py-4">
+    <h1>Monitoramento ativo B2B</h1>
+    <p class="text-muted">Coletado em @Model.ColetadoEm.</p>
+    <div class="row g-3">
+        <div class="col-md-4"><div class="alert alert-primary">Tenants ativos: <strong>@Model.TenantsAtivos</strong></div></div>
+        <div class="col-md-4"><div class="alert alert-danger">Alertas críticos: <strong>@Model.AlertasCriticos</strong></div></div>
+        <div class="col-md-4"><div class="alert alert-warning">Endpoints lentos: <strong>@Model.EndpointsLentos</strong></div></div>
+        <div class="col-md-4"><div class="alert alert-danger">Erros críticos: <strong>@Model.ErrosCriticos</strong></div></div>
+        <div class="col-md-4"><div class="alert alert-warning">Chamados críticos: <strong>@Model.ChamadosCriticos</strong></div></div>
+        <div class="col-md-4"><div class="alert alert-warning">Incidentes SLA: <strong>@Model.IncidentesSla</strong></div></div>
+    </div>
+</section>

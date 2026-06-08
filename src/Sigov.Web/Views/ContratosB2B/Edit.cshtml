@@ -1,0 +1,2 @@
+@model IReadOnlyCollection<Sigov.Application.Saas.B2B.ContratoSlaDto>
+<section class="container py-4"><h1>Contratos, termos e SLA</h1><div class="table-responsive"><table class="table"><thead><tr><th>Tenant</th><th>Plano</th><th>Status</th><th>Uptime</th><th>Propriedade dos dados</th></tr></thead><tbody>@foreach (var item in Model){<tr><td>@item.TenantId</td><td>@item.PlanoCodigo</td><td>@item.Status</td><td>@item.UptimeContratado</td><td>@item.PropriedadeDados</td></tr>}</tbody></table></div></section>

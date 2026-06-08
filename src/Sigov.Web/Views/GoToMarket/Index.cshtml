@@ -1,0 +1,2 @@
+@model IReadOnlyCollection<Sigov.Application.Saas.B2B.GoToMarketMaterialDto>
+<section class="container py-4"><h1>Go-to-market B2B</h1><div class="row g-3">@foreach (var item in Model){<div class="col-md-6"><article class="card h-100"><div class="card-body"><h2 class="h5">@item.Titulo</h2><p class="text-muted">@item.Tipo · @item.Visibilidade</p><p>@item.ConteudoResumo</p></div></article></div>}</div></section>

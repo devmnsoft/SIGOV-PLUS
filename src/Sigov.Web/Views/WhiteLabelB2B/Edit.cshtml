@@ -1,0 +1,71 @@
+@model Sigov.Application.Saas.B2B.WhiteLabelConfiguracaoDto
+@{
+    ViewData["Title"] = "White label B2B";
+}
+<section class="container py-4">
+    @if (TempData["Toast"] is not null)
+    {
+        <div class="alert alert-success" role="status">@TempData["Toast"]</div>
+    }
+    @if (TempData["ToastErro"] is not null)
+    {
+        <div class="alert alert-danger" role="alert">@TempData["ToastErro"]</div>
+    }
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1 class="h3 mb-1">White label B2B sem deploy</h1>
+            <p class="text-muted mb-0">Configure identidade visual, domínio, textos e publicação do tenant @Model.TenantId.</p>
+        </div>
+        <span class="badge @(Model.Publicado ? "bg-success" : "bg-secondary")">@(Model.Publicado ? "Publicado" : "Rascunho")</span>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <form asp-action="Salvar" method="post" class="card shadow-sm">
+                @Html.AntiForgeryToken()
+                <div class="card-body">
+                    <h2 class="h5">Editor visual</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Nome da plataforma</label><input class="form-control" name="NomePlataforma" value="@Model.NomePlataforma" required /></div>
+                        <div class="col-md-6"><label class="form-label">Nome comercial</label><input class="form-control" name="NomeComercial" value="@Model.NomeComercial" required /></div>
+                        <div class="col-md-4"><label class="form-label">Cor primária</label><input type="color" class="form-control form-control-color" name="CorPrimaria" value="@Model.CorPrimaria" /></div>
+                        <div class="col-md-4"><label class="form-label">Cor secundária</label><input type="color" class="form-control form-control-color" name="CorSecundaria" value="@Model.CorSecundaria" /></div>
+                        <div class="col-md-4"><label class="form-label">Destaque</label><input type="color" class="form-control form-control-color" name="CorDestaque" value="@Model.CorDestaque" /></div>
+                        <div class="col-md-4"><label class="form-label">Menu</label><input type="color" class="form-control form-control-color" name="CorMenu" value="@Model.CorMenu" /></div>
+                        <div class="col-md-4"><label class="form-label">Fundo</label><input type="color" class="form-control form-control-color" name="CorFundo" value="@Model.CorFundo" /></div>
+                        <div class="col-md-4"><label class="form-label">Tema</label><select class="form-select" name="Tema"><option value="claro">Claro</option><option value="escuro">Escuro</option></select></div>
+                        <div class="col-12"><label class="form-label">Slogan</label><input class="form-control" name="Slogan" value="@Model.Slogan" /></div>
+                        <div class="col-12"><label class="form-label">Boas-vindas</label><textarea class="form-control" name="TextoBoasVindas" rows="2">@Model.TextoBoasVindas</textarea></div>
+                        <div class="col-12"><label class="form-label">Rodapé</label><textarea class="form-control" name="TextoRodape" rows="2">@Model.TextoRodape</textarea></div>
+                        <div class="col-md-6"><label class="form-label">Domínio customizado</label><input class="form-control" name="DominioCustomizado" value="@Model.DominioCustomizado" /></div>
+                        <div class="col-md-6"><label class="form-label">Subdomínio</label><input class="form-control" name="Subdominio" value="@Model.Subdominio" /></div>
+                        <div class="col-12"><label class="form-label">E-mail remetente</label><input type="email" class="form-control" name="EmailRemetente" value="@Model.EmailRemetente" /></div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <button class="btn btn-primary" type="submit">Salvar configuração</button>
+                    <button class="btn btn-outline-success" type="submit" formaction="@Url.Action("ConfirmarPublicacao")" formmethod="post">Publicar</button>
+                    <button class="btn btn-outline-secondary" type="submit" formaction="@Url.Action("RestaurarPadrao")" formmethod="post">Restaurar padrão</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <div class="card shadow-sm" style="background:@Model.CorFundo">
+                <div class="card-header text-white" style="background:@Model.CorMenu">Preview do dashboard</div>
+                <div class="card-body">
+                    <h2 style="color:@Model.CorPrimaria">@Model.NomeComercial</h2>
+                    <p>@Model.TextoBoasVindas</p>
+                    <button class="btn text-white" style="background:@Model.CorDestaque" type="button">Ação de exemplo</button>
+                    <hr />
+                    <small>@Model.TextoRodape</small>
+                </div>
+            </div>
+            <div class="card shadow-sm mt-3">
+                <div class="card-body">
+                    <h2 class="h6">Assets</h2>
+                    <p class="small text-muted">Uploads são validados pela API de assets e não expõem caminho físico.</p>
+                    <ul class="small mb-0"><li>Logo: @Model.LogoPrincipalUrl</li><li>Favicon: @Model.FaviconUrl</li><li>Banner login: @Model.BannerLoginUrl</li></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

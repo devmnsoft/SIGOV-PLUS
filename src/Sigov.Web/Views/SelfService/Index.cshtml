@@ -1,0 +1,25 @@
+@using Sigov.Application.Saas.B2B
+@{
+    ViewData["Title"] = "Cadastro self-service";
+    var planos = ViewBag.Planos as IReadOnlyCollection<B2BPlanoDto> ?? new List<B2BPlanoDto>();
+}
+<section class="container py-4">
+    @if (TempData["Toast"] is not null) { <div class="alert alert-success">@TempData["Toast"]</div> }
+    @if (TempData["ToastErro"] is not null) { <div class="alert alert-danger">@TempData["ToastErro"]</div> }
+    <h1>Cadastro self-service PlantãoPro</h1>
+    <form asp-action="Cadastrar" method="post" class="card shadow-sm mt-3">
+        @Html.AntiForgeryToken()
+        <div class="card-body row g-3">
+            <div class="col-md-6"><label class="form-label">Razão social</label><input class="form-control" name="RazaoSocial" required /></div>
+            <div class="col-md-6"><label class="form-label">Nome fantasia</label><input class="form-control" name="NomeFantasia" /></div>
+            <div class="col-md-4"><label class="form-label">CNPJ</label><input class="form-control" name="Cnpj" required /></div>
+            <div class="col-md-4"><label class="form-label">Responsável</label><input class="form-control" name="ResponsavelNome" required /></div>
+            <div class="col-md-4"><label class="form-label">Telefone</label><input class="form-control" name="ResponsavelTelefone" /></div>
+            <div class="col-md-6"><label class="form-label">E-mail</label><input type="email" class="form-control" name="ResponsavelEmail" required /></div>
+            <div class="col-md-6"><label class="form-label">Plano</label><select class="form-select" name="PlanoCodigo" required>@foreach (var plano in planos){<option value="@plano.Codigo">@plano.Nome</option>}</select></div>
+            <div class="col-12"><label class="form-check"><input type="checkbox" class="form-check-input" name="AceiteTermos" value="true" required /> <span class="form-check-label">Aceito os termos comerciais.</span></label></div>
+            <div class="col-12"><label class="form-check"><input type="checkbox" class="form-check-input" name="AceiteLgpd" value="true" required /> <span class="form-check-label">Aceito a política de privacidade e LGPD.</span></label></div>
+        </div>
+        <div class="card-footer"><button type="submit" class="btn btn-primary">Iniciar onboarding automático</button></div>
+    </form>
+</section>

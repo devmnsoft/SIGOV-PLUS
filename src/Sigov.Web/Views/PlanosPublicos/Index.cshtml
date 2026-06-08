@@ -1,0 +1,30 @@
+@model IReadOnlyCollection<Sigov.Application.Saas.B2B.B2BPlanoDto>
+@{
+    ViewData["Title"] = "Planos PlantãoPro B2B";
+}
+<section class="container py-4">
+    <div class="text-center mb-4"><h1>Planos PlantãoPro B2B</h1><p class="text-muted">Planos públicos, setup, white label, API, SLA e revenda.</p></div>
+    <div class="row g-4">
+        @foreach (var plano in Model)
+        {
+            <div class="col-md-6 col-xl-4">
+                <article class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h2 class="h5">@plano.Nome</h2>
+                        <p class="text-muted">@plano.Descricao</p>
+                        <p class="display-6">@plano.ValorMensal.ToString("C")</p>
+                        <ul class="small">
+                            <li>@plano.LimiteMedicos médicos</li>
+                            <li>@plano.LimiteHospitais unidades</li>
+                            <li>@plano.LimitePlantoesMes plantões/mês</li>
+                            <li>White label: @(plano.PermiteWhiteLabel ? "sim" : "não")</li>
+                            <li>API: @(plano.PermiteApi ? "sim" : "não")</li>
+                            <li>SLA: @plano.SlaResumo</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer"><a class="btn btn-primary w-100" asp-controller="PlanosPublicos" asp-action="Comparar">Comparar plano</a></div>
+                </article>
+            </div>
+        }
+    </div>
+</section>
