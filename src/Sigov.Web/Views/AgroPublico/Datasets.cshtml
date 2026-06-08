@@ -1,0 +1,3 @@
+@{ ViewData["Title"] = "Dados Abertos Agro"; var slug = (string?)ViewData["TenantSlug"] ?? ""; }
+<section class="container py-4" data-tenant-slug="@slug"><h1 class="h3">Dados Abertos Agro</h1><p class="text-muted">Downloads públicos publicados e auditados.</p><div id="agroPublicoDatasets"></div></section>
+@section Scripts { <script src="~/js/modules/agro.dados-abertos.js"></script> }

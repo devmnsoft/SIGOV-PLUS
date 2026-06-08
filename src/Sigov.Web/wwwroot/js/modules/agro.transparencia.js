@@ -1,0 +1,1 @@
+(function ($) { 'use strict'; $(function(){ $('[data-module="agro-transparencia"]').each(function(){ $(this).append('<div class="alert alert-success">Transparência Agro pronta para dados anonimizados.</div>'); }); });})(jQuery);

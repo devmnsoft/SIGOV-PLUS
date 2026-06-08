@@ -55,7 +55,14 @@ public sealed class AgroAccessChecker : IAgroAccessChecker
         AgroPermissions.InspecaoConcluir,
         AgroPermissions.CompraAfCriar,
         AgroPermissions.CompraAfEditar,
-        AgroPermissions.CompraAfCancelar
+        AgroPermissions.CompraAfCancelar,
+        AgroPermissions.IndicadorGerenciar,
+        AgroPermissions.RelatorioGerenciar,
+        AgroPermissions.RelatorioExecutar,
+        AgroPermissions.Exportar,
+        AgroPermissions.TransparenciaGerenciar,
+        AgroPermissions.TransparenciaPublicar,
+        AgroPermissions.ComercialConfigurar
     };
 
     private static readonly ISet<string> PerfisComAcessoAoModulo = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
