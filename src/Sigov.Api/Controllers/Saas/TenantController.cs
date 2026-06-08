@@ -41,13 +41,12 @@ public sealed class TenantController : ControllerBase
             return BadRequest(ApiResponse<IReadOnlyCollection<TenantModuleInfo>>.Fail("Tenant não resolvido."));
         }
 
-        const string sql = """
-            select ms.codigo, ms.nome, tm.contratado, tm.habilitado
-            from sigov.tenant_modulo tm
-            join sigov.modulo_saas ms on ms.id = tm.modulo_saas_id
-            where tm.tenant_id = @TenantId and tm.ativo = true and ms.ativo = true
-            order by ms.ordem, ms.nome;
-            """;
+        const string sql = @"select ms.codigo, ms.nome, tm.contratado, tm.habilitado
+from sigov.tenant_modulo tm
+join sigov.modulo_saas ms on ms.id = tm.modulo_saas_id
+where tm.tenant_id = @TenantId and tm.ativo = true and ms.ativo = true
+order by ms.ordem, ms.nome;
+";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<TenantModuleInfo>(new CommandDefinition(sql, new { TenantId = _tenantContext.TenantId.Value }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<TenantModuleInfo>>.Ok(rows.AsList()));
@@ -61,13 +60,12 @@ public sealed class TenantController : ControllerBase
             return BadRequest(ApiResponse<IReadOnlyCollection<TenantFeatureInfo>>.Fail("Tenant não resolvido."));
         }
 
-        const string sql = """
-            select ffd.codigo, tff.habilitado, tff.valor::text as ValorJson
-            from sigov.tenant_feature_flag tff
-            join sigov.feature_flag_def ffd on ffd.id = tff.feature_flag_def_id
-            where tff.tenant_id = @TenantId and tff.ativo = true and ffd.ativo = true
-            order by ffd.codigo;
-            """;
+        const string sql = @"select ffd.codigo, tff.habilitado, tff.valor::text as ValorJson
+from sigov.tenant_feature_flag tff
+join sigov.feature_flag_def ffd on ffd.id = tff.feature_flag_def_id
+where tff.tenant_id = @TenantId and tff.ativo = true and ffd.ativo = true
+order by ffd.codigo;
+";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<TenantFeatureInfo>(new CommandDefinition(sql, new { TenantId = _tenantContext.TenantId.Value }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<TenantFeatureInfo>>.Ok(rows.AsList()));

@@ -27,28 +27,26 @@ public sealed class ProcessoSequencialRepository : BaseRepository, IProcessoSequ
     public async Task<string> ProximoAsync(long tenantId, long? entidadeId, long? exercicioId, int ano, string chave, string prefixo, CancellationToken ct)
     {
         const string lockSql = "select pg_advisory_lock(hashtext(@TenantId::text || ':' || coalesce(@EntidadeId::text, '') || ':' || coalesce(@ExercicioId::text, '') || ':' || @Chave || ':' || @Ano::text));";
-        const string insertSql = """
-            insert into sigov.controle_sequencial (tenant_id, entidade_id, exercicio_id, chave, ano, ultimo_numero)
-            select @TenantId, @EntidadeId, @ExercicioId, @Chave, @Ano, 0
-            where not exists (
-                select 1 from sigov.controle_sequencial
-                where tenant_id = @TenantId
-                  and entidade_id is not distinct from @EntidadeId
-                  and exercicio_id is not distinct from @ExercicioId
-                  and chave = @Chave
-                  and ano = @Ano
-            );
-            """;
-        const string updateSql = """
-            update sigov.controle_sequencial
-            set ultimo_numero = ultimo_numero + 1, updated_at = now()
-            where tenant_id = @TenantId
-              and entidade_id is not distinct from @EntidadeId
-              and exercicio_id is not distinct from @ExercicioId
-              and chave = @Chave
-              and ano = @Ano
-            returning ultimo_numero;
-            """;
+        const string insertSql = @"insert into sigov.controle_sequencial (tenant_id, entidade_id, exercicio_id, chave, ano, ultimo_numero)
+select @TenantId, @EntidadeId, @ExercicioId, @Chave, @Ano, 0
+where not exists (
+    select 1 from sigov.controle_sequencial
+    where tenant_id = @TenantId
+      and entidade_id is not distinct from @EntidadeId
+      and exercicio_id is not distinct from @ExercicioId
+      and chave = @Chave
+      and ano = @Ano
+);
+";
+        const string updateSql = @"update sigov.controle_sequencial
+set ultimo_numero = ultimo_numero + 1, updated_at = now()
+where tenant_id = @TenantId
+  and entidade_id is not distinct from @EntidadeId
+  and exercicio_id is not distinct from @ExercicioId
+  and chave = @Chave
+  and ano = @Ano
+returning ultimo_numero;
+";
         var args = new { TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, Chave = chave, Ano = ano };
         using var cn = _context.CreateConnection();
         cn.Open();

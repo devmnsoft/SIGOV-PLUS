@@ -15,12 +15,11 @@ public sealed class AgroGeoRepository : IAgroGeoRepository
     public async Task<PagedResult<AgroGeoCamadaResponse>> ListarCamadasAsync(long tenantId, long? entidadeId, AgroGeoFiltro filtro, CancellationToken cancellationToken)
     {
         const string countSql = "select count(*) from sigov.agro_geo_camada where tenant_id=@TenantId and is_deleted=false and ((@EntidadeId is null) or entidade_id=@EntidadeId) and (@Busca is null or nome ilike @Busca or codigo ilike @Busca);";
-        const string sql = """
-            select id as Id, tenant_id as TenantId, entidade_id as EntidadeId, codigo as Codigo, nome as Nome, tipo_camada as TipoCamada, descricao as Descricao, publica as Publica, ativo as Ativo
-              from sigov.agro_geo_camada
-             where tenant_id=@TenantId and is_deleted=false and ((@EntidadeId is null) or entidade_id=@EntidadeId) and (@Busca is null or nome ilike @Busca or codigo ilike @Busca)
-             order by nome asc limit @Limit offset @Offset;
-            """;
+        const string sql = @"select id as Id, tenant_id as TenantId, entidade_id as EntidadeId, codigo as Codigo, nome as Nome, tipo_camada as TipoCamada, descricao as Descricao, publica as Publica, ativo as Ativo
+  from sigov.agro_geo_camada
+ where tenant_id=@TenantId and is_deleted=false and ((@EntidadeId is null) or entidade_id=@EntidadeId) and (@Busca is null or nome ilike @Busca or codigo ilike @Busca)
+ order by nome asc limit @Limit offset @Offset;
+";
         var parameters = Params(tenantId, entidadeId, filtro);
         using var connection = _context.CreateConnection();
         var total = await connection.ExecuteScalarAsync<long>(new CommandDefinition(countSql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -59,12 +58,11 @@ public sealed class AgroGeoRepository : IAgroGeoRepository
     public async Task<PagedResult<AgroGeoFeicaoResponse>> ListarFeicoesAsync(long tenantId, long? entidadeId, AgroGeoFiltro filtro, CancellationToken cancellationToken)
     {
         const string countSql = "select count(*) from sigov.agro_geo_feicao where tenant_id=@TenantId and is_deleted=false and ((@EntidadeId is null) or entidade_id=@EntidadeId) and (@Busca is null or nome ilike @Busca);";
-        const string sql = """
-            select id as Id, tenant_id as TenantId, entidade_id as EntidadeId, camada_id as CamadaId, nome as Nome, tipo_geometria as TipoGeometria, latitude as Latitude, longitude as Longitude, geojson::text as GeoJson, ativo as Ativo
-              from sigov.agro_geo_feicao
-             where tenant_id=@TenantId and is_deleted=false and ((@EntidadeId is null) or entidade_id=@EntidadeId) and (@Busca is null or nome ilike @Busca)
-             order by id desc limit @Limit offset @Offset;
-            """;
+        const string sql = @"select id as Id, tenant_id as TenantId, entidade_id as EntidadeId, camada_id as CamadaId, nome as Nome, tipo_geometria as TipoGeometria, latitude as Latitude, longitude as Longitude, geojson::text as GeoJson, ativo as Ativo
+  from sigov.agro_geo_feicao
+ where tenant_id=@TenantId and is_deleted=false and ((@EntidadeId is null) or entidade_id=@EntidadeId) and (@Busca is null or nome ilike @Busca)
+ order by id desc limit @Limit offset @Offset;
+";
         var parameters = Params(tenantId, entidadeId, filtro);
         using var connection = _context.CreateConnection();
         var total = await connection.ExecuteScalarAsync<long>(new CommandDefinition(countSql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);

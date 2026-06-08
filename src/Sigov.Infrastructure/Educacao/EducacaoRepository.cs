@@ -98,19 +98,18 @@ public sealed class EducacaoRepository : BaseRepository, IEscolaRepository, IAno
 
     public async Task<EducacaoDashboardResponse> DashboardAsync(long tenantId, long entidadeId, CancellationToken ct)
     {
-        const string sql = """
-            select
-              (select count(*) from sigov.escola where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalEscolas,
-              (select count(*) from sigov.aluno where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalAlunosAtivos,
-              (select count(*) from sigov.matricula where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ATIVA' and is_deleted=false) as TotalMatriculasAtivas,
-              (select count(*) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ABERTA' and is_deleted=false) as TotalTurmasAbertas,
-              (select coalesce(sum(capacidade),0) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as VagasTotais,
-              (select coalesce(sum(vagas_ocupadas),0) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as VagasOcupadas,
-              (select count(*) from sigov.pre_matricula_inscricao where tenant_id=@TenantId and entidade_id=@EntidadeId and status in ('RECEBIDA','EM_ANALISE') and is_deleted=false) as PreMatriculasPendentes,
-              (select coalesce(avg(case when presente then 100.0 else 0.0 end),0)::numeric(9,2) from sigov.diario_frequencia where tenant_id=@TenantId and entidade_id=@EntidadeId and data_aula >= date_trunc('month', current_date) and is_deleted=false) as FrequenciaMediaMes,
-              (select count(*) from sigov.avaliacao where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ABERTA' and is_deleted=false) as AvaliacoesAbertas,
-              (select count(*) from sigov.educacenso_registro where tenant_id=@TenantId and entidade_id=@EntidadeId and status='PENDENTE' and is_deleted=false) as RegistrosEducacensoPendentes;
-            """;
+        const string sql = @"select
+  (select count(*) from sigov.escola where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalEscolas,
+  (select count(*) from sigov.aluno where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalAlunosAtivos,
+  (select count(*) from sigov.matricula where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ATIVA' and is_deleted=false) as TotalMatriculasAtivas,
+  (select count(*) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ABERTA' and is_deleted=false) as TotalTurmasAbertas,
+  (select coalesce(sum(capacidade),0) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as VagasTotais,
+  (select coalesce(sum(vagas_ocupadas),0) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as VagasOcupadas,
+  (select count(*) from sigov.pre_matricula_inscricao where tenant_id=@TenantId and entidade_id=@EntidadeId and status in ('RECEBIDA','EM_ANALISE') and is_deleted=false) as PreMatriculasPendentes,
+  (select coalesce(avg(case when presente then 100.0 else 0.0 end),0)::numeric(9,2) from sigov.diario_frequencia where tenant_id=@TenantId and entidade_id=@EntidadeId and data_aula >= date_trunc('month', current_date) and is_deleted=false) as FrequenciaMediaMes,
+  (select count(*) from sigov.avaliacao where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ABERTA' and is_deleted=false) as AvaliacoesAbertas,
+  (select count(*) from sigov.educacenso_registro where tenant_id=@TenantId and entidade_id=@EntidadeId and status='PENDENTE' and is_deleted=false) as RegistrosEducacensoPendentes;
+";
         using var connection = _context.CreateConnection();
         var row = await connection.QueryFirstAsync(sql, new { TenantId = tenantId, EntidadeId = entidadeId }).ConfigureAwait(false);
         return new EducacaoDashboardResponse((long)row.totalescolas, (long)row.totalalunosativos, (long)row.totalmatriculasativas, (long)row.totalturmasabertas, (long)row.vagastotais, (long)row.vagasocupadas, (long)row.prematriculaspendentes, (decimal)row.frequenciamediames, (long)row.avaliacoesabertas, (long)row.registroseducacensopendentes, Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>(), Array.Empty<object>(), new[] { "Educação base operacional carregada." });

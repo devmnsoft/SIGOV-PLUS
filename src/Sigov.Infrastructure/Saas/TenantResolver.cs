@@ -18,12 +18,11 @@ public sealed class TenantResolver : ITenantResolver
             return new TenantResolutionResult(false, null, "Tenant não resolvido pelo host, header de desenvolvimento ou claim autenticada.");
         }
 
-        const string sql = """
-            select id, nome, slug, status, ambiente
-            from sigov.tenant
-            where slug = @Slug and ativo = true and is_deleted = false
-            limit 1;
-            """;
+        const string sql = @"select id, nome, slug, status, ambiente
+from sigov.tenant
+where slug = @Slug and ativo = true and is_deleted = false
+limit 1;
+";
         using var connection = _context.CreateConnection();
         var tenant = await connection.QuerySingleOrDefaultAsync<TenantInfo>(new CommandDefinition(sql, new { Slug = slug }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return tenant is null

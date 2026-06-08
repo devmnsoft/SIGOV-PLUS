@@ -13,22 +13,21 @@ public sealed class OnboardingRepository
 
     public async Task<IReadOnlyList<OnboardingTaskRecord>> ListTasksAsync(long tenantId, long journeyId, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT tenant_id AS TenantId,
-                   jornada_id AS JourneyId,
-                   codigo AS Code,
-                   titulo AS Title,
-                   descricao AS Description,
-                   ordem AS Order,
-                   obrigatoria AS Required,
-                   status AS Status,
-                   COALESCE(rota_destino, '') AS Route,
-                   metadados::text AS MetadataJson
-              FROM sigov.onboarding_tarefa
-             WHERE tenant_id = @TenantId
-               AND jornada_id = @JourneyId
-             ORDER BY ordem;
-            """;
+        const string sql = @"SELECT tenant_id AS TenantId,
+       jornada_id AS JourneyId,
+       codigo AS Code,
+       titulo AS Title,
+       descricao AS Description,
+       ordem AS Order,
+       obrigatoria AS Required,
+       status AS Status,
+       COALESCE(rota_destino, '') AS Route,
+       metadados::text AS MetadataJson
+  FROM sigov.onboarding_tarefa
+ WHERE tenant_id = @TenantId
+   AND jornada_id = @JourneyId
+ ORDER BY ordem;
+";
 
         cancellationToken.ThrowIfCancellationRequested();
         using var connection = _context.CreateConnection();
