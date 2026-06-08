@@ -27,6 +27,7 @@ builder.Services.AddSingleton<IDemoModeService, DemoModeService>();
 builder.Services.AddSingleton<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>();
 builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardService>();
+builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
 
 var app = builder.Build();
 

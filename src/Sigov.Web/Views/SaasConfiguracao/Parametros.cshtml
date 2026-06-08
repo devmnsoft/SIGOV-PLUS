@@ -1,0 +1,9 @@
+<section class="container-fluid py-3" data-saas-page="parametros">
+  <div class="alert alert-warning">Parâmetros sensíveis são mascarados e alterações devem ser auditadas com antes/depois.</div>
+  <div class="card"><div class="card-header fw-bold">Parâmetros por tenant</div><div class="card-body">
+    <div class="row g-2 mb-3"><div class="col-md-3"><input id="paramTenantId" class="form-control" placeholder="tenant_id" /></div><div class="col-md-3"><input id="paramCodigo" class="form-control" placeholder="codigo" /></div><div class="col-md-3"><input id="paramModulo" class="form-control" placeholder="modulo" /></div><div class="col-md-3"><button id="paramResolver" class="btn btn-primary w-100">Resolver</button></div></div>
+    <table class="table" id="tenantParameters"><thead><tr><th>Código</th><th>Nome</th><th>Escopo</th><th>Tipo</th><th>Sensível</th></tr></thead><tbody></tbody></table>
+    <pre id="paramResolved" class="bg-light p-2"></pre>
+  </div></div>
+</section>
+<script src="~/js/modules/saas.parametros.js"></script>

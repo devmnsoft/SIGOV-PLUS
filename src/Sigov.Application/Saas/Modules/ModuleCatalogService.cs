@@ -1,0 +1,84 @@
+namespace Sigov.Application.Saas.Modules;
+
+public sealed class ModuleCatalogService : IModuleCatalogService
+{
+    private static readonly IReadOnlyList<ModuleCatalogItem> Modules = BuildModules();
+    private static readonly IReadOnlyList<ModulePackageItem> Packages = BuildPackages();
+
+    public IReadOnlyCollection<ModuleCatalogItem> GetModules() => Modules;
+
+    public ModuleCatalogItem? FindByCode(string codigo) => Modules.FirstOrDefault(module => string.Equals(module.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+
+    public IReadOnlyCollection<ModulePackageItem> GetPackages() => Packages;
+
+    public ModulePackageItem? FindPackageByCode(string codigo) => Packages.FirstOrDefault(package => string.Equals(package.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+
+    private static IReadOnlyList<ModuleCatalogItem> BuildModules()
+    {
+        return new[]
+        {
+            Module("core", "Core", "Cadastros estruturantes, entidades, exercícios e base operacional.", "Fundação", false, true, Array.Empty<string>()),
+            Module("seguranca", "Segurança", "Usuários, grupos, perfis, permissões e autenticação.", "Fundação", false, true, new[] { "core" }),
+            Module("auditoria", "Auditoria", "Trilhas, conformidade e rastreabilidade operacional.", "Governança", false, true, new[] { "core" }),
+            Module("lgpd", "LGPD", "Privacidade, mascaramento e controle de dados pessoais.", "Governança", false, true, new[] { "core", "auditoria" }),
+            Module("processos", "Processos Digitais", "Processos, protocolos, movimentações e documentos.", "Administrativo", true, true, new[] { "core", "seguranca" }),
+            Module("financeiro", "Financeiro", "Orçamento, empenhos, liquidações, pagamentos e receitas.", "Financeiro", true, true, new[] { "core" }),
+            Module("tributario", "Tributário", "Base parametrizável para arrecadação e cadastros tributários.", "Receita", true, true, new[] { "core" }),
+            Module("compras", "Compras", "Planejamento de compras, processos e cotações.", "Administrativo", true, true, new[] { "core" }),
+            Module("contratos", "Contratos", "Contratos, vigências, aditivos e fiscalização.", "Administrativo", true, true, new[] { "core", "compras" }),
+            Module("almoxarifado", "Almoxarifado", "Materiais, entradas, saídas e estoque.", "Administrativo", true, true, new[] { "core" }),
+            Module("patrimonio", "Patrimônio", "Bens, tombamento, movimentações e inventário.", "Administrativo", true, true, new[] { "core" }),
+            Module("frotas", "Frotas", "Veículos, motoristas, abastecimentos e manutenção.", "Operacional", true, true, new[] { "core" }),
+            Module("obras", "Obras", "Obras, medições, contratos e acompanhamento físico-financeiro.", "Operacional", true, true, new[] { "core" }),
+            Module("rh", "Recursos Humanos", "Servidores, cargos, lotações, folha e portal.", "Gestão de Pessoas", true, true, new[] { "core" }),
+            Module("educacao", "Educação", "Escolas, matrículas, turmas e acompanhamento educacional.", "Políticas Públicas", true, true, new[] { "core" }),
+            Module("saude", "Saúde", "Pacientes, agendas, ACS e serviços de saúde.", "Políticas Públicas", true, true, new[] { "core", "lgpd" }),
+            Module("saneamento", "Saneamento", "Unidades consumidoras, medições, qualidade e operações.", "Políticas Públicas", true, true, new[] { "core" }),
+            Module("social", "Assistência Social", "Famílias, atendimentos, visitas e benefícios sociais.", "Políticas Públicas", true, true, new[] { "core", "lgpd" }),
+            Module("relatorios", "Relatórios", "Relatórios operacionais, gerenciais e consolidados.", "Inteligência", true, true, new[] { "core" }),
+            Module("transparencia", "Transparência", "Publicação e consulta pública de dados municipais.", "Governança", true, true, new[] { "core" }),
+            Module("integracoes", "Integrações", "APIs, webhooks, outbox e conectores externos.", "Plataforma", true, true, new[] { "core", "auditoria" }),
+            Module("suporte", "Suporte", "Chamados, acompanhamento técnico e suporte auditado.", "Plataforma", false, true, new[] { "core" }),
+            Module("operacao", "Operação", "Painéis e rotinas operacionais transversais.", "Plataforma", true, true, new[] { "core" }),
+            Module("agro", "Agro e Desenvolvimento Rural", "Catálogo contratável futuro para gestão rural e georreferenciamento.", "Políticas Públicas", true, true, new[] { "core", "tributario" })
+        };
+    }
+
+    private static ModuleCatalogItem Module(string codigo, string nome, string descricao, string categoria, bool vendidoSeparadamente, bool podeIntegrar, IReadOnlyCollection<string> dependencias)
+    {
+        var visualizar = $"{codigo}.visualizar";
+        var gerenciar = $"{codigo}.gerenciar";
+        return new ModuleCatalogItem(
+            codigo,
+            nome,
+            descricao,
+            categoria,
+            vendidoSeparadamente,
+            podeIntegrar,
+            dependencias,
+            new[]
+            {
+                new ModuleFeatureItem($"{codigo}.dashboard", "Dashboard", $"Painel do módulo {nome}."),
+                new ModuleFeatureItem($"{codigo}.operacao", "Operação", $"Rotinas operacionais do módulo {nome}.")
+            },
+            new[] { "Venda separada ou integrada", "Tenant isolation obrigatório", "Parametrização por tenant e exercício" },
+            $"/{ToPascal(codigo)}",
+            new[] { visualizar, gerenciar });
+    }
+
+    private static IReadOnlyList<ModulePackageItem> BuildPackages()
+    {
+        var todos = Modules.Select(module => module.Codigo).ToArray();
+        return new[]
+        {
+            new ModulePackageItem("ESSENCIAL", "Essencial", "Fundação mínima da plataforma.", new[] { "core", "seguranca", "auditoria", "lgpd", "suporte" }),
+            new ModulePackageItem("FINANCEIRO_TRIBUTARIO", "Financeiro e Tributário", "Gestão fiscal, arrecadação e relatórios.", new[] { "financeiro", "tributario", "relatorios" }),
+            new ModulePackageItem("GESTAO_ADMINISTRATIVA", "Gestão Administrativa", "Backoffice administrativo municipal.", new[] { "processos", "compras", "contratos", "almoxarifado", "patrimonio", "frotas", "obras" }),
+            new ModulePackageItem("SOCIAL_SAUDE_EDUCACAO", "Social, Saúde e Educação", "Políticas públicas integradas.", new[] { "educacao", "saude", "social" }),
+            new ModulePackageItem("AGRO_RURAL", "Agro Rural", "Base futura rural integrada com obras, frotas e tributário.", new[] { "agro", "frotas", "obras", "tributario", "relatorios" }),
+            new ModulePackageItem("COMPLETO", "Completo", "Todos os módulos integrados do sigov.", todos)
+        };
+    }
+
+    private static string ToPascal(string value) => string.Concat(value.Split('-', '_').Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+}
