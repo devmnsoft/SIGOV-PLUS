@@ -73,7 +73,7 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         var anterior = await ObterAsync(tenantId, recurso, id, ct).ConfigureAwait(false);
         var auditoria = BuildAuditJson("EXCLUIR", usuarioId, anterior?.Dados, new { softDelete = true });
         using var cn = _context.CreateConnection();
-        await cn.ExecuteAsync(Command($"update {table} set is_deleted = true, ativo = false, auditoria = auditoria || jsonb_build_object('ultimaOperacao','EXCLUIR','usuarioId',@UsuarioId,'recurso',@Recurso), deleted_by = @UsuarioId, deleted_at = now(), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, UsuarioId = usuarioId, Recurso = recurso }, ct)).ConfigureAwait(false);
+        await cn.ExecuteAsync(Command($"update {table} set is_deleted = true, ativo = false, auditoria = coalesce(auditoria, '{{}}'::jsonb) || cast(@Auditoria as jsonb), deleted_by = @UsuarioId, deleted_at = now(), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;", new { TenantId = tenantId, Id = id, UsuarioId = usuarioId, Recurso = recurso, Auditoria = auditoria }, ct)).ConfigureAwait(false);
         await RegistrarEventoAsync(cn, tenantId, recurso, "EXCLUIR", id, new Dictionary<string, object?> { ["softDelete"] = true }, usuarioId, ct).ConfigureAwait(false);
     }
 
@@ -168,6 +168,27 @@ public sealed class RhRepository : BaseRepository, IRhRepository
     {
         var payload = JsonSerializer.Serialize(new { tipo = $"rh.{recurso}.{operacao.ToLowerInvariant()}", recurso, operacao, registroId, publicado = false, dados }, JsonOptions);
         await cn.ExecuteAsync(Command("insert into sigov.rh_evento (tenant_id, dados, created_by) values (@TenantId, cast(@Dados as jsonb), @UsuarioId);", new { TenantId = tenantId, Dados = payload, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+    }
+
+
+    private static string BuildAuditJson(string operacao, long? usuarioId, object? before, object? after)
+    {
+        return JsonSerializer.Serialize(new { operacao, usuarioId, before, after }, JsonOptions);
+    }
+
+    private static string EscapeCsv(object? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        text = text.Replace("\"", "\"\"", StringComparison.Ordinal);
+
+        return text.IndexOfAny(new[] { ';', '\"', '\r', '\n' }) >= 0
+            ? $"\"{text}\""
+            : text;
     }
 
     private static string Table(string recurso) => Tabelas.TryGetValue(recurso, out var table) ? table : throw new InvalidOperationException("Recurso de RH inválido.");

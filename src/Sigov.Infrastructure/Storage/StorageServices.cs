@@ -14,13 +14,33 @@ public sealed class FileHashService : IFileHashService
             content.Position = 0;
         }
 
-        var hash = await SHA256.HashDataAsync(content, cancellationToken).ConfigureAwait(false);
-        if (content.CanSeek)
-        {
-            content.Position = 0;
-        }
+        return await ComputeSha256Async(content, cancellationToken).ConfigureAwait(false);
+    }
+    private static async Task<string> ComputeSha256Async(Stream stream, CancellationToken cancellationToken)
+    {
+        var originalPosition = stream.CanSeek ? stream.Position : 0;
 
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        try
+        {
+            using var sha256 = SHA256.Create();
+            var buffer = new byte[81920];
+            int bytesRead;
+
+            while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
+            }
+
+            sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            return Convert.ToHexString(sha256.Hash ?? Array.Empty<byte>()).ToLowerInvariant();
+        }
+        finally
+        {
+            if (stream.CanSeek)
+            {
+                stream.Position = originalPosition;
+            }
+        }
     }
 }
 
