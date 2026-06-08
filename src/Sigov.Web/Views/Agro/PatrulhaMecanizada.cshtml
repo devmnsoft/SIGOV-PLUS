@@ -1,0 +1,24 @@
+@{
+    ViewData["Title"] = "Patrulha Mecanizada";
+}
+<div class="container-fluid py-3 sigov-page agro-page" data-module="agro">
+    @Html.AntiForgeryToken()
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-1">Patrulha Mecanizada</h1>
+            <p class="text-muted mb-0">Gestão Agro com dados mascarados por padrão, tenant atual, permissões e feature flags.</p>
+        </div>
+        <button class="btn btn-primary" data-agro-action="novo">Novo</button>
+    </div>
+    <div id="agro-alert" class="alert alert-info d-none" role="alert"></div>
+    <section class="card shadow-sm">
+        <div class="card-body">
+            <div id="cards-patrulha" class="sigov-grid" data-empty="Nenhum registro encontrado.">
+                <div class="text-muted">Carregando informações...</div>
+            </div>
+        </div>
+    </section>
+</div>
+@section Scripts {
+    <script src="~/js/modules/agro.patrulha-mecanizada.js" asp-append-version="true"></script>
+}

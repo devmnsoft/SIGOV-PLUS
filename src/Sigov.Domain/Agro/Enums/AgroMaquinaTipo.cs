@@ -1,0 +1,3 @@
+namespace Sigov.Domain.Agro.Enums;
+
+public enum AgroMaquinaTipo { TRATOR, RETROESCAVADEIRA, PATROL, CAMINHAO, PA_CARREGADEIRA, MOTONIVELADORA, IMPLEMENTO, OUTROS }

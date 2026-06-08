@@ -33,4 +33,34 @@ public static class AgroPermissions
     public const string ProducaoCriar = "agro.producao.criar";
     public const string ProducaoEditar = "agro.producao.editar";
     public const string ProducaoExcluir = "agro.producao.excluir";
+    public const string ProgramaVisualizar = "agro.programa.visualizar";
+    public const string ProgramaCriar = "agro.programa.criar";
+    public const string ProgramaEditar = "agro.programa.editar";
+    public const string ProgramaExcluir = "agro.programa.excluir";
+    public const string BeneficioVisualizar = "agro.beneficio.visualizar";
+    public const string BeneficioCriar = "agro.beneficio.criar";
+    public const string BeneficioEditar = "agro.beneficio.editar";
+    public const string BeneficioExcluir = "agro.beneficio.excluir";
+    public const string BeneficioConceder = "agro.beneficio.conceder";
+    public const string BeneficioAutorizar = "agro.beneficio.autorizar";
+    public const string BeneficioEntregar = "agro.beneficio.entregar";
+    public const string BeneficioIndeferir = "agro.beneficio.indeferir";
+    public const string BeneficioCancelar = "agro.beneficio.cancelar";
+    public const string InsumoVisualizar = "agro.insumo.visualizar";
+    public const string InsumoCriar = "agro.insumo.criar";
+    public const string InsumoDistribuir = "agro.insumo.distribuir";
+    public const string MaquinaVisualizar = "agro.maquina.visualizar";
+    public const string MaquinaCriar = "agro.maquina.criar";
+    public const string MaquinaEditar = "agro.maquina.editar";
+    public const string MaquinaExcluir = "agro.maquina.excluir";
+    public const string ImplementoVisualizar = "agro.implemento.visualizar";
+    public const string ImplementoCriar = "agro.implemento.criar";
+    public const string ServicoMaquinaVisualizar = "agro.servico_maquina.visualizar";
+    public const string ServicoMaquinaCriar = "agro.servico_maquina.criar";
+    public const string ServicoMaquinaEditar = "agro.servico_maquina.editar";
+    public const string ServicoMaquinaAgendar = "agro.servico_maquina.agendar";
+    public const string ServicoMaquinaExecutar = "agro.servico_maquina.executar";
+    public const string ServicoMaquinaCancelar = "agro.servico_maquina.cancelar";
+    public const string ServicoMaquinaExcluir = "agro.servico_maquina.excluir";
+
 }
