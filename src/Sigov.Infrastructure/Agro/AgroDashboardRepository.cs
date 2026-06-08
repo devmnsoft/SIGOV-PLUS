@@ -30,7 +30,21 @@ public sealed class AgroDashboardRepository : IAgroDashboardRepository
                    culturas_cadastradas as CulturasCadastradas,
                    safras_ativas as SafrasAtivas,
                    producao_estimada as ProducaoEstimada,
-                   producao_realizada as ProducaoRealizada
+                   producao_realizada as ProducaoRealizada,
+                   total_programas as TotalProgramas,
+                   total_beneficios as TotalBeneficios,
+                   beneficios_concedidos_mes as BeneficiosConcedidosMes,
+                   total_maquinas as TotalMaquinas,
+                   servicos_maquina_pendentes as ServicosMaquinaPendentes,
+                   servicos_maquina_executados_mes as ServicosMaquinaExecutadosMes,
+                   concessoes_solicitadas as ConcessoesSolicitadas,
+                   concessoes_autorizadas as ConcessoesAutorizadas,
+                   concessoes_entregues_mes as ConcessoesEntreguesMes,
+                   insumos_distribuidos_mes as InsumosDistribuidosMes,
+                   servicos_maquina_agendados as ServicosMaquinaAgendados,
+                   horas_trabalhadas_mes as HorasTrabalhadasMes,
+                   area_atendida_mes as AreaAtendidaMes,
+                   alertas_conflito_agenda as AlertasConflitoAgenda
               from sigov.vw_agro_dashboard
              where tenant_id = @TenantId
                and ((@EntidadeId is null and entidade_id is null) or entidade_id = @EntidadeId)
