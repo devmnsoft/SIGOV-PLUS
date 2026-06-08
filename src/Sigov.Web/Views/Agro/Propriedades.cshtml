@@ -1,0 +1,4 @@
+@{ ViewData["Title"] = "Propriedades Rurais"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Propriedades Rurais", "Cadastro de propriedades, áreas e georreferenciamento base.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Propriedades", "/Agro/Propriedades", true) }, "Talhões", "/Agro/Talhoes"))
+<div class="alert alert-info d-none" id="agroPropriedadesLoading">Carregando propriedades...</div><div class="alert alert-danger d-none" id="agroPropriedadesErro"></div><div class="card mb-3"><div class="card-body">@await Html.PartialAsync("_FormPropriedade")</div></div>@await Html.PartialAsync("_GridPropriedades")
+@section Scripts { <script src="~/js/modules/agro.propriedades.js"></script> }

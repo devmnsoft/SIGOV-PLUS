@@ -1,0 +1,4 @@
+@{ ViewData["Title"] = "Produção Agrícola"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Produção Agrícola", "Registro de plantio, colheita, produtividade e produção realizada.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Produção Agrícola", "/Agro/Producao", true) }))
+<div class="alert alert-info d-none" id="agroProducaoLoading">Carregando produção...</div><div class="alert alert-danger d-none" id="agroProducaoErro"></div><div class="card mb-3"><div class="card-body">@await Html.PartialAsync("_FormProducao")</div></div>@await Html.PartialAsync("_GridProducao")
+@section Scripts { <script src="~/js/modules/agro.producao.js"></script> }

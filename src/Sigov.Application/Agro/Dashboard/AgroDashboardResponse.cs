@@ -10,7 +10,15 @@ public sealed record AgroDashboardResponse(
     long TotalPropriedades,
     long TotalVisitas,
     long TotalServicosMaquina,
-    long TotalPontosCriticos);
+    long TotalPontosCriticos,
+    long ProdutoresAtivos = 0,
+    decimal AreaTotalMapeada = 0,
+    decimal AreaProdutiva = 0,
+    long TotalTalhoes = 0,
+    long CulturasCadastradas = 0,
+    long SafrasAtivas = 0,
+    decimal ProducaoEstimada = 0,
+    decimal ProducaoRealizada = 0);
 
 public interface IAgroDashboardRepository
 {
