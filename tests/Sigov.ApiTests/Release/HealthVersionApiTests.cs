@@ -14,10 +14,10 @@ public sealed class HealthVersionApiTests : IClassFixture<WebApplicationFactory<
     public async Task HealthVersion_Deve_Retornar_Versao_E_Schema_Sigov()
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync("/api/health/version").ConfigureAwait(false);
+        using var response = await client.GetAsync("/api/health/version");
 
         response.IsSuccessStatusCode.Should().BeTrue();
-        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("sigov");
         content.Should().Contain("version");
         content.Should().Contain("releaseChannel");
