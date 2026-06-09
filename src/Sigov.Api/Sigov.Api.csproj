@@ -4,6 +4,9 @@
     <RootNamespace>Sigov.Api</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Using Include="Sigov.Api.Contracts" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Sigov.Application\Sigov.Application.csproj" />
     <ProjectReference Include="..\Sigov.Infrastructure\Sigov.Infrastructure.csproj" />
   </ItemGroup>
