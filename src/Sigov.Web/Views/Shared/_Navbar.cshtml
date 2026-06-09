@@ -1,7 +1,7 @@
 <nav class="sigov-topbar navbar navbar-expand-lg" aria-label="Barra superior SIGOV">
   <div class="container-fluid gap-3">
     <button class="btn btn-outline-primary d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#sigovSidebar" aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu">☰</button>
-    <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/Dashboard">
       <img class="sigov-logo" src="~/img/sigov-logo.svg" alt="sigov" />
     </a>
     <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
@@ -9,7 +9,8 @@
       <span class="badge text-bg-info">@(System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")</span>
       <a class="btn btn-sm btn-outline-secondary" href="/Ajuda" aria-label="Abrir central de ajuda">Ajuda</a>
       <button class="btn btn-sm btn-outline-secondary" type="button" data-sigov-theme-toggle aria-label="Alternar tema claro ou escuro">Tema</button>
-      <a class="btn btn-sm btn-primary" href="/Executivo">Painel executivo</a>
+      <a class="btn btn-sm btn-outline-primary" href="/Operacao/Health">Health</a>
+      <a class="btn btn-sm btn-primary" href="/Auth/Logout">Sair</a>
     </div>
   </div>
 </nav>

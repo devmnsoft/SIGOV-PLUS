@@ -1,0 +1,64 @@
+@model Sigov.Web.Models.Auth.LoginViewModel
+@{
+  Layout = null;
+  var returnUrl = ViewData["ReturnUrl"] as string;
+}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - SIGOV</title>
+  <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="~/css/site.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <main class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
+    <div class="card shadow-lg border-0" style="max-width: 980px; width:100%;">
+      <div class="row g-0">
+        <section class="col-lg-6 bg-primary text-white p-5 rounded-start">
+          <span class="badge text-bg-light text-primary mb-3">SIGOV SaaS</span>
+          <h1 class="display-6 fw-bold">Gestão pública integrada, segura e multi-tenant.</h1>
+          <p class="lead mt-3">Ambiente local pós-build com dashboard, health visual, auditoria administrativa e navegação SaaS.</p>
+          <div class="alert alert-info mt-4 mb-0">Use as credenciais de desenvolvimento documentadas somente em ambiente local.</div>
+        </section>
+        <section class="col-lg-6 p-5">
+          <h2 class="h3 mb-1">Entrar no SIGOV</h2>
+          <p class="text-muted">Informe login/e-mail e senha.</p>
+          @if (!string.IsNullOrWhiteSpace(Model.MensagemErro))
+          {
+            <div class="alert alert-danger" role="alert">@Model.MensagemErro</div>
+          }
+          <form method="post" asp-action="Login" asp-route-returnUrl="@returnUrl" id="loginForm">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="mb-3">
+              <label asp-for="Login" class="form-label"></label>
+              <input asp-for="Login" class="form-control form-control-lg" autocomplete="username" autofocus />
+              <span asp-validation-for="Login" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+              <label asp-for="Senha" class="form-label"></label>
+              <input asp-for="Senha" class="form-control form-control-lg" autocomplete="current-password" />
+              <span asp-validation-for="Senha" class="text-danger"></span>
+            </div>
+            <button class="btn btn-primary btn-lg w-100" type="submit" id="btnEntrar">
+              <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+              Entrar
+            </button>
+            <a class="d-inline-block mt-3" href="#" aria-disabled="true">Esqueci minha senha</a>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+  <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', function () {
+      const btn = document.getElementById('btnEntrar');
+      btn.disabled = true;
+      btn.querySelector('.spinner-border').classList.remove('d-none');
+    });
+  </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
+using Sigov.Api.Contracts;
 
 namespace Sigov.Api.Middlewares;
 
@@ -22,14 +22,10 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro inesperado na requisição {TraceId}.", Activity.Current?.Id ?? context.TraceIdentifier);
+            var correlationId = context.Items[CorrelationIdMiddleware.HeaderName]?.ToString() ?? Activity.Current?.Id ?? context.TraceIdentifier;
+            _logger.LogError(ex, "Erro inesperado na requisição {CorrelationId}.", correlationId);
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(new ProblemDetails
-            {
-                Status = StatusCodes.Status500InternalServerError,
-                Title = "Erro inesperado",
-                Detail = "Não foi possível processar a solicitação. Informe o código de correlação ao suporte"
-            }).ConfigureAwait(false);
+            await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail("Não foi possível processar a solicitação. Informe o código de correlação ao suporte.", correlationId)).ConfigureAwait(false);
         }
     }
 }
