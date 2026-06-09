@@ -1,3 +1,5 @@
 @{ ViewData["Title"] = "Safras"; }
 @await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Safras", "Gestão de safras por exercício quando aplicável.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Agro", "/Agro/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Safras", "/Agro/Safras", true) }))
-<div class="card mb-3"><div class="card-body">@await Html.PartialAsync("_FormSafra")</div></div><table class="table" id="gridAgroSafras"><tbody></tbody></table>@section Scripts { <script src="~/js/modules/agro.propriedades.js"></script> }
+<div class="card mb-3"><div class="card-body">@await Html.PartialAsync("_FormSafra")</div></div>
+<table class="table" id="gridAgroSafras"><tbody></tbody></table>
+@section Scripts { <script src="~/js/modules/agro.propriedades.js"></script> }
