@@ -14,7 +14,7 @@ public sealed class SecurityHeadersTests : IClassFixture<WebApplicationFactory<P
     public async Task Deve_Retornar_Headers_De_Seguranca()
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync("/api/health/live").ConfigureAwait(false);
+        using var response = await client.GetAsync("/api/health/live");
 
         response.Headers.GetValues("X-Content-Type-Options").Should().Contain("nosniff");
         response.Headers.GetValues("X-Frame-Options").Should().Contain("DENY");
