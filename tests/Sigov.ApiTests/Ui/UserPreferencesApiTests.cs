@@ -15,10 +15,10 @@ public sealed class UserPreferencesApiTests : IClassFixture<WebApplicationFactor
     public async Task Preferencias_Deve_Exigir_Usuario()
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync("/api/ui/preferencias/tema").ConfigureAwait(false);
+        using var response = await client.GetAsync("/api/ui/preferencias/tema");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync();
         body.Should().Contain("Usuário obrigatório");
     }
 }
