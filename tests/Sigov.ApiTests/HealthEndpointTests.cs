@@ -14,10 +14,10 @@ public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Pr
     public async Task Health_Deve_Retornar_Sucesso()
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync("/api/health").ConfigureAwait(false);
+        using var response = await client.GetAsync("/api/health");
 
         response.IsSuccessStatusCode.Should().BeTrue();
-        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("sigov API");
     }
 }
