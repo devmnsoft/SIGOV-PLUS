@@ -25,14 +25,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:-123456}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD:-123456}
     volumes:
       - ./database:/database:ro
-    entrypoint: ["/bin/sh", "/database/docker/apply-migrations.sh"]
+    entrypoint: ["/usr/bin/env", "bash", "/database/docker/apply-migrations.sh"]
     restart: "no"
 
   api:
