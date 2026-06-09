@@ -15,12 +15,12 @@ public sealed class BusinessRulesApiTests : IClassFixture<WebApplicationFactory<
     public async Task Regras_De_Negocio_Deve_Responder_Lista_E_Modulo()
     {
         using var client = _factory.CreateClient();
-        using var listResponse = await client.GetAsync("/api/regras-negocio").ConfigureAwait(false);
-        using var moduleResponse = await client.GetAsync("/api/regras-negocio/Core").ConfigureAwait(false);
+        using var listResponse = await client.GetAsync("/api/regras-negocio");
+        using var moduleResponse = await client.GetAsync("/api/regras-negocio/Core");
 
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         moduleResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await moduleResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var body = await moduleResponse.Content.ReadAsStringAsync();
         body.Should().Contain("Documento CPF/CNPJ");
     }
 }
