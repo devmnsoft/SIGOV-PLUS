@@ -1,27 +1,9 @@
-#!/bin/sh
-set -eu
-
-: "${POSTGRES_DB:=postgres}"
-: "${POSTGRES_USER:=postgres}"
-: "${POSTGRES_HOST:=postgres}"
-: "${POSTGRES_PORT:=5432}"
-
-psql_cmd() {
-  psql \
-    -h "${POSTGRES_HOST}" \
-    -p "${POSTGRES_PORT}" \
-    -U "${POSTGRES_USER}" \
-    -d "${POSTGRES_DB}" \
-    -v ON_ERROR_STOP=1 \
-    "$@"
-}
-
-sql_escape() {
-  printf "%s" "$1" | sed "s/'/''/g"
-}
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
 echo "Aguardando PostgreSQL..."
-until pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"; do
+
+until pg_isready -h postgres -p 5432 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"; do
   sleep 2
 done
 
@@ -29,53 +11,16 @@ echo "PostgreSQL pronto."
 
 if [ -f /database/apply_all_required_migrations.sql ]; then
   echo "Aplicando /database/apply_all_required_migrations.sql..."
-  psql_cmd --single-transaction -f /database/apply_all_required_migrations.sql
-  echo "Migrations consolidadas aplicadas com sucesso."
-  exit 0
-fi
-
-echo "Arquivo consolidado não encontrado; aplicando migrations individuais." >&2
-psql_cmd -c "create schema if not exists sigov;"
-psql_cmd -c "create table if not exists sigov.docker_schema_migrations (version varchar(250) primary key, file_path text not null, checksum varchar(128) not null, applied_at timestamptz not null default now());"
-
-apply_sql_file() {
-  file="$1"
-  version="$2"
-  checksum="$(sha256sum "$file" | awk '{print $1}')"
-  version_sql="$(sql_escape "$version")"
-  checksum_sql="$(sql_escape "$checksum")"
-  file_sql="$(sql_escape "$file")"
-
-  if psql_cmd -tAc "select 1 from sigov.docker_schema_migrations where version = '${version_sql}' and checksum = '${checksum_sql}' limit 1;" | grep -q 1; then
-    echo "Migration já aplicada: ${version} (${file})"
-    return 0
-  fi
-
-  existing_checksum="$(psql_cmd -tAc "select checksum from sigov.docker_schema_migrations where version = '${version_sql}' limit 1;" | tr -d '[:space:]')"
-  if [ -n "${existing_checksum}" ] && [ "${existing_checksum}" != "${checksum}" ]; then
-    echo "ERRO: migration ${version} já foi aplicada com checksum diferente." >&2
-    exit 1
-  fi
-
-  echo "Aplicando migration: ${version} (${file})"
-  psql_cmd --single-transaction -f "$file"
-  psql_cmd -c "insert into sigov.docker_schema_migrations (version, file_path, checksum) values ('${version_sql}', '${file_sql}', '${checksum_sql}') on conflict (version) do nothing;"
-}
-
-found_migrations=0
-for dir in /database/postgres/migrations /database/migrations; do
-  if [ -d "$dir" ]; then
-    for file in $(find "$dir" -maxdepth 1 -type f -name '*.sql' | sort); do
-      found_migrations=1
-      version="$(basename "$file" .sql)"
-      apply_sql_file "$file" "$version"
-    done
-  fi
-done
-
-if [ "$found_migrations" -eq 0 ]; then
-  echo "Nenhum script SQL de migration encontrado." >&2
+  psql \
+    -h postgres \
+    -p 5432 \
+    -U "${POSTGRES_USER}" \
+    -d "${POSTGRES_DB}" \
+    -v ON_ERROR_STOP=1 \
+    -f /database/apply_all_required_migrations.sql
+else
+  echo "Arquivo /database/apply_all_required_migrations.sql não encontrado."
   exit 1
 fi
 
-echo "Migrations individuais aplicadas com sucesso."
+echo "Migrations aplicadas com sucesso."
