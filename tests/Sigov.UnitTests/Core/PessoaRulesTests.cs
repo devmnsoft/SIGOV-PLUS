@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Sigov.Domain.Core;
+using Xunit;
 
 namespace Sigov.UnitTests.Core;
 
