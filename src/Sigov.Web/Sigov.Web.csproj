@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sigov.Application\Sigov.Application.csproj" />
+    <ProjectReference Include="..\Sigov.Infrastructure\Sigov.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" />

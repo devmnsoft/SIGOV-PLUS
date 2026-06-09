@@ -5,7 +5,11 @@ using Sigov.Application.Demo;
 using Sigov.Application.Executive;
 using Sigov.Application.Onboarding;
 using Sigov.Application.Ui;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Serilog.Context;
+using Sigov.Infrastructure;
 using Sigov.Web.Branding;
+using Sigov.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +20,17 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .WriteTo.Console());
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Auth/Login";
+        options.LogoutPath = "/Auth/Logout";
+        options.AccessDeniedPath = "/Auth/Login";
+        options.Cookie.Name = "SIGOV.AUTH";
+        options.SlidingExpiration = true;
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<ISigovBrandProvider, SigovBrandProvider>();
@@ -29,6 +44,8 @@ builder.Services.AddSingleton<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>();
 builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardService>();
 builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
+builder.Services.AddInfrastructure();
+builder.Services.AddScoped<PostBuildSaasService>();
 
 var app = builder.Build();
 
@@ -39,5 +56,19 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers.TryGetValue("X-Correlation-Id", out var header) && Guid.TryParse(header, out var parsed)
+        ? parsed
+        : Guid.NewGuid();
+    context.TraceIdentifier = correlationId.ToString();
+    context.Response.Headers["X-Correlation-Id"] = correlationId.ToString();
+    using (LogContext.PushProperty("CorrelationId", correlationId))
+    {
+        await next().ConfigureAwait(false);
+    }
+});
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
 app.Run();

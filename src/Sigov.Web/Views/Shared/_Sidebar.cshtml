@@ -1,141 +1,29 @@
 <aside id="sigovSidebar" class="col-md-3 col-lg-2 sigov-sidebar collapse d-md-block p-3">
-  <div class="fw-bold mb-2 text-white">Operação municipal</div>
-  <a class="d-block" href="/">Dashboard</a>
-  <a class="d-block" href="/Executivo">Painel executivo</a>
-  <a class="d-block" href="/Modulos">Catálogo de módulos</a>
-  <a class="d-block" href="/Onboarding">Onboarding</a>
-  <a class="d-block" href="/Preferencias">Preferências</a>
-  <a class="d-block" href="/DesignSystem">Design system</a>
-  <a class="d-block" href="/RegrasNegocio">Regras de negócio</a>
+  <div class="fw-bold mb-2 text-white">SIGOV SaaS</div>
+  <a class="d-block" href="/Dashboard">Dashboard</a>
+  <a class="d-block" href="/Saas/Tenants">SaaS / Clientes</a>
+  <a class="d-block" href="/Saas/Modulos">Módulos</a>
+  <a class="d-block" href="/Seguranca/Usuarios">Usuários</a>
+  <a class="d-block" href="/Seguranca/Perfis">Perfis</a>
+  <a class="d-block" href="/Auditoria/Trilhas">Auditoria</a>
+  <a class="d-block" href="/Placeholder/configuracoes">Configurações</a>
+  <a class="d-block" href="/Operacao/Health">Health</a>
+  <hr />
+  <div class="fw-bold mb-2 text-white">Módulos de negócio</div>
+  <a class="d-block" href="/Tributario">Tributário</a>
+  <a class="d-block" href="/Rh">RH</a>
+  <a class="d-block" href="/Placeholder/juridico">Jurídico <span class="badge text-bg-warning">em implantação</span></a>
+  <a class="d-block" href="/Placeholder/contratos">Contratos <span class="badge text-bg-warning">em implantação</span></a>
+  <a class="d-block" href="/Processos/Ged">GED</a>
+  <a class="d-block" href="/Protocolos">Protocolo</a>
+  <a class="d-block" href="/Saude">Saúde</a>
+  <a class="d-block" href="/Educacao">Educação</a>
+  <a class="d-block" href="/Agro">Agro</a>
+  <a class="d-block" href="/Saneamento">Saneamento</a>
+  <a class="d-block" href="/Social">Social</a>
+  <a class="d-block" href="/Integracoes">Integrações</a>
+  <hr />
+  <div class="fw-bold mb-2 text-white">Apoio</div>
   <a class="d-block" href="/Ajuda">Central de ajuda</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Administração</div>
-  <a class="d-block" data-module="core" data-permission="core.pessoas.visualizar" href="/Pessoas">Pessoas</a>
-  <a class="d-block" data-module="core" data-permission="core.entidades.visualizar" href="/Core/Entidades">Entidades</a>
-  <a class="d-block" data-module="core" data-permission="core.exercicios.visualizar" href="/Core/Exercicios">Exercícios</a>
-  <a class="d-block" data-module="core" data-permission="core.unidades.visualizar" href="/Core/Unidades">Unidades</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Segurança</div>
-  <a class="d-block" data-module="seguranca" data-permission="seguranca.usuarios.visualizar" href="/Seguranca/Usuarios">Usuários</a>
-  <a class="d-block" data-module="seguranca" data-permission="seguranca.perfis.visualizar" href="/Seguranca/Perfis">Perfis</a>
-  <a class="d-block" data-module="seguranca" data-permission="seguranca.grupos.visualizar" href="/Seguranca/Grupos">Grupos</a>
-  <a class="d-block" data-module="seguranca" data-permission="seguranca.permissoes.visualizar" href="/Seguranca/Permissoes">Permissões</a>
-  <a class="d-block" data-module="seguranca" data-permission="seguranca.historico.visualizar" href="/Seguranca/HistoricoLogin">Histórico de Login</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Administração SaaS</div>
-  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.modulos.visualizar" href="/SaasConfiguracao/Modulos">Módulos e Pacotes</a>
-  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.perfis.visualizar" href="/SaasConfiguracao/Perfis">Perfis e Níveis</a>
-  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.parametros.visualizar" href="/SaasConfiguracao/Parametros">Parâmetros do Tenant</a>
-  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.modulos.gerenciar" href="/SaasAdmin/FeatureFlags">Feature Flags</a>
-  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.contexto_global.trocar" href="/SaasConfiguracao/ContextoGlobal">Contexto Global</a>
-  <a class="d-block" data-role="ADMINISTRADOR_GERAL" data-module="saas" data-permission="saas.contexto_global.visualizar_logs" href="/SaasConfiguracao/ContextoGlobal#logs">Logs de Contexto</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Auditoria</div>
-  <a class="d-block" data-module="auditoria" data-permission="auditoria.trilhas.visualizar" href="/Auditoria/Trilhas">Trilhas</a>
-  <a class="d-block" data-module="auditoria" data-permission="auditoria.dadospessoais.visualizar" href="/Auditoria/AcessosDadosPessoais">Acessos a Dados Pessoais</a>
-  <a class="d-block" data-module="auditoria" data-permission="auditoria.timeline.visualizar" href="/Auditoria/Timeline">Timeline</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">LGPD</div>
-  <a class="d-block" data-module="lgpd" data-permission="lgpd.dashboard.visualizar" href="/Lgpd">Dashboard</a>
-  <a class="d-block" data-module="lgpd" data-permission="lgpd.consentimentos.visualizar" href="/Lgpd/Consentimentos">Consentimentos</a>
-  <a class="d-block" data-module="lgpd" data-permission="lgpd.solicitacoes.visualizar" href="/Lgpd/Solicitacoes">Solicitações do Titular</a>
-  <a class="d-block" data-module="lgpd" data-permission="lgpd.incidentes.visualizar" href="/Lgpd/Incidentes">Incidentes</a>
-  <a class="d-block" data-module="lgpd" data-permission="lgpd.relatorio.visualizar" href="/Lgpd/RelatorioTitular">Relatório do Titular</a>
-
-  <hr />
-  <div class="fw-bold mb-2 text-white">Processos Digitais</div>
-  <a class="d-block" data-module="processos" data-permission="processos.visualizar" href="/Processos">Processos</a>
-  <a class="d-block" data-module="processos" data-permission="processos.protocolos.visualizar" href="/Protocolos">Protocolos</a>
-  <a class="d-block" data-module="processos" data-permission="processos.ouvidoria.visualizar" href="/Ouvidoria">Ouvidoria</a>
-  <a class="d-block" data-module="processos" data-permission="processos.diario.visualizar" href="/DiarioOficial">Diário Oficial</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Financeiro/SIAFIC</div>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.dashboard.visualizar" href="/Financeiro/Dashboard">Dashboard Financeiro</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.plano-contas.visualizar" href="/Financeiro/PlanoContas">Plano de Contas</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.fontes.visualizar" href="/Financeiro/FontesRecurso">Fontes de Recurso</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.orcamento.visualizar" href="/Financeiro/OrcamentoDespesa">Orçamento</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.empenhos.visualizar" href="/Financeiro/Empenhos">Empenhos</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.liquidacoes.visualizar" href="/Financeiro/Liquidacoes">Liquidações</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.pagamentos.visualizar" href="/Financeiro/Pagamentos">Pagamentos</a>
-  <a class="d-block" data-module="financeiro" data-permission="financeiro.receitas.visualizar" href="/Financeiro/Receitas">Receitas</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Tributário</div>
-  <a class="d-block" data-module="tributario" data-permission="tributario.dashboard.visualizar" href="/Tributario/Dashboard">Dashboard Tributário</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.contribuintes.visualizar" href="/Tributario/Contribuintes">Contribuintes</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.imobiliario.visualizar" href="/Tributario/CadastroImobiliario">Cadastro Imobiliário</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.mercantil.visualizar" href="/Tributario/CadastroMercantil">Cadastro Mercantil</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.atividades.visualizar" href="/Tributario/AtividadesEconomicas">Atividades Econômicas</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.lancamentos.visualizar" href="/Tributario/Lancamentos">Lançamentos</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.parcelas.visualizar" href="/Tributario/Parcelas">Parcelas</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.dam.visualizar" href="/Tributario/DamBoletos">DAM/Boletos</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.pix.visualizar" href="/Tributario/PixPagamentos">PIX</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.certidoes.visualizar" href="/Tributario/Certidoes">Certidões</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.divida-ativa.visualizar" href="/Tributario/DividaAtiva">Dívida Ativa</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.carnes.visualizar" href="/Tributario/Carnes">Carnês</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white" data-module="rh">Recursos Humanos</div>
-  <a class="d-block" data-module="rh" data-permission="rh.dashboard.visualizar" href="/Rh/Dashboard">Dashboard RH</a>
-  <a class="d-block" data-module="rh" data-permission="rh.servidores.visualizar" href="/Rh/Servidores">Servidores</a>
-  <a class="d-block" data-module="rh" data-permission="rh.cargos.visualizar" href="/Rh/Cargos">Cargos</a>
-  <a class="d-block" data-module="rh" data-permission="rh.lotacoes.visualizar" href="/Rh/Lotacoes">Lotações</a>
-  <a class="d-block" data-module="rh" data-permission="rh.vinculos.visualizar" href="/Rh/Vinculos">Vínculos</a>
-  <a class="d-block" data-module="rh" data-permission="rh.folhas.visualizar" href="/Rh/Folhas">Folhas</a>
-  <a class="d-block" data-module="rh" data-permission="rh.eventos.visualizar" href="/Rh/FolhaEventos">Eventos da Folha</a>
-  <a class="d-block" data-module="rh" data-permission="rh.lancamentos.visualizar" href="/Rh/FolhaLancamentos">Lançamentos</a>
-  <a class="d-block" data-module="rh" data-permission="rh.ponto.visualizar" href="/Rh/Pontos">Ponto e Frequência</a>
-  <a class="d-block" data-module="rh" data-permission="rh.ferias.visualizar" href="/Rh/Ferias">Férias</a>
-  <a class="d-block" data-module="rh" data-permission="rh.afastamentos.visualizar" href="/Rh/Afastamentos">Afastamentos</a>
-  <a class="d-block" data-module="rh" data-permission="rh.saude-ocupacional.visualizar" href="/Rh/SaudeOcupacional">Saúde Ocupacional</a>
-  <a class="d-block" data-module="rh" data-permission="rh.esocial.visualizar" href="/Rh/Esocial">eSocial Estrutural</a>
-  <a class="d-block" data-module="rh" data-permission="rh.portal.visualizar" href="/Rh/Portal">Portal do Servidor</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white" data-module="educacao">Educação</div>
-  <a class="d-block" data-module="educacao" data-permission="educacao.dashboard.visualizar" href="/Educacao/Dashboard">Dashboard Educação</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.escolas.visualizar" href="/Educacao/Escolas">Escolas</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.anos-letivos.visualizar" href="/Educacao/AnosLetivos">Ano Letivo</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.cursos.visualizar" href="/Educacao/Cursos">Cursos e Séries</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.turmas.visualizar" href="/Educacao/Turmas">Turmas</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.alunos.visualizar" href="/Educacao/Alunos">Alunos</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.matriculas.visualizar" href="/Educacao/Matriculas">Matrículas</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.professores.visualizar" href="/Educacao/Professores">Professores</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.frequencias.visualizar" href="/Educacao/Frequencias">Frequência</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.avaliacoes.visualizar" href="/Educacao/Avaliacoes">Avaliações e Notas</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.pre-matriculas.visualizar" href="/Educacao/PreMatriculas">Pré-Matrícula</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.educacenso.visualizar" href="/Educacao/Educacenso">Educacenso Estrutural</a>
-  <a class="d-block" data-module="educacao" data-permission="educacao.portal.visualizar" href="/Educacao/Portal">Portal Pais/Alunos</a>
-
-  <hr />
-  <div class="fw-bold mb-2 text-white" data-module="agro">Agro e Desenvolvimento Rural</div>
-  <a class="d-block" data-module="agro" data-permission="agro.dashboard.visualizar" href="/Agro/Dashboard">Dashboard Agro</a>
-  <a class="d-block" data-module="agro" data-permission="agro.geo.visualizar" href="/Agro/MapaRural">Mapa Rural</a>
-  <a class="d-block" data-module="agro" data-permission="agro.geo.visualizar" href="/Agro/CamadasGeo">Camadas Geográficas</a>
-  <a class="d-block" data-module="agro" data-permission="agro.produtor.visualizar" href="/Agro/Produtores">Produtores Rurais</a>
-  <a class="d-block" data-module="agro" data-permission="agro.propriedade.visualizar" href="/Agro/Propriedades">Propriedades</a>
-  <a class="d-block" data-module="agro" data-permission="agro.talhao.visualizar" href="/Agro/Talhoes">Talhões</a>
-  <a class="d-block" data-module="agro" data-permission="agro.cultura.visualizar" href="/Agro/Culturas">Culturas</a>
-  <a class="d-block" data-module="agro" data-permission="agro.safra.visualizar" href="/Agro/Safras">Safras</a>
-  <a class="d-block" data-module="agro" data-permission="agro.producao.visualizar" href="/Agro/Producao">Produção Agrícola</a>
-  <a class="d-block" data-module="agro" data-permission="agro.pecuaria.visualizar" href="#">Rebanhos</a>
-  <a class="d-block" data-module="agro" data-permission="agro.sanidade.visualizar" href="#">Sanidade Animal</a>
-  <a class="d-block" data-module="agro" data-permission="agro.assistencia_tecnica.visualizar" href="#">Assistência Técnica</a>
-  <a class="d-block" data-module="agro" data-permission="agro.visita_tecnica.visualizar" href="#">Visitas Técnicas</a>
-  <a class="d-block" data-module="agro" data-feature="agro.programas_rurais" data-permission="agro.programa.visualizar" href="/Agro/Programas">Programas Rurais</a>
-  <a class="d-block" data-module="agro" data-feature="agro.beneficios_rurais" data-permission="agro.beneficio.visualizar" href="/Agro/Beneficios">Benefícios Rurais</a>
-  <a class="d-block" data-module="agro" data-feature="agro.insumos" data-permission="agro.insumo.visualizar" href="/Agro/Insumos">Insumos</a>
-  <a class="d-block" data-module="agro" data-feature="agro.insumos" data-permission="agro.insumo.distribuir" href="/Agro/DistribuicaoInsumos">Distribuição de Insumos</a>
-  <a class="d-block" data-module="agro" data-feature="agro.patrulha_mecanizada" data-permission="agro.maquina.visualizar" href="/Agro/PatrulhaMecanizada">Patrulha Mecanizada</a>
-  <a class="d-block" data-module="agro" data-feature="agro.maquinas" data-permission="agro.maquina.visualizar" href="/Agro/Maquinas">Máquinas</a>
-  <a class="d-block" data-module="agro" data-feature="agro.maquinas" data-permission="agro.implemento.visualizar" href="/Agro/Implementos">Implementos</a>
-  <a class="d-block" data-module="agro" data-feature="agro.patrulha_mecanizada" data-permission="agro.servico_maquina.agendar" href="/Agro/AgendaMaquinas">Agenda de Máquinas</a>
-  <a class="d-block" data-module="agro" data-feature="agro.servicos_maquina" data-permission="agro.servico_maquina.visualizar" href="/Agro/ServicosMaquina">Serviços de Máquinas</a>
-  <a class="d-block" data-module="agro" data-feature="agro.estradas_vicinais" data-permission="agro.estrada.visualizar" href="/Agro/EstradasVicinais">Estradas Vicinais</a>
-  <a class="d-block" data-module="agro" data-feature="agro.pontos_criticos" data-permission="agro.ponto_critico.visualizar" href="/Agro/PontosCriticos">Pontos Críticos</a>
-  <a class="d-block" data-module="agro" data-feature="agro.ocorrencias_rurais" data-permission="agro.ocorrencia.visualizar" href="/Agro/OcorrenciasRurais">Ocorrências Rurais</a>
-  <a class="d-block" data-module="agro" data-feature="agro.ocorrencias_rurais" data-permission="agro.manutencao.visualizar" href="/Agro/ManutencoesRurais">Manutenções Rurais</a>
-  <a class="d-block" data-module="agro" data-feature="agro.feiras" data-permission="agro.feira.visualizar" href="/Agro/Feiras">Feiras e Mercados</a>
-  <a class="d-block" data-module="agro" data-feature="agro.feiras" data-permission="agro.feirante.visualizar" href="/Agro/Feirantes">Feirantes</a>
-  <a class="d-block" data-module="agro" data-feature="agro.agroindustrias" data-permission="agro.agroindustria.visualizar" href="/Agro/Agroindustrias">Agroindústrias</a>
-  <a class="d-block" data-module="agro" data-feature="agro.inspecao_municipal" data-permission="agro.inspecao.visualizar" href="/Agro/InspecoesMunicipais">Inspeção Municipal</a>
-  <a class="d-block" data-module="agro" data-feature="agro.compras_agricultura_familiar" data-permission="agro.compra_af.visualizar" href="/Agro/ComprasAgriculturaFamiliar">Compras da Agricultura Familiar</a>
-
+  <a class="d-block" href="/Modulos">Catálogo legado</a>
 </aside>
