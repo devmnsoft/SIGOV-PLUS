@@ -1,6 +1,7 @@
 namespace Sigov.Application.Common;
 
-// Helper interno da camada Application. O contrato HTTP oficial pertence à camada Sigov.Api.Contracts.
+// Helper interno da camada Application. O contrato HTTP oficial da API fica em
+// Sigov.Api.Contracts.
 internal sealed record ApplicationApiResponse<T>(
     bool Success,
     T? Data,
