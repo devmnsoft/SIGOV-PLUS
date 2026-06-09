@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Sigov.Api.Contracts;
 using Sigov.Application.Integracoes;
 using Xunit;
 
@@ -16,7 +15,7 @@ public sealed class IntegracoesApiTests : IClassFixture<WebApplicationFactory<Pr
     public async Task DashboardSemTenant_RetornaBadRequestOuForbidden()
     {
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/integracoes/dashboard").ConfigureAwait(false);
+        var response = await client.GetAsync("/api/integracoes/dashboard");
         Assert.True(response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden);
     }
 
@@ -24,8 +23,8 @@ public sealed class IntegracoesApiTests : IClassFixture<WebApplicationFactory<Pr
     public async Task ReceberWebhookSemTenant_NaoVazaStackTrace()
     {
         using var client = _factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/integracoes/webhooks/receber/dev", new WebhookReceberRequest("Ping", new { ok = true }, "idem-1")).ConfigureAwait(false);
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var response = await client.PostAsJsonAsync("/api/integracoes/webhooks/receber/dev", new WebhookReceberRequest("Ping", new { ok = true }, "idem-1"));
+        var body = await response.Content.ReadAsStringAsync();
         Assert.False(body.Contains("StackTrace", StringComparison.OrdinalIgnoreCase));
     }
 }
