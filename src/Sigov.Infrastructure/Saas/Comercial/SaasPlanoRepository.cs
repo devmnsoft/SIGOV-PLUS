@@ -71,15 +71,63 @@ returning id;
         return (await GetByCodigoAsync(codigo, cancellationToken).ConfigureAwait(false))!.Plano;
     }
 
-    public async Task<SaasPlanoResponse> UpdateAsync(long id, SaasPlanoUpdateRequest request, long usuarioId, Guid correlationId, CancellationToken cancellationToken)
+    public async Task<SaasPlanoResponse> UpdateAsync(
+        long id,
+        SaasPlanoUpdateRequest request,
+        long usuarioId,
+        Guid correlationId,
+        CancellationToken cancellationToken)
     {
-        const string sql = @"update sigov.saas_plano set nome=@Nome, descricao=@Descricao, publico=@Publico, destaque=@Destaque, ordem=@Ordem, preco_base=@PrecoBase,
-    limite_usuarios=@LimiteUsuarios, permite_white_label=@PermiteWhiteLabel, permite_dominio_customizado=@PermiteDominioCustomizado, ativo=@Ativo
-where id=@Id returning codigo;
+        const string sql = @"update sigov.saas_plano
+set nome=@Nome,
+    descricao=@Descricao,
+    publico=@Publico,
+    destaque=@Destaque,
+    ordem=@Ordem,
+    preco_base=@PrecoBase,
+    limite_usuarios=@LimiteUsuarios,
+    permite_white_label=@PermiteWhiteLabel,
+    permite_dominio_customizado=@PermiteDominioCustomizado,
+    ativo=@Ativo
+where id=@Id
+returning codigo;
 ";
+
         using var connection = _context.CreateConnection();
-        var codigo = await connection.ExecuteScalarAsync<string>(new CommandDefinition(sql, new { Id = id, request.Nome, request.Descricao, request.Publico, request.Destaque, request.Ordem, request.PrecoBase, request.LimiteUsuarios, request.PermiteWhiteLabel, request.PermiteDominioCustomizado, request.Ativo }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return (await GetByCodigoAsync(codigo, cancellationToken).ConfigureAwait(false))!.Plano;
+
+        var codigo = await connection.ExecuteScalarAsync<string?>(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    Id = id,
+                    request.Nome,
+                    request.Descricao,
+                    request.Publico,
+                    request.Destaque,
+                    request.Ordem,
+                    request.PrecoBase,
+                    request.LimiteUsuarios,
+                    request.PermiteWhiteLabel,
+                    request.PermiteDominioCustomizado,
+                    request.Ativo
+                },
+                cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            throw new InvalidOperationException($"Plano SaaS não encontrado para atualização. Id={id}.");
+        }
+
+        var detalhe = await GetByCodigoAsync(codigo.Trim(), cancellationToken).ConfigureAwait(false);
+
+        if (detalhe is null)
+        {
+            throw new InvalidOperationException($"Plano SaaS atualizado, mas não encontrado ao recarregar. Codigo={codigo}.");
+        }
+
+        return detalhe.Plano;
     }
 
     public async Task InsertEventoAsync(long? tenantId, string tipoEvento, string origem, long? origemId, object payload, Guid correlationId, CancellationToken cancellationToken)
