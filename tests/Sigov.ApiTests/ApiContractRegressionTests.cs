@@ -18,10 +18,10 @@ public sealed class ApiContractRegressionTests : IClassFixture<WebApplicationFac
     public async Task PublicHealthEndpoints_Deve_Retornar_ApiResponse_Sem_Autenticacao(string path, HttpStatusCode expectedStatus)
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync(path).ConfigureAwait(false);
+        using var response = await client.GetAsync(path);
 
         response.StatusCode.Should().Be(expectedStatus);
-        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("success");
         content.Should().NotContain("StackTrace");
         content.Should().NotContain("Exception");
@@ -43,10 +43,10 @@ public sealed class ApiContractRegressionTests : IClassFixture<WebApplicationFac
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Development");
 
             using var client = _factory.CreateClient();
-            using var response = await client.GetAsync("/api/health/version").ConfigureAwait(false);
+            using var response = await client.GetAsync("/api/health/version");
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync();
             content.Should().Contain("\"application\":\"sigov\"");
             content.Should().Contain("\"version\":\"v1.0.0\"");
             content.Should().Contain("\"commitSha\":\"test-sha\"");
