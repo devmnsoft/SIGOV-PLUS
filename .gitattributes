@@ -1,0 +1,5 @@
+# Keep Linux container scripts executable even when checked out on Windows.
+*.sh text eol=lf
+*.sql text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
