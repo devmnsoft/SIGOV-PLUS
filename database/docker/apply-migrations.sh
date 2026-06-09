@@ -30,11 +30,11 @@ echo "PostgreSQL pronto."
 if [ -f /database/apply_all_required_migrations.sql ]; then
   echo "Aplicando /database/apply_all_required_migrations.sql..."
   psql_cmd --single-transaction -f /database/apply_all_required_migrations.sql
-else
-  echo "Arquivo /database/apply_all_required_migrations.sql não encontrado." >&2
-  exit 1
+  echo "Migrations consolidadas aplicadas com sucesso."
+  exit 0
 fi
 
+echo "Arquivo consolidado não encontrado; aplicando migrations individuais." >&2
 psql_cmd -c "create schema if not exists sigov;"
 psql_cmd -c "create table if not exists sigov.docker_schema_migrations (version varchar(250) primary key, file_path text not null, checksum varchar(128) not null, applied_at timestamptz not null default now());"
 
@@ -62,13 +62,20 @@ apply_sql_file() {
   psql_cmd -c "insert into sigov.docker_schema_migrations (version, file_path, checksum) values ('${version_sql}', '${file_sql}', '${checksum_sql}') on conflict (version) do nothing;"
 }
 
+found_migrations=0
 for dir in /database/postgres/migrations /database/migrations; do
   if [ -d "$dir" ]; then
-    find "$dir" -maxdepth 1 -type f -name '*.sql' | sort | while IFS= read -r file; do
+    for file in $(find "$dir" -maxdepth 1 -type f -name '*.sql' | sort); do
+      found_migrations=1
       version="$(basename "$file" .sql)"
       apply_sql_file "$file" "$version"
     done
   fi
 done
 
-echo "Migrations aplicadas com sucesso."
+if [ "$found_migrations" -eq 0 ]; then
+  echo "Nenhum script SQL de migration encontrado." >&2
+  exit 1
+fi
+
+echo "Migrations individuais aplicadas com sucesso."
