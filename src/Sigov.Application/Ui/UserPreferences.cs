@@ -33,11 +33,11 @@ public sealed class UserPreferenceService : IUserPreferenceService
 
     private static string BuildKey(long? tenantId, long userId, string key) => $"{tenantId?.ToString() ?? "global"}:{userId}:{key}";
 
-    private static void EnsureNotNullOrWhiteSpace(string? value, string paramName)
+    private static void EnsureNotNullOrWhiteSpace(string? value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException("Value cannot be null or whitespace.", paramName);
+            throw new ArgumentException("O valor não pode ser vazio.", parameterName);
         }
     }
 }
