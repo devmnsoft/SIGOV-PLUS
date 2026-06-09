@@ -19,9 +19,9 @@ public sealed class RateLimitTests
         });
         using var client = factory.CreateClient();
 
-        using var first = await client.GetAsync("/api/health/live").ConfigureAwait(false);
-        using var second = await client.GetAsync("/api/health/live").ConfigureAwait(false);
-        using var third = await client.GetAsync("/api/health/live").ConfigureAwait(false);
+        using var first = await client.GetAsync("/api/health/live");
+        using var second = await client.GetAsync("/api/health/live");
+        using var third = await client.GetAsync("/api/health/live");
 
         first.IsSuccessStatusCode.Should().BeTrue();
         second.IsSuccessStatusCode.Should().BeTrue();
