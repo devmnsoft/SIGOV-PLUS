@@ -1,12 +1,12 @@
 @model Sigov.Web.Models.Educacao.MatriculaFormViewModel
-@{ ViewData["Title"] = "Matrículas"; }
+@{ ViewData["Title"] = "Matriculas"; }
 @{
-    ViewData["Title"] = ViewData["Title"] ?? "Educação";
+    ViewData["Title"] = ViewData["Title"] ?? "Educacao";
 }
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
     <h1 class="h3">@ViewData["Title"]</h1>
-    <p class="text-muted mb-0">Módulo Educação Base com dados paginados, LGPD, auditoria e tenant_id.</p>
+    <p class="text-muted mb-0">Modulo Educacao Base com dados paginados, LGPD, auditoria e tenant_id.</p>
   </div>
   <div class="btn-group">
     <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
@@ -15,4 +15,6 @@
   </div>
 </div>
 <div id="educacao-toast" class="alert d-none" role="alert"></div>
-<partial name="_FormMatricula" model="Model" /><partial name="_GridMatriculas" />@section Scripts { <script src="~/js/modules/educacao.matriculas.js"></script> }
+<partial name="_FormMatricula" model="Model" />
+<partial name="_GridMatriculas" />
+@section Scripts { <script src="~/js/modules/educacao.matriculas.js"></script> }
