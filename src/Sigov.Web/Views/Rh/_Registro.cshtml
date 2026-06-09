@@ -1,33 +1,26 @@
 @model Sigov.Web.Models.Rh.RhRegistroViewModel
 @{ ViewData["Title"] = Model.Titulo; }
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <div><h1>@Model.Titulo</h1><p class="text-muted">CRUD com isolamento por tenant, validação client/server, soft delete, auditoria JSONB, LGPD e exportação CSV/JSON.</p></div>
-  <div class="btn-group"><a class="btn btn-outline-secondary" href="/api/rh/export/@Model.Recurso.csv">CSV</a><a class="btn btn-outline-secondary" href="/api/rh/export/@Model.Recurso.json">JSON</a></div>
+  <div>
+    <h1>@Model.Titulo</h1>
+    <p class="text-muted">CRUD com isolamento por tenant, auditoria e exportacao.</p>
+  </div>
+  <div class="btn-group">
+    <a class="btn btn-outline-secondary" href="/api/rh/export/@(Model.Recurso).csv">CSV</a>
+    <a class="btn btn-outline-secondary" href="/api/rh/export/@(Model.Recurso).json">JSON</a>
+  </div>
 </div>
 <form id="rh-form" class="card mb-3 needs-validation" data-recurso="@Model.Recurso" novalidate>
   @Html.AntiForgeryToken()
   <div class="card-body">
     <input type="hidden" id="rh-id" />
     <div id="rh-fields" class="row g-3"></div>
-    <label class="form-label mt-3" for="rh-json">Dados complementares (JSON)</label>
+    <label class="form-label mt-3" for="rh-json">Dados complementares JSON</label>
     <textarea class="form-control font-monospace" id="rh-json" rows="5">{}</textarea>
-    <div class="form-text">O backend é a autoridade final: valida campos obrigatórios, bloqueia exercício encerrado, isola tenant e mascara CPF/CNPJ/e-mail/telefone nas consultas.</div>
   </div>
-  <div class="card-footer d-flex gap-2"><button class="btn btn-primary" type="submit">Salvar</button><button class="btn btn-outline-secondary" type="button" id="rh-clear">Novo</button></div>
+  <div class="card-footer d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Salvar</button>
+    <button class="btn btn-outline-secondary" type="button" id="rh-clear">Novo</button>
+  </div>
 </form>
-@if (Model.Recurso == "folhas")
-{
-  <form id="rh-integrar-form" class="card mb-3">
-    @Html.AntiForgeryToken()
-    <div class="card-header">Integração Financeiro/SIAFIC via outbox</div>
-    <div class="card-body row g-3">
-      <div class="col-md-2"><label class="form-label" for="rh-integrar-folha-id">Folha</label><input class="form-control" id="rh-integrar-folha-id" type="number" min="1" required /></div>
-      <div class="col-md-2"><label class="form-label" for="rh-integrar-competencia">Competência</label><input class="form-control" id="rh-integrar-competencia" type="date" required /></div>
-      <div class="col-md-2"><label class="form-label" for="rh-integrar-natureza-id">Natureza</label><input class="form-control" id="rh-integrar-natureza-id" type="number" min="1" /></div>
-      <div class="col-md-2"><label class="form-label" for="rh-integrar-fonte-id">Fonte</label><input class="form-control" id="rh-integrar-fonte-id" type="number" min="1" /></div>
-      <div class="col-md-4"><label class="form-label" for="rh-integrar-historico">Histórico</label><input class="form-control" id="rh-integrar-historico" maxlength="500" required /></div>
-    </div>
-    <div class="card-footer"><button class="btn btn-outline-primary" type="submit">Preparar integração</button></div>
-  </form>
-}
-<div class="card"><div class="card-header">Registros</div><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>ID</th><th>Ativo</th><th>Dados mascarados/LGPD</th><th>Ações</th></tr></thead><tbody id="rh-grid"></tbody></table></div></div>
+<div class="card"><div class="card-header">Registros</div><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>ID</th><th>Ativo</th><th>Dados</th><th>Acoes</th></tr></thead><tbody id="rh-grid"></tbody></table></div></div>
