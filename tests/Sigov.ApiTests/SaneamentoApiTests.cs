@@ -12,7 +12,7 @@ public sealed class SaneamentoApiTests : IClassFixture<WebApplicationFactory<Pro
     public async Task Dashboard_Sem_Tenant_Deve_Bloquear_Acesso_Ao_Modulo()
     {
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync("/api/saneamento/dashboard").ConfigureAwait(false);
+        using var response = await client.GetAsync("/api/saneamento/dashboard");
         ((int)response.StatusCode).Should().BeOneOf(400, 403);
     }
 }
