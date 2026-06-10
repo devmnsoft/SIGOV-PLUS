@@ -50,7 +50,11 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("caixa", "Caixa Comercial", "Abertura, suprimento, sangria, fechamento e resumo por forma de pagamento.", "Comércio", true, true, new[] { "pdv" }),
             Module("comercio_atacado", "Comércio Atacadista", "Base comercial B2B atacadista integrada a pedidos e estoque.", "Comércio", true, true, new[] { "comercial", "estoque_compras" }),
             Module("industria_producao", "Indústria e Produção", "Produção por ordem, BOM, roteiro, chão de fábrica, qualidade e custos integrados.", "Indústria", true, true, new[] { "core", "estoque_compras" }),
-            Module("financeiro_empresarial", "Financeiro Empresarial", "Eventos financeiros futuros para vendas, OS e compras.", "Empresarial", true, true, new[] { "comercial" })
+            Module("financeiro_empresarial", "Financeiro Empresarial", "Eventos financeiros futuros para vendas, OS e compras.", "Empresarial", true, true, new[] { "comercial" }),
+            Module("ged", "GED/OCR e Automação Documental", "GED completo com upload/download, OCR simulado, metadados, histórico e auditoria.", "Documentos", true, true, new[] { "core", "auditoria", "lgpd" }),
+            Module("ocr", "OCR Documental", "Indexação OCR simulada para documentos e anexos do GED.", "Documentos", true, true, new[] { "ged" }),
+            Module("contrato", "Contratos e Assinaturas", "Contratos, documentos jurídicos e assinatura digital simulada.", "Jurídico", true, true, new[] { "ged", "comercial", "financeiro_empresarial" }),
+            Module("fluxo", "Workflow e Tramitação", "Protocolos eletrônicos, workflow visual e tramitação automatizada.", "Automação", true, true, new[] { "ged" })
         };
     }
 
@@ -94,7 +98,8 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModulePackageItem("INDUSTRIAL_STARTER", "Industrial Starter", "Produção por ordem com estoque e OS.", new[] { "industria_producao", "estoque_compras", "ordem_servico" }),
             new ModulePackageItem("INDUSTRIAL_PLUS", "Industrial Plus", "Produção integrada à manutenção, OS, compras, estoque e financeiro.", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "compras", "financeiro_empresarial" }),
             new ModulePackageItem("FACTORY_FULL", "Factory Full", "Operação fabril completa com comercial atacadista, produção, estoque e financeiro.", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "comercial", "comercio_atacado", "financeiro_empresarial" }),
-            new ModulePackageItem("SERVICE_DESK_PRO", "Service Desk Pro", "Serviços com comercial, OS, contratos, GED e financeiro futuro.", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" }),
+            new ModulePackageItem("SERVICE_DESK_PRO", "Service Desk Pro", "Serviços com comercial, OS, contratos, GED e financeiro futuro.", new[] { "comercial", "ordem_servico", "contrato", "ged", "ocr", "fluxo", "financeiro_empresarial" }),
+            new ModulePackageItem("GED_AUTOMACAO_PLUS", "GED Automação Plus", "GED, OCR, contratos, assinatura simulada e workflow documental.", new[] { "ged", "ocr", "contrato", "fluxo", "processos", "integracoes", "auditoria", "lgpd" }),
             new ModulePackageItem("COMPLETO", "Completo", "Todos os módulos integrados do sigov.", todos)
         };
     }

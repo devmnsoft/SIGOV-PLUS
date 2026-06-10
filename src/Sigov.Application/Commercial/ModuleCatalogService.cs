@@ -47,6 +47,10 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Create("comercio_atacado", "Comércio Atacadista", "Comércio", "Pedidos B2B, tabelas de preço, separação, conferência e faturamento inicial.", ModuleStatus.Disponivel, "bi-buildings", "/Atacado/Dashboard", "comercio.pedidos.visualizar"),
             Create("industria_producao", "Indústria e Produção", "Indústria", "Produção por ordem, BOM, roteiro, chão de fábrica, qualidade e custos sem MRP completo.", ModuleStatus.Disponivel, "bi-cpu", "/Industria/Dashboard", "industria.dashboard.visualizar"),
             Create("financeiro_empresarial", "Financeiro Empresarial", "Gestão empresarial", "Plano de contas, centros de custo, contas, baixas, caixa, fluxo, conciliação e integração comercial/industrial.", ModuleStatus.Disponivel, "bi-bank", "/Financeiro/Dashboard", "financeiro.dashboard.visualizar"),
+            Create("ged", "GED/OCR e Automação Documental", "Documentos", "GED completo com upload/download, OCR simulado, metadados, workflow, tramitação e histórico auditado.", ModuleStatus.Disponivel, "bi-file-earmark-text", "/Ged/Dashboard", "ged.visualizar"),
+            Create("ocr", "OCR Documental", "Documentos", "Digitalização OCR simulada com extração de texto, indexação e auditoria por tenant.", ModuleStatus.Disponivel, "bi-filetype-txt", "/Ged/Ocr", "ocr.processar"),
+            Create("contrato", "Contratos e Assinaturas", "Jurídico", "Contratos vinculados ao Comercial, Financeiro, Produção e Tributário com assinatura digital simulada.", ModuleStatus.Disponivel, "bi-file-earmark-check", "/Ged/Contratos", "contrato.visualizar"),
+            Create("fluxo", "Workflow e Tramitação", "Automação", "Fluxos visuais, protocolos eletrônicos e tramitação de documentos com SLA.", ModuleStatus.Disponivel, "bi-diagram-2", "/Ged/Workflow", "fluxo.visualizar"),
             Create("financeiro_publico", "Financeiro Público", "Gestão pública", "Módulo futuro para evolução SIAFIC, execução pública e integrações governamentais.", ModuleStatus.EmImplantacao, "bi-building-lock", "/Financeiro/Dashboard", "financeiro_publico.visualizar")
         };
 
@@ -68,8 +72,9 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModuleCatalogPackage("INDUSTRIAL_STARTER", "Industrial Starter", new[] { "industria_producao", "estoque_compras", "ordem_servico" }),
             new ModuleCatalogPackage("INDUSTRIAL_PLUS", "Industrial Plus", new[] { "financeiro_empresarial", "industria_producao", "manutencao_industrial", "estoque_compras", "compras", "ordem_servico" }),
             new ModuleCatalogPackage("FACTORY_FULL", "Factory Full", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "comercial", "comercio_atacado", "financeiro_empresarial" }),
-            new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" }),
-            new ModuleCatalogPackage("GOV_PLUS", "Gov Plus", new[] { "financeiro_publico", "tributario", "contratos", "compras", "rh", "protocolo", "ged" })
+            new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contrato", "ged", "ocr", "fluxo", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("GED_AUTOMACAO_PLUS", "GED Automação Plus", new[] { "ged", "ocr", "contrato", "fluxo", "processos", "integracoes", "auditoria-lgpd" }),
+            new ModuleCatalogPackage("GOV_PLUS", "Gov Plus", new[] { "financeiro_publico", "tributario", "contrato", "compras", "rh", "processos", "ged", "ocr", "fluxo" })
         };
     }
 
