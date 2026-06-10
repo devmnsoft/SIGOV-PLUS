@@ -164,6 +164,7 @@ public static class DependencyInjection
         services.AddScoped<SaasPlanoValidator>();
         services.AddScoped<SaasPlanoMapper>();
         services.AddScoped<ISaasAssinaturaRepository, SaasAssinaturaRepository>();
+        services.AddScoped<ISaasLimitValidator, SaasLimitValidator>();
         services.AddScoped<ISaasAssinaturaService, SaasAssinaturaService>();
         services.AddScoped<SaasAssinaturaValidator>();
         services.AddScoped<SaasAssinaturaMapper>();
