@@ -24,7 +24,7 @@ public sealed class PostBuild01RegressionTests
         migration.Should().Contain("admin@sigov.local");
         migration.Should().Contain("SIGOV_PBKDF2_V1");
         migration.Should().Contain("on conflict");
-        migration.Should().NotContain("drop table", StringComparison.OrdinalIgnoreCase);
+        migration.ToLowerInvariant().Should().NotContain("drop table");
     }
 
     [Fact]

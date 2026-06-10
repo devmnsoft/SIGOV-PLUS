@@ -15,7 +15,7 @@ public sealed class AgroDashboardTests
         var access = new AccessCheckerFake(Result<AgroAccessContext>.Success(new AgroAccessContext(10, 20, 2026, 30, new[] { "ADMINISTRADOR_TENANT" }, false)));
         var service = new AgroDashboardService(access, new DashboardRepoFake(), NullLogger<AgroDashboardService>.Instance);
 
-        var result = await service.ObterAsync(CancellationToken.None).ConfigureAwait(false);
+        var result = await service.ObterAsync(CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();

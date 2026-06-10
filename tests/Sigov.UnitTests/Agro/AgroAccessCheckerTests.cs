@@ -14,7 +14,7 @@ public sealed class AgroAccessCheckerTests
     {
         var checker = CriarChecker(moduleAllowed: true, permissions: new[] { AgroPermissions.DashboardVisualizar });
 
-        var result = await checker.CheckAsync(new AgroAccessRequest(AgroPermissions.DashboardVisualizar, "agro.dashboard"), CancellationToken.None).ConfigureAwait(false);
+        var result = await checker.CheckAsync(new AgroAccessRequest(AgroPermissions.DashboardVisualizar, "agro.dashboard"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.TenantId.Should().Be(10);
@@ -25,7 +25,7 @@ public sealed class AgroAccessCheckerTests
     {
         var checker = CriarChecker(moduleAllowed: false, permissions: new[] { AgroPermissions.DashboardVisualizar });
 
-        var result = await checker.CheckAsync(new AgroAccessRequest(AgroPermissions.DashboardVisualizar, "agro.dashboard"), CancellationToken.None).ConfigureAwait(false);
+        var result = await checker.CheckAsync(new AgroAccessRequest(AgroPermissions.DashboardVisualizar, "agro.dashboard"), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be("403");
@@ -36,7 +36,7 @@ public sealed class AgroAccessCheckerTests
     {
         var checker = CriarChecker(moduleAllowed: true, permissions: Array.Empty<string>());
 
-        var result = await checker.CheckAsync(new AgroAccessRequest(AgroPermissions.GeoCriar, "agro.geo"), CancellationToken.None).ConfigureAwait(false);
+        var result = await checker.CheckAsync(new AgroAccessRequest(AgroPermissions.GeoCriar, "agro.geo"), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be("403");

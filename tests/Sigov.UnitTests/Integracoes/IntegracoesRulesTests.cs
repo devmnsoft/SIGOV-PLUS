@@ -22,7 +22,7 @@ public sealed class IntegracoesRulesTests
         var hash = hasher.Hash(key);
         Assert.StartsWith("sigov_dev_", key);
         Assert.Contains(prefix, key);
-        Assert.DoesNotContain(key, hash, StringComparison.Ordinal);
+        Assert.DoesNotContain(key, hash);
         Assert.True(hasher.Verify(key, hash));
         Assert.False(hasher.Verify(key + "x", hash));
     }
