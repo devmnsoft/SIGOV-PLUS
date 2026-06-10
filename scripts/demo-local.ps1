@@ -89,3 +89,22 @@ $posBuild08Urls = @(
   "http://localhost:5001/api/tributario/arrecadacao/status"
 )
 $posBuild08Urls | ForEach-Object { Write-Host " - $_" }
+
+Write-Host "SIGOV Pós-Build 09 - GED/OCR, Assinatura Digital e Automação Documental" -ForegroundColor Cyan
+$posBuild09Urls = @(
+  "http://localhost:8080/Ged/Dashboard",
+  "http://localhost:8080/Ged/Documentos",
+  "http://localhost:8080/Ged/Upload",
+  "http://localhost:8080/Ged/Pesquisa",
+  "http://localhost:8080/Ged/Ocr",
+  "http://localhost:8080/Ged/Workflow",
+  "http://localhost:8080/Ged/Tramitacoes",
+  "http://localhost:8080/Ged/Contratos",
+  "http://localhost:8080/Ged/AssinaturaTeste",
+  "http://localhost:8080/Ged/Historico",
+  "http://localhost:5001/api/ged/dashboard",
+  "http://localhost:5001/api/ged/documentos",
+  "http://localhost:5001/api/ged/contratos",
+  "http://localhost:5001/api/ged/workflows"
+)
+$posBuild09Urls | ForEach-Object { Write-Host " - $_" }

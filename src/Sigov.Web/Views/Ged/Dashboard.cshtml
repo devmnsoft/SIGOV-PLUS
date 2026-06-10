@@ -1,0 +1,19 @@
+@{
+    ViewData["Title"] = "Dashboard GED/OCR";
+}
+<section class="sigov-page-header d-flex justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <span class="badge text-bg-primary mb-2">Pós-Build 09</span>
+    <h1 class="h2">Dashboard GED/OCR</h1>
+    <p class="text-muted">Gestão eletrônica de documentos com OCR simulado, assinatura digital de teste, contratos, protocolos, workflow, histórico e auditoria por tenant.</p>
+  </div>
+  <div class="d-flex gap-2"><a class="btn btn-primary" href="/Ged/Upload">Enviar documento</a><a class="btn btn-outline-primary" href="/Ged/Pesquisa">Pesquisa avançada</a></div>
+</section>
+<div class="row g-3">
+@foreach (var card in new[] { "Documentos", "Anexos", "OCR processados", "Assinaturas pendentes", "Contratos ativos", "Tramitações abertas" })
+{
+  <div class="col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><span class="text-muted small">@card</span><h3 class="mt-2 mb-0">0</h3></div></div></div>
+}
+</div>
+<section class="card mt-3"><div class="card-body"><h2 class="h5">Fluxo documental</h2><div class="d-flex flex-wrap gap-2"><span class="badge text-bg-secondary">Recebimento</span><span class="badge text-bg-info">OCR</span><span class="badge text-bg-primary">Indexação</span><span class="badge text-bg-warning">Tramitação</span><span class="badge text-bg-success">Assinatura simulada</span><span class="badge text-bg-dark">Arquivamento</span></div></div></section>
+<section class="card mt-3"><div class="card-body"><h2 class="h5">Integrações SaaS</h2><p class="mb-0 text-muted">Documentos podem ser vinculados a contratos comerciais/financeiros, checklists de produção, ordens industriais e documentos fiscais tributários, mantendo tenant_id, LGPD e auditoria em cada ação.</p></div></section>
