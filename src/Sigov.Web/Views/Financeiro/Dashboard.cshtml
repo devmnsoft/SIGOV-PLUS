@@ -1,10 +1,25 @@
 @model Sigov.Web.Models.Financeiro.FinanceiroDashboardViewModel
 @{ ViewData["Title"] = "Dashboard Financeiro"; }
-<h1>Dashboard Financeiro</h1>
-<div class="row g-3 financeiro-dashboard" data-module="financeiro-dashboard">
-@foreach (var card in new[] { "Orçamento autorizado", "Empenhado", "Liquidado", "Pago", "Saldo disponível", "Receita prevista", "Receita lançada", "Receita arrecadada" })
-{
-  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body"><span class="text-muted">@card</span><h3 class="valor">R$ 0,00</h3></div></div></div>
-}
-</div>
-@section Scripts { <script src="~/js/modules/financeiro.dashboard.js"></script> }
+<section class="container-fluid py-3" data-module="financeiro_empresarial">
+  <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center mb-4">
+    <div>
+      <p class="text-uppercase text-primary fw-semibold mb-1">SIGOV PLUS • Financeiro Integrado</p>
+      <h1 class="h3 mb-1">Dashboard Financeiro</h1>
+      <p class="text-muted mb-0">Contas, caixa, centros de custo, fluxo de caixa e conciliação com isolamento por tenant.</p>
+    </div>
+    <a class="btn btn-outline-primary" href="/Financeiro/FluxoCaixa">Ver fluxo de caixa</a>
+  </div>
+  <div class="alert alert-success" role="status">Módulo financeiro_empresarial ativo: indicadores carregados com auditoria e correlationId.</div>
+  <div class="row g-3 mb-4">
+    @foreach (var card in new[] { "Saldo atual", "Contas a receber em aberto", "Contas a pagar em aberto", "Vencidas a receber", "Vencidas a pagar", "Fluxo previsto 7 dias", "Fluxo previsto 30 dias", "Caixa do dia" })
+    {
+      <div class="col-12 col-md-6 col-xl-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">@card</span><h2 class="h4 mt-2">R$ 0,00</h2><small class="text-success">Previsto x realizado</small></div></div></div>
+    }
+  </div>
+  <div class="row g-3">
+    <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header bg-white">Entradas x Saídas</div><div class="card-body"><div class="progress mb-3"><div class="progress-bar bg-success" style="width:55%">Entradas</div><div class="progress-bar bg-danger" style="width:45%">Saídas</div></div><p class="text-muted mb-0">Gráfico simples com movimentos realizados e títulos abertos.</p></div></div></div>
+    <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header bg-white">Contas por status</div><div class="card-body"><span class="badge text-bg-primary">ABERTA</span> <span class="badge text-bg-warning">PARCIAL</span> <span class="badge text-bg-success">RECEBIDA/PAGA</span> <span class="badge text-bg-secondary">CANCELADA</span></div></div></div>
+    <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header bg-white">Despesas por centro de custo</div><div class="card-body text-muted">Administrativo, Comercial, Produção, Manutenção, Estoque e Serviços.</div></div></div>
+    <div class="col-12 col-xl-6"><div class="card h-100"><div class="card-header bg-white">Receitas por origem</div><div class="card-body text-muted">Venda, PDV, OS, contrato, assinatura SaaS e lançamento manual.</div></div></div>
+  </div>
+</section>

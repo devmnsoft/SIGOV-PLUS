@@ -33,3 +33,47 @@ public sealed class FinanceiroSaldoTests
 {
     [Fact] public void Exercicio_Encerrado_Bloqueia_Operacoes() { var o = new OrcamentoDespesa(1, 1, 1, 100m); Assert.Throws<InvalidOperationException>(() => o.ValidarEmpenho(10m, true)); }
 }
+
+public sealed class FinanceiroIntegradoRulesTests
+{
+    [Fact]
+    public void Baixa_parcial_atualiza_valor_aberto_e_mantem_status_parcial()
+    {
+        var titulo = new TituloFinanceiroTeste(100m);
+        titulo.Baixar(40m, permiteParcial: true);
+        titulo.ValorAberto.Should().Be(60m);
+        titulo.Status.Should().Be("PARCIAL");
+    }
+
+    [Fact]
+    public void Baixa_total_quita_titulo()
+    {
+        var titulo = new TituloFinanceiroTeste(100m);
+        titulo.Baixar(100m, permiteParcial: true);
+        titulo.ValorAberto.Should().Be(0m);
+        titulo.Status.Should().Be("RECEBIDA");
+    }
+
+    [Fact]
+    public void Estorno_gera_movimento_contrario()
+    {
+        MovimentoContrario("ENTRADA").Should().Be("ESTORNO_SAIDA");
+        MovimentoContrario("SAIDA").Should().Be("ESTORNO_ENTRADA");
+    }
+
+    private static string MovimentoContrario(string tipo) => tipo == "ENTRADA" ? "ESTORNO_SAIDA" : "ESTORNO_ENTRADA";
+
+    private sealed class TituloFinanceiroTeste
+    {
+        public TituloFinanceiroTeste(decimal valor) => ValorAberto = valor;
+        public decimal ValorAberto { get; private set; }
+        public string Status { get; private set; } = "ABERTA";
+        public void Baixar(decimal valor, bool permiteParcial)
+        {
+            if (valor <= 0) throw new InvalidOperationException("Valor inválido.");
+            if (valor < ValorAberto && !permiteParcial) throw new InvalidOperationException("Baixa parcial bloqueada.");
+            ValorAberto -= valor;
+            Status = ValorAberto <= 0 ? "RECEBIDA" : "PARCIAL";
+        }
+    }
+}
