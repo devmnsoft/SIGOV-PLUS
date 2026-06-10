@@ -51,6 +51,11 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Create("ocr", "OCR Documental", "Documentos", "Digitalização OCR simulada com extração de texto, indexação e auditoria por tenant.", ModuleStatus.Disponivel, "bi-filetype-txt", "/Ged/Ocr", "ocr.processar"),
             Create("contrato", "Contratos e Assinaturas", "Jurídico", "Contratos vinculados ao Comercial, Financeiro, Produção e Tributário com assinatura digital simulada.", ModuleStatus.Disponivel, "bi-file-earmark-check", "/Ged/Contratos", "contrato.visualizar"),
             Create("fluxo", "Workflow e Tramitação", "Automação", "Fluxos visuais, protocolos eletrônicos e tramitação de documentos com SLA.", ModuleStatus.Disponivel, "bi-diagram-2", "/Ged/Workflow", "fluxo.visualizar"),
+            Create("ia_assistente", "IA Assistente", "Inteligência", "Assistentes operacionais por módulo com provider interno, histórico e auditoria por tenant.", ModuleStatus.Disponivel, "bi-robot", "/IA/Assistente", "ia.assistente.acessar"),
+            Create("ia_documental", "IA Documental", "Inteligência", "Resumo, classificação e extração estruturada de documentos com LGPD e revisão humana.", ModuleStatus.Disponivel, "bi-file-earmark-text", "/IA/Documental", "ia.documental.resumir"),
+            Create("ia_relatorios", "IA Relatórios", "Inteligência", "Geração assistida de relatórios textuais operacionais, financeiros e fiscais.", ModuleStatus.Disponivel, "bi-bar-chart-line", "/IA/Relatorios", "ia.relatorios.gerar"),
+            Create("ia_automacoes", "IA Automações", "Inteligência", "Sugestões, alertas e workflows inteligentes com confirmação humana para ações críticas.", ModuleStatus.Disponivel, "bi-diagram-3", "/IA/Automacoes", "ia.automacoes.visualizar"),
+            Create("ia_predicoes", "IA Predições", "Inteligência", "Predições iniciais por regras para inadimplência, ruptura, OS, contratos e produção.", ModuleStatus.Beta, "bi-graph-up-arrow", "/IA/Predicoes", "ia.predicoes.visualizar"),
             Create("financeiro_publico", "Financeiro Público", "Gestão pública", "Módulo futuro para evolução SIAFIC, execução pública e integrações governamentais.", ModuleStatus.EmImplantacao, "bi-building-lock", "/Financeiro/Dashboard", "financeiro_publico.visualizar")
         };
 
@@ -74,6 +79,11 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModuleCatalogPackage("FACTORY_FULL", "Factory Full", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "comercial", "comercio_atacado", "financeiro_empresarial" }),
             new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contrato", "ged", "ocr", "fluxo", "financeiro_empresarial" }),
             new ModuleCatalogPackage("GED_AUTOMACAO_PLUS", "GED Automação Plus", new[] { "ged", "ocr", "contrato", "fluxo", "processos", "integracoes", "auditoria-lgpd" }),
+            new ModuleCatalogPackage("AI_STARTER", "AI Starter", new[] { "ia_assistente", "ia_relatorios" }),
+            new ModuleCatalogPackage("AI_DOCUMENTAL", "AI Documental", new[] { "ia_assistente", "ia_documental", "ged", "ocr" }),
+            new ModuleCatalogPackage("AI_ENTERPRISE", "AI Enterprise", new[] { "ia_assistente", "ia_documental", "ia_relatorios", "ia_automacoes", "ia_predicoes", "integracoes" }),
+            new ModuleCatalogPackage("BUSINESS_FULL_AI", "Business Full AI", new[] { "comercial", "financeiro_empresarial", "estoque_compras", "ordem_servico", "ia_assistente", "ia_relatorios", "ia_automacoes" }),
+            new ModuleCatalogPackage("GOV_FULL_AI", "Gov Full AI", new[] { "tributario", "protocolo", "ged", "contratos", "financeiro_publico", "ia_assistente", "ia_documental", "ia_relatorios", "ia_automacoes" }),
             new ModuleCatalogPackage("GOV_PLUS", "Gov Plus", new[] { "financeiro_publico", "tributario", "contrato", "compras", "rh", "processos", "ged", "ocr", "fluxo" })
         };
     }

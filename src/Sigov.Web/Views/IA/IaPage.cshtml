@@ -1,0 +1,57 @@
+@model Sigov.Web.Controllers.IaPageViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+<section class="container-fluid py-3" data-module="@Model.Module" data-permission="@Model.Permission">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+        <div>
+            <span class="badge text-bg-primary mb-2">IA segura por tenant</span>
+            <h1 class="h3 mb-1">@Model.Title</h1>
+            <p class="text-muted mb-0">@Model.Description</p>
+        </div>
+        <div class="text-lg-end">
+            <code>@Model.ApiRoute</code>
+            <div class="small text-muted">Provider padrão: INTERNO/LOCAL sem envio externo obrigatório.</div>
+        </div>
+    </div>
+
+    <div class="alert alert-info d-flex align-items-center" role="status">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        <span>Carregando dados e validando módulo contratado, permissões e configuração LGPD...</span>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Interações no mês</div><div class="display-6">0</div><p class="small mb-0">Atualizado por <code>ia_consumo</code>.</p></div></div></div>
+        <div class="col-12 col-md-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Sugestões pendentes</div><div class="display-6">0</div><p class="small mb-0">Exigem decisão rastreável.</p></div></div></div>
+        <div class="col-12 col-md-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Alertas inteligentes</div><div class="display-6">0</div><p class="small mb-0">Priorizados por risco.</p></div></div></div>
+        <div class="col-12 col-md-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Consumo estimado</div><div class="display-6">R$ 0</div><p class="small mb-0">Integrado ao billing SaaS.</p></div></div></div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white"><strong>Operação assistida</strong></div>
+                <div class="card-body">
+                    <form class="row g-3">
+                        <div class="col-md-4"><label class="form-label">Módulo</label><select class="form-select"><option>geral</option><option>ged</option><option>financeiro_empresarial</option><option>tributario</option><option>industria_producao</option></select></div>
+                        <div class="col-md-8"><label class="form-label">Pergunta/contexto</label><input class="form-control" placeholder="Informe o contexto para IA interna" /></div>
+                        <div class="col-12"><label class="form-label">Resposta</label><textarea class="form-control" rows="5" readonly>As respostas aparecerão aqui após chamada ao endpoint configurado.</textarea></div>
+                        <div class="col-12 d-flex flex-wrap gap-2"><button type="button" class="btn btn-primary">Gerar</button><button type="button" class="btn btn-outline-secondary">Copiar</button><button type="button" class="btn btn-outline-success">Gerar sugestão</button><button type="button" class="btn btn-outline-dark">Gerar relatório</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white"><strong>Controles obrigatórios</strong></div>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item">Tenant isolation em todas as consultas.</div>
+                    <div class="list-group-item">Histórico de prompt/resposta com correlationId.</div>
+                    <div class="list-group-item">CPF/CNPJ/e-mail/telefone mascarados quando configurado.</div>
+                    <div class="list-group-item">Ações críticas exigem confirmação humana.</div>
+                    <div class="list-group-item">Limite mensal e add-ons integrados ao SaaS/Billing.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
