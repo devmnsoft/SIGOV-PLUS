@@ -1,12 +1,39 @@
 @model Sigov.Web.Models.Tributario.TributarioDashboardViewModel
-@{ ViewData["Title"] = "Dashboard Tributário"; }
+@{ ViewData["Title"] = "Dashboard Tributário Avançado"; }
 <partial name="~/Views/Shared/_Breadcrumb.cshtml" />
-<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Dashboard Tributário</h1><p class="text-muted mb-0">Visão operacional de arrecadação, lançamentos, dívida ativa e emissão.</p></div><a class="btn btn-outline-primary" href="/Tributario/Lancamentos">Ver lançamentos</a></div>
-<div class="row g-3 sigov-dashboard" data-module="tributario-dashboard">
-@foreach (var card in new[] { "Contribuintes ativos", "Imóveis ativos", "Empresas ativas", "Lançamentos do exercício", "Total lançado", "Total arrecadado", "Parcelas vencidas", "Dívida ativa", "DAMs gerados", "Carnês emitidos" })
+<div class="d-flex justify-content-between align-items-center mb-3" data-module="tributario" data-permission="tributario.dashboard.visualizar">
+  <div>
+    <h1>Dashboard Tributário Avançado</h1>
+    <p class="text-muted mb-0">Visão integrada de IPTU, ISS, taxas municipais, dívida ativa, parcelamentos, arrecadação, DAM e NFS-e simulada.</p>
+  </div>
+  <div class="btn-group">
+    <a class="btn btn-primary" href="/Tributario/Iptu">IPTU</a>
+    <a class="btn btn-outline-primary" href="/Tributario/Iss">ISS</a>
+    <a class="btn btn-outline-primary" href="/Tributario/Taxas">Taxas</a>
+  </div>
+</div>
+<div class="row g-3 sigov-dashboard" data-module="tributario-dashboard" data-api="/api/tributario/dashboard">
+@foreach (var card in new[] { "Contribuintes ativos", "IPTU em aberto", "ISS em aberto", "Taxas em aberto", "Total lançado", "Total arrecadado", "Parcelas vencidas", "Dívida ativa", "DAMs simulados", "NFS-e simuladas", "Livros gerados", "Relatórios fiscais" })
 {
   <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><span class="text-muted">@card</span><h3 class="valor">@(card.StartsWith("Total", StringComparison.Ordinal) || card == "Dívida ativa" ? "R$ 0,00" : "0")</h3></div></div></div>
 }
 </div>
-<section class="card mt-3"><div class="card-body"><h2 class="h5">Alertas</h2><p class="text-muted mb-0">Parcelas vencidas, débitos aptos para certidão positiva e inscrições em dívida ativa serão carregados conforme permissão e módulo contratado.</p></div></section>
-@section Scripts { <script src="~/js/modules/tributario.dashboard.js"></script> }
+<section class="card mt-3">
+  <div class="card-body">
+    <h2 class="h5">Alertas fiscais e LGPD</h2>
+    <p class="text-muted mb-0">Todas as alterações fiscais registram usuário, tenant, correlationId e timestamp. Dados pessoais são tratados com mascaramento nas APIs e relatórios exibem versão e histórico.</p>
+  </div>
+</section>
+<section class="card mt-3">
+  <div class="card-body">
+    <h2 class="h5">Acessos rápidos</h2>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/Parcelamentos">Parcelamentos</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/Arrecadacao">Arrecadação</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/Nfse">NFS-e simulada</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/LivroEletronico">Livro Eletrônico</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/RelatoriosFiscais">Relatórios fiscais</a>
+    </div>
+  </div>
+</section>
+@section Scripts { <script src="~/js/modules/tributario.dashboard.js"></script><script src="~/js/modules/tributario.avancado.js"></script> }
