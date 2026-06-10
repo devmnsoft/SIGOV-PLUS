@@ -72,3 +72,20 @@ $posBuild07Urls = @(
   "http://localhost:8080/Financeiro/CentrosCusto"
 )
 $posBuild07Urls | ForEach-Object { Write-Host " - $_" }
+
+Write-Host "SIGOV Pós-Build 08 - Tributário Avançado e Fiscal Integrado" -ForegroundColor Cyan
+$posBuild08Urls = @(
+  "http://localhost:8080/Tributario/Dashboard",
+  "http://localhost:8080/Tributario/Iptu",
+  "http://localhost:8080/Tributario/Iss",
+  "http://localhost:8080/Tributario/Taxas",
+  "http://localhost:8080/Tributario/DividaAtiva",
+  "http://localhost:8080/Tributario/Parcelamentos",
+  "http://localhost:8080/Tributario/Arrecadacao",
+  "http://localhost:8080/Tributario/Nfse",
+  "http://localhost:8080/Tributario/LivroEletronico",
+  "http://localhost:8080/Tributario/RelatoriosFiscais",
+  "http://localhost:5001/api/tributario/dashboard",
+  "http://localhost:5001/api/tributario/arrecadacao/status"
+)
+$posBuild08Urls | ForEach-Object { Write-Host " - $_" }
