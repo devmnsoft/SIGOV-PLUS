@@ -1,50 +1,21 @@
-# Planos SaaS SIGOV
+# Planos SaaS e pacotes comerciais
 
-## Planos disponíveis
+## Pacotes Pós-Build 05
 
-- **STARTER**: plano inicial para pequenos órgãos e implantação piloto, com dashboard, segurança, auditoria, protocolo e GED.
-- **GOV_BASIC**: plano para secretarias e órgãos com gestão administrativa, incluindo contratos e RH.
-- **GOV_PLUS**: plano completo para prefeituras e estruturas multiáreas, incluindo Tributário, Jurídico, Saúde, Educação, Agro, Saneamento, Social e Integrações.
-- **ENTERPRISE**: plano corporativo com módulos ilimitados, white label e domínio customizado.
+### COMERCIO_STARTER
 
-## Limites
+Inclui `comercial`, `comercio_varejo`, `pdv`, `caixa` e `estoque_compras`.
 
-Os limites são parametrizados em `sigov.saas_plano` e detalhados em `sigov.saas_plano_limite`.
+### COMERCIO_PLUS
 
-- Usuários ativos por tenant.
-- Tenants por contratação.
-- Armazenamento em MB.
-- Permissão de white label.
-- Permissão de domínio customizado.
-- Limites específicos por módulo quando aplicável.
+Inclui `comercial`, `comercio_varejo`, `comercio_atacado`, `pdv`, `caixa`, `estoque_compras` e `financeiro_empresarial`.
 
-## Módulos por plano
+### ATACADO_PRO
 
-A tabela `sigov.saas_plano_modulo` define os módulos inclusos por plano. Alterações feitas pela API `/api/saas/planos/{id}/modulos` preservam histórico comercial e permitem bloquear módulos fora do plano sem apagar dados existentes.
+Inclui `comercial`, `comercio_atacado`, `pedidos`, `estoque_compras` e `financeiro_empresarial`.
 
-## Upgrade
+### BUSINESS_FULL
 
-Upgrade troca o plano da assinatura ativa, registra `ASSINATURA_UPGRADE` em `sigov.saas_assinatura_historico` e ativa os módulos inclusos no novo plano.
+Inclui `comercial`, `comercio_varejo`, `comercio_atacado`, `pdv`, `caixa`, `estoque_compras`, `ordem_servico`, `manutencao_industrial` e `financeiro_empresarial`.
 
-## Downgrade
-
-Downgrade troca o plano, registra `ASSINATURA_DOWNGRADE` e não remove dados já existentes. Novas ações fora dos limites do plano devem ser bloqueadas ou exibidas como pendência operacional.
-
-## Cancelamento
-
-Cancelamento altera a assinatura para `CANCELADA`, mantém dados do tenant e registra `ASSINATURA_CANCELADA`. A política de bloqueio de login ou modo somente leitura deve ser configurada em evolução posterior.
-
-## Histórico comercial
-
-Eventos comerciais são gravados em `sigov.saas_evento_comercial`; mudanças de assinatura são detalhadas em `sigov.saas_assinatura_historico` com usuário e correlation ID.
-
-## Pacotes empresariais Pós-Build 04
-
-| Pacote | Módulos incluídos |
-| --- | --- |
-| BUSINESS_STARTER | comercial, ordem_servico, estoque_compras |
-| COMERCIO_PLUS | comercial, comercio_varejo, comercio_atacado, estoque_compras, financeiro_empresarial |
-| INDUSTRIAL_PLUS | comercial, ordem_servico, manutencao_industrial, industria_producao, estoque_compras, financeiro_empresarial |
-| SERVICE_DESK_PRO | comercial, ordem_servico, contratos, ged, financeiro_empresarial |
-
-Os módulos empresariais também podem ser contratados individualmente por tenant. `ADMIN_GERAL` recebe todas as permissões e `ADMIN_TENANT` recebe permissões conforme os módulos contratados.
+Os módulos continuam contratáveis isoladamente e o menu/API deve bloquear módulo não contratado.
