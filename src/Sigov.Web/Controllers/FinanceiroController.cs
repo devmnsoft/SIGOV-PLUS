@@ -22,4 +22,5 @@ public sealed class FinanceiroController : Controller
     public IActionResult Liquidacoes() => View(new LiquidacaoFormViewModel());
     public IActionResult Pagamentos() => View(new PagamentoFormViewModel());
     public IActionResult Receitas() => View(new ReceitaLancamentoFormViewModel());
+    public IActionResult ContasReceber() => View();
 }

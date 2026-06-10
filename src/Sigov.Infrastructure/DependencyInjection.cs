@@ -66,6 +66,8 @@ using Sigov.Infrastructure.Saas.Comercial;
 using Sigov.Application.Saas.Perfis;
 using Sigov.Application.Saas.WhiteLabel;
 using Sigov.Application.Saas.Comercial;
+using Sigov.Application.Comercio;
+using Sigov.Infrastructure.Comercio;
 
 namespace Sigov.Infrastructure;
 
@@ -78,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<IWhiteLabelB2BLaunchService, WhiteLabelB2BLaunchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
+        services.AddScoped<IComercioEstoqueService, ComercioEstoqueService>();
         services.AddScoped<UserPreferenceRepository>();
         services.AddScoped<OnboardingRepository>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();

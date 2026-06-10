@@ -31,3 +31,15 @@ $PostBuild03Urls = @(
     "http://localhost:8080/Tributario/Economicos"
 )
 $PostBuild03Urls | ForEach-Object { Write-Host "SIGOV Pós-Build 03: $_" }
+
+Write-Host "SIGOV Pós-Build 05 - Comércio varejo/atacado, PDV, caixa e financeiro inicial" -ForegroundColor Cyan
+$posBuild05Urls = @(
+  "http://localhost:8080/Comercio/Dashboard",
+  "http://localhost:8080/Comercio/Clientes",
+  "http://localhost:8080/Comercio/Produtos",
+  "http://localhost:8080/Comercio/PDV",
+  "http://localhost:8080/Comercio/Caixa",
+  "http://localhost:8080/Atacado/Pedidos",
+  "http://localhost:8080/Financeiro/ContasReceber"
+)
+$posBuild05Urls | ForEach-Object { Write-Host " - $_" }

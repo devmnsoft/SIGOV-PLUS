@@ -1,16 +1,26 @@
-# Roteiro de evolução SIGOV
+# Roteiro de evolução
 
-## Evolução Pós-Build 03 concluída
+## Pós-Build 05 concluído
 
-- Planos SaaS.
-- Assinatura por tenant.
-- Implantação guiada.
-- Parâmetros por tenant.
-- Base Tributário Parametrizável.
+- Comércio varejista e atacadista avançado.
+- PDV web inicial e caixa.
+- Produtos, clientes, orçamentos, pedidos, vendas e comissões.
+- Estoque integrado por serviço dedicado.
+- Financeiro comercial inicial com contas a receber.
+- Integração inicial com Ordem de Serviço.
+- Permissões, auditoria, LGPD e tenant_id nos dados operacionais.
 
-## Pós-Build 04 — Base Comercial, Industrial, Serviços e Comércio
+## Próxima evolução recomendada
 
-- Catálogo SaaS evoluído com módulos `comercial`, `ordem_servico`, `manutencao_industrial`, `estoque_compras`, `comercio_varejo`, `comercio_atacado`, `industria_producao` e `financeiro_empresarial`.
-- Novos pacotes sugeridos: `BUSINESS_STARTER`, `COMERCIO_PLUS`, `INDUSTRIAL_PLUS` e `SERVICE_DESK_PRO`.
-- Base de dados idempotente criada para CRM, propostas, pedidos, OS, ativos industriais, planos, medidores, paradas, estoque, compras e auditoria empresarial.
-- APIs e telas entregues como fundação segura, sem PDV completo, sem NF-e/NFC-e, sem MRP completo e sem financeiro completo.
+Pós-Build 06 — Indústria e Produção Avançada:
+
+- chão de fábrica;
+- ordens de produção;
+- apontamento produtivo;
+- consumo de matéria-prima;
+- ficha técnica/BOM;
+- manutenção industrial integrada;
+- qualidade;
+- custos industriais;
+- estoque industrial;
+- integração com Comercial, Atacado, OS e Financeiro.

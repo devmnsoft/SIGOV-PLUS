@@ -41,8 +41,10 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Create("ordem_servico", "Ordem de Serviço", "Serviços", "OS técnica, agenda, checklist, apontamentos, peças e anexos integrados.", ModuleStatus.Disponivel, "bi-tools", "/OrdemServico/Dashboard", "os.visualizar"),
             Create("manutencao_industrial", "Manutenção Industrial", "Indústria", "Ativos, planos preventivos, medidores, paradas e causas de falha.", ModuleStatus.Disponivel, "bi-gear-wide-connected", "/Industrial/Dashboard", "industrial.visualizar"),
             Create("estoque_compras", "Estoque e Compras", "Suprimentos privados", "Produtos, almoxarifados, saldos, requisições, fornecedores e pedidos de compra.", ModuleStatus.Disponivel, "bi-boxes", "/Estoque/Dashboard", "estoque.visualizar"),
-            Create("comercio_varejo", "Comércio Varejista", "Comércio", "Base navegável para varejo sem PDV fiscal completo nesta etapa.", ModuleStatus.Disponivel, "bi-shop", "/Comercio/Varejo", "comercio.varejo.visualizar"),
-            Create("comercio_atacado", "Comércio Atacadista", "Comércio", "Base de pedidos, produtos e operação B2B atacadista sem fiscal nesta etapa.", ModuleStatus.Disponivel, "bi-buildings", "/Comercio/Atacado", "comercio.atacado.visualizar"),
+            Create("comercio_varejo", "Comércio Varejista", "Comércio", "Varejo avançado com vendas balcão, PDV web inicial, caixa e estoque integrado.", ModuleStatus.Disponivel, "bi-shop", "/Varejo/Dashboard", "comercio.pdv.acessar"),
+            Create("pdv", "PDV Web", "Comércio", "Ponto de venda web inicial com carrinho, pagamentos e fechamento não fiscal.", ModuleStatus.Disponivel, "bi-upc-scan", "/Comercio/PDV", "comercio.pdv.acessar"),
+            Create("caixa", "Caixa Comercial", "Comércio", "Abertura, suprimento, sangria, fechamento e resumo por forma de pagamento.", ModuleStatus.Disponivel, "bi-cash-stack", "/Comercio/Caixa", "comercio.caixa.abrir"),
+            Create("comercio_atacado", "Comércio Atacadista", "Comércio", "Pedidos B2B, tabelas de preço, separação, conferência e faturamento inicial.", ModuleStatus.Disponivel, "bi-buildings", "/Atacado/Dashboard", "comercio.pedidos.visualizar"),
             Create("industria_producao", "Indústria Produção", "Indústria", "Base de produção futura integrada a ativos, estoque e manutenção sem MRP completo.", ModuleStatus.Disponivel, "bi-cpu", "/Industrial/Dashboard", "industrial.producao.visualizar"),
             Create("financeiro_empresarial", "Financeiro Empresarial", "Gestão empresarial", "Eventos financeiros futuros gerados por vendas, OS e compras sem financeiro completo.", ModuleStatus.Disponivel, "bi-bank", "/Financeiro/Dashboard", "financeiro.empresarial.visualizar")
         };
@@ -55,8 +57,11 @@ public sealed class ModuleCatalogService : IModuleCatalogService
     {
         return new[]
         {
+            new ModuleCatalogPackage("COMERCIO_STARTER", "Comércio Starter", new[] { "comercial", "comercio_varejo", "pdv", "caixa", "estoque_compras" }),
+            new ModuleCatalogPackage("COMERCIO_PLUS", "Comércio Plus", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("ATACADO_PRO", "Atacado Pro", new[] { "comercial", "comercio_atacado", "pedidos", "estoque_compras", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("BUSINESS_FULL", "Business Full", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "ordem_servico", "manutencao_industrial", "financeiro_empresarial" }),
             new ModuleCatalogPackage("BUSINESS_STARTER", "Business Starter", new[] { "comercial", "ordem_servico", "estoque_compras" }),
-            new ModuleCatalogPackage("COMERCIO_PLUS", "Comércio Plus", new[] { "comercial", "comercio_varejo", "comercio_atacado", "estoque_compras", "financeiro_empresarial" }),
             new ModuleCatalogPackage("INDUSTRIAL_PLUS", "Industrial Plus", new[] { "comercial", "ordem_servico", "manutencao_industrial", "industria_producao", "estoque_compras", "financeiro_empresarial" }),
             new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" })
         };

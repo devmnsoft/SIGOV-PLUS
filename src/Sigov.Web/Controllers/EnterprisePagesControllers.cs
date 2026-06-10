@@ -63,8 +63,33 @@ public sealed class ComprasController : EnterprisePageControllerBase
 public sealed class ComercioController : EnterprisePageControllerBase
 {
     public ComercioController(IEnterpriseModuleService service) : base(service) { }
-    public IActionResult Varejo() => ModulePage("comercio_varejo", "Comércio Varejista", "comercio.varejo.visualizar", "/api/comercial/pedidos");
-    public IActionResult Atacado() => ModulePage("comercio_atacado", "Comércio Atacadista", "comercio.atacado.visualizar", "/api/comercial/pedidos");
-    public IActionResult Pedidos() => ModulePage("comercio", "Pedidos de Comércio", "comercio.pedidos.visualizar", "/api/comercial/pedidos");
-    public IActionResult Produtos() => ModulePage("comercio", "Produtos de Comércio", "comercio.produtos.visualizar", "/api/estoque/produtos");
+    public IActionResult Dashboard() => ModulePage("comercial", "Dashboard Comércio", "comercio.dashboard.visualizar", "/api/comercio/vendas");
+    public IActionResult Clientes() => ModulePage("comercial", "Clientes Comércio", "comercio.clientes.visualizar", "/api/comercio/clientes");
+    public IActionResult Produtos() => ModulePage("comercial", "Produtos Comércio", "comercio.produtos.visualizar", "/api/comercio/produtos");
+    public IActionResult Orcamentos() => ModulePage("comercial", "Orçamentos", "comercio.orcamentos.visualizar", "/api/comercio/orcamentos");
+    public IActionResult Pedidos() => ModulePage("comercial", "Pedidos de Venda", "comercio.pedidos.visualizar", "/api/comercio/pedidos");
+    public IActionResult Vendas() => ModulePage("comercial", "Vendas Balcão", "comercio.vendas.criar", "/api/comercio/vendas");
+    public IActionResult PDV() => ModulePage("pdv", "PDV Web", "comercio.pdv.acessar", "/api/comercio/vendas");
+    public IActionResult Caixa() => ModulePage("caixa", "Caixa Comercial", "comercio.caixa.abrir", "/api/comercio/caixas");
+    public IActionResult TabelasPreco() => ModulePage("comercio_atacado", "Tabelas de Preço", "comercio.tabelas.visualizar", "/api/comercio/tabelas-preco");
+    public IActionResult Comissoes() => ModulePage("comercial", "Comissões", "comercio.comissoes.visualizar", "/api/comercio/comissoes");
+}
+
+public sealed class VarejoController : EnterprisePageControllerBase
+{
+    public VarejoController(IEnterpriseModuleService service) : base(service) { }
+    public IActionResult Dashboard() => ModulePage("comercio_varejo", "Dashboard Varejo", "comercio.dashboard.visualizar", "/api/comercio/vendas");
+    public IActionResult PDV() => ModulePage("pdv", "PDV Varejo", "comercio.pdv.acessar", "/api/comercio/vendas");
+    public IActionResult Caixa() => ModulePage("caixa", "Caixa Varejo", "comercio.caixa.abrir", "/api/comercio/caixas");
+    public IActionResult Vendas() => ModulePage("comercio_varejo", "Vendas Varejo", "comercio.vendas.criar", "/api/comercio/vendas");
+}
+
+public sealed class AtacadoController : EnterprisePageControllerBase
+{
+    public AtacadoController(IEnterpriseModuleService service) : base(service) { }
+    public IActionResult Dashboard() => ModulePage("comercio_atacado", "Dashboard Atacado", "comercio.dashboard.visualizar", "/api/comercio/pedidos");
+    public IActionResult Pedidos() => ModulePage("comercio_atacado", "Pedidos Atacado", "comercio.pedidos.visualizar", "/api/comercio/pedidos");
+    public IActionResult Clientes() => ModulePage("comercio_atacado", "Clientes Atacado", "comercio.clientes.visualizar", "/api/comercio/clientes");
+    public IActionResult TabelasPreco() => ModulePage("comercio_atacado", "Tabelas de Preço Atacado", "comercio.tabelas.visualizar", "/api/comercio/tabelas-preco");
+    public IActionResult Separacao() => ModulePage("comercio_atacado", "Separação e Conferência", "comercio.pedidos.confirmar", "/api/comercio/pedidos/{id}/separar");
 }
