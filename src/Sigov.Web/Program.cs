@@ -1,6 +1,7 @@
 using Serilog;
 using Sigov.Application.BusinessRules;
 using Sigov.Application.Commercial;
+using Sigov.Application.Enterprise;
 using Sigov.Application.Demo;
 using Sigov.Application.Executive;
 using Sigov.Application.Onboarding;
@@ -36,6 +37,7 @@ builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Si
 builder.Services.AddSingleton<ISigovBrandProvider, SigovBrandProvider>();
 builder.Services.AddSingleton<ITenantBrandingProvider, TenantBrandingProvider>();
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
+builder.Services.AddSingleton<IEnterpriseModuleService, EnterpriseModuleService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
 builder.Services.AddSingleton<IOnboardingService, OnboardingService>();

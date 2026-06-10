@@ -16,6 +16,9 @@ public sealed class ModuleCatalogController : ControllerBase
     [HttpGet]
     public ActionResult<ApiResponse<IReadOnlyList<ModuleCatalogItem>>> Get() => Ok(ApiResponse<IReadOnlyList<ModuleCatalogItem>>.Ok(_moduleCatalogService.GetModules()));
 
+    [HttpGet("pacotes-sugeridos")]
+    public ActionResult<ApiResponse<IReadOnlyList<ModuleCatalogPackage>>> GetPackages() => Ok(ApiResponse<IReadOnlyList<ModuleCatalogPackage>>.Ok(_moduleCatalogService.GetSuggestedPackages()));
+
     [HttpGet("{codigo}")]
     public ActionResult<ApiResponse<ModuleCatalogItem>> GetByCode(string codigo)
     {

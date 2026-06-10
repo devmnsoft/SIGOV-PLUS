@@ -37,3 +37,14 @@ Cancelamento altera a assinatura para `CANCELADA`, mantém dados do tenant e reg
 ## Histórico comercial
 
 Eventos comerciais são gravados em `sigov.saas_evento_comercial`; mudanças de assinatura são detalhadas em `sigov.saas_assinatura_historico` com usuário e correlation ID.
+
+## Pacotes empresariais Pós-Build 04
+
+| Pacote | Módulos incluídos |
+| --- | --- |
+| BUSINESS_STARTER | comercial, ordem_servico, estoque_compras |
+| COMERCIO_PLUS | comercial, comercio_varejo, comercio_atacado, estoque_compras, financeiro_empresarial |
+| INDUSTRIAL_PLUS | comercial, ordem_servico, manutencao_industrial, industria_producao, estoque_compras, financeiro_empresarial |
+| SERVICE_DESK_PRO | comercial, ordem_servico, contratos, ged, financeiro_empresarial |
+
+Os módulos empresariais também podem ser contratados individualmente por tenant. `ADMIN_GERAL` recebe todas as permissões e `ADMIN_TENANT` recebe permissões conforme os módulos contratados.
