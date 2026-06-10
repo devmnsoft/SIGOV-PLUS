@@ -1,0 +1,46 @@
+@model string
+@{
+    ViewData["Title"] = Model;
+}
+<section class="container-fluid py-3" data-module="financeiro_empresarial">
+  <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center mb-3">
+    <div>
+      <p class="text-uppercase text-primary fw-semibold mb-1">SIGOV PLUS • Financeiro Integrado</p>
+      <h1 class="h3 mb-1">@Model</h1>
+      <p class="text-muted mb-0">Operação multi-tenant com loading, filtros, auditoria, confirmação em ações críticas e mensagens padronizadas.</p>
+    </div>
+    <div class="btn-group" role="group" aria-label="Ações financeiras">
+      <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalFinanceiro">Novo</button>
+      <button class="btn btn-outline-secondary" type="button" onclick="window.location.reload()">Atualizar</button>
+    </div>
+  </div>
+
+  <div class="alert alert-info d-flex align-items-center" role="status">
+    <div class="spinner-border spinner-border-sm me-2" aria-hidden="true"></div>
+    <div>Carregando dados financeiros e aplicando permissões do módulo contratado.</div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Aberto</span><h2 class="h4">R$ 0,00</h2></div></div></div>
+    <div class="col-12 col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Realizado</span><h2 class="h4">R$ 0,00</h2></div></div></div>
+    <div class="col-12 col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Vencidas</span><h2 class="h4">0</h2></div></div></div>
+    <div class="col-12 col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Próximos 30 dias</span><h2 class="h4">R$ 0,00</h2></div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header bg-white d-flex flex-column flex-md-row gap-2 justify-content-between">
+      <strong>@Model</strong>
+      <div class="d-flex gap-2"><input class="form-control form-control-sm" placeholder="Filtrar por status, origem ou documento" /><button class="btn btn-sm btn-outline-primary">Filtrar</button></div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Documento</th><th>Origem</th><th>Status</th><th>Vencimento</th><th class="text-end">Valor</th><th class="text-end">Ações</th></tr></thead>
+        <tbody><tr><td colspan="6" class="text-center text-muted py-4">Nenhum dado sensível é exibido sem permissão. Dados reais serão carregados via APIs do financeiro.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalFinanceiro" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Confirmar ação crítica</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div><div class="modal-body">A operação registrará histórico, auditoria e correlationId.</div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Confirmar</button></div></div></div>
+  </div>
+</section>

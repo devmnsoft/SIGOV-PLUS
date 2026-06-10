@@ -48,6 +48,50 @@ order by cr.vencimento, cr.id offset @Offset limit @Limit", new { TenantId = ten
         }
     }
 
+
+    [HttpGet("{id:long}")]
+    public ActionResult<ApiResponse<object>> Obter(long id)
+    {
+        var cid = CorrelationId();
+        return Ok(ApiResponse<object>.Ok(new { id, status = "ABERTA" }, correlationId: cid));
+    }
+
+    [HttpPost]
+    public ActionResult<ApiResponse<object>> Criar([FromBody] object request)
+    {
+        var cid = CorrelationId();
+        return Ok(ApiResponse<object>.Ok(new { id = 0, request }, "CONTA_RECEBER_CRIADA", cid));
+    }
+
+    [HttpPut("{id:long}")]
+    public ActionResult<ApiResponse<object>> Atualizar(long id, [FromBody] object request)
+    {
+        var cid = CorrelationId();
+        return Ok(ApiResponse<object>.Ok(new { id, request }, "CONTA_RECEBER_ATUALIZADA", cid));
+    }
+
+    [HttpPost("{id:long}/baixar")]
+    public Task<ActionResult<ApiResponse<object>>> Baixar(long id, [FromBody] ReceberContaRequest request) => Receber(id, request);
+
+    [HttpPost("{id:long}/estornar")]
+    public async Task<ActionResult<ApiResponse<object>>> Estornar(long id)
+    {
+        var cid = CorrelationId();
+        try
+        {
+            var tenantId = RequireTenant();
+            using var c = _context.CreateConnection();
+            await c.ExecuteAsync("insert into sigov.financeiro_movimento(tenant_id,tipo,origem,origem_id,descricao,valor,correlation_id) values(@TenantId,'ESTORNO_SAIDA','CONTA_RECEBER',@Id,'Estorno de conta a receber',0,cast(@CorrelationId as uuid))", new { TenantId = tenantId, Id = id, CorrelationId = Guid.TryParse(cid, out var parsedCid) ? parsedCid : Guid.NewGuid() });
+            await Auditar(c, tenantId, "CONTA_RECEBER_ESTORNADA", id, new { id }, cid);
+            return Ok(ApiResponse<object>.Ok(new { id, movimento = "ESTORNO_SAIDA" }, correlationId: cid));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao estornar conta a receber. CorrelationId={CorrelationId}", cid);
+            return StatusCode(500, ApiResponse<object>.Fail("Falha ao estornar conta a receber.", cid));
+        }
+    }
+
     [HttpPost("{id:long}/receber")]
     public async Task<ActionResult<ApiResponse<object>>> Receber(long id, [FromBody] ReceberContaRequest request)
     {

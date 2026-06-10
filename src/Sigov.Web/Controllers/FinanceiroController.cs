@@ -23,4 +23,13 @@ public sealed class FinanceiroController : Controller
     public IActionResult Pagamentos() => View(new PagamentoFormViewModel());
     public IActionResult Receitas() => View(new ReceitaLancamentoFormViewModel());
     public IActionResult ContasReceber() => View();
+    public IActionResult CentrosCusto() => View("FinanceiroEmpresarial", "Centros de Custo");
+    public IActionResult Naturezas() => View("FinanceiroEmpresarial", "Naturezas Financeiras");
+    public IActionResult ContasBancarias() => View("FinanceiroEmpresarial", "Contas Bancárias");
+    public IActionResult FormasPagamento() => View("FinanceiroEmpresarial", "Formas de Pagamento");
+    public IActionResult ContasPagar() => View("FinanceiroEmpresarial", "Contas a Pagar");
+    public IActionResult Movimentos() => View("FinanceiroEmpresarial", "Movimentos Financeiros");
+    public IActionResult FluxoCaixa() => View("FinanceiroEmpresarial", "Fluxo de Caixa");
+    public IActionResult Conciliacao() => View("FinanceiroEmpresarial", "Conciliação Bancária");
+    public IActionResult Configuracao() => View("FinanceiroEmpresarial", "Configuração Financeira");
 }

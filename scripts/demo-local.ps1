@@ -58,3 +58,17 @@ $posBuild06Urls = @(
   "http://localhost:8080/Industria/Custos"
 )
 $posBuild06Urls | ForEach-Object { Write-Host " - $_" }
+
+
+Write-Host "SIGOV Pós-Build 07 - Financeiro integrado" -ForegroundColor Cyan
+$posBuild07Urls = @(
+  "http://localhost:8080/Financeiro/Dashboard",
+  "http://localhost:8080/Financeiro/ContasReceber",
+  "http://localhost:8080/Financeiro/ContasPagar",
+  "http://localhost:8080/Financeiro/Movimentos",
+  "http://localhost:8080/Financeiro/FluxoCaixa",
+  "http://localhost:8080/Financeiro/Conciliacao",
+  "http://localhost:8080/Financeiro/PlanoContas",
+  "http://localhost:8080/Financeiro/CentrosCusto"
+)
+$posBuild07Urls | ForEach-Object { Write-Host " - $_" }

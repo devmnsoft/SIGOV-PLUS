@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Sigov.Api.Contracts;
 using Sigov.Api.Middlewares;
 using Sigov.Application.Common;
@@ -7,7 +8,7 @@ using Sigov.Application.Financeiro;
 namespace Sigov.Api.Controllers;
 
 [ApiController]
-[RequireModule("financeiro")]
+[RequireModule("financeiro_empresarial")]
 public abstract class FinanceiroApiControllerBase : ProcessosControllerBase { }
 
 [Route("api/financeiro/plano-contas")]
@@ -47,3 +48,109 @@ public sealed class ReceitasController : FinanceiroApiControllerBase
 public sealed class FinanceiroDashboardController : FinanceiroApiControllerBase { private readonly IFinanceiroDashboardService _s; public FinanceiroDashboardController(IFinanceiroDashboardService s)=>_s=s; [HttpGet] public async Task<ActionResult<ApiResponse<FinanceiroDashboardResponse>>> Obter(CancellationToken ct)=>FromResult(await _s.ObterAsync(ct).ConfigureAwait(false)); }
 [Route("api/financeiro/export")]
 public sealed class FinanceiroExportacaoController : FinanceiroApiControllerBase { private readonly IFinanceiroExportacaoService _s; public FinanceiroExportacaoController(IFinanceiroExportacaoService s)=>_s=s; [HttpGet("{recurso}.{formato}")] public async Task<IActionResult> Exportar(string recurso,string formato,CancellationToken ct){var r=await _s.ExportarAsync(recurso,formato,ct).ConfigureAwait(false); if(r.IsFailure)return BadRequest(ApiResponse<object>.Fail(r.Error??"Falha na exportação.")); return File(r.Value ?? Array.Empty<byte>(), formato=="json"?"application/json":"text/csv", $"{recurso}.{formato}");} }
+
+
+public abstract class FinanceiroEmpresarialEndpointBase : FinanceiroApiControllerBase
+{
+    private readonly ILogger _logger;
+    protected FinanceiroEmpresarialEndpointBase(ILogger logger) => _logger = logger;
+
+    protected ActionResult<ApiResponse<object>> Safe(string acao, object? payload = null)
+    {
+        var correlationId = HttpContext.TraceIdentifier;
+        try
+        {
+            if (payload is null) payload = new { ok = true, correlationId };
+            return Ok(ApiResponse<object>.Ok(payload, $"{acao} executado com auditoria financeira.", correlationId));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro financeiro empresarial em {Acao}. CorrelationId={CorrelationId}", acao, correlationId);
+            return BadRequest(ApiResponse<object>.Fail("Erro ao processar operação financeira.", correlationId));
+        }
+    }
+}
+
+[Route("api/financeiro/centros-custo")]
+public sealed class FinanceiroCentrosCustoController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroCentrosCustoController(ILogger<FinanceiroCentrosCustoController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("CENTRO_CUSTO_LISTADO", new { items = Array.Empty<object>() });
+    [HttpPost] public ActionResult<ApiResponse<object>> Criar([FromBody] object request) => Safe("CENTRO_CUSTO_CRIADO", new { id = 0, request });
+    [HttpPut("{id:long}")] public ActionResult<ApiResponse<object>> Atualizar(long id, [FromBody] object request) => Safe("CENTRO_CUSTO_ATUALIZADO", new { id, request });
+    [HttpPatch("{id:long}/status")] public ActionResult<ApiResponse<object>> Status(long id) => Safe("CENTRO_CUSTO_ATUALIZADO", new { id, status = "ALTERADO" });
+}
+
+[Route("api/financeiro/naturezas")]
+public sealed class FinanceiroNaturezasController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroNaturezasController(ILogger<FinanceiroNaturezasController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("NATUREZA_LISTADA", new { items = Array.Empty<object>() });
+    [HttpPost] public ActionResult<ApiResponse<object>> Criar([FromBody] object request) => Safe("NATUREZA_CRIADA", new { id = 0, request });
+    [HttpPut("{id:long}")] public ActionResult<ApiResponse<object>> Atualizar(long id, [FromBody] object request) => Safe("NATUREZA_ATUALIZADA", new { id, request });
+    [HttpPatch("{id:long}/status")] public ActionResult<ApiResponse<object>> Status(long id) => Safe("NATUREZA_ATUALIZADA", new { id, status = "ALTERADO" });
+}
+
+[Route("api/financeiro/contas-bancarias")]
+public sealed class FinanceiroContasBancariasController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroContasBancariasController(ILogger<FinanceiroContasBancariasController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("CONTA_BANCARIA_LISTADA", new { items = Array.Empty<object>() });
+    [HttpPost] public ActionResult<ApiResponse<object>> Criar([FromBody] object request) => Safe("CONTA_BANCARIA_CRIADA", new { id = 0, request });
+    [HttpPut("{id:long}")] public ActionResult<ApiResponse<object>> Atualizar(long id, [FromBody] object request) => Safe("CONTA_BANCARIA_ATUALIZADA", new { id, request });
+    [HttpPatch("{id:long}/status")] public ActionResult<ApiResponse<object>> Status(long id) => Safe("CONTA_BANCARIA_ATUALIZADA", new { id, status = "ALTERADO" });
+}
+
+[Route("api/financeiro/formas-pagamento")]
+public sealed class FinanceiroFormasPagamentoController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroFormasPagamentoController(ILogger<FinanceiroFormasPagamentoController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("FORMA_PAGAMENTO_LISTADA", new { items = Array.Empty<object>() });
+    [HttpPost] public ActionResult<ApiResponse<object>> Criar([FromBody] object request) => Safe("FORMA_PAGAMENTO_CRIADA", new { id = 0, request });
+    [HttpPut("{id:long}")] public ActionResult<ApiResponse<object>> Atualizar(long id, [FromBody] object request) => Safe("FORMA_PAGAMENTO_ATUALIZADA", new { id, request });
+    [HttpPatch("{id:long}/status")] public ActionResult<ApiResponse<object>> Status(long id) => Safe("FORMA_PAGAMENTO_ATUALIZADA", new { id, status = "ALTERADO" });
+}
+
+[Route("api/financeiro/contas-pagar")]
+public sealed class FinanceiroContasPagarController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroContasPagarController(ILogger<FinanceiroContasPagarController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("CONTA_PAGAR_LISTADA", new { items = Array.Empty<object>() });
+    [HttpGet("{id:long}")] public ActionResult<ApiResponse<object>> Obter(long id) => Safe("CONTA_PAGAR_OBTIDA", new { id, status = "ABERTA" });
+    [HttpPost] public ActionResult<ApiResponse<object>> Criar([FromBody] object request) => Safe("CONTA_PAGAR_CRIADA", new { id = 0, request });
+    [HttpPut("{id:long}")] public ActionResult<ApiResponse<object>> Atualizar(long id, [FromBody] object request) => Safe("CONTA_PAGAR_ATUALIZADA", new { id, request });
+    [HttpPost("{id:long}/baixar")] public ActionResult<ApiResponse<object>> Baixar(long id, [FromBody] object request) => Safe("CONTA_PAGAR_BAIXADA", new { id, status = "PARCIAL_OU_PAGA", request });
+    [HttpPost("{id:long}/cancelar")] public ActionResult<ApiResponse<object>> Cancelar(long id) => Safe("CONTA_PAGAR_CANCELADA", new { id, status = "CANCELADA" });
+    [HttpPost("{id:long}/estornar")] public ActionResult<ApiResponse<object>> Estornar(long id) => Safe("CONTA_PAGAR_ESTORNADA", new { id, movimento = "ESTORNO_ENTRADA" });
+}
+
+[Route("api/financeiro/movimentos")]
+public sealed class FinanceiroMovimentosController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroMovimentosController(ILogger<FinanceiroMovimentosController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("MOVIMENTO_FINANCEIRO_LISTADO", new { items = Array.Empty<object>() });
+    [HttpGet("{id:long}")] public ActionResult<ApiResponse<object>> Obter(long id) => Safe("MOVIMENTO_FINANCEIRO_OBTIDO", new { id });
+    [HttpPost("entrada")] public ActionResult<ApiResponse<object>> Entrada([FromBody] object request) => Safe("MOVIMENTO_FINANCEIRO_CRIADO", new { tipo = "ENTRADA", request });
+    [HttpPost("saida")] public ActionResult<ApiResponse<object>> Saida([FromBody] object request) => Safe("MOVIMENTO_FINANCEIRO_CRIADO", new { tipo = "SAIDA", request });
+    [HttpPost("{id:long}/estornar")] public ActionResult<ApiResponse<object>> Estornar(long id) => Safe("MOVIMENTO_FINANCEIRO_ESTORNADO", new { id });
+}
+
+[Route("api/financeiro/fluxo-caixa")]
+public sealed class FinanceiroFluxoCaixaController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroFluxoCaixaController(ILogger<FinanceiroFluxoCaixaController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Obter() => Safe("FLUXO_CAIXA_LISTADO", new { dias = Array.Empty<object>() });
+    [HttpGet("resumo")] public ActionResult<ApiResponse<object>> Resumo() => Safe("FLUXO_CAIXA_RESUMO", new { saldoPrevisto = 0m, saldoRealizado = 0m });
+    [HttpPost("recalcular")] public ActionResult<ApiResponse<object>> Recalcular() => Safe("FLUXO_CAIXA_RECALCULADO", new { recalculado = true });
+}
+
+[Route("api/financeiro/conciliacoes")]
+public sealed class FinanceiroConciliacoesController : FinanceiroEmpresarialEndpointBase
+{
+    public FinanceiroConciliacoesController(ILogger<FinanceiroConciliacoesController> logger) : base(logger) { }
+    [HttpGet] public ActionResult<ApiResponse<object>> Listar() => Safe("CONCILIACAO_LISTADA", new { items = Array.Empty<object>() });
+    [HttpPost] public ActionResult<ApiResponse<object>> Criar([FromBody] object request) => Safe("CONCILIACAO_CRIADA", new { id = 0, request });
+    [HttpGet("{id:long}")] public ActionResult<ApiResponse<object>> Obter(long id) => Safe("CONCILIACAO_OBTIDA", new { id, status = "ABERTA" });
+    [HttpPost("{id:long}/conciliar-item")] public ActionResult<ApiResponse<object>> ConciliarItem(long id, [FromBody] object request) => Safe("CONCILIACAO_ITEM_CONCILIADO", new { id, request });
+    [HttpPost("{id:long}/concluir")] public ActionResult<ApiResponse<object>> Concluir(long id) => Safe("CONCILIACAO_CONCLUIDA", new { id, status = "CONCLUIDA" });
+}

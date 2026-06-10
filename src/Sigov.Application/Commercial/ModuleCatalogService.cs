@@ -46,7 +46,8 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Create("caixa", "Caixa Comercial", "Comércio", "Abertura, suprimento, sangria, fechamento e resumo por forma de pagamento.", ModuleStatus.Disponivel, "bi-cash-stack", "/Comercio/Caixa", "comercio.caixa.abrir"),
             Create("comercio_atacado", "Comércio Atacadista", "Comércio", "Pedidos B2B, tabelas de preço, separação, conferência e faturamento inicial.", ModuleStatus.Disponivel, "bi-buildings", "/Atacado/Dashboard", "comercio.pedidos.visualizar"),
             Create("industria_producao", "Indústria e Produção", "Indústria", "Produção por ordem, BOM, roteiro, chão de fábrica, qualidade e custos sem MRP completo.", ModuleStatus.Disponivel, "bi-cpu", "/Industria/Dashboard", "industria.dashboard.visualizar"),
-            Create("financeiro_empresarial", "Financeiro Empresarial", "Gestão empresarial", "Eventos financeiros futuros gerados por vendas, OS e compras sem financeiro completo.", ModuleStatus.Disponivel, "bi-bank", "/Financeiro/Dashboard", "financeiro.empresarial.visualizar")
+            Create("financeiro_empresarial", "Financeiro Empresarial", "Gestão empresarial", "Plano de contas, centros de custo, contas, baixas, caixa, fluxo, conciliação e integração comercial/industrial.", ModuleStatus.Disponivel, "bi-bank", "/Financeiro/Dashboard", "financeiro.dashboard.visualizar"),
+            Create("financeiro_publico", "Financeiro Público", "Gestão pública", "Módulo futuro para evolução SIAFIC, execução pública e integrações governamentais.", ModuleStatus.EmImplantacao, "bi-building-lock", "/Financeiro/Dashboard", "financeiro_publico.visualizar")
         };
 
         return modules;
@@ -57,15 +58,18 @@ public sealed class ModuleCatalogService : IModuleCatalogService
     {
         return new[]
         {
+
+            new ModuleCatalogPackage("BUSINESS_FINANCE", "Business Finance", new[] { "financeiro_empresarial", "comercial", "estoque_compras" }),
             new ModuleCatalogPackage("COMERCIO_STARTER", "Comércio Starter", new[] { "comercial", "comercio_varejo", "pdv", "caixa", "estoque_compras" }),
-            new ModuleCatalogPackage("COMERCIO_PLUS", "Comércio Plus", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("COMERCIO_PLUS", "Comércio Plus", new[] { "financeiro_empresarial", "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras" }),
             new ModuleCatalogPackage("ATACADO_PRO", "Atacado Pro", new[] { "comercial", "comercio_atacado", "pedidos", "estoque_compras", "financeiro_empresarial" }),
             new ModuleCatalogPackage("BUSINESS_FULL", "Business Full", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "ordem_servico", "manutencao_industrial", "industria_producao", "financeiro_empresarial" }),
             new ModuleCatalogPackage("BUSINESS_STARTER", "Business Starter", new[] { "comercial", "ordem_servico", "estoque_compras" }),
             new ModuleCatalogPackage("INDUSTRIAL_STARTER", "Industrial Starter", new[] { "industria_producao", "estoque_compras", "ordem_servico" }),
-            new ModuleCatalogPackage("INDUSTRIAL_PLUS", "Industrial Plus", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "compras", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("INDUSTRIAL_PLUS", "Industrial Plus", new[] { "financeiro_empresarial", "industria_producao", "manutencao_industrial", "estoque_compras", "compras", "ordem_servico" }),
             new ModuleCatalogPackage("FACTORY_FULL", "Factory Full", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "comercial", "comercio_atacado", "financeiro_empresarial" }),
-            new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" })
+            new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("GOV_PLUS", "Gov Plus", new[] { "financeiro_publico", "tributario", "contratos", "compras", "rh", "protocolo", "ged" })
         };
     }
 
