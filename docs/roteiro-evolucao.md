@@ -24,3 +24,7 @@ Pós-Build 06 — Indústria e Produção Avançada:
 - custos industriais;
 - estoque industrial;
 - integração com Comercial, Atacado, OS e Financeiro.
+
+## Pós-Build 06 — Indústria e Produção Avançada
+
+Entregues cadastros industriais, BOM, roteiros, ordens de produção, apontamento de chão de fábrica, consumo/produção com estoque integrado, qualidade, paradas, custos iniciais, SaaS/permissões e documentação. Próxima evolução recomendada: Pós-Build 07 — Financeiro Empresarial e Público Integrado.
