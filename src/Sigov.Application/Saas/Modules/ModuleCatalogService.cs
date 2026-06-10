@@ -40,7 +40,15 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("integracoes", "Integrações", "APIs, webhooks, outbox e conectores externos.", "Plataforma", true, true, new[] { "core", "auditoria" }),
             Module("suporte", "Suporte", "Chamados, acompanhamento técnico e suporte auditado.", "Plataforma", false, true, new[] { "core" }),
             Module("operacao", "Operação", "Painéis e rotinas operacionais transversais.", "Plataforma", true, true, new[] { "core" }),
-            Module("agro", "Agro e Desenvolvimento Rural", "Catálogo contratável futuro para gestão rural e georreferenciamento.", "Políticas Públicas", true, true, new[] { "core", "tributario" })
+            Module("agro", "Agro e Desenvolvimento Rural", "Catálogo contratável futuro para gestão rural e georreferenciamento.", "Políticas Públicas", true, true, new[] { "core", "tributario" }),
+            Module("comercial", "Comercial/CRM", "Clientes, leads, oportunidades, propostas, pedidos e preços.", "Empresarial", true, true, new[] { "core", "lgpd" }),
+            Module("ordem_servico", "Ordem de Serviço", "OS técnica, agenda, checklist, apontamentos e peças.", "Serviços", true, true, new[] { "core", "comercial", "estoque_compras" }),
+            Module("manutencao_industrial", "Manutenção Industrial", "Ativos, planos, medidores, paradas e falhas.", "Indústria", true, true, new[] { "core", "ordem_servico" }),
+            Module("estoque_compras", "Estoque e Compras", "Produtos, almoxarifados, saldos, requisições e fornecedores.", "Suprimentos", true, true, new[] { "core" }),
+            Module("comercio_varejo", "Comércio Varejista", "Base comercial de varejo sem PDV fiscal completo.", "Comércio", true, true, new[] { "comercial", "estoque_compras" }),
+            Module("comercio_atacado", "Comércio Atacadista", "Base comercial B2B atacadista integrada a pedidos e estoque.", "Comércio", true, true, new[] { "comercial", "estoque_compras" }),
+            Module("industria_producao", "Indústria Produção", "Base de produção futura integrada a manutenção e estoque.", "Indústria", true, true, new[] { "manutencao_industrial", "estoque_compras" }),
+            Module("financeiro_empresarial", "Financeiro Empresarial", "Eventos financeiros futuros para vendas, OS e compras.", "Empresarial", true, true, new[] { "comercial" })
         };
     }
 
@@ -76,6 +84,10 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModulePackageItem("GESTAO_ADMINISTRATIVA", "Gestão Administrativa", "Backoffice administrativo municipal.", new[] { "processos", "compras", "contratos", "almoxarifado", "patrimonio", "frotas", "obras" }),
             new ModulePackageItem("SOCIAL_SAUDE_EDUCACAO", "Social, Saúde e Educação", "Políticas públicas integradas.", new[] { "educacao", "saude", "social" }),
             new ModulePackageItem("AGRO_RURAL", "Agro Rural", "Base futura rural integrada com obras, frotas e tributário.", new[] { "agro", "frotas", "obras", "tributario", "relatorios" }),
+            new ModulePackageItem("BUSINESS_STARTER", "Business Starter", "CRM, OS e estoque para operação inicial privada.", new[] { "comercial", "ordem_servico", "estoque_compras" }),
+            new ModulePackageItem("COMERCIO_PLUS", "Comércio Plus", "Varejo e atacado integrados ao estoque e financeiro futuro.", new[] { "comercial", "comercio_varejo", "comercio_atacado", "estoque_compras", "financeiro_empresarial" }),
+            new ModulePackageItem("INDUSTRIAL_PLUS", "Industrial Plus", "Operação industrial com manutenção, produção, estoque e financeiro futuro.", new[] { "comercial", "ordem_servico", "manutencao_industrial", "industria_producao", "estoque_compras", "financeiro_empresarial" }),
+            new ModulePackageItem("SERVICE_DESK_PRO", "Service Desk Pro", "Serviços com comercial, OS, contratos, GED e financeiro futuro.", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" }),
             new ModulePackageItem("COMPLETO", "Completo", "Todos os módulos integrados do sigov.", todos)
         };
     }

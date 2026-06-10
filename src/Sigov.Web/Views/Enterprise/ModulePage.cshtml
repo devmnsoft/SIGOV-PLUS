@@ -1,0 +1,51 @@
+@model Sigov.Web.Controllers.EnterprisePageViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+<section class="container py-4">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <p class="text-uppercase text-primary fw-semibold mb-1">SIGOV PLUS • @Model.Module</p>
+            <h1 class="display-6">@Model.Title</h1>
+            <p class="lead">Base modular com tenant_id obrigatório, auditoria, LGPD, permissões dinâmicas e integração entre Comercial, OS, Industrial, Estoque, Compras e Comércio.</p>
+        </div>
+        <span class="badge bg-success">Permissão: @Model.Permission</span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">Registros</span><h2>@Model.Dashboard.Registros</h2></div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">Pendências</span><h2>@Model.Dashboard.Pendencias</h2></div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">API</span><code>@Model.ApiRoute</code></div></div></div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Integrações iniciais</div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li>Proposta aprovada gera pedido e pedido confirmado pode gerar OS.</li>
+                <li>OS consome peças do estoque e bloqueia saldo negativo sem permissão.</li>
+                <li>Plano preventivo industrial gera OS preventiva.</li>
+                <li>Produto abaixo do mínimo gera alerta e OS concluída registra evento para financeiro futuro.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Alertas LGPD e auditoria</div>
+        <div class="card-body">
+            @if (Model.Dashboard.Alertas.Count == 0)
+            {
+                <p class="mb-0">Sem alertas críticos para o tenant demo.</p>
+            }
+            else
+            {
+                <ul class="mb-0">
+                    @foreach (var alerta in Model.Dashboard.Alertas)
+                    {
+                        <li>@alerta</li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</section>

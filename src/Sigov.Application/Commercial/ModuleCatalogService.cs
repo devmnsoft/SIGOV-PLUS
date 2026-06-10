@@ -3,8 +3,11 @@ namespace Sigov.Application.Commercial;
 public sealed class ModuleCatalogService : IModuleCatalogService
 {
     private static readonly IReadOnlyList<ModuleCatalogItem> Modules = BuildModules();
+    private static readonly IReadOnlyList<ModuleCatalogPackage> Packages = BuildPackages();
 
     public IReadOnlyList<ModuleCatalogItem> GetModules() => Modules;
+
+    public IReadOnlyList<ModuleCatalogPackage> GetSuggestedPackages() => Packages;
 
     public ModuleCatalogItem? FindByCode(string code) => Modules.FirstOrDefault(module => string.Equals(module.Code, code, StringComparison.OrdinalIgnoreCase));
 
@@ -33,10 +36,30 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Create("transparencia", "Transparência", "Cidadão", "Publicação de informações e dados abertos sem vazamento de dados pessoais.", ModuleStatus.Disponivel, "bi-globe2", "/Comercial", "transparencia.visualizar"),
             Create("integracoes", "Integrações", "Plataforma", "APIs, webhooks, outbox, remessas oficiais e assinatura digital.", ModuleStatus.Habilitado, "bi-plug", "/Integracoes/Dashboard", "integracao.dashboard.visualizar"),
             Create("suporte", "Suporte", "Operação SaaS", "Central de ajuda, chamados, SLAs e acompanhamento operacional.", ModuleStatus.Contratado, "bi-life-preserver", "/Ajuda", "suporte.visualizar"),
-            Create("operacao-saas", "Operação SaaS", "Operação SaaS", "Status de tenant, licença, saúde da plataforma e preparação para go-live.", ModuleStatus.Contratado, "bi-cloud-check", "/SaasAdmin/Operacao", "saas.operacao.visualizar")
+            Create("operacao-saas", "Operação SaaS", "Operação SaaS", "Status de tenant, licença, saúde da plataforma e preparação para go-live.", ModuleStatus.Contratado, "bi-cloud-check", "/SaasAdmin/Operacao", "saas.operacao.visualizar"),
+            Create("comercial", "Comercial/CRM", "Clientes privados", "Clientes, leads, oportunidades, propostas, pedidos e tabela de preços com LGPD.", ModuleStatus.Disponivel, "bi-briefcase", "/Comercial/Dashboard", "comercial.visualizar"),
+            Create("ordem_servico", "Ordem de Serviço", "Serviços", "OS técnica, agenda, checklist, apontamentos, peças e anexos integrados.", ModuleStatus.Disponivel, "bi-tools", "/OrdemServico/Dashboard", "os.visualizar"),
+            Create("manutencao_industrial", "Manutenção Industrial", "Indústria", "Ativos, planos preventivos, medidores, paradas e causas de falha.", ModuleStatus.Disponivel, "bi-gear-wide-connected", "/Industrial/Dashboard", "industrial.visualizar"),
+            Create("estoque_compras", "Estoque e Compras", "Suprimentos privados", "Produtos, almoxarifados, saldos, requisições, fornecedores e pedidos de compra.", ModuleStatus.Disponivel, "bi-boxes", "/Estoque/Dashboard", "estoque.visualizar"),
+            Create("comercio_varejo", "Comércio Varejista", "Comércio", "Base navegável para varejo sem PDV fiscal completo nesta etapa.", ModuleStatus.Disponivel, "bi-shop", "/Comercio/Varejo", "comercio.varejo.visualizar"),
+            Create("comercio_atacado", "Comércio Atacadista", "Comércio", "Base de pedidos, produtos e operação B2B atacadista sem fiscal nesta etapa.", ModuleStatus.Disponivel, "bi-buildings", "/Comercio/Atacado", "comercio.atacado.visualizar"),
+            Create("industria_producao", "Indústria Produção", "Indústria", "Base de produção futura integrada a ativos, estoque e manutenção sem MRP completo.", ModuleStatus.Disponivel, "bi-cpu", "/Industrial/Dashboard", "industrial.producao.visualizar"),
+            Create("financeiro_empresarial", "Financeiro Empresarial", "Gestão empresarial", "Eventos financeiros futuros gerados por vendas, OS e compras sem financeiro completo.", ModuleStatus.Disponivel, "bi-bank", "/Financeiro/Dashboard", "financeiro.empresarial.visualizar")
         };
 
         return modules;
+    }
+
+
+    private static IReadOnlyList<ModuleCatalogPackage> BuildPackages()
+    {
+        return new[]
+        {
+            new ModuleCatalogPackage("BUSINESS_STARTER", "Business Starter", new[] { "comercial", "ordem_servico", "estoque_compras" }),
+            new ModuleCatalogPackage("COMERCIO_PLUS", "Comércio Plus", new[] { "comercial", "comercio_varejo", "comercio_atacado", "estoque_compras", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("INDUSTRIAL_PLUS", "Industrial Plus", new[] { "comercial", "ordem_servico", "manutencao_industrial", "industria_producao", "estoque_compras", "financeiro_empresarial" }),
+            new ModuleCatalogPackage("SERVICE_DESK_PRO", "Service Desk Pro", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" })
+        };
     }
 
     private static ModuleCatalogItem Create(string code, string name, string category, string description, ModuleStatus status, string icon, string route, string permission)
