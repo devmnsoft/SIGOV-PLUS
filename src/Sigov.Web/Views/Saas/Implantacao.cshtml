@@ -1,0 +1,12 @@
+@model long
+@{ ViewData["Title"] = "Implantação guiada"; }
+<section class="container-fluid py-3">
+  <h1 class="h3">Implantação guiada</h1>
+  <p class="text-muted">Checklist de onboarding, responsável, previsão e percentual de conclusão por tenant.</p>
+  <div class="row g-3 align-items-end mb-3"><div class="col-md-4"><label class="form-label">Tenant ID</label><input id="tenantId" class="form-control" type="number" value="@Model"></div><div class="col-md-2"><button id="carregar" class="btn btn-primary w-100">Carregar</button></div></div>
+  <div id="implantacaoAlert" class="alert d-none"></div><div id="implantacaoLoading" class="d-none"><span class="spinner-border spinner-border-sm"></span> Carregando...</div>
+  <div id="implantacaoConteudo"></div>
+</section>
+@section Scripts{<script>
+(async()=>{const tid=document.getElementById('tenantId'), box=document.getElementById('implantacaoConteudo'), alert=document.getElementById('implantacaoAlert'), loading=document.getElementById('implantacaoLoading'); function show(t,m){alert.className='alert alert-'+t; alert.textContent=m;} async function load(){ if(!tid.value){show('warning','Informe um tenant.');return;} loading.classList.remove('d-none'); try{const r=await fetch(`/api/saas/tenants/${tid.value}/implantacao`); if(!r.ok) throw new Error('API indisponível'); const j=await r.json(), d=j.data; box.innerHTML=`<div class="card"><div class="card-body"><h2 class="h5">Status: ${d.implantacao.status}</h2><div class="progress mb-3"><div class="progress-bar" style="width:${d.implantacao.percentual}%">${d.implantacao.percentual}%</div></div>${(d.itens||[]).map(i=>`<div class="form-check border-bottom py-2"><input class="form-check-input item" data-id="${i.id}" type="checkbox" ${i.concluido?'checked':''}><label class="form-check-label"><strong>${i.ordem}. ${i.titulo}</strong><br><span class="text-muted">${i.codigo}</span></label></div>`).join('')}</div></div>`; document.querySelectorAll('.item').forEach(el=>el.addEventListener('change',async()=>{await fetch(`/api/saas/implantacoes/${d.implantacao.id}/itens/${el.dataset.id}/${el.checked?'concluir':'reabrir'}`,{method:'POST'}); await load();}));}catch(e){show('danger',e.message);}finally{loading.classList.add('d-none');}} document.getElementById('carregar').onclick=load; if(tid.value>0) await load();})();
+</script>}

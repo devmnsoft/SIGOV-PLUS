@@ -33,6 +33,18 @@ public sealed class SaasController : Controller
     }
 
     [HttpGet]
+    public IActionResult Planos() => View();
+
+    [HttpGet]
+    public IActionResult Implantacao(long? tenantId) => View(tenantId ?? 0);
+
+    [HttpGet]
+    public IActionResult Parametros(long? tenantId) => View(tenantId ?? 0);
+
+    [HttpGet("Tenants/{id:long}/Assinatura")]
+    public IActionResult Assinatura(long id) => View(id);
+
+    [HttpGet]
     public async Task<IActionResult> Modulos(long? tenantId, CancellationToken cancellationToken)
     {
         try

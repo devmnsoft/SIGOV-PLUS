@@ -6,6 +6,11 @@ namespace Sigov.Web.Controllers;
 public sealed class TributarioController : Controller
 {
     public IActionResult Dashboard() => View(new TributarioDashboardViewModel());
+    public IActionResult Configuracao() => View();
+    public IActionResult TiposCadastro() => View();
+    public IActionResult CamposDinamicos() => View();
+    public IActionResult Imoveis() => View();
+    public IActionResult Economicos() => View();
     public IActionResult Contribuintes() => View(new ContribuinteFormViewModel());
     public IActionResult ContribuinteCriar() => View(new ContribuinteFormViewModel());
     public IActionResult ContribuinteEditar(long id) => View(new ContribuinteFormViewModel { Id = id });
