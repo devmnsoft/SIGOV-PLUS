@@ -49,7 +49,7 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("pdv", "PDV Web", "Ponto de venda web inicial com carrinho, pagamentos e fechamento não fiscal.", "Comércio", true, true, new[] { "comercial", "comercio_varejo", "caixa" }),
             Module("caixa", "Caixa Comercial", "Abertura, suprimento, sangria, fechamento e resumo por forma de pagamento.", "Comércio", true, true, new[] { "pdv" }),
             Module("comercio_atacado", "Comércio Atacadista", "Base comercial B2B atacadista integrada a pedidos e estoque.", "Comércio", true, true, new[] { "comercial", "estoque_compras" }),
-            Module("industria_producao", "Indústria Produção", "Base de produção futura integrada a manutenção e estoque.", "Indústria", true, true, new[] { "manutencao_industrial", "estoque_compras" }),
+            Module("industria_producao", "Indústria e Produção", "Produção por ordem, BOM, roteiro, chão de fábrica, qualidade e custos integrados.", "Indústria", true, true, new[] { "core", "estoque_compras" }),
             Module("financeiro_empresarial", "Financeiro Empresarial", "Eventos financeiros futuros para vendas, OS e compras.", "Empresarial", true, true, new[] { "comercial" })
         };
     }
@@ -89,9 +89,11 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModulePackageItem("COMERCIO_STARTER", "Comércio Starter", "Varejo com PDV, caixa e estoque em pacote inicial.", new[] { "comercial", "comercio_varejo", "pdv", "caixa", "estoque_compras" }),
             new ModulePackageItem("COMERCIO_PLUS", "Comércio Plus", "Varejo e atacado integrados ao estoque e contas a receber inicial.", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "financeiro_empresarial" }),
             new ModulePackageItem("ATACADO_PRO", "Atacado Pro", "Pedidos, separação e financeiro inicial para atacado.", new[] { "comercial", "comercio_atacado", "pedidos", "estoque_compras", "financeiro_empresarial" }),
-            new ModulePackageItem("BUSINESS_FULL", "Business Full", "Pacote empresarial integrado com varejo, atacado, OS, indústria e financeiro inicial.", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "ordem_servico", "manutencao_industrial", "financeiro_empresarial" }),
+            new ModulePackageItem("BUSINESS_FULL", "Business Full", "Pacote empresarial integrado com varejo, atacado, OS, manutenção, indústria e financeiro inicial.", new[] { "comercial", "comercio_varejo", "comercio_atacado", "pdv", "caixa", "estoque_compras", "ordem_servico", "manutencao_industrial", "industria_producao", "financeiro_empresarial" }),
             new ModulePackageItem("BUSINESS_STARTER", "Business Starter", "CRM, OS e estoque para operação inicial privada.", new[] { "comercial", "ordem_servico", "estoque_compras" }),
-            new ModulePackageItem("INDUSTRIAL_PLUS", "Industrial Plus", "Operação industrial com manutenção, produção, estoque e financeiro futuro.", new[] { "comercial", "ordem_servico", "manutencao_industrial", "industria_producao", "estoque_compras", "financeiro_empresarial" }),
+            new ModulePackageItem("INDUSTRIAL_STARTER", "Industrial Starter", "Produção por ordem com estoque e OS.", new[] { "industria_producao", "estoque_compras", "ordem_servico" }),
+            new ModulePackageItem("INDUSTRIAL_PLUS", "Industrial Plus", "Produção integrada à manutenção, OS, compras, estoque e financeiro.", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "compras", "financeiro_empresarial" }),
+            new ModulePackageItem("FACTORY_FULL", "Factory Full", "Operação fabril completa com comercial atacadista, produção, estoque e financeiro.", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "comercial", "comercio_atacado", "financeiro_empresarial" }),
             new ModulePackageItem("SERVICE_DESK_PRO", "Service Desk Pro", "Serviços com comercial, OS, contratos, GED e financeiro futuro.", new[] { "comercial", "ordem_servico", "contratos", "ged", "financeiro_empresarial" }),
             new ModulePackageItem("COMPLETO", "Completo", "Todos os módulos integrados do sigov.", todos)
         };

@@ -69,6 +69,8 @@ using Sigov.Application.Saas.Comercial;
 using Sigov.Application.Comercio;
 using Sigov.Infrastructure.Comercio;
 
+using Sigov.Application.Industria;
+using Sigov.Infrastructure.Industria;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
@@ -433,6 +435,8 @@ public static class DependencyInjection
         services.AddScoped<AgroExportService>();
         services.AddScoped<IAgroTransparenciaRepository, AgroTransparenciaRepository>();
         services.AddScoped<IAgroTransparenciaService, AgroTransparenciaService>();
+        services.AddScoped<IIndustriaEstoqueService, IndustriaEstoqueService>();
+        services.AddScoped<IIndustriaComercialService, IndustriaComercialService>();
         services.AddScoped<IAgroDicionarioDadosRepository, AgroDicionarioDadosRepository>();
         services.AddScoped<IAgroDicionarioDadosService, AgroDicionarioDadosService>();
         services.AddScoped<IAgroPainelComercialRepository, AgroPainelComercialRepository>();
