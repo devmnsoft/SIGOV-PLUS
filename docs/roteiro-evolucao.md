@@ -32,3 +32,11 @@ Entregues cadastros industriais, BOM, roteiros, ordens de produção, apontament
 ## Pós-Build 07 — Financeiro Empresarial e Público Integrado
 
 Entregues bases de plano de contas gerencial, centros de custo, naturezas, contas bancárias, formas de pagamento, contas a receber, contas a pagar, baixas, estornos, movimentos, fluxo de caixa, conciliação inicial, permissões, telas e documentação. Próxima evolução recomendada: Pós-Build 08 — Tributário Avançado.
+
+## Pós-Build 11 — IA, automação inteligente e análise preditiva
+
+Entregue base de IA segura por tenant: assistentes, documental, sugestões, automações, alertas, predições, consumo/billing, permissões, auditoria e provider interno sem dependência obrigatória de serviços externos.
+
+### Próxima evolução recomendada
+
+Pós-Build 12 — Mobile, PWA e Aplicativos de Campo: aplicativo offline, coleta em campo, assinatura em campo, visitas, OS mobile, ACS/Saúde mobile, leitura de hidrômetros, georreferenciamento e sincronização offline.

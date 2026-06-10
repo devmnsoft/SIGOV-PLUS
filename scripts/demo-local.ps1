@@ -108,3 +108,19 @@ $posBuild09Urls = @(
   "http://localhost:5001/api/ged/workflows"
 )
 $posBuild09Urls | ForEach-Object { Write-Host " - $_" }
+
+# Pós-Build 11 - IA e automações inteligentes
+$IaUrls = @(
+  "http://localhost:8080/IA/Dashboard",
+  "http://localhost:8080/IA/Assistente",
+  "http://localhost:8080/IA/Sugestoes",
+  "http://localhost:8080/IA/Execucoes",
+  "http://localhost:8080/IA/Automacoes",
+  "http://localhost:8080/IA/Alertas",
+  "http://localhost:8080/IA/Predicoes",
+  "http://localhost:8080/IA/Documental",
+  "http://localhost:8080/IA/Relatorios",
+  "http://localhost:8080/IA/Configuracao",
+  "http://localhost:8080/IA/Consumo"
+)
+$IaUrls | ForEach-Object { Write-Host "IA SIGOV: $_" }

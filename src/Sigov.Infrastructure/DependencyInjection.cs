@@ -1,3 +1,5 @@
+using Sigov.Application.Ia;
+using Sigov.Infrastructure.Ia;
 using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Abstractions;
 using Sigov.Infrastructure.Common;
@@ -152,6 +154,12 @@ public static class DependencyInjection
             return await Dapper.SqlMapper.ExecuteScalarAsync<string?>(connection, new Dapper.CommandDefinition("select status from sigov.tenant where id = @TenantId and ativo = true and is_deleted = false;", new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         });
         services.AddScoped<ITenantAccessGuard, TenantAccessGuard>();
+        services.AddScoped<IIaMaskingService, IaMaskingService>();
+        services.AddScoped<IIaProviderClient, InternalIaProviderClient>();
+        services.AddScoped<IIaConsumptionService, IaConsumptionService>();
+        services.AddScoped<IIaExecutionService, IaExecutionService>();
+        services.AddScoped<IIaSuggestionService, IaSuggestionService>();
+        services.AddScoped<IIaAutomationService, IaAutomationService>();
         services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
         services.AddScoped<Sigov.Application.Saas.Modules.IModuleAccessRepository, ModuleAccessRepository>();
         services.AddScoped<Sigov.Application.Saas.Modules.IModuleAccessChecker, Sigov.Application.Saas.Modules.ModuleAccessChecker>();
