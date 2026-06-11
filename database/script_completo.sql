@@ -1038,6 +1038,73 @@ create index if not exists idx_chamado_is_deleted on sigov.chamado(is_deleted);
 create index if not exists idx_chamado_created_at on sigov.chamado(created_at);
 create index if not exists idx_endereco_pessoa_id on sigov.endereco(pessoa_id);
 create index if not exists idx_contato_pessoa_id on sigov.contato(pessoa_id);
+-- Baseline seed tenant obrigatório para bancos limpos e existentes.
+create table if not exists sigov.tenant (
+    id bigint generated always as identity primary key,
+    nome varchar(250) not null,
+    nome_fantasia varchar(250) null,
+    documento varchar(20) null,
+    slug varchar(100) not null unique,
+    codigo varchar(100) null,
+    status varchar(30) not null default 'ATIVO',
+    timezone varchar(80) not null default 'America/Sao_Paulo',
+    locale varchar(20) not null default 'pt-BR',
+    ambiente varchar(30) not null default 'PRODUCTION',
+    data_inicio_operacao timestamptz null,
+    data_cancelamento timestamptz null,
+    motivo_suspensao text null,
+    metadados jsonb not null default '{}'::jsonb,
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    created_by bigint null,
+    updated_at timestamptz null,
+    updated_by bigint null,
+    correlation_id uuid null
+);
+
+alter table sigov.tenant add column if not exists codigo varchar(100) null;
+alter table sigov.tenant alter column status set default 'ATIVO';
+
+insert into sigov.tenant (id, nome, codigo, nome_fantasia, slug, status, ambiente, ativo, created_at, data_inicio_operacao)
+overriding system value
+values (1, 'Plataforma SIGOV', 'plataforma', 'Plataforma SIGOV', 'plataforma', 'ATIVO', 'DEVELOPMENT', true, now(), now())
+on conflict do nothing;
+
+update sigov.tenant
+set codigo = coalesce(codigo, 'plataforma'),
+    nome = coalesce(nullif(nome, ''), 'Plataforma SIGOV'),
+    slug = coalesce(nullif(slug, ''), 'plataforma'),
+    status = coalesce(nullif(status, ''), 'ATIVO'),
+    ativo = true
+where id = 1;
+
+select setval(pg_get_serial_sequence('sigov.tenant', 'id'), greatest((select coalesce(max(id), 1) from sigov.tenant), 1), true)
+where pg_get_serial_sequence('sigov.tenant', 'id') is not null;
+
+do $$
+declare
+    v_table_name text;
+    v_tables text[] := array[
+        'entidade','exercicio','unidade_organizacional','pessoa','pessoa_fisica','pessoa_juridica','endereco','contato',
+        'usuario','grupo_acesso','usuario_grupo','perfil_acesso','permissao','perfil_permissao','sessao_usuario','historico_login',
+        'trilha_auditoria','log_aplicacao','log_erro','fila_evento','acesso_dado_pessoal','consentimento','solicitacao_titular',
+        'relatorio_titular','incidente_seguranca','chamado','chamado_interacao','satisfacao_atendimento','api_credential',
+        'notificacao','tarefa','agenda_obrigacao','controle_sequencial','usuario_entidade','usuario_exercicio','grupo_perfil',
+        'validacao_requisito','validacao_resultado','termo_aceite','integracao_sistema','webhook_recebido','camada','geolocalizacao'
+    ];
+begin
+    foreach v_table_name in array v_tables loop
+        if exists (select 1 from information_schema.tables where table_schema = 'sigov' and table_name = v_table_name) then
+            if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = v_table_name and column_name = 'tenant_id') then
+                execute format('alter table sigov.%I add column tenant_id bigint null', v_table_name);
+            end if;
+            execute format('alter table sigov.%I alter column tenant_id set default 1', v_table_name);
+            execute format('update sigov.%I set tenant_id = 1 where tenant_id is null', v_table_name);
+        end if;
+    end loop;
+end $$;
+
 -- >>> database/postgres/migrations/011_seed_sigov_dev.sql
 do $$
 declare
@@ -1048,62 +1115,62 @@ declare
     v_perfil_id bigint;
     v_admin_password text := coalesce(nullif(current_setting('sigov.admin_password', true), ''), 'SigovDevLocal!2026');
 begin
-    insert into sigov.entidade (nome, cnpj, ativo, observacao)
-    values ('Prefeitura Municipal de Demonstração', '00000000000191', true, 'Registro de desenvolvimento sigov')
+    insert into sigov.entidade (tenant_id, nome, cnpj, ativo, observacao)
+    values (1, 'Prefeitura Municipal de Demonstração', '00000000000191', true, 'Registro de desenvolvimento sigov')
     on conflict do nothing;
 
     select id into v_entidade_id from sigov.entidade where cnpj = '00000000000191' and is_deleted = false limit 1;
 
-    insert into sigov.exercicio (entidade_id, ano, data_inicio, data_fim, ativo)
-    values (v_entidade_id, extract(year from now())::integer, make_date(extract(year from now())::integer, 1, 1), make_date(extract(year from now())::integer, 12, 31), true)
+    insert into sigov.exercicio (tenant_id, entidade_id, ano, data_inicio, data_fim, ativo)
+    values (1, v_entidade_id, extract(year from now())::integer, make_date(extract(year from now())::integer, 1, 1), make_date(extract(year from now())::integer, 12, 31), true)
     on conflict do nothing;
 
     select id into v_exercicio_id from sigov.exercicio where entidade_id = v_entidade_id and ano = extract(year from now())::integer limit 1;
 
-    insert into sigov.pessoa (entidade_id, exercicio_id, nome, tipo_pessoa, documento, ativo)
-    values (v_entidade_id, v_exercicio_id, 'Administrador do Sistema', 'F', '00000000191', true)
+    insert into sigov.pessoa (tenant_id, entidade_id, exercicio_id, nome, tipo_pessoa, documento, ativo)
+    values (1, v_entidade_id, v_exercicio_id, 'Administrador do Sistema', 'F', '00000000191', true)
     on conflict do nothing;
 
     select id into v_pessoa_id from sigov.pessoa where documento = '00000000191' and is_deleted = false limit 1;
 
-    insert into sigov.pessoa_fisica (entidade_id, exercicio_id, pessoa_id, cpf, ativo)
-    values (v_entidade_id, v_exercicio_id, v_pessoa_id, '00000000191', true)
+    insert into sigov.pessoa_fisica (tenant_id, entidade_id, exercicio_id, pessoa_id, cpf, ativo)
+    values (1, v_entidade_id, v_exercicio_id, v_pessoa_id, '00000000191', true)
     on conflict do nothing;
 
-    insert into sigov.usuario (entidade_id, exercicio_id, pessoa_id, login, email, senha_hash, ativo, observacao)
-    values (v_entidade_id, v_exercicio_id, v_pessoa_id, 'admin', 'admin@sigov.local', 'DEV_ONLY:' || v_admin_password, true, 'Senha inicial definida por SIGOV_ADMIN_PASSWORD; fallback Development SigovDevLocal!2026')
+    insert into sigov.usuario (tenant_id, entidade_id, exercicio_id, pessoa_id, login, email, senha_hash, ativo, observacao)
+    values (1, v_entidade_id, v_exercicio_id, v_pessoa_id, 'admin', 'admin@sigov.local', 'DEV_ONLY:' || v_admin_password, true, 'Senha inicial definida por SIGOV_ADMIN_PASSWORD; fallback Development SigovDevLocal!2026')
     on conflict do nothing;
 
     select id into v_usuario_id from sigov.usuario where login = 'admin' and is_deleted = false limit 1;
 
-    insert into sigov.perfil_acesso (entidade_id, exercicio_id, nome, descricao, ativo)
-    values (v_entidade_id, v_exercicio_id, 'Administrador', 'Perfil administrativo de desenvolvimento', true)
+    insert into sigov.perfil_acesso (tenant_id, entidade_id, exercicio_id, nome, descricao, ativo)
+    values (1, v_entidade_id, v_exercicio_id, 'Administrador', 'Perfil administrativo de desenvolvimento', true)
     on conflict do nothing;
 
     select id into v_perfil_id from sigov.perfil_acesso where nome = 'Administrador' and is_deleted = false limit 1;
 
-    insert into sigov.permissao (entidade_id, exercicio_id, modulo, chave, descricao, ativo)
+    insert into sigov.permissao (tenant_id, entidade_id, exercicio_id, modulo, chave, descricao, ativo)
     values
-        (v_entidade_id, v_exercicio_id, 'core', 'core_admin', 'Permissão administrativa do núcleo', true),
-        (v_entidade_id, v_exercicio_id, 'seguranca', 'seguranca_admin', 'Permissão administrativa de segurança', true),
-        (v_entidade_id, v_exercicio_id, 'auditoria', 'auditoria_admin', 'Permissão administrativa de auditoria', true),
-        (v_entidade_id, v_exercicio_id, 'lgpd', 'lgpd_admin', 'Permissão administrativa LGPD', true),
-        (v_entidade_id, v_exercicio_id, 'suporte', 'suporte_admin', 'Permissão administrativa de suporte', true),
-        (v_entidade_id, v_exercicio_id, 'conformidade', 'aderencia_admin', 'Permissão administrativa de conformidade e aderência', true)
+        (1, v_entidade_id, v_exercicio_id, 'core', 'core_admin', 'Permissão administrativa do núcleo', true),
+        (1, v_entidade_id, v_exercicio_id, 'seguranca', 'seguranca_admin', 'Permissão administrativa de segurança', true),
+        (1, v_entidade_id, v_exercicio_id, 'auditoria', 'auditoria_admin', 'Permissão administrativa de auditoria', true),
+        (1, v_entidade_id, v_exercicio_id, 'lgpd', 'lgpd_admin', 'Permissão administrativa LGPD', true),
+        (1, v_entidade_id, v_exercicio_id, 'suporte', 'suporte_admin', 'Permissão administrativa de suporte', true),
+        (1, v_entidade_id, v_exercicio_id, 'conformidade', 'aderencia_admin', 'Permissão administrativa de conformidade e aderência', true)
     on conflict do nothing;
 
-    insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-    select v_perfil_id, p.id
+    insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+    select 1, v_perfil_id, p.id
     from sigov.permissao p
     where p.modulo in ('core', 'seguranca', 'auditoria', 'lgpd', 'suporte', 'conformidade')
     on conflict do nothing;
 
-    insert into sigov.grupo_acesso (entidade_id, exercicio_id, nome, descricao, ativo)
-    values (v_entidade_id, v_exercicio_id, 'Administradores', 'Grupo administrativo de desenvolvimento', true)
+    insert into sigov.grupo_acesso (tenant_id, entidade_id, exercicio_id, nome, descricao, ativo)
+    values (1, v_entidade_id, v_exercicio_id, 'Administradores', 'Grupo administrativo de desenvolvimento', true)
     on conflict do nothing;
 
-    insert into sigov.trilha_auditoria (entidade_id, exercicio_id, usuario_id, tabela, registro_id, acao, valores_novos, observacao)
-    values (v_entidade_id, v_exercicio_id, v_usuario_id, 'sigov.usuario', v_usuario_id::varchar, 'SEED', jsonb_build_object('login', 'admin'), 'Seed inicial sigov')
+    insert into sigov.trilha_auditoria (tenant_id, entidade_id, exercicio_id, usuario_id, tabela, registro_id, acao, valores_novos, observacao)
+    values (1, v_entidade_id, v_exercicio_id, v_usuario_id, 'sigov.usuario', v_usuario_id::varchar, 'SEED', jsonb_build_object('login', 'admin'), 'Seed inicial sigov')
     on conflict do nothing;
 end $$;
 -- >>> database/postgres/migrations/012_compat_move_legacy_schemas_to_sigov.sql
@@ -1206,27 +1273,43 @@ create table if not exists sigov.grupo_perfil (
     primary key (grupo_acesso_id, perfil_acesso_id)
 );
 
-insert into sigov.usuario_entidade (usuario_id, entidade_id)
-select u.id, u.entidade_id
+do $$
+declare
+    v_table_name text;
+    v_tables text[] := array['usuario_entidade','usuario_exercicio','usuario_grupo','grupo_perfil'];
+begin
+    foreach v_table_name in array v_tables loop
+        if exists (select 1 from information_schema.tables where table_schema = 'sigov' and table_name = v_table_name) then
+            if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = v_table_name and column_name = 'tenant_id') then
+                execute format('alter table sigov.%I add column tenant_id bigint null', v_table_name);
+            end if;
+            execute format('alter table sigov.%I alter column tenant_id set default 1', v_table_name);
+            execute format('update sigov.%I set tenant_id = 1 where tenant_id is null', v_table_name);
+        end if;
+    end loop;
+end $$;
+
+insert into sigov.usuario_entidade (tenant_id, usuario_id, entidade_id)
+select 1, u.id, u.entidade_id
 from sigov.usuario u
 where u.entidade_id is not null
 on conflict do nothing;
 
-insert into sigov.usuario_exercicio (usuario_id, exercicio_id)
-select u.id, u.exercicio_id
+insert into sigov.usuario_exercicio (tenant_id, usuario_id, exercicio_id)
+select 1, u.id, u.exercicio_id
 from sigov.usuario u
 where u.exercicio_id is not null
 on conflict do nothing;
 
-insert into sigov.usuario_grupo (usuario_id, grupo_acesso_id)
-select u.id, g.id
+insert into sigov.usuario_grupo (tenant_id, usuario_id, grupo_acesso_id)
+select 1, u.id, g.id
 from sigov.usuario u
 join sigov.grupo_acesso g on g.entidade_id = u.entidade_id and g.nome = 'Administradores' and g.is_deleted = false
 where u.login = 'admin' and u.is_deleted = false
 on conflict do nothing;
 
-insert into sigov.grupo_perfil (grupo_acesso_id, perfil_acesso_id)
-select g.id, p.id
+insert into sigov.grupo_perfil (tenant_id, grupo_acesso_id, perfil_acesso_id)
+select 1, g.id, p.id
 from sigov.grupo_acesso g
 join sigov.perfil_acesso p on p.entidade_id = g.entidade_id and p.nome = 'Administrador' and p.is_deleted = false
 where g.nome = 'Administradores' and g.is_deleted = false
@@ -1431,9 +1514,10 @@ create table if not exists sigov.tenant_configuracao (
     unique (tenant_id, chave)
 );
 
-insert into sigov.tenant (nome, nome_fantasia, slug, status, ambiente, data_inicio_operacao)
-values ('Tenant de Desenvolvimento sigov', 'sigov Development', 'municipio-demo', 'ATIVO', 'DEVELOPMENT', now())
-on conflict (slug) do nothing;
+insert into sigov.tenant (id, nome, codigo, nome_fantasia, slug, status, ambiente, ativo, created_at, data_inicio_operacao)
+overriding system value
+values (1, 'Plataforma SIGOV', 'plataforma', 'Plataforma SIGOV', 'plataforma', 'ATIVO', 'DEVELOPMENT', true, now(), now())
+on conflict do nothing;
 -- >>> database/postgres/migrations/015_saas_tenant_id_operational_tables.sql
 do $$
 declare
@@ -1448,11 +1532,12 @@ declare
     ];
     default_tenant_id bigint;
 begin
-    insert into sigov.tenant (nome, nome_fantasia, slug, status, ambiente, data_inicio_operacao)
-    values ('Tenant de Desenvolvimento sigov', 'sigov Development', 'municipio-demo', 'ATIVO', 'DEVELOPMENT', now())
-    on conflict (slug) do nothing;
+    insert into sigov.tenant (id, nome, codigo, nome_fantasia, slug, status, ambiente, ativo, created_at, data_inicio_operacao)
+    overriding system value
+    values (1, 'Plataforma SIGOV', 'plataforma', 'Plataforma SIGOV', 'plataforma', 'ATIVO', 'DEVELOPMENT', true, now(), now())
+    on conflict do nothing;
 
-    select id into default_tenant_id from sigov.tenant where slug = 'municipio-demo';
+    select 1 into default_tenant_id;
 
     foreach v_table_name in array operational_tables loop
         if exists (select 1 from information_schema.tables where table_schema = 'sigov' and table_name = v_table_name) then
