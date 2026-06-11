@@ -12,4 +12,4 @@ create table if not exists sigov.docker_schema_migrations (
     applied_at timestamptz not null default now()
 );
 
-\i /docker-entrypoint-initdb.d/migrations/20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql
+\i /database/postgres/migrations/20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql
