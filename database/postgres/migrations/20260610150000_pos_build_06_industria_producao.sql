@@ -350,27 +350,31 @@ insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('industria','chao_fabrica','acessar','industria.chao_fabrica.acessar','Acessar chão de fábrica',true)
 on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.modulo='industria' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','GERENTE_INDUSTRIAL') or upper(pa.nome) like '%ADMIN%')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.chave in ('industria.dashboard.visualizar','industria.ordens.visualizar','industria.ordens.criar','industria.ordens.liberar','industria.fichas.visualizar','industria.roteiros.visualizar','industria.custos.visualizar')
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.dashboard.visualizar','industria.ordens.visualizar','industria.ordens.criar','industria.ordens.liberar','industria.fichas.visualizar','industria.roteiros.visualizar','industria.custos.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='PCP'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.chave in ('industria.chao_fabrica.acessar','industria.ordens.visualizar','industria.ordens.iniciar','industria.apontamentos.criar','industria.materiais.consumir','industria.producao.registrar','industria.refugo.registrar')
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.chao_fabrica.acessar','industria.ordens.visualizar','industria.ordens.iniciar','industria.apontamentos.criar','industria.materiais.consumir','industria.producao.registrar','industria.refugo.registrar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='OPERADOR_PRODUCAO'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.chave in ('industria.qualidade.visualizar','industria.qualidade.inspecionar','industria.ordens.visualizar')
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.qualidade.visualizar','industria.qualidade.inspecionar','industria.ordens.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='QUALIDADE'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 create or replace function sigov.fn_industria_set_updated_at()
 returns trigger language plpgsql as $$

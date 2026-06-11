@@ -263,27 +263,30 @@ insert into sigov.perfil_acesso (nome, descricao, codigo_externo, ativo) values
 ('Consulta Tributária','Consulta dashboard, livro eletrônico e relatórios fiscais.','CONSULTA_TRIBUTARIA',true)
 on conflict do nothing;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.modulo='tributario' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false
   and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','TRIBUTARIO_ADMIN')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('tributario.dashboard.visualizar','tributario.iptu.visualizar','tributario.iss.visualizar','tributario.taxas.visualizar','tributario.divida_ativa.visualizar','tributario.parcelamento.visualizar','tributario.arrecadacao.visualizar','tributario.arrecadacao.registrar','tributario.nfse.visualizar','tributario.livro_eletronico.visualizar','tributario.livro_eletronico.gerar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FISCAL_TRIBUTARIO'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('tributario.dashboard.visualizar','tributario.iptu.visualizar','tributario.iss.visualizar','tributario.taxas.visualizar','tributario.divida_ativa.visualizar','tributario.parcelamento.visualizar','tributario.arrecadacao.visualizar','tributario.nfse.visualizar','tributario.livro_eletronico.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='CONSULTA_TRIBUTARIA'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.tenant_modulo_pacote (codigo, nome, descricao, modulos_json) values
 ('GOV_TRIBUTARIO_PLUS','Gov Tributário Plus','Pacote fiscal municipal com Tributário Avançado, Financeiro Público e LGPD.', '["tributario","financeiro_publico","auditoria-lgpd"]'::jsonb)

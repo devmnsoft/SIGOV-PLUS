@@ -349,13 +349,14 @@ insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('ocr','digitalizacao','processar','ocr.processar','Processar OCR simulado de documentos.',true)
 on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('ged.visualizar','ged.upload','ged.download','ged.indexar','ged.assinar','ged.tramitar','contrato.visualizar','contrato.criar','contrato.assinar','fluxo.visualizar','ocr.processar')
 where pa.ativo=true and pa.is_deleted=false
   and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT') or upper(pa.nome) like '%ADMIN%')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.ged_tipo_documento (tenant_id,codigo,nome,descricao,exige_assinatura,permite_ocr,metadados_obrigatorios)
 select t.id, seed.codigo, seed.nome, seed.descricao, seed.exige_assinatura, seed.permite_ocr, seed.metadados::jsonb

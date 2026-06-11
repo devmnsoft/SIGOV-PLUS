@@ -46,17 +46,20 @@ insert into sigov.perfil_acesso (nome, descricao, codigo_externo, ativo) values
 ('Gerente Financeiro','Gerencia indicadores, aprovações e conciliação financeira.','GERENTE_FINANCEIRO',true)
 on conflict do nothing;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.modulo='financeiro' and p.ativo=true and p.is_deleted=false
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='financeiro' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','FINANCEIRO_ADMIN','GERENTE_FINANCEIRO')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_receber.baixar','financeiro.contas_pagar.visualizar','financeiro.contas_pagar.baixar','financeiro.movimentos.visualizar','financeiro.movimentos.criar','financeiro.fluxo_caixa.visualizar')
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_receber.baixar','financeiro.contas_pagar.visualizar','financeiro.contas_pagar.baixar','financeiro.movimentos.visualizar','financeiro.movimentos.criar','financeiro.fluxo_caixa.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FINANCEIRO_OPERADOR'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_pagar.visualizar','financeiro.movimentos.visualizar','financeiro.fluxo_caixa.visualizar','financeiro.conciliacao.visualizar')
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_pagar.visualizar','financeiro.movimentos.visualizar','financeiro.fluxo_caixa.visualizar','financeiro.conciliacao.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FINANCEIRO_CONSULTA'
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);

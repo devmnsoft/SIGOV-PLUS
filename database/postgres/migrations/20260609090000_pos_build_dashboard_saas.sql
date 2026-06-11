@@ -72,13 +72,14 @@ set senha_hash = 'SIGOV_PBKDF2_V1$100000$UG9zdEJ1aWxkMDFTYWx0IQ==$C87vVWxqrRbbxe
 where login = 'admin'
   and (senha_hash like 'DEV_ONLY:%' or senha_hash is null or email <> 'admin@sigov.local');
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 cross join sigov.permissao p
 where pa.codigo_externo = 'ADMINISTRADOR_GERAL'
   and p.modulo in ('saas', 'operacao', 'core', 'seguranca', 'auditoria', 'lgpd')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.tenant_modulo_contratado (tenant_id, modulo_codigo, status, contratado_em, vigencia_inicio, ativo)
 select t.id, m.codigo, case when m.codigo in ('integracoes','protocolo','ged') then 'EM_IMPLANTACAO' else 'DISPONIVEL' end, current_date, current_date, true
