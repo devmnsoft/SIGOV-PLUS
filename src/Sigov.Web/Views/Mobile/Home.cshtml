@@ -1,0 +1,22 @@
+@{
+    ViewData["Title"] = "Mobile Home";
+}
+<section class="container py-3 sigov-mobile-home">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div><h1 class="h4 mb-0">SIGOV Campo</h1><small class="text-muted">PWA mobile-first e offline-ready</small></div>
+    <span id="sigov-online-indicator" class="badge bg-success">online</span>
+  </div>
+  <div class="alert alert-light border"><strong>Pendências de sync:</strong> <span id="sigov-sync-pending">0</span></div>
+  <div class="row g-3">
+    <div class="col-6"><a class="btn btn-primary btn-lg w-100 py-4" href="/Mobile/Agenda">Minhas atividades</a></div>
+    <div class="col-6"><a class="btn btn-outline-primary btn-lg w-100 py-4" href="/Mobile/Sync">Sincronizar</a></div>
+    <div class="col-6"><a class="btn btn-outline-success btn-lg w-100 py-4" href="/Mobile/Mapa">Iniciar rota</a></div>
+    <div class="col-6"><a class="btn btn-outline-warning btn-lg w-100 py-4" href="/Mobile/Notificacoes">Notificações</a></div>
+    <div class="col-6"><a class="btn btn-outline-secondary btn-lg w-100 py-4" href="/Mobile/Offline">Modo offline</a></div>
+    <div class="col-6"><a class="btn btn-outline-danger btn-lg w-100 py-4" href="/Account/Logout">Sair e limpar cache</a></div>
+  </div>
+  <nav class="fixed-bottom bg-white border-top d-md-none p-2 mobile-bottom-nav">
+    <div class="d-flex justify-content-around"><a href="/Mobile/Home">Início</a><a href="/Mobile/Agenda">Agenda</a><a href="/Mobile/Sync">Sync</a><a href="/Mobile/Notificacoes">Avisos</a></div>
+  </nav>
+</section>
+@section Scripts { <script src="~/js/sigov.mobile.js"></script> }

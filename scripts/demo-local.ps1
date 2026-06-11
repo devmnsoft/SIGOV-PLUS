@@ -124,3 +124,22 @@ $IaUrls = @(
   "http://localhost:8080/IA/Consumo"
 )
 $IaUrls | ForEach-Object { Write-Host "IA SIGOV: $_" }
+
+# Pós-Build 12 - Mobile/PWA, Campo, Offline First e Georreferenciamento
+$MobileCampoUrls = @(
+  "http://localhost:8080/Mobile",
+  "http://localhost:8080/Mobile/Home",
+  "http://localhost:8080/Mobile/Agenda",
+  "http://localhost:8080/Mobile/Atividades",
+  "http://localhost:8080/Mobile/Sync",
+  "http://localhost:8080/Mobile/Offline",
+  "http://localhost:8080/Campo/Dashboard",
+  "http://localhost:8080/Campo/Atividades",
+  "http://localhost:8080/Campo/Visitas",
+  "http://localhost:8080/Campo/Rotas",
+  "http://localhost:8080/Campo/Checklists",
+  "http://localhost:8080/Campo/Formularios",
+  "http://localhost:8080/Campo/Dispositivos",
+  "http://localhost:8080/Campo/Sincronizacao"
+)
+$MobileCampoUrls | ForEach-Object { Write-Host "Mobile/Campo SIGOV: $_" }
