@@ -56,7 +56,13 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Create("ia_relatorios", "IA Relatórios", "Inteligência", "Geração assistida de relatórios textuais operacionais, financeiros e fiscais.", ModuleStatus.Disponivel, "bi-bar-chart-line", "/IA/Relatorios", "ia.relatorios.gerar"),
             Create("ia_automacoes", "IA Automações", "Inteligência", "Sugestões, alertas e workflows inteligentes com confirmação humana para ações críticas.", ModuleStatus.Disponivel, "bi-diagram-3", "/IA/Automacoes", "ia.automacoes.visualizar"),
             Create("ia_predicoes", "IA Predições", "Inteligência", "Predições iniciais por regras para inadimplência, ruptura, OS, contratos e produção.", ModuleStatus.Beta, "bi-graph-up-arrow", "/IA/Predicoes", "ia.predicoes.visualizar"),
-            Create("financeiro_publico", "Financeiro Público", "Gestão pública", "Módulo futuro para evolução SIAFIC, execução pública e integrações governamentais.", ModuleStatus.EmImplantacao, "bi-building-lock", "/Financeiro/Dashboard", "financeiro_publico.visualizar")
+            Create("financeiro_publico", "Financeiro Público", "Gestão pública", "Módulo futuro para evolução SIAFIC, execução pública e integrações governamentais.", ModuleStatus.EmImplantacao, "bi-building-lock", "/Financeiro/Dashboard", "financeiro_publico.visualizar"),
+            Create("mobile_pwa", "Mobile PWA", "Campo e mobilidade", "PWA responsivo, instalável e mobile-first com offline page, cache estático, indicadores de conexão e sincronização.", ModuleStatus.Beta, "bi-phone", "/Mobile/Home", "mobile.acessar"),
+            Create("campo_operacional", "Campo Operacional", "Campo e mobilidade", "Agenda, atividades, visitas, checklists, evidências e operação de equipes externas com auditoria por tenant.", ModuleStatus.Beta, "bi-geo-alt", "/Campo/Dashboard", "campo.dashboard.visualizar"),
+            Create("georreferenciamento", "Georreferenciamento", "Campo e mobilidade", "Coleta opcional de coordenadas com consentimento/regra operacional, rotas, mapa e trilhas de localização.", ModuleStatus.Beta, "bi-map", "/Mobile/Mapa", "campo.localizacao.enviar"),
+            Create("offline_sync", "Offline Sync", "Campo e mobilidade", "Sincronização offline-first por dispositivo, lote, item, tenant, usuário, status e correlationId.", ModuleStatus.Beta, "bi-cloud-arrow-up", "/Mobile/Sync", "mobile.sincronizar"),
+            Create("assinatura_campo", "Assinatura em Campo", "Campo e mobilidade", "Coleta de assinatura com hash, evidência, geolocalização opcional e proteção LGPD.", ModuleStatus.Beta, "bi-pen", "/Mobile/Assinatura", "campo.assinatura.coletar"),
+            Create("notificacoes_mobile", "Notificações Mobile", "Campo e mobilidade", "Notificações internas simuladas para equipes mobile sem dependência de push externo real.", ModuleStatus.Beta, "bi-bell", "/Mobile/Notificacoes", "campo.notificacoes.visualizar")
         };
 
         return modules;
@@ -84,7 +90,13 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModuleCatalogPackage("AI_ENTERPRISE", "AI Enterprise", new[] { "ia_assistente", "ia_documental", "ia_relatorios", "ia_automacoes", "ia_predicoes", "integracoes" }),
             new ModuleCatalogPackage("BUSINESS_FULL_AI", "Business Full AI", new[] { "comercial", "financeiro_empresarial", "estoque_compras", "ordem_servico", "ia_assistente", "ia_relatorios", "ia_automacoes" }),
             new ModuleCatalogPackage("GOV_FULL_AI", "Gov Full AI", new[] { "tributario", "protocolo", "ged", "contratos", "financeiro_publico", "ia_assistente", "ia_documental", "ia_relatorios", "ia_automacoes" }),
-            new ModuleCatalogPackage("GOV_PLUS", "Gov Plus", new[] { "financeiro_publico", "tributario", "contrato", "compras", "rh", "processos", "ged", "ocr", "fluxo" })
+            new ModuleCatalogPackage("GOV_PLUS", "Gov Plus", new[] { "financeiro_publico", "tributario", "contrato", "compras", "rh", "processos", "ged", "ocr", "fluxo" }),
+            new ModuleCatalogPackage("CAMPO_STARTER", "Campo Starter", new[] { "mobile_pwa", "campo_operacional", "offline_sync" }),
+            new ModuleCatalogPackage("FIELD_SERVICE_PRO", "Field Service Pro", new[] { "mobile_pwa", "campo_operacional", "ordem_servico", "georreferenciamento", "assinatura_campo", "notificacoes_mobile" }),
+            new ModuleCatalogPackage("SAUDE_CAMPO", "Saúde Campo", new[] { "mobile_pwa", "saude", "campo_operacional", "georreferenciamento", "offline_sync" }),
+            new ModuleCatalogPackage("SANEAMENTO_CAMPO", "Saneamento Campo", new[] { "mobile_pwa", "saneamento", "ordem_servico", "georreferenciamento", "offline_sync" }),
+            new ModuleCatalogPackage("AGRO_CAMPO", "Agro Campo", new[] { "mobile_pwa", "agro", "campo_operacional", "georreferenciamento", "offline_sync" }),
+            new ModuleCatalogPackage("GOV_CAMPO_FULL", "Gov Campo Full", new[] { "mobile_pwa", "protocolo", "tributario", "saude", "saneamento", "agro", "social", "georreferenciamento", "offline_sync", "assinatura_campo" })
         };
     }
 

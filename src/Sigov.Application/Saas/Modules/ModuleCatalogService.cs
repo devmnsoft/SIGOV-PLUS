@@ -51,6 +51,12 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("comercio_atacado", "Comércio Atacadista", "Base comercial B2B atacadista integrada a pedidos e estoque.", "Comércio", true, true, new[] { "comercial", "estoque_compras" }),
             Module("industria_producao", "Indústria e Produção", "Produção por ordem, BOM, roteiro, chão de fábrica, qualidade e custos integrados.", "Indústria", true, true, new[] { "core", "estoque_compras" }),
             Module("financeiro_empresarial", "Financeiro Empresarial", "Eventos financeiros futuros para vendas, OS e compras.", "Empresarial", true, true, new[] { "comercial" }),
+            Module("mobile_pwa", "Mobile PWA", "PWA instalável, responsivo, offline e com navegação mobile-first.", "Campo e Mobilidade", true, true, new[] { "core", "seguranca", "lgpd" }),
+            Module("campo_operacional", "Campo Operacional", "Atividades, visitas, checklists, evidências, assinaturas e equipes externas por tenant.", "Campo e Mobilidade", true, true, new[] { "mobile_pwa", "core" }),
+            Module("georreferenciamento", "Georreferenciamento", "Localizações consentidas, rotas, mapa e regras operacionais de coleta.", "Campo e Mobilidade", true, true, new[] { "campo_operacional" }),
+            Module("offline_sync", "Offline Sync", "Lotes e itens de sincronização offline-first por dispositivo, usuário, tenant e correlationId.", "Campo e Mobilidade", true, true, new[] { "mobile_pwa" }),
+            Module("assinatura_campo", "Assinatura em Campo", "Assinatura coletada em dispositivo com hash, evidência e auditoria.", "Campo e Mobilidade", true, true, new[] { "campo_operacional" }),
+            Module("notificacoes_mobile", "Notificações Mobile", "Notificações internas simuladas para agenda, sync e campo sem push externo real.", "Campo e Mobilidade", true, true, new[] { "mobile_pwa" }),
             Module("ged", "GED/OCR e Automação Documental", "GED completo com upload/download, OCR simulado, metadados, histórico e auditoria.", "Documentos", true, true, new[] { "core", "auditoria", "lgpd" }),
             Module("ocr", "OCR Documental", "Indexação OCR simulada para documentos e anexos do GED.", "Documentos", true, true, new[] { "ged" }),
             Module("contrato", "Contratos e Assinaturas", "Contratos, documentos jurídicos e assinatura digital simulada.", "Jurídico", true, true, new[] { "ged", "comercial", "financeiro_empresarial" }),
@@ -100,6 +106,12 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             new ModulePackageItem("FACTORY_FULL", "Factory Full", "Operação fabril completa com comercial atacadista, produção, estoque e financeiro.", new[] { "industria_producao", "manutencao_industrial", "ordem_servico", "estoque_compras", "comercial", "comercio_atacado", "financeiro_empresarial" }),
             new ModulePackageItem("SERVICE_DESK_PRO", "Service Desk Pro", "Serviços com comercial, OS, contratos, GED e financeiro futuro.", new[] { "comercial", "ordem_servico", "contrato", "ged", "ocr", "fluxo", "financeiro_empresarial" }),
             new ModulePackageItem("GED_AUTOMACAO_PLUS", "GED Automação Plus", "GED, OCR, contratos, assinatura simulada e workflow documental.", new[] { "ged", "ocr", "contrato", "fluxo", "processos", "integracoes", "auditoria", "lgpd" }),
+            new ModulePackageItem("CAMPO_STARTER", "Campo Starter", "PWA e operação offline essencial para equipes externas.", new[] { "mobile_pwa", "campo_operacional", "offline_sync" }),
+            new ModulePackageItem("FIELD_SERVICE_PRO", "Field Service Pro", "OS mobile com georreferenciamento, assinatura e notificações internas.", new[] { "mobile_pwa", "campo_operacional", "ordem_servico", "georreferenciamento", "assinatura_campo", "notificacoes_mobile" }),
+            new ModulePackageItem("SAUDE_CAMPO", "Saúde Campo", "ACS e visitas domiciliares offline com georreferenciamento controlado.", new[] { "mobile_pwa", "saude", "campo_operacional", "georreferenciamento", "offline_sync" }),
+            new ModulePackageItem("SANEAMENTO_CAMPO", "Saneamento Campo", "Leituras, vistorias e OS de saneamento em campo.", new[] { "mobile_pwa", "saneamento", "ordem_servico", "georreferenciamento", "offline_sync" }),
+            new ModulePackageItem("AGRO_CAMPO", "Agro Campo", "Visitas a produtores e propriedades com fotos, coordenadas e checklist técnico.", new[] { "mobile_pwa", "agro", "campo_operacional", "georreferenciamento", "offline_sync" }),
+            new ModulePackageItem("GOV_CAMPO_FULL", "Gov Campo Full", "Pacote governamental mobile completo para fiscais, ACS, agro, social e saneamento.", new[] { "mobile_pwa", "protocolo", "tributario", "saude", "saneamento", "agro", "social", "georreferenciamento", "offline_sync", "assinatura_campo" }),
             new ModulePackageItem("COMPLETO", "Completo", "Todos os módulos integrados do sigov.", todos)
         };
     }

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>@(ViewData["Title"] ?? "sigov") - sigov</title>
   <link rel="icon" href="~/img/sigov-favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0d6efd">
   <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="~/css/site.css" rel="stylesheet">
   <link href="~/css/sigov-brand.css" rel="stylesheet">
@@ -56,6 +58,7 @@
   <script src="~/js/sigov.modules.js"></script>
   <script src="~/js/sigov.onboarding.js"></script>
   <script src="~/js/sigov.tour.js"></script>
+  <script src="~/js/sigov.mobile.js"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

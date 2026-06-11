@@ -40,3 +40,6 @@ Entregue base de IA segura por tenant: assistentes, documental, sugestões, auto
 ### Próxima evolução recomendada
 
 Pós-Build 12 — Mobile, PWA e Aplicativos de Campo: aplicativo offline, coleta em campo, assinatura em campo, visitas, OS mobile, ACS/Saúde mobile, leitura de hidrômetros, georreferenciamento e sincronização offline.
+
+## Pós-Build 12 — Mobile, PWA e Campo
+Entregue base PWA instalável, operação em campo, offline sync, georreferenciamento, evidências, assinatura, notificações internas e billing mobile/campo. Próxima evolução recomendada: Pós-Build 13 — Integrações Externas e Barramento de Eventos.

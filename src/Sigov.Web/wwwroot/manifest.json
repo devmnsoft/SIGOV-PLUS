@@ -1,0 +1,21 @@
+{
+  "name": "SIGOV PLUS Campo",
+  "short_name": "SIGOV Campo",
+  "description": "PWA mobile-first do SIGOV PLUS para equipes em campo com offline sync, georreferenciamento e evidências.",
+  "start_url": "/Mobile/Home",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d6efd",
+  "theme_color": "#0d6efd",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/img/sigov-pwa-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/img/sigov-pwa-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Agenda", "url": "/Mobile/Agenda" },
+    { "name": "Sincronização", "url": "/Mobile/Sync" },
+    { "name": "Offline", "url": "/Mobile/Offline" }
+  ]
+}

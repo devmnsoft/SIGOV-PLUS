@@ -41,3 +41,9 @@ Novos módulos contratáveis: `ia_assistente`, `ia_documental`, `ia_relatorios`,
 Pacotes sugeridos: `AI_STARTER`, `AI_DOCUMENTAL`, `AI_ENTERPRISE`, `BUSINESS_FULL_AI` e `GOV_FULL_AI`.
 
 Add-ons: `ia_1000_interacoes`, `ia_10000_interacoes`, `ia_ocr_avancado`, `ia_relatorios_avancados` e `ia_automacoes_avancadas`.
+
+## Pacotes Mobile/Campo
+- `CAMPO_STARTER`: `mobile_pwa`, `campo_operacional`, `offline_sync`.
+- `FIELD_SERVICE_PRO`: `mobile_pwa`, `campo_operacional`, `ordem_servico`, `georreferenciamento`, `assinatura_campo`, `notificacoes_mobile`.
+- `SAUDE_CAMPO`, `SANEAMENTO_CAMPO`, `AGRO_CAMPO`, `GOV_CAMPO_FULL` segmentam equipes externas por vertical.
+- Add-ons: `mobile_usuarios_extra`, `storage_fotos_campo`, `geolocalizacao_avancada`, `sincronizacao_offline_avancada`.
