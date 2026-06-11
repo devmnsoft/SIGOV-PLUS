@@ -375,7 +375,27 @@ select tenant_id,cliente_id,vendedor_id,tabela_preco_id,id,concat('P-',numero),s
     private async Task<ActionResult<ApiResponse<object>>> CalcularComissoesAsync(CalcularComissaoRequest r)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var venda = await c.QuerySingleOrDefaultAsync<dynamic>("select id,total,vendedor_id,status from sigov.comercio_venda where id=@VendaId and tenant_id=@TenantId", new { r.VendaId, TenantId = tenantId }); if (venda is null || venda.status != "FINALIZADA") return UnprocessableEntity(ApiResponse<object>.Fail("Comissão calculada apenas sobre venda finalizada.", cid)); var percentual = r.Percentual <= 0 ? 1 : r.Percentual; var valor = ((decimal)venda.total) * percentual / 100m; var id = await c.ExecuteScalarAsync<long>("insert into sigov.comercio_comissao(tenant_id,venda_id,vendedor_id,base_calculo,percentual,valor) values(@TenantId,@VendaId,@VendedorId,@Base,@Percentual,@Valor) returning id", new { TenantId = tenantId, r.VendaId, VendedorId = (long?)venda.vendedor_id, Base = (decimal)venda.total, Percentual = percentual, Valor = valor }); return Ok(ApiResponse<object>.Ok(new { id, valor }, correlationId: cid)); }
+        try
+        {
+            var tenantId = RequireTenant();
+            using var c = _context.CreateConnection();
+            var venda = await c.QuerySingleOrDefaultAsync<ComissaoVenda>("select id as Id,total as Total,vendedor_id as VendedorId,status as Status from sigov.comercio_venda where id=@VendaId and tenant_id=@TenantId", new { r.VendaId, TenantId = tenantId });
+
+            if (venda is null)
+            {
+                return NotFound(ApiResponse<object>.Fail("Venda não encontrada.", cid));
+            }
+
+            if (!string.Equals(venda.Status, "FINALIZADA", StringComparison.OrdinalIgnoreCase))
+            {
+                return UnprocessableEntity(ApiResponse<object>.Fail("Comissão calculada apenas sobre venda finalizada.", cid));
+            }
+
+            var percentual = r.Percentual <= 0 ? 1 : r.Percentual;
+            var valor = venda.Total * percentual / 100m;
+            var id = await c.ExecuteScalarAsync<long>("insert into sigov.comercio_comissao(tenant_id,venda_id,vendedor_id,base_calculo,percentual,valor) values(@TenantId,@VendaId,@VendedorId,@Base,@Percentual,@Valor) returning id", new { TenantId = tenantId, r.VendaId, VendedorId = venda.VendedorId, Base = venda.Total, Percentual = percentual, Valor = valor });
+            return Ok(ApiResponse<object>.Ok(new { id, valor }, correlationId: cid));
+        }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao calcular comissão. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao calcular comissão.", cid)); }
     }
 
@@ -494,6 +514,7 @@ select tenant_id,cliente_id,vendedor_id,tabela_preco_id,id,concat('P-',numero),s
     }
 
     private sealed record VendaResumo(long Id, decimal Total, string Status, string Tipo, long? CaixaId, bool EstoqueBaixado);
+    private sealed record ComissaoVenda(long Id, decimal Total, long? VendedorId, string Status);
 }
 
 public sealed record ClienteRequest(string Nome, string? TipoPessoa, string? Documento, string? Email, string? Telefone, string? EnderecoJson, decimal? LimiteCredito);
