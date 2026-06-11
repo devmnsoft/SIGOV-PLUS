@@ -21,9 +21,10 @@ values
 ('agro','servico_maquina','visualizar','agro.servico_maquina.visualizar','Visualizar serviços de máquinas.',true),('agro','servico_maquina','criar','agro.servico_maquina.criar','Criar serviços de máquinas.',true),('agro','servico_maquina','editar','agro.servico_maquina.editar','Editar serviços de máquinas.',true),('agro','servico_maquina','agendar','agro.servico_maquina.agendar','Agendar serviços de máquinas.',true),('agro','servico_maquina','executar','agro.servico_maquina.executar','Executar serviços de máquinas.',true),('agro','servico_maquina','cancelar','agro.servico_maquina.cancelar','Cancelar serviços de máquinas.',true),('agro','servico_maquina','excluir','agro.servico_maquina.excluir','Excluir serviços de máquinas.',true)
 on conflict (modulo, recurso, acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id from sigov.perfil_acesso pa join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false
-where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') on conflict do nothing;
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false
+where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.tenant_feature_flag (tenant_id, feature_flag_def_id, habilitado, ativo)
 select t.id, f.id, true, true from sigov.tenant t join sigov.feature_flag_def f on f.modulo='agro' and f.codigo like 'agro.%' where t.ativo=true and t.is_deleted=false on conflict (tenant_id, feature_flag_def_id) do nothing;

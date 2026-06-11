@@ -11,6 +11,10 @@ on conflict (codigo) do update set
     icone = excluded.icone,
     ativo = true;
 
+insert into sigov.tenant (nome, nome_fantasia, slug, status, ambiente, ativo, data_inicio_operacao, created_at)
+values ('Plataforma SIGOV', 'Plataforma SIGOV', 'plataforma', 'ATIVO', 'PRODUCTION', true, now(), now())
+on conflict (slug) do nothing;
+
 insert into sigov.tenant_modulo (tenant_id, modulo_saas_id, habilitado, contratado, ativo)
 select t.id, m.id, true, true, true
   from sigov.tenant t
@@ -71,17 +75,45 @@ begin
     end if;
 end $$;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select
+       coalesce(pa.tenant_id, t.id) as tenant_id,
+       pa.id as perfil_acesso_id,
+       p.id as permissao_id
   from sigov.perfil_acesso pa
-  join sigov.permissao p on p.modulo = 'agro' and p.ativo = true and p.is_deleted = false
+  cross join lateral (
+      select id
+        from sigov.tenant
+       where slug = 'plataforma'
+       order by id
+       limit 1
+  ) t
+  join sigov.permissao p
+    on p.modulo = 'agro'
+   and p.ativo = true
+   and p.is_deleted = false
  where pa.ativo = true
    and pa.is_deleted = false
    and (
-        coalesce(pa.codigo_externo, upper(replace(pa.nome, ' ', '_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE')
+        coalesce(pa.codigo_externo, upper(replace(pa.nome, ' ', '_'))) in (
+            'ADMINISTRADOR_GERAL',
+            'ADMINISTRADOR_TENANT',
+            'ADMINISTRADOR_ENTIDADE',
+            'COORDENADOR',
+            'DIRETOR',
+            'OPERADOR',
+            'AUDITOR',
+            'SUPORTE'
+        )
         or upper(pa.nome) like '%ADMINISTRADOR%'
    )
-on conflict do nothing;
+   and not exists (
+       select 1
+         from sigov.perfil_permissao pp
+        where pp.tenant_id = coalesce(pa.tenant_id, t.id)
+          and pp.perfil_acesso_id = pa.id
+          and pp.permissao_id = p.id
+   );
 
 create table if not exists sigov.agro_geo_camada (
     id bigint generated always as identity primary key,

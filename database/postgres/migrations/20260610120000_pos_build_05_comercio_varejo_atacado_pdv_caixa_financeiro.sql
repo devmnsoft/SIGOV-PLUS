@@ -379,27 +379,30 @@ insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('financeiro','contas_receber','receber','financeiro.contas_receber.receber','Receber contas a receber comerciais',true)
 on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.ativo=true and p.is_deleted=false and (p.modulo in ('comercio','financeiro') or p.chave like 'financeiro.contas_receber.%')
 where pa.ativo=true and pa.is_deleted=false
   and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','GERENTE_COMERCIAL') or upper(pa.nome) like '%ADMIN%')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('comercio.pdv.acessar','comercio.vendas.criar','comercio.vendas.finalizar','comercio.caixa.abrir','comercio.caixa.fechar','comercio.caixa.suprimento','comercio.caixa.sangria')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('OPERADOR_CAIXA','CAIXA')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id)
-select pa.id, p.id
+insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
+select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('comercio.clientes.visualizar','comercio.clientes.criar','comercio.clientes.editar','comercio.orcamentos.visualizar','comercio.orcamentos.criar','comercio.pedidos.visualizar','comercio.pedidos.criar','comercio.vendas.criar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('VENDEDOR','REPRESENTANTE')
-on conflict do nothing;
+and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.tenant_modulo_pacote (codigo, nome, descricao, modulos_json) values
 ('COMERCIO_STARTER','Comércio Starter','Varejo com PDV, caixa e estoque.','["comercial","comercio_varejo","pdv","caixa","estoque_compras"]'::jsonb),
