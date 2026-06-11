@@ -306,9 +306,9 @@ public sealed class IndustriaController : ControllerBase
             if (!HasPermission("industria.ordens.criar")) return Forbid();
             if (r.ProdutoId <= 0 || r.QuantidadePlanejada <= 0) return BadRequest(ApiResponse<object>.Fail("Produto e quantidade planejada são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
-            var produto = await c.QuerySingleOrDefaultAsync<dynamic>("select ativo, exige_ficha_tecnica from sigov.industria_produto where id=@ProdutoId and tenant_id=@TenantId", new { r.ProdutoId, TenantId = tenantId });
-            if (produto is null || produto.ativo == false) return UnprocessableEntity(ApiResponse<object>.Fail("Não é permitido criar ordem para produto inativo ou inexistente.", cid));
-            if (produto.exige_ficha_tecnica == true && !r.FichaTecnicaId.HasValue) return UnprocessableEntity(ApiResponse<object>.Fail("Ficha técnica obrigatória para este produto.", cid));
+            var produto = await c.QuerySingleOrDefaultAsync<ProdutoOrdemValidacao>("select ativo as Ativo, exige_ficha_tecnica as ExigeFichaTecnica from sigov.industria_produto where id=@ProdutoId and tenant_id=@TenantId", new { r.ProdutoId, TenantId = tenantId });
+            if (produto is null || !produto.Ativo) return UnprocessableEntity(ApiResponse<object>.Fail("Não é permitido criar ordem para produto inativo ou inexistente.", cid));
+            if (produto.ExigeFichaTecnica && !r.FichaTecnicaId.HasValue) return UnprocessableEntity(ApiResponse<object>.Fail("Ficha técnica obrigatória para este produto.", cid));
             var numero = string.IsNullOrWhiteSpace(r.Numero) ? $"OP-{DateTime.UtcNow:yyyyMMddHHmmss}" : r.Numero;
             var id = await c.ExecuteScalarAsync<long>("insert into sigov.industria_ordem_producao(tenant_id,numero,produto_id,ficha_tecnica_id,roteiro_id,pedido_id,quantidade_planejada,data_previsao_inicio,data_previsao_fim,observacao) values(@TenantId,@Numero,@ProdutoId,@FichaTecnicaId,@RoteiroId,@PedidoId,@QuantidadePlanejada,@DataPrevisaoInicio,@DataPrevisaoFim,@Observacao) returning id", new { TenantId = tenantId, Numero = numero, r.ProdutoId, r.FichaTecnicaId, r.RoteiroId, r.PedidoId, r.QuantidadePlanejada, r.DataPrevisaoInicio, r.DataPrevisaoFim, r.Observacao });
             await Historico(c, tenantId, id, null, "PLANEJADA", "API", "ORDEM_PRODUCAO_CRIADA", cid);
@@ -569,6 +569,8 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);
     private static int Offset(int page, int pageSize) => (Math.Max(1, page) - 1) * Limit(pageSize);
     private bool HasPermission(string permission) => User.Identity?.IsAuthenticated != true || User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.Claims.Any(c => (c.Type == "permission" || c.Type == ClaimTypes.Role) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
+
+    private sealed record ProdutoOrdemValidacao(bool Ativo, bool ExigeFichaTecnica);
 }
 
 public sealed record IndustriaStatusRequest(bool Ativo);
