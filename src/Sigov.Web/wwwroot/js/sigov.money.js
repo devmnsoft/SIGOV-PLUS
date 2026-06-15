@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    console.info('SIGOV money loaded safely v3');
+
     function onlyDigits(value) {
         return (value || '').toString().replace(/\D/g, '');
     }
@@ -71,6 +73,8 @@
                 var inputs = form.querySelectorAll('[data-sigov-money], .sigov-money, .money');
 
                 Array.prototype.forEach.call(inputs, function (input) {
+                    if (!input) return;
+
                     var hiddenName = input.getAttribute('data-sigov-money-target');
 
                     if (!hiddenName) return;
@@ -90,9 +94,13 @@
         bindFormSubmit(root);
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            bind(document);
+        });
+    } else {
         bind(document);
-    });
+    }
 
     window.SigovMoney = {
         bind: bind,

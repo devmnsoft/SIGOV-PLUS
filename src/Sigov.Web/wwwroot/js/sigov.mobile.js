@@ -10,7 +10,19 @@
   updateOnline();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js').catch(() => undefined);
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        registrations.forEach(function (registration) {
+          registration.unregister();
+        });
+      });
+    } else {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+          console.warn('Service Worker não registrado:', error);
+        });
+      });
+    }
   }
 
   window.sigovMobile = {

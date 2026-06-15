@@ -36,7 +36,15 @@ function isCacheableRequest(request) {
 
 self.addEventListener('install', function (event) {
   event.waitUntil(caches.open(CACHE_NAME).then(function (cache) {
-    return cache.addAll(STATIC_ASSETS);
+    return Promise.all(STATIC_ASSETS.map(function (asset) {
+      var request = new Request(asset);
+
+      if (!isCacheableRequest(request)) return Promise.resolve();
+
+      return cache.add(request).catch(function () {
+        // ignora falhas de cache durante a instalação
+      });
+    }));
   }).then(function () {
     return self.skipWaiting();
   }));
