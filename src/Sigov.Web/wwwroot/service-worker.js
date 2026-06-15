@@ -28,14 +28,19 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request;
+  const url = new URL(request.url);
   if (request.method !== 'GET') return;
-  if (request.url.includes('/api/')) {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes('/api/')) {
     event.respondWith(fetch(request).catch(() => new Response(JSON.stringify({ success: false, message: 'Offline: dado será sincronizado depois.' }), { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
   event.respondWith(fetch(request).then(response => {
     const copy = response.clone();
-    caches.open(SIGOV_CACHE).then(cache => cache.put(request, copy));
+    if (response && response.ok) {
+      caches.open(SIGOV_CACHE).then(cache => cache.put(request, copy));
+    }
     return response;
   }).catch(() => caches.match(request).then(cached => cached || caches.match('/offline') || caches.match('/Mobile/Offline'))));
 });
