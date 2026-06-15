@@ -1,16 +1,23 @@
-<nav class="sigov-topbar navbar navbar-expand-lg" aria-label="Barra superior SIGOV">
-  <div class="container-fluid gap-3">
-    <button class="btn btn-outline-primary d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#sigovSidebar" aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu">☰</button>
-    <a class="navbar-brand d-flex align-items-center gap-2" href="/Dashboard">
-      <img class="sigov-logo" src="~/img/sigov-logo.svg" alt="sigov" />
+<nav class="sigov-topbar" aria-label="Barra superior SIGOV">
+  <div class="sigov-topbar__left">
+    <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu">☰</button>
+    <a class="sigov-brand" href="/Dashboard" aria-label="Ir para o dashboard">
+      <img class="sigov-logo" src="~/img/sigov-logo.svg" alt="SIGOV PLUS" />
+      <span class="sigov-brand__text">SIGOV <strong>PLUS</strong></span>
     </a>
-    <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
-      <span class="badge text-bg-light border" id="sigov-tenant-status">Tenant atual • Entidade • Exercício</span>
-      <span class="badge text-bg-info">@(System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")</span>
-      <a class="btn btn-sm btn-outline-secondary" href="/Ajuda" aria-label="Abrir central de ajuda">Ajuda</a>
-      <button class="btn btn-sm btn-outline-secondary" type="button" data-sigov-theme-toggle aria-label="Alternar tema claro ou escuro">Tema</button>
-      <a class="btn btn-sm btn-outline-primary" href="/Operacao/Health">Health</a>
-      <a class="btn btn-sm btn-primary" href="/Auth/Logout">Sair</a>
-    </div>
+  </div>
+  <div class="sigov-topbar__context" aria-label="Contexto da sessão">
+    <span class="sigov-context-pill">Tenant: <strong>Principal</strong></span>
+    <span class="sigov-context-pill">Entidade: <strong>Matriz</strong></span>
+    <span class="sigov-context-pill">Exercício: <strong>@DateTime.UtcNow.Year</strong></span>
+    <span class="sigov-badge sigov-badge--success">Ambiente seguro</span>
+    <span class="sigov-badge sigov-badge--info">@(System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")</span>
+  </div>
+  <div class="sigov-topbar__actions">
+    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Operacao/Health">Health</a>
+    <button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="button" data-sigov-theme-toggle>Tema</button>
+    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Ajuda">Ajuda</a>
+    <span class="sigov-user-chip">Admin</span>
+    <a class="sigov-btn sigov-btn--primary sigov-btn--sm" href="/Auth/Logout">Sair</a>
   </div>
 </nav>

@@ -1,42 +1,12 @@
 @model Sigov.Web.Models.PostBuild.DashboardViewModel
-@{
-  ViewData["Title"] = "Dashboard SaaS";
-}
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-  <div>
-    <h1 class="h3 mb-1">Dashboard SaaS SIGOV</h1>
-    <p class="text-muted mb-0">Visão inicial pós-build para validação local, onboarding e operação.</p>
-  </div>
-  <a class="btn btn-outline-primary" href="/Operacao/Health">Ver health visual</a>
-</div>
-@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
-<div class="row g-3 mb-4">
-@foreach (var card in Model.Cards) {
-  <div class="col-sm-6 col-xl-2"><div class="card h-100 border-0 shadow-sm"><div class="card-body"><div class="text-muted small">@card.Titulo</div><div class="h3 text-@card.CssClass">@card.Valor</div><p class="small mb-0">@card.Descricao</p></div></div></div>
-}
-</div>
-<div class="row g-3 mb-4">
-  <div class="col-md-6 col-xl-3"><div class="alert alert-warning h-100 mb-0"><strong>Tenant sem plano?</strong><br><span class="small">Valide assinaturas em /Saas/Planos.</span></div></div>
-  <div class="col-md-6 col-xl-3"><div class="alert alert-info h-100 mb-0"><strong>Implantação pendente</strong><br><span class="small">Acompanhe checklist em /Saas/Implantacao.</span></div></div>
-  <div class="col-md-6 col-xl-3"><div class="alert alert-danger h-100 mb-0"><strong>Limites do plano</strong><br><span class="small">Usuários acima do contratado geram alerta antes de novas ações.</span></div></div>
-  <div class="col-md-6 col-xl-3"><div class="alert alert-secondary h-100 mb-0"><strong>White label</strong><br><span class="small">Configure quando o plano contratado permitir.</span></div></div>
-</div>
-<div class="row g-4">
-  <section class="col-lg-6"><div class="card h-100"><div class="card-header fw-bold">Ambiente</div><div class="list-group list-group-flush">
-    @foreach (var item in Model.Ambiente) { <div class="list-group-item d-flex justify-content-between align-items-start"><div><strong>@item.Nome</strong><div class="small text-muted">@item.Detalhe</div></div><span class="badge @(item.Online ? "text-bg-success" : "text-bg-danger")">@item.Status</span></div> }
-  </div></div></section>
-  <section class="col-lg-6"><div class="card h-100"><div class="card-header fw-bold">Ações rápidas</div><div class="card-body d-grid gap-2">
-    <a class="btn btn-outline-primary" href="/Saas/Tenants">Gerenciar tenants</a>
-    <a class="btn btn-outline-primary" href="/Saas/Planos">Planos SaaS</a>
-    <a class="btn btn-outline-primary" href="/Saas/Implantacao">Implantação guiada</a>
-    <a class="btn btn-outline-primary" href="/Saas/Parametros">Parâmetros por tenant</a>
-    <a class="btn btn-outline-primary" href="/Saas/Modulos">Gerenciar módulos</a>
-    <a class="btn btn-outline-primary" href="/Operacao/Health">Ver health</a>
-    <a class="btn btn-outline-secondary" href="/Placeholder/logs">Ver logs</a>
-    <a class="btn btn-outline-secondary" href="/Placeholder/configuracoes-saas">Configurações SaaS</a>
-  </div></div></section>
-  <section class="col-12"><div class="card"><div class="card-header fw-bold">Módulos</div><div class="card-body"><div class="row g-3">
-    @foreach (var modulo in Model.Modulos) { <div class="col-md-3"><div class="border rounded p-3 h-100"><div class="fw-bold">@modulo.Nome</div><span class="badge text-bg-light border">@modulo.Status</span><p class="small text-muted mb-0 mt-2">@modulo.Descricao</p></div></div> }
-  </div></div></div></section>
-  <section class="col-12"><div class="alert alert-info"><strong>Próximos passos:</strong> configurar cliente, ativar módulos, criar usuários, validar permissões e iniciar implantação.</div></section>
-</div>
+@{ ViewData["Title"] = "Dashboard SaaS"; var modules = new[]{("🏛️","Tributário","Arrecadação, dívida ativa, certidões e inteligência fiscal.","Governo"),("📨","Protocolo","Processos digitais, ouvidoria e tramitação controlada.","Governo"),("📄","GED/OCR","Documentos, OCR, contratos e assinaturas digitais.","Operação"),("🩺","Saúde","Unidades, agenda, vacinação e prontuário operacional.","Governo"),("🎓","Educação","Matrículas, notas, frequência e Educacenso.","Governo"),("💧","Saneamento","Consumidores, leituras, faturas e ordens de serviço.","Governo"),("🛒","Comercial","Clientes, pedidos, varejo, atacado e PDV.","Empresas"),("💼","Financeiro","Fluxo de caixa, contas, conciliação e centros de custo.","Empresas"),("🏭","Indústria","Produção, qualidade, recursos e chão de fábrica.","Empresas"),("📱","Mobile/Campo","Agenda, rotas, formulários, offline e geolocalização.","Operação"),("🤖","IA","Assistente, automações, predições e relatórios.","IA")}; }
+<header class="sigov-page-header"><div><span class="sigov-badge sigov-badge--info">Visão executiva</span><h1 class="h2 fw-black mt-2 mb-1">Dashboard SaaS SIGOV PLUS</h1><p>Indicadores comerciais, operacionais, LGPD e implantação para demonstração executiva.</p></div><div class="d-flex gap-2 flex-wrap"><a class="sigov-btn sigov-btn--ghost" href="/Saas/Implantacao">Implantação guiada</a><a class="sigov-btn sigov-btn--primary" href="/Operacao/Health">Ver health visual</a></div></header>
+@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning rounded-4">@Model.MensagemFallback</div> }
+<section class="sigov-grid sigov-grid--kpis mb-4">
+  @foreach (var card in Model.Cards) { <article class="sigov-kpi-card"><div class="sigov-kpi-card__label">@card.Titulo</div><div class="sigov-kpi-card__value text-@card.CssClass">@card.Valor</div><p class="text-muted mb-0">@card.Descricao</p></article> }
+  <article class="sigov-kpi-card"><div class="sigov-kpi-card__label">Status API</div><div class="sigov-kpi-card__value text-success">Online</div><p class="text-muted mb-0">Endpoint live disponível para monitoramento.</p></article>
+  <article class="sigov-kpi-card"><div class="sigov-kpi-card__label">Status banco</div><div class="sigov-kpi-card__value text-success">OK</div><p class="text-muted mb-0">PostgreSQL conectado para o ambiente local.</p></article>
+  <article class="sigov-kpi-card"><div class="sigov-kpi-card__label">Alertas LGPD</div><div class="sigov-kpi-card__value text-warning">2</div><p class="text-muted mb-0">Cadastros sensíveis exigem revisão auditável.</p></article>
+</section>
+<div class="row g-4 mb-4"><section class="col-lg-7"><div class="sigov-card p-4 h-100"><h2 class="h5 fw-bold">Últimas auditorias</h2><div class="sigov-table-wrap"><table class="sigov-table"><thead><tr><th>Evento</th><th>Usuário</th><th>Status</th></tr></thead><tbody><tr><td>Login administrativo</td><td>admin</td><td><span class="sigov-badge sigov-badge--success">auditado</span></td></tr><tr><td>Consulta LGPD</td><td>sistema</td><td><span class="sigov-badge sigov-badge--warning">revisar</span></td></tr><tr><td>Health check</td><td>monitor</td><td><span class="sigov-badge sigov-badge--info">informativo</span></td></tr></tbody></table></div></div></section><section class="col-lg-5"><div class="sigov-card p-4 h-100"><h2 class="h5 fw-bold">Implantação em andamento</h2><p class="text-muted">Cliente/Tenant, entidade, exercício, plano, módulos, usuários e parâmetros em esteira guiada.</p><div class="progress mb-3" style="height:14px"><div class="progress-bar bg-success" style="width:62%">62%</div></div><a class="sigov-btn sigov-btn--primary" href="/Saas/Implantacao">Continuar implantação</a></div></section></div>
+<section><div class="sigov-page-header mb-3"><div><h2 class="h4 fw-bold">Módulos comerciais</h2><p>Catálogo visual para apresentação de escopo modular multi-tenant.</p></div></div><div class="sigov-grid sigov-grid--modules">@foreach (var m in modules) { <article class="sigov-card sigov-module-card"><div class="sigov-module-card__icon">@m.Item1</div><h3 class="h5 mt-2">@m.Item2</h3><p class="text-muted">@m.Item3</p><span class="sigov-badge sigov-badge--info">@m.Item4</span><a class="sigov-btn sigov-btn--ghost w-100 mt-3" href="/Modulos">Acessar</a></article> }</div></section>

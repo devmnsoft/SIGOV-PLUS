@@ -1,122 +1,54 @@
-<aside id="sigovSidebar" class="col-md-3 col-lg-2 sigov-sidebar collapse d-md-block p-3">
-  <div class="fw-bold mb-2 text-white">SIGOV SaaS</div>
-  <a class="d-block" href="/Dashboard">Dashboard</a>
-  <a class="d-block" href="/Saas/Tenants">SaaS / Clientes</a>
-  <a class="d-block" href="/Saas/Planos">Planos SaaS</a>
-  <a class="d-block" href="/Saas/Implantacao">Implantação guiada</a>
-  <a class="d-block" href="/Saas/Parametros">Parâmetros</a>
-  <a class="d-block" href="/Saas/Modulos">Módulos</a>
-  <a class="d-block" href="/Seguranca/Usuarios">Usuários</a>
-  <a class="d-block" href="/Seguranca/Perfis">Perfis</a>
-  <a class="d-block" href="/Auditoria/Trilhas">Auditoria</a>
-  <a class="d-block" href="/Placeholder/configuracoes">Configurações</a>
-  <a class="d-block" href="/Operacao/Health">Health</a>
-  <hr />
-  <div class="fw-bold mb-2 text-white">Módulos de negócio</div>
-  <div class="small text-uppercase text-white-50 mt-2">Tributário</div>
-  <a class="d-block" data-module="tributario" data-permission="tributario.dashboard.visualizar" href="/Tributario/Dashboard">Dashboard Tributário</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.iptu.visualizar" href="/Tributario/Iptu">IPTU</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.iss.visualizar" href="/Tributario/Iss">ISS</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.taxas.visualizar" href="/Tributario/Taxas">Taxas Municipais</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.divida_ativa.visualizar" href="/Tributario/DividaAtiva">Dívida Ativa</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.parcelamento.visualizar" href="/Tributario/Parcelamentos">Parcelamentos</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.arrecadacao.visualizar" href="/Tributario/Arrecadacao">Arrecadação</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.nfse.visualizar" href="/Tributario/Nfse">NFS-e simulada</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.livro_eletronico.visualizar" href="/Tributario/LivroEletronico">Livro Eletrônico</a>
-  <a class="d-block" data-module="tributario" data-permission="tributario.livro_eletronico.visualizar" href="/Tributario/RelatoriosFiscais">Relatórios Fiscais</a>
-  <a class="d-block" href="/Tributario/Configuracao">Configuração</a>
-  <a class="d-block" href="/Tributario/TiposCadastro">Tipos de Cadastro</a>
-  <a class="d-block" href="/Tributario/CamposDinamicos">Campos Dinâmicos</a>
-  <a class="d-block" href="/Tributario/Contribuintes">Contribuintes</a>
-  <a class="d-block" href="/Tributario/Imoveis">Imóveis</a>
-  <a class="d-block" href="/Tributario/Economicos">Econômicos</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="comercial" data-permission="comercio.clientes.visualizar">Comercial</div>
-  <a class="d-block" data-module="comercial" data-permission="comercio.clientes.visualizar" href="/Comercio/Clientes">Clientes</a>
-  <a class="d-block" data-module="comercial" data-permission="comercio.orcamentos.visualizar" href="/Comercio/Orcamentos">Orçamentos</a>
-  <a class="d-block" data-module="comercial" data-permission="comercio.pedidos.visualizar" href="/Comercio/Pedidos">Pedidos</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="comercio_varejo" data-permission="comercio.pdv.acessar">Varejo</div>
-  <a class="d-block" data-module="comercio_varejo" data-permission="comercio.dashboard.visualizar" href="/Varejo/Dashboard">Dashboard</a>
-  <a class="d-block" data-module="pdv" data-permission="comercio.pdv.acessar" href="/Varejo/PDV">PDV</a>
-  <a class="d-block" data-module="caixa" data-permission="comercio.caixa.abrir" href="/Varejo/Caixa">Caixa</a>
-  <a class="d-block" data-module="comercio_varejo" data-permission="comercio.vendas.criar" href="/Varejo/Vendas">Vendas</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="comercio_atacado" data-permission="comercio.pedidos.visualizar">Atacado</div>
-  <a class="d-block" data-module="comercio_atacado" data-permission="comercio.dashboard.visualizar" href="/Atacado/Dashboard">Dashboard</a>
-  <a class="d-block" data-module="comercio_atacado" data-permission="comercio.pedidos.visualizar" href="/Atacado/Pedidos">Pedidos</a>
-  <a class="d-block" data-module="comercio_atacado" data-permission="comercio.clientes.visualizar" href="/Atacado/Clientes">Clientes</a>
-  <a class="d-block" data-module="comercio_atacado" data-permission="comercio.tabelas.visualizar" href="/Atacado/TabelasPreco">Tabelas de Preço</a>
-  <a class="d-block" data-module="comercio_atacado" data-permission="comercio.pedidos.confirmar" href="/Atacado/Separacao">Separação</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="industria_producao" data-permission="industria.dashboard.visualizar">Indústria</div>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.dashboard.visualizar" href="/Industria/Dashboard">Dashboard</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.chao_fabrica.acessar" href="/Industria/ChaoFabrica">Chão de Fábrica</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.ordens.visualizar" href="/Industria/OrdensProducao">Ordens de Produção</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.fichas.visualizar" href="/Industria/FichasTecnicas">Fichas Técnicas</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.roteiros.visualizar" href="/Industria/Roteiros">Roteiros</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.centros.visualizar" href="/Industria/CentrosTrabalho">Centros de Trabalho</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.recursos.visualizar" href="/Industria/Recursos">Recursos</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.qualidade.visualizar" href="/Industria/Qualidade">Qualidade</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.paradas.visualizar" href="/Industria/Paradas">Paradas</a>
-  <a class="d-block" data-module="industria_producao" data-permission="industria.custos.visualizar" href="/Industria/Custos">Custos</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="financeiro_empresarial" data-permission="financeiro.dashboard.visualizar">Financeiro</div>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.dashboard.visualizar" href="/Financeiro/Dashboard">Dashboard</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.contas_receber.visualizar" href="/Financeiro/ContasReceber">Contas a Receber</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.contas_pagar.visualizar" href="/Financeiro/ContasPagar">Contas a Pagar</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.movimentos.visualizar" href="/Financeiro/Movimentos">Movimentos</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.fluxo_caixa.visualizar" href="/Financeiro/FluxoCaixa">Fluxo de Caixa</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.conciliacao.visualizar" href="/Financeiro/Conciliacao">Conciliação</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.contas_bancarias.visualizar" href="/Financeiro/ContasBancarias">Contas Bancárias</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.plano_contas.visualizar" href="/Financeiro/PlanoContas">Plano de Contas</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.centros_custo.visualizar" href="/Financeiro/CentrosCusto">Centros de Custo</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.naturezas.visualizar" href="/Financeiro/Naturezas">Naturezas</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.formas_pagamento.visualizar" href="/Financeiro/FormasPagamento">Formas de Pagamento</a>
-  <a class="d-block" data-module="financeiro_empresarial" data-permission="financeiro.configuracao.visualizar" href="/Financeiro/Configuracao">Configurações</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="estoque_compras" data-permission="estoque.produtos.visualizar">Estoque</div>
-  <a class="d-block" data-module="estoque_compras" data-permission="comercio.produtos.visualizar" href="/Comercio/Produtos">Produtos</a>
-  <a class="d-block" data-module="estoque_compras" data-permission="estoque.saldos.visualizar" href="/Estoque/Saldos">Saldos</a>
-  <a class="d-block" data-module="estoque_compras" data-permission="estoque.movimentos.visualizar" href="/Estoque/Movimentos">Movimentos</a>
-  <a class="d-block" href="/Rh">RH</a>
-  <a class="d-block" href="/Placeholder/juridico">Jurídico <span class="badge text-bg-warning">em implantação</span></a>
-  <a class="d-block" data-module="contrato" data-permission="contrato.visualizar" href="/Ged/Contratos">Contratos e Assinaturas</a>
-  <a class="d-block" data-module="ged" data-permission="ged.visualizar" href="/Ged/Dashboard">GED/OCR</a>
-  <a class="d-block" data-module="fluxo" data-permission="fluxo.visualizar" href="/Ged/Workflow">Workflow GED</a>
-  <a class="d-block" href="/Protocolos">Protocolo</a>
-  <a class="d-block" href="/Saude">Saúde</a>
-  <a class="d-block" href="/Educacao">Educação</a>
-  <a class="d-block" href="/Agro">Agro</a>
-  <a class="d-block" href="/Saneamento">Saneamento</a>
-  <a class="d-block" href="/Social">Social</a>
-  <a class="d-block" href="/Integracoes">Integrações</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="mobile_pwa" data-permission="mobile.acessar">Mobile</div>
-  <a class="d-block" data-module="mobile_pwa" data-permission="mobile.acessar" href="/Mobile/Home">Início</a>
-  <a class="d-block" data-module="mobile_pwa" data-permission="campo.atividades.visualizar" href="/Mobile/Agenda">Agenda</a>
-  <a class="d-block" data-module="mobile_pwa" data-permission="campo.atividades.visualizar" href="/Mobile/Atividades">Atividades</a>
-  <a class="d-block" data-module="offline_sync" data-permission="mobile.sincronizar" href="/Mobile/Sync">Sincronização</a>
-  <a class="d-block" data-module="notificacoes_mobile" data-permission="campo.notificacoes.visualizar" href="/Mobile/Notificacoes">Notificações</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="campo_operacional" data-permission="campo.dashboard.visualizar">Campo</div>
-  <a class="d-block" data-module="campo_operacional" data-permission="campo.dashboard.visualizar" href="/Campo/Dashboard">Dashboard</a>
-  <a class="d-block" data-module="campo_operacional" data-permission="campo.atividades.visualizar" href="/Campo/Atividades">Atividades</a>
-  <a class="d-block" data-module="campo_operacional" data-permission="campo.visitas.visualizar" href="/Campo/Visitas">Visitas</a>
-  <a class="d-block" data-module="campo_operacional" data-permission="campo.rotas.visualizar" href="/Campo/Rotas">Rotas</a>
-  <a class="d-block" data-module="campo_operacional" data-permission="campo.checklists.visualizar" href="/Campo/Checklists">Checklists</a>
-  <a class="d-block" data-module="campo_operacional" data-permission="campo.formularios.visualizar" href="/Campo/Formularios">Formulários</a>
-  <a class="d-block" data-module="campo_operacional" data-permission="mobile.dispositivo.gerenciar" href="/Campo/Dispositivos">Dispositivos</a>
-  <a class="d-block" data-module="offline_sync" data-permission="campo.sincronizacao.visualizar" href="/Campo/Sincronizacao">Sincronização</a>
-  <a class="d-block" data-module="georreferenciamento" data-permission="campo.localizacao.enviar" href="/Campo/Mapa">Mapa</a>
-  <a class="d-block" data-module="georreferenciamento" data-permission="campo.localizacao.enviar" href="/Campo/Localizacoes">Localizações</a>
-  <div class="small text-uppercase text-white-50 mt-2" data-module="ia_assistente" data-permission="ia.dashboard.visualizar">IA</div>
-  <a class="d-block" data-module="ia_assistente" data-permission="ia.dashboard.visualizar" href="/IA/Dashboard">Dashboard</a>
-  <a class="d-block" data-module="ia_assistente" data-permission="ia.assistente.acessar" href="/IA/Assistente">Assistente</a>
-  <a class="d-block" data-module="ia_assistente" data-permission="ia.sugestoes.visualizar" href="/IA/Sugestoes">Sugestões</a>
-  <a class="d-block" data-module="ia_assistente" data-permission="ia.execucoes.visualizar" href="/IA/Execucoes">Execuções</a>
-  <a class="d-block" data-module="ia_documental" data-permission="ia.documental.resumir" href="/IA/Documental">Documental</a>
-  <a class="d-block" data-module="ia_automacoes" data-permission="ia.automacoes.visualizar" href="/IA/Automacoes">Automações</a>
-  <a class="d-block" data-module="ia_automacoes" data-permission="ia.alertas.visualizar" href="/IA/Alertas">Alertas</a>
-  <a class="d-block" data-module="ia_predicoes" data-permission="ia.predicoes.visualizar" href="/IA/Predicoes">Predições</a>
-  <a class="d-block" data-module="ia_relatorios" data-permission="ia.relatorios.gerar" href="/IA/Relatorios">Relatórios</a>
-  <a class="d-block" data-module="ia_assistente" data-permission="ia.configuracao.visualizar" href="/IA/Configuracao">Configuração</a>
-  <a class="d-block" data-module="ia_assistente" data-permission="ia.consumo.visualizar" href="/IA/Consumo">Consumo</a>
-
-  <hr />
-  <div class="fw-bold mb-2 text-white">Apoio</div>
-  <a class="d-block" href="/Ajuda">Central de ajuda</a>
-  <a class="d-block" href="/Modulos">Catálogo legado</a>
+@{
+  var path = Context.Request.Path.Value ?? string.Empty;
+  Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
+}
+<div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
+<aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal SIGOV PLUS">
+  <div class="sigov-sidebar__header">
+    <span class="sigov-sidebar__eyebrow">Plataforma SaaS</span>
+    <strong>Gestão Pública & Empresarial</strong>
+  </div>
+  <nav class="sigov-sidebar__nav">
+    <details class="sigov-nav-group" open><summary>Visão Geral</summary>
+      <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard">▣ Dashboard executivo</a>
+      <a class="sigov-nav-link@(active("/Operacao/Health"))" href="/Operacao/Health">● Health e monitoramento</a>
+      <a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas">◷ Auditoria e LGPD</a>
+    </details>
+    <details class="sigov-nav-group" open><summary>Administração SaaS</summary>
+      <a class="sigov-nav-link@(active("/Saas/Tenants"))" href="/Saas/Tenants">Clientes / Tenants</a>
+      <a class="sigov-nav-link@(active("/Saas/Planos"))" href="/Saas/Planos">Planos</a>
+      <a class="sigov-nav-link@(active("/Saas/Modulos"))" href="/Saas/Modulos">Módulos contratados</a>
+      <a class="sigov-nav-link@(active("/Saas/Parametros"))" href="/Saas/Parametros">Parâmetros</a>
+      <a class="sigov-nav-link@(active("/Saas/Implantacao"))" href="/Saas/Implantacao">Implantação guiada</a>
+      <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios">Usuários</a>
+      <a class="sigov-nav-link@(active("/Seguranca/Perfis"))" href="/Seguranca/Perfis">Perfis e permissões</a>
+    </details>
+    <details class="sigov-nav-group"><summary>Governo</summary>
+      <a class="sigov-nav-link@(active("/Tributario"))" href="/Tributario/Dashboard">Tributário</a>
+      <a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard">GED / OCR</a>
+      <a class="sigov-nav-link@(active("/Protocolos"))" href="/Protocolos">Protocolo</a>
+      <a class="sigov-nav-link@(active("/Saude"))" href="/Saude/Dashboard">Saúde</a>
+      <a class="sigov-nav-link@(active("/Educacao"))" href="/Educacao/Dashboard">Educação</a>
+      <a class="sigov-nav-link@(active("/Saneamento"))" href="/Saneamento/Dashboard">Saneamento</a>
+      <a class="sigov-nav-link@(active("/Social"))" href="/Social/Dashboard">Social</a>
+      <a class="sigov-nav-link@(active("/Rh"))" href="/Rh/Dashboard">RH</a>
+    </details>
+    <details class="sigov-nav-group"><summary>Empresas</summary>
+      <a class="sigov-nav-link@(active("/Comercio"))" href="/Comercio/Clientes">Comercial</a>
+      <a class="sigov-nav-link@(active("/Financeiro"))" href="/Financeiro/Dashboard">Financeiro</a>
+      <a class="sigov-nav-link@(active("/Industria"))" href="/Industria/Dashboard">Indústria</a>
+      <a class="sigov-nav-link@(active("/Estoque"))" href="/Estoque/Saldos">Estoque</a>
+    </details>
+    <details class="sigov-nav-group"><summary>Operação</summary>
+      <a class="sigov-nav-link@(active("/Integracoes"))" href="/Integracoes/Dashboard">Integrações</a>
+      <a class="sigov-nav-link@(active("/Mobile"))" href="/Mobile/Home">Mobile / Campo</a>
+      <a class="sigov-nav-link@(active("/IA"))" href="/IA/Dashboard">IA</a>
+      <a class="sigov-nav-link" href="/Placeholder/logs">Logs</a>
+    </details>
+    <details class="sigov-nav-group"><summary>Apoio</summary>
+      <a class="sigov-nav-link@(active("/Ajuda"))" href="/Ajuda">Central de ajuda</a>
+      <a class="sigov-nav-link@(active("/Suporte"))" href="/Suporte/Chamados">Suporte</a>
+      <a class="sigov-nav-link@(active("/Modulos"))" href="/Modulos">Catálogo legado</a>
+    </details>
+  </nav>
 </aside>
