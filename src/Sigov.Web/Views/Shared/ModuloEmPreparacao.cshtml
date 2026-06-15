@@ -1,3 +1,26 @@
-@model string
-@{ ViewData["Title"] = "Módulo em preparação"; }
-<div class="card border-0 shadow-sm"><div class="card-body p-5 text-center"><span class="badge text-bg-warning mb-3">Em implantação</span><h1 class="h3">Módulo @Model em preparação</h1><p class="text-muted">Esta rota existe para evitar links quebrados na navegação SaaS. A funcionalidade completa será entregue em evolução posterior.</p><a class="btn btn-primary" href="/Dashboard">Voltar ao dashboard</a></div></div>
+@model Sigov.Web.Models.PostBuild.ImplementationModuleViewModel
+@{
+    ViewData["Title"] = $"{Model.Titulo} em implantação";
+}
+<section class="container-fluid py-3">
+  <nav aria-label="breadcrumb" class="mb-3"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Dashboard">Dashboard</a></li><li class="breadcrumb-item active" aria-current="page">@Model.Titulo</li></ol></nav>
+  <div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card-body p-4 p-lg-5">
+      <span class="badge text-bg-warning mb-3">@Model.Status</span>
+      <div class="row g-4 align-items-center">
+        <div class="col-lg-8">
+          <h1 class="display-6 mb-3">@Model.Titulo</h1>
+          <p class="lead text-muted">@Model.Descricao</p>
+          <div class="alert alert-info mb-0">A navegação foi preservada para evitar 404. O módulo será entregue em ciclos incrementais, mantendo Docker, API, Web, auditoria e multi-tenant estáveis.</div>
+        </div>
+        <div class="col-lg-4"><div class="p-4 rounded-4 bg-light h-100"><h2 class="h5">Status comercial</h2><p class="mb-2">Preparado para demonstração, contratação e priorização no roadmap.</p><code>@Model.Codigo</code></div></div>
+      </div>
+      <hr class="my-4" />
+      <div class="row g-4">
+        <div class="col-lg-7"><h2 class="h5">Próximos passos</h2><ul class="list-group list-group-flush">@foreach (var passo in Model.ProximosPassos) { <li class="list-group-item px-0">✓ @passo</li> }</ul></div>
+        <div class="col-lg-5"><h2 class="h5">Módulos relacionados</h2><div class="d-flex flex-wrap gap-2">@foreach (var item in Model.ModulosRelacionados) { <span class="badge text-bg-secondary">@item</span> }</div></div>
+      </div>
+      <div class="d-flex gap-2 mt-4"><a class="btn btn-primary" href="/Dashboard">Voltar ao dashboard</a><a class="btn btn-outline-secondary" href="/Saas/Implantacao">Abrir implantação guiada</a></div>
+    </div>
+  </div>
+</section>

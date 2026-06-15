@@ -56,6 +56,7 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
 }
 
+app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
 app.UseStaticFiles();
 app.UseRouting();
 app.Use(async (context, next) =>

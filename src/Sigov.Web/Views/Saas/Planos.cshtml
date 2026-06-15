@@ -1,49 +1,21 @@
 @{
     ViewData["Title"] = "Planos SaaS";
+    var planos = new[] {
+        new { Nome="Starter", Preco="R$ 990/mês", Usuarios="até 15", Storage="10 GB", Modulos="Dashboard, Usuários, Ajuda", Recomendado=false },
+        new { Nome="Gov Basic", Preco="R$ 2.900/mês", Usuarios="até 50", Storage="50 GB", Modulos="Tributário, Protocolos, Auditoria", Recomendado=false },
+        new { Nome="Gov Plus", Preco="R$ 5.900/mês", Usuarios="até 150", Storage="150 GB", Modulos="Governo completo, BI, LGPD", Recomendado=true },
+        new { Nome="Enterprise", Preco="Sob consulta", Usuarios="ilimitado", Storage="1 TB+", Modulos="White label, integrações, SLA", Recomendado=false },
+        new { Nome="Business", Preco="R$ 3.900/mês", Usuarios="até 80", Storage="100 GB", Modulos="CRM, financeiro, contratos", Recomendado=false },
+        new { Nome="Industrial", Preco="R$ 4.900/mês", Usuarios="até 120", Storage="200 GB", Modulos="Indústria, estoque, operação", Recomendado=false }
+    };
 }
 <section class="container-fluid py-3" data-sigov-page="saas-planos">
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div>
-      <h1 class="h3 mb-1">Planos SaaS</h1>
-      <p class="text-muted mb-0">Cadastro comercial, módulos inclusos, limites e status dos planos do SIGOV.</p>
-    </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#planoModal">Novo plano</button>
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Dashboard">Dashboard</a></li><li class="breadcrumb-item active">Planos</li></ol></nav>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h1 class="h3 mb-1">Planos SaaS</h1><p class="text-muted mb-0">Catálogo comercial com limites, módulos inclusos e comparação para contratação.</p></div><a class="btn btn-outline-primary" href="#comparacao">Comparar planos</a></div>
+  <div class="row g-3">
+    @foreach (var p in planos) {
+      <div class="col-md-6 col-xl-4"><div class="card h-100 shadow-sm @(p.Recomendado ? "border-primary" : "")"><div class="card-body d-flex flex-column"><div class="d-flex justify-content-between"><h2 class="h4">@p.Nome</h2>@if (p.Recomendado) { <span class="badge text-bg-primary align-self-start">Recomendado</span> }</div><div class="display-6 my-3">@p.Preco</div><ul class="list-unstyled small text-muted"><li><strong>Usuários:</strong> @p.Usuarios</li><li><strong>Storage:</strong> @p.Storage</li><li><strong>Módulos:</strong> @p.Modulos</li></ul><div class="mt-auto d-flex gap-2"><button class="btn btn-primary" type="button" data-sigov-toast="Solicitação registrada.">Contratar</button><button class="btn btn-outline-secondary" type="button">Editar</button></div></div></div></div>
+    }
   </div>
-  <div id="planosAlert" class="alert d-none" role="alert"></div>
-  <div id="planosLoading" class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><div>Carregando planos...</div></div>
-  <div id="planosGrid" class="row g-3"></div>
+  <div id="comparacao" class="card mt-4"><div class="card-header"><strong>Comparação entre planos</strong></div><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Plano</th><th>Preço</th><th>Usuários</th><th>Storage</th><th>Módulos inclusos</th></tr></thead><tbody>@foreach (var p in planos) { <tr><td>@p.Nome</td><td>@p.Preco</td><td>@p.Usuarios</td><td>@p.Storage</td><td>@p.Modulos</td></tr> }</tbody></table></div></div>
 </section>
-<div class="modal fade" id="planoModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
-    <div class="modal-header"><h2 class="h5 modal-title">Plano SaaS</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-    <div class="modal-body">
-      <div class="row g-3">
-        <div class="col-md-4"><label class="form-label">Código</label><input id="planoCodigo" class="form-control" placeholder="GOV_PLUS"></div>
-        <div class="col-md-8"><label class="form-label">Nome</label><input id="planoNome" class="form-control" placeholder="Governo Plus"></div>
-        <div class="col-12"><label class="form-label">Descrição</label><textarea id="planoDescricao" class="form-control" rows="2"></textarea></div>
-        <div class="col-md-4"><label class="form-label">Preço base</label><input id="planoPreco" type="number" step="0.01" class="form-control" value="0"></div>
-        <div class="col-md-4"><label class="form-label">Limite usuários</label><input id="planoUsuarios" type="number" class="form-control"></div>
-        <div class="col-md-4"><label class="form-label">Módulos</label><input id="planoModulos" class="form-control" placeholder="dashboard,tributario"></div>
-        <div class="col-md-3 form-check ms-2"><input id="planoPublico" type="checkbox" class="form-check-input" checked><label class="form-check-label">Público</label></div>
-        <div class="col-md-3 form-check"><input id="planoDestaque" type="checkbox" class="form-check-input"><label class="form-check-label">Destaque</label></div>
-        <div class="col-md-3 form-check"><input id="planoWhiteLabel" type="checkbox" class="form-check-input"><label class="form-check-label">White label</label></div>
-        <div class="col-md-3 form-check"><input id="planoDominio" type="checkbox" class="form-check-input"><label class="form-check-label">Domínio customizado</label></div>
-      </div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button id="salvarPlano" class="btn btn-primary">Salvar</button></div>
-  </div></div>
-</div>
-@section Scripts {
-<script>
-(async function(){
- const grid=document.getElementById('planosGrid'), loading=document.getElementById('planosLoading'), alert=document.getElementById('planosAlert');
- function show(type,msg){ alert.className='alert alert-'+type; alert.textContent=msg; }
- async function load(){
-  try{ loading.classList.remove('d-none'); const r=await fetch('/api/saas/planos'); if(!r.ok) throw new Error('API indisponível'); const json=await r.json(); const planos=json.data||[]; grid.innerHTML=planos.map(p=>`<div class="col-12 col-xl-6"><div class="card h-100 shadow-sm"><div class="card-body"><div class="d-flex justify-content-between"><h2 class="h5">${p.nome}</h2><span class="badge text-bg-${p.ativo?'success':'secondary'}">${p.ativo?'Ativo':'Inativo'}</span></div><p class="text-muted">${p.descricao||''}</p><div class="mb-2"><span class="badge text-bg-info">${p.codigo}</span> ${p.publico?'<span class="badge text-bg-primary">Público</span>':''} ${p.destaque?'<span class="badge text-bg-warning">Destaque</span>':''} ${p.permiteWhiteLabel?'<span class="badge text-bg-success">White label</span>':''} ${p.permiteDominioCustomizado?'<span class="badge text-bg-dark">Domínio</span>':''}</div><div class="small"><strong>Limite usuários:</strong> ${p.limiteUsuarios??'Ilimitado'}</div><div class="small"><strong>Módulos:</strong> ${(p.modulos||[]).join(', ')}</div></div></div></div>`).join(''); }
-  catch(e){ show('danger','Falha ao carregar planos: '+e.message); } finally{ loading.classList.add('d-none'); }
- }
- document.getElementById('salvarPlano').addEventListener('click', async()=>{ try{ const body={ codigo:planoCodigo.value,nome:planoNome.value,descricao:planoDescricao.value,publico:planoPublico.checked,destaque:planoDestaque.checked,ordem:0,tipoPlano:'MENSAL',precoBase:Number(planoPreco.value||0),periodicidade:'MENSAL',limiteUsuarios:planoUsuarios.value?Number(planoUsuarios.value):null,limiteEntidades:null,limiteArmazenamentoMb:null,permiteWhiteLabel:planoWhiteLabel.checked,permiteDominioCustomizado:planoDominio.checked,modulos:planoModulos.value.split(',').map(x=>x.trim()).filter(Boolean)}; const r=await fetch('/api/saas/planos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('não foi possível salvar'); show('success','Plano salvo com sucesso.'); await load(); } catch(e){ show('danger',e.message); }});
- await load();
-})();
-</script>
-}

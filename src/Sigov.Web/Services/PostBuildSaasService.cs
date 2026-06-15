@@ -84,22 +84,27 @@ order by modulo_codigo;";
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            var tenants = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.tenant where ativo = true and is_deleted = false;", cancellationToken: cancellationToken)).ConfigureAwait(false);
-            var usuarios = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.usuario where ativo = true and is_deleted = false;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var tenants = await CountOrNullAsync(connection, "select count(*) from sigov.tenant where ativo = true and is_deleted = false;", cancellationToken).ConfigureAwait(false);
+            var usuarios = await CountOrNullAsync(connection, "select count(*) from sigov.usuario where ativo = true and is_deleted = false;", cancellationToken).ConfigureAwait(false);
+            var planos = await CountOrNullAsync(connection, "select count(*) from sigov.plano_saas where ativo = true;", cancellationToken).ConfigureAwait(false);
+            var auditorias = await CountOrNullAsync(connection, "select count(*) from sigov.auditoria;", cancellationToken).ConfigureAwait(false);
+            var parametros = await CountOrNullAsync(connection, "select count(*) from sigov.parametro_sistema;", cancellationToken).ConfigureAwait(false);
             var modulos = await ListarModulosAsync(null, cancellationToken).ConfigureAwait(false);
+            var hasFallback = tenants is null || usuarios is null || planos is null || auditorias is null || parametros is null;
             return new DashboardViewModel
             {
                 Cards = new[]
                 {
-                    new DashboardCard("Clientes/Tenants ativos", tenants.ToString(), "Clientes SaaS habilitados.", "primary"),
-                    new DashboardCard("Usuários ativos", usuarios.ToString(), "Usuários aptos a acessar.", "success"),
+                    new DashboardCard("Clientes/Tenants ativos", FormatCount(tenants), tenants is null ? "Dados indisponíveis no ambiente local." : "Clientes SaaS habilitados.", tenants is null ? "secondary" : "primary"),
+                    new DashboardCard("Usuários ativos", FormatCount(usuarios), usuarios is null ? "Dados indisponíveis no ambiente local." : "Usuários aptos a acessar.", usuarios is null ? "secondary" : "success"),
                     new DashboardCard("Módulos disponíveis", modulos.Count.ToString(), "Catálogo inicial SaaS.", "info"),
-                    new DashboardCard("Status da API", "Online", "Health API respondendo via Docker.", "success"),
-                    new DashboardCard("Status do banco", "Online", "PostgreSQL conectado.", "success"),
-                    new DashboardCard("Migrations", "OK", "Migrations idempotentes aplicadas.", "success")
+                    new DashboardCard("Planos ativos", FormatCount(planos), planos is null ? "Dados indisponíveis no ambiente local." : "Catálogo comercial SaaS.", planos is null ? "secondary" : "primary"),
+                    new DashboardCard("Auditorias", FormatCount(auditorias), auditorias is null ? "Dados indisponíveis no ambiente local." : "Eventos LGPD registrados.", auditorias is null ? "secondary" : "warning"),
+                    new DashboardCard("Parâmetros", FormatCount(parametros), parametros is null ? "Dados indisponíveis no ambiente local." : "Configurações por escopo.", parametros is null ? "secondary" : "info")
                 },
-                Ambiente = CriarAmbiente(true),
-                Modulos = modulos
+                Ambiente = CriarAmbiente(!hasFallback),
+                Modulos = modulos,
+                MensagemFallback = hasFallback ? "Dados indisponíveis no ambiente local para uma ou mais tabelas. A tela permanece operacional sem expor detalhes técnicos." : string.Empty
             };
         }
         catch (Exception ex)
@@ -129,6 +134,20 @@ order by modulo_codigo;";
         new DashboardCard("Migrations", "Verificar", "Veja logs db-migrations.", "warning")
     };
 
+    private async Task<int?> CountOrNullAsync(System.Data.IDbConnection connection, string sql, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Consulta de indicador indisponível para o dashboard. Sql={Sql}", sql);
+            return null;
+        }
+    }
+
+    private static string FormatCount(int? value) => value.HasValue ? value.Value.ToString() : "--";
     private static string NormalizeStatus(string status) => status.Replace('_', ' ').ToLowerInvariant();
     private static string MaskDocument(string value) => string.IsNullOrWhiteSpace(value) || value.Length < 5 ? "***" : $"{value[..2]}***{value[^2..]}";
     private static string MaskEmail(string value)
