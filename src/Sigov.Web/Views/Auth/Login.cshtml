@@ -1,64 +1,35 @@
 @model Sigov.Web.Models.Auth.LoginViewModel
-@{
-  Layout = null;
-  var returnUrl = ViewData["ReturnUrl"] as string;
-}
-<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login - SIGOV</title>
-  <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="~/css/site.css" rel="stylesheet" />
-</head>
-<body class="bg-light">
-  <main class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
-    <div class="card shadow-lg border-0" style="max-width: 980px; width:100%;">
-      <div class="row g-0">
-        <section class="col-lg-6 bg-primary text-white p-5 rounded-start">
-          <span class="badge text-bg-light text-primary mb-3">SIGOV SaaS</span>
-          <h1 class="display-6 fw-bold">Gestão pública integrada, segura e multi-tenant.</h1>
-          <p class="lead mt-3">Ambiente local pós-build com dashboard, health visual, auditoria administrativa e navegação SaaS.</p>
-          <div class="alert alert-info mt-4 mb-0">Use as credenciais de desenvolvimento documentadas somente em ambiente local.</div>
-        </section>
-        <section class="col-lg-6 p-5">
-          <h2 class="h3 mb-1">Entrar no SIGOV</h2>
-          <p class="text-muted">Informe login/e-mail e senha.</p>
-          @if (!string.IsNullOrWhiteSpace(Model.MensagemErro))
-          {
-            <div class="alert alert-danger" role="alert">@Model.MensagemErro</div>
-          }
-          <form method="post" asp-action="Login" asp-route-returnUrl="@returnUrl" id="loginForm">
-            @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="mb-3">
-              <label asp-for="Login" class="form-label"></label>
-              <input asp-for="Login" class="form-control form-control-lg" autocomplete="username" autofocus />
-              <span asp-validation-for="Login" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-              <label asp-for="Senha" class="form-label"></label>
-              <input asp-for="Senha" class="form-control form-control-lg" autocomplete="current-password" />
-              <span asp-validation-for="Senha" class="text-danger"></span>
-            </div>
-            <button class="btn btn-primary btn-lg w-100" type="submit" id="btnEntrar">
-              <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
-              Entrar
-            </button>
-            <a class="d-inline-block mt-3" href="#" aria-disabled="true">Esqueci minha senha</a>
-          </form>
-        </section>
+@{ Layout = null; var returnUrl = ViewData["ReturnUrl"] as string; }
+<!doctype html><html lang="pt-br" data-sigov-theme="light"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Entrar no SIGOV PLUS</title><link rel="icon" href="~/img/sigov-favicon.svg" type="image/svg+xml"><link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/><link href="~/css/site.css" rel="stylesheet"/></head>
+<body class="sigov-login-page">
+  <main class="sigov-login-shell" aria-label="Login SIGOV PLUS">
+    <section class="sigov-login-benefits">
+      <img class="sigov-login-logo" src="~/img/sigov-logo.svg" alt="SIGOV PLUS" />
+      <span class="sigov-badge sigov-badge--info">Ambiente seguro</span>
+      <h1 class="display-6 fw-bold mt-4">Gestão pública integrada, segura e multi-tenant</h1>
+      <p class="lead opacity-75">Uma plataforma SaaS modular para governo, empresas, auditoria, LGPD, implantação e operação monitorada.</p>
+      <div class="mt-4">
+        <div class="sigov-benefit">✓ Multi-tenant com contexto de entidade e exercício</div>
+        <div class="sigov-benefit">✓ Auditoria e LGPD para operações sensíveis</div>
+        <div class="sigov-benefit">✓ Implantação guiada com checklist executivo</div>
+        <div class="sigov-benefit">✓ Módulos integrados para governo e empresas</div>
+        <div class="sigov-benefit">✓ Health e monitoramento operacional</div>
       </div>
-    </div>
+    </section>
+    <section class="sigov-login-form">
+      <img class="sigov-login-logo d-lg-none" src="~/img/sigov-logo.svg" alt="SIGOV PLUS" />
+      <span class="sigov-badge sigov-badge--info">SIGOV SaaS</span>
+      <h2 class="h1 fw-bold mt-3 mb-2">Entrar no SIGOV PLUS</h2>
+      <p class="text-muted mb-4">Gestão pública integrada, segura e multi-tenant.</p>
+      @if (!string.IsNullOrWhiteSpace(Model.MensagemErro)) { <div class="alert alert-danger rounded-4" role="alert"><strong>Não foi possível entrar.</strong><br />@Model.MensagemErro</div> }
+      <form method="post" asp-action="Login" asp-route-returnUrl="@returnUrl" id="loginForm" class="d-grid gap-3">
+        @Html.AntiForgeryToken()<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div><label asp-for="Login" class="form-label">Login ou e-mail</label><input asp-for="Login" class="form-control form-control-lg" autocomplete="username" autofocus placeholder="admin@suaentidade.gov.br"/><span asp-validation-for="Login" class="text-danger small"></span></div>
+        <div><label asp-for="Senha" class="form-label">Senha</label><input asp-for="Senha" class="form-control form-control-lg" autocomplete="current-password" placeholder="Digite sua senha"/><span asp-validation-for="Senha" class="text-danger small"></span></div>
+        <button class="sigov-btn sigov-btn--primary w-100" type="submit" id="btnEntrar">Entrar com segurança</button>
+        <div class="d-flex justify-content-between gap-3 flex-wrap"><a href="#" aria-disabled="true">Esqueci minha senha</a><span class="text-muted small">Sessão protegida e auditável</span></div>
+      </form>
+    </section>
   </main>
-  <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script>
-    document.getElementById('loginForm').addEventListener('submit', function () {
-      const btn = document.getElementById('btnEntrar');
-      btn.disabled = true;
-      btn.querySelector('.spinner-border').classList.remove('d-none');
-    });
-  </script>
-</body>
-</html>
+  <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script><script src="~/js/sigov-ui.js"></script><script>document.getElementById('loginForm').addEventListener('submit',()=>SigovLoading.button(document.getElementById('btnEntrar'),true,'Entrando...'));</script>
+</body></html>

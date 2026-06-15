@@ -1,0 +1,3 @@
+@model string
+@{ var status = (Model ?? "info").ToLowerInvariant(); var css = status.Contains("erro") || status.Contains("inativo") ? "danger" : status.Contains("alert") || status.Contains("pend") ? "warning" : status.Contains("ok") || status.Contains("ativo") ? "success" : "info"; }
+<span class="sigov-badge sigov-badge--@css">@Model</span>

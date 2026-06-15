@@ -1,0 +1,2 @@
+@model dynamic
+<article class="sigov-card sigov-module-card"><div class="sigov-module-card__icon">@Model?.Icon</div><h3 class="h5 mt-2">@Model?.Title</h3><p class="text-muted">@Model?.Description</p><span class="sigov-badge sigov-badge--info">@Model?.Status</span><a class="sigov-btn sigov-btn--ghost w-100 mt-3" href="@(Model?.Url ?? "/Modulos")">Acessar</a></article>

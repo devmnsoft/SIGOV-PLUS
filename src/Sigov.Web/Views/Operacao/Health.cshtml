@@ -1,9 +1,11 @@
 @model Sigov.Web.Models.PostBuild.HealthVisualViewModel
 @{ ViewData["Title"] = "Health visual"; }
-<h1 class="h3">Health visual do ambiente</h1>
-<p class="text-muted">Versão @Model.Versao • Ambiente @Model.Ambiente • Servidor @Model.ServerTime.ToString("u")</p>
-@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
-<div class="row g-3">
-@foreach (var item in Model.Itens) { <div class="col-md-4"><div class="card h-100 border-@(item.Online ? "success" : "danger")"><div class="card-body"><div class="d-flex justify-content-between"><h2 class="h5">@item.Nome</h2><span class="badge @(item.Online ? "text-bg-success" : "text-bg-danger")">@item.Status</span></div><p class="text-muted mb-0">@item.Detalhe</p></div></div></div> }
-</div>
-<div class="alert alert-secondary mt-4">API health: <a href="http://localhost:5001/api/health/live" target="_blank">http://localhost:5001/api/health/live</a></div>
+<header class="sigov-page-header"><div><span class="sigov-badge sigov-badge--success">Monitoramento</span><h1 class="h2 fw-bold mt-2">Health visual do ambiente</h1><p>API, Web, PostgreSQL, migrations, ambiente, versão e horário sem expor detalhes técnicos sensíveis fora de desenvolvimento.</p></div><button class="sigov-btn sigov-btn--primary" id="btnRetestar">Testar novamente</button></header>
+@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning rounded-4">@Model.MensagemFallback</div> }
+<section class="sigov-grid sigov-grid--kpis mb-4">
+@foreach (var item in Model.Itens) { <article class="sigov-kpi-card"><div class="d-flex justify-content-between gap-2"><div class="sigov-kpi-card__label">@item.Nome</div><span class="sigov-badge @(item.Online ? "sigov-badge--success" : "sigov-badge--danger")">@item.Status</span></div><div class="h5 mt-3">@(item.Online ? "Operacional" : "Indisponível")</div><p class="text-muted mb-0">@item.Detalhe</p></article> }
+  <article class="sigov-kpi-card"><div class="sigov-kpi-card__label">Versão</div><div class="h4 mt-3">@Model.Versao</div><p class="text-muted mb-0">Build aplicado no ambiente.</p></article>
+  <article class="sigov-kpi-card"><div class="sigov-kpi-card__label">Horário</div><div class="h4 mt-3">@Model.ServerTime.ToString("u")</div><p class="text-muted mb-0">UTC do servidor Web.</p></article>
+</section>
+<div class="sigov-card p-4"><strong>Endpoint público de health:</strong> <a href="http://localhost:5001/api/health/live" target="_blank" rel="noopener">http://localhost:5001/api/health/live</a><p class="text-muted mb-0 mt-2">Falhas técnicas detalhadas devem permanecer restritas ao ambiente Development.</p></div>
+@section Scripts{<script>document.getElementById('btnRetestar').addEventListener('click',async(e)=>{SigovLoading.button(e.currentTarget,true,'Testando...');try{const r=await fetch('/api/health/live'); SigovNotify[r.ok?'success':'warning'](r.ok?'Health respondendo normalmente.':'Health retornou alerta.','Health');}catch{SigovNotify.error('Não foi possível consultar o health.','Health');}finally{SigovLoading.button(e.currentTarget,false);}});</script>}

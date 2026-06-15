@@ -1,1 +1,15 @@
-<div class="modal fade" id="sigovConfirmModal" tabindex="-1" aria-labelledby="sigovConfirmTitle" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5" id="sigovConfirmTitle">Confirmar operação</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div><div class="modal-body">Confirme antes de continuar.</div><div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-danger" data-sigov-confirm-ok>Confirmar</button></div></div></div></div>
+<div class="modal fade sigov-modal" id="sigovConfirmModal" tabindex="-1" aria-labelledby="sigovConfirmTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="sigovConfirmTitle">Confirmar operação</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body" id="sigovConfirmMessage">Confirme antes de continuar. Esta operação será auditada.</div>
+      <div class="modal-footer">
+        <button class="sigov-btn sigov-btn--ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button class="sigov-btn sigov-btn--danger" data-sigov-confirm-ok>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
