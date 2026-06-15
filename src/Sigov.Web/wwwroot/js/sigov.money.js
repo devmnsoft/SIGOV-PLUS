@@ -8,6 +8,12 @@
   function format(value) {
     return parse(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
+  function formatMoneyField(event) {
+    const target = event.target;
+    if (target && target.matches && target.matches('[data-sigov-money]')) {
+      target.value = format(target.value);
+    }
+  }
   window.Sigov.money = { parse, format };
-  $(document).on('blur', '[data-sigov-money]', function () { this.value = format(this.value); });
+  document.addEventListener('blur', formatMoneyField, true);
 })(window, window.jQuery);
