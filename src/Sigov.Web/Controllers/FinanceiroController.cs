@@ -16,7 +16,8 @@ public sealed class FinanceiroController : Controller
         _operationalLogger = operationalLogger;
     }
 
-    public IActionResult Index() => View();
+    [Route("/Financeiro")]
+    public IActionResult Index(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Dashboard", q));
     public IActionResult Dashboard() => View(new FinanceiroDashboardViewModel());
     public IActionResult PlanoContas() => View(new PlanoContasFormViewModel());
     public IActionResult FontesRecurso() => View(new FonteRecursoFormViewModel());
@@ -33,12 +34,14 @@ public sealed class FinanceiroController : Controller
     public IActionResult Liquidacoes() => View(new LiquidacaoFormViewModel());
     public IActionResult Pagamentos() => View(new PagamentoFormViewModel());
     public IActionResult Receitas() => View(new ReceitaLancamentoFormViewModel());
-    public IActionResult ContasReceber() => View();
+    [Route("/Financeiro/ContasReceber")]
+    public IActionResult ContasReceber(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "ContasReceber", q));
     public IActionResult CentrosCusto() => View("FinanceiroEmpresarial", "Centros de Custo");
     public IActionResult Naturezas() => View("FinanceiroEmpresarial", "Naturezas Financeiras");
     public IActionResult ContasBancarias() => View("FinanceiroEmpresarial", "Contas Bancárias");
     public IActionResult FormasPagamento() => View("FinanceiroEmpresarial", "Formas de Pagamento");
-    public IActionResult ContasPagar() => View("FinanceiroEmpresarial", "Contas a Pagar");
+    [Route("/Financeiro/ContasPagar")]
+    public IActionResult ContasPagar(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "ContasPagar", q));
     public IActionResult Movimentos() => View("FinanceiroEmpresarial", "Movimentos Financeiros");
     public IActionResult FluxoCaixa() => View("FinanceiroEmpresarial", "Fluxo de Caixa");
     public IActionResult Conciliacao() => View("FinanceiroEmpresarial", "Conciliação Bancária");

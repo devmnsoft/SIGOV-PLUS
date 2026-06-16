@@ -71,4 +71,6 @@ public sealed class GedController : Controller
             return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Em implantação"));
         }
     }
+    [Route("/Ged/Detalhes/{id:long}")]
+    public IActionResult Detalhes(long id) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", $"Detalhes #{id}"));
 }

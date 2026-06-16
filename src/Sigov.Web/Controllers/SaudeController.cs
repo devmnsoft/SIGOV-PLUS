@@ -17,12 +17,15 @@ public sealed class SaudeController : Controller
     }
 
     public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Dashboard"));
-    public IActionResult Unidades() => View(new UnidadeSaudeFormViewModel());
+    [Route("/Saude/Unidades")]
+    public IActionResult Unidades(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Unidades", q));
     public IActionResult Profissionais() => View(new ProfissionalSaudeFormViewModel());
-    public IActionResult Pacientes() => View(new PacienteFormViewModel());
+    [Route("/Saude/Pacientes")]
+    public IActionResult Pacientes(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Pacientes", q));
     public IActionResult PacienteDetalhe(long id) { ViewData["PacienteId"] = id; return View(); }
     public IActionResult Prontuario(long pacienteId) { ViewData["PacienteId"] = pacienteId; return View(); }
-    public IActionResult Atendimentos() => View(new AtendimentoSaudeFormViewModel());
+    [Route("/Saude/Atendimentos")]
+    public IActionResult Atendimentos(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Atendimentos", q));
     public IActionResult Agenda() => View(new AgendaSaudeFormViewModel());
     public IActionResult Farmacia() => View(new FarmaciaProdutoFormViewModel());
     public IActionResult Vacinacoes() => View(new VacinacaoFormViewModel());
