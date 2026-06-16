@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Services;
+using Sigov.Web.Models.PostBuild;
 
 namespace Sigov.Web.Controllers;
 
@@ -26,7 +27,18 @@ public sealed class DashboardController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha tratada ao abrir dashboard.");
-            return View(await _service.CriarDashboardAsync(cancellationToken).ConfigureAwait(false));
+            return View(new DashboardViewModel
+            {
+                MensagemFallback = "Dados indisponíveis no ambiente local. Exibindo painel demonstrativo seguro.",
+                Cards = new[]
+                {
+                    new DashboardCard("Tenants ativos", "--", "Dados indisponíveis no ambiente local.", "secondary"),
+                    new DashboardCard("Usuários ativos", "--", "Dados indisponíveis no ambiente local.", "secondary"),
+                    new DashboardCard("Módulos disponíveis", "18+", "Catálogo demonstrativo carregado.", "info"),
+                    new DashboardCard("Planos SaaS", "6", "Starter, Gov Basic, Gov Plus, Enterprise, Business e Industrial.", "primary")
+                },
+                Ambiente = _service.CriarAmbiente(false)
+            });
         }
     }
 }

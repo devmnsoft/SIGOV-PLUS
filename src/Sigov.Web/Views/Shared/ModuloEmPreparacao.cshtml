@@ -20,7 +20,7 @@
         <div class="col-lg-7"><h2 class="h5">Próximos passos</h2><ul class="list-group list-group-flush">@foreach (var passo in Model.ProximosPassos) { <li class="list-group-item px-0">✓ @passo</li> }</ul></div>
         <div class="col-lg-5"><h2 class="h5">Módulos relacionados</h2><div class="d-flex flex-wrap gap-2">@foreach (var item in Model.ModulosRelacionados) { <span class="badge text-bg-secondary">@item</span> }</div></div>
       </div>
-      <div class="d-flex gap-2 mt-4"><a class="btn btn-primary" href="/Dashboard">Voltar ao dashboard</a><a class="btn btn-outline-secondary" href="/Saas/Implantacao">Abrir implantação guiada</a></div>
+      <div class="d-flex gap-2 mt-4 flex-wrap"><a class="btn btn-primary" href="/Dashboard">Voltar ao Dashboard</a><a class="btn btn-outline-secondary" href="/Modulos">Ver catálogo de módulos</a><a class="btn btn-outline-secondary" href="/Saas/Implantacao">Abrir implantação guiada</a></div>
     </div>
   </div>
 </section>
