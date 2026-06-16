@@ -2,20 +2,31 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Commercial;
 using Sigov.Application.Enterprise;
 
+using Sigov.Web.Services;
+
 namespace Sigov.Web.Controllers;
 
 public sealed class ComercialController : Controller
 {
+    private readonly OperationalDemoService _operationalDemo;
+    private readonly ILogger<ComercialController> _operationalLogger;
+
     private readonly IModuleCatalogService _moduleCatalogService;
     private readonly IEnterpriseModuleService _enterpriseModuleService;
 
-    public ComercialController(IModuleCatalogService moduleCatalogService, IEnterpriseModuleService enterpriseModuleService)
+    public ComercialController(
+        OperationalDemoService operationalDemo,
+        ILogger<ComercialController> operationalLogger,
+        IModuleCatalogService moduleCatalogService,
+        IEnterpriseModuleService enterpriseModuleService)
     {
+        _operationalDemo = operationalDemo;
+        _operationalLogger = operationalLogger;
         _moduleCatalogService = moduleCatalogService;
         _enterpriseModuleService = enterpriseModuleService;
     }
 
-    public IActionResult Index() => View(_moduleCatalogService.GetModules());
+    public IActionResult Index() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Dashboard"));
 
     public IActionResult Dashboard() => EnterprisePage("Dashboard Comercial", "/api/enterprise/comercial/dashboard", "comercial.dashboard.visualizar");
 
@@ -35,5 +46,21 @@ public sealed class ComercialController : Controller
     {
         var dashboard = _enterpriseModuleService.GetDashboard("comercial", Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
         return View("~/Views/Enterprise/ModulePage.cshtml", new Sigov.Web.Controllers.EnterprisePageViewModel("comercial", title, permission, apiRoute, dashboard));
+    }
+
+
+    [Route("/Comercial/Funil")]
+    public IActionResult Funil(string? q = null)
+    {
+        try
+        {
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Funil", q));
+        }
+        catch (Exception ex)
+        {
+            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Comercial/Funil");
+            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Em implantação"));
+        }
     }
 }

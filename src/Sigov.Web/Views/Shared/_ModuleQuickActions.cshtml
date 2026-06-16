@@ -1,0 +1,2 @@
+@model IReadOnlyList<Sigov.Web.Models.Operational.QuickAction>
+<div class="d-flex flex-wrap gap-2">@foreach (var a in Model) { <a class="btn @(a.Critical ? "btn-outline-danger" : "btn-outline-primary")" href="@a.Url"><span>@a.Icon</span> @a.Label</a> }</div>

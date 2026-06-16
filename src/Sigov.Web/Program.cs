@@ -48,6 +48,7 @@ builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardServ
 builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
 builder.Services.AddInfrastructure();
 builder.Services.AddScoped<PostBuildSaasService>();
+builder.Services.AddSingleton<OperationalDemoService>();
 
 var app = builder.Build();
 

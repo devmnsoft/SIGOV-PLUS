@@ -1,0 +1,2 @@
+@model IReadOnlyList<Sigov.Web.Models.Operational.TimelineStep>
+<div class="list-group list-group-flush">@foreach (var step in Model) { <div class="list-group-item"><div class="d-flex justify-content-between"><strong>@step.Title</strong><span class="badge bg-secondary">@step.DateLabel</span></div><div class="text-muted small">@step.Description</div><span class="badge bg-light text-dark">@step.Status</span></div> }</div>
