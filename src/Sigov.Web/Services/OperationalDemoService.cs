@@ -4,35 +4,43 @@ namespace Sigov.Web.Services;
 
 public sealed class OperationalDemoService
 {
-    private static readonly Dictionary<string, (string Area, string Title, string Purpose, string[] Entities)> Catalog = new(StringComparer.OrdinalIgnoreCase)
+    private sealed record OperationalModuleSeed(
+        string Area,
+        string Title,
+        string Purpose,
+        string[] Entities);
+
+    private static readonly Dictionary<string, OperationalModuleSeed> Catalog = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Tributario"] = ("Governo", "Tributário", "Gerencia contribuintes, imóveis, débitos, dívida ativa e emissão de guias demonstrativas.", new[] { "Contribuintes", "Imoveis", "Economicos", "Debitos", "Guias", "DividaAtiva" }),
-        ["Protocolo"] = ("Governo", "Protocolo", "Controla abertura, tramitação, pendências, anexos e linha do tempo de processos administrativos.", new[] { "Processos", "Novo", "Tramitar", "MinhasPendencias" }),
-        ["Ged"] = ("Governo", "GED/OCR", "Centraliza documentos, pastas, upload visual, OCR, versões e cuidados LGPD.", new[] { "Documentos", "Pastas", "NovoDocumento" }),
-        ["Contratos"] = ("Governo", "Contratos", "Acompanha contratos, vigência, fiscais, fornecedores, aditivos, documentos e vencimentos.", new[] { "Listar", "Novo", "Vencimentos" }),
-        ["Juridico"] = ("Governo", "Jurídico", "Organiza processos, prazos, pareceres, audiências, responsáveis e alertas legais.", new[] { "Processos", "Prazos", "Pareceres", "Audiencias" }),
-        ["Rh"] = ("Governo", "RH", "Integra servidores, vínculos, folha, férias, afastamentos e saúde ocupacional.", new[] { "Servidores", "Folhas", "Ferias", "Afastamentos" }),
-        ["Saude"] = ("Governo", "Saúde", "Acompanha pacientes, unidades, atendimentos, agendas e ACS/campo.", new[] { "Pacientes", "Unidades", "Atendimentos", "Agendas", "Acs" }),
-        ["Educacao"] = ("Governo", "Educação", "Gerencia alunos, escolas, turmas, matrículas e frequência escolar.", new[] { "Alunos", "Escolas", "Turmas", "Matriculas", "Frequencia" }),
-        ["Agro"] = ("Governo", "Agro", "Apoia produtores, propriedades, patrulha mecanizada, feiras e produção rural.", new[] { "Produtores", "Propriedades", "Programas" }),
-        ["Saneamento"] = ("Governo", "Saneamento", "Controla consumidores, ligações, leituras, faturas, ordens de serviço e GIS.", new[] { "Consumidores", "Ligacoes", "Leituras", "Faturas", "OrdensServico", "Gis" }),
-        ["Social"] = ("Governo", "Social", "Gerencia famílias, atendimentos, benefícios, visitas e acompanhamento socioassistencial.", new[] { "Familias", "Atendimentos", "Beneficios" }),
-        ["Comercial"] = ("Empresas", "Comercial/CRM", "Controla clientes, leads, propostas, pedidos e funil comercial.", new[] { "Clientes", "Leads", "Propostas", "Pedidos", "Funil" }),
-        ["Varejo"] = ("Empresas", "Varejo/PDV", "Demonstra vendas, caixa, produtos e fechamento operacional de PDV.", new[] { "Vendas", "Caixa", "Produtos" }),
-        ["Atacado"] = ("Empresas", "Atacado", "Acompanha pedidos, clientes, tabelas comerciais e separação logística.", new[] { "Pedidos", "Clientes", "Separacao" }),
-        ["Estoque"] = ("Empresas", "Estoque", "Controla saldos, movimentações, inventário e alertas de reposição.", new[] { "Produtos", "Movimentacoes", "Inventario" }),
-        ["Financeiro"] = ("Empresas", "Financeiro", "Acompanha contas a receber, pagar, caixa, categorias e relatórios.", new[] { "ContasReceber", "ContasPagar", "Caixa", "Categorias", "Relatorios" }),
-        ["Industria"] = ("Empresas", "Indústria", "Demonstra ordens de produção, apontamentos, qualidade e custos.", new[] { "Ordens", "Apontamentos", "Qualidade" }),
-        ["Manutencao"] = ("Empresas", "Manutenção", "Gerencia ativos, planos preventivos, SLA e ordens técnicas.", new[] { "Ativos", "PlanosPreventivos" }),
-        ["OrdemServico"] = ("Empresas", "Ordem de Serviço", "Controla abertura, técnico, checklist, apontamentos, SLA e conclusão de OS.", new[] { "Listar", "Nova" }),
-        ["MobileCampo"] = ("Operação", "Mobile/Campo", "Apoia equipes externas com roteiros, coletas, evidências e sincronização.", new[] { "Roteiros", "Coletas" }),
-        ["Integracoes"] = ("Operação", "Integrações", "Monitora conectores, webhooks, filas, erros e reprocessamentos.", new[] { "Conectores", "Webhooks" }),
-        ["IA"] = ("Operação", "IA", "Oferece assistentes, automações, triagem e apoio contextual auditável.", new[] { "Assistentes", "Automacoes" })
+        ["Tributario"] = new OperationalModuleSeed("Governo", "Tributário", "Gerencia contribuintes, imóveis, débitos, dívida ativa e emissão de guias demonstrativas.", new[] { "Contribuintes", "Imoveis", "Economicos", "Debitos", "Guias", "DividaAtiva" }),
+        ["Protocolo"] = new OperationalModuleSeed("Governo", "Protocolo", "Controla abertura, tramitação, pendências, anexos e linha do tempo de processos administrativos.", new[] { "Processos", "Novo", "Tramitar", "MinhasPendencias" }),
+        ["Ged"] = new OperationalModuleSeed("Governo", "GED/OCR", "Centraliza documentos, pastas, upload visual, OCR, versões e cuidados LGPD.", new[] { "Documentos", "Pastas", "NovoDocumento" }),
+        ["Contratos"] = new OperationalModuleSeed("Governo", "Contratos", "Acompanha contratos, vigência, fiscais, fornecedores, aditivos, documentos e vencimentos.", new[] { "Listar", "Novo", "Vencimentos" }),
+        ["Juridico"] = new OperationalModuleSeed("Governo", "Jurídico", "Organiza processos, prazos, pareceres, audiências, responsáveis e alertas legais.", new[] { "Processos", "Prazos", "Pareceres", "Audiencias" }),
+        ["Rh"] = new OperationalModuleSeed("Governo", "RH", "Integra servidores, vínculos, folha, férias, afastamentos e saúde ocupacional.", new[] { "Servidores", "Folhas", "Ferias", "Afastamentos" }),
+        ["Saude"] = new OperationalModuleSeed("Governo", "Saúde", "Acompanha pacientes, unidades, atendimentos, agendas e ACS/campo.", new[] { "Pacientes", "Unidades", "Atendimentos", "Agendas", "Acs" }),
+        ["Educacao"] = new OperationalModuleSeed("Governo", "Educação", "Gerencia alunos, escolas, turmas, matrículas e frequência escolar.", new[] { "Alunos", "Escolas", "Turmas", "Matriculas", "Frequencia" }),
+        ["Agro"] = new OperationalModuleSeed("Governo", "Agro", "Apoia produtores, propriedades, patrulha mecanizada, feiras e produção rural.", new[] { "Produtores", "Propriedades", "Programas" }),
+        ["Saneamento"] = new OperationalModuleSeed("Governo", "Saneamento", "Controla consumidores, ligações, leituras, faturas, ordens de serviço e GIS.", new[] { "Consumidores", "Ligacoes", "Leituras", "Faturas", "OrdensServico", "Gis" }),
+        ["Social"] = new OperationalModuleSeed("Governo", "Social", "Gerencia famílias, atendimentos, benefícios, visitas e acompanhamento socioassistencial.", new[] { "Familias", "Atendimentos", "Beneficios" }),
+        ["Comercial"] = new OperationalModuleSeed("Empresas", "Comercial/CRM", "Controla clientes, leads, propostas, pedidos e funil comercial.", new[] { "Clientes", "Leads", "Propostas", "Pedidos", "Funil" }),
+        ["Varejo"] = new OperationalModuleSeed("Empresas", "Varejo/PDV", "Demonstra vendas, caixa, produtos e fechamento operacional de PDV.", new[] { "Vendas", "Caixa", "Produtos" }),
+        ["Atacado"] = new OperationalModuleSeed("Empresas", "Atacado", "Acompanha pedidos, clientes, tabelas comerciais e separação logística.", new[] { "Pedidos", "Clientes", "Separacao" }),
+        ["Estoque"] = new OperationalModuleSeed("Empresas", "Estoque", "Controla saldos, movimentações, inventário e alertas de reposição.", new[] { "Produtos", "Movimentacoes", "Inventario" }),
+        ["Financeiro"] = new OperationalModuleSeed("Empresas", "Financeiro", "Acompanha contas a receber, pagar, caixa, categorias e relatórios.", new[] { "ContasReceber", "ContasPagar", "Caixa", "Categorias", "Relatorios" }),
+        ["Industria"] = new OperationalModuleSeed("Empresas", "Indústria", "Demonstra ordens de produção, apontamentos, qualidade e custos.", new[] { "Ordens", "Apontamentos", "Qualidade" }),
+        ["Manutencao"] = new OperationalModuleSeed("Empresas", "Manutenção", "Gerencia ativos, planos preventivos, SLA e ordens técnicas.", new[] { "Ativos", "PlanosPreventivos" }),
+        ["OrdemServico"] = new OperationalModuleSeed("Empresas", "Ordem de Serviço", "Controla abertura, técnico, checklist, apontamentos, SLA e conclusão de OS.", new[] { "Listar", "Nova" }),
+        ["MobileCampo"] = new OperationalModuleSeed("Operação", "Mobile/Campo", "Apoia equipes externas com roteiros, coletas, evidências e sincronização.", new[] { "Roteiros", "Coletas" }),
+        ["Integracoes"] = new OperationalModuleSeed("Operação", "Integrações", "Monitora conectores, webhooks, filas, erros e reprocessamentos.", new[] { "Conectores", "Webhooks" }),
+        ["IA"] = new OperationalModuleSeed("Operação", "IA", "Oferece assistentes, automações, triagem e apoio contextual auditável.", new[] { "Assistentes", "Automacoes" })
     };
 
     public OperationalModuleViewModel Build(string module, string screen = "Dashboard", string? q = null)
     {
-        var item = Catalog.TryGetValue(module, out var found) ? found : ("Operação", module, "Fluxo em implantação com navegação demonstrável.", new[] { "Listar", "Novo" });
+        var item = Catalog.TryGetValue(module, out var found)
+            ? found
+            : new OperationalModuleSeed("Operação", module, "Fluxo em implantação com navegação demonstrável.", new[] { "Listar", "Novo" });
         var baseUrl = "/" + module;
         var actions = item.Entities.Select(e => new QuickAction(e, e.Equals("Dashboard", StringComparison.OrdinalIgnoreCase) ? baseUrl : $"{baseUrl}/{e}")).Prepend(new QuickAction("Dashboard", baseUrl, "⌂")).ToArray();
         return new OperationalModuleViewModel
