@@ -1,5 +1,12 @@
 @model Sigov.Web.Models.PostBuild.TenantsViewModel
-@{ ViewData["Title"] = "Tenants / Clientes"; }
+@{ ViewData["Title"] = "Tenants / Clientes"; 
+    ViewData["PageTitle"] = "Clientes/Tenants";
+    ViewData["PageDescription"] = "Administrar clientes SaaS, status, plano, módulos ativos e dados de white label.";
+    ViewData["PageServes"] = "Esta tela dá contexto, ações padronizadas, validação visual, fallback amigável e auditoria quando aplicável.";
+    ViewData["PageHow"] = "Use busca e filtros, acione Novo/Editar/Detalhes e confirme ações sensíveis no modal.";
+    ViewData["PageNext"] = "Revise permissões, auditoria, LGPD e módulos relacionados após salvar.";
+}
+@await Html.PartialAsync("_PageIntro")
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><div><h1 class="h3">Tenants / Clientes</h1><p class="text-muted">Listagem com máscara LGPD para documento, e-mail e telefone.</p></div><button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#formTenant">Novo tenant</button></div>
 @if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
 <div class="collapse mb-3" id="formTenant"><div class="card"><div class="card-body"><form class="row g-3"><div class="col-md-4"><label class="form-label">Nome</label><input class="form-control" placeholder="Nome do cliente" /></div><div class="col-md-2"><label class="form-label">Código</label><input class="form-control" /></div><div class="col-md-2"><label class="form-label">Documento</label><input class="form-control" /></div><div class="col-md-2"><label class="form-label">Plano</label><input class="form-control" /></div><div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-primary w-100">Salvar via API</button></div></form><div class="small text-muted mt-2">CRUD completo exposto na API /api/saas/tenants; formulário visual preparado para a próxima evolução.</div></div></div></div>

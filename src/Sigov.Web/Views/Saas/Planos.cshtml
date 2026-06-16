@@ -1,21 +1,22 @@
 @{
     ViewData["Title"] = "Planos SaaS";
+    ViewData["PageTitle"] = "Planos SaaS";
+    ViewData["PageDescription"] = "Catálogo comercial premium com limites, módulos inclusos, recursos e destaque do plano recomendado.";
+    ViewData["PageServes"] = "Apoiar contratação, comparação e edição visual dos planos SaaS.";
+    ViewData["PageHow"] = "Compare limites, módulos e recursos; use Ver detalhes ou Editar para conduzir o comercial.";
+    ViewData["PageNext"] = "Associe o plano ao tenant e ative módulos na implantação guiada.";
     var planos = new[] {
-        new { Nome="Starter", Preco="R$ 990/mês", Usuarios="até 15", Storage="10 GB", Modulos="Dashboard, Usuários, Ajuda", Recomendado=false },
-        new { Nome="Gov Basic", Preco="R$ 2.900/mês", Usuarios="até 50", Storage="50 GB", Modulos="Tributário, Protocolos, Auditoria", Recomendado=false },
-        new { Nome="Gov Plus", Preco="R$ 5.900/mês", Usuarios="até 150", Storage="150 GB", Modulos="Governo completo, BI, LGPD", Recomendado=true },
-        new { Nome="Enterprise", Preco="Sob consulta", Usuarios="ilimitado", Storage="1 TB+", Modulos="White label, integrações, SLA", Recomendado=false },
-        new { Nome="Business", Preco="R$ 3.900/mês", Usuarios="até 80", Storage="100 GB", Modulos="CRM, financeiro, contratos", Recomendado=false },
-        new { Nome="Industrial", Preco="R$ 4.900/mês", Usuarios="até 120", Storage="200 GB", Modulos="Indústria, estoque, operação", Recomendado=false }
+        new { Nome="Starter", Para="Pequenas operações iniciando a jornada digital.", Limites="15 usuários / 10 GB", Modulos="Dashboard, Usuários, Ajuda", Recursos="Login, manual e indicadores básicos", Recomendado=false },
+        new { Nome="Gov Basic", Para="Prefeituras com implantação enxuta.", Limites="50 usuários / 50 GB", Modulos="Tributário, Protocolo, Auditoria", Recursos="Cadastros essenciais e trilhas", Recomendado=false },
+        new { Nome="Gov Plus", Para="Gestão pública integrada.", Limites="150 usuários / 150 GB", Modulos="Governo completo, BI, LGPD", Recursos="Implantação guiada, LGPD e dashboards", Recomendado=true },
+        new { Nome="Enterprise", Para="Grandes clientes multi-entidade.", Limites="Ilimitado / 1 TB+", Modulos="White label, integrações, SLA", Recursos="Suporte premium e governança", Recomendado=false },
+        new { Nome="Business", Para="Empresas de serviços e comércio.", Limites="80 usuários / 100 GB", Modulos="CRM, financeiro, contratos", Recursos="Fluxos comerciais e financeiros", Recomendado=false },
+        new { Nome="Industrial", Para="Operação fabril e manutenção.", Limites="120 usuários / 200 GB", Modulos="Indústria, estoque, operação", Recursos="Chão de fábrica, OS e estoque", Recomendado=false }
     };
 }
-<section class="container-fluid py-3" data-sigov-page="saas-planos">
-  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Dashboard">Dashboard</a></li><li class="breadcrumb-item active">Planos</li></ol></nav>
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h1 class="h3 mb-1">Planos SaaS</h1><p class="text-muted mb-0">Catálogo comercial com limites, módulos inclusos e comparação para contratação.</p></div><a class="btn btn-outline-primary" href="#comparacao">Comparar planos</a></div>
-  <div class="row g-3">
-    @foreach (var p in planos) {
-      <div class="col-md-6 col-xl-4"><div class="card h-100 shadow-sm @(p.Recomendado ? "border-primary" : "")"><div class="card-body d-flex flex-column"><div class="d-flex justify-content-between"><h2 class="h4">@p.Nome</h2>@if (p.Recomendado) { <span class="badge text-bg-primary align-self-start">Recomendado</span> }</div><div class="display-6 my-3">@p.Preco</div><ul class="list-unstyled small text-muted"><li><strong>Usuários:</strong> @p.Usuarios</li><li><strong>Storage:</strong> @p.Storage</li><li><strong>Módulos:</strong> @p.Modulos</li></ul><div class="mt-auto d-flex gap-2"><button class="btn btn-primary" type="button" data-sigov-toast="Solicitação registrada.">Contratar</button><button class="btn btn-outline-secondary" type="button">Editar</button></div></div></div></div>
-    }
-  </div>
-  <div id="comparacao" class="card mt-4"><div class="card-header"><strong>Comparação entre planos</strong></div><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Plano</th><th>Preço</th><th>Usuários</th><th>Storage</th><th>Módulos inclusos</th></tr></thead><tbody>@foreach (var p in planos) { <tr><td>@p.Nome</td><td>@p.Preco</td><td>@p.Usuarios</td><td>@p.Storage</td><td>@p.Modulos</td></tr> }</tbody></table></div></div>
+@await Html.PartialAsync("_PageIntro")
+<section class="row g-3">
+@foreach (var p in planos) {
+  <div class="col-md-6 col-xl-4"><article class="sigov-card p-4 h-100 @(p.Recomendado ? "border border-primary" : "")"><div class="d-flex justify-content-between"><h2 class="h4">@p.Nome</h2>@if (p.Recomendado){<span class="sigov-badge sigov-badge--info">Recomendado</span>}</div><p><strong>Para quem é:</strong> @p.Para</p><p><strong>Limites:</strong> @p.Limites</p><p><strong>Módulos inclusos:</strong> @p.Modulos</p><p><strong>Recursos:</strong> @p.Recursos</p><div class="d-flex gap-2 flex-wrap mt-auto"><button class="sigov-btn sigov-btn--primary" type="button" onclick="SigovNotify.info('Detalhes comerciais abertos para @p.Nome','Planos')">Ver detalhes</button><button class="sigov-btn sigov-btn--ghost" type="button">Editar</button></div></article></div>
+}
 </section>

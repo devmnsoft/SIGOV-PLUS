@@ -1,0 +1,19 @@
+@{
+  ViewData["Title"] = "Manual do Sistema";
+  ViewData["PageTitle"] = "Manual do Sistema por Perfil";
+  ViewData["PageDescription"] = "Central de orientação para cada perfil entender permissões, primeiros passos, cadastros, consultas, relatórios e auditoria.";
+  ViewData["PageServes"] = "Reduzir dúvidas e padronizar a operação por função do usuário.";
+  ViewData["PageHow"] = "Pesquise um tema, abra o card do perfil e siga os links para as telas relacionadas.";
+}
+@await Html.PartialAsync("_PageIntro")
+<form class="sigov-card p-3 mb-4" method="get"><div class="input-group"><input class="form-control" name="busca" value="@ViewData["Busca"]" placeholder="Buscar no manual: usuários, módulos, auditoria..."/><button class="sigov-btn sigov-btn--primary">Buscar</button></div></form>
+<div class="row g-3">
+@{ var perfis = new[]{"Administrador Geral","Administrador do Cliente","Coordenador","Diretor","Servidor","Operador","Financeiro","Técnico/Suporte"}; }
+@for (var i = 0; i < perfis.Length; i++){
+ var perfil = perfis[i];
+ <div class="col-lg-6"><div class="sigov-card p-4 h-100"><h2 class="h5">@perfil</h2><div class="accordion" id="acc@i">
+  <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#p@i">Primeiros passos e menus</button></h3><div id="p@i" class="accordion-collapse collapse show"><div class="accordion-body text-muted small">Entenda seu escopo, selecione tenant/entidade/exercício, consulte o dashboard, cadastre dados conforme permissão e acompanhe auditoria. Links úteis: <a href="/Jornada">Jornada</a>, <a href="/Saas/Implantacao">Implantação guiada</a>, <a href="/Auditoria/Trilhas">Auditoria</a>.</div></div></div>
+  <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#f@i">FAQ e cuidados LGPD</button></h3><div id="f@i" class="accordion-collapse collapse"><div class="accordion-body text-muted small">Use dados pessoais apenas quando necessário, confirme ações críticas, revise filtros antes de exportar e acione suporte em caso de incidente.</div></div></div>
+ </div></div></div>
+}
+</div>
