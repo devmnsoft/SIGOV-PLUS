@@ -14,9 +14,9 @@ public sealed class OperationalModulesController : Controller
         _logger = logger;
     }
 
-    [Route("/{module:regex(^(Contratos|Juridico|Varejo|Atacado|Estoque|OrdemServico|Manutencao)$)}")]
-    [Route("/{module:regex(^(Contratos|Juridico|Varejo|Atacado|Estoque|OrdemServico|Manutencao)$)}/{screen}")]
-    [Route("/{module:regex(^(Contratos|Juridico|OrdemServico)$)}/Detalhes/{id:long}")]
+    [Route("/{module:regex(^(Contratos|Juridico|Rh|Agro|Social|Varejo|Atacado|Estoque|Industria|OrdemServico|Manutencao|MobileCampo|Integracoes|IA)$)}")]
+    [Route("/{module:regex(^(Contratos|Juridico|Rh|Agro|Social|Varejo|Atacado|Estoque|Industria|OrdemServico|Manutencao|MobileCampo|Integracoes|IA)$)}/{screen}")]
+    [Route("/{module:regex(^(Contratos|Juridico|OrdemServico|Manutencao)$)}/Detalhes/{id:long}")]
     public IActionResult Module(string module, string screen = "Dashboard", long? id = null, string? q = null)
     {
         try

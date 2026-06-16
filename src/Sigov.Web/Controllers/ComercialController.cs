@@ -26,19 +26,24 @@ public sealed class ComercialController : Controller
         _enterpriseModuleService = enterpriseModuleService;
     }
 
-    public IActionResult Index() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Dashboard"));
+    [Route("/Comercial")]
+    public IActionResult Index(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Dashboard", q));
 
     public IActionResult Dashboard() => EnterprisePage("Dashboard Comercial", "/api/enterprise/comercial/dashboard", "comercial.dashboard.visualizar");
 
-    public IActionResult Clientes() => EnterprisePage("Clientes Comerciais", "/api/comercial/clientes", "comercial.clientes.visualizar");
+    [Route("/Comercial/Clientes")]
+    public IActionResult Clientes(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Clientes", q));
 
-    public IActionResult Leads() => EnterprisePage("Leads", "/api/comercial/leads", "comercial.leads.visualizar");
+    [Route("/Comercial/Leads")]
+    public IActionResult Leads(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Leads", q));
 
     public IActionResult Oportunidades() => EnterprisePage("Oportunidades", "/api/comercial/oportunidades", "comercial.oportunidades.visualizar");
 
-    public IActionResult Propostas() => EnterprisePage("Propostas", "/api/comercial/propostas", "comercial.propostas.visualizar");
+    [Route("/Comercial/Propostas")]
+    public IActionResult Propostas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Propostas", q));
 
-    public IActionResult Pedidos() => EnterprisePage("Pedidos Comerciais", "/api/comercial/pedidos", "comercial.pedidos.visualizar");
+    [Route("/Comercial/Pedidos")]
+    public IActionResult Pedidos(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Comercial", "Pedidos", q));
 
     public IActionResult TabelasPreco() => EnterprisePage("Tabelas de Preço", "/api/comercial/tabelas-preco", "comercial.tabelas_preco.visualizar");
 

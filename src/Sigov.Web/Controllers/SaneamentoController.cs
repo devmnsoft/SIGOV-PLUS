@@ -17,18 +17,23 @@ public sealed class SaneamentoController : Controller
     }
 
     public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Dashboard"));
-    public IActionResult Consumidores() => View(new SaneamentoConsumidorFormViewModel());
+    [Route("/Saneamento/Consumidores")]
+    public IActionResult Consumidores(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Consumidores", q));
     public IActionResult ConsumidorDetalhe(long id) { ViewData["ConsumidorId"] = id; return View(); }
-    public IActionResult Ligacoes() => View(new LigacaoSaneamentoFormViewModel());
+    [Route("/Saneamento/Ligacoes")]
+    public IActionResult Ligacoes(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Ligacoes", q));
     public IActionResult UnidadesConsumidoras() => View(new UnidadeConsumidoraFormViewModel());
     public IActionResult UnidadeConsumidoraDetalhe(long id) { ViewData["UnidadeConsumidoraId"] = id; return View(); }
     public IActionResult Hidrometros() => View(new HidrometroFormViewModel());
-    public IActionResult Leituras() => View(new LeituraConsumoFormViewModel());
-    public IActionResult Faturas() => View(new FaturaSaneamentoFormViewModel());
+    [Route("/Saneamento/Leituras")]
+    public IActionResult Leituras(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Leituras", q));
+    [Route("/Saneamento/Faturas")]
+    public IActionResult Faturas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Faturas", q));
     public IActionResult FaturaDetalhe(long id) { ViewData["FaturaId"] = id; return View(); }
     public IActionResult Arrecadacoes() => View(new ArrecadacaoSaneamentoFormViewModel());
     public IActionResult Parcelamentos() => View(new ParcelamentoSaneamentoFormViewModel());
-    public IActionResult OrdensServico() => View(new OrdemServicoSaneamentoFormViewModel());
+    [Route("/Saneamento/OrdensServico")]
+    public IActionResult OrdensServico(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "OrdensServico", q));
     public IActionResult OrdemServicoDetalhe(long id) { ViewData["OrdemServicoId"] = id; return View(); }
     public IActionResult EquipesCampo() => View(new EquipeCampoSaneamentoFormViewModel());
     public IActionResult Laboratorio() => View(new LaboratorioAmostraFormViewModel());

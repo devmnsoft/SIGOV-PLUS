@@ -17,18 +17,22 @@ public sealed class EducacaoController : Controller
     }
 
     public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Dashboard"));
-    public IActionResult Escolas() => View(new EscolaFormViewModel());
+    [Route("/Educacao/Escolas")]
+    public IActionResult Escolas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Escolas", q));
     public IActionResult EscolaDetalhe(long id) { ViewData["EscolaId"] = id; return View(new EscolaFormViewModel()); }
     public IActionResult AnosLetivos() => View(new AnoLetivoFormViewModel());
     public IActionResult Cursos() => View(new CursoFormViewModel());
     public IActionResult Series() => View(new SerieAnoFormViewModel());
-    public IActionResult Turmas() => View(new TurmaFormViewModel());
+    [Route("/Educacao/Turmas")]
+    public IActionResult Turmas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Turmas", q));
     public IActionResult TurmaDetalhe(long id) { ViewData["TurmaId"] = id; return View(); }
-    public IActionResult Alunos() => View(new AlunoFormViewModel());
+    [Route("/Educacao/Alunos")]
+    public IActionResult Alunos(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Alunos", q));
     public IActionResult AlunoCriar() => View(new AlunoFormViewModel());
     public IActionResult AlunoEditar(long id) { ViewData["AlunoId"] = id; return View(new AlunoFormViewModel()); }
     public IActionResult AlunoDetalhe(long id) { ViewData["AlunoId"] = id; return View(); }
-    public IActionResult Matriculas() => View(new MatriculaFormViewModel());
+    [Route("/Educacao/Matriculas")]
+    public IActionResult Matriculas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Matriculas", q));
     public IActionResult MatriculaDetalhe(long id) { ViewData["MatriculaId"] = id; return View(new MatriculaFormViewModel()); }
     public IActionResult Professores() => View(new ProfessorFormViewModel());
     public IActionResult ProfessorDetalhe(long id) { ViewData["ProfessorId"] = id; return View(new ProfessorFormViewModel()); }
