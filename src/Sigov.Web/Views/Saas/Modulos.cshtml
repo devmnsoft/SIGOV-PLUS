@@ -1,5 +1,12 @@
 @model Sigov.Web.Models.PostBuild.ModulosSaasViewModel
-@{ ViewData["Title"] = "Módulos contratados"; }
+@{ ViewData["Title"] = "Módulos contratados"; 
+    ViewData["PageTitle"] = "Módulos";
+    ViewData["PageDescription"] = "Ativar, desativar e explicar módulos por tenant sem remover dados.";
+    ViewData["PageServes"] = "Esta tela dá contexto, ações padronizadas, validação visual, fallback amigável e auditoria quando aplicável.";
+    ViewData["PageHow"] = "Use busca e filtros, acione Novo/Editar/Detalhes e confirme ações sensíveis no modal.";
+    ViewData["PageNext"] = "Revise permissões, auditoria, LGPD e módulos relacionados após salvar.";
+}
+@await Html.PartialAsync("_PageIntro")
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><div><h1 class="h3">Módulos contratados</h1><p class="text-muted">Ativação lógica por tenant sem remoção de dados ao desativar.</p></div><a class="btn btn-outline-primary" href="/Saas/Tenants">Voltar para tenants</a></div>
 @if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
 <div class="row g-3">

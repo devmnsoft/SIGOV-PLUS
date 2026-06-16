@@ -1,0 +1,26 @@
+@{
+  ViewData["Title"] = "Minha Jornada";
+  ViewData["PageTitle"] = "Minha Jornada no SIGOV PLUS";
+  ViewData["PageDescription"] = "Roteiro claro para configurar clientes, módulos, usuários, permissões e auditoria sem se perder.";
+  ViewData["PageServes"] = "Orientar administradores e operadores sobre os primeiros passos da plataforma SaaS.";
+  ViewData["PageHow"] = "Siga os cards em ordem, avance pela implantação guiada e use o manual por perfil quando precisar.";
+  ViewData["PageNext"] = "Configure tenant, plano, módulos, usuários, permissões, parâmetros e acompanhe auditoria/LGPD.";
+}
+@await Html.PartialAsync("_PageIntro")
+<div class="sigov-card p-4 mb-4">
+  <h2 class="h5">O que é o SIGOV PLUS?</h2>
+  <p class="text-muted mb-0">É uma plataforma SaaS multi-tenant para gestão pública e empresarial, com módulos operacionais, segurança, auditoria, LGPD, integração, dashboard e implantação guiada.</p>
+</div>
+<div class="row g-3">
+@foreach (var item in new[]{
+("1","Configure o cliente","Cadastre ou revise tenant, entidade, exercício e identidade visual."),
+("2","Escolha o plano","Defina Starter, Gov Basic, Gov Plus, Enterprise, Business ou Industrial."),
+("3","Ative os módulos","Habilite módulos por segmento no catálogo e acompanhe o status."),
+("4","Cadastre usuários","Inclua usuários com e-mail, login, tenant e status."),
+("5","Defina permissões","Associe perfis e permissões por módulo com rastreabilidade."),
+("6","Parametrize o ambiente","Revise parâmetros fiscais, operacionais, suporte e notificações."),
+("7","Acompanhe auditoria e LGPD","Monitore trilhas, acessos, consentimentos e incidentes."),
+("8","Use módulos operacionais","Acesse governo, empresas, operação e IA conforme contrato.")}){
+  <div class="col-md-6 col-xl-3"><div class="sigov-kpi-card"><span class="sigov-badge sigov-badge--info">@item.Item1</span><h3 class="h5 mt-3">@item.Item2</h3><p class="text-muted small">@item.Item3</p></div></div>
+}
+</div>

@@ -35,6 +35,18 @@
     const onHidden = () => done(false);
     ok.addEventListener('click', onOk, { once: true }); modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true }); modal.show();
   }) };
+
+  window.SigovHelp = { show: (title, html) => {
+    let el = document.getElementById('sigovHelpModal');
+    if (!el) {
+      el = document.createElement('div'); el.className = 'modal fade sigov-modal'; el.id = 'sigovHelpModal'; el.tabIndex = -1;
+      el.innerHTML = '<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5" id="sigovHelpTitle"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div><div class="modal-body" id="sigovHelpBody"></div><div class="modal-footer"><button class="sigov-btn sigov-btn--primary" data-bs-dismiss="modal">Entendi</button></div></div></div>';
+      document.body.appendChild(el);
+    }
+    el.querySelector('#sigovHelpTitle').textContent = title || 'Ajuda rápida';
+    el.querySelector('#sigovHelpBody').innerHTML = html || '<p>Use esta tela seguindo as orientações exibidas.</p>';
+    if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(el).show();
+  } };
   window.SigovLoading = { button: (button, isLoading, text) => {
     if (!button) return;
     if (isLoading) { button.dataset.originalText = button.innerHTML; button.disabled = true; button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${text || 'Processando...'}`; }

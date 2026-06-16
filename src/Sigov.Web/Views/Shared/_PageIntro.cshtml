@@ -1,0 +1,32 @@
+@{
+    var title = (ViewData["PageTitle"] ?? ViewData["Title"] ?? "Tela SIGOV PLUS").ToString();
+    var description = (ViewData["PageDescription"] ?? "Central operacional do SIGOV PLUS com navegação guiada, validação, auditoria e mensagens amigáveis.").ToString();
+    var serves = (ViewData["PageServes"] ?? "Esta tela ajuda o usuário a entender, consultar e executar rotinas com segurança, clareza e rastreabilidade.").ToString();
+    var how = (ViewData["PageHow"] ?? "Use os filtros para localizar registros, revise as orientações, preencha os campos obrigatórios e confirme as ações quando solicitado.").ToString();
+    var next = (ViewData["PageNext"] ?? "Após concluir, acompanhe auditoria, permissões e módulos relacionados para manter a operação consistente.").ToString();
+    var manual = (ViewData["ManualLink"] ?? "/Manual").ToString();
+}
+<section class="sigov-page-intro sigov-card mb-4" aria-label="Introdução da tela">
+  <div class="d-flex flex-column flex-xl-row gap-3 justify-content-between">
+    <div>
+      <span class="sigov-sidebar__eyebrow text-primary">Guia da tela</span>
+      <h1 class="h3 mb-2">@title</h1>
+      <p class="text-muted mb-0">@description</p>
+    </div>
+    <div class="d-flex gap-2 align-items-start flex-wrap">
+      <button type="button" class="sigov-btn sigov-btn--ghost sigov-btn--sm" onclick="SigovHelp.show('@title', document.getElementById('sigov-page-help').innerHTML)">Ajuda desta tela</button>
+      <a class="sigov-btn sigov-btn--primary sigov-btn--sm" href="@manual">Manual relacionado</a>
+    </div>
+  </div>
+  <div id="sigov-page-help" class="d-none">
+    <p><strong>Para que serve:</strong> @serves</p>
+    <p><strong>Como usar:</strong> @how</p>
+    <p><strong>Próximos passos:</strong> @next</p>
+    <p><strong>LGPD e auditoria:</strong> evite dados sensíveis desnecessários; operações críticas são registradas.</p>
+  </div>
+  <div class="row g-3 mt-3">
+    <div class="col-md-4"><div class="p-3 rounded-4 border h-100"><strong>Para que serve esta tela</strong><p class="mb-0 text-muted small">@serves</p></div></div>
+    <div class="col-md-4"><div class="p-3 rounded-4 border h-100"><strong>Como usar</strong><p class="mb-0 text-muted small">@how</p></div></div>
+    <div class="col-md-4"><div class="p-3 rounded-4 border h-100"><strong>Próximos passos</strong><p class="mb-0 text-muted small">@next</p></div></div>
+  </div>
+</section>
