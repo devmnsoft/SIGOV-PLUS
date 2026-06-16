@@ -14,6 +14,8 @@
     <span class="sigov-badge sigov-badge--info">@(System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")</span>
   </div>
   <div class="sigov-topbar__actions">
+    <form class="d-none d-xl-flex" method="get" action="/Busca" role="search"><input class="form-control form-control-sm" name="q" placeholder="Buscar usuários, módulos, processos..." aria-label="Busca global"><button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="submit">Buscar</button></form>
+    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Notificacoes">Notificações</a>
     <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Operacao/Health">Health</a>
     <button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="button" data-sigov-theme-toggle>Tema</button>
     <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Ajuda">Ajuda</a>

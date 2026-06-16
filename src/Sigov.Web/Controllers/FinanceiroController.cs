@@ -1,10 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Models.Financeiro;
 
+using Sigov.Web.Services;
+
 namespace Sigov.Web.Controllers;
 
 public sealed class FinanceiroController : Controller
 {
+    private readonly OperationalDemoService _operationalDemo;
+    private readonly ILogger<FinanceiroController> _operationalLogger;
+
+    public FinanceiroController(OperationalDemoService operationalDemo, ILogger<FinanceiroController> operationalLogger)
+    {
+        _operationalDemo = operationalDemo;
+        _operationalLogger = operationalLogger;
+    }
+
     public IActionResult Index() => View();
     public IActionResult Dashboard() => View(new FinanceiroDashboardViewModel());
     public IActionResult PlanoContas() => View(new PlanoContasFormViewModel());
@@ -32,4 +43,50 @@ public sealed class FinanceiroController : Controller
     public IActionResult FluxoCaixa() => View("FinanceiroEmpresarial", "Fluxo de Caixa");
     public IActionResult Conciliacao() => View("FinanceiroEmpresarial", "Conciliação Bancária");
     public IActionResult Configuracao() => View("FinanceiroEmpresarial", "Configuração Financeira");
+
+
+    [Route("/Financeiro/Caixa")]
+    public IActionResult Caixa(string? q = null)
+    {
+        try
+        {
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Caixa", q));
+        }
+        catch (Exception ex)
+        {
+            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Financeiro/Caixa");
+            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Em implantação"));
+        }
+    }
+
+    [Route("/Financeiro/Categorias")]
+    public IActionResult Categorias(string? q = null)
+    {
+        try
+        {
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Categorias", q));
+        }
+        catch (Exception ex)
+        {
+            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Financeiro/Categorias");
+            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Em implantação"));
+        }
+    }
+
+    [Route("/Financeiro/Relatorios")]
+    public IActionResult Relatorios(string? q = null)
+    {
+        try
+        {
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Relatorios", q));
+        }
+        catch (Exception ex)
+        {
+            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Financeiro/Relatorios");
+            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
+            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Financeiro", "Em implantação"));
+        }
+    }
 }
