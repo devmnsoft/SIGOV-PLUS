@@ -32,13 +32,13 @@
   </div>
   @await Html.PartialAsync("_ConfirmModal")
   @await Html.PartialAsync("_ToastHost")
+  @await Html.PartialAsync("_SigovAssistant")
   @await Html.PartialAsync("_Footer")
   <script src="~/lib/jquery/jquery.min.js" asp-append-version="true"></script>
   <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
   <script src="~/lib/jquery-validation/jquery.validate.min.js"></script>
   <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
   <script src="~/js/sigov.core.js"></script>
-  <script src="~/js/sigov.ui.js"></script>
   <script src="~/js/sigov-ui.js" asp-append-version="true"></script>
   <script src="~/js/sigov.api.js"></script>
   <script src="~/js/sigov.errors.js"></script>
@@ -56,6 +56,7 @@
   <script src="~/js/sigov.permissions.js"></script>
   <script src="~/js/sigov.modules.js"></script>
   <script src="~/js/sigov.onboarding.js"></script>
+  <script src="~/js/sigov-assistant.js" asp-append-version="true"></script>
   <script src="~/js/sigov.tour.js"></script>
   <script src="~/js/sigov.mobile.js"></script>
   @await RenderSectionAsync("Scripts", required: false)

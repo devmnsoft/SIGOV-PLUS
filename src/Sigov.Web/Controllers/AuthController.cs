@@ -83,7 +83,7 @@ limit 1;";
                 ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
             }).ConfigureAwait(false);
 
-            return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) || !Url.IsLocalUrl(returnUrl) ? "/Dashboard" : returnUrl);
+            return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) || !Url.IsLocalUrl(returnUrl) ? "/MinhaCentral" : returnUrl);
         }
         catch (Exception ex)
         {

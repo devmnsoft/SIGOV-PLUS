@@ -5,3 +5,7 @@
 .sigov-loading { display: inline-flex; align-items: center; gap: .5rem; }
 .sigov-kpi { border-left: 4px solid var(--sigov-primary); }
 :focus-visible { outline: 3px solid rgba(20,184,166,.55); outline-offset: 2px; }
+
+.sigov-assistant{position:fixed;right:1rem;bottom:1rem;z-index:1080}.sigov-assistant[hidden]{display:block}.sigov-assistant[hidden] .sigov-assistant__panel{display:none}.sigov-assistant__panel{width:min(360px,calc(100vw - 2rem));box-shadow:0 24px 80px rgba(15,23,42,.22);margin-bottom:.75rem}.sigov-assistant__fab{width:3.25rem;height:3.25rem;border:0;border-radius:999px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:800;box-shadow:0 16px 40px rgba(37,99,235,.35)}
+.sigov-hero{background:radial-gradient(circle at top left,rgba(37,99,235,.12),transparent 35%),linear-gradient(135deg,#fff,#f8fafc)}
+.fw-black{font-weight:900}.sigov-table-wrap{overflow-x:auto}.sigov-card{border:1px solid rgba(148,163,184,.22);border-radius:1.25rem;background:var(--sigov-surface,#fff);box-shadow:0 10px 30px rgba(15,23,42,.05)}
