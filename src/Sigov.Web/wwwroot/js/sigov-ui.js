@@ -1,4 +1,32 @@
 (function () {
+  'use strict';
+
+  function isExternalAsyncListenerMessage(message) {
+    return message && message.indexOf('A listener indicated an asynchronous response by returning true') >= 0;
+  }
+
+  window.addEventListener('unhandledrejection', function (event) {
+    var message = event && event.reason && event.reason.message
+      ? event.reason.message
+      : String(event && event.reason || '');
+
+    if (isExternalAsyncListenerMessage(message)) {
+      console.warn('Aviso externo do navegador/extensão ignorado:', message);
+      event.preventDefault();
+      return;
+    }
+
+    console.error('Promise não tratada:', event.reason);
+  });
+
+  window.addEventListener('error', function (event) {
+    if (!event || !event.message) return;
+
+    if (isExternalAsyncListenerMessage(event.message)) {
+      console.warn('Aviso externo do navegador/extensão ignorado:', event.message);
+      event.preventDefault();
+    }
+  });
   const icons = { success: '✓', error: '!', warning: '⚠', info: 'i' };
   const defaults = { success: 'Sucesso', error: 'Erro', warning: 'Atenção', info: 'Informação' };
   function host() {

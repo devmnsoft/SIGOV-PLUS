@@ -1,6 +1,5 @@
-const CACHE_NAME = 'sigov-plus-campo-v13';
+const CACHE_NAME = 'sigov-plus-campo-v14';
 const STATIC_ASSETS = [
-  '/',
   '/Mobile',
   '/Mobile/Home',
   '/Mobile/Agenda',
@@ -17,49 +16,69 @@ const STATIC_ASSETS = [
   '/lib/bootstrap/js/bootstrap.bundle.min.js',
   '/js/sigov.mobile.js'
 ];
+const BLOCKED_PROTOCOLS = ['chrome-extension:', 'moz-extension:', 'edge-extension:', 'data:', 'blob:', 'about:'];
+const BLOCKED_PATHS = ['/Dashboard', '/Auth/Login', '/swagger', '/api', '/api/health'];
 
 function isCacheableRequest(request) {
   try {
+    if (!request || request.method !== 'GET') return false;
+
     var url = new URL(request.url);
 
+    if (BLOCKED_PROTOCOLS.indexOf(url.protocol) >= 0) return false;
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-    if (request.method !== 'GET') return false;
-    if (url.pathname.startsWith('/swagger')) return false;
-    if (url.pathname.startsWith('/api/health')) return false;
-    if (url.pathname.startsWith('/Auth/Login')) return false;
 
-    return true;
+    return !BLOCKED_PATHS.some(function (path) {
+      return url.pathname === path || url.pathname.indexOf(path + '/') === 0;
+    });
   } catch (e) {
     return false;
   }
 }
 
+function safeCacheAdd(cache, asset) {
+  var request = new Request(asset);
+
+  if (!isCacheableRequest(request)) return Promise.resolve();
+
+  return fetch(request)
+    .then(function (response) {
+      if (!response || !response.ok) return;
+      return cache.put(request, response).catch(function () { });
+    })
+    .catch(function () { });
+}
+
 self.addEventListener('install', function (event) {
-  event.waitUntil(caches.open(CACHE_NAME).then(function (cache) {
-    return Promise.all(STATIC_ASSETS.map(function (asset) {
-      var request = new Request(asset);
-
-      if (!isCacheableRequest(request)) return Promise.resolve();
-
-      return cache.add(request).catch(function () {
-        // ignora falhas de cache durante a instalação
-      });
-    }));
-  }).then(function () {
-    return self.skipWaiting();
-  }));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(function (cache) {
+        return Promise.all(STATIC_ASSETS.map(function (asset) {
+          return safeCacheAdd(cache, asset);
+        })).catch(function () { });
+      })
+      .then(function () {
+        return self.skipWaiting();
+      })
+      .catch(function () { })
+  );
 });
 
 self.addEventListener('activate', function (event) {
-  event.waitUntil(caches.keys().then(function (keys) {
-    return Promise.all(keys.filter(function (key) {
-      return key !== CACHE_NAME;
-    }).map(function (key) {
-      return caches.delete(key);
-    }));
-  }).then(function () {
-    return self.clients.claim();
-  }));
+  event.waitUntil(
+    caches.keys()
+      .then(function (keys) {
+        return Promise.all(keys.filter(function (key) {
+          return key !== CACHE_NAME;
+        }).map(function (key) {
+          return caches.delete(key).catch(function () { });
+        })).catch(function () { });
+      })
+      .then(function () {
+        return self.clients.claim();
+      })
+      .catch(function () { })
+  );
 });
 
 self.addEventListener('fetch', function (event) {
@@ -68,30 +87,38 @@ self.addEventListener('fetch', function (event) {
   }
 
   event.respondWith(
-    caches.match(event.request).then(function (cachedResponse) {
-      if (cachedResponse) return cachedResponse;
+    caches.match(event.request)
+      .then(function (cachedResponse) {
+        if (cachedResponse) return cachedResponse;
 
-      return fetch(event.request).then(function (networkResponse) {
-        if (networkResponse && networkResponse.ok && isCacheableRequest(event.request)) {
-          var clone = networkResponse.clone();
+        return fetch(event.request)
+          .then(function (networkResponse) {
+            if (networkResponse && networkResponse.ok && isCacheableRequest(event.request)) {
+              var clone = networkResponse.clone();
 
-          caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(event.request, clone).catch(function () {
-              // ignora falhas de cache
-            });
+              caches.open(CACHE_NAME)
+                .then(function (cache) {
+                  return cache.put(event.request, clone).catch(function () { });
+                })
+                .catch(function () { });
+            }
+
+            return networkResponse;
+          })
+          .catch(function () {
+            return cachedResponse || Response.error();
           });
-        }
-
-        return networkResponse;
-      }).catch(function () {
-        return cachedResponse || Response.error();
-      });
-    })
+      })
+      .catch(function () {
+        return fetch(event.request).catch(function () {
+          return Response.error();
+        });
+      })
   );
 });
 
 self.addEventListener('message', function (event) {
   if (event.data === 'SIGOV_CLEAR_SENSITIVE_CACHE') {
-    event.waitUntil(caches.delete(CACHE_NAME));
+    event.waitUntil(caches.delete(CACHE_NAME).catch(function () { }));
   }
 });
