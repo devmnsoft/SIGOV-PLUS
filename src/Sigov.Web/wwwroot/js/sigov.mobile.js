@@ -12,29 +12,7 @@
   window.addEventListener('offline', updateOnline);
   updateOnline();
 
-  if ('serviceWorker' in navigator) {
-    var isLocal =
-      location.hostname === 'localhost' ||
-      location.hostname === '127.0.0.1' ||
-      location.hostname === '[::1]';
-
-    if (isLocal) {
-      navigator.serviceWorker.getRegistrations()
-        .then(function (registrations) {
-          registrations.forEach(function (registration) {
-            registration.unregister().catch(function () { });
-          });
-        })
-        .catch(function () { });
-    } else {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/service-worker.js')
-          .catch(function (error) {
-            console.warn('Service Worker não registrado:', error);
-          });
-      });
-    }
-  }
+  // O ciclo de vida do service worker fica centralizado em sigov-ui.js para evitar registro duplicado.
 
   window.sigovMobile = {
     clearSensitiveCache: function () {

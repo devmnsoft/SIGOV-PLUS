@@ -79,6 +79,25 @@ order by modulo_codigo;";
         }
     }
 
+
+    public async Task<bool> RegistrarOperacaoVisualAsync(string operacao, object payload, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"insert into sigov.auditoria_evento (acao, entidade, depois, created_at)
+values (@Acao, @Entidade, @Depois::jsonb, now());";
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            await connection.ExecuteAsync(new CommandDefinition(sql, new { Acao = operacao, Entidade = "sigov.saas", Depois = json }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Operação SaaS registrada apenas como fallback visual. Operacao={Operacao}", operacao);
+            return false;
+        }
+    }
+
     public async Task<DashboardViewModel> CriarDashboardAsync(CancellationToken cancellationToken)
     {
         try

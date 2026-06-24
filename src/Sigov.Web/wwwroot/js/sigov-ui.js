@@ -80,6 +80,26 @@
     if (isLoading) { button.dataset.originalText = button.innerHTML; button.disabled = true; button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${text || 'Processando...'}`; }
     else { button.disabled = false; if (button.dataset.originalText) button.innerHTML = button.dataset.originalText; }
   } };
+
+  function shouldUseServiceWorker() {
+    var host = window.location.hostname;
+    return window.isSecureContext && host !== 'localhost' && host !== '127.0.0.1' && host !== '[::1]';
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      if (!shouldUseServiceWorker()) {
+        navigator.serviceWorker.getRegistrations()
+          .then(function (registrations) { registrations.forEach(function (registration) { registration.unregister(); }); })
+          .catch(function (error) { console.warn('Não foi possível limpar service workers locais do SIGOV:', error); });
+        return;
+      }
+
+      navigator.serviceWorker.register('/service-worker.js')
+        .catch(function (error) { console.warn('Service worker SIGOV não registrado:', error); });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const h = document.getElementById('sigov-toast-host');
     if (h) ['success','error','warning','info'].forEach(t => h.dataset[t] && showToast(t, h.dataset[t]));

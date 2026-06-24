@@ -58,4 +58,91 @@ public sealed class SaasController : Controller
             return View(new ModulosSaasViewModel { MensagemFallback = "Não foi possível consultar módulos agora." });
         }
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SalvarTenant([FromForm] string nome, [FromForm] string? codigo, [FromForm] string? plano, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(nome))
+            {
+                TempData["Error"] = "Informe o nome do tenant para salvar.";
+                return RedirectToAction(nameof(Tenants));
+            }
+
+            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_TENANT_SALVAR", new { nome, codigo, plano }, cancellationToken).ConfigureAwait(false);
+            TempData[persisted ? "Success" : "Warning"] = persisted
+                ? "Tenant salvo e operação auditada."
+                : "Tabela de persistência indisponível; operação mantida como fallback visual sem dados sensíveis.";
+            return RedirectToAction(nameof(Tenants));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro tratado ao salvar tenant SaaS.");
+            TempData["Error"] = "Não foi possível salvar o tenant agora.";
+            return RedirectToAction(nameof(Tenants));
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SalvarImplantacao([FromForm] long tenantId, [FromForm] string? status, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_IMPLANTACAO_SALVAR", new { tenantId, status }, cancellationToken).ConfigureAwait(false);
+            TempData[persisted ? "Success" : "Warning"] = persisted ? "Implantação salva com auditoria." : "Implantação registrada em modo visual; banco indisponível.";
+            return RedirectToAction(nameof(Implantacao), new { tenantId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro tratado ao salvar implantação SaaS.");
+            TempData["Error"] = "Não foi possível salvar a implantação agora.";
+            return RedirectToAction(nameof(Implantacao), new { tenantId });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AlterarModulo([FromForm] long tenantId, [FromForm] string codigo, [FromForm] bool ativo, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(codigo))
+            {
+                TempData["Error"] = "Informe o módulo para alterar status.";
+                return RedirectToAction(nameof(Modulos), new { tenantId });
+            }
+
+            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_MODULO_ALTERAR", new { tenantId, codigo, ativo }, cancellationToken).ConfigureAwait(false);
+            TempData[persisted ? "Success" : "Warning"] = persisted ? "Módulo atualizado e auditado." : "Módulo atualizado apenas visualmente; banco indisponível.";
+            return RedirectToAction(nameof(Modulos), new { tenantId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro tratado ao alterar módulo SaaS.");
+            TempData["Error"] = "Não foi possível alterar o módulo agora.";
+            return RedirectToAction(nameof(Modulos), new { tenantId });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SalvarParametros([FromForm] long tenantId, [FromForm] string? categoria, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_PARAMETROS_SALVAR", new { tenantId, categoria }, cancellationToken).ConfigureAwait(false);
+            TempData[persisted ? "Success" : "Warning"] = persisted ? "Parâmetros salvos e auditados." : "Parâmetros mantidos como fallback visual; banco indisponível.";
+            return RedirectToAction(nameof(Parametros), new { tenantId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro tratado ao salvar parâmetros SaaS.");
+            TempData["Error"] = "Não foi possível salvar parâmetros agora.";
+            return RedirectToAction(nameof(Parametros), new { tenantId });
+        }
+    }
+
 }
