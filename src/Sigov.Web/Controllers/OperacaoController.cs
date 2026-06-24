@@ -17,6 +17,8 @@ public sealed class OperacaoController : Controller
         _logger = logger;
     }
 
+    [HttpGet("/Health")]
+    [HttpGet("/Operacao/Health")]
     public IActionResult Health()
     {
         try
