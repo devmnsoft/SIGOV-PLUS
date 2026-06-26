@@ -285,3 +285,10 @@ Classificação: **Demonstrativo/Em implantação**.
 2. **P1:** Minha Central operacional, parâmetros, planos sem falso salvamento, manual por perfil e POC honesta.
 3. **P2:** CRUDs operacionais setoriais e relatórios/exportações.
 4. **P3:** módulos ainda sem fluxo/tabela, mantendo badge “Em implantação”.
+
+### Atualização Fase 1 — 2026-06-26
+
+- O mapa de prioridade foi revalidado antes de novas alterações funcionais: o núcleo P0 continua em Segurança, Tenants/Módulos, Auditoria e Health.
+- A área **Perfis** saiu de “apenas criação” para contemplar rotas MVC de edição, ativação/inativação e abertura da matriz de permissões por perfil, sempre com auditoria best-effort e fallback honesto quando `sigov.perfil`, `sigov.permissao` ou `sigov.perfil_permissao` não existirem.
+- Permissões continuam classificadas como **parcial/demonstrativo honesto**: a tela não informa salvamento de vínculo sem a estrutura definitiva, mas passa a tentar carregar permissões reais por perfil quando a tabela de vínculo existir.
+- Próxima prioridade recomendada: concluir edição/detalhe de Tenants com rotas REST sugeridas e consolidar `AuditTrailService` com IP, user-agent e correlation id.
