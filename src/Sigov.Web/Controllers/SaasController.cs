@@ -137,4 +137,32 @@ public sealed class SaasController : Controller
         }
     }
 
+    [HttpPost("Saas/Tenants/{id:long}/Ativar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AtivarTenant(long id, CancellationToken cancellationToken) =>
+        await AlterarStatusTenant(id, true, cancellationToken).ConfigureAwait(false);
+
+    [HttpPost("Saas/Tenants/{id:long}/Inativar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> InativarTenant(long id, CancellationToken cancellationToken) =>
+        await AlterarStatusTenant(id, false, cancellationToken).ConfigureAwait(false);
+
+    private async Task<IActionResult> AlterarStatusTenant(long id, bool ativo, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var ok = await _service.AlterarStatusTenantAsync(id, ativo, cancellationToken).ConfigureAwait(false);
+            TempData[ok ? "Success" : "Error"] = ok
+                ? (ativo ? "Tenant ativado e auditado." : "Tenant inativado e auditado.")
+                : "Tenant não foi alterado; nenhum sucesso foi simulado.";
+            return RedirectToAction(nameof(Tenants));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro tratado ao alterar status de tenant. TenantId={TenantId}", id);
+            TempData["Error"] = "Não foi possível alterar o tenant agora.";
+            return RedirectToAction(nameof(Tenants));
+        }
+    }
+
 }

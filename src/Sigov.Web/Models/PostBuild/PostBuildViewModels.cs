@@ -1,7 +1,44 @@
 namespace Sigov.Web.Models.PostBuild;
 
+public enum SigovFeatureStatus
+{
+    Funcional,
+    Parcial,
+    Demonstrativo,
+    EmImplantacao,
+    Indisponivel
+}
+
+public static class SigovFeatureStatusExtensions
+{
+    public static string ToDisplayName(this SigovFeatureStatus status) => status switch
+    {
+        SigovFeatureStatus.Funcional => "Funcional",
+        SigovFeatureStatus.Parcial => "Parcial",
+        SigovFeatureStatus.Demonstrativo => "Demonstrativo",
+        SigovFeatureStatus.EmImplantacao => "Em implantação",
+        SigovFeatureStatus.Indisponivel => "Indisponível",
+        _ => "Indisponível"
+    };
+
+    public static string ToCssClass(this SigovFeatureStatus status) => status switch
+    {
+        SigovFeatureStatus.Funcional => "success",
+        SigovFeatureStatus.Parcial => "warning",
+        SigovFeatureStatus.Demonstrativo => "info",
+        SigovFeatureStatus.EmImplantacao => "secondary",
+        SigovFeatureStatus.Indisponivel => "danger",
+        _ => "secondary"
+    };
+}
+
 public sealed record DashboardCard(string Titulo, string Valor, string Descricao, string CssClass);
-public sealed record ModuleViewModel(string Codigo, string Nome, string Status, string Descricao);
+public sealed record ModuleViewModel(string Codigo, string Nome, SigovFeatureStatus Status, string Descricao)
+{
+    public string StatusDescricao => Status.ToDisplayName();
+    public string StatusCssClass => Status.ToCssClass();
+    public bool PodePersistirStatus => Status is SigovFeatureStatus.Funcional or SigovFeatureStatus.Parcial;
+}
 public sealed record HealthItemViewModel(string Nome, string Status, string Detalhe, bool Online);
 public sealed record TenantListItemViewModel(long Id, string Nome, string Codigo, string Documento, string Email, string Telefone, string Plano, bool Ativo);
 
