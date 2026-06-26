@@ -40,6 +40,14 @@ public sealed class PerfilListItemViewModel
     public bool Ativo { get; set; }
 }
 
+public sealed class PerfilDetalheViewModel : PerfilFormViewModel
+{
+    public long Id { get; set; }
+    public bool Ativo { get; set; } = true;
+    public IReadOnlyCollection<string> Permissoes { get; set; } = Array.Empty<string>();
+    public string MensagemFallback { get; set; } = string.Empty;
+}
+
 public sealed class PerfisAdminViewModel
 {
     public PerfilFormViewModel Form { get; set; } = new();

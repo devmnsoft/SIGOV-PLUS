@@ -42,8 +42,26 @@ public sealed class SegurancaController : Controller
 
     [HttpGet]
     public async Task<IActionResult> Perfis(CancellationToken ct){ var perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false); return View(new PerfisAdminViewModel{Perfis=perfis,MensagemFallback=perfis.Any()?string.Empty:"Tabela de perfis indisponível; cadastro não será simulado."}); }
+    [HttpGet("Seguranca/Perfis/Novo")]
+    public async Task<IActionResult> NovoPerfil(CancellationToken ct) => View("Perfis", new PerfisAdminViewModel{Perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false)});
+
     [HttpPost("Seguranca/Perfis/Novo")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> NovoPerfil(PerfilFormViewModel form,CancellationToken ct){ if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.CriarPerfilAsync(form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil salvo e auditado.":"Não foi possível salvar perfil; estrutura pode estar indisponível."; return RedirectToAction(nameof(Perfis)); }
+    public async Task<IActionResult> NovoPerfil(PerfilFormViewModel form,CancellationToken ct){ if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.CriarPerfilAsync(form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil salvo e auditado.":"Não foi possível salvar perfil; verifique duplicidade ou estrutura indisponível."; return RedirectToAction(nameof(Perfis)); }
+
+    [HttpGet("Seguranca/Perfis/{id:long}/Editar")]
+    public async Task<IActionResult> EditarPerfil(long id, CancellationToken ct){ var perfil=await _service.ObterPerfilAsync(id,ct).ConfigureAwait(false); if(perfil is null){TempData["Error"]="Perfil não encontrado."; return RedirectToAction(nameof(Perfis));} return View("Perfis", new PerfisAdminViewModel{Form=perfil, Perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false)}); }
+
+    [HttpPost("Seguranca/Perfis/{id:long}/Editar")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarPerfil(long id, PerfilFormViewModel form, CancellationToken ct){ if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.AtualizarPerfilAsync(id,form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil atualizado e auditado.":"Perfil não foi persistido; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Perfis)); }
+
+    [HttpPost("Seguranca/Perfis/{id:long}/Ativar")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> AtivarPerfil(long id, CancellationToken ct)=>await StatusPerfil(id,true,ct).ConfigureAwait(false);
+
+    [HttpPost("Seguranca/Perfis/{id:long}/Inativar")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> InativarPerfil(long id, CancellationToken ct)=>await StatusPerfil(id,false,ct).ConfigureAwait(false);
+
+    [HttpGet("Seguranca/Perfis/{id:long}/Permissoes")]
+    public async Task<IActionResult> PermissoesPerfil(long id, CancellationToken ct){ var perfil=await _service.ObterPerfilAsync(id,ct).ConfigureAwait(false); return View("Permissoes", new PermissaoMatrixViewModel { Modulo = perfil?.Nome ?? "Perfil", Acoes = perfil?.Permissoes.Any()==true ? perfil.Permissoes.ToArray() : new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } }); }
 
     public IActionResult Permissoes() => View(new PermissaoMatrixViewModel { Modulo = "Administração", Acoes = new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } });
     public IActionResult Grupos() => View(new GrupoFormViewModel());
@@ -51,4 +69,5 @@ public sealed class SegurancaController : Controller
 
     private async Task<IActionResult> SalvarUsuarioPost(UsuarioFormViewModel form,CancellationToken ct){ if(!ModelState.IsValid){TempData["Error"]="Corrija os campos obrigatórios."; return RedirectToAction(nameof(Usuarios));} var r=await _service.SalvarUsuarioAsync(form,ct).ConfigureAwait(false); TempData[r.Ok?"Success":"Error"]=r.Mensagem; return RedirectToAction(nameof(Usuarios)); }
     private async Task<IActionResult> Status(long id,bool ativo,CancellationToken ct){ var ok=await _service.AlterarStatusUsuarioAsync(id,ativo,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?(ativo?"Usuário ativado e auditado.":"Usuário inativado e auditado."):"Ação não persistida; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Usuarios)); }
+    private async Task<IActionResult> StatusPerfil(long id,bool ativo,CancellationToken ct){ var ok=await _service.AlterarStatusPerfilAsync(id,ativo,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?(ativo?"Perfil ativado e auditado.":"Perfil inativado e auditado."):"Perfil não foi alterado; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Perfis)); }
 }

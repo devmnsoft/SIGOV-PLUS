@@ -60,10 +60,64 @@ order by coalesce(u.nome,u.login) limit 100;";
     public async Task<bool> ResetarSenhaAsync(long id,CancellationToken ct){ var senha=Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant(); return await ExecutarUsuarioAsync(id,"USUARIO_RESET_SENHA","update sigov.usuario set senha_hash=@Hash,deve_alterar_senha=true,updated_at=now() where id=@Id;", new{Id=id,Hash=_passwordHashService.HashPassword(senha)}, ct).ConfigureAwait(false); }
 
     public async Task<IReadOnlyCollection<PerfilListItemViewModel>> ListarPerfisAsync(CancellationToken ct){ try{ using var cn=_connectionFactory.CreateConnection(); return (await cn.QueryAsync<PerfilListItemViewModel>(new CommandDefinition("select id,codigo,nome,coalesce(descricao,'') as Descricao,ativo from sigov.perfil where coalesce(is_deleted,false)=false order by nome limit 100;", cancellationToken:ct)).ConfigureAwait(false)).ToArray(); }catch(Exception ex){_logger.LogWarning(ex,"Perfis indisponíveis; exibindo limitação honesta."); return Array.Empty<PerfilListItemViewModel>();}}
-    public async Task<bool> CriarPerfilAsync(PerfilFormViewModel form,CancellationToken ct){ try{using var cn=_connectionFactory.CreateConnection(); var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.perfil(codigo,nome,descricao,ativo,created_at) values(@Codigo,@Nome,@Descricao,true,now()) returning id;", form,cancellationToken:ct)).ConfigureAwait(false); await AuditarAsync(cn,"PERFIL_CRIAR",id,form,ct).ConfigureAwait(false); return true;}catch(Exception ex){_logger.LogError(ex,"Falha ao criar perfil."); return false;}}
+    public async Task<PerfilDetalheViewModel?> ObterPerfilAsync(long id, CancellationToken ct)
+    {
+        try
+        {
+            using var cn = _connectionFactory.CreateConnection();
+            var perfil = await cn.QuerySingleOrDefaultAsync<PerfilDetalheViewModel>(new CommandDefinition("select id,codigo,nome,coalesce(descricao,'') as Descricao,ativo from sigov.perfil where id=@Id and coalesce(is_deleted,false)=false;", new { Id = id }, cancellationToken: ct)).ConfigureAwait(false);
+            if (perfil is null) return null;
+            try
+            {
+                var perms = await cn.QueryAsync<string>(new CommandDefinition("select coalesce(chave,codigo,nome) from sigov.permissao p join sigov.perfil_permissao pp on pp.permissao_id=p.id where pp.perfil_id=@Id order by 1;", new { Id = id }, cancellationToken: ct)).ConfigureAwait(false);
+                perfil.Permissoes = perms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "Vínculo perfil/permissão indisponível para perfil {Id}.", id);
+                perfil.MensagemFallback = "Vínculos de permissões não foram carregados porque a estrutura definitiva não está disponível.";
+            }
+            return perfil;
+        }
+        catch(Exception ex){ _logger.LogError(ex,"Falha ao obter perfil {Id}.", id); return null; }
+    }
+
+    public async Task<bool> CriarPerfilAsync(PerfilFormViewModel form,CancellationToken ct)
+    {
+        try
+        {
+            using var cn=_connectionFactory.CreateConnection();
+            var dup = await cn.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.perfil where coalesce(is_deleted,false)=false and lower(codigo)=lower(@Codigo);", new { form.Codigo }, cancellationToken: ct)).ConfigureAwait(false);
+            if (dup > 0) return false;
+            var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.perfil(codigo,nome,descricao,ativo,created_at) values(@Codigo,@Nome,@Descricao,true,now()) returning id;", form,cancellationToken:ct)).ConfigureAwait(false);
+            await AuditarAsync(cn,"PERFIL_CRIAR",id,form,ct).ConfigureAwait(false); return true;
+        }catch(Exception ex){_logger.LogError(ex,"Falha ao criar perfil."); return false;}
+    }
+
+    public async Task<bool> AtualizarPerfilAsync(long id, PerfilFormViewModel form, CancellationToken ct)
+    {
+        try
+        {
+            using var cn=_connectionFactory.CreateConnection();
+            var n = await cn.ExecuteAsync(new CommandDefinition("update sigov.perfil set codigo=@Codigo,nome=@Nome,descricao=@Descricao,updated_at=now() where id=@Id and coalesce(is_deleted,false)=false;", new { Id=id, form.Codigo, form.Nome, form.Descricao }, cancellationToken: ct)).ConfigureAwait(false);
+            if (n > 0) await AuditarAsync(cn,"PERFIL_EDITAR",id,form,ct).ConfigureAwait(false);
+            return n > 0;
+        }catch(Exception ex){_logger.LogError(ex,"Falha ao editar perfil {Id}.", id); return false;}
+    }
+
+    public async Task<bool> AlterarStatusPerfilAsync(long id, bool ativo, CancellationToken ct)
+    {
+        try
+        {
+            using var cn=_connectionFactory.CreateConnection();
+            var n = await cn.ExecuteAsync(new CommandDefinition("update sigov.perfil set ativo=@Ativo,updated_at=now() where id=@Id and coalesce(is_deleted,false)=false;", new { Id=id, Ativo=ativo }, cancellationToken: ct)).ConfigureAwait(false);
+            if (n > 0) await AuditarAsync(cn, ativo ? "PERFIL_ATIVAR" : "PERFIL_INATIVAR", id, new { id, ativo }, ct).ConfigureAwait(false);
+            return n > 0;
+        }catch(Exception ex){_logger.LogError(ex,"Falha ao alterar status do perfil {Id}.", id); return false;}
+    }
 
     private async Task<bool> ExecutarUsuarioAsync(long id,string acao,string sql,object args,CancellationToken ct){ try{using var cn=_connectionFactory.CreateConnection(); var n=await cn.ExecuteAsync(new CommandDefinition(sql,args,cancellationToken:ct)).ConfigureAwait(false); if(n>0) await AuditarAsync(cn,acao,id,args,ct).ConfigureAwait(false); return n>0;}catch(Exception ex){_logger.LogError(ex,"Falha em ação crítica {Acao}.",acao); return false;}}
-    private static async Task AuditarAsync(System.Data.IDbConnection cn,string acao,long id,object payload,CancellationToken ct){ try{ await cn.ExecuteAsync(new CommandDefinition("insert into sigov.auditoria_evento(acao,entidade,entidade_id,depois,created_at) values(@Acao,@Entidade,@Id,@Json::jsonb,now());", new{Acao=acao,Entidade="sigov.usuario",Id=id.ToString(),Json=System.Text.Json.JsonSerializer.Serialize(payload)}, cancellationToken:ct)).ConfigureAwait(false);}catch{}}
+    private static async Task AuditarAsync(System.Data.IDbConnection cn,string acao,long id,object payload,CancellationToken ct){ try{ var entidade = acao.StartsWith("PERFIL", StringComparison.OrdinalIgnoreCase) ? "sigov.perfil" : "sigov.usuario"; await cn.ExecuteAsync(new CommandDefinition("insert into sigov.auditoria_evento(acao,entidade,entidade_id,depois,created_at) values(@Acao,@Entidade,@Id,@Json::jsonb,now());", new{Acao=acao,Entidade=entidade,Id=id.ToString(),Json=System.Text.Json.JsonSerializer.Serialize(payload)}, cancellationToken:ct)).ConfigureAwait(false);}catch{}}
     private static string MaskEmail(string value){ if(string.IsNullOrWhiteSpace(value)||!value.Contains('@')) return "***"; var p=value.Split('@',2); return $"{p[0][0]}***@{p[1]}"; }
     private sealed record UsuarioRow(long Id,string Nome,string Login,string Email,string Tenant,string Perfil,bool Ativo,bool Bloqueado);
 }
