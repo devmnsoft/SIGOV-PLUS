@@ -88,3 +88,21 @@ public sealed class PermissaoMatrixViewModel
     public string Modulo { get; set; } = string.Empty;
     public IReadOnlyList<string> Acoes { get; set; } = Array.Empty<string>();
 }
+
+public sealed class PermissaoItemViewModel
+{
+    public long Id { get; set; }
+    public string Modulo { get; set; } = string.Empty;
+    public string Recurso { get; set; } = string.Empty;
+    public string Acao { get; set; } = string.Empty;
+    public string Chave { get; set; } = string.Empty;
+    public bool Selecionada { get; set; }
+}
+
+public sealed class PerfilPermissoesViewModel
+{
+    public long PerfilId { get; set; }
+    public string PerfilNome { get; set; } = string.Empty;
+    public IReadOnlyList<PermissaoItemViewModel> Permissoes { get; set; } = Array.Empty<PermissaoItemViewModel>();
+    public string MensagemFallback { get; set; } = string.Empty;
+}

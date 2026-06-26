@@ -376,3 +376,92 @@ O ambiente local do agente não permitiu subir PostgreSQL/Docker para detecção
 4. Implementar edição granular de `sigov.parametro_sistema` com validação por tipo e restauração de padrão.
 5. Evoluir Planos SaaS para CRUD somente se `sigov.plano_saas` e vínculos de módulos/limites estiverem instalados.
 6. Executar validação de navegador/console e screenshots em ambiente web disponível.
+
+## 15. Sprint de endurecimento do núcleo real
+
+Atualização executada em 2026-06-26. A trava inicial e a validação final foram tentadas antes e depois das alterações, mas este ambiente não possui `dotnet` nem `docker`, impedindo build/compose/smoke tests locais. O resultado abaixo separa o que foi endurecido no código do que ainda precisa ser validado em ambiente com SDK .NET 6, Docker e PostgreSQL.
+
+### Status inicial do build e Docker
+
+- `dotnet restore`: bloqueado por ambiente (`dotnet: command not found`).
+- `dotnet build`: bloqueado por ambiente (`dotnet: command not found`).
+- `docker compose up -d --build`: bloqueado por ambiente (`docker: command not found`).
+- `docker compose ps`: bloqueado por ambiente (`docker: command not found`).
+- Rotas HTTP iniciais não puderam ser testadas porque o Docker não subiu neste ambiente.
+
+### Correções realizadas nesta sprint
+
+- `SegurancaAdminService` deixou de montar SQL fixo para `sigov.usuario` e passou a obter as colunas reais com `IDatabaseSchemaInspector.GetColumnsAsync("sigov", "usuario", ct)` antes de selecionar, inserir ou atualizar colunas opcionais.
+- Auditoria inline de Segurança foi substituída por `IAuditTrailService`, usando `IHttpContextAccessor` para IP, user-agent, usuário e correlation id em ações críticas.
+- Permissões por perfil ganharam ViewModels dedicados e rotas reais `GET/POST /Seguranca/Perfis/{id}/Permissoes`.
+- O salvamento de permissões por perfil agora usa transação: remove vínculos atuais em `sigov.perfil_permissao`, insere a seleção recebida e audita `PERMISSOES_SALVAR` quando a estrutura existe.
+- A tela `/Seguranca/Permissoes` passou a ser fallback honesto quando nenhum perfil é selecionado, sem matriz genérica que simule persistência.
+- A view de permissões passou a exibir aviso LGPD/auditoria, breadcrumb, filtro, empty state e botão de salvar apenas quando a matriz real foi carregada.
+
+### Rotas analisadas e/ou ajustadas
+
+- Segurança/Usuários: `/Seguranca/Usuarios`, `/Seguranca/Usuarios/Novo`, `/Seguranca/Usuarios/{id}/Editar`, `/Seguranca/Usuarios/{id}/Ativar`, `/Seguranca/Usuarios/{id}/Inativar`, `/Seguranca/Usuarios/{id}/ResetSenha`.
+- Segurança/Perfis: `/Seguranca/Perfis`, `/Seguranca/Perfis/Novo`, `/Seguranca/Perfis/{id}/Editar`, `/Seguranca/Perfis/{id}/Ativar`, `/Seguranca/Perfis/{id}/Inativar`.
+- Segurança/Permissões: `/Seguranca/Permissoes`, `/Seguranca/Perfis/{id}/Permissoes`.
+- SaaS/Tenants, SaaS/Módulos, SaaS/Parâmetros, Minha Central, POC, Health e Relatórios/CSV permanecem com endurecimentos anteriores registrados na seção 14 e precisam de smoke test real em ambiente Docker.
+
+### Tabelas detectadas por código
+
+Sem Docker/PostgreSQL local, não houve detecção física nesta execução. O código consulta em tempo de execução, via `IDatabaseSchemaInspector`, as tabelas críticas:
+
+- `sigov.usuario`
+- `sigov.perfil`
+- `sigov.permissao`
+- `sigov.perfil_permissao`
+- `sigov.auditoria_evento`
+- `sigov.tenant`
+- `sigov.tenant_modulo_contratado`
+- `sigov.parametro_sistema`
+
+### Colunas críticas consideradas
+
+- `sigov.usuario`: obrigatórias esperadas `id`, `login`, `senha_hash`, `ativo`; opcionais tratadas dinamicamente `tenant_id`, `nome`, `email`, `pessoa_id`, `tipo_usuario`, `bloqueado`, `deve_alterar_senha`, `mfa_habilitado`, `is_deleted`, `created_at`, `updated_at`.
+- `sigov.permissao`: `id`, `modulo`, `recurso`, `acao`, `chave`, `codigo`, `nome` usadas para compor a matriz.
+- `sigov.perfil_permissao`: `perfil_id`, `permissao_id` usadas no vínculo transacional.
+- `sigov.auditoria_evento`: escrita centralizada por `IAuditTrailService` quando instalada.
+
+### Áreas que persistem de verdade quando o schema existe
+
+- Segurança/Usuários: criar, editar, ativar, inativar e resetar senha com SQL schema-safe para colunas opcionais.
+- Segurança/Perfis: CRUD e status permanecem reais quando `sigov.perfil` existe.
+- Segurança/Permissões: seleção por perfil passa a persistir transacionalmente quando `sigov.permissao` e `sigov.perfil_permissao` existem.
+- Auditoria: ações críticas de Segurança passam pelo `IAuditTrailService`.
+- Relatórios/CSV: exportações mínimas permanecem condicionadas à existência das tabelas, com mascaramento já registrado na seção anterior.
+
+### Áreas em fallback honesto ou parcial
+
+- SaaS/Tenants: parcial avançado; precisa smoke test real para confirmar todas as rotas dedicadas no Docker do cliente.
+- SaaS/Módulos: parcial; ativação/desativação depende de `sigov.tenant_modulo_contratado`.
+- SaaS/Parâmetros: parcial; editor granular completo ainda é pendência.
+- Minha Central: parcial; diferencia dados reais/fallback, mas deve ser validada com tenant, módulos e auditoria reais.
+- POC: parcial/comercial; deve refletir continuamente os estados Funcional, Parcial, Demonstrativo e Em implantação.
+- Health: parcial; painel precisa validação de probes reais de worker/storage/migrations.
+- Protocolo, GED, Tributário, Financeiro, Saúde, Educação, Saneamento, RH, Agro e Integrações: permanecem conforme inventário da seção 14, sem expansão nesta sprint.
+
+### Riscos encontrados
+
+- Ambiente de execução sem .NET SDK e Docker impede prova local de build e runtime.
+- Schemas legados podem ter variações em `sigov.permissao` além das colunas previstas; próxima validação deve comparar `information_schema.columns` real.
+- `sigov.perfil` ainda tem SQL menos dinâmico que `sigov.usuario`; se ambientes antigos não tiverem `is_deleted`, `created_at` ou `updated_at`, perfis devem receber o mesmo nível de schema-safe na próxima etapa.
+- SaaS/Parâmetros ainda precisa edição real com validação de tipo e restauração de padrão.
+
+### Resultado final de validação técnica
+
+- `dotnet restore`: bloqueado por ambiente.
+- `dotnet build`: bloqueado por ambiente.
+- `docker compose up -d --build`: bloqueado por ambiente.
+- `docker compose ps`: bloqueado por ambiente.
+- Smoke tests HTTP finais: bloqueados por ambiente, pois os serviços não puderam ser iniciados.
+
+### Pendências recomendadas para próxima sprint
+
+1. Rodar a suíte completa em ambiente com .NET 6 SDK e Docker.
+2. Capturar colunas reais com `information_schema` no PostgreSQL Docker/local e ajustar `sigov.perfil`, `sigov.tenant` e `sigov.parametro_sistema` com o mesmo rigor aplicado a `sigov.usuario`.
+3. Criar testes automatizados para matriz de permissões por perfil e CSV sem dados sensíveis.
+4. Completar editor real de parâmetros sensíveis com máscara, tipo e restauração de padrão.
+5. Validar console/assets no navegador e registrar screenshots das telas administrativas alteradas.
