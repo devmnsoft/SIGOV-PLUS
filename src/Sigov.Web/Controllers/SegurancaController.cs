@@ -61,10 +61,25 @@ public sealed class SegurancaController : Controller
     public async Task<IActionResult> InativarPerfil(long id, CancellationToken ct)=>await StatusPerfil(id,false,ct).ConfigureAwait(false);
 
     [HttpGet("Seguranca/Perfis/{id:long}/Permissoes")]
-    public async Task<IActionResult> PermissoesPerfil(long id, CancellationToken ct){ var perfil=await _service.ObterPerfilAsync(id,ct).ConfigureAwait(false); return View("Permissoes", new PermissaoMatrixViewModel { Modulo = perfil?.Nome ?? "Perfil", Acoes = perfil?.Permissoes.Any()==true ? perfil.Permissoes.ToArray() : new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } }); }
+    public async Task<IActionResult> PermissoesPerfil(long id, CancellationToken ct)
+    {
+        var vm = await _service.ObterPermissoesPerfilAsync(id, ct).ConfigureAwait(false);
+        return View("Permissoes", vm);
+    }
+
+    [HttpPost("Seguranca/Perfis/{id:long}/Permissoes")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PermissoesPerfil(long id, long[] permissaoIds, CancellationToken ct)
+    {
+        var ok = await _service.SalvarPermissoesPerfilAsync(id, permissaoIds ?? Array.Empty<long>(), ct).ConfigureAwait(false);
+        TempData[ok ? "Success" : "Error"] = ok
+            ? "Permissões do perfil salvas em transação e auditadas."
+            : "Permissões não foram persistidas; estrutura indisponível ou erro controlado.";
+        return RedirectToAction(nameof(PermissoesPerfil), new { id });
+    }
 
     [HttpGet]
-    public IActionResult Permissoes() => View(new PermissaoMatrixViewModel { Modulo = "Administração", Acoes = new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } });
+    public IActionResult Permissoes() => View(new PerfilPermissoesViewModel { MensagemFallback = "Selecione um perfil em Segurança > Perfis para editar permissões reais. Esta tela não simula salvamento genérico." });
 
     [HttpPost]
     [ValidateAntiForgeryToken]

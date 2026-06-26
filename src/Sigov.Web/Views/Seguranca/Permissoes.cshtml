@@ -1,8 +1,24 @@
+@model Sigov.Web.Models.Lote1.PerfilPermissoesViewModel
 @{
-  ViewData["Title"] = "Permissões"; ViewData["PageTitle"]="Permissões"; ViewData["PageDescription"]="Matriz visual de permissões por módulo e ação."; ViewData["PageServes"]="Definir o que cada perfil pode visualizar, criar, editar, excluir e auditar."; ViewData["PageHow"]="Filtre o módulo, marque permissões e salve; alterações são auditáveis."; ViewData["PageNext"]="Teste o acesso com usuário do perfil e acompanhe auditoria.";
-  var grupos = new[] { "Dashboard", "SaaS Admin", "Usuários", "Tenants", "Planos", "Módulos", "Auditoria", "Parâmetros" }; var acoes = new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" };
+  ViewData["Title"] = "Permissões"; ViewData["PageTitle"]="Permissões por perfil"; ViewData["PageDescription"]="Matriz real de permissões quando sigov.perfil, sigov.permissao e sigov.perfil_permissao existem."; ViewData["PageServes"]="Definir o que cada perfil pode executar, com persistência transacional e auditoria."; ViewData["PageHow"]="Abra pelo perfil, marque permissões reais e salve. Ambientes sem estrutura exibem fallback honesto."; ViewData["PageNext"]="Teste o acesso com usuário do perfil e acompanhe auditoria.";
+  var grupos = Model.Permissoes.GroupBy(p => string.IsNullOrWhiteSpace(p.Modulo) ? "Geral" : p.Modulo).OrderBy(g => g.Key).ToArray();
 }
 @await Html.PartialAsync("_PageIntro")
-<div class="sigov-card p-3 mb-3"><label class="form-label" for="filtroPermissao">Buscar módulo/recurso</label><input id="filtroPermissao" class="form-control" placeholder="Ex.: auditoria, usuários, planos" /></div>
-<form class="sigov-card p-3" method="post">@Html.AntiForgeryToken()<div class="table-responsive"><table class="table align-middle" id="permissoesTabela"><thead><tr><th>Módulo/Recurso</th>@foreach (var acao in acoes) { <th>@acao</th> }</tr></thead><tbody>@foreach (var g in grupos) { <tr><td><strong>@g</strong><div class="small text-muted">Permissões para @g.ToLowerInvariant()</div></td>@foreach (var acao in acoes) { <td><input class="form-check-input" type="checkbox" checked="@(acao != "Excluir")" /></td> }</tr> }</tbody></table></div><button class="sigov-btn sigov-btn--primary" type="submit" data-sigov-confirm="Salvar permissões? Esta operação só confirma se houver estrutura real.">Salvar permissões</button></form>
-@section Scripts { <script>document.getElementById('filtroPermissao').addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#permissoesTabela tbody tr').forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none')});</script><script src="~/js/modules/seguranca.permissoes.js"></script> }
+@if (TempData["Success"] is not null) { <div class="alert alert-success">@TempData["Success"]</div> }
+@if (TempData["Error"] is not null) { <div class="alert alert-danger">@TempData["Error"]</div> }
+<div class="alert alert-warning"><strong>LGPD e auditoria:</strong> alterações de permissões controlam acesso a dados pessoais e serão auditadas quando persistidas.</div>
+@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback))
+{
+  <div class="alert alert-info">@Model.MensagemFallback</div>
+  <a class="btn btn-outline-primary" href="/Seguranca/Perfis">Voltar para perfis</a>
+}
+else
+{
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Seguranca/Perfis">Perfis</a></li><li class="breadcrumb-item active">Permissões de @Model.PerfilNome</li></ol></nav>
+  <div class="sigov-card p-3 mb-3"><label class="form-label" for="filtroPermissao">Buscar módulo/recurso</label><input id="filtroPermissao" class="form-control" placeholder="Ex.: auditoria, usuários, planos" /></div>
+  <form class="sigov-card p-3" method="post" action="/Seguranca/Perfis/@Model.PerfilId/Permissoes">@Html.AntiForgeryToken()
+    @if (!Model.Permissoes.Any()) { <div class="text-center text-muted py-4">Nenhuma permissão cadastrada em sigov.permissao.</div> }
+    else { <div class="table-responsive"><table class="table align-middle" id="permissoesTabela"><thead><tr><th>Módulo</th><th>Recurso</th><th>Ação</th><th>Chave</th><th class="text-center">Selecionada</th></tr></thead><tbody>@foreach (var g in grupos) { foreach (var item in g.OrderBy(x=>x.Recurso).ThenBy(x=>x.Acao)) { <tr><td><span class="badge text-bg-secondary">@item.Modulo</span></td><td>@item.Recurso</td><td>@item.Acao</td><td><code>@item.Chave</code></td><td class="text-center"><input class="form-check-input" name="permissaoIds" value="@item.Id" type="checkbox" checked="@item.Selecionada" /></td></tr> } }</tbody></table></div><button class="sigov-btn sigov-btn--primary" type="submit" data-sigov-confirm="Salvar permissões deste perfil? Esta operação será auditada.">Salvar permissões</button> }
+  </form>
+}
+@section Scripts { <script>const f=document.getElementById('filtroPermissao'); if(f){f.addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#permissoesTabela tbody tr').forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none')});}</script><script src="~/js/modules/seguranca.permissoes.js"></script> }

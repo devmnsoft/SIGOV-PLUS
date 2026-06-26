@@ -1,8 +1,9 @@
 using Dapper;
 using Sigov.Application.Abstractions;
 using Sigov.Infrastructure.Persistence.Dapper;
-using Sigov.Web.Models.Lote1;
 using Sigov.Web.Helpers;
+using Sigov.Web.Models.Lote1;
+using System.Security.Claims;
 using System.Security.Cryptography;
 
 namespace Sigov.Web.Services;
@@ -13,138 +14,121 @@ public sealed class SegurancaAdminService
     private readonly IPasswordHashService _passwordHashService;
     private readonly ILogger<SegurancaAdminService> _logger;
     private readonly IDatabaseSchemaInspector _schemaInspector;
+    private readonly IAuditTrailService _auditTrail;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public SegurancaAdminService(NpgsqlConnectionFactory connectionFactory, IPasswordHashService passwordHashService, ILogger<SegurancaAdminService> logger, IDatabaseSchemaInspector schemaInspector)
-    { _connectionFactory = connectionFactory; _passwordHashService = passwordHashService; _logger = logger; _schemaInspector = schemaInspector; }
+    public SegurancaAdminService(NpgsqlConnectionFactory connectionFactory, IPasswordHashService passwordHashService, ILogger<SegurancaAdminService> logger, IDatabaseSchemaInspector schemaInspector, IAuditTrailService auditTrail, IHttpContextAccessor httpContextAccessor)
+    { _connectionFactory = connectionFactory; _passwordHashService = passwordHashService; _logger = logger; _schemaInspector = schemaInspector; _auditTrail = auditTrail; _httpContextAccessor = httpContextAccessor; }
 
     public async Task<IReadOnlyCollection<UsuarioListItemViewModel>> ListarUsuariosAsync(UsuarioFiltroViewModel filtro, CancellationToken ct)
     {
-        const string sql = @"select u.id, coalesce(u.nome,u.login) as Nome, u.login, coalesce(u.email,'') as Email, coalesce(t.nome,'Global') as Tenant, coalesce(u.tipo_usuario,'Operador') as Perfil, u.ativo, coalesce(u.bloqueado,false) as Bloqueado
-from sigov.usuario u left join sigov.tenant t on t.id=u.tenant_id
-where coalesce(u.is_deleted,false)=false
-  and (@Termo is null or coalesce(u.nome,'') ilike '%'||@Termo||'%' or u.login ilike '%'||@Termo||'%' or coalesce(u.email,'') ilike '%'||@Termo||'%')
-  and (@Ativo is null or u.ativo=@Ativo)
-  and (@Bloqueado is null or coalesce(u.bloqueado,false)=@Bloqueado)
-order by coalesce(u.nome,u.login) limit 100;";
-        try { if (!await _schemaInspector.TableExistsAsync("sigov", "usuario", ct).ConfigureAwait(false)) return Array.Empty<UsuarioListItemViewModel>(); using var cn = _connectionFactory.CreateConnection(); var rows = await cn.QueryAsync<UsuarioRow>(new CommandDefinition(sql, new { Termo = string.IsNullOrWhiteSpace(filtro.Termo) ? null : filtro.Termo.Trim(), filtro.Ativo, filtro.Bloqueado }, cancellationToken: ct)).ConfigureAwait(false); return rows.Select(x => new UsuarioListItemViewModel { Id=x.Id, Nome=x.Nome, Login=x.Login, EmailMascarado=MaskEmail(x.Email), Tenant=x.Tenant, Perfil=x.Perfil, Ativo=x.Ativo, Bloqueado=x.Bloqueado }).ToArray(); }
+        try
+        {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "usuario", ct).ConfigureAwait(false)) return Array.Empty<UsuarioListItemViewModel>();
+            var c = await ColumnsAsync("usuario", ct).ConfigureAwait(false);
+            var select = $"select id, {Expr(c,"nome","coalesce(nome,login)","login")} as Nome, login, {Expr(c,"email","coalesce(email,'')","''")} as Email, {Expr(c,"tipo_usuario","coalesce(tipo_usuario,'Operador')","'Operador'")} as Perfil, ativo, {Expr(c,"bloqueado","coalesce(bloqueado,false)","false")} as Bloqueado from sigov.usuario";
+            var where = new List<string>();
+            if (c.Contains("is_deleted")) where.Add("coalesce(is_deleted,false)=false");
+            if (!string.IsNullOrWhiteSpace(filtro.Termo)) where.Add($"({Expr(c,"nome","coalesce(nome,'')","''")} ilike '%'||@Termo||'%' or login ilike '%'||@Termo||'%'" + (c.Contains("email") ? " or coalesce(email,'') ilike '%'||@Termo||'%'" : string.Empty) + ")");
+            if (filtro.Ativo.HasValue) where.Add("ativo=@Ativo");
+            if (filtro.Bloqueado.HasValue && c.Contains("bloqueado")) where.Add("coalesce(bloqueado,false)=@Bloqueado");
+            var sql = select + (where.Count > 0 ? " where " + string.Join(" and ", where) : string.Empty) + $" order by {Expr(c,"nome","coalesce(nome,login)","login")} limit 100;";
+            using var cn = _connectionFactory.CreateConnection();
+            var rows = await cn.QueryAsync<UsuarioRow>(new CommandDefinition(sql, new { Termo = filtro.Termo?.Trim(), filtro.Ativo, filtro.Bloqueado }, cancellationToken: ct)).ConfigureAwait(false);
+            return rows.Select(x => new UsuarioListItemViewModel { Id=x.Id, Nome=x.Nome, Login=x.Login, EmailMascarado=MaskEmail(x.Email), Tenant="Global", Perfil=x.Perfil, Ativo=x.Ativo, Bloqueado=x.Bloqueado }).ToArray();
+        }
         catch(Exception ex){ _logger.LogError(ex,"Falha ao listar usuários reais."); return Array.Empty<UsuarioListItemViewModel>(); }
     }
 
     public async Task<UsuarioDetalheViewModel?> ObterUsuarioAsync(long id, CancellationToken ct)
     {
-        const string sql = @"select u.id, coalesce(u.nome,u.login) as Nome, u.login, coalesce(u.email,'') as Email, u.pessoa_id as PessoaId, u.ativo, coalesce(u.bloqueado,false) as Bloqueado, coalesce(u.deve_alterar_senha,true) as DeveAlterarSenha, coalesce(u.mfa_habilitado,false) as MfaHabilitado, coalesce(t.nome,'Global') as Tenant from sigov.usuario u left join sigov.tenant t on t.id=u.tenant_id where u.id=@Id and coalesce(u.is_deleted,false)=false;";
-        try { if (!await _schemaInspector.TableExistsAsync("sigov", "usuario", ct).ConfigureAwait(false)) return null; using var cn=_connectionFactory.CreateConnection(); var u=await cn.QuerySingleOrDefaultAsync<UsuarioDetalheViewModel>(new CommandDefinition(sql,new{Id=id},cancellationToken:ct)).ConfigureAwait(false); if(u!=null) u.Status=u.Bloqueado?"Bloqueado":u.Ativo?"Ativo":"Inativo"; return u; }
+        try
+        {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "usuario", ct).ConfigureAwait(false)) return null;
+            var c = await ColumnsAsync("usuario", ct).ConfigureAwait(false);
+            var sql = $"select id, {Expr(c,"nome","coalesce(nome,login)","login")} as Nome, login, {Expr(c,"email","coalesce(email,'')","''")} as Email, {Expr(c,"pessoa_id","pessoa_id","null")} as PessoaId, ativo, {Expr(c,"bloqueado","coalesce(bloqueado,false)","false")} as Bloqueado, {Expr(c,"deve_alterar_senha","coalesce(deve_alterar_senha,true)","true")} as DeveAlterarSenha, {Expr(c,"mfa_habilitado","coalesce(mfa_habilitado,false)","false")} as MfaHabilitado, 'Global' as Tenant from sigov.usuario where id=@Id" + (c.Contains("is_deleted") ? " and coalesce(is_deleted,false)=false" : string.Empty) + ";";
+            using var cn=_connectionFactory.CreateConnection(); var u=await cn.QuerySingleOrDefaultAsync<UsuarioDetalheViewModel>(new CommandDefinition(sql,new{Id=id},cancellationToken:ct)).ConfigureAwait(false); if(u!=null) u.Status=u.Bloqueado?"Bloqueado":u.Ativo?"Ativo":"Inativo"; return u;
+        }
         catch(Exception ex){ _logger.LogError(ex,"Falha ao obter usuário {Id}.", id); return null; }
     }
 
     public async Task<(bool Ok,string Mensagem,long? Id)> SalvarUsuarioAsync(UsuarioFormViewModel form, CancellationToken ct)
     {
-        if(string.IsNullOrWhiteSpace(form.Login) || string.IsNullOrWhiteSpace(form.Email)) return (false,"Login e e-mail são obrigatórios.",form.Id);
+        if(string.IsNullOrWhiteSpace(form.Login)) return (false,"Login é obrigatório.",form.Id);
         try
         {
             if (!await _schemaInspector.TableExistsAsync("sigov", "usuario", ct).ConfigureAwait(false)) return (false,"Tabela sigov.usuario indisponível; usuário não foi persistido.",form.Id);
+            var c = await ColumnsAsync("usuario", ct).ConfigureAwait(false);
+            if (c.Contains("email") && string.IsNullOrWhiteSpace(form.Email)) return (false,"E-mail é obrigatório neste ambiente.", form.Id);
             using var cn=_connectionFactory.CreateConnection();
-            var dup=await cn.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.usuario where coalesce(is_deleted,false)=false and (@Id is null or id<>@Id) and (lower(login)=lower(@Login) or lower(email)=lower(@Email));", new{form.Id, Login=form.Login.Trim(), Email=form.Email.Trim()}, cancellationToken:ct)).ConfigureAwait(false);
+            var dupSql = "select count(*) from sigov.usuario where " + (c.Contains("is_deleted") ? "coalesce(is_deleted,false)=false and " : string.Empty) + "(@Id is null or id<>@Id) and (lower(login)=lower(@Login)" + (c.Contains("email") ? " or lower(email)=lower(@Email)" : string.Empty) + ");";
+            var dup=await cn.ExecuteScalarAsync<int>(new CommandDefinition(dupSql, new{form.Id, Login=form.Login.Trim(), Email=form.Email?.Trim()}, cancellationToken:ct)).ConfigureAwait(false);
             if(dup>0) return (false,"Login ou e-mail já cadastrado.",form.Id);
             if(form.Id.HasValue)
             {
-                await cn.ExecuteAsync(new CommandDefinition("update sigov.usuario set login=@Login,email=@Email,pessoa_id=@PessoaId,ativo=@Ativo,bloqueado=@Bloqueado,deve_alterar_senha=@DeveAlterarSenha,mfa_habilitado=@MfaHabilitado,updated_at=now() where id=@Id;", form, cancellationToken:ct)).ConfigureAwait(false);
-                await AuditarAsync(cn,"USUARIO_EDITAR",form.Id.Value,form,ct).ConfigureAwait(false); return (true,"Usuário atualizado com sucesso.",form.Id);
+                var set = new List<string>{"login=@Login", "ativo=@Ativo"};
+                if(c.Contains("email")) set.Add("email=@Email"); if(c.Contains("pessoa_id")) set.Add("pessoa_id=@PessoaId"); if(c.Contains("bloqueado")) set.Add("bloqueado=@Bloqueado"); if(c.Contains("deve_alterar_senha")) set.Add("deve_alterar_senha=@DeveAlterarSenha"); if(c.Contains("mfa_habilitado")) set.Add("mfa_habilitado=@MfaHabilitado"); if(c.Contains("updated_at")) set.Add("updated_at=now()");
+                await cn.ExecuteAsync(new CommandDefinition($"update sigov.usuario set {string.Join(',',set)} where id=@Id;", new { form.Id, Login=form.Login.Trim(), Email=form.Email?.Trim(), form.PessoaId, form.Ativo, form.Bloqueado, form.DeveAlterarSenha, form.MfaHabilitado }, cancellationToken:ct)).ConfigureAwait(false);
+                await AuditarAsync("USUARIO_EDITAR","sigov.usuario",form.Id.Value,null,SafePayload(form),ct).ConfigureAwait(false); return (true,"Usuário atualizado com sucesso.",form.Id);
             }
-            var senha = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-            var hash = _passwordHashService.HashPassword(senha);
-            var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.usuario(login,email,pessoa_id,ativo,bloqueado,deve_alterar_senha,mfa_habilitado,senha_hash,tipo_usuario,created_at) values(@Login,@Email,@PessoaId,@Ativo,@Bloqueado,true,@MfaHabilitado,@Hash,'OPERADOR',now()) returning id;", new{Login=form.Login.Trim(),Email=form.Email.Trim(),form.PessoaId,form.Ativo,form.Bloqueado,form.MfaHabilitado,Hash=hash}, cancellationToken:ct)).ConfigureAwait(false);
-            await AuditarAsync(cn,"USUARIO_CRIAR",id,new{form.Login,form.Email,form.Ativo},ct).ConfigureAwait(false); return (true,"Usuário criado com senha temporária e troca obrigatória no próximo login.",id);
+            var cols = new List<string>{"login","ativo","senha_hash"}; var vals = new List<string>{"@Login","@Ativo","@Hash"};
+            if(c.Contains("email")){cols.Add("email"); vals.Add("@Email");} if(c.Contains("pessoa_id")){cols.Add("pessoa_id"); vals.Add("@PessoaId");} if(c.Contains("bloqueado")){cols.Add("bloqueado"); vals.Add("@Bloqueado");} if(c.Contains("deve_alterar_senha")){cols.Add("deve_alterar_senha"); vals.Add("true");} if(c.Contains("mfa_habilitado")){cols.Add("mfa_habilitado"); vals.Add("@MfaHabilitado");} if(c.Contains("tipo_usuario")){cols.Add("tipo_usuario"); vals.Add("'OPERADOR'");} if(c.Contains("created_at")){cols.Add("created_at"); vals.Add("now()");}
+            var hash = _passwordHashService.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant());
+            var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.usuario({string.Join(',',cols)}) values({string.Join(',',vals)}) returning id;", new{Login=form.Login.Trim(),Email=form.Email?.Trim(),form.PessoaId,form.Ativo,form.Bloqueado,form.MfaHabilitado,Hash=hash}, cancellationToken:ct)).ConfigureAwait(false);
+            await AuditarAsync("USUARIO_CRIAR","sigov.usuario",id,null,SafePayload(form),ct).ConfigureAwait(false); return (true,"Usuário criado com senha temporária e troca obrigatória no próximo login.",id);
         }
         catch(Exception ex){ _logger.LogError(ex,"Falha ao salvar usuário."); return (false,"Não foi possível persistir o usuário. Nenhum sucesso foi simulado.",form.Id); }
     }
 
-    public Task<bool> AlterarStatusUsuarioAsync(long id,bool ativo,CancellationToken ct)=>ExecutarUsuarioAsync(id, ativo?"USUARIO_ATIVAR":"USUARIO_INATIVAR", "update sigov.usuario set ativo=@Ativo, updated_at=now() where id=@Id;", new{Id=id,Ativo=ativo}, ct);
-    public async Task<bool> ResetarSenhaAsync(long id,CancellationToken ct){ var senha=Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant(); return await ExecutarUsuarioAsync(id,"USUARIO_RESET_SENHA","update sigov.usuario set senha_hash=@Hash,deve_alterar_senha=true,updated_at=now() where id=@Id;", new{Id=id,Hash=_passwordHashService.HashPassword(senha)}, ct).ConfigureAwait(false); }
+    public Task<bool> AlterarStatusUsuarioAsync(long id,bool ativo,CancellationToken ct)=>ExecutarUsuarioAsync(id, ativo?"USUARIO_ATIVAR":"USUARIO_INATIVAR", ativo, ct);
+    public async Task<bool> ResetarSenhaAsync(long id,CancellationToken ct){ try{ var c=await ColumnsAsync("usuario",ct).ConfigureAwait(false); var set=new List<string>{"senha_hash=@Hash"}; if(c.Contains("deve_alterar_senha")) set.Add("deve_alterar_senha=true"); if(c.Contains("updated_at")) set.Add("updated_at=now()"); using var cn=_connectionFactory.CreateConnection(); var n=await cn.ExecuteAsync(new CommandDefinition($"update sigov.usuario set {string.Join(',',set)} where id=@Id;",new{Id=id,Hash=_passwordHashService.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant())},cancellationToken:ct)).ConfigureAwait(false); if(n>0) await AuditarAsync("USUARIO_RESET_SENHA","sigov.usuario",id,null,new{id},ct).ConfigureAwait(false); return n>0;}catch(Exception ex){_logger.LogError(ex,"Falha ao resetar senha."); return false;} }
 
     public async Task<IReadOnlyCollection<PerfilListItemViewModel>> ListarPerfisAsync(CancellationToken ct){ try{ if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return Array.Empty<PerfilListItemViewModel>(); using var cn=_connectionFactory.CreateConnection(); return (await cn.QueryAsync<PerfilListItemViewModel>(new CommandDefinition("select id,codigo,nome,coalesce(descricao,'') as Descricao,ativo from sigov.perfil where coalesce(is_deleted,false)=false order by nome limit 100;", cancellationToken:ct)).ConfigureAwait(false)).ToArray(); }catch(Exception ex){_logger.LogWarning(ex,"Perfis indisponíveis; exibindo limitação honesta."); return Array.Empty<PerfilListItemViewModel>();}}
-    public async Task<PerfilDetalheViewModel?> ObterPerfilAsync(long id, CancellationToken ct)
+    public async Task<PerfilDetalheViewModel?> ObterPerfilAsync(long id, CancellationToken ct){ try{ if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return null; using var cn=_connectionFactory.CreateConnection(); return await cn.QuerySingleOrDefaultAsync<PerfilDetalheViewModel>(new CommandDefinition("select id,codigo,nome,coalesce(descricao,'') as Descricao,ativo from sigov.perfil where id=@Id and coalesce(is_deleted,false)=false;", new { Id = id }, cancellationToken: ct)).ConfigureAwait(false);}catch(Exception ex){ _logger.LogError(ex,"Falha ao obter perfil {Id}.", id); return null; }}
+    public async Task<bool> CriarPerfilAsync(PerfilFormViewModel form,CancellationToken ct){ try{ if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return false; using var cn=_connectionFactory.CreateConnection(); var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.perfil(codigo,nome,descricao,ativo,created_at) values(@Codigo,@Nome,@Descricao,true,now()) returning id;", form,cancellationToken:ct)).ConfigureAwait(false); await AuditarAsync("PERFIL_CRIAR","sigov.perfil",id,null,form,ct).ConfigureAwait(false); return true;}catch(Exception ex){_logger.LogError(ex,"Falha ao criar perfil."); return false;}}
+    public async Task<bool> AtualizarPerfilAsync(long id, PerfilFormViewModel form, CancellationToken ct){ try{ if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return false; using var cn=_connectionFactory.CreateConnection(); var n = await cn.ExecuteAsync(new CommandDefinition("update sigov.perfil set codigo=@Codigo,nome=@Nome,descricao=@Descricao,updated_at=now() where id=@Id and coalesce(is_deleted,false)=false;", new { Id=id, form.Codigo, form.Nome, form.Descricao }, cancellationToken: ct)).ConfigureAwait(false); if (n > 0) await AuditarAsync("PERFIL_EDITAR","sigov.perfil",id,null,form,ct).ConfigureAwait(false); return n > 0;}catch(Exception ex){_logger.LogError(ex,"Falha ao editar perfil {Id}.", id); return false;}}
+    public async Task<bool> AlterarStatusPerfilAsync(long id, bool ativo, CancellationToken ct){ try{ if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return false; using var cn=_connectionFactory.CreateConnection(); var n = await cn.ExecuteAsync(new CommandDefinition("update sigov.perfil set ativo=@Ativo,updated_at=now() where id=@Id and coalesce(is_deleted,false)=false;", new { Id=id, Ativo=ativo }, cancellationToken: ct)).ConfigureAwait(false); if (n > 0) await AuditarAsync(ativo ? "PERFIL_ATIVAR" : "PERFIL_INATIVAR","sigov.perfil", id,null,new { id, ativo }, ct).ConfigureAwait(false); return n > 0;}catch(Exception ex){_logger.LogError(ex,"Falha ao alterar status do perfil {Id}.", id); return false;}}
+
+    public async Task<PerfilPermissoesViewModel> ObterPermissoesPerfilAsync(long perfilId, CancellationToken ct)
+    {
+        if (!await _schemaInspector.TableExistsAsync("sigov","perfil",ct).ConfigureAwait(false) || !await _schemaInspector.TableExistsAsync("sigov","permissao",ct).ConfigureAwait(false) || !await _schemaInspector.TableExistsAsync("sigov","perfil_permissao",ct).ConfigureAwait(false))
+            return new PerfilPermissoesViewModel{PerfilId=perfilId, MensagemFallback="Estrutura sigov.perfil/permissao/perfil_permissao indisponível; permissões não serão simuladas."};
+        using var cn=_connectionFactory.CreateConnection();
+        var nome=await cn.ExecuteScalarAsync<string>(new CommandDefinition("select nome from sigov.perfil where id=@Id",new{Id=perfilId},cancellationToken:ct)).ConfigureAwait(false) ?? $"Perfil {perfilId}";
+        var pc = await ColumnsAsync("permissao", ct).ConfigureAwait(false);
+        var modulo = Expr(pc, "modulo", "coalesce(p.modulo,'Geral')", "'Geral'");
+        var recurso = FirstExpr(pc, "p", "recurso", "chave", "codigo", "nome");
+        var acao = Expr(pc, "acao", "coalesce(p.acao,'Visualizar')", "'Visualizar'");
+        var chave = FirstExpr(pc, "p", "chave", "codigo", "nome");
+        var rows=await cn.QueryAsync<PermissaoItemViewModel>(new CommandDefinition($"select p.id, {modulo} as Modulo, {recurso} as Recurso, {acao} as Acao, {chave} as Chave, (pp.permissao_id is not null) as Selecionada from sigov.permissao p left join sigov.perfil_permissao pp on pp.permissao_id=p.id and pp.perfil_id=@Id order by 2,3,4;",new{Id=perfilId},cancellationToken:ct)).ConfigureAwait(false);
+        return new PerfilPermissoesViewModel{PerfilId=perfilId, PerfilNome=nome, Permissoes=rows.ToArray()};
+    }
+
+    public async Task<bool> SalvarPermissoesPerfilAsync(long perfilId, IEnumerable<long> permissaoIds, CancellationToken ct)
     {
         try
         {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return null;
-            using var cn = _connectionFactory.CreateConnection();
-            var perfil = await cn.QuerySingleOrDefaultAsync<PerfilDetalheViewModel>(new CommandDefinition("select id,codigo,nome,coalesce(descricao,'') as Descricao,ativo from sigov.perfil where id=@Id and coalesce(is_deleted,false)=false;", new { Id = id }, cancellationToken: ct)).ConfigureAwait(false);
-            if (perfil is null) return null;
-            try
-            {
-                var perms = await cn.QueryAsync<string>(new CommandDefinition("select coalesce(chave,codigo,nome) from sigov.permissao p join sigov.perfil_permissao pp on pp.permissao_id=p.id where pp.perfil_id=@Id order by 1;", new { Id = id }, cancellationToken: ct)).ConfigureAwait(false);
-                perfil.Permissoes = perms.ToArray();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "Vínculo perfil/permissão indisponível para perfil {Id}.", id);
-                perfil.MensagemFallback = "Vínculos de permissões não foram carregados porque a estrutura definitiva não está disponível.";
-            }
-            return perfil;
-        }
-        catch(Exception ex){ _logger.LogError(ex,"Falha ao obter perfil {Id}.", id); return null; }
+            if (!await _schemaInspector.TableExistsAsync("sigov","perfil_permissao",ct).ConfigureAwait(false)) return false;
+            var ids=permissaoIds.Distinct().ToArray(); using var cn=_connectionFactory.CreateConnection(); cn.Open(); using var tx=cn.BeginTransaction();
+            var antes=(await cn.QueryAsync<long>(new CommandDefinition("select permissao_id from sigov.perfil_permissao where perfil_id=@PerfilId",new{PerfilId=perfilId},transaction:tx,cancellationToken:ct)).ConfigureAwait(false)).ToArray();
+            await cn.ExecuteAsync(new CommandDefinition("delete from sigov.perfil_permissao where perfil_id=@PerfilId",new{PerfilId=perfilId},transaction:tx,cancellationToken:ct)).ConfigureAwait(false);
+            foreach(var pid in ids) await cn.ExecuteAsync(new CommandDefinition("insert into sigov.perfil_permissao(perfil_id,permissao_id) values(@PerfilId,@Pid)",new{PerfilId=perfilId,Pid=pid},transaction:tx,cancellationToken:ct)).ConfigureAwait(false);
+            tx.Commit(); await AuditarAsync("PERMISSOES_SALVAR","sigov.perfil_permissao",perfilId,new{permissoes=antes},new{permissoes=ids},ct).ConfigureAwait(false); return true;
+        } catch(Exception ex){ _logger.LogError(ex,"Falha ao salvar permissões do perfil {PerfilId}.",perfilId); return false; }
     }
 
-    public async Task<bool> CriarPerfilAsync(PerfilFormViewModel form,CancellationToken ct)
+    public Task<bool> SalvarPermissoesAsync(CancellationToken ct) => Task.FromResult(false);
+
+    private async Task<bool> ExecutarUsuarioAsync(long id,string acao,bool ativo,CancellationToken ct){ try{ var c=await ColumnsAsync("usuario",ct).ConfigureAwait(false); var set=new List<string>{"ativo=@Ativo"}; if(c.Contains("updated_at")) set.Add("updated_at=now()"); using var cn=_connectionFactory.CreateConnection(); var n=await cn.ExecuteAsync(new CommandDefinition($"update sigov.usuario set {string.Join(',',set)} where id=@Id;",new{Id=id,Ativo=ativo},cancellationToken:ct)).ConfigureAwait(false); if(n>0) await AuditarAsync(acao,"sigov.usuario",id,null,new{id,ativo},ct).ConfigureAwait(false); return n>0;}catch(Exception ex){_logger.LogError(ex,"Falha em ação crítica {Acao}.",acao); return false;}}
+    private async Task<HashSet<string>> ColumnsAsync(string table, CancellationToken ct) => new((await _schemaInspector.GetColumnsAsync("sigov", table, ct).ConfigureAwait(false)).Select(x => x.ToLowerInvariant()), StringComparer.OrdinalIgnoreCase);
+    private static string Expr(HashSet<string> c,string col,string yes,string no)=>c.Contains(col)?yes:no;
+    private static string FirstExpr(HashSet<string> c, string alias, params string[] cols)
     {
-        try
-        {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return false;
-            using var cn=_connectionFactory.CreateConnection();
-            var dup = await cn.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.perfil where coalesce(is_deleted,false)=false and lower(codigo)=lower(@Codigo);", new { form.Codigo }, cancellationToken: ct)).ConfigureAwait(false);
-            if (dup > 0) return false;
-            var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.perfil(codigo,nome,descricao,ativo,created_at) values(@Codigo,@Nome,@Descricao,true,now()) returning id;", form,cancellationToken:ct)).ConfigureAwait(false);
-            await AuditarAsync(cn,"PERFIL_CRIAR",id,form,ct).ConfigureAwait(false); return true;
-        }catch(Exception ex){_logger.LogError(ex,"Falha ao criar perfil."); return false;}
+        var existing = cols.Where(c.Contains).Select(x => $"{alias}.{x}").ToArray();
+        return existing.Length == 0 ? "''" : $"coalesce({string.Join(',', existing)})";
     }
-
-    public async Task<bool> AtualizarPerfilAsync(long id, PerfilFormViewModel form, CancellationToken ct)
-    {
-        try
-        {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return false;
-            using var cn=_connectionFactory.CreateConnection();
-            var n = await cn.ExecuteAsync(new CommandDefinition("update sigov.perfil set codigo=@Codigo,nome=@Nome,descricao=@Descricao,updated_at=now() where id=@Id and coalesce(is_deleted,false)=false;", new { Id=id, form.Codigo, form.Nome, form.Descricao }, cancellationToken: ct)).ConfigureAwait(false);
-            if (n > 0) await AuditarAsync(cn,"PERFIL_EDITAR",id,form,ct).ConfigureAwait(false);
-            return n > 0;
-        }catch(Exception ex){_logger.LogError(ex,"Falha ao editar perfil {Id}.", id); return false;}
-    }
-
-    public async Task<bool> AlterarStatusPerfilAsync(long id, bool ativo, CancellationToken ct)
-    {
-        try
-        {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "perfil", ct).ConfigureAwait(false)) return false;
-            using var cn=_connectionFactory.CreateConnection();
-            var n = await cn.ExecuteAsync(new CommandDefinition("update sigov.perfil set ativo=@Ativo,updated_at=now() where id=@Id and coalesce(is_deleted,false)=false;", new { Id=id, Ativo=ativo }, cancellationToken: ct)).ConfigureAwait(false);
-            if (n > 0) await AuditarAsync(cn, ativo ? "PERFIL_ATIVAR" : "PERFIL_INATIVAR", id, new { id, ativo }, ct).ConfigureAwait(false);
-            return n > 0;
-        }catch(Exception ex){_logger.LogError(ex,"Falha ao alterar status do perfil {Id}.", id); return false;}
-    }
-
-
-    public async Task<bool> SalvarPermissoesAsync(CancellationToken ct)
-    {
-        try
-        {
-            using var cn = _connectionFactory.CreateConnection();
-            var existe = await cn.ExecuteScalarAsync<int>(new CommandDefinition(
-                "select count(*) from information_schema.tables where table_schema='sigov' and table_name in ('permissao','perfil_permissao');",
-                cancellationToken: ct)).ConfigureAwait(false);
-            if (existe < 2) return false;
-            await AuditarAsync(cn, "PERMISSOES_TENTATIVA_SALVAR", 0, new { origem = "Seguranca/Permissoes", persistencia = "pendente de perfil selecionado" }, ct).ConfigureAwait(false);
-            return false;
-        }
-        catch(Exception ex)
-        {
-            _logger.LogWarning(ex, "Estrutura de permissões indisponível; nenhuma alteração simulada.");
-            return false;
-        }
-    }
-
-    private async Task<bool> ExecutarUsuarioAsync(long id,string acao,string sql,object args,CancellationToken ct){ try{if (!await _schemaInspector.TableExistsAsync("sigov", "usuario", ct).ConfigureAwait(false)) return false; using var cn=_connectionFactory.CreateConnection(); var n=await cn.ExecuteAsync(new CommandDefinition(sql,args,cancellationToken:ct)).ConfigureAwait(false); if(n>0) await AuditarAsync(cn,acao,id,args,ct).ConfigureAwait(false); return n>0;}catch(Exception ex){_logger.LogError(ex,"Falha em ação crítica {Acao}.",acao); return false;}}
-    private static async Task AuditarAsync(System.Data.IDbConnection cn,string acao,long id,object payload,CancellationToken ct){ try{ var entidade = acao.StartsWith("PERFIL", StringComparison.OrdinalIgnoreCase) ? "sigov.perfil" : "sigov.usuario"; await cn.ExecuteAsync(new CommandDefinition("insert into sigov.auditoria_evento(acao,entidade,entidade_id,depois,created_at) values(@Acao,@Entidade,@Id,@Json::jsonb,now());", new{Acao=acao,Entidade=entidade,Id=id.ToString(),Json=System.Text.Json.JsonSerializer.Serialize(payload)}, cancellationToken:ct)).ConfigureAwait(false);}catch{}}
+    private static object SafePayload(UsuarioFormViewModel f)=>new{f.Id,f.Login,Email=MaskEmail(f.Email),f.PessoaId,f.Ativo,f.Bloqueado,f.DeveAlterarSenha,f.MfaHabilitado};
+    private async Task AuditarAsync(string acao,string entidade,long id,object? antes,object? depois,CancellationToken ct){ try{ var h=_httpContextAccessor.HttpContext; long? uid=long.TryParse(h?.User.FindFirstValue(ClaimTypes.NameIdentifier),out var parsed)?parsed:null; await _auditTrail.RegistrarAsync(null,uid,acao,entidade,id.ToString(),antes,depois,h?.Connection.RemoteIpAddress?.ToString(),h?.Request.Headers.UserAgent.ToString(),h?.TraceIdentifier ?? Guid.NewGuid().ToString(),ct).ConfigureAwait(false);}catch(Exception ex){_logger.LogWarning(ex,"Auditoria best-effort falhou para {Acao}.",acao);} }
     private static string MaskEmail(string value) => LgpdMaskingHelper.MaskEmail(value);
-    private sealed record UsuarioRow(long Id,string Nome,string Login,string Email,string Tenant,string Perfil,bool Ativo,bool Bloqueado);
+    private sealed record UsuarioRow(long Id,string Nome,string Login,string Email,string Perfil,bool Ativo,bool Bloqueado);
 }
