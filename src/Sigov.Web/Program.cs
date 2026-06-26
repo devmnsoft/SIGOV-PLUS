@@ -49,6 +49,7 @@ builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogServi
 builder.Services.AddInfrastructure();
 builder.Services.AddScoped<PostBuildSaasService>();
 builder.Services.AddScoped<SegurancaAdminService>();
+builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddSingleton<OperationalDemoService>();
 
 var app = builder.Build();

@@ -14,11 +14,13 @@ public sealed class AuthController : Controller
     private readonly NpgsqlConnectionFactory _connectionFactory;
     private readonly IPasswordHashService _passwordHashService;
     private readonly ILogger<AuthController> _logger;
+    private readonly IAuditTrailService _auditTrail;
 
-    public AuthController(NpgsqlConnectionFactory connectionFactory, IPasswordHashService passwordHashService, ILogger<AuthController> logger)
+    public AuthController(NpgsqlConnectionFactory connectionFactory, IPasswordHashService passwordHashService, IAuditTrailService auditTrail, ILogger<AuthController> logger)
     {
         _connectionFactory = connectionFactory;
         _passwordHashService = passwordHashService;
+        _auditTrail = auditTrail;
         _logger = logger;
     }
 
@@ -58,7 +60,7 @@ limit 1;";
             using var connection = _connectionFactory.CreateConnection();
             var user = await connection.QuerySingleOrDefaultAsync<LoginUserRow>(new CommandDefinition(sql, new { model.Login }, cancellationToken: cancellationToken)).ConfigureAwait(false);
             var valid = user is not null && user.Ativo && !user.Bloqueado && _passwordHashService.VerifyPassword(model.Senha, user.SenhaHash);
-            await RegistrarAuditoriaAsync(connection, valid ? "LOGIN_SUCESSO" : "LOGIN_FALHA", user?.TenantId, user?.Id, model.Login, ip, correlationId, cancellationToken).ConfigureAwait(false);
+            await _auditTrail.RegistrarAsync(user?.TenantId, user?.Id, valid ? "LOGIN_SUCESSO" : "LOGIN_FALHA", "sigov.usuario", user?.Id.ToString(), null, new { login = model.Login }, ip, Request.Headers["User-Agent"].ToString(), correlationId, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Tentativa de login SIGOV para {Login} em {Ip}: {Resultado}. CorrelationId={CorrelationId}", model.Login, ip, valid ? "sucesso" : "falha", correlationId);
 
             if (!valid || user is null)
@@ -99,8 +101,7 @@ limit 1;";
         var login = User.Identity?.Name ?? "anonimo";
         try
         {
-            using var connection = _connectionFactory.CreateConnection();
-            await RegistrarAuditoriaAsync(connection, "LOGOUT", null, CurrentUserId(), login, HttpContext.Connection.RemoteIpAddress?.ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            await _auditTrail.RegistrarAsync(null, CurrentUserId(), "LOGOUT", "sigov.usuario", CurrentUserId()?.ToString(), null, new { login }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Logout SIGOV para {Login}. CorrelationId={CorrelationId}", login, HttpContext.TraceIdentifier);
         }
         catch (Exception ex)

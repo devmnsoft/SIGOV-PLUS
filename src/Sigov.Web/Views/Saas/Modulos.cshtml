@@ -10,11 +10,11 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2"><div><h1 class="h3">Módulos contratados</h1><p class="text-muted">Ativação lógica por tenant sem remoção de dados ao desativar.</p></div><a class="btn btn-outline-primary" href="/Saas/Tenants">Voltar para tenants</a></div>
 @if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
 <div class="row g-3">
-@foreach (var modulo in Model.Modulos) { <div class="col-md-4 col-xl-3"><div class="card h-100 shadow-sm"><div class="card-body"><h2 class="h5">@modulo.Nome</h2><span class="badge text-bg-info">@modulo.Status</span><p class="small text-muted mt-2">@modulo.Descricao</p><form method="post" action="/Saas/AlterarModulo" class="d-flex gap-2 flex-wrap">
+@foreach (var modulo in Model.Modulos) { <div class="col-md-4 col-xl-3"><div class="card h-100 shadow-sm"><div class="card-body"><h2 class="h5">@modulo.Nome</h2><span class="badge text-bg-@modulo.StatusCssClass">@modulo.StatusDescricao</span><p class="small text-muted mt-2">@modulo.Descricao</p>@if (Model.TenantId > 0 && modulo.PodePersistirStatus) {<form method="post" action="/Saas/AlterarModulo" class="d-flex gap-2 flex-wrap">
 @Html.AntiForgeryToken()
 <input type="hidden" name="tenantId" value="@Model.TenantId" />
 <input type="hidden" name="codigo" value="@modulo.Codigo" />
 <button class="btn btn-outline-success btn-sm" name="ativo" value="true" data-sigov-confirm="Ativar módulo?">Ativar</button>
 <button class="btn btn-outline-warning btn-sm" name="ativo" value="false" data-sigov-confirm="Desativar módulo?">Desativar</button>
-</form></div></div></div> }
+</form>} else {<div class="alert alert-light border small mb-0">Esta tela está em modo demonstração. Os dados exibidos não representam persistência operacional completa.</div>}</div></div></div> }
 </div>

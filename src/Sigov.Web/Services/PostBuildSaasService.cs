@@ -9,18 +9,18 @@ public sealed class PostBuildSaasService
 {
     private static readonly IReadOnlyCollection<ModuleViewModel> DefaultModules = new[]
     {
-        new ModuleViewModel("tributario", "Tributário", "disponível", "Receitas, dívida ativa e arrecadação."),
-        new ModuleViewModel("rh", "RH", "disponível", "Pessoas, vínculos e folha."),
-        new ModuleViewModel("juridico", "Jurídico", "em implantação", "Processos e pareceres jurídicos."),
-        new ModuleViewModel("contratos", "Contratos", "em implantação", "Gestão contratual."),
-        new ModuleViewModel("ged", "GED", "em implantação", "Gestão eletrônica de documentos."),
-        new ModuleViewModel("protocolo", "Protocolo", "em implantação", "Atendimento e processos digitais."),
-        new ModuleViewModel("saude", "Saúde", "disponível", "Atenção básica e vigilância."),
-        new ModuleViewModel("educacao", "Educação", "disponível", "Escolas, matrículas e frequência."),
-        new ModuleViewModel("agro", "Agro", "disponível", "Produtores, propriedades e programas rurais."),
-        new ModuleViewModel("saneamento", "Saneamento", "disponível", "Serviços e indicadores de saneamento."),
-        new ModuleViewModel("social", "Assistência Social", "disponível", "Cadastros e atendimentos sociais."),
-        new ModuleViewModel("integracoes", "Integrações", "em implantação", "APIs, webhooks e conectores.")
+        new ModuleViewModel("tributario", "Tributário", SigovFeatureStatus.Parcial, "Receitas, dívida ativa e arrecadação."),
+        new ModuleViewModel("rh", "RH", SigovFeatureStatus.Parcial, "Pessoas, vínculos e folha."),
+        new ModuleViewModel("juridico", "Jurídico", SigovFeatureStatus.EmImplantacao, "Processos e pareceres jurídicos."),
+        new ModuleViewModel("contratos", "Contratos", SigovFeatureStatus.EmImplantacao, "Gestão contratual."),
+        new ModuleViewModel("ged", "GED", SigovFeatureStatus.EmImplantacao, "Gestão eletrônica de documentos."),
+        new ModuleViewModel("protocolo", "Protocolo", SigovFeatureStatus.EmImplantacao, "Atendimento e processos digitais."),
+        new ModuleViewModel("saude", "Saúde", SigovFeatureStatus.Parcial, "Atenção básica e vigilância."),
+        new ModuleViewModel("educacao", "Educação", SigovFeatureStatus.Parcial, "Escolas, matrículas e frequência."),
+        new ModuleViewModel("agro", "Agro", SigovFeatureStatus.Parcial, "Produtores, propriedades e programas rurais."),
+        new ModuleViewModel("saneamento", "Saneamento", SigovFeatureStatus.Parcial, "Serviços e indicadores de saneamento."),
+        new ModuleViewModel("social", "Assistência Social", SigovFeatureStatus.Parcial, "Cadastros e atendimentos sociais."),
+        new ModuleViewModel("integracoes", "Integrações", SigovFeatureStatus.EmImplantacao, "APIs, webhooks e conectores.")
     };
 
     private readonly NpgsqlConnectionFactory _connectionFactory;
@@ -127,6 +127,26 @@ values (@Nome, @Documento, @Slug, @Slug, @Email, @Telefone, @Plano, @CorPrincipa
         {
             _logger.LogError(ex, "Falha ao salvar tenant real.");
             return (false, "Não foi possível persistir o tenant. Nenhum sucesso foi simulado.", form.Id);
+        }
+    }
+
+
+    public async Task<bool> AlterarStatusTenantAsync(long id, bool ativo, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return false;
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var rows = await connection.ExecuteAsync(new CommandDefinition(@"update sigov.tenant
+set ativo=@Ativo, status=case when @Ativo then 'ATIVO' else 'INATIVO' end, updated_at=now()
+where id=@Id and is_deleted=false;", new { Id = id, Ativo = ativo }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (rows > 0) await AuditarSaasAsync(connection, ativo ? "SAAS_TENANT_ATIVAR" : "SAAS_TENANT_INATIVAR", "sigov.tenant", id, new { id, ativo }, cancellationToken).ConfigureAwait(false);
+            return rows > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao alterar status do tenant; nenhuma alteração foi simulada. TenantId={TenantId}", id);
+            return false;
         }
     }
 
@@ -250,7 +270,16 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
     }
 
     private static string FormatCount(int? value) => value.HasValue ? value.Value.ToString() : "--";
-    private static string NormalizeStatus(string status) => status.Replace('_', ' ').ToLowerInvariant();
+    private static SigovFeatureStatus NormalizeStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return SigovFeatureStatus.Indisponivel;
+        var normalized = status.Trim().Replace("_", " ").Replace("-", " ").ToUpperInvariant();
+        if (normalized is "ATIVO" or "HABILITADO" or "FUNCIONAL" or "DISPONIVEL" or "DISPONÍVEL") return SigovFeatureStatus.Funcional;
+        if (normalized.Contains("PARCIAL", StringComparison.Ordinal) || normalized is "SUSPENSO") return SigovFeatureStatus.Parcial;
+        if (normalized.Contains("DEMON", StringComparison.Ordinal)) return SigovFeatureStatus.Demonstrativo;
+        if (normalized.Contains("IMPLANT", StringComparison.Ordinal) || normalized is "ROADMAP") return SigovFeatureStatus.EmImplantacao;
+        return SigovFeatureStatus.Indisponivel;
+    }
     private static string MaskDocument(string value) => string.IsNullOrWhiteSpace(value) || value.Length < 5 ? "***" : $"{value[..2]}***{value[^2..]}";
     private static string MaskEmail(string value)
     {
