@@ -79,6 +79,77 @@ order by modulo_codigo;";
         }
     }
 
+    public async Task<(bool Ok, string Mensagem, long? Id)> SalvarTenantAsync(TenantFormViewModel form, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(form.Nome) || string.IsNullOrWhiteSpace(form.Slug))
+        {
+            return (false, "Nome e slug são obrigatórios.", form.Id);
+        }
+
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var metadados = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                email = form.Email,
+                telefone = form.Telefone,
+                plano = form.Plano,
+                observacao = form.Observacao,
+                corPrincipal = form.CorPrincipal,
+                logoUrl = form.LogoUrl,
+                subdominio = form.Subdominio,
+                emailSuporte = form.EmailSuporte
+            });
+
+            var duplicado = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                "select count(*) from sigov.tenant where is_deleted=false and lower(slug)=lower(@Slug) and (@Id is null or id<>@Id);",
+                new { form.Id, Slug = form.Slug.Trim() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (duplicado > 0) return (false, "Já existe tenant com este slug.", form.Id);
+
+            if (form.Id.HasValue)
+            {
+                var rows = await connection.ExecuteAsync(new CommandDefinition(@"update sigov.tenant
+set nome=@Nome, documento=@Documento, slug=@Slug, email=@Email, telefone=@Telefone, plano=@Plano, cor_primaria=@CorPrincipal, logo_url=@LogoUrl, status=case when @Ativo then 'ATIVO' else 'INATIVO' end, ativo=@Ativo, metadados=@Metadados::jsonb, updated_at=now()
+where id=@Id and is_deleted=false;",
+                    new { form.Id, Nome = form.Nome.Trim(), Documento = form.Documento, Slug = form.Slug.Trim(), form.Email, form.Telefone, form.Plano, form.CorPrincipal, form.LogoUrl, form.Ativo, Metadados = metadados }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (rows == 0) return (false, "Tenant não encontrado; nada foi persistido.", form.Id);
+                await AuditarSaasAsync(connection, "SAAS_TENANT_EDITAR", "sigov.tenant", form.Id.Value, form, cancellationToken).ConfigureAwait(false);
+                return (true, "Tenant atualizado com sucesso e auditoria preparada.", form.Id);
+            }
+
+            var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.tenant (nome, documento, slug, codigo, email, telefone, plano, cor_primaria, logo_url, status, ambiente, ativo, metadados, created_at)
+values (@Nome, @Documento, @Slug, @Slug, @Email, @Telefone, @Plano, @CorPrincipal, @LogoUrl, 'ATIVO', 'PRODUCTION', @Ativo, @Metadados::jsonb, now()) returning id;",
+                new { Nome = form.Nome.Trim(), Documento = form.Documento, Slug = form.Slug.Trim(), form.Email, form.Telefone, form.Plano, form.CorPrincipal, form.LogoUrl, form.Ativo, Metadados = metadados }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await AuditarSaasAsync(connection, "SAAS_TENANT_CRIAR", "sigov.tenant", id, form, cancellationToken).ConfigureAwait(false);
+            return (true, "Tenant criado com sucesso e auditoria preparada.", id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao salvar tenant real.");
+            return (false, "Não foi possível persistir o tenant. Nenhum sucesso foi simulado.", form.Id);
+        }
+    }
+
+    public async Task<bool> AlterarModuloTenantAsync(long tenantId, string codigo, bool ativo, CancellationToken cancellationToken)
+    {
+        if (tenantId <= 0 || string.IsNullOrWhiteSpace(codigo)) return false;
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var status = ativo ? "HABILITADO" : "SUSPENSO";
+            var rows = await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.tenant_modulo_contratado (tenant_id, modulo_codigo, status, contratado_em, vigencia_inicio, ativo)
+values (@TenantId, @Codigo, @Status, current_date, current_date, @Ativo)
+on conflict (tenant_id, modulo_codigo) do update set status=excluded.status, ativo=excluded.ativo, updated_at=now();",
+                new { TenantId = tenantId, Codigo = codigo.Trim().ToLowerInvariant(), Status = status, Ativo = ativo }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (rows > 0) await AuditarSaasAsync(connection, ativo ? "SAAS_MODULO_ATIVAR" : "SAAS_MODULO_INATIVAR", "sigov.tenant_modulo_contratado", tenantId, new { tenantId, codigo, ativo }, cancellationToken).ConfigureAwait(false);
+            return rows > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Estrutura de módulos por tenant indisponível; alteração não persistida.");
+            return false;
+        }
+    }
 
     public async Task<bool> RegistrarOperacaoVisualAsync(string operacao, object payload, CancellationToken cancellationToken)
     {
@@ -163,6 +234,18 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         {
             _logger.LogWarning(ex, "Consulta de indicador indisponível para o dashboard. Sql={Sql}", sql);
             return null;
+        }
+    }
+
+    private static async Task AuditarSaasAsync(System.Data.IDbConnection connection, string acao, string entidade, long id, object payload, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            await connection.ExecuteAsync(new CommandDefinition("insert into sigov.auditoria_evento (acao, entidade, entidade_id, depois, created_at) values (@Acao, @Entidade, @Id, @Depois::jsonb, now());", new { Acao = acao, Entidade = entidade, Id = id.ToString(System.Globalization.CultureInfo.InvariantCulture), Depois = json }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch
+        {
         }
     }
 

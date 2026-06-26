@@ -5,6 +5,24 @@ public sealed record ModuleViewModel(string Codigo, string Nome, string Status, 
 public sealed record HealthItemViewModel(string Nome, string Status, string Detalhe, bool Online);
 public sealed record TenantListItemViewModel(long Id, string Nome, string Codigo, string Documento, string Email, string Telefone, string Plano, bool Ativo);
 
+public sealed class TenantFormViewModel
+{
+    public long? Id { get; set; }
+    public string Nome { get; set; } = string.Empty;
+    public string Slug { get; set; } = string.Empty;
+    public string? Documento { get; set; }
+    public string? Email { get; set; }
+    public string? Telefone { get; set; }
+    public string? Plano { get; set; }
+    public bool Ativo { get; set; } = true;
+    public string? Observacao { get; set; }
+    public string? CorPrincipal { get; set; }
+    public string? LogoUrl { get; set; }
+    public string? Subdominio { get; set; }
+    public string? EmailSuporte { get; set; }
+}
+
+
 public sealed class DashboardViewModel
 {
     public IReadOnlyCollection<DashboardCard> Cards { get; init; } = Array.Empty<DashboardCard>();
