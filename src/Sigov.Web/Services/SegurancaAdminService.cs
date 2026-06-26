@@ -116,6 +116,26 @@ order by coalesce(u.nome,u.login) limit 100;";
         }catch(Exception ex){_logger.LogError(ex,"Falha ao alterar status do perfil {Id}.", id); return false;}
     }
 
+
+    public async Task<bool> SalvarPermissoesAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var cn = _connectionFactory.CreateConnection();
+            var existe = await cn.ExecuteScalarAsync<int>(new CommandDefinition(
+                "select count(*) from information_schema.tables where table_schema='sigov' and table_name in ('permissao','perfil_permissao');",
+                cancellationToken: ct)).ConfigureAwait(false);
+            if (existe < 2) return false;
+            await AuditarAsync(cn, "PERMISSOES_TENTATIVA_SALVAR", 0, new { origem = "Seguranca/Permissoes", persistencia = "pendente de perfil selecionado" }, ct).ConfigureAwait(false);
+            return false;
+        }
+        catch(Exception ex)
+        {
+            _logger.LogWarning(ex, "Estrutura de permissões indisponível; nenhuma alteração simulada.");
+            return false;
+        }
+    }
+
     private async Task<bool> ExecutarUsuarioAsync(long id,string acao,string sql,object args,CancellationToken ct){ try{using var cn=_connectionFactory.CreateConnection(); var n=await cn.ExecuteAsync(new CommandDefinition(sql,args,cancellationToken:ct)).ConfigureAwait(false); if(n>0) await AuditarAsync(cn,acao,id,args,ct).ConfigureAwait(false); return n>0;}catch(Exception ex){_logger.LogError(ex,"Falha em ação crítica {Acao}.",acao); return false;}}
     private static async Task AuditarAsync(System.Data.IDbConnection cn,string acao,long id,object payload,CancellationToken ct){ try{ var entidade = acao.StartsWith("PERFIL", StringComparison.OrdinalIgnoreCase) ? "sigov.perfil" : "sigov.usuario"; await cn.ExecuteAsync(new CommandDefinition("insert into sigov.auditoria_evento(acao,entidade,entidade_id,depois,created_at) values(@Acao,@Entidade,@Id,@Json::jsonb,now());", new{Acao=acao,Entidade=entidade,Id=id.ToString(),Json=System.Text.Json.JsonSerializer.Serialize(payload)}, cancellationToken:ct)).ConfigureAwait(false);}catch{}}
     private static string MaskEmail(string value){ if(string.IsNullOrWhiteSpace(value)||!value.Contains('@')) return "***"; var p=value.Split('@',2); return $"{p[0][0]}***@{p[1]}"; }
