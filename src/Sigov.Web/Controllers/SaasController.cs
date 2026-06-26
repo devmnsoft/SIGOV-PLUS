@@ -32,6 +32,49 @@ public sealed class SaasController : Controller
         }
     }
 
+
+    [HttpGet("Saas/Tenants/Novo")]
+    public IActionResult NovoTenant() => View("Tenants", new TenantsViewModel { MensagemFallback = "Preencha o formulário para persistir em sigov.tenant quando a tabela existir." });
+
+    [HttpPost("Saas/Tenants/Novo")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> NovoTenant([FromForm] TenantFormViewModel form, CancellationToken cancellationToken) => await SalvarTenant(form, cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("Saas/Tenants/{id:long}")]
+    public async Task<IActionResult> DetalheTenant(long id, CancellationToken cancellationToken)
+    {
+        var tenants = await _service.ListarTenantsAsync(null, cancellationToken).ConfigureAwait(false);
+        var tenant = tenants.FirstOrDefault(x => x.Id == id);
+        if (tenant is null) TempData["Warning"] = "Tenant não encontrado ou estrutura indisponível.";
+        return View("Tenants", new TenantsViewModel { Tenants = tenant is null ? Array.Empty<TenantListItemViewModel>() : new[] { tenant } });
+    }
+
+    [HttpGet("Saas/Tenants/{id:long}/Editar")]
+    public async Task<IActionResult> EditarTenant(long id, CancellationToken cancellationToken) => await DetalheTenant(id, cancellationToken).ConfigureAwait(false);
+
+    [HttpPost("Saas/Tenants/{id:long}/Editar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarTenant(long id, [FromForm] TenantFormViewModel form, CancellationToken cancellationToken)
+    {
+        form.Id = id;
+        return await SalvarTenant(form, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("Saas/Modulos/{codigo}")]
+    public async Task<IActionResult> ModuloDetalhe(string codigo, long? tenantId, CancellationToken cancellationToken)
+    {
+        var modulos = await _service.ListarModulosAsync(tenantId, cancellationToken).ConfigureAwait(false);
+        return View("Modulos", new ModulosSaasViewModel { TenantId = tenantId ?? 0, Modulos = modulos.Where(x => string.Equals(x.Codigo, codigo, StringComparison.OrdinalIgnoreCase)).ToArray(), MensagemFallback = "Detalhe técnico do módulo; contratação só é persistida se a tabela tenant_modulo_contratado existir." });
+    }
+
+    [HttpPost("Saas/Modulos/{codigo}/Ativar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AtivarModulo(string codigo, [FromForm] long tenantId, CancellationToken cancellationToken) => await AlterarModulo(tenantId, codigo, true, cancellationToken).ConfigureAwait(false);
+
+    [HttpPost("Saas/Modulos/{codigo}/Inativar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> InativarModulo(string codigo, [FromForm] long tenantId, CancellationToken cancellationToken) => await AlterarModulo(tenantId, codigo, false, cancellationToken).ConfigureAwait(false);
+
     [HttpGet]
     public IActionResult Planos() => View();
 
