@@ -61,20 +61,12 @@ public sealed class SaasController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SalvarTenant([FromForm] string nome, [FromForm] string? codigo, [FromForm] string? plano, CancellationToken cancellationToken)
+    public async Task<IActionResult> SalvarTenant([FromForm] TenantFormViewModel form, CancellationToken cancellationToken)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(nome))
-            {
-                TempData["Error"] = "Informe o nome do tenant para salvar.";
-                return RedirectToAction(nameof(Tenants));
-            }
-
-            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_TENANT_SALVAR", new { nome, codigo, plano }, cancellationToken).ConfigureAwait(false);
-            TempData[persisted ? "Success" : "Warning"] = persisted
-                ? "Tenant salvo e operação auditada."
-                : "Tabela de persistência indisponível; operação mantida como fallback visual sem dados sensíveis.";
+            var result = await _service.SalvarTenantAsync(form, cancellationToken).ConfigureAwait(false);
+            TempData[result.Ok ? "Success" : "Error"] = result.Mensagem;
             return RedirectToAction(nameof(Tenants));
         }
         catch (Exception ex)
@@ -115,8 +107,8 @@ public sealed class SaasController : Controller
                 return RedirectToAction(nameof(Modulos), new { tenantId });
             }
 
-            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_MODULO_ALTERAR", new { tenantId, codigo, ativo }, cancellationToken).ConfigureAwait(false);
-            TempData[persisted ? "Success" : "Warning"] = persisted ? "Módulo atualizado e auditado." : "Módulo atualizado apenas visualmente; banco indisponível.";
+            var persisted = await _service.AlterarModuloTenantAsync(tenantId, codigo, ativo, cancellationToken).ConfigureAwait(false);
+            TempData[persisted ? "Success" : "Warning"] = persisted ? "Módulo atualizado e auditado." : "Estrutura de módulo por tenant indisponível; nenhuma alteração foi simulada.";
             return RedirectToAction(nameof(Modulos), new { tenantId });
         }
         catch (Exception ex)
