@@ -63,7 +63,19 @@ public sealed class SegurancaController : Controller
     [HttpGet("Seguranca/Perfis/{id:long}/Permissoes")]
     public async Task<IActionResult> PermissoesPerfil(long id, CancellationToken ct){ var perfil=await _service.ObterPerfilAsync(id,ct).ConfigureAwait(false); return View("Permissoes", new PermissaoMatrixViewModel { Modulo = perfil?.Nome ?? "Perfil", Acoes = perfil?.Permissoes.Any()==true ? perfil.Permissoes.ToArray() : new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } }); }
 
+    [HttpGet]
     public IActionResult Permissoes() => View(new PermissaoMatrixViewModel { Modulo = "Administração", Acoes = new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } });
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Permissoes(CancellationToken ct)
+    {
+        var ok = await _service.SalvarPermissoesAsync(ct).ConfigureAwait(false);
+        TempData[ok ? "Success" : "Warning"] = ok
+            ? "Permissões salvas e auditadas."
+            : "Estrutura definitiva de permissões indisponível; nenhuma alteração foi simulada.";
+        return RedirectToAction(nameof(Permissoes));
+    }
     public IActionResult Grupos() => View(new GrupoFormViewModel());
     public IActionResult HistoricoLogin() => View();
 
