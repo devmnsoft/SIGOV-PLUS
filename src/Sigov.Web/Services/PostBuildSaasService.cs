@@ -2,6 +2,7 @@ using Dapper;
 using Sigov.Application.Abstractions;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Models.PostBuild;
+using Sigov.Web.Helpers;
 
 namespace Sigov.Web.Services;
 
@@ -25,11 +26,13 @@ public sealed class PostBuildSaasService
 
     private readonly NpgsqlConnectionFactory _connectionFactory;
     private readonly ILogger<PostBuildSaasService> _logger;
+    private readonly IDatabaseSchemaInspector _schemaInspector;
 
-    public PostBuildSaasService(NpgsqlConnectionFactory connectionFactory, ILogger<PostBuildSaasService> logger)
+    public PostBuildSaasService(NpgsqlConnectionFactory connectionFactory, ILogger<PostBuildSaasService> logger, IDatabaseSchemaInspector schemaInspector)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
+        _schemaInspector = schemaInspector;
     }
 
     public async Task<IReadOnlyCollection<TenantListItemViewModel>> ListarTenantsAsync(string? busca, CancellationToken cancellationToken)
@@ -49,6 +52,7 @@ order by nome
 limit 50;";
         try
         {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false)) return Array.Empty<TenantListItemViewModel>();
             using var connection = _connectionFactory.CreateConnection();
             var rows = await connection.QueryAsync<TenantRow>(new CommandDefinition(sql, new { Busca = string.IsNullOrWhiteSpace(busca) ? null : busca.Trim() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
             return rows.Select(t => new TenantListItemViewModel(t.Id, t.Nome, t.Codigo, MaskDocument(t.Documento), MaskEmail(t.Email), MaskPhone(t.Telefone), t.Plano, t.Ativo)).ToArray();
@@ -68,6 +72,7 @@ where (@TenantId is null or tenant_id = @TenantId)
 order by modulo_codigo;";
         try
         {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant_modulo_contratado", cancellationToken).ConfigureAwait(false)) return DefaultModules;
             using var connection = _connectionFactory.CreateConnection();
             var rows = (await connection.QueryAsync<ModuleStatusRow>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToDictionary(x => x.Codigo, x => x.Status, StringComparer.OrdinalIgnoreCase);
             return DefaultModules.Select(m => m with { Status = rows.TryGetValue(m.Codigo, out var status) ? NormalizeStatus(status) : m.Status }).ToArray();
@@ -88,6 +93,7 @@ order by modulo_codigo;";
 
         try
         {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false)) return (false, "Tabela sigov.tenant indisponível; tenant não foi persistido.", form.Id);
             using var connection = _connectionFactory.CreateConnection();
             var metadados = System.Text.Json.JsonSerializer.Serialize(new
             {
@@ -136,6 +142,7 @@ values (@Nome, @Documento, @Slug, @Slug, @Email, @Telefone, @Plano, @CorPrincipa
         if (id <= 0) return false;
         try
         {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false)) return false;
             using var connection = _connectionFactory.CreateConnection();
             var rows = await connection.ExecuteAsync(new CommandDefinition(@"update sigov.tenant
 set ativo=@Ativo, status=case when @Ativo then 'ATIVO' else 'INATIVO' end, updated_at=now()
@@ -155,6 +162,7 @@ where id=@Id and is_deleted=false;", new { Id = id, Ativo = ativo }, cancellatio
         if (tenantId <= 0 || string.IsNullOrWhiteSpace(codigo)) return false;
         try
         {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant_modulo_contratado", cancellationToken).ConfigureAwait(false)) return false;
             using var connection = _connectionFactory.CreateConnection();
             var status = ativo ? "HABILITADO" : "SUSPENSO";
             var rows = await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.tenant_modulo_contratado (tenant_id, modulo_codigo, status, contratado_em, vigencia_inicio, ativo)
@@ -280,14 +288,9 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         if (normalized.Contains("IMPLANT", StringComparison.Ordinal) || normalized is "ROADMAP") return SigovFeatureStatus.EmImplantacao;
         return SigovFeatureStatus.Indisponivel;
     }
-    private static string MaskDocument(string value) => string.IsNullOrWhiteSpace(value) || value.Length < 5 ? "***" : $"{value[..2]}***{value[^2..]}";
-    private static string MaskEmail(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || !value.Contains('@', StringComparison.Ordinal)) return "***";
-        var parts = value.Split('@', 2);
-        return $"{parts[0][0]}***@{parts[1]}";
-    }
-    private static string MaskPhone(string value) => string.IsNullOrWhiteSpace(value) || value.Length < 4 ? "***" : $"***{value[^4..]}";
+    private static string MaskDocument(string value) => LgpdMaskingHelper.MaskDocument(value);
+    private static string MaskEmail(string value) => LgpdMaskingHelper.MaskEmail(value);
+    private static string MaskPhone(string value) => LgpdMaskingHelper.MaskPhone(value);
 
     private sealed record TenantRow(long Id, string Nome, string Codigo, string Documento, string Email, string Telefone, string Plano, bool Ativo);
     private sealed record ModuleStatusRow(string Codigo, string Status);

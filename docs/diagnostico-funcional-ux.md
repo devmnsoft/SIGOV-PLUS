@@ -289,3 +289,90 @@ Atualização: 2026-06-26. Esta seção consolida o inventário executivo exigid
 ### Diretriz de status padronizado
 
 O catálogo de módulos passa a usar `SigovFeatureStatus` como vocabulário único: **Funcional**, **Parcial**, **Demonstrativo**, **Em implantação** e **Indisponível**. Telas que não conseguem provar persistência completa devem exibir aviso explícito de demonstração e não devem renderizar botão de salvamento transacional.
+
+## 14. Sprint de consolidação do núcleo real
+
+Atualização final da sprint: 2026-06-26. A validação foi executada neste ambiente de agente, porém o container não possui `dotnet` nem `docker`; portanto build, compose e smoke tests HTTP ficaram bloqueados por limitação ambiental, não por erro de aplicação confirmado.
+
+### Arquivos alterados
+
+- `src/Sigov.Web/Services/DatabaseSchemaInspector.cs` — novo serviço seguro de introspecção de schema via `information_schema` com cache curto e fallback por `ILogger`.
+- `src/Sigov.Web/Services/AuditTrailService.cs` — auditoria central passa a validar `sigov.auditoria_evento` antes de gravar e registra fallback em log quando a tabela não existe.
+- `src/Sigov.Web/Services/SegurancaAdminService.cs` — segurança passa a consultar o inspector antes de operações em `sigov.usuario` e `sigov.perfil`, mantendo retorno honesto quando a estrutura não existe.
+- `src/Sigov.Web/Services/PostBuildSaasService.cs` — SaaS passa a validar tabelas de tenant e módulos antes de listar ou persistir, mantendo catálogo visual sem simular gravação.
+- `src/Sigov.Web/Services/MinhaCentralService.cs` — nova central pós-login com resumo de tenant, módulos, pendências, alertas LGPD, atividades recentes e health quando tabelas existem.
+- `src/Sigov.Web/Helpers/LgpdMaskingHelper.cs` — helper global para mascarar e-mail, documento, telefone e nome.
+- `src/Sigov.Web/Controllers/MinhaCentralController.cs` — passa a usar `MinhaCentralService` com `CancellationToken` e fallback seguro.
+- `src/Sigov.Web/Controllers/SaasController.cs` — adicionadas rotas REST explícitas de tenant e módulo, mantendo anti-forgery nos POSTs.
+- `src/Sigov.Web/Controllers/RelatoriosController.cs` — adicionados CSVs mínimos para usuários, tenants, módulos, auditorias e parâmetros quando tabelas existem.
+- `src/Sigov.Web/Models/PostBuild/PostBuildViewModels.cs` — adicionados viewmodels da Minha Central.
+- `src/Sigov.Web/Views/MinhaCentral/Index.cshtml` — blocos agora consomem modelo real/fallback honesto.
+- `src/Sigov.Web/Views/Relatorios/Index.cshtml` — links CSV e aviso de PDF/Excel em implantação.
+- `src/Sigov.Web/Program.cs` — registro DI de `IDatabaseSchemaInspector` e `MinhaCentralService`.
+- `docs/diagnostico-funcional-ux.md` — seção de sprint consolidada com resultado real.
+
+### Rotas revisadas
+
+- `/Seguranca/Usuarios`, `/Seguranca/Usuarios/Novo`, `/Seguranca/Usuarios/{id}`, `/Seguranca/Usuarios/{id}/Editar`, `/Seguranca/Usuarios/{id}/Ativar`, `/Seguranca/Usuarios/{id}/Inativar`, `/Seguranca/Usuarios/{id}/ResetSenha`.
+- `/Seguranca/Perfis`, `/Seguranca/Perfis/Novo`, `/Seguranca/Perfis/{id}/Editar`, `/Seguranca/Perfis/{id}/Ativar`, `/Seguranca/Perfis/{id}/Inativar`, `/Seguranca/Perfis/{id}/Permissoes`, `/Seguranca/Permissoes`.
+- `/Saas/Tenants`, `/Saas/Tenants/Novo`, `/Saas/Tenants/{id}`, `/Saas/Tenants/{id}/Editar`, `/Saas/Tenants/{id}/Ativar`, `/Saas/Tenants/{id}/Inativar`.
+- `/Saas/Modulos`, `/Saas/Modulos/{codigo}`, `/Saas/Modulos/{codigo}/Ativar`, `/Saas/Modulos/{codigo}/Inativar`.
+- `/Saas/Parametros`, `/Saas/Planos`, `/MinhaCentral`, `/Poc`, `/Relatorios`, `/Relatorios/UsuariosCsv`, `/Relatorios/TenantsCsv`, `/Relatorios/ModulosCsv`, `/Relatorios/AuditoriasCsv`, `/Relatorios/ParametrosCsv`.
+
+### Tabelas detectadas por código e introspecção segura
+
+O ambiente local do agente não permitiu subir PostgreSQL/Docker para detecção física. A aplicação agora detecta em tempo de execução, sem quebrar tela, as tabelas:
+
+- `sigov.usuario`
+- `sigov.tenant`
+- `sigov.perfil`
+- `sigov.permissao`
+- `sigov.perfil_permissao`
+- `sigov.tenant_modulo_contratado`
+- `sigov.parametro_sistema`
+- `sigov.plano_saas`
+- `sigov.auditoria_evento`
+
+### Colunas usadas
+
+- `sigov.usuario`: `id`, `nome`, `login`, `email`, `pessoa_id`, `ativo`, `bloqueado`, `deve_alterar_senha`, `mfa_habilitado`, `senha_hash`, `tipo_usuario`, `tenant_id`, `is_deleted`, `created_at`, `updated_at`.
+- `sigov.tenant`: `id`, `nome`, `slug`, `codigo`, `documento`, `email`, `telefone`, `plano`, `cor_primaria`, `logo_url`, `status`, `ambiente`, `ativo`, `metadados`, `is_deleted`, `created_at`, `updated_at`.
+- `sigov.perfil`: `id`, `codigo`, `nome`, `descricao`, `ativo`, `is_deleted`, `created_at`, `updated_at`.
+- `sigov.permissao`: `id`, `chave`, `codigo`, `nome`.
+- `sigov.perfil_permissao`: `perfil_id`, `permissao_id`.
+- `sigov.tenant_modulo_contratado`: `tenant_id`, `modulo_codigo`, `status`, `contratado_em`, `vigencia_inicio`, `ativo`, `updated_at`.
+- `sigov.auditoria_evento`: `tenant_id`, `usuario_id`, `acao`, `entidade`, `entidade_id`, `antes`, `depois`, `ip`, `user_agent`, `correlation_id`, `created_at`.
+- `sigov.parametro_sistema`: `chave`, `escopo`, `categoria`, `valor` para exportação CSV segura quando existir.
+
+### Ações que persistem de verdade quando o schema existe
+
+- Usuários: criar, editar, ativar, inativar e resetar senha com hash e troca obrigatória.
+- Perfis: criar, editar, ativar e inativar quando `sigov.perfil` existe.
+- Tenants: criar, editar, ativar e inativar quando `sigov.tenant` existe.
+- Módulos por tenant: ativar/desativar com upsert quando `sigov.tenant_modulo_contratado` existe.
+- Auditoria: grava em `sigov.auditoria_evento` quando a tabela existe; caso contrário, gera warning estruturado.
+- Relatórios CSV: usuários ativos, tenants ativos, módulos por tenant, auditorias recentes e parâmetros por escopo quando as respectivas tabelas existem.
+
+### Ações em fallback honesto
+
+- Planos SaaS permanecem catálogo demonstrativo quando `sigov.plano_saas` não estiver disponível; sem CRUD falso.
+- Permissões exibem limitação quando a matriz `sigov.permissao`/`sigov.perfil_permissao` não existe ou não há perfil selecionado.
+- Minha Central usa dados reais de tenant, módulos e auditorias quando possível; pendências e ações recomendadas ficam como orientação explícita quando faltam tabelas.
+- Dashboard e SaaS mantêm cards/catálogos operacionais quando consultas falham, sem stacktrace e sem afirmar persistência.
+
+### Resultado do build, Docker e smoke tests
+
+- `dotnet restore`: bloqueado — `/bin/bash: dotnet: command not found`.
+- `dotnet build`: bloqueado — `/bin/bash: dotnet: command not found`.
+- `docker compose up -d --build`: bloqueado — `/bin/bash: docker: command not found`.
+- `docker compose ps`: bloqueado — `/bin/bash: docker: command not found`.
+- Smoke tests HTTP em `localhost:8080` e `localhost:5001`: bloqueados porque Docker não está disponível e nenhum serviço ficou ouvindo nessas portas.
+
+### Pendências para próxima sprint
+
+1. Validar build e Docker em ambiente com .NET 6 SDK e Docker disponíveis.
+2. Ajustar SQL dinâmico por coluna opcional em `sigov.usuario` e `sigov.tenant` após inspecionar o schema real do cliente.
+3. Implementar POST transacional completo para `Seguranca/Perfis/{id}/Permissoes` com seleção de permissões por checkbox.
+4. Implementar edição granular de `sigov.parametro_sistema` com validação por tipo e restauração de padrão.
+5. Evoluir Planos SaaS para CRUD somente se `sigov.plano_saas` e vínculos de módulos/limites estiverem instalados.
+6. Executar validação de navegador/console e screenshots em ambiente web disponível.

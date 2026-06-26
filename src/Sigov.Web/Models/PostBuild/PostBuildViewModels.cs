@@ -90,3 +90,22 @@ public sealed class HealthVisualViewModel
     public DateTimeOffset ServerTime { get; init; } = DateTimeOffset.UtcNow;
     public string MensagemFallback { get; init; } = string.Empty;
 }
+
+public sealed class MinhaCentralViewModel
+{
+    public string Perfil { get; init; } = "Operador";
+    public string Tenant { get; init; } = "Ambiente demonstração";
+    public IReadOnlyCollection<AcaoRecomendadaViewModel> Acoes { get; init; } = Array.Empty<AcaoRecomendadaViewModel>();
+    public IReadOnlyCollection<ModuloResumoViewModel> Modulos { get; init; } = Array.Empty<ModuloResumoViewModel>();
+    public IReadOnlyCollection<PendenciaViewModel> Pendencias { get; init; } = Array.Empty<PendenciaViewModel>();
+    public IReadOnlyCollection<AlertaLgpdViewModel> AlertasLgpd { get; init; } = Array.Empty<AlertaLgpdViewModel>();
+    public IReadOnlyCollection<AtividadeRecenteViewModel> Atividades { get; init; } = Array.Empty<AtividadeRecenteViewModel>();
+    public IReadOnlyCollection<HealthItemViewModel> Ambiente { get; init; } = Array.Empty<HealthItemViewModel>();
+    public string MensagemFallback { get; init; } = string.Empty;
+}
+
+public sealed record AcaoRecomendadaViewModel(string Titulo, string Descricao, string Url, string CssClass);
+public sealed record ModuloResumoViewModel(string Codigo, string Nome, string Status);
+public sealed record PendenciaViewModel(string Titulo, string Descricao, string Url);
+public sealed record AlertaLgpdViewModel(string Titulo, string Descricao);
+public sealed record AtividadeRecenteViewModel(string Acao, string Entidade, DateTimeOffset? Data);
