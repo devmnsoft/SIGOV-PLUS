@@ -1,14 +1,54 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Models.Lote1;
+using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
 
+[Authorize]
 public sealed class SegurancaController : Controller
 {
-    public IActionResult Usuarios() => View(new UsuarioFormViewModel());
-    public IActionResult UsuarioDetalhe(long id = 0) => View(id);
-    public IActionResult Perfis() => View(new PerfilFormViewModel());
+    private readonly SegurancaAdminService _service;
+    private readonly ILogger<SegurancaController> _logger;
+    public SegurancaController(SegurancaAdminService service, ILogger<SegurancaController> logger){ _service=service; _logger=logger; }
+
+    [HttpGet]
+    public async Task<IActionResult> Usuarios([FromQuery] UsuarioFiltroViewModel filtro, CancellationToken ct)
+    { var usuarios=await _service.ListarUsuariosAsync(filtro,ct).ConfigureAwait(false); return View(new UsuariosAdminViewModel{Filtro=filtro,Usuarios=usuarios,MensagemFallback=usuarios.Any()?string.Empty:"Nenhum usuário retornado ou tabela indisponível; nenhum dado foi simulado."}); }
+
+    [HttpGet("Seguranca/Usuarios/Novo")]
+    public IActionResult NovoUsuario()=>View("Usuarios", new UsuariosAdminViewModel{Form=new UsuarioFormViewModel(), MensagemFallback="Preencha os dados e salve para persistir em sigov.usuario."});
+
+    [HttpPost("Seguranca/Usuarios/Novo")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> NovoUsuario(UsuarioFormViewModel form, CancellationToken ct)=>await SalvarUsuarioPost(form,ct).ConfigureAwait(false);
+
+    [HttpGet("Seguranca/Usuarios/{id:long}")]
+    public async Task<IActionResult> UsuarioDetalhe(long id, CancellationToken ct){ var vm=await _service.ObterUsuarioAsync(id,ct).ConfigureAwait(false); return View(vm ?? new UsuarioDetalheViewModel{Id=id,MensagemFallback="Usuário não encontrado ou estrutura indisponível."}); }
+
+    [HttpGet("Seguranca/Usuarios/{id:long}/Editar")]
+    public async Task<IActionResult> EditarUsuario(long id, CancellationToken ct){ var vm=await _service.ObterUsuarioAsync(id,ct).ConfigureAwait(false); if(vm is null){TempData["Error"]="Usuário não encontrado."; return RedirectToAction(nameof(Usuarios));} return View("Usuarios", new UsuariosAdminViewModel{Form=vm, Usuarios=await _service.ListarUsuariosAsync(new UsuarioFiltroViewModel(),ct).ConfigureAwait(false)}); }
+
+    [HttpPost("Seguranca/Usuarios/{id:long}/Editar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarUsuario(long id, UsuarioFormViewModel form, CancellationToken ct){ form.Id=id; return await SalvarUsuarioPost(form,ct).ConfigureAwait(false); }
+
+    [HttpPost("Seguranca/Usuarios/{id:long}/Inativar")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> InativarUsuario(long id,CancellationToken ct)=>await Status(id,false,ct).ConfigureAwait(false);
+    [HttpPost("Seguranca/Usuarios/{id:long}/Ativar")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> AtivarUsuario(long id,CancellationToken ct)=>await Status(id,true,ct).ConfigureAwait(false);
+    [HttpPost("Seguranca/Usuarios/{id:long}/ResetSenha")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetSenha(long id,CancellationToken ct){ var ok=await _service.ResetarSenhaAsync(id,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Senha resetada; troca obrigatória ativada e auditoria preparada.":"Não foi possível resetar; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Usuarios)); }
+
+    [HttpGet]
+    public async Task<IActionResult> Perfis(CancellationToken ct){ var perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false); return View(new PerfisAdminViewModel{Perfis=perfis,MensagemFallback=perfis.Any()?string.Empty:"Tabela de perfis indisponível; cadastro não será simulado."}); }
+    [HttpPost("Seguranca/Perfis/Novo")][ValidateAntiForgeryToken]
+    public async Task<IActionResult> NovoPerfil(PerfilFormViewModel form,CancellationToken ct){ if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.CriarPerfilAsync(form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil salvo e auditado.":"Não foi possível salvar perfil; estrutura pode estar indisponível."; return RedirectToAction(nameof(Perfis)); }
+
     public IActionResult Permissoes() => View(new PermissaoMatrixViewModel { Modulo = "Administração", Acoes = new[] { "Visualizar", "Criar", "Editar", "Excluir", "Auditar" } });
     public IActionResult Grupos() => View(new GrupoFormViewModel());
     public IActionResult HistoricoLogin() => View();
+
+    private async Task<IActionResult> SalvarUsuarioPost(UsuarioFormViewModel form,CancellationToken ct){ if(!ModelState.IsValid){TempData["Error"]="Corrija os campos obrigatórios."; return RedirectToAction(nameof(Usuarios));} var r=await _service.SalvarUsuarioAsync(form,ct).ConfigureAwait(false); TempData[r.Ok?"Success":"Error"]=r.Mensagem; return RedirectToAction(nameof(Usuarios)); }
+    private async Task<IActionResult> Status(long id,bool ativo,CancellationToken ct){ var ok=await _service.AlterarStatusUsuarioAsync(id,ativo,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?(ativo?"Usuário ativado e auditado.":"Usuário inativado e auditado."):"Ação não persistida; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Usuarios)); }
 }
