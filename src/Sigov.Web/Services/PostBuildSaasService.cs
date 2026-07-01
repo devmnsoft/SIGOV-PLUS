@@ -179,6 +179,77 @@ on conflict (tenant_id, modulo_codigo) do update set status=excluded.status, ati
         }
     }
 
+    public async Task<ParametrosSaasViewModel> ListarParametrosAsync(long tenantId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var hasTenantParametro = await _schemaInspector.TableExistsAsync("sigov", "tenant_parametro", cancellationToken).ConfigureAwait(false);
+            var hasParametroSistema = await _schemaInspector.TableExistsAsync("sigov", "parametro_sistema", cancellationToken).ConfigureAwait(false);
+            if (!hasTenantParametro && !hasParametroSistema)
+            {
+                return new ParametrosSaasViewModel { TenantId = tenantId, MensagemFallback = "Nenhuma tabela de parâmetros encontrada; não há edição simulada.", PodePersistir = false };
+            }
+
+            using var connection = _connectionFactory.CreateConnection();
+            if (hasTenantParametro)
+            {
+                var rows = await connection.QueryAsync<ParametroRow>(new CommandDefinition(@"select id, chave, case when coalesce(sensivel,false) then '••••••' else coalesce(valor,'') end as valor, coalesce(tipo,'texto') as tipo, coalesce(descricao,'') as descricao, coalesce(sensivel,false) as sensivel
+from sigov.tenant_parametro
+where tenant_id=@TenantId
+order by chave
+limit 200;", new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                return new ParametrosSaasViewModel { TenantId = tenantId, Parametros = rows.Select(ToViewModel).ToArray(), PodePersistir = true };
+            }
+
+            var hasTenantIdColumn = await _schemaInspector.ColumnExistsAsync("sigov", "parametro_sistema", "tenant_id", cancellationToken).ConfigureAwait(false);
+            var hasTipoColumn = await _schemaInspector.ColumnExistsAsync("sigov", "parametro_sistema", "tipo", cancellationToken).ConfigureAwait(false);
+            var hasDescricaoColumn = await _schemaInspector.ColumnExistsAsync("sigov", "parametro_sistema", "descricao", cancellationToken).ConfigureAwait(false);
+            var hasCategoriaColumn = await _schemaInspector.ColumnExistsAsync("sigov", "parametro_sistema", "categoria", cancellationToken).ConfigureAwait(false);
+            var tipoSelect = hasTipoColumn ? "coalesce(tipo,'texto')" : "'texto'";
+            var descricaoSelect = hasDescricaoColumn ? "coalesce(descricao,'')" : "''";
+            var where = hasTenantIdColumn ? " where tenant_id=@TenantId" : string.Empty;
+            var order = hasCategoriaColumn ? "categoria, chave" : "chave";
+            var sql = $@"select id, chave, case when lower(chave) like '%senha%' or lower(chave) like '%token%' or lower(chave) like '%secret%' then '••••••' else coalesce(valor::text,'') end as valor, {tipoSelect} as tipo, {descricaoSelect} as descricao, (lower(chave) like '%senha%' or lower(chave) like '%token%' or lower(chave) like '%secret%') as sensivel from sigov.parametro_sistema{where} order by {order} limit 200;";
+            var sistemaRows = await connection.QueryAsync<ParametroRow>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return new ParametrosSaasViewModel { TenantId = tenantId, Parametros = sistemaRows.Select(ToViewModel).ToArray(), MensagemFallback = "Usando sigov.parametro_sistema em modo schema-safe.", PodePersistir = true };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao listar parâmetros SaaS. TenantId={TenantId}", tenantId);
+            return new ParametrosSaasViewModel { TenantId = tenantId, MensagemFallback = "Não foi possível consultar parâmetros agora.", PodePersistir = false };
+        }
+    }
+
+    public async Task<(bool Ok, string Mensagem)> SalvarParametroAsync(ParametroSaasFormViewModel form, CancellationToken cancellationToken)
+    {
+        if (form.TenantId <= 0) return (false, "Informe um tenant válido antes de salvar parâmetros.");
+        if (string.IsNullOrWhiteSpace(form.Chave)) return (false, "Chave do parâmetro é obrigatória.");
+        var tipo = NormalizeParameterType(form.Tipo);
+        var validation = ValidateParameterValue(tipo, form.Valor);
+        if (!validation.Ok) return validation;
+
+        try
+        {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant_parametro", cancellationToken).ConfigureAwait(false))
+            {
+                return (false, "Tabela sigov.tenant_parametro indisponível; parâmetro não foi persistido.");
+            }
+
+            using var connection = _connectionFactory.CreateConnection();
+            await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.tenant_parametro(tenant_id,chave,valor,tipo,descricao,sensivel,updated_at)
+values(@TenantId,@Chave,@Valor,@Tipo,@Descricao,@Sensivel,now())
+on conflict(tenant_id,chave) do update set valor=excluded.valor,tipo=excluded.tipo,descricao=excluded.descricao,sensivel=excluded.sensivel,updated_at=now();",
+                new { form.TenantId, Chave = form.Chave.Trim(), Valor = form.Valor.Trim(), Tipo = tipo, form.Descricao, form.Sensivel }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await AuditarSaasAsync(connection, "SAAS_PARAMETRO_SALVAR", "sigov.tenant_parametro", form.TenantId, new { form.TenantId, Chave = form.Chave, Tipo = tipo, Sensivel = form.Sensivel, Valor = form.Sensivel ? "***" : form.Valor }, cancellationToken).ConfigureAwait(false);
+            return (true, "Parâmetro salvo com validação por tipo e auditoria.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao salvar parâmetro SaaS. TenantId={TenantId} Chave={Chave}", form.TenantId, form.Chave);
+            return (false, "Não foi possível salvar o parâmetro. Nenhum sucesso foi simulado.");
+        }
+    }
+
     public async Task<bool> RegistrarOperacaoVisualAsync(string operacao, object payload, CancellationToken cancellationToken)
     {
         try
@@ -293,5 +364,16 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
     private static string MaskPhone(string value) => LgpdMaskingHelper.MaskPhone(value);
 
     private sealed record TenantRow(long Id, string Nome, string Codigo, string Documento, string Email, string Telefone, string Plano, bool Ativo);
+    private static ParametroSaasItemViewModel ToViewModel(ParametroRow row) => new(row.Id, row.Chave, row.Valor, row.Tipo, row.Descricao, row.Sensivel);
+    private static string NormalizeParameterType(string? tipo) => (tipo ?? "texto").Trim().ToLowerInvariant() switch { "boolean" or "bool" => "booleano", "number" or "decimal" or "inteiro" => "numero", "password" or "senha" => "segredo", "json" => "json", _ => "texto" };
+    private static (bool Ok, string Mensagem) ValidateParameterValue(string tipo, string? valor)
+    {
+        var value = valor ?? string.Empty;
+        if (tipo == "booleano" && !bool.TryParse(value, out _)) return (false, "Valor booleano deve ser true ou false.");
+        if (tipo == "numero" && !decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out _)) return (false, "Valor numérico deve usar formato invariável, exemplo 123.45.");
+        if (tipo == "json") { try { System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(value) ? "{}" : value); } catch { return (false, "JSON inválido."); } }
+        return (true, string.Empty);
+    }
     private sealed record ModuleStatusRow(string Codigo, string Status);
+    private sealed record ParametroRow(long Id, string Chave, string Valor, string Tipo, string Descricao, bool Sensivel);
 }

@@ -82,7 +82,12 @@ public sealed class SaasController : Controller
     public IActionResult Implantacao(long? tenantId) => View(tenantId ?? 0);
 
     [HttpGet]
-    public IActionResult Parametros(long? tenantId) => View(tenantId ?? 0);
+    public async Task<IActionResult> Parametros(long? tenantId, CancellationToken cancellationToken)
+    {
+        var id = tenantId ?? 0;
+        var model = await _service.ListarParametrosAsync(id, cancellationToken).ConfigureAwait(false);
+        return View(model);
+    }
 
     [HttpGet("Tenants/{id:long}/Assinatura")]
     public IActionResult Assinatura(long id) => View(id);
@@ -164,19 +169,19 @@ public sealed class SaasController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SalvarParametros([FromForm] long tenantId, [FromForm] string? categoria, CancellationToken cancellationToken)
+    public async Task<IActionResult> SalvarParametros([FromForm] ParametroSaasFormViewModel form, CancellationToken cancellationToken)
     {
         try
         {
-            var persisted = await _service.RegistrarOperacaoVisualAsync("SAAS_PARAMETROS_SALVAR", new { tenantId, categoria }, cancellationToken).ConfigureAwait(false);
-            TempData[persisted ? "Success" : "Warning"] = persisted ? "Parâmetros salvos e auditados." : "Parâmetros mantidos como fallback visual; banco indisponível.";
-            return RedirectToAction(nameof(Parametros), new { tenantId });
+            var result = await _service.SalvarParametroAsync(form, cancellationToken).ConfigureAwait(false);
+            TempData[result.Ok ? "Success" : "Error"] = result.Mensagem;
+            return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro tratado ao salvar parâmetros SaaS.");
             TempData["Error"] = "Não foi possível salvar parâmetros agora.";
-            return RedirectToAction(nameof(Parametros), new { tenantId });
+            return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId });
         }
     }
 
