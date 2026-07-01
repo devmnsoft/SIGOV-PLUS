@@ -85,6 +85,9 @@ public sealed class ModulosSaasViewModel
 public sealed class ParametrosSaasViewModel
 {
     public long TenantId { get; init; }
+    public string Categoria { get; init; } = string.Empty;
+    public string Escopo { get; init; } = string.Empty;
+    public string Busca { get; init; } = string.Empty;
     public IReadOnlyCollection<ParametroSaasItemViewModel> Parametros { get; init; } = Array.Empty<ParametroSaasItemViewModel>();
     public string MensagemFallback { get; init; } = string.Empty;
     public bool PodePersistir { get; init; }
@@ -94,7 +97,9 @@ public sealed record ParametroSaasItemViewModel(long Id, string Chave, string Va
 
 public sealed class ParametroSaasFormViewModel
 {
+    public long? Id { get; set; }
     public long TenantId { get; set; }
+    public string Escopo { get; set; } = string.Empty;
     public string Chave { get; set; } = string.Empty;
     public string Valor { get; set; } = string.Empty;
     public string Tipo { get; set; } = "texto";

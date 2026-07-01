@@ -1,21 +1,22 @@
 param(
-    [string]$ComposeService = "postgres",
-    [string]$Database = "sigov",
-    [string]$User = "sigov",
-    [string]$Output = "docs/schema-report-local.md"
+    [string]$Container = "sigov-postgres",
+    [string]$Database = $env:POSTGRES_DB,
+    [string]$User = $env:POSTGRES_USER
 )
 
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
-$sql = Join-Path $root "database/diagnostics/schema-report.sql"
-$out = Join-Path $root $Output
-$tmp = [System.IO.Path]::GetTempFileName()
-try {
-    Get-Content $sql -Raw | docker compose exec -T $ComposeService psql -U $User -d $Database -f - > $tmp
-    $content = Get-Content $tmp -Raw
-    @("# Relatório local do schema PostgreSQL", "", "Gerado em: $(Get-Date -Format o)", "", "```text", $content, "```") | Set-Content -Path $out -Encoding UTF8
-    Write-Host "Relatório salvo em $out"
-}
-finally {
-    Remove-Item $tmp -ErrorAction SilentlyContinue
-}
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$sqlPath = Join-Path $repoRoot "database/diagnostics/schema-report.sql"
+$outPath = Join-Path $repoRoot "docs/schema-report-local.md"
+
+if ([string]::IsNullOrWhiteSpace($Database)) { $Database = "sigov" }
+if ([string]::IsNullOrWhiteSpace($User)) { $User = "sigov" }
+if (-not (Test-Path $sqlPath)) { throw "SQL não encontrado: $sqlPath" }
+
+$sql = Get-Content $sqlPath -Raw
+$tmp = "/tmp/schema-report.sql"
+$sql | docker exec -i $Container sh -lc "cat > $tmp"
+$result = docker exec -i $Container psql -U $User -d $Database -f $tmp --pset border=2 --pset pager=off
+
+@("# Schema report local", "", "Gerado em: $(Get-Date -Format o)", "Container: $Container", "Database: $Database", "User: $User", "", '```text', $result, '```') | Set-Content -Path $outPath -Encoding UTF8
+Write-Host "Relatório salvo em $outPath"

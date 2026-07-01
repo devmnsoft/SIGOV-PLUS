@@ -1,11 +1,11 @@
-# Relatório local do schema PostgreSQL
+# Schema report local
 
-Não executado nesta sessão porque o SDK/runtime local não está disponível no container atual (`dotnet: command not found`).
+Não gerado neste ambiente de execução porque `docker` não está instalado no container do agente.
 
-Para gerar o relatório real após subir o Docker:
+Para gerar evidência real no ambiente Docker local:
 
 ```powershell
 ./scripts/schema-report.ps1
 ```
 
-O SQL fonte está em `database/diagnostics/schema-report.sql`.
+O script executa `database/diagnostics/schema-report.sql` no container PostgreSQL e grava este arquivo com o resultado real de `information_schema.columns`.

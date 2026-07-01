@@ -17,8 +17,18 @@ where table_schema = 'sigov'
     'plano_saas',
     'auditoria_evento',
     'protocolo',
-    'documento',
     'processo',
-    'contribuinte'
+    'tramite',
+    'protocolo_movimento',
+    'documento',
+    'ged_documento',
+    'pasta',
+    'documento_versao',
+    'arquivo',
+    'contribuinte',
+    'imovel',
+    'debito',
+    'guia',
+    'divida_ativa'
   )
 order by table_name, ordinal_position;
