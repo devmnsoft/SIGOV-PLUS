@@ -9,10 +9,12 @@ public sealed class TributarioController : Controller
 {
     private readonly OperationalDemoService _operationalDemo;
     private readonly ILogger<TributarioController> _operationalLogger;
+    private readonly IAuditTrailService _auditTrail;
 
-    public TributarioController(OperationalDemoService operationalDemo, ILogger<TributarioController> operationalLogger)
+    public TributarioController(OperationalDemoService operationalDemo, IAuditTrailService auditTrail, ILogger<TributarioController> operationalLogger)
     {
         _operationalDemo = operationalDemo;
+        _auditTrail = auditTrail;
         _operationalLogger = operationalLogger;
     }
 
@@ -29,12 +31,15 @@ public sealed class TributarioController : Controller
     public IActionResult Configuracao() => View();
     public IActionResult TiposCadastro() => View();
     public IActionResult CamposDinamicos() => View();
+    [Route("/Tributario/Imoveis")]
     public IActionResult Imoveis() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", "Imoveis"));
     public IActionResult Economicos() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", "Economicos"));
+    [Route("/Tributario/Contribuintes")]
     public IActionResult Contribuintes() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", "Contribuintes"));
     public IActionResult ContribuinteCriar() => View(new ContribuinteFormViewModel());
     public IActionResult ContribuinteEditar(long id) => View(new ContribuinteFormViewModel { Id = id });
-    public IActionResult ContribuinteDetalhe(long id) => View(id);
+    [Route("/Tributario/Contribuintes/{id:long}")]
+    public IActionResult ContribuinteDetalhe(long id) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", $"Contribuinte #{id}"));
     public IActionResult CadastroImobiliario() => View(new CadastroImobiliarioFormViewModel());
     public IActionResult CadastroMercantil() => View(new CadastroMercantilFormViewModel());
     public IActionResult AtividadesEconomicas() => View(new AtividadeEconomicaFormViewModel());
@@ -80,6 +85,15 @@ public sealed class TributarioController : Controller
         }
     }
 
+    [Route("/Tributario/Relatorios")]
+    public IActionResult Relatorios(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", "Relatorios", q));
+    [Route("/Tributario/Contribuintes/Novo")]
+    public IActionResult NovoContribuinte() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", "Novo contribuinte"));
+    [HttpPost, ValidateAntiForgeryToken, Route("/Tributario/Contribuintes/Novo")]
+    public async Task<IActionResult> NovoContribuintePost(CancellationToken cancellationToken) { await Audit("tributario.contribuinte.criar", null, cancellationToken); TempData["Warning"] = "Contribuinte não salvo sem tabela sigov.contribuinte homologada."; return Redirect("/Tributario/Contribuintes"); }
+    [Route("/Tributario/ContribuintesCsv")]
+    public IActionResult ContribuintesCsv() => File(System.Text.Encoding.UTF8.GetBytes("codigo;nome;documento_mascarado;status\nTRI-001;Registro demonstrativo;***.123.456-**;Em implantação\n"), "text/csv", "contribuintes-mascarado.csv");
+
     [Route("/Tributario/Guias")]
     public IActionResult Guias(string? q = null)
     {
@@ -94,4 +108,5 @@ public sealed class TributarioController : Controller
             return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Tributario", "Em implantação"));
         }
     }
+    private async Task Audit(string acao, string? id, CancellationToken ct) { try { await _auditTrail.RegistrarAsync(null, null, acao, "tributario", id, null, null, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct); } catch (Exception ex) { _operationalLogger.LogWarning(ex, "Auditoria tributária falhou"); } }
 }

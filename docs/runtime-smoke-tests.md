@@ -1,18 +1,13 @@
-# Runtime smoke tests — Sprint SaaS comercial
+# Runtime smoke tests
 
-Data: 2026-07-01.
+## 2026-07-01 — Sprint operacional de governo
 
-## Validação inicial
+### Baseline obrigatório
 
-- `dotnet restore`: não executado no host porque o SDK `dotnet` não está instalado (`dotnet: command not found`).
-- `dotnet build`: pendente pelo mesmo motivo.
-- Docker/runtime HTTP: pendente nesta estação até SDK/imagens locais ficarem disponíveis.
+- `dotnet restore && dotnet build`: não executado por limitação do ambiente (`dotnet: command not found`).
+- `docker compose down && docker compose up -d --build && docker compose ps`: não executado por limitação do ambiente (`docker: command not found`).
+- Smoke HTTP local: pendente pelo mesmo motivo; sem runtime Docker disponível.
 
-## Rotas incluídas no checklist final
+### Observação
 
-- `/Saas/Planos` com catálogo real via `sigov.plano_saas` ou demonstrativo honesto.
-- `/Saas/Assinaturas` com fallback “em implantação” quando `sigov.assinatura_saas` não existir.
-- `/Marketplace` com catálogo de módulos e aviso de persistência necessária para contratação.
-- `/Notificacoes` com tabela real ou recomendações derivadas.
-- `/Busca?q=admin` com inspeção schema-safe e máscara básica.
-- `/Portal` com autoatendimento e fallback honesto para suporte/faturas.
+As telas operacionais foram implementadas com fallback honesto: quando `IDatabaseSchemaInspector` não localizar tabelas em `sigov`, o usuário vê “Em implantação” e nenhuma action POST afirma sucesso de persistência.

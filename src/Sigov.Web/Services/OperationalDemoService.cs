@@ -4,6 +4,14 @@ namespace Sigov.Web.Services;
 
 public sealed class OperationalDemoService
 {
+    private readonly IDatabaseSchemaInspector _schemaInspector;
+    private readonly ILogger<OperationalDemoService> _logger;
+
+    public OperationalDemoService(IDatabaseSchemaInspector schemaInspector, ILogger<OperationalDemoService> logger)
+    {
+        _schemaInspector = schemaInspector;
+        _logger = logger;
+    }
     private sealed record OperationalModuleSeed(
         string Area,
         string Title,
@@ -38,6 +46,13 @@ public sealed class OperationalDemoService
 
     public OperationalModuleViewModel Build(string module, string screen = "Dashboard", string? q = null)
     {
+        var tables = GetModuleTables(module);
+        var existingTables = InspectExistingTables(tables);
+        var usesRealData = existingTables.Count > 0;
+        var status = usesRealData ? "Parcial" : "Em implantação";
+        var statusMessage = usesRealData
+            ? $"Schema operacional detectado: {string.Join(", ", existingTables.Select(t => "sigov." + t))}. Consultas reais devem ser ativadas conforme colunas homologadas; listagens mascaram dados pessoais."
+            : "Nenhuma tabela operacional homologada foi localizada para este módulo. A tela permanece em fallback honesto, sem simular salvamento.";
         var item = Catalog.TryGetValue(module, out var found)
             ? found
             : new OperationalModuleSeed("Operação", module, "Fluxo em implantação com navegação demonstrável.", new[] { "Listar", "Novo" });
@@ -49,10 +64,13 @@ public sealed class OperationalDemoService
             ModuleKey = module,
             Title = item.Title,
             Purpose = item.Purpose,
-            Description = $"{item.Title}: dashboard, listagens, filtros, detalhes, indicadores e ações em massa para demonstração comercial/POC.",
+            Status = status,
+            PageStatus = new OperationalPageStatusViewModel { Modulo = item.Title, Status = status, UsaDadosReais = usesRealData, UsaFallback = !usesRealData, Mensagem = statusMessage },
+            SchemaTables = existingTables,
+            Description = statusMessage,
             CurrentScreen = screen,
             ManualUrl = $"/Manual?modulo={Uri.EscapeDataString(module)}",
-            ShowLgpdWarning = module is "Ged" or "Saude" or "Rh" or "Social",
+            ShowLgpdWarning = module is "Ged" or "Saude" or "Rh" or "Social" or "Tributario" or "Protocolo" or "Juridico",
             Kpis = BuildKpis(module),
             Actions = actions,
             NextSteps = new[] { "Validar parâmetros do tenant", "Conferir permissões por perfil", "Importar dados reais quando tabelas estiverem homologadas", "Ativar auditoria de ações críticas" },
@@ -67,6 +85,37 @@ public sealed class OperationalDemoService
             EntityPlural = screen.ToLowerInvariant()
         };
     }
+
+    private IReadOnlyList<string> InspectExistingTables(IReadOnlyList<string> tables)
+    {
+        var found = new List<string>();
+        foreach (var table in tables)
+        {
+            try
+            {
+                if (_schemaInspector.TableExistsAsync("sigov", table, CancellationToken.None).GetAwaiter().GetResult())
+                {
+                    found.Add(table);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao inspecionar tabela operacional sigov.{Table}", table);
+            }
+        }
+        return found;
+    }
+
+    private static IReadOnlyList<string> GetModuleTables(string module) => module switch
+    {
+        "Protocolo" => new[] { "protocolo", "processo", "tramite", "protocolo_movimento", "protocolo_anexo", "arquivo" },
+        "Ged" => new[] { "documento", "ged_documento", "ged_pasta", "pasta", "documento_versao", "arquivo", "ocr_fila" },
+        "Tributario" => new[] { "contribuinte", "imovel", "debito", "guia", "divida_ativa" },
+        "Contratos" => new[] { "contrato", "contrato_aditivo", "contrato_fiscal", "contrato_documento" },
+        "Juridico" => new[] { "processo_juridico", "parecer_juridico", "prazo_juridico", "audiencia_juridica" },
+        "Financeiro" => new[] { "conta_pagar", "conta_receber", "caixa_movimento", "categoria_financeira" },
+        _ => Array.Empty<string>()
+    };
 
     private static IReadOnlyList<ModuleKpi> BuildKpis(string module) => module switch
     {
