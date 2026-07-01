@@ -1,2 +1,7 @@
-@{ ViewData["Title"] = "Busca global"; var q = (string)ViewBag.Query; var grupos = new[]{"Usuários","Tenants","Módulos","Processos","Documentos","Contratos"}; }
-<h1>Busca global</h1><p class="text-muted">Resultados agrupados para "@q" com fallback demonstrativo seguro.</p><form class="d-flex gap-2 mb-4"><input class="form-control" name="q" value="@q" placeholder="Digite um termo"><button class="btn btn-primary">Pesquisar</button></form>@foreach (var g in grupos) { <section class="card border-0 shadow-sm mb-3"><div class="card-body"><h2 class="h5">@g</h2><p class="mb-0">@(string.IsNullOrWhiteSpace(q) ? "Digite um termo para pesquisar." : $"Resultado demonstrativo em {g} para '{q}'.")</p></div></section> }
+@model Sigov.Web.Models.PostBuild.GlobalSearchViewModel
+@{ ViewData["Title"]="Busca global"; ViewData["PageTitle"]="Busca global"; ViewData["PageDescription"]="Busca schema-safe com dados pessoais mascarados."; }
+@await Html.PartialAsync("_PageIntro")
+<form class="sigov-card p-3 mb-3" method="get" action="/Busca"><input class="form-control" name="q" value="@Model?.Query" placeholder="Buscar..." /></form>
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
+<div class="list-group">@foreach (var r in Model?.Resultados ?? Array.Empty<Sigov.Web.Models.PostBuild.GlobalSearchResultViewModel>()) { <a class="list-group-item list-group-item-action" href="@r.Url"><span class="badge bg-primary">@r.Area</span> <strong>@r.Titulo</strong><br/><small>@r.Descricao • @r.Badge</small></a> }</div>
+@if (Model?.AreasIgnoradas.Any() == true) { <p class="text-muted mt-3">Áreas ignoradas por schema ausente: @string.Join(", ", Model.AreasIgnoradas).</p> }

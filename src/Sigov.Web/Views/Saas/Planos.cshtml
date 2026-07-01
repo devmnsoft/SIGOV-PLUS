@@ -1,22 +1,10 @@
-@{
-    ViewData["Title"] = "Planos SaaS";
-    ViewData["PageTitle"] = "Planos SaaS";
-    ViewData["PageDescription"] = "Catálogo comercial premium com limites, módulos inclusos, recursos e destaque do plano recomendado.";
-    ViewData["PageServes"] = "Apoiar contratação, comparação e edição visual dos planos SaaS.";
-    ViewData["PageHow"] = "Compare limites, módulos e recursos; use Ver detalhes ou Editar para conduzir o comercial.";
-    ViewData["PageNext"] = "Associe o plano ao tenant e ative módulos na implantação guiada.";
-    var planos = new[] {
-        new { Nome="Starter", Para="Pequenas operações iniciando a jornada digital.", Limites="15 usuários / 10 GB", Modulos="Dashboard, Usuários, Ajuda", Recursos="Login, manual e indicadores básicos", Recomendado=false },
-        new { Nome="Gov Basic", Para="Prefeituras com implantação enxuta.", Limites="50 usuários / 50 GB", Modulos="Tributário, Protocolo, Auditoria", Recursos="Cadastros essenciais e trilhas", Recomendado=false },
-        new { Nome="Gov Plus", Para="Gestão pública integrada.", Limites="150 usuários / 150 GB", Modulos="Governo completo, BI, LGPD", Recursos="Implantação guiada, LGPD e dashboards", Recomendado=true },
-        new { Nome="Enterprise", Para="Grandes clientes multi-entidade.", Limites="Ilimitado / 1 TB+", Modulos="White label, integrações, SLA", Recursos="Suporte premium e governança", Recomendado=false },
-        new { Nome="Business", Para="Empresas de serviços e comércio.", Limites="80 usuários / 100 GB", Modulos="CRM, financeiro, contratos", Recursos="Fluxos comerciais e financeiros", Recomendado=false },
-        new { Nome="Industrial", Para="Operação fabril e manutenção.", Limites="120 usuários / 200 GB", Modulos="Indústria, estoque, operação", Recursos="Chão de fábrica, OS e estoque", Recomendado=false }
-    };
-}
+@model Sigov.Web.Models.PostBuild.SaasPlanosViewModel
+@{ ViewData["Title"]="Planos SaaS"; ViewData["PageTitle"]="Planos SaaS"; ViewData["PageDescription"]="CRUD real quando sigov.plano_saas existe; catálogo honesto quando não existe."; }
 @await Html.PartialAsync("_PageIntro")
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback <span class="badge bg-secondary">Em implantação</span></div> }
+<div class="d-flex justify-content-between mb-3"><h2 class="h5">Catálogo comercial</h2><a class="sigov-btn sigov-btn--primary @(Model?.PodePersistir == true ? "" : "disabled")" href="/Saas/Planos/Novo">Novo plano</a></div>
 <section class="row g-3">
-@foreach (var p in planos) {
-  <div class="col-md-6 col-xl-4"><article class="sigov-card p-4 h-100 @(p.Recomendado ? "border border-primary" : "")"><div class="d-flex justify-content-between"><h2 class="h4">@p.Nome</h2>@if (p.Recomendado){<span class="sigov-badge sigov-badge--info">Recomendado</span>}</div><p><strong>Para quem é:</strong> @p.Para</p><p><strong>Limites:</strong> @p.Limites</p><p><strong>Módulos inclusos:</strong> @p.Modulos</p><p><strong>Recursos:</strong> @p.Recursos</p><div class="d-flex gap-2 flex-wrap mt-auto"><button class="sigov-btn sigov-btn--primary" type="button" onclick="SigovNotify.info('Detalhes comerciais abertos para @p.Nome','Planos')">Ver detalhes</button><button class="sigov-btn sigov-btn--ghost" type="button">Editar</button></div></article></div>
+@foreach (var p in Model?.Planos ?? Array.Empty<Sigov.Web.Models.PostBuild.SaasPlanoViewModel>()) {
+  <div class="col-md-6 col-xl-4"><article class="sigov-card p-4 h-100 @(p.Recomendado ? "border border-primary" : "")"><div class="d-flex justify-content-between"><h3 class="h4">@p.Nome</h3><span class="badge bg-@(p.Persistido ? "success" : "info")">@(p.Persistido ? "Real" : "Demonstrativo")</span></div><p>@p.Descricao</p><p><strong>Mensal:</strong> @p.ValorMensal.ToString("C") <strong>Anual:</strong> @p.ValorAnual.ToString("C")</p><p><strong>Limites:</strong> @p.LimiteUsuarios usuários / @p.LimiteStorageGb GB / @p.LimiteTenants entidades</p><p><strong>Módulos:</strong> @p.ModulosInclusos</p><p><strong>Suporte:</strong> @p.Suporte</p><div class="d-flex gap-2"><a class="sigov-btn sigov-btn--ghost" href="/Saas/Planos/@p.Id">Detalhes</a><a class="sigov-btn sigov-btn--ghost @(Model?.PodePersistir == true ? "" : "disabled")" href="/Saas/Planos/@p.Id/Editar">Editar</a></div></article></div>
 }
 </section>

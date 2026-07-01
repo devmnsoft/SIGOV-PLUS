@@ -1,0 +1,4 @@
+@model Sigov.Web.Models.PostBuild.ModulosSaasViewModel
+@{ ViewData["Title"]="Meus módulos"; ViewData["PageTitle"]="Meus módulos"; ViewData["PageDescription"]="Módulos contratados ou catálogo local quando não há persistência."; }
+@await Html.PartialAsync("_PageIntro")
+@await Html.PartialAsync("~/Views/Saas/Modulos.cshtml", Model)

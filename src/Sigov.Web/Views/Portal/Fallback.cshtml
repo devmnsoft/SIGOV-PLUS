@@ -1,0 +1,4 @@
+@model string
+@{ ViewData["Title"]="Portal"; ViewData["PageTitle"]="Portal do Cliente"; ViewData["PageDescription"]="Fallback honesto de autoatendimento."; }
+@await Html.PartialAsync("_PageIntro")
+<div class="alert alert-warning">@Model</div>
