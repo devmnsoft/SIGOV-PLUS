@@ -1,0 +1,9 @@
+@model Sigov.Web.Models.PostBuild.SaasAssinaturasViewModel
+@{ ViewData["Title"]="Assinaturas SaaS"; ViewData["PageTitle"]="Assinaturas SaaS"; ViewData["PageDescription"]="Status, ciclo, limites e módulos contratados com fallback honesto."; }
+@await Html.PartialAsync("_PageIntro")
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback <span class="badge bg-secondary">Em implantação</span></div> }
+<a class="sigov-btn sigov-btn--primary mb-3 @(Model?.PodePersistir == true ? "" : "disabled")" href="/Saas/Assinaturas/Nova">Nova assinatura</a>
+<div class="table-responsive sigov-card"><table class="table align-middle"><thead><tr><th>Tenant</th><th>Plano</th><th>Status</th><th>Vigência</th><th>Valor</th><th>Limites</th><th>Ações</th></tr></thead><tbody>
+@foreach (var a in Model?.Assinaturas ?? Array.Empty<Sigov.Web.Models.PostBuild.SaasAssinaturaViewModel>()) { <tr><td>@a.Tenant</td><td>@a.Plano</td><td><span class="badge bg-success">@a.Status</span></td><td>@a.Inicio?.ToString("dd/MM/yyyy") - @a.Fim?.ToString("dd/MM/yyyy")</td><td>@a.Valor.ToString("C") / @a.Ciclo</td><td>@a.LimiteUsuarios usuários / @a.LimiteStorageGb GB</td><td><a href="/Saas/Assinaturas/@a.Id">Detalhes</a></td></tr> }
+@if (!(Model?.Assinaturas.Any() ?? false)) { <tr><td colspan="7" class="text-muted">Nenhuma assinatura real encontrada.</td></tr> }
+</tbody></table></div>

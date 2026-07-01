@@ -76,7 +76,48 @@ public sealed class SaasController : Controller
     public async Task<IActionResult> InativarModulo(string codigo, [FromForm] long tenantId, CancellationToken cancellationToken) => await AlterarModulo(tenantId, codigo, false, cancellationToken).ConfigureAwait(false);
 
     [HttpGet]
-    public IActionResult Planos() => View();
+    public async Task<IActionResult> Planos(CancellationToken cancellationToken) => View(await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false));
+
+    [HttpGet("Saas/Planos/Novo")]
+    public async Task<IActionResult> NovoPlano(CancellationToken cancellationToken) { TempData["Warning"] = "Salvar só é habilitado quando sigov.plano_saas existir."; return View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)); }
+
+    [HttpGet("Saas/Planos/{id:long}")]
+    public async Task<IActionResult> DetalhePlano(long id, CancellationToken cancellationToken) => View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false));
+
+    [HttpGet("Saas/Planos/{id:long}/Editar")]
+    public async Task<IActionResult> EditarPlano(long id, CancellationToken cancellationToken) { TempData["Warning"] = "Edição de plano exige tabela sigov.plano_saas com colunas comerciais."; return View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)); }
+
+    [HttpGet("Saas/Assinaturas")]
+    public async Task<IActionResult> Assinaturas(CancellationToken cancellationToken) => View(await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
+
+    [HttpGet("Saas/Assinaturas/Nova")]
+    public async Task<IActionResult> NovaAssinatura(CancellationToken cancellationToken) { TempData["Warning"] = "Nova assinatura só será gravada quando sigov.assinatura_saas existir."; return View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false)); }
+
+    [HttpGet("Saas/Assinaturas/{id:long}")]
+    public async Task<IActionResult> DetalheAssinatura(long id, CancellationToken cancellationToken) => View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
+
+    [HttpGet("Saas/Assinaturas/{id:long}/Editar")]
+    public async Task<IActionResult> EditarAssinatura(long id, CancellationToken cancellationToken) { TempData["Warning"] = "Alteração de assinatura exige persistência real; nenhum salvamento é simulado."; return View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false)); }
+
+    [HttpPost("Saas/Assinaturas/Nova")]
+    [ValidateAntiForgeryToken]
+    public IActionResult NovaAssinaturaPost() { TempData["Warning"] = "Assinatura não foi salva: persistência real depende de sigov.assinatura_saas."; return RedirectToAction(nameof(Assinaturas)); }
+
+    [HttpPost("Saas/Assinaturas/{id:long}/Editar")]
+    [ValidateAntiForgeryToken]
+    public IActionResult EditarAssinaturaPost(long id) { TempData["Warning"] = "Assinatura não foi alterada: edição real exige schema persistente."; return RedirectToAction(nameof(Assinaturas)); }
+
+    [HttpPost("Saas/Assinaturas/{id:long}/Suspender")]
+    [ValidateAntiForgeryToken]
+    public IActionResult SuspenderAssinatura(long id) { TempData["Warning"] = "Suspensão não executada sem persistência real; nenhum status foi simulado."; return RedirectToAction(nameof(Assinaturas)); }
+
+    [HttpPost("Saas/Assinaturas/{id:long}/Reativar")]
+    [ValidateAntiForgeryToken]
+    public IActionResult ReativarAssinatura(long id) { TempData["Warning"] = "Reativação não executada sem persistência real; nenhum status foi simulado."; return RedirectToAction(nameof(Assinaturas)); }
+
+    [HttpPost("Saas/Assinaturas/{id:long}/Cancelar")]
+    [ValidateAntiForgeryToken]
+    public IActionResult CancelarAssinatura(long id) { TempData["Warning"] = "Cancelamento não executado sem persistência real; nenhum status foi simulado."; return RedirectToAction(nameof(Assinaturas)); }
 
     [HttpGet]
     public IActionResult Implantacao(long? tenantId) => View(tenantId ?? 0);
@@ -121,8 +162,17 @@ public sealed class SaasController : Controller
         return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId, escopo = form.Escopo });
     }
 
-    [HttpGet("Tenants/{id:long}/Assinatura")]
-    public IActionResult Assinatura(long id) => View(id);
+    [HttpGet("Saas/Tenants/{id:long}/Assinatura")]
+    public async Task<IActionResult> Assinatura(long id, CancellationToken cancellationToken) => View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
+
+    [HttpGet("Saas/Tenants/{id:long}/Modulos")]
+    public async Task<IActionResult> TenantModulos(long id, CancellationToken cancellationToken) => View("Modulos", new ModulosSaasViewModel { TenantId = id, Modulos = await _service.ListarModulosAsync(id, cancellationToken).ConfigureAwait(false) });
+
+    [HttpGet("Saas/Tenants/{id:long}/WhiteLabel")]
+    public IActionResult TenantWhiteLabel(long id) => View("Assinatura", id);
+
+    [HttpGet("Saas/Tenants/{id:long}/Uso")]
+    public IActionResult TenantUso(long id) => View("Assinatura", id);
 
     [HttpGet]
     public async Task<IActionResult> Modulos(long? tenantId, CancellationToken cancellationToken)

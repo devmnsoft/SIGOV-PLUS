@@ -134,3 +134,51 @@ public sealed record ModuloResumoViewModel(string Codigo, string Nome, string St
 public sealed record PendenciaViewModel(string Titulo, string Descricao, string Url);
 public sealed record AlertaLgpdViewModel(string Titulo, string Descricao);
 public sealed record AtividadeRecenteViewModel(string Acao, string Entidade, DateTimeOffset? Data);
+
+public sealed record SaasPlanoViewModel(long Id, string Codigo, string Nome, string Descricao, decimal ValorMensal, decimal ValorAnual, int LimiteUsuarios, int LimiteStorageGb, int LimiteTenants, string Suporte, string ModulosInclusos, bool Ativo, bool Recomendado, int Ordem, bool Persistido);
+public sealed class SaasPlanosViewModel
+{
+    public IReadOnlyCollection<SaasPlanoViewModel> Planos { get; init; } = Array.Empty<SaasPlanoViewModel>();
+    public bool PodePersistir { get; init; }
+    public string MensagemFallback { get; init; } = string.Empty;
+}
+public sealed class SaasPlanoFormViewModel
+{
+    public long? Id { get; set; }
+    public string Codigo { get; set; } = string.Empty;
+    public string Nome { get; set; } = string.Empty;
+    public string Descricao { get; set; } = string.Empty;
+    public decimal ValorMensal { get; set; }
+    public decimal ValorAnual { get; set; }
+    public int LimiteUsuarios { get; set; }
+    public int LimiteStorageGb { get; set; }
+    public int LimiteTenants { get; set; }
+    public string Suporte { get; set; } = string.Empty;
+    public string ModulosInclusos { get; set; } = string.Empty;
+    public bool Ativo { get; set; } = true;
+    public bool Recomendado { get; set; }
+    public int Ordem { get; set; }
+}
+public sealed record SaasAssinaturaViewModel(long Id, long TenantId, string Tenant, long PlanoId, string Plano, string Status, DateTime? Inicio, DateTime? Fim, decimal Valor, string Ciclo, int LimiteUsuarios, int LimiteStorageGb, string Observacoes, string ModulosIncluidos, bool Persistida);
+public sealed class SaasAssinaturasViewModel
+{
+    public IReadOnlyCollection<SaasAssinaturaViewModel> Assinaturas { get; init; } = Array.Empty<SaasAssinaturaViewModel>();
+    public bool PodePersistir { get; init; }
+    public string MensagemFallback { get; init; } = string.Empty;
+}
+public sealed record SaasNotificationViewModel(long Id, string Tipo, string Titulo, string Descricao, string Status, DateTimeOffset? Data, bool Persistida);
+public sealed class SaasNotificationsViewModel
+{
+    public IReadOnlyCollection<SaasNotificationViewModel> Notificacoes { get; init; } = Array.Empty<SaasNotificationViewModel>();
+    public bool PodeMarcarLida { get; init; }
+    public string StatusFiltro { get; init; } = string.Empty;
+    public string MensagemFallback { get; init; } = string.Empty;
+}
+public sealed record GlobalSearchResultViewModel(string Area, string Titulo, string Descricao, string Url, string Badge);
+public sealed class GlobalSearchViewModel
+{
+    public string Query { get; init; } = string.Empty;
+    public IReadOnlyCollection<GlobalSearchResultViewModel> Resultados { get; init; } = Array.Empty<GlobalSearchResultViewModel>();
+    public IReadOnlyCollection<string> AreasIgnoradas { get; init; } = Array.Empty<string>();
+    public string MensagemFallback { get; init; } = string.Empty;
+}

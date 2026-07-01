@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.PostBuild.SaasAssinaturasViewModel
+@{ ViewData["Title"]="Portal do Cliente"; ViewData["PageTitle"]="Portal do Cliente"; ViewData["PageDescription"]="Autoatendimento para assinatura, módulos, limites e suporte."; }
+@await Html.PartialAsync("_PageIntro")
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
+<div class="row g-3"><div class="col-md-4"><a class="sigov-card p-4 d-block" href="/Portal/MinhaAssinatura">Minha assinatura</a></div><div class="col-md-4"><a class="sigov-card p-4 d-block" href="/Portal/MeusModulos">Meus módulos</a></div><div class="col-md-4"><a class="sigov-card p-4 d-block" href="/Portal/Suporte">Suporte</a></div></div>

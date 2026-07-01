@@ -1,11 +1,14 @@
-# Schema report local
+# Schema report local — Sprint SaaS comercial
 
-Não gerado neste ambiente de execução porque `docker` não está instalado no container do agente.
+A implementação consulta o schema em runtime com `IDatabaseSchemaInspector` antes de usar:
 
-Para gerar evidência real no ambiente Docker local:
+- `sigov.plano_saas`
+- `sigov.assinatura_saas`
+- `sigov.tenant`
+- `sigov.tenant_modulo_contratado`
+- `sigov.modulo_saas`
+- `sigov.parametro_sistema`
+- `sigov.notificacao`
+- `sigov.usuario`
 
-```powershell
-./scripts/schema-report.ps1
-```
-
-O script executa `database/diagnostics/schema-report.sql` no container PostgreSQL e grava este arquivo com o resultado real de `information_schema.columns`.
+Quando tabela/coluna mínima não existe, a tela exibe fallback honesto e não simula gravação.

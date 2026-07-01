@@ -52,6 +52,8 @@ builder.Services.AddScoped<PostBuildSaasService>();
 builder.Services.AddScoped<SegurancaAdminService>();
 builder.Services.AddScoped<MinhaCentralService>();
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
+builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
 builder.Services.AddSingleton<OperationalDemoService>();
 
 var app = builder.Build();

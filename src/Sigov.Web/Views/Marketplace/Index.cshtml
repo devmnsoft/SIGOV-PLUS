@@ -1,0 +1,5 @@
+@model IReadOnlyCollection<Sigov.Web.Models.PostBuild.ModuleViewModel>
+@{ ViewData["Title"]="Marketplace"; ViewData["PageTitle"]="Marketplace de módulos"; ViewData["PageDescription"]="Venda e gestão modular com contratação apenas quando houver persistência."; }
+@await Html.PartialAsync("_PageIntro")
+<div class="d-flex gap-2 flex-wrap mb-3"><a href="/Marketplace/Governo">Governo</a><a href="/Marketplace/Empresas">Empresas</a><a href="/Marketplace/Operacao">Operação</a><a href="/Marketplace/IA">IA</a></div>
+<section class="row g-3">@foreach (var m in Model) { <div class="col-md-6 col-xl-4"><article class="sigov-card p-4 h-100"><h2 class="h5">@m.Nome</h2><span class="badge bg-@m.StatusCssClass">@m.StatusDescricao</span><p class="mt-2">@m.Descricao</p><p><strong>Contratação:</strong> depende de sigov.tenant_modulo_contratado.</p><a class="sigov-btn sigov-btn--ghost" href="/Marketplace/Modulo/@m.Codigo">Ver módulo</a></article></div> }</section>
