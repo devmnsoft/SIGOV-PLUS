@@ -19,13 +19,13 @@ public sealed class OperacaoController : Controller
 
     [HttpGet("/Health")]
     [HttpGet("/Operacao/Health")]
-    public IActionResult Health()
+    public async Task<IActionResult> Health(CancellationToken cancellationToken)
     {
         try
         {
             return View(new HealthVisualViewModel
             {
-                Itens = _service.CriarAmbiente(true),
+                Itens = await _service.VerificarAmbienteAsync(cancellationToken).ConfigureAwait(false),
                 Ambiente = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
                 Versao = "0.1.0",
                 ServerTime = DateTimeOffset.UtcNow

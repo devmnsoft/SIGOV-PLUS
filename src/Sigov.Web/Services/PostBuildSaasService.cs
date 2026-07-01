@@ -37,22 +37,26 @@ public sealed class PostBuildSaasService
 
     public async Task<IReadOnlyCollection<TenantListItemViewModel>> ListarTenantsAsync(string? busca, CancellationToken cancellationToken)
     {
-        const string sql = @"select id,
-       nome,
-       slug as Codigo,
-       coalesce(documento, '') as Documento,
-       coalesce(email, '') as Email,
-       coalesce(telefone, '') as Telefone,
-       coalesce(plano, metadados->>'plano', 'global') as Plano,
-       ativo
-from sigov.tenant
-where is_deleted = false
-  and (@Busca is null or nome ilike '%' || @Busca || '%' or slug ilike '%' || @Busca || '%' or coalesce(documento,'') ilike '%' || @Busca || '%')
-order by nome
-limit 50;";
         try
         {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false)) return Array.Empty<TenantListItemViewModel>();
+            var columns = await _schemaInspector.GetColumnsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false);
+            if (!columns.Contains("id") || !columns.Contains("nome")) return Array.Empty<TenantListItemViewModel>();
+
+            var codigoExpr = columns.Contains("slug") ? "slug" : columns.Contains("codigo") ? "codigo" : "id::text";
+            var documentoExpr = columns.Contains("documento") ? "coalesce(documento,'')" : "''";
+            var emailExpr = columns.Contains("email") ? "coalesce(email,'')" : "''";
+            var telefoneExpr = columns.Contains("telefone") ? "coalesce(telefone,'')" : "''";
+            var planoExpr = columns.Contains("plano") ? "coalesce(plano,'global')" : columns.Contains("metadados") ? "coalesce(metadados->>'plano','global')" : "'global'";
+            var ativoExpr = columns.Contains("ativo") ? "coalesce(ativo,true)" : "true";
+            var deletedWhere = columns.Contains("is_deleted") ? "coalesce(is_deleted,false)=false" : "true";
+            var buscaWhere = columns.Contains("slug")
+                ? "and (@Busca is null or nome ilike '%' || @Busca || '%' or slug ilike '%' || @Busca || '%'" + (columns.Contains("documento") ? " or coalesce(documento,'') ilike '%' || @Busca || '%'" : string.Empty) + ")"
+                : "and (@Busca is null or nome ilike '%' || @Busca || '%')";
+            var sql = $@"select id, nome, {codigoExpr} as Codigo, {documentoExpr} as Documento, {emailExpr} as Email, {telefoneExpr} as Telefone, {planoExpr} as Plano, {ativoExpr} as Ativo
+from sigov.tenant
+where {deletedWhere} {buscaWhere}
+order by nome
+limit 50;";
             using var connection = _connectionFactory.CreateConnection();
             var rows = await connection.QueryAsync<TenantRow>(new CommandDefinition(sql, new { Busca = string.IsNullOrWhiteSpace(busca) ? null : busca.Trim() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
             return rows.Select(t => new TenantListItemViewModel(t.Id, t.Nome, t.Codigo, MaskDocument(t.Documento), MaskEmail(t.Email), MaskPhone(t.Telefone), t.Plano, t.Ativo)).ToArray();
@@ -86,48 +90,50 @@ order by modulo_codigo;";
 
     public async Task<(bool Ok, string Mensagem, long? Id)> SalvarTenantAsync(TenantFormViewModel form, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(form.Nome) || string.IsNullOrWhiteSpace(form.Slug))
-        {
-            return (false, "Nome e slug são obrigatórios.", form.Id);
-        }
-
+        if (string.IsNullOrWhiteSpace(form.Nome)) return (false, "Nome é obrigatório.", form.Id);
         try
         {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false)) return (false, "Tabela sigov.tenant indisponível; tenant não foi persistido.", form.Id);
-            using var connection = _connectionFactory.CreateConnection();
-            var metadados = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                email = form.Email,
-                telefone = form.Telefone,
-                plano = form.Plano,
-                observacao = form.Observacao,
-                corPrincipal = form.CorPrincipal,
-                logoUrl = form.LogoUrl,
-                subdominio = form.Subdominio,
-                emailSuporte = form.EmailSuporte
-            });
+            var columns = await _schemaInspector.GetColumnsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false);
+            if (!columns.Contains("id") || !columns.Contains("nome")) return (false, "Tabela sigov.tenant indisponível ou sem colunas mínimas; tenant não foi persistido.", form.Id);
+            var hasSlug = columns.Contains("slug");
+            var hasCodigo = columns.Contains("codigo");
+            var code = string.IsNullOrWhiteSpace(form.Slug) ? Slugify(form.Nome) : form.Slug.Trim();
 
-            var duplicado = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-                "select count(*) from sigov.tenant where is_deleted=false and lower(slug)=lower(@Slug) and (@Id is null or id<>@Id);",
-                new { form.Id, Slug = form.Slug.Trim() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-            if (duplicado > 0) return (false, "Já existe tenant com este slug.", form.Id);
+            using var connection = _connectionFactory.CreateConnection();
+            if (hasSlug || hasCodigo)
+            {
+                var keyColumn = hasSlug ? "slug" : "codigo";
+                var deletedWhere = columns.Contains("is_deleted") ? " and coalesce(is_deleted,false)=false" : string.Empty;
+                var duplicado = await connection.ExecuteScalarAsync<int>(new CommandDefinition($"select count(*) from sigov.tenant where lower({keyColumn})=lower(@Codigo) and (@Id is null or id<>@Id){deletedWhere};", new { form.Id, Codigo = code }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (duplicado > 0) return (false, $"Já existe tenant com este {(hasSlug ? "slug" : "código") }.", form.Id);
+            }
+
+            var metadados = System.Text.Json.JsonSerializer.Serialize(new { form.Email, form.Telefone, form.Plano, form.Observacao, form.CorPrincipal, form.LogoUrl, form.Subdominio, form.EmailSuporte });
+            var values = new Dictionary<string, object?> { ["Nome"] = form.Nome.Trim(), ["Codigo"] = code, ["Documento"] = form.Documento, ["Email"] = form.Email, ["Telefone"] = form.Telefone, ["Plano"] = form.Plano, ["CorPrincipal"] = form.CorPrincipal, ["LogoUrl"] = form.LogoUrl, ["Ativo"] = form.Ativo, ["Metadados"] = metadados, ["Id"] = form.Id };
 
             if (form.Id.HasValue)
             {
-                var rows = await connection.ExecuteAsync(new CommandDefinition(@"update sigov.tenant
-set nome=@Nome, documento=@Documento, slug=@Slug, email=@Email, telefone=@Telefone, plano=@Plano, cor_primaria=@CorPrincipal, logo_url=@LogoUrl, status=case when @Ativo then 'ATIVO' else 'INATIVO' end, ativo=@Ativo, metadados=@Metadados::jsonb, updated_at=now()
-where id=@Id and is_deleted=false;",
-                    new { form.Id, Nome = form.Nome.Trim(), Documento = form.Documento, Slug = form.Slug.Trim(), form.Email, form.Telefone, form.Plano, form.CorPrincipal, form.LogoUrl, form.Ativo, Metadados = metadados }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                var sets = new List<string> { "nome=@Nome" };
+                AddSet(sets, columns, "slug", "@Codigo"); AddSet(sets, columns, "codigo", "@Codigo"); AddSet(sets, columns, "documento", "@Documento"); AddSet(sets, columns, "email", "@Email"); AddSet(sets, columns, "telefone", "@Telefone"); AddSet(sets, columns, "plano", "@Plano"); AddSet(sets, columns, "cor_primaria", "@CorPrincipal"); AddSet(sets, columns, "logo_url", "@LogoUrl"); AddSet(sets, columns, "ativo", "@Ativo");
+                if (columns.Contains("status")) sets.Add("status=case when @Ativo then 'ATIVO' else 'INATIVO' end");
+                if (columns.Contains("metadados")) sets.Add("metadados=@Metadados::jsonb");
+                if (columns.Contains("updated_at")) sets.Add("updated_at=now()");
+                var where = columns.Contains("is_deleted") ? "id=@Id and coalesce(is_deleted,false)=false" : "id=@Id";
+                var rows = await connection.ExecuteAsync(new CommandDefinition($"update sigov.tenant set {string.Join(", ", sets)} where {where};", values, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 if (rows == 0) return (false, "Tenant não encontrado; nada foi persistido.", form.Id);
                 await AuditarSaasAsync(connection, "SAAS_TENANT_EDITAR", "sigov.tenant", form.Id.Value, form, cancellationToken).ConfigureAwait(false);
-                return (true, "Tenant atualizado com sucesso e auditoria preparada.", form.Id);
+                return (true, "Tenant atualizado com sucesso.", form.Id);
             }
 
-            var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.tenant (nome, documento, slug, codigo, email, telefone, plano, cor_primaria, logo_url, status, ambiente, ativo, metadados, created_at)
-values (@Nome, @Documento, @Slug, @Slug, @Email, @Telefone, @Plano, @CorPrincipal, @LogoUrl, 'ATIVO', 'PRODUCTION', @Ativo, @Metadados::jsonb, now()) returning id;",
-                new { Nome = form.Nome.Trim(), Documento = form.Documento, Slug = form.Slug.Trim(), form.Email, form.Telefone, form.Plano, form.CorPrincipal, form.LogoUrl, form.Ativo, Metadados = metadados }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var cols = new List<string> { "nome" }; var vals = new List<string> { "@Nome" };
+            AddInsert(cols, vals, columns, "slug", "@Codigo"); AddInsert(cols, vals, columns, "codigo", "@Codigo"); AddInsert(cols, vals, columns, "documento", "@Documento"); AddInsert(cols, vals, columns, "email", "@Email"); AddInsert(cols, vals, columns, "telefone", "@Telefone"); AddInsert(cols, vals, columns, "plano", "@Plano"); AddInsert(cols, vals, columns, "cor_primaria", "@CorPrincipal"); AddInsert(cols, vals, columns, "logo_url", "@LogoUrl"); AddInsert(cols, vals, columns, "ativo", "@Ativo");
+            if (columns.Contains("status")) { cols.Add("status"); vals.Add("'ATIVO'"); }
+            if (columns.Contains("ambiente")) { cols.Add("ambiente"); vals.Add("'PRODUCTION'"); }
+            if (columns.Contains("metadados")) { cols.Add("metadados"); vals.Add("@Metadados::jsonb"); }
+            if (columns.Contains("created_at")) { cols.Add("created_at"); vals.Add("now()"); }
+            var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.tenant ({string.Join(",", cols)}) values ({string.Join(",", vals)}) returning id;", values, cancellationToken: cancellationToken)).ConfigureAwait(false);
             await AuditarSaasAsync(connection, "SAAS_TENANT_CRIAR", "sigov.tenant", id, form, cancellationToken).ConfigureAwait(false);
-            return (true, "Tenant criado com sucesso e auditoria preparada.", id);
+            return (true, "Tenant criado com sucesso.", id);
         }
         catch (Exception ex)
         {
@@ -136,17 +142,21 @@ values (@Nome, @Documento, @Slug, @Slug, @Email, @Telefone, @Plano, @CorPrincipa
         }
     }
 
-
     public async Task<bool> AlterarStatusTenantAsync(long id, bool ativo, CancellationToken cancellationToken)
     {
         if (id <= 0) return false;
         try
         {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false)) return false;
+            var columns = await _schemaInspector.GetColumnsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false);
+            if (!columns.Contains("id")) return false;
+            if (!columns.Contains("ativo") && !columns.Contains("status")) return false;
             using var connection = _connectionFactory.CreateConnection();
-            var rows = await connection.ExecuteAsync(new CommandDefinition(@"update sigov.tenant
-set ativo=@Ativo, status=case when @Ativo then 'ATIVO' else 'INATIVO' end, updated_at=now()
-where id=@Id and is_deleted=false;", new { Id = id, Ativo = ativo }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var sets = new List<string>();
+            if (columns.Contains("ativo")) sets.Add("ativo=@Ativo");
+            if (columns.Contains("status")) sets.Add("status=case when @Ativo then 'ATIVO' else 'INATIVO' end");
+            if (columns.Contains("updated_at")) sets.Add("updated_at=now()");
+            var where = columns.Contains("is_deleted") ? "id=@Id and coalesce(is_deleted,false)=false" : "id=@Id";
+            var rows = await connection.ExecuteAsync(new CommandDefinition($"update sigov.tenant set {string.Join(", ", sets)} where {where};", new { Id = id, Ativo = ativo }, cancellationToken: cancellationToken)).ConfigureAwait(false);
             if (rows > 0) await AuditarSaasAsync(connection, ativo ? "SAAS_TENANT_ATIVAR" : "SAAS_TENANT_INATIVAR", "sigov.tenant", id, new { id, ativo }, cancellationToken).ConfigureAwait(false);
             return rows > 0;
         }
@@ -303,6 +313,62 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         }
     }
 
+    public async Task<IReadOnlyCollection<HealthItemViewModel>> VerificarAmbienteAsync(CancellationToken cancellationToken)
+    {
+        var items = new List<HealthItemViewModel>
+        {
+            new("Web", "Online", "Aplicação MVC/Razor respondeu à requisição atual.", true)
+        };
+
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var one = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select 1;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+            items.Add(new("PostgreSQL", one == 1 ? "Online" : "Atenção", one == 1 ? "Conexão aberta e select 1 executado." : "Conexão retornou resposta inesperada.", one == 1));
+
+            var migrationsTable = await _schemaInspector.TableExistsAsync("public", "__EFMigrationsHistory", cancellationToken).ConfigureAwait(false)
+                || await _schemaInspector.TableExistsAsync("sigov", "__EFMigrationsHistory", cancellationToken).ConfigureAwait(false);
+            if (migrationsTable)
+            {
+                var schema = await _schemaInspector.TableExistsAsync("sigov", "__EFMigrationsHistory", cancellationToken).ConfigureAwait(false) ? "sigov" : "public";
+                var last = await connection.ExecuteScalarAsync<string?>(new CommandDefinition($"select \"MigrationId\" from {schema}.\"__EFMigrationsHistory\" order by \"MigrationId\" desc limit 1;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+                items.Add(new("Migrations", "Online", string.IsNullOrWhiteSpace(last) ? "Tabela de migrations existe, sem registros." : $"Última migration aplicada: {last}.", true));
+            }
+            else
+            {
+                items.Add(new("Migrations", "Atenção", "Tabela de controle de migrations não encontrada.", false));
+            }
+
+            var workerTable = await _schemaInspector.TableExistsAsync("sigov", "worker_heartbeat", cancellationToken).ConfigureAwait(false);
+            items.Add(workerTable ? new("Worker", "Atenção", "Tabela de heartbeat encontrada; validar timestamp em relatório operacional.", false) : new("Worker", "Não monitorado", "Nenhuma tabela de heartbeat foi encontrada; status online não é inferido.", false));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha no probe real de PostgreSQL/migrations/worker.");
+            items.Add(new("PostgreSQL", "Offline", "Não foi possível abrir conexão e executar select 1.", false));
+            items.Add(new("Migrations", "Atenção", "Não verificadas porque o banco está indisponível.", false));
+            items.Add(new("Worker", "Não monitorado", "Sem prova real de heartbeat.", false));
+        }
+
+        try
+        {
+            var storage = Environment.GetEnvironmentVariable("SIGOV_STORAGE_PATH") ?? Path.Combine(AppContext.BaseDirectory, "storage");
+            Directory.CreateDirectory(storage);
+            var probe = Path.Combine(storage, $".sigov-health-{Guid.NewGuid():N}.tmp");
+            await File.WriteAllTextAsync(probe, "ok", cancellationToken).ConfigureAwait(false);
+            File.Delete(probe);
+            items.Add(new("Storage", "Online", $"Diretório gravável: {storage}.", true));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha no probe real de storage.");
+            items.Add(new("Storage", "Offline", "Não foi possível criar e remover arquivo temporário.", false));
+        }
+
+        items.Add(new("API", "Atenção", "Validar /api/health/live via smoke test HTTP externo; a Web não declara online sem chamada real.", false));
+        return items;
+    }
+
     public IReadOnlyCollection<HealthItemViewModel> CriarAmbiente(bool databaseOnline) => new[]
     {
         new HealthItemViewModel("Web", "online", "Aplicação MVC/Razor carregada.", true),
@@ -346,6 +412,25 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         catch
         {
         }
+    }
+
+    private static void AddSet(List<string> sets, IReadOnlySet<string> columns, string column, string parameter)
+    {
+        if (columns.Contains(column)) sets.Add($"{column}={parameter}");
+    }
+
+    private static void AddInsert(List<string> cols, List<string> vals, IReadOnlySet<string> columns, string column, string value)
+    {
+        if (columns.Contains(column)) { cols.Add(column); vals.Add(value); }
+    }
+
+    private static string Slugify(string value)
+    {
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized.Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .Select(c => char.IsLetterOrDigit(c) ? char.ToLowerInvariant(c) : '-')
+            .ToArray();
+        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries)).Trim('-');
     }
 
     private static string FormatCount(int? value) => value.HasValue ? value.Value.ToString() : "--";
