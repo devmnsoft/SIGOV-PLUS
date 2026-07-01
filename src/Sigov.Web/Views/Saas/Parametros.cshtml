@@ -1,11 +1,45 @@
-@model long
+@model Sigov.Web.Models.PostBuild.ParametrosSaasViewModel
 @{ ViewData["Title"] = "Parâmetros por tenant"; 
     ViewData["PageTitle"] = "Parâmetros";
-    ViewData["PageDescription"] = "Configurar parâmetros por tenant com cuidado para dados sensíveis e auditoria.";
-    ViewData["PageServes"] = "Esta tela dá contexto, ações padronizadas, validação visual, fallback amigável e auditoria quando aplicável.";
-    ViewData["PageHow"] = "Use busca e filtros, acione Novo/Editar/Detalhes e confirme ações sensíveis no modal.";
+    ViewData["PageDescription"] = "Editor real de parâmetros por tenant com validação por tipo, máscara de dados sensíveis e auditoria.";
+    ViewData["PageServes"] = "Esta tela persiste somente quando a tabela de parâmetros por tenant está disponível; caso contrário informa fallback honesto.";
+    ViewData["PageHow"] = "Informe tenant, chave, tipo e valor. Marque sensível para mascarar listagens e auditoria.";
     ViewData["PageNext"] = "Revise permissões, auditoria, LGPD e módulos relacionados após salvar.";
 }
 @await Html.PartialAsync("_PageIntro")
-<section class="container-fluid py-3"><h1 class="h3">Parâmetros por tenant</h1><p class="text-muted">Parametrizações iniciais, LGPD e auditoria por cliente.</p><div class="row g-3 align-items-end mb-3"><div class="col-md-4"><label class="form-label">Tenant ID</label><input id="tenantId" class="form-control" type="number" value="@Model"></div><div class="col-md-2"><button id="carregar" class="btn btn-primary w-100">Carregar</button></div></div><div id="alerta" class="alert d-none"></div><div class="table-responsive"><table class="table table-striped"><thead><tr><th>Chave</th><th>Valor</th><th>Tipo</th><th>Sensível</th></tr></thead><tbody id="parametros"></tbody></table></div></section>
-@section Scripts{<script>(()=>{const tid=tenantId, tbody=parametros, alerta=document.getElementById('alerta'); function show(t,m){alerta.className='alert alert-'+t; alerta.textContent=m;} async function load(){try{const r=await fetch(`/api/saas/tenants/${tid.value}/parametros`); if(!r.ok) throw new Error('API indisponível'); const j=await r.json(); tbody.innerHTML=(j.data||[]).map(p=>`<tr><td>${p.chave}</td><td>${p.valor??''}</td><td>${p.tipo}</td><td>${p.sensivel?'Sim':'Não'}</td></tr>`).join('');}catch(e){show('danger',e.message);}} carregar.onclick=load; if(tid.value>0) load();})();</script>}
+<section class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Parâmetros por tenant</h1>
+            <p class="text-muted mb-0">Parametrizações SaaS com persistência real quando <code>sigov.tenant_parametro</code> existe.</p>
+        </div>
+        <form method="get" asp-action="Parametros" class="d-flex gap-2 align-items-end">
+            <div><label class="form-label">Tenant ID</label><input name="tenantId" class="form-control" type="number" min="1" value="@Model.TenantId"></div>
+            <button class="btn btn-primary">Carregar</button>
+        </form>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card sigov-card h-100"><div class="card-body">
+                <h2 class="h5 fw-bold">Novo/editar parâmetro</h2>
+                <form asp-action="SalvarParametros" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="TenantId" value="@Model.TenantId" />
+                    <div class="mb-2"><label class="form-label">Chave</label><input name="Chave" class="form-control" required maxlength="120" placeholder="ex: protocolo.prazo_padrao_dias"></div>
+                    <div class="mb-2"><label class="form-label">Tipo</label><select name="Tipo" class="form-select"><option value="texto">Texto</option><option value="numero">Número</option><option value="booleano">Booleano</option><option value="json">JSON</option><option value="segredo">Segredo/token</option></select></div>
+                    <div class="mb-2"><label class="form-label">Valor</label><textarea name="Valor" class="form-control" rows="3" required></textarea><div class="form-text">Valores sensíveis são mascarados nas listagens e no payload de auditoria.</div></div>
+                    <div class="mb-2"><label class="form-label">Descrição</label><input name="Descricao" class="form-control" maxlength="240"></div>
+                    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="Sensivel" value="true" id="sensivel"><label class="form-check-label" for="sensivel">Dado sensível / segredo</label></div>
+                    <button class="btn btn-primary w-100" @(Model.TenantId <= 0 || !Model.PodePersistir ? "disabled" : null)>Salvar com auditoria</button>
+                </form>
+            </div></div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card sigov-card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Chave</th><th>Valor</th><th>Tipo</th><th>Descrição</th><th>Sensível</th></tr></thead><tbody>
+            @foreach (var p in Model.Parametros) { <tr><td><code>@p.Chave</code></td><td>@p.Valor</td><td><span class="badge text-bg-light">@p.Tipo</span></td><td>@p.Descricao</td><td>@(p.Sensivel ? "Sim" : "Não")</td></tr> }
+            @if (!Model.Parametros.Any()) { <tr><td colspan="5" class="text-muted">Nenhum parâmetro encontrado para o tenant informado.</td></tr> }
+            </tbody></table></div></div>
+        </div>
+    </div>
+</section>

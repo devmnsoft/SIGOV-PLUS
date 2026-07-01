@@ -465,3 +465,13 @@ Sem Docker/PostgreSQL local, não houve detecção física nesta execução. O c
 3. Criar testes automatizados para matriz de permissões por perfil e CSV sem dados sensíveis.
 4. Completar editor real de parâmetros sensíveis com máscara, tipo e restauração de padrão.
 5. Validar console/assets no navegador e registrar screenshots das telas administrativas alteradas.
+
+## 12. Revisão da sprint — runtime, SaaS parâmetros e fallback honesto
+
+Data: 2026-07-01.
+
+- Validação real de ambiente foi tentada no container atual com `dotnet --info`, `docker --version`, `docker compose version` e `dotnet build sigov.sln --no-restore`, porém o ambiente de execução não possui `dotnet` nem `docker` instalados. A evidência deve ser repetida em host real antes de homologação.
+- `/Saas/Parametros` passou a usar model tipado MVC/Razor, listagem schema-safe e formulário POST com anti-forgery para salvar parâmetros por tenant quando `sigov.tenant_parametro` está disponível.
+- O editor valida tipos `texto`, `numero`, `booleano`, `json` e `segredo`, não simula sucesso quando a tabela de persistência está ausente e mascara valores sensíveis na listagem e na auditoria.
+- A consulta mantém compatibilidade de leitura com `sigov.parametro_sistema` quando `sigov.tenant_parametro` não existe, sem assumir coluna opcional de tenant sem passar por `IDatabaseSchemaInspector`.
+- Pendência: executar build, Docker Compose e smoke tests em ambiente com SDK .NET 6 e Docker; validar migrations reais contra PostgreSQL.

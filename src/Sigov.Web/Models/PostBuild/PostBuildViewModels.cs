@@ -82,6 +82,26 @@ public sealed class ModulosSaasViewModel
     public string MensagemFallback { get; init; } = string.Empty;
 }
 
+public sealed class ParametrosSaasViewModel
+{
+    public long TenantId { get; init; }
+    public IReadOnlyCollection<ParametroSaasItemViewModel> Parametros { get; init; } = Array.Empty<ParametroSaasItemViewModel>();
+    public string MensagemFallback { get; init; } = string.Empty;
+    public bool PodePersistir { get; init; }
+}
+
+public sealed record ParametroSaasItemViewModel(long Id, string Chave, string Valor, string Tipo, string Descricao, bool Sensivel);
+
+public sealed class ParametroSaasFormViewModel
+{
+    public long TenantId { get; set; }
+    public string Chave { get; set; } = string.Empty;
+    public string Valor { get; set; } = string.Empty;
+    public string Tipo { get; set; } = "texto";
+    public string? Descricao { get; set; }
+    public bool Sensivel { get; set; }
+}
+
 public sealed class HealthVisualViewModel
 {
     public IReadOnlyCollection<HealthItemViewModel> Itens { get; init; } = Array.Empty<HealthItemViewModel>();
