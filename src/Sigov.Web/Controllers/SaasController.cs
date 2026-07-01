@@ -82,11 +82,43 @@ public sealed class SaasController : Controller
     public IActionResult Implantacao(long? tenantId) => View(tenantId ?? 0);
 
     [HttpGet]
-    public async Task<IActionResult> Parametros(long? tenantId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Parametros(long? tenantId, string? categoria, string? escopo, string? busca, CancellationToken cancellationToken)
     {
         var id = tenantId ?? 0;
-        var model = await _service.ListarParametrosAsync(id, cancellationToken).ConfigureAwait(false);
+        var model = await _service.ListarParametrosAsync(id, categoria, escopo, busca, cancellationToken).ConfigureAwait(false);
         return View(model);
+    }
+
+    [HttpGet("Saas/Parametros/{id:long}/Editar")]
+    public async Task<IActionResult> EditarParametro(long id, long? tenantId, string? categoria, string? escopo, string? busca, CancellationToken cancellationToken)
+    {
+        TempData["Warning"] = "Edite o valor no formulário de parâmetros. A gravação só ocorre em sigov.parametro_sistema quando a chave existir no schema real.";
+        return await Parametros(tenantId, categoria, escopo, busca, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("Saas/Parametros/Editar")]
+    public async Task<IActionResult> EditarParametroPorChave(string? chave, long? tenantId, string? escopo, CancellationToken cancellationToken)
+    {
+        TempData["Warning"] = string.IsNullOrWhiteSpace(chave) ? "Informe a chave do parâmetro." : $"Editando parâmetro {chave}; confirme valor e tipo antes de salvar.";
+        return await Parametros(tenantId, null, escopo, chave, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpPost("Saas/Parametros/{id:long}/Editar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarParametro(long id, [FromForm] ParametroSaasFormViewModel form, CancellationToken cancellationToken)
+    {
+        form.Id = id;
+        return await SalvarParametros(form, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpPost("Saas/Parametros/{id:long}/RestaurarPadrao")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RestaurarPadraoParametro(long id, [FromForm] ParametroSaasFormViewModel form, CancellationToken cancellationToken)
+    {
+        form.Id = id;
+        var result = await _service.RestaurarParametroPadraoAsync(form, cancellationToken).ConfigureAwait(false);
+        TempData[result.Ok ? "Success" : "Error"] = result.Mensagem;
+        return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId, escopo = form.Escopo });
     }
 
     [HttpGet("Tenants/{id:long}/Assinatura")]
@@ -175,13 +207,13 @@ public sealed class SaasController : Controller
         {
             var result = await _service.SalvarParametroAsync(form, cancellationToken).ConfigureAwait(false);
             TempData[result.Ok ? "Success" : "Error"] = result.Mensagem;
-            return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId });
+            return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId, escopo = form.Escopo });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro tratado ao salvar parâmetros SaaS.");
             TempData["Error"] = "Não foi possível salvar parâmetros agora.";
-            return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId });
+            return RedirectToAction(nameof(Parametros), new { tenantId = form.TenantId, escopo = form.Escopo });
         }
     }
 

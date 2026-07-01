@@ -1,44 +1,51 @@
 @model Sigov.Web.Models.PostBuild.ParametrosSaasViewModel
-@{ ViewData["Title"] = "Parâmetros por tenant"; 
-    ViewData["PageTitle"] = "Parâmetros";
-    ViewData["PageDescription"] = "Editor real de parâmetros por tenant com validação por tipo, máscara de dados sensíveis e auditoria.";
-    ViewData["PageServes"] = "Esta tela persiste somente quando a tabela de parâmetros por tenant está disponível; caso contrário informa fallback honesto.";
-    ViewData["PageHow"] = "Informe tenant, chave, tipo e valor. Marque sensível para mascarar listagens e auditoria.";
-    ViewData["PageNext"] = "Revise permissões, auditoria, LGPD e módulos relacionados após salvar.";
+@{ ViewData["Title"] = "Parâmetros SaaS"; 
+    ViewData["PageTitle"] = "Parâmetros SaaS";
+    ViewData["PageDescription"] = "Editor real de parâmetros com validação por tipo, máscara de sensíveis, filtros e restauração de padrão quando o schema oferece suporte.";
+    ViewData["PageServes"] = "Persiste em sigov.parametro_sistema somente quando as colunas reais existem; caso contrário informa fallback honesto.";
+    ViewData["PageHow"] = "Filtre por categoria, escopo ou chave. Edite valor com tipo válido; parâmetros sensíveis ficam mascarados em listagens e auditoria.";
+    ViewData["PageNext"] = "Após alterações críticas, confira Auditoria, LGPD e Health.";
 }
 @await Html.PartialAsync("_PageIntro")
-<section class="container-fluid py-3">
+<section class="container-fluid py-3 sigov-page-shell">
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
         <div>
-            <h1 class="h3 fw-bold mb-1">Parâmetros por tenant</h1>
-            <p class="text-muted mb-0">Parametrizações SaaS com persistência real quando <code>sigov.tenant_parametro</code> existe.</p>
+            <span class="badge text-bg-warning mb-2">Parcial</span>
+            <h1 class="h3 fw-bold mb-1">Parâmetros SaaS</h1>
+            <p class="text-muted mb-0">Edição real e schema-safe de <code>sigov.parametro_sistema</code>, sem simular persistência.</p>
         </div>
-        <form method="get" asp-action="Parametros" class="d-flex gap-2 align-items-end">
-            <div><label class="form-label">Tenant ID</label><input name="tenantId" class="form-control" type="number" min="1" value="@Model.TenantId"></div>
-            <button class="btn btn-primary">Carregar</button>
+        <form method="get" asp-action="Parametros" class="sigov-filter-bar d-flex flex-wrap gap-2 align-items-end">
+            <div><label class="form-label">Tenant ID</label><input name="tenantId" class="form-control" type="number" min="0" value="@Model.TenantId"></div>
+            <div><label class="form-label">Categoria</label><input name="categoria" class="form-control" value="@Model.Categoria" placeholder="seguranca"></div>
+            <div><label class="form-label">Escopo</label><input name="escopo" class="form-control" value="@Model.Escopo" placeholder="global/tenant"></div>
+            <div><label class="form-label">Buscar</label><input name="busca" class="form-control" value="@Model.Busca" placeholder="chave ou descrição"></div>
+            <button class="btn btn-primary">Filtrar</button>
         </form>
     </div>
     @if (!string.IsNullOrWhiteSpace(Model.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
+    <div class="alert alert-info small"><strong>LGPD:</strong> chaves com senha, password, token, secret, chave, key, api_key, client_secret ou certificado são mascaradas e não têm valor aberto exibido.</div>
     <div class="row g-3">
         <div class="col-lg-4">
             <div class="card sigov-card h-100"><div class="card-body">
-                <h2 class="h5 fw-bold">Novo/editar parâmetro</h2>
-                <form asp-action="SalvarParametros" method="post">
+                <h2 class="h5 fw-bold">Editar parâmetro existente</h2>
+                <p class="text-muted small">A atualização só ocorre se a chave existir no schema real. Use restauração de padrão quando <code>valor_padrao</code> existir.</p>
+                <form asp-action="SalvarParametros" method="post" data-sigov-loading>
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="TenantId" value="@Model.TenantId" />
+                    <input type="hidden" name="Escopo" value="@Model.Escopo" />
                     <div class="mb-2"><label class="form-label">Chave</label><input name="Chave" class="form-control" required maxlength="120" placeholder="ex: protocolo.prazo_padrao_dias"></div>
-                    <div class="mb-2"><label class="form-label">Tipo</label><select name="Tipo" class="form-select"><option value="texto">Texto</option><option value="numero">Número</option><option value="booleano">Booleano</option><option value="json">JSON</option><option value="segredo">Segredo/token</option></select></div>
-                    <div class="mb-2"><label class="form-label">Valor</label><textarea name="Valor" class="form-control" rows="3" required></textarea><div class="form-text">Valores sensíveis são mascarados nas listagens e no payload de auditoria.</div></div>
+                    <div class="mb-2"><label class="form-label">Tipo</label><select name="Tipo" class="form-select"><option value="string">String</option><option value="int">Int</option><option value="decimal">Decimal</option><option value="bool">Bool</option><option value="json">JSON</option><option value="date">Date</option></select></div>
+                    <div class="mb-2"><label class="form-label">Valor</label><textarea name="Valor" class="form-control" rows="3" required></textarea><div class="form-text">Formato decimal invariável (123.45), bool true/false, JSON válido e data preferencialmente ISO.</div></div>
                     <div class="mb-2"><label class="form-label">Descrição</label><input name="Descricao" class="form-control" maxlength="240"></div>
                     <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="Sensivel" value="true" id="sensivel"><label class="form-check-label" for="sensivel">Dado sensível / segredo</label></div>
-                    <button class="btn btn-primary w-100" @(Model.TenantId <= 0 || !Model.PodePersistir ? "disabled" : null)>Salvar com auditoria</button>
+                    <button class="btn btn-primary w-100" @( !Model.PodePersistir ? "disabled" : null)>Salvar com auditoria</button>
                 </form>
             </div></div>
         </div>
         <div class="col-lg-8">
-            <div class="card sigov-card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Chave</th><th>Valor</th><th>Tipo</th><th>Descrição</th><th>Sensível</th></tr></thead><tbody>
-            @foreach (var p in Model.Parametros) { <tr><td><code>@p.Chave</code></td><td>@p.Valor</td><td><span class="badge text-bg-light">@p.Tipo</span></td><td>@p.Descricao</td><td>@(p.Sensivel ? "Sim" : "Não")</td></tr> }
-            @if (!Model.Parametros.Any()) { <tr><td colspan="5" class="text-muted">Nenhum parâmetro encontrado para o tenant informado.</td></tr> }
+            <div class="card sigov-card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Chave</th><th>Valor</th><th>Tipo</th><th>Descrição</th><th>Sensível</th><th class="text-end">Ações</th></tr></thead><tbody>
+            @foreach (var p in Model.Parametros) { <tr><td><code>@p.Chave</code></td><td>@p.Valor</td><td><span class="badge text-bg-light">@p.Tipo</span></td><td>@p.Descricao</td><td>@(p.Sensivel ? "Sim" : "Não")</td><td class="text-end"><a class="btn btn-sm btn-outline-primary" asp-action="EditarParametroPorChave" asp-route-chave="@p.Chave" asp-route-tenantId="@Model.TenantId" asp-route-escopo="@Model.Escopo">Editar</a><form class="d-inline" method="post" asp-action="RestaurarPadraoParametro" asp-route-id="@p.Id">@Html.AntiForgeryToken()<input type="hidden" name="TenantId" value="@Model.TenantId" /><input type="hidden" name="Escopo" value="@Model.Escopo" /><input type="hidden" name="Chave" value="@p.Chave" /><button class="btn btn-sm btn-outline-secondary">Restaurar padrão</button></form></td></tr> }
+            @if (!Model.Parametros.Any()) { <tr><td colspan="6"><div class="sigov-empty-state text-muted">Nenhum parâmetro encontrado no schema real para os filtros informados.</div></td></tr> }
             </tbody></table></div></div>
         </div>
     </div>
