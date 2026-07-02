@@ -29,6 +29,10 @@ public sealed class GedController : Controller
     public IActionResult Contratos() => View();
     public IActionResult Tramitacoes() => View();
     public IActionResult Ocr() => View();
+    [HttpGet("/Ged/Classificacao")]
+    [HttpGet("/Ged/Ocr/Fila")]
+    [HttpGet("/Ged/Ocr/Logs")]
+    public IActionResult Classificacao() => View("Classificacao");
 
 
     [Route("/Ged")]

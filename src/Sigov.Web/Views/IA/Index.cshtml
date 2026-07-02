@@ -1,0 +1,24 @@
+@model Sigov.Web.Services.AiStatusViewModel
+@{
+    ViewData["Title"] = "Inteligência SIGOV";
+}
+<section class="container-fluid py-3">
+    <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Dashboard">Dashboard</a></li><li class="breadcrumb-item active">IA</li></ol></nav>
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+        <div><span class="badge text-bg-primary mb-2">IA governável</span><h1 class="h3 mb-1">Camada de inteligência SIGOV PLUS</h1><p class="text-muted mb-0">Assistentes por módulo, resumos, classificação documental e sugestões operacionais com LGPD, auditoria e fallback honesto.</p></div>
+        <div class="text-lg-end"><span class="badge @(Model.Configured ? "text-bg-warning" : "text-bg-secondary")">@(Model.Configured ? "Schema detectado" : "Não configurado")</span><div class="small text-muted">Provider: @Model.Provider • Modelo: @Model.Model</div></div>
+    </div>
+    <div class="alert alert-warning"><strong>Aviso LGPD:</strong> revise dados pessoais antes de usar IA. CPF, CNPJ, e-mail e telefone devem ser mascarados. A decisão final é sempre do usuário.</div>
+    <div class="alert alert-info"><strong>Fallback honesto:</strong> @Model.FallbackMessage</div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">IA habilitada</div><div class="h4">@(Model.Enabled ? "Sim" : "Não")</div></div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Uso mensal</div><div class="h4">@Model.CurrentUsage/@Model.MonthlyLimit</div></div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Assistentes</div><div class="h4">@Model.Assistants.Count</div></div></div></div>
+        <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small">Logs reais</div><div class="h4">@Model.Logs.Count</div></div></div></div>
+    </div>
+    <div class="row g-3">
+        <div class="col-xl-5"><div class="card shadow-sm h-100"><div class="card-header bg-white"><strong>Assistente por módulo</strong></div><div class="card-body"><form method="post" action="/Ia/Assistente/Sugerir">@Html.AntiForgeryToken()<label class="form-label">Módulo</label><select class="form-select mb-2" name="Modulo">@foreach (var m in Model.AllowedModules){<option>@m</option>}</select><label class="form-label">Contexto mascarado</label><textarea name="Contexto" class="form-control mb-2" rows="4" placeholder="Informe contexto sem dados sensíveis"></textarea><input type="hidden" name="Acao" value="sugerir" /><input name="Justificativa" class="form-control mb-3" placeholder="Justificativa/consentimento" /><button class="btn btn-primary" type="submit" onclick="return confirm('Confirmar envio auditado ao assistente?')">Gerar sugestão auditada</button></form><p class="small text-muted mt-3">Se IA estiver indisponível, o retorno será “Assistente inteligente não configurado neste ambiente.”</p></div></div></div>
+        <div class="col-xl-7"><div class="card shadow-sm h-100"><div class="card-header bg-white"><strong>Assistentes planejados</strong></div><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Nome</th><th>Módulo</th><th>Status</th><th>Uso seguro</th></tr></thead><tbody>@foreach (var a in Model.Assistants){<tr><td>@a.Name</td><td>@a.Module</td><td><span class="badge text-bg-info">@a.Status</span></td><td>@a.Description</td></tr>}</tbody></table></div></div></div>
+    </div>
+    <div class="card shadow-sm mt-3"><div class="card-header bg-white"><strong>Logs recentes</strong></div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Data</th><th>Usuário</th><th>Módulo</th><th>Ação</th><th>Prompt mascarado</th><th>Status</th></tr></thead><tbody>@if(!Model.Logs.Any()){<tr><td colspan="6" class="text-muted">Nenhum log real encontrado; nenhum dado foi simulado.</td></tr>}@foreach(var l in Model.Logs){<tr><td>@l.CreatedAt</td><td>@l.User</td><td>@l.Module</td><td>@l.Action</td><td>@l.PromptMasked</td><td>@l.Status</td></tr>}</tbody></table></div></div>
+</section>

@@ -91,6 +91,12 @@ public sealed class SegurancaController : Controller
             : "Estrutura definitiva de permissões indisponível; nenhuma alteração foi simulada.";
         return RedirectToAction(nameof(Permissoes));
     }
+    [HttpGet("/Seguranca/Politicas")]
+    [HttpGet("/Seguranca/Sessoes")]
+    [HttpGet("/Seguranca/ApiKeys")]
+    [HttpGet("/Seguranca/TentativasLogin")]
+    public IActionResult Politicas() => View("Politicas", new { Mensagem = "Segurança avançada iniciada com fallback honesto: política de senha, MFA preparado, API keys mascaradas, rate limit e logs dependem do schema/configuração." });
+
     public IActionResult Grupos() => View(new GrupoFormViewModel());
     public IActionResult HistoricoLogin() => View();
 
