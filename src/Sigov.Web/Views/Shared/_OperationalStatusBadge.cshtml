@@ -1,0 +1,6 @@
+@model string
+@{
+    var status = Model ?? "Parcial";
+    var css = status switch { "Funcional" => "success", "Parcial" => "primary", "Demonstrativo" => "info text-dark", "Em implantação" => "warning text-dark", "Indisponível" => "danger", _ => "secondary" };
+}
+<span class="badge bg-@css">@status</span>

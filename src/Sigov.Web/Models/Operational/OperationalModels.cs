@@ -7,6 +7,8 @@ public sealed record DemoRecord(long Id, string Codigo, string Nome, string Stat
 
 public sealed class OperationalModuleViewModel
 {
+    public OperationalPageStatusViewModel PageStatus { get; init; } = new();
+    public IReadOnlyList<string> SchemaTables { get; init; } = Array.Empty<string>();
     public string Area { get; init; } = "Operação";
     public string ModuleKey { get; init; } = "modulo";
     public string Title { get; init; } = "Módulo operacional";

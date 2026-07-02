@@ -2,6 +2,11 @@
 @{ ViewData["Title"] = Model.Title + " - " + Model.CurrentScreen; }
 @await Html.PartialAsync("_ModuleHeader", Model)
 @await Html.PartialAsync("_ModuleHelpBox", Model.HelpText)
+<div class="alert @(Model.PageStatus.UsaDadosReais ? "alert-primary" : "alert-warning") d-flex justify-content-between align-items-center">
+    <div><strong>Status operacional:</strong> @await Html.PartialAsync("_OperationalStatusBadge", Model.PageStatus.Status) <span class="ms-2">@Model.PageStatus.Mensagem</span></div>
+    <small>@(Model.PageStatus.UsaDadosReais ? "Usa schema detectado" : "Fallback honesto")</small>
+</div>
+@if (Model.SchemaTables.Any()) { <div class="small text-muted mb-3">Tabelas detectadas: @string.Join(", ", Model.SchemaTables.Select(t => "sigov." + t))</div> }
 @if (Model.ShowLgpdWarning) { <div class="alert alert-warning"><strong>LGPD:</strong> dados pessoais/sensíveis são mascarados em listagens. Consulte detalhes apenas com finalidade administrativa legítima.</div> }
 <div class="row g-3 mb-4">@foreach (var kpi in Model.Kpis) { @await Html.PartialAsync("_ModuleDashboardCard", kpi) }</div>
 <div class="card border-0 shadow-sm mb-4"><div class="card-body"><h2 class="h5">Ações rápidas</h2>@await Html.PartialAsync("_ModuleQuickActions", Model.Actions)</div></div>
