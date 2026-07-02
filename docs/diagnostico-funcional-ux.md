@@ -73,3 +73,16 @@ Esta sprint reposiciona Protocolo, GED/OCR, Tributário, Contratos, Jurídico e 
 - **Dependências externas:** IA, OCR, assinatura oficial, SMTP/storage e conectores oficiais dependem de provider, segredo seguro e schemas.
 - **Funcionalidades reais:** auditoria via `IAuditTrailService`, inspeção por `IDatabaseSchemaInspector`, rotas MVC/Razor e API health v1.
 - **Fallback honesto:** IA, OCR, assinatura e conectores não configurados exibem estado indisponível/em implantação sem simular sucesso oficial.
+
+## 21. Sprint de implantação, suporte, POC e operação contratual
+
+- **Implantação:** rota `/Implantacao` criada com consulta schema-safe para `sigov.implantacao`, `sigov.implantacao_etapa`, `sigov.implantacao_evidencia` e `sigov.aceite_formal`. Funcional quando as tabelas existem; fallback honesto sem simular etapa concluída.
+- **Migração:** rota `/Migracao` cobre lotes, logs, validações e importação confirmada; não importa quando schema real não existe.
+- **Treinamentos:** rota `/Treinamentos` cobre turmas, participantes, avaliações e certificados; emissão é auditada e não simulada sem tabela.
+- **Suporte/SLA:** rotas `/Suporte` e `/Sla` cobrem chamados, satisfação, regras, eventos e monitoramento com dados pessoais mascarados.
+- **POC:** rota `/Poc` evoluída para roteiro, requisitos, execuções, evidências e relatório com critério Atende/Não Atende.
+- **Aceite formal:** rota `/Aceites` consolida aceite de etapa, POC, treinamento, migração, suporte e implantação.
+- **Tabelas avaliadas:** ver `database/diagnostics/schema-report-implantacao-suporte.sql`.
+- **Funcional:** navegação MVC/Razor, schema detection, auditoria, modal de confirmação, antiforgery em POST, fallback honesto e layout operacional premium.
+- **Parcial:** persistência específica depende das tabelas físicas e colunas reais do tenant.
+- **Pendências:** migrations aditivas definitivas, PDFs, webhooks externos e cálculo avançado de SLA por calendário contratual.

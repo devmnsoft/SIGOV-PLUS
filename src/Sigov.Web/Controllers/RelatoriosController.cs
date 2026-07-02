@@ -73,6 +73,15 @@ public sealed class RelatoriosController : Controller
         catch (Exception ex) { _logger.LogError(ex, "Falha ao exportar módulos."); return Csv("mensagem\nExportação indisponível no momento.\n", "modulos-erro.csv"); }
     }
 
+
+    [HttpGet("/Relatorios/ContratualCsv/{table}")]
+    public async Task<IActionResult> ContratualCsv(string table, CancellationToken cancellationToken)
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "implantacao", "implantacao_etapa", "migracao_lote", "migracao_log", "treinamento", "treinamento_participante", "suporte_chamado", "sla_evento", "poc_requisito", "aceite_formal" };
+        if (!allowed.Contains(table)) return Csv("mensagem\nRelatório contratual não permitido.\n", "contratual-indisponivel.csv");
+        return await ExportSimpleAsync(table, $"select * from sigov.\"{table}\" limit 500;", "dados", $"{table}.csv", cancellationToken).ConfigureAwait(false);
+    }
+
     [HttpGet("/Relatorios/AuditoriasCsv")]
     public async Task<IActionResult> AuditoriasCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("auditoria_evento", "select acao, entidade, entidade_id, created_at from sigov.auditoria_evento order by created_at desc limit 500;", "acao;entidade;entidade_id;data", "auditorias-recentes.csv", cancellationToken).ConfigureAwait(false);
 

@@ -77,6 +77,20 @@ builder.Services.AddScoped<MobileCampoService>();
 builder.Services.AddScoped<AiConfigurationService>();
 builder.Services.AddScoped<AiAssistantService>();
 builder.Services.AddScoped<AiAuditService>();
+builder.Services.AddScoped<ImplantacaoService>();
+builder.Services.AddScoped<ImplantacaoEtapaService>();
+builder.Services.AddScoped<ImplantacaoEvidenciaService>();
+builder.Services.AddScoped<MigracaoService>();
+builder.Services.AddScoped<MigracaoValidacaoService>();
+builder.Services.AddScoped<TreinamentoService>();
+builder.Services.AddScoped<CertificadoTreinamentoService>();
+builder.Services.AddScoped<SuporteService>();
+builder.Services.AddScoped<SlaService>();
+builder.Services.AddScoped<SlaMonitorService>();
+builder.Services.AddScoped<PocService>();
+builder.Services.AddScoped<PocRoteiroService>();
+builder.Services.AddScoped<PocEvidenciaService>();
+builder.Services.AddScoped<AceiteFormalService>();
 
 var app = builder.Build();
 
