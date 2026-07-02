@@ -17,6 +17,13 @@ public sealed class OperacaoController : Controller
         _logger = logger;
     }
 
+    [HttpGet("/Operacao/Logs")]
+    [HttpGet("/Operacao/AuditoriaTecnica")]
+    [HttpGet("/Operacao/Metricas")]
+    [HttpGet("/Operacao/Erros")]
+    [HttpGet("/Operacao/Backup")]
+    public IActionResult Observabilidade() => View("Observabilidade", new OperacaoObservabilidadeViewModel(Request.Path.Value ?? "/Operacao/Logs"));
+
     [HttpGet("/Health")]
     [HttpGet("/Operacao/Health")]
     public async Task<IActionResult> Health(CancellationToken cancellationToken)
@@ -38,3 +45,5 @@ public sealed class OperacaoController : Controller
         }
     }
 }
+
+public sealed record OperacaoObservabilidadeViewModel(string Rota);

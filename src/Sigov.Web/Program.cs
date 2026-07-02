@@ -74,6 +74,9 @@ builder.Services.AddScoped<AgendaOperacionalService>();
 builder.Services.AddScoped<IntegracaoMonitorService>();
 builder.Services.AddScoped<BiOperacionalService>();
 builder.Services.AddScoped<MobileCampoService>();
+builder.Services.AddScoped<AiConfigurationService>();
+builder.Services.AddScoped<AiAssistantService>();
+builder.Services.AddScoped<AiAuditService>();
 
 var app = builder.Build();
 

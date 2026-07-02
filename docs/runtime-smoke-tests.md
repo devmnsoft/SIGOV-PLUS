@@ -1,14 +1,21 @@
-# Runtime smoke tests
+# Runtime smoke tests SIGOV PLUS
 
-## Validação inicial/final neste ambiente
+## Validação inicial — 2026-07-02
 
-- `dotnet restore`: não executado com sucesso porque o binário `dotnet` não está instalado no container do agente.
-- `dotnet build`: bloqueado pelo mesmo motivo.
-- `docker compose down` / `docker compose ps`: não executados com sucesso porque o binário `docker` não está instalado no container do agente.
-- Rotas HTTP locais: não executadas porque Docker/.NET não estão disponíveis neste ambiente.
+- `dotnet restore && dotnet build`: não executado neste container porque o comando `dotnet` não está instalado (`/bin/bash: dotnet: command not found`).
+- `docker compose down && docker compose up -d --build && docker compose ps`: não executado neste container porque o comando `docker` não está instalado.
+- Smoke HTTP em `localhost:8080` e `localhost:5001`: falhou porque os containers não puderam subir neste ambiente.
 
-Os comandos obrigatórios permanecem documentados para execução local/CI com SDK .NET 6 e Docker disponíveis.
+## Validação final — 2026-07-02
 
-## Tentativa de rotas HTTP
+Repetir em ambiente com .NET 6 SDK e Docker:
 
-As rotas `Auth/Login`, `Dashboard`, `MinhaCentral`, `Workflow`, `Tarefas`, `Notificacoes`, `Agenda`, `Integracoes`, `Bi`, `MobileCampo`, `Busca`, `Relatorios`, `Operacao/Health` e `api/health/live` foram tentadas via `curl -I`, mas não havia servidor local em execução porque Docker/.NET não estão disponíveis no container.
+```powershell
+dotnet restore
+dotnet build
+docker compose down
+docker compose up -d --build
+docker compose ps
+```
+
+Rotas a validar: `/Auth/Login`, `/Dashboard`, `/MinhaCentral`, `/Ia`, `/AssinaturasDigitais`, `/Integracoes`, `/Operacao/Logs`, `/Operacao/Metricas`, `/Operacao/Backup`, `/Seguranca/Politicas`, `/Poc`, `/Operacao/Health`, `/api/health/live`, `/api/v1/health`.

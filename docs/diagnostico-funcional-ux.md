@@ -59,3 +59,17 @@ Esta sprint reposiciona Protocolo, GED/OCR, Tributário, Contratos, Jurídico e 
 - **Módulos aptos a workflow/notificações/prazos**: Protocolo, GED/OCR, Tributário, Contratos, Jurídico e Financeiro.
 - **Fallbacks**: quando tabelas transversais não existem, as telas mostram “em implantação”, não simulam persistência e informam o schema necessário.
 - **Prioridades**: consolidar migrations não destrutivas, implementar worker outbox, aprofundar integração com criação real de protocolo/documento/contrato/prazo/conta.
+
+## 20. Sprint de IA, integrações e produção
+
+- **IA:** área `/Ia` criada com governança, assistentes por módulo, logs, política LGPD, mascaramento e fallback honesto quando `sigov.ai_configuracao`/provider não existir.
+- **Integrações:** `/Integracoes` mantém monitoramento operacional; documentação orienta conectores oficiais sem simular conexão real.
+- **API:** `/api/v1/health` e rotas versionadas preparadas com resposta padronizada/fallback; contrato documentado em `docs/api-publica-sigov.md`.
+- **Observabilidade:** `/Operacao/Logs`, `/Operacao/AuditoriaTecnica`, `/Operacao/Metricas`, `/Operacao/Erros` e `/Operacao/Backup` criadas como telas seguras sem stacktrace.
+- **Segurança:** `/Seguranca/Politicas`, `/Seguranca/Sessoes`, `/Seguranca/ApiKeys` e `/Seguranca/TentativasLogin` iniciadas com fallback honesto.
+- **Backup:** scripts e documentação criados; restore destrutivo não é exposto pela UI.
+- **Health:** health visual existente preservado.
+- **Riscos LGPD:** prompts e documentos podem conter CPF/CNPJ/e-mail/telefone; camada de IA mascara dados e exige aviso/justificativa.
+- **Dependências externas:** IA, OCR, assinatura oficial, SMTP/storage e conectores oficiais dependem de provider, segredo seguro e schemas.
+- **Funcionalidades reais:** auditoria via `IAuditTrailService`, inspeção por `IDatabaseSchemaInspector`, rotas MVC/Razor e API health v1.
+- **Fallback honesto:** IA, OCR, assinatura e conectores não configurados exibem estado indisponível/em implantação sem simular sucesso oficial.
