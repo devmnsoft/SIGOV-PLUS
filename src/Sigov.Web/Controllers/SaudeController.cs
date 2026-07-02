@@ -82,4 +82,9 @@ public sealed class SaudeController : Controller
             return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Em implantação"));
         }
     }
+
+    [Route("/Saude/Pacientes/Novo")] public IActionResult PacienteNovo() => View(new PacienteFormViewModel());
+    [HttpPost("/Saude/Pacientes/Novo")][ValidateAntiForgeryToken] public IActionResult PacienteNovoPost(PacienteFormViewModel model){ TempData["Warning"]="Cadastro real de paciente depende da tabela sigov.saude_paciente; nenhum salvamento foi simulado."; return RedirectToAction(nameof(Pacientes)); }
+    [Route("/Saude/Pacientes/{id:long}")] public IActionResult PacienteDetalheRota(long id) => PacienteDetalhe(id);
+    [Route("/Saude/Procedimentos")] public IActionResult Procedimentos(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Procedimentos", q));
 }

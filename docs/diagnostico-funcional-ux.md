@@ -105,3 +105,21 @@ Esta sprint reposiciona Protocolo, GED/OCR, Tributário, Contratos, Jurídico e 
 | Integração Tributário → Contabilidade | planejada | services operacionais | N/A | outbox futuro | `receita_arrecadada`, `guia`, `debito` | runtime | Em implantação | contrato de eventos documentado | ativação futura | não simula arrecadação | Não | Sim | Alta |
 | Integração RH → Contabilidade | planejada | services operacionais | N/A | outbox futuro | folha/empenho futuro | runtime | Em implantação | contrato de eventos documentado | folha futura | não simula empenho | Não | Sim | Alta |
 | Integração Compras → Contratos → Financeiro | planejada | `Compras`, `Licitacoes`, `Contratos`, `Financeiro` | operacional padrão | outbox futuro | compra, licitação, contrato, pagamento | runtime | Em implantação | pontos de evento preparados/documentados | orquestração futura | não simula contrato/pagamento | Não | Sim | Alta |
+
+## 23. Sprint Setorial — Educação, Saúde, Saneamento, Social, Agro, Portal e Mobile
+
+| Módulo | Rota | Controller | Views | Service | Tabelas previstas | Tabelas encontradas | Status atual | Funcional/parcial/demonstrativo/implantação | Salva de verdade | Fallback | Riscos LGPD | Prioridade |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Educação | `/Educacao` | `EducacaoController` | Operational/Sectors | `OperationalDemoService` + base setorial | `educacao_*` | Ver `docs/schema-report-setorial-local.md` | Parcial | Listagens/rotas e POST protegido sem simulação | Só quando schema existir | Sim | Alunos/responsáveis | Alta |
+| Saúde | `/Saude` | `SaudeController` | Operational/Sectors | idem | `saude_*` | Ver relatório | Parcial | Pacientes, unidades, agendas, procedimentos | Só com schema | Sim | Saúde/CNS/CPF | Alta |
+| ACS | `/Acs` | `AcsController` | `Views/Sectors/Module.cshtml` | `SectorModuleService` | `saude_acs`, família, domicílio, visita | Ver relatório | Em implantação/parcial | Base campo, mapa placeholder, sync planejada | Não simula | Sim | Saúde/família | Alta |
+| Saneamento | `/Saneamento` | `SaneamentoController` | Operational/Sectors | idem | `saneamento_*` | Ver relatório | Parcial | Consumidores, ligações, leituras, faturas, OS | Só com schema/motor | Sim | Documento/endereço | Alta |
+| Social | `/Social` | `SocialController` | Sectors + views existentes | `SectorModuleService` | `social_*` | Ver relatório | Parcial | Famílias, pessoas, atendimentos, benefícios | Só com schema | Sim | Vulnerabilidade social | Alta |
+| Agro | `/Agro` | `AgroController` | Views existentes | Serviços agro existentes | `agro_*` | Ver relatório | Parcial | Produtores, propriedades, programas | Existente conforme módulo | Sim | Documentos | Média |
+| Portal Cidadão | `/PortalCidadao` | `PortalCidadaoController` | Sectors | `SectorModuleService` | `portal_*`, ouvidoria | Ver relatório | Em implantação | Catálogo/solicitações | Não simula protocolo | Sim | Dados públicos | Alta |
+| Portal Contribuinte | `/PortalContribuinte` | `PortalContribuinteController` | Sectors | `SectorModuleService` | contribuinte/débito/guia/protocolo | Ver relatório | Em implantação | Débitos/guias/certidões futuras | Não simula guia | Sim | Fiscal | Alta |
+| Ouvidoria | `/Ouvidoria` | `OuvidoriaController` | Processos existentes | Serviço existente/futuro | ouvidoria/protocolo | Ver relatório | Parcial | Manifestação básica | Não simular | Sim | Denúncias/dados pessoais | Alta |
+| Mobile/Campo | `/MobileCampo` | `MobileCampoController` | Sectors | `SectorModuleService` | `campo_*` | Ver relatório | Em implantação | Roteiros/coletas/evidências/sync planejada | Não simula sync | Sim | Evidências | Alta |
+| GIS | `/Gis` | `GisController` | Sectors | `SectorModuleService` | `gis_*` | Ver relatório | Em implantação | Camadas/mapa placeholder | Não | Sim | Geolocalização | Média |
+| BI Setorial | `/BiSetorial` | `BiSetorialController` | Sectors | `SectorModuleService` | agregadas setoriais | Ver relatório | Em implantação | KPIs com fonte real quando houver | Não aplicável | Sim | Agregação | Média |
+| Relatórios Setoriais | `/Relatorios` | `RelatoriosController` | existentes | existentes/futuro | setoriais | Ver relatório | Parcial | Base para CSV seguro | Só com schema | Sim | Exportação | Alta |

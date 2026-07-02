@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Operational.SectorModuleViewModel
+<nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Dashboard">Dashboard</a></li><li class="breadcrumb-item active">@Model.Modulo</li></ol></nav>
+<section class="p-4 p-lg-5 mb-4 rounded-4 text-white" style="background:linear-gradient(135deg,#0f4c81,#198754);">
+ <div class="d-flex flex-column flex-lg-row justify-content-between gap-3"><div><span class="badge bg-light text-dark mb-2">SIGOV PLUS Setorial</span><h1 class="display-6 fw-bold">@Model.Titulo</h1><p class="lead mb-0">@Model.Descricao</p></div><div class="text-lg-end"><partial name="~/Views/Shared/Sectors/_SectorStatusBadge.cshtml" model="Model.Status" /><div class="small mt-2">@(Model.UsaDadosReais ? "Dados reais/schema detectado" : "Fallback honesto ativo")</div></div></div>
+</section>

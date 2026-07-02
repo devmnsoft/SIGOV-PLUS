@@ -74,4 +74,24 @@ public sealed class EducacaoController : Controller
             return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Em implantação"));
         }
     }
+
+    [Route("/Educacao/Alunos/Novo")]
+    public IActionResult AlunoNovo() => View("AlunoCriar", new AlunoFormViewModel());
+
+    [HttpPost("/Educacao/Alunos/Novo")]
+    [ValidateAntiForgeryToken]
+    public IActionResult AlunoNovoPost(AlunoFormViewModel model)
+    {
+        TempData["Warning"] = "Cadastro real de aluno depende da tabela sigov.educacao_aluno; nenhum salvamento foi simulado.";
+        return RedirectToAction(nameof(Alunos));
+    }
+
+    [Route("/Educacao/Alunos/{id:long}")]
+    public IActionResult AlunoDetalheRota(long id) => AlunoDetalhe(id);
+
+    [Route("/Educacao/Boletins")] public IActionResult Boletins(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Boletins", q));
+    [Route("/Educacao/Transporte")] public IActionResult Transporte(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Transporte", q));
+    [Route("/Educacao/Merenda")] public IActionResult Merenda(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Merenda", q));
+    [Route("/Educacao/Biblioteca")] public IActionResult Biblioteca(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Biblioteca", q));
+    [Route("/Educacao/Relatorios")] public IActionResult Relatorios(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Relatorios", q));
 }

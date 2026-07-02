@@ -56,6 +56,7 @@ builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
 builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
 builder.Services.AddScoped<OperationalDemoService>();
+builder.Services.AddScoped<SectorModuleService>();
 builder.Services.AddScoped<ProtocoloOperationalService>();
 builder.Services.AddScoped<GedOperationalService>();
 builder.Services.AddScoped<TributarioOperationalService>();
