@@ -1,13 +1,17 @@
 # Runtime smoke tests
 
-## 2026-07-01 — Sprint operacional de governo
+## 2026-07-02 — Sprint operacional real
 
-### Baseline obrigatório
+Ambiente desta sessão não possui `dotnet` nem `docker`; os comandos obrigatórios foram tentados e falharam por limitação de ambiente antes de alterações.
 
-- `dotnet restore && dotnet build`: não executado por limitação do ambiente (`dotnet: command not found`).
-- `docker compose down && docker compose up -d --build && docker compose ps`: não executado por limitação do ambiente (`docker: command not found`).
-- Smoke HTTP local: pendente pelo mesmo motivo; sem runtime Docker disponível.
+- `dotnet restore && dotnet build`: falhou com `/bin/bash: dotnet: command not found`.
+- `docker compose down && docker compose up -d --build && docker compose ps`: falhou com `/bin/bash: docker: command not found`.
 
-### Observação
+Rotas a validar em ambiente com Docker/.NET: `/Auth/Login`, `/Dashboard`, `/MinhaCentral`, `/Protocolo`, `/Ged`, `/Tributario`, `/Contratos`, `/Juridico`, `/Financeiro`, `/Relatorios`, `/Busca?q=teste`, `/Poc`, `/Operacao/Health`, `http://localhost:5001/api/health/live`.
 
-As telas operacionais foram implementadas com fallback honesto: quando `IDatabaseSchemaInspector` não localizar tabelas em `sigov`, o usuário vê “Em implantação” e nenhuma action POST afirma sucesso de persistência.
+## Validação final obrigatória — resultado nesta sessão
+
+- `dotnet restore`: não executado por ausência do SDK (`dotnet: command not found`).
+- `dotnet build`: não executado por ausência do SDK (`dotnet: command not found`).
+- `docker compose down/up/ps`: não executado por ausência do Docker (`docker: command not found`).
+- Smoke HTTP com `curl` para as rotas obrigatórias: não conectou porque os containers não puderam subir neste ambiente.

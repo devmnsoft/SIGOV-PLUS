@@ -1,25 +1,26 @@
 using Microsoft.AspNetCore.Mvc;
 
 using Sigov.Web.Services;
+using Sigov.Web.Services.Operational;
 
 namespace Sigov.Web.Controllers;
 
 public sealed class GedController : Controller
 {
-    private readonly OperationalDemoService _operationalDemo;
+    private readonly GedOperationalService _operationalDemo;
     private readonly ILogger<GedController> _operationalLogger;
     private readonly IAuditTrailService _auditTrail;
 
-    public GedController(OperationalDemoService operationalDemo, IAuditTrailService auditTrail, ILogger<GedController> operationalLogger)
+    public GedController(GedOperationalService operationalDemo, IAuditTrailService auditTrail, ILogger<GedController> operationalLogger)
     {
         _operationalDemo = operationalDemo;
         _auditTrail = auditTrail;
         _operationalLogger = operationalLogger;
     }
 
-    public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Dashboard"));
+    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Dashboard", null, cancellationToken));
     [Route("/Ged/Documentos")]
-    public IActionResult Documentos() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Documentos"));
+    public async Task<IActionResult> Documentos(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Documentos", null, cancellationToken));
     public IActionResult Upload() => View();
     public IActionResult Pesquisa() => View();
     public IActionResult Workflow() => View();
@@ -31,51 +32,51 @@ public sealed class GedController : Controller
 
 
     [Route("/Ged")]
-    public IActionResult Index(string? q = null)
+    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Dashboard", q));
+            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Dashboard", q, cancellationToken));
         }
         catch (Exception ex)
         {
             _operationalLogger.LogError(ex, "Falha ao carregar fluxo Ged/Index");
             TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Em implantação"));
+            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Em implantação", null, cancellationToken));
         }
     }
 
     [Route("/Ged/Pastas")]
-    public IActionResult Pastas(string? q = null)
+    public async Task<IActionResult> Pastas(string? q = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Pastas", q));
+            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Pastas", q, cancellationToken));
         }
         catch (Exception ex)
         {
             _operationalLogger.LogError(ex, "Falha ao carregar fluxo Ged/Pastas");
             TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Em implantação"));
+            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Em implantação", null, cancellationToken));
         }
     }
 
     [Route("/Ged/NovoDocumento")]
-    public IActionResult NovoDocumento(string? q = null)
+    public async Task<IActionResult> NovoDocumento(string? q = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "NovoDocumento", q));
+            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "NovoDocumento", q, cancellationToken));
         }
         catch (Exception ex)
         {
             _operationalLogger.LogError(ex, "Falha ao carregar fluxo Ged/NovoDocumento");
             TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", "Em implantação"));
+            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Em implantação", null, cancellationToken));
         }
     }
     [Route("/Ged/Detalhes/{id:long}")]
-    public IActionResult Detalhes(long id) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Ged", $"Detalhes #{id}"));
+    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", $"Detalhes #{id}", null, cancellationToken));
     [HttpPost, ValidateAntiForgeryToken, Route("/Ged/NovoDocumento")]
     public async Task<IActionResult> NovoDocumentoPost(CancellationToken cancellationToken) { await Audit("ged.documento.criar", null, cancellationToken); TempData["Warning"] = "Upload não executado sem storage e schema homologados."; return RedirectToAction(nameof(Index)); }
     [HttpPost, ValidateAntiForgeryToken, Route("/Ged/{id:long}/NovaVersao")]
