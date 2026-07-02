@@ -49,3 +49,13 @@ Esta sprint reposiciona Protocolo, GED/OCR, Tributário, Contratos, Jurídico e 
 | Relatórios operacionais | `/Relatorios` | `RelatoriosController` | Views existentes | CSV SaaS existente | Próxima etapa deve usar services operacionais | Usuários/tenants e fontes operacionais conforme schema | Parcial | CSV honesto quando fonte ausente | Parcial | N/A | exportação | Adicionar CSVs operacionais específicos |
 | Minha Central operacional | `/MinhaCentral` | `MinhaCentralController` | Views existentes | `MinhaCentralService` | Próxima etapa deve agregar services operacionais | Depende do schema local | Parcial | Cards sem persistência quando fonte ausente | Parcial | N/A | visualização | Pendências operacionais reais por usuário |
 | POC | `/Poc` | `PocController` | Views existentes | POC visual | Próxima etapa deve exibir status dos services | Depende do schema local | Parcial | Indica implantação | Parcial | N/A | validação | Mostrar última validação por módulo |
+
+## 19. Sprint de workflow, automação e BI operacional
+
+- **Rotas novas/atualizadas**: `/Workflow`, `/Workflow/Definicoes`, `/Workflow/Instancias`, `/Tarefas`, `/Notificacoes`, `/Agenda`, `/Integracoes`, `/Bi`, `/MobileCampo`.
+- **Controllers envolvidos**: `WorkflowController`, `TarefasController`, `NotificacoesController`, `AgendaController`, `IntegracoesController`, `BiController`, `MobileCampoController`, além de Dashboard, Minha Central, Busca e Relatórios como pontos de evolução.
+- **Services criados**: `OperationalStatusService`, `WorkflowService`, `WorkflowDefinitionService`, `WorkflowInstanceService`, `TarefaService`, `NotificacaoService`, `AgendaOperacionalService`, `OperationalEventService`, `OutboxSigovService`, `IntegracaoMonitorService`, `BiOperacionalService`, `MobileCampoService`.
+- **Tabelas avaliadas**: `workflow`, `workflow_etapa`, `workflow_transicao`, `workflow_instancia`, `workflow_historico`, `tarefa`, `notificacao`, `notificacao_usuario`, `agenda_prazo`, `evento_operacional`, `outbox_evento`, `integracao_sistema`, `integracao_log` e tabelas operacionais dos módulos.
+- **Módulos aptos a workflow/notificações/prazos**: Protocolo, GED/OCR, Tributário, Contratos, Jurídico e Financeiro.
+- **Fallbacks**: quando tabelas transversais não existem, as telas mostram “em implantação”, não simulam persistência e informam o schema necessário.
+- **Prioridades**: consolidar migrations não destrutivas, implementar worker outbox, aprofundar integração com criação real de protocolo/documento/contrato/prazo/conta.
