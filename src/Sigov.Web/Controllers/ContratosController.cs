@@ -14,6 +14,9 @@ public sealed class ContratosController : Controller
     [Route("/Contratos/Listar")]
     [Route("/Contratos/Novo")]
     [Route("/Contratos/Vencimentos")]
+    [Route("/Contratos/Aditivos")]
+    [Route("/Contratos/Fiscais")]
+    [Route("/Contratos/Medicoes")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Contratos", RouteData.Values["action"]?.ToString() ?? "Dashboard", q, cancellationToken));
     [Route("/Contratos/Detalhes/{id:long}")]
     public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Contratos", $"Detalhes #{id}", null, cancellationToken));

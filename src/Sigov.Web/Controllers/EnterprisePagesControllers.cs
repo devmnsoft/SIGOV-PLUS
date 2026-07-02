@@ -53,9 +53,9 @@ public sealed class EstoqueController : EnterprisePageControllerBase
     public IActionResult Requisicoes() => ModulePage("estoque_compras", "Requisições", "estoque.requisicoes.visualizar", "/api/estoque/requisicoes");
 }
 
-public sealed class ComprasController : EnterprisePageControllerBase
+public sealed class ComprasComercialController : EnterprisePageControllerBase
 {
-    public ComprasController(IEnterpriseModuleService service) : base(service) { }
+    public ComprasComercialController(IEnterpriseModuleService service) : base(service) { }
     public IActionResult Fornecedores() => ModulePage("estoque_compras", "Fornecedores", "compras.fornecedores.visualizar", "/api/compras/fornecedores");
     public IActionResult Pedidos() => ModulePage("estoque_compras", "Pedidos de Compra", "compras.pedidos.visualizar", "/api/compras/pedidos");
 }
