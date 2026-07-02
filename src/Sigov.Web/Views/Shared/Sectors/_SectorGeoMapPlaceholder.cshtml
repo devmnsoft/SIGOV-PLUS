@@ -1,0 +1,2 @@
+@model Sigov.Web.Models.Operational.SectorModuleViewModel
+@if (Model.Modulo.Contains("GIS") || Model.Modulo.Contains("Campo") || Model.Modulo.Contains("Saneamento") || Model.Modulo.Contains("Agro") || Model.Modulo.Contains("ACS")){<div class="card border-0 shadow-sm mb-4"><div class="card-body"><h2 class="h5">Mapa / Georreferenciamento</h2><div class="rounded-3 border bg-light d-flex align-items-center justify-content-center" style="min-height:220px;">Placeholder GIS honesto: camadas reais dependem de sigov.gis_camada/gis_geometria ou tabelas territoriais.</div></div></div>}

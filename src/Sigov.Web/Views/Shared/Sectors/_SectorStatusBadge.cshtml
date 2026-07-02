@@ -1,0 +1,3 @@
+@model string
+@{ var cls = Model switch { "Funcional" => "success", "Parcial" => "primary", "Demonstrativo" => "warning text-dark", "Indisponível" => "danger", _ => "secondary" }; }
+<span class="badge bg-@cls">@Model</span>

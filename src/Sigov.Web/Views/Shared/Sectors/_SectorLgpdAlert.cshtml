@@ -1,0 +1,2 @@
+@model Sigov.Web.Models.Operational.SectorModuleViewModel
+@if (Model.ContemDadosSensiveis){<div class="alert alert-danger border-0 shadow-sm"><strong>Alerta LGPD reforçado:</strong> dados pessoais/sensíveis deste módulo devem ser acessados por necessidade, com mascaramento e auditoria.</div>}else{<div class="alert alert-info border-0 shadow-sm"><strong>LGPD:</strong> documentos são mascarados e exportações devem ser auditadas.</div>}

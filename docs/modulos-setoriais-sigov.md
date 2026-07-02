@@ -1,0 +1,18 @@
+# Módulos setoriais SIGOV PLUS
+
+Base operacional real/parcial para secretarias finalísticas e atendimento ao cidadão. Todos os módulos seguem MVC/Razor, Dapper, inspeção schema-safe via `IDatabaseSchemaInspector`, auditoria via `IAuditTrailService`, LGPD, mascaramento e fallback honesto.
+
+| Módulo | Escopo e fluxo mínimo | Tabelas previstas | LGPD/auditoria | Integrações e relatórios | Pendências |
+|---|---|---|---|---|---|
+| Educação | Dashboard, alunos, escolas, turmas, matrículas, frequência, boletins, transporte, merenda, biblioteca e Educacenso. | `educacao_*` escolar. | Dados de aluno sensíveis, CPF/responsáveis mascarados, criação auditável. | Workflow para matrícula pendente, frequência crítica e transporte; CSV seguro. | Ativar inserts apenas quando colunas obrigatórias existirem. |
+| Saúde | Pacientes, unidades, atendimentos, agendas e procedimentos. | `saude_paciente`, `saude_unidade`, `saude_atendimento`, `saude_agenda`, `saude_procedimento`. | LGPD reforçada para saúde; CNS/CPF mascarado; visualização crítica auditável. | Agenda, notificações e relatórios assistenciais. | Prontuário e integrações oficiais permanecem fora do escopo. |
+| ACS | Agentes, famílias, domicílios, visitas, mapa e sincronização planejada. | `saude_acs`, `saude_familia`, `saude_domicilio`, `saude_visita_domiciliar`. | Dados familiares e saúde protegidos. | Tarefas de visita e mapa GIS. | Offline real não é simulado; exige motor posterior. |
+| Saneamento | Consumidores, ligações, hidrômetros, leituras, faturas, OS e GIS. | `saneamento_*`. | Documento mascarado e auditoria em OS/exportação. | Workflow para leitura pendente, fatura vencida e OS aberta. | Faturamento/leitura real dependem de motor e schema. |
+| Social | Famílias, pessoas, atendimentos, benefícios, visitas e relatórios. | `social_*`. | Dados sociais sensíveis com alerta reforçado. | Benefício em análise e visita social como tarefa. | Não simula concessão de benefício. |
+| Agro | Produtores, propriedades, programas, serviços e mapa. | `agro_produtor`, `agro_propriedade`, `agro_programa`, `agro_servico`. | Documentos mascarados e auditoria em atendimentos. | Programas e serviços rurais em tarefas/relatórios. | Evoluir cadastro real conforme schema local. |
+| Portal Cidadão | Serviços, solicitações, protocolo e manifestações. | `portal_servico`, `portal_solicitacao`, `ouvidoria_manifestacao`. | Exposição pública mínima de dados. | Protocolo, atendimento e notificações. | Autenticação opcional/futura. |
+| Portal Contribuinte | Débitos, guias, certidões e protocolos. | `contribuinte`, `debito`, `guia`, `protocolo`. | Dados fiscais protegidos. | Tributário, protocolo e relatórios. | Não emite certidão/guia fiscal sem motor oficial. |
+| Ouvidoria/Atendimento | Manifestações, status, prazo, resposta e protocolo. | `ouvidoria_manifestacao`, `atendimento`, `protocolo`. | Dados pessoais protegidos e auditados. | Workflow de atendimento. | Não simula manifestação salva. |
+| Mobile/Campo | Roteiros, coletas, evidências e sincronização. | `campo_roteiro`, `campo_coleta`, `campo_evidencia`. | Evidências podem conter dados pessoais; auditar acesso. | ACS, Saneamento, Agro, Fiscalização e GIS. | Offline/sync real planejados. |
+| GIS | Camadas, geometrias e mapa placeholder. | `gis_camada`, `gis_geometria`. | Evitar exposição indevida de endereço/pessoa. | BI, Campo e módulos territoriais. | Renderização cartográfica real posterior. |
+| BI Setorial | Indicadores por secretaria com fonte real quando houver tabela. | Tabelas setoriais agregadas. | Agregação minimizada e sem dados pessoais desnecessários. | Dashboard, relatórios e POC. | Gráficos sem fonte devem mostrar demonstração/fallback. |

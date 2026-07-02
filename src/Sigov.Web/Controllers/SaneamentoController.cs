@@ -69,4 +69,9 @@ public sealed class SaneamentoController : Controller
             return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Em implantação"));
         }
     }
+
+    [Route("/Saneamento/Consumidores/Novo")] public IActionResult ConsumidorNovo() => View(new SaneamentoConsumidorFormViewModel());
+    [HttpPost("/Saneamento/Consumidores/Novo")][ValidateAntiForgeryToken] public IActionResult ConsumidorNovoPost(SaneamentoConsumidorFormViewModel model){ TempData["Warning"]="Cadastro real de consumidor depende da tabela sigov.saneamento_consumidor; nenhum salvamento foi simulado."; return RedirectToAction(nameof(Consumidores)); }
+    [Route("/Saneamento/Consumidores/{id:long}")] public IActionResult ConsumidorDetalheRota(long id) => ConsumidorDetalhe(id);
+    [Route("/Saneamento/Relatorios")] public IActionResult Relatorios(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Relatorios", q));
 }

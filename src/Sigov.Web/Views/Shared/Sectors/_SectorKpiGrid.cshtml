@@ -1,0 +1,2 @@
+@model IReadOnlyList<Sigov.Web.Models.Operational.SectorKpiViewModel>
+<div class="row g-3 mb-4">@foreach (var kpi in Model){<div class="col-6 col-xl-3"><div class="card h-100 border-0 shadow-sm"><div class="card-body"><div class="text-muted small">@kpi.Titulo</div><div class="h3 fw-bold mb-1">@kpi.Valor</div><div class="small text-muted">@kpi.Descricao</div></div></div></div>}</div>

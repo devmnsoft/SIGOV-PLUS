@@ -1,0 +1,30 @@
+@model Sigov.Web.Models.Operational.SectorModuleViewModel
+@{
+    ViewData["Title"] = Model.Titulo;
+}
+<partial name="~/Views/Shared/Sectors/_SectorModuleHeader.cshtml" model="Model" />
+<partial name="~/Views/Shared/Sectors/_SectorLgpdAlert.cshtml" model="Model" />
+<partial name="~/Views/Shared/Sectors/_SectorKpiGrid.cshtml" model="Model.Kpis" />
+<partial name="~/Views/Shared/Sectors/_SectorFilterBar.cshtml" model="Model" />
+<partial name="~/Views/Shared/Sectors/_SectorActionBar.cshtml" model="Model" />
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Registros e status operacional</strong>
+        <partial name="~/Views/Shared/Sectors/_SectorStatusBadge.cshtml" model="Model.Status" />
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Identificação</th><th>Documento</th><th>Status</th><th>Origem</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Registros)
+            {
+                <tr><td><strong>@item.Titulo</strong><div class="text-muted small">@item.Subtitulo</div></td><td>@item.DocumentoMascarado</td><td><partial name="~/Views/Shared/Sectors/_SectorStatusBadge.cshtml" model="item.Status" /></td><td>@item.Origem</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+@if (!Model.Registros.Any()) { <partial name="~/Views/Shared/Sectors/_SectorEmptyState.cshtml" model="Model" /> }
+<partial name="~/Views/Shared/Sectors/_SectorGeoMapPlaceholder.cshtml" model="Model" />
+<partial name="~/Views/Shared/Sectors/_SectorTimeline.cshtml" model="Model" />
+<partial name="~/Views/Shared/Sectors/_SectorAuditNotice.cshtml" model="Model" />
