@@ -1,21 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Services;
+using Sigov.Web.Services.Operational;
 
 namespace Sigov.Web.Controllers;
 
 public sealed class ContratosController : Controller
 {
-    private readonly OperationalDemoService _demo;
+    private readonly ContratosOperationalService _demo;
     private readonly IAuditTrailService _auditTrail;
     private readonly ILogger<ContratosController> _logger;
-    public ContratosController(OperationalDemoService demo, IAuditTrailService auditTrail, ILogger<ContratosController> logger) { _demo = demo; _auditTrail = auditTrail; _logger = logger; }
+    public ContratosController(ContratosOperationalService demo, IAuditTrailService auditTrail, ILogger<ContratosController> logger) { _demo = demo; _auditTrail = auditTrail; _logger = logger; }
     [Route("/Contratos")]
     [Route("/Contratos/Listar")]
     [Route("/Contratos/Novo")]
     [Route("/Contratos/Vencimentos")]
-    public IActionResult Index(string? q = null) => View("~/Views/Operational/Module.cshtml", _demo.Build("Contratos", RouteData.Values["action"]?.ToString() ?? "Dashboard", q));
+    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Contratos", RouteData.Values["action"]?.ToString() ?? "Dashboard", q, cancellationToken));
     [Route("/Contratos/Detalhes/{id:long}")]
-    public IActionResult Detalhes(long id) => View("~/Views/Operational/Module.cshtml", _demo.Build("Contratos", $"Detalhes #{id}"));
+    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Contratos", $"Detalhes #{id}", null, cancellationToken));
     [HttpPost, ValidateAntiForgeryToken, Route("/Contratos/Novo")]
     public async Task<IActionResult> Novo(CancellationToken cancellationToken) { await Audit("contrato.criar", null, cancellationToken); TempData["Warning"] = "Contrato não foi salvo porque o schema real ainda precisa estar homologado."; return RedirectToAction(nameof(Index)); }
     [HttpPost, ValidateAntiForgeryToken, Route("/Contratos/{id:long}/Arquivar")]

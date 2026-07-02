@@ -7,23 +7,23 @@ public sealed record DemoRecord(long Id, string Codigo, string Nome, string Stat
 
 public sealed class OperationalModuleViewModel
 {
-    public OperationalPageStatusViewModel PageStatus { get; init; } = new();
-    public IReadOnlyList<string> SchemaTables { get; init; } = Array.Empty<string>();
-    public string Area { get; init; } = "Operação";
-    public string ModuleKey { get; init; } = "modulo";
-    public string Title { get; init; } = "Módulo operacional";
-    public string Description { get; init; } = "Fluxo mínimo demonstrável com dados seguros para POC.";
-    public string Purpose { get; init; } = "Organiza rotinas, indicadores, filtros, auditoria e ações rápidas do módulo.";
-    public string Status { get; init; } = "Em implantação assistida";
-    public string ManualUrl { get; init; } = "/Manual";
-    public string CurrentScreen { get; init; } = "Dashboard";
-    public string HelpText { get; init; } = "Use os filtros para localizar registros, selecione itens para ações em massa e consulte detalhes antes de ações críticas.";
-    public IReadOnlyList<ModuleKpi> Kpis { get; init; } = Array.Empty<ModuleKpi>();
-    public IReadOnlyList<QuickAction> Actions { get; init; } = Array.Empty<QuickAction>();
-    public IReadOnlyList<string> NextSteps { get; init; } = Array.Empty<string>();
-    public IReadOnlyList<TimelineStep> Timeline { get; init; } = Array.Empty<TimelineStep>();
-    public IReadOnlyList<DemoRecord> Records { get; init; } = Array.Empty<DemoRecord>();
-    public bool ShowLgpdWarning { get; init; }
-    public string EntitySingular { get; init; } = "registro";
-    public string EntityPlural { get; init; } = "registros";
+    public OperationalPageStatusViewModel PageStatus { get; set; } = new();
+    public IReadOnlyList<string> SchemaTables { get; set; } = Array.Empty<string>();
+    public string Area { get; set; } = "Operação";
+    public string ModuleKey { get; set; } = "modulo";
+    public string Title { get; set; } = "Módulo operacional";
+    public string Description { get; set; } = "Fluxo mínimo demonstrável com dados seguros para POC.";
+    public string Purpose { get; set; } = "Organiza rotinas, indicadores, filtros, auditoria e ações rápidas do módulo.";
+    public string Status { get; set; } = "Em implantação assistida";
+    public string ManualUrl { get; set; } = "/Manual";
+    public string CurrentScreen { get; set; } = "Dashboard";
+    public string HelpText { get; set; } = "Use os filtros para localizar registros, selecione itens para ações em massa e consulte detalhes antes de ações críticas.";
+    public IReadOnlyList<ModuleKpi> Kpis { get; set; } = Array.Empty<ModuleKpi>();
+    public IReadOnlyList<QuickAction> Actions { get; set; } = Array.Empty<QuickAction>();
+    public IReadOnlyList<string> NextSteps { get; set; } = Array.Empty<string>();
+    public IReadOnlyList<TimelineStep> Timeline { get; set; } = Array.Empty<TimelineStep>();
+    public IReadOnlyList<DemoRecord> Records { get; set; } = Array.Empty<DemoRecord>();
+    public bool ShowLgpdWarning { get; set; }
+    public string EntitySingular { get; set; } = "registro";
+    public string EntityPlural { get; set; } = "registros";
 }

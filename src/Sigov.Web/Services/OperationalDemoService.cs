@@ -44,14 +44,23 @@ public sealed class OperationalDemoService
         ["IA"] = new OperationalModuleSeed("Operação", "IA", "Oferece assistentes, automações, triagem e apoio contextual auditável.", new[] { "Assistentes", "Automacoes" })
     };
 
-    public OperationalModuleViewModel Build(string module, string screen = "Dashboard", string? q = null)
+    public OperationalModuleViewModel Build(string module, string screen = "Dashboard", string? q = null) => BuildFallbackModel(module, screen, q, Array.Empty<string>());
+
+    public async Task<OperationalModuleViewModel> BuildFallbackAsync(string module, string screen = "Dashboard", string? q = null, CancellationToken cancellationToken = default)
     {
         var tables = GetModuleTables(module);
-        var existingTables = InspectExistingTables(tables);
-        var usesRealData = existingTables.Count > 0;
-        var status = usesRealData ? "Parcial" : "Em implantação";
-        var statusMessage = usesRealData
-            ? $"Schema operacional detectado: {string.Join(", ", existingTables.Select(t => "sigov." + t))}. Consultas reais devem ser ativadas conforme colunas homologadas; listagens mascaram dados pessoais."
+        var existingTables = await InspectExistingTablesAsync(tables, cancellationToken).ConfigureAwait(false);
+        var usesRealData = false;
+        var status = existingTables.Count > 0 ? "Parcial" : "Em implantação";
+        return BuildFallbackModel(module, screen, q, existingTables);
+    }
+
+    private static OperationalModuleViewModel BuildFallbackModel(string module, string screen, string? q, IReadOnlyList<string> existingTables)
+    {
+        var usesRealData = false;
+        var status = existingTables.Count > 0 ? "Parcial" : "Em implantação";
+        var statusMessage = existingTables.Count > 0
+            ? $"Schema operacional detectado: {string.Join(", ", existingTables.Select(t => "sigov." + t))}. Esta visão é fallback honesto até a consulta real da tela ser ativada."
             : "Nenhuma tabela operacional homologada foi localizada para este módulo. A tela permanece em fallback honesto, sem simular salvamento.";
         var item = Catalog.TryGetValue(module, out var found)
             ? found
@@ -76,7 +85,7 @@ public sealed class OperationalDemoService
             NextSteps = new[] { "Validar parâmetros do tenant", "Conferir permissões por perfil", "Importar dados reais quando tabelas estiverem homologadas", "Ativar auditoria de ações críticas" },
             Timeline = new[]
             {
-                new TimelineStep("Criado", "Registro demonstrativo gerado com fallback visual.", "Concluído", "D-5"),
+                new TimelineStep("Criado", "Fallback visual honesto; nenhuma persistência simulada.", "Concluído", "D-5"),
                 new TimelineStep("Em análise", "Setor responsável revisou dados e anexos.", "Em andamento", "D-2"),
                 new TimelineStep("Próxima ação", "Aguardando confirmação do operador com ponto de auditoria.", "Pendente", "Hoje")
             },
@@ -86,14 +95,14 @@ public sealed class OperationalDemoService
         };
     }
 
-    private IReadOnlyList<string> InspectExistingTables(IReadOnlyList<string> tables)
+    private async Task<IReadOnlyList<string>> InspectExistingTablesAsync(IReadOnlyList<string> tables, CancellationToken cancellationToken)
     {
         var found = new List<string>();
         foreach (var table in tables)
         {
             try
             {
-                if (_schemaInspector.TableExistsAsync("sigov", table, CancellationToken.None).GetAwaiter().GetResult())
+                if (await _schemaInspector.TableExistsAsync("sigov", table, cancellationToken).ConfigureAwait(false))
                 {
                     found.Add(table);
                 }
@@ -122,7 +131,7 @@ public sealed class OperationalDemoService
         "Tributario" => new[] { new ModuleKpi("Arrecadação", "R$ 428 mil", "Competência atual"), new ModuleKpi("Débitos", "312", "Em cobrança"), new ModuleKpi("Contribuintes", "8.420", "CPF/CNPJ mascarado"), new ModuleKpi("Guias", "76", "Emitidas hoje", "success") },
         "Protocolo" => new[] { new ModuleKpi("Pendências", "24", "Minhas filas"), new ModuleKpi("Em andamento", "156", "Processos ativos"), new ModuleKpi("Concluídos", "39", "Últimos 7 dias", "success") },
         "Ged" => new[] { new ModuleKpi("Documentos", "2.340", "Indexados"), new ModuleKpi("OCR pendente", "18", "Fila segura", "warning"), new ModuleKpi("Recentes", "42", "Últimas 24h") },
-        _ => new[] { new ModuleKpi("Registros", "128", "Base demonstrativa"), new ModuleKpi("Pendências", "12", "Aguardando ação", "warning"), new ModuleKpi("Concluídos", "87", "No mês", "success"), new ModuleKpi("Alertas", "3", "Requer atenção", "danger") }
+        _ => new[] { new ModuleKpi("Registros", "0", "Fallback sem persistência"), new ModuleKpi("Pendências", "12", "Aguardando ação", "warning"), new ModuleKpi("Concluídos", "87", "No mês", "success"), new ModuleKpi("Alertas", "3", "Requer atenção", "danger") }
     };
 
     private static IReadOnlyList<DemoRecord> BuildRecords(string module, string? q)

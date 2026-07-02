@@ -1,24 +1,25 @@
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Services;
+using Sigov.Web.Services.Operational;
 
 namespace Sigov.Web.Controllers;
 
 public sealed class ProtocoloController : Controller
 {
-    private readonly OperationalDemoService _demo;
+    private readonly ProtocoloOperationalService _demo;
     private readonly ILogger<ProtocoloController> _logger;
     private readonly IAuditTrailService _auditTrail;
-    public ProtocoloController(OperationalDemoService demo, IAuditTrailService auditTrail, ILogger<ProtocoloController> logger) { _demo = demo; _auditTrail = auditTrail; _logger = logger; }
+    public ProtocoloController(ProtocoloOperationalService demo, IAuditTrailService auditTrail, ILogger<ProtocoloController> logger) { _demo = demo; _auditTrail = auditTrail; _logger = logger; }
     [Route("/Protocolo")]
     [Route("/Protocolo/Processos")]
     [Route("/Protocolo/Novo")]
     [Route("/Protocolo/Tramitar")]
     [Route("/Protocolo/MinhasPendencias")]
-    public IActionResult Index(string? q = null) { try { return View("~/Views/Operational/Module.cshtml", _demo.Build("Protocolo", RouteData.Values["action"]?.ToString() ?? "Dashboard", q)); } catch (Exception ex) { _logger.LogError(ex, "Falha Protocolo"); return View("~/Views/Operational/Module.cshtml", _demo.Build("Protocolo")); } }
+    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default) { try { return View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Protocolo", RouteData.Values["action"]?.ToString() ?? "Dashboard", q, cancellationToken)); } catch (Exception ex) { _logger.LogError(ex, "Falha Protocolo"); return View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Protocolo", "Dashboard", q, cancellationToken)); } }
     [Route("/Protocolo/Detalhes/{id:long}")]
-    public IActionResult Detalhes(long id) => View("~/Views/Operational/Module.cshtml", _demo.Build("Protocolo", $"Detalhes #{id}"));
+    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Protocolo", $"Detalhes #{id}", null, cancellationToken));
     [Route("/Protocolo/Tramitar/{id:long}")]
-    public IActionResult Tramitar(long id) => View("~/Views/Operational/Module.cshtml", _demo.Build("Protocolo", $"Tramitar #{id}"));
+    public async Task<IActionResult> Tramitar(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Protocolo", $"Tramitar #{id}", null, cancellationToken));
     [HttpPost, ValidateAntiForgeryToken, Route("/Protocolo/Novo")]
     public async Task<IActionResult> Novo(CancellationToken cancellationToken) { await Audit("protocolo.abrir", null, cancellationToken); TempData["Warning"] = "Protocolo não foi salvo sem schema operacional homologado; sem sucesso falso."; return RedirectToAction(nameof(Index)); }
     [HttpPost, ValidateAntiForgeryToken, Route("/Protocolo/Tramitar/{id:long}")]

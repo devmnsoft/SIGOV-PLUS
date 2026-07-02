@@ -11,6 +11,7 @@ using Serilog.Context;
 using Sigov.Infrastructure;
 using Sigov.Web.Branding;
 using Sigov.Web.Services;
+using Sigov.Web.Services.Operational;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +55,13 @@ builder.Services.AddScoped<MinhaCentralService>();
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
 builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
-builder.Services.AddSingleton<OperationalDemoService>();
+builder.Services.AddScoped<OperationalDemoService>();
+builder.Services.AddScoped<ProtocoloOperationalService>();
+builder.Services.AddScoped<GedOperationalService>();
+builder.Services.AddScoped<TributarioOperationalService>();
+builder.Services.AddScoped<ContratosOperationalService>();
+builder.Services.AddScoped<JuridicoOperationalService>();
+builder.Services.AddScoped<FinanceiroOperationalService>();
 
 var app = builder.Build();
 
