@@ -1,17 +1,14 @@
 # Runtime smoke tests
 
-## 2026-07-02 — Sprint operacional real
+## Validação inicial/final neste ambiente
 
-Ambiente desta sessão não possui `dotnet` nem `docker`; os comandos obrigatórios foram tentados e falharam por limitação de ambiente antes de alterações.
+- `dotnet restore`: não executado com sucesso porque o binário `dotnet` não está instalado no container do agente.
+- `dotnet build`: bloqueado pelo mesmo motivo.
+- `docker compose down` / `docker compose ps`: não executados com sucesso porque o binário `docker` não está instalado no container do agente.
+- Rotas HTTP locais: não executadas porque Docker/.NET não estão disponíveis neste ambiente.
 
-- `dotnet restore && dotnet build`: falhou com `/bin/bash: dotnet: command not found`.
-- `docker compose down && docker compose up -d --build && docker compose ps`: falhou com `/bin/bash: docker: command not found`.
+Os comandos obrigatórios permanecem documentados para execução local/CI com SDK .NET 6 e Docker disponíveis.
 
-Rotas a validar em ambiente com Docker/.NET: `/Auth/Login`, `/Dashboard`, `/MinhaCentral`, `/Protocolo`, `/Ged`, `/Tributario`, `/Contratos`, `/Juridico`, `/Financeiro`, `/Relatorios`, `/Busca?q=teste`, `/Poc`, `/Operacao/Health`, `http://localhost:5001/api/health/live`.
+## Tentativa de rotas HTTP
 
-## Validação final obrigatória — resultado nesta sessão
-
-- `dotnet restore`: não executado por ausência do SDK (`dotnet: command not found`).
-- `dotnet build`: não executado por ausência do SDK (`dotnet: command not found`).
-- `docker compose down/up/ps`: não executado por ausência do Docker (`docker: command not found`).
-- Smoke HTTP com `curl` para as rotas obrigatórias: não conectou porque os containers não puderam subir neste ambiente.
+As rotas `Auth/Login`, `Dashboard`, `MinhaCentral`, `Workflow`, `Tarefas`, `Notificacoes`, `Agenda`, `Integracoes`, `Bi`, `MobileCampo`, `Busca`, `Relatorios`, `Operacao/Health` e `api/health/live` foram tentadas via `curl -I`, mas não havia servidor local em execução porque Docker/.NET não estão disponíveis no container.

@@ -62,6 +62,18 @@ builder.Services.AddScoped<TributarioOperationalService>();
 builder.Services.AddScoped<ContratosOperationalService>();
 builder.Services.AddScoped<JuridicoOperationalService>();
 builder.Services.AddScoped<FinanceiroOperationalService>();
+builder.Services.AddScoped<IOperationalStatusService, OperationalStatusService>();
+builder.Services.AddScoped<OperationalEventService>();
+builder.Services.AddScoped<OutboxSigovService>();
+builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<WorkflowDefinitionService>();
+builder.Services.AddScoped<WorkflowInstanceService>();
+builder.Services.AddScoped<TarefaService>();
+builder.Services.AddScoped<NotificacaoService>();
+builder.Services.AddScoped<AgendaOperacionalService>();
+builder.Services.AddScoped<IntegracaoMonitorService>();
+builder.Services.AddScoped<BiOperacionalService>();
+builder.Services.AddScoped<MobileCampoService>();
 
 var app = builder.Build();
 

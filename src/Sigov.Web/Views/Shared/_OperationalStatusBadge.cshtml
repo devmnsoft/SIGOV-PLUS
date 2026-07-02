@@ -1,6 +1,21 @@
 @model string
 @{
-    var status = Model ?? "Parcial";
-    var css = status switch { "Funcional" => "success", "Parcial" => "primary", "Demonstrativo" => "info text-dark", "Em implantação" => "warning text-dark", "Indisponível" => "danger", _ => "secondary" };
+    var status = string.IsNullOrWhiteSpace(Model) ? "Em implantação" : Model;
+    var css = status switch
+    {
+        "Funcional" => "success",
+        "Parcial" => "primary",
+        "Demonstrativo" => "info",
+        "Concluído" => "success",
+        "Vencido" => "danger",
+        "Cancelado" => "danger",
+        "Pendente" => "warning",
+        "Aguardando" => "warning",
+        "Em andamento" => "info",
+        "Aberto" => "primary",
+        "Arquivado" => "dark",
+        "Indisponível" => "danger",
+        _ => "secondary"
+    };
 }
-<span class="badge bg-@css">@status</span>
+<span class="badge rounded-pill text-bg-@css">@status</span>

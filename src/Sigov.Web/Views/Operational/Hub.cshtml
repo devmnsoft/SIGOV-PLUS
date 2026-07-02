@@ -1,0 +1,20 @@
+@model Sigov.Web.Models.Operational.OperationalHubViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+<nav aria-label="breadcrumb" class="mb-3"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Dashboard">Dashboard</a></li><li class="breadcrumb-item active">@Model.Title</li></ol></nav>
+@if (TempData["Toast"] is string toast) { <div class="alert alert-success" role="status">@toast</div> }
+<section class="p-4 rounded-4 bg-light border mb-4">
+    <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
+        <div><p class="text-uppercase text-muted small mb-1">SIGOV PLUS • Operação transversal</p><h1 class="h3 mb-2">@Model.Title</h1><p class="lead mb-0">@Model.Description</p></div>
+        <a class="btn btn-primary" href="@Model.PrimaryActionUrl">@(!string.IsNullOrWhiteSpace(Model.PrimaryActionText) ? Model.PrimaryActionText : "Ação principal")</a>
+    </div>
+</section>
+@if (!Model.HasRealSchema) { <div class="alert alert-warning"><strong>Fallback honesto:</strong> @Model.FallbackMessage Nenhum salvamento é simulado.</div> }
+<div class="row g-3 mb-4">
+@foreach (var metric in Model.Metrics) { <div class="col-md-4"><div class="card h-100 shadow-sm"><div class="card-body"><div class="text-muted small">@metric.Title</div><div class="display-6 fw-semibold">@metric.Value</div><p class="mb-2">@metric.Hint</p>@await Html.PartialAsync("_OperationalStatusBadge", metric.Status)</div></div></div> }
+</div>
+<div class="card shadow-sm mb-4"><div class="card-header d-flex justify-content-between"><strong>Registros operacionais</strong><span class="text-muted small">Dapper + schema-safe + LGPD</span></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Título</th><th>Módulo</th><th>Entidade</th><th>Responsável</th><th>Prazo</th><th>Status</th><th>Origem</th></tr></thead><tbody>
+@if (!Model.Items.Any()) { <tr><td colspan="7" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr> } else { foreach (var item in Model.Items) { <tr><td><strong>@item.Title</strong><div class="text-muted small">@item.Description</div></td><td>@item.Module</td><td>@item.Entity</td><td>@(item.Responsible ?? "Não atribuído")</td><td>@(item.DueAt?.ToString("dd/MM/yyyy HH:mm") ?? "Sem prazo")</td><td>@await Html.PartialAsync("_OperationalStatusBadge", item.Status)</td><td>@(item.IsFallback ? "Fallback honesto" : "Schema real")</td></tr> } }
+</tbody></table></div></div>
+<div class="row g-3"><div class="col-lg-7"><div class="card h-100"><div class="card-header"><strong>Schema avaliado</strong></div><div class="card-body"><ul class="list-group list-group-flush">@foreach (var s in Model.Schema) { <li class="list-group-item d-flex justify-content-between"><span>sigov.@s.Table <small class="text-muted">(@s.Columns.Count colunas)</small></span>@await Html.PartialAsync("_OperationalStatusBadge", s.Exists ? "Aberto" : "Em implantação")</li> }</ul></div></div></div><div class="col-lg-5"><div class="card h-100"><div class="card-header"><strong>Auditoria e LGPD</strong></div><div class="card-body"><p>Dados pessoais são tratados de forma mínima nesta visão, sem exibir identificadores sensíveis. Ações críticas devem ser confirmadas por modal nas telas específicas e POSTs usam antiforgery.</p><p class="mb-0"><strong>Módulos integrados:</strong> @string.Join(", ", Model.IntegratedModules)</p></div></div></div></div>
