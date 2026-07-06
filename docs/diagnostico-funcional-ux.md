@@ -234,3 +234,7 @@ Esta sprint muda a estratégia de criação de módulos para consolidação do q
 2. Ativar persistência real em Protocolo + GED + Workflow somente com schema confirmado.
 3. Ampliar busca/relatórios com validação de tabela e máscara LGPD.
 4. Aplicar permissões finas nas ações críticas antes de expor botões.
+
+## Complemento RC 1.0.0-rc.2
+
+A revisão final de UX da Release Candidate deve priorizar rotas principais do menu, POC, Dashboard, Minha Central, páginas públicas e módulos parciais. Qualquer erro visível, console JS próprio ou link principal 404 é bloqueante para homologação.

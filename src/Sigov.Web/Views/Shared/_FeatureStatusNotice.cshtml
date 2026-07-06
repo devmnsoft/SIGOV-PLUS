@@ -1,0 +1,19 @@
+@using Sigov.Web.Models.PostBuild
+@model SigovFeatureStatus
+@{
+    var message = Model switch
+    {
+        SigovFeatureStatus.Funcional => "Este módulo está funcional neste ambiente.",
+        SigovFeatureStatus.Parcial => "Este módulo usa dados reais quando o schema está disponível.",
+        SigovFeatureStatus.EmImplantacao => "Esta funcionalidade está em implantação neste ambiente.",
+        SigovFeatureStatus.Demonstrativo => "Esta tela é demonstrativa e não realiza salvamento.",
+        SigovFeatureStatus.Indisponivel => "Ação indisponível por falta de configuração.",
+        _ => "Status operacional não informado para este ambiente."
+    };
+    var css = Model.ToCssClass();
+    var title = Model.ToDisplayName();
+}
+<div class="alert alert-@css d-flex align-items-start gap-2 sigov-feature-status" role="status" aria-live="polite">
+    <span class="fw-semibold">@title:</span>
+    <span>@message</span>
+</div>
