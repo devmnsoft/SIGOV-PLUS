@@ -93,9 +93,24 @@ public sealed class SegurancaController : Controller
     }
     [HttpGet("/Seguranca/Politicas")]
     [HttpGet("/Seguranca/Sessoes")]
-    [HttpGet("/Seguranca/ApiKeys")]
     [HttpGet("/Seguranca/TentativasLogin")]
     public IActionResult Politicas() => View("Politicas", new { Mensagem = "Segurança avançada iniciada com fallback honesto: política de senha, MFA preparado, API keys mascaradas, rate limit e logs dependem do schema/configuração." });
+
+    [HttpGet("/Seguranca/ApiKeys")]
+    [HttpGet("/Seguranca/ApiKeys/Nova")]
+    [HttpGet("/Seguranca/ApiKeys/{id:long}")]
+    public IActionResult ApiKeys(long? id) => View("Politicas", new { Mensagem = $"API Keys por tenant preparadas com prefixo, hash SHA-256, escopos e auditoria. Token completo exibido somente na criação. Id={(id?.ToString() ?? "novo/lista")}. Fallback honesto se sigov.api_key não existir." });
+
+    [HttpPost("/Seguranca/ApiKeys/Nova")]
+    [HttpPost("/Seguranca/ApiKeys/{id:long}/Revogar")]
+    [HttpPost("/Seguranca/ApiKeys/{id:long}/Rotacionar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApiKeysPost(long? id, CancellationToken ct)
+    {
+        await Task.CompletedTask.ConfigureAwait(false);
+        TempData["Warning"] = "Operação de API key exige schema sigov.api_key; nenhuma chave em texto claro foi gravada ou simulada.";
+        return Redirect("/Seguranca/ApiKeys");
+    }
 
     public IActionResult Grupos() => View(new GrupoFormViewModel());
     public IActionResult HistoricoLogin() => View();

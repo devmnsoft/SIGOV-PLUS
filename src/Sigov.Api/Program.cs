@@ -40,7 +40,19 @@ builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardServ
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "sigov API", Version = "v1" });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "SIGOV PLUS API", Version = "v1" });
+    options.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.RouteValues["controller"] ?? "SIGOV" });
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Description = "Informe a API key do tenant no header X-Api-Key. O tenant deve ser enviado em X-Tenant-Id quando aplicável.",
+        In = ParameterLocation.Header,
+        Name = "X-Api-Key",
+        Type = SecuritySchemeType.ApiKey
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" } }] = Array.Empty<string>()
+    });
 });
 builder.Services.AddCors(options =>
 {

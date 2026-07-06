@@ -70,3 +70,14 @@
 3. Ampliar testes automatizados de serviços transversais e permissões por módulo.
 4. Promover módulos parciais somente após persistência, auditoria, LGPD e relatórios comprovados.
 5. Coletar evidências visuais da POC e publicar pacote de release.
+
+
+## Próxima sprint sugerida — Homologação final e release candidate
+- Homologação final dos fluxos externos.
+- Release candidate e congelamento de escopo.
+- Empacotamento de produção e hardening.
+- Documentação comercial e guia de implantação.
+- Matriz de aderência por edital.
+- Testes E2E automatizados.
+- Performance avançada e carga em endpoints críticos.
+- Deploy em ambiente real com observabilidade ativa.

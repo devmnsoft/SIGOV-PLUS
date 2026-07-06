@@ -23,4 +23,13 @@ public sealed class IntegracoesController : Controller
     public IActionResult GovBr() => View(new GovBrConfiguracaoViewModel());
     public IActionResult Assinador() => View();
     [HttpGet("/Integracoes/Logs")] public IActionResult Logs() => View();
+    [HttpGet("/Integracoes/Webhooks")]
+    [HttpGet("/Integracoes/Webhooks/Novo")]
+    [HttpGet("/Integracoes/Webhooks/{id:long}")]
+    public IActionResult Webhooks(long? id) => Content($"Webhooks SIGOV: eventos protocolo.criado, protocolo.tramitado, documento.criado, documento.assinado, tarefa.criada, tarefa.concluida, contrato.criado, obra.medicao_registrada, manifestacao.recebida, chamado.aberto, sla.vencido. HMAC/retry/logs preparados; sem envio de dados sensíveis completos. Id={id?.ToString() ?? "lista/novo"}", "text/plain; charset=utf-8");
+    [HttpPost("/Integracoes/Webhooks/Novo")]
+    [HttpPost("/Integracoes/Webhooks/{id:long}/Testar")]
+    [HttpPost("/Integracoes/Webhooks/{id:long}/Desativar")]
+    [ValidateAntiForgeryToken]
+    public IActionResult WebhooksPost(long? id) { TempData["Warning"] = "Webhook exige URL, secret e schema sigov.webhook_configuracao; nenhum disparo oficial foi simulado."; return Redirect("/Integracoes/Webhooks"); }
 }
