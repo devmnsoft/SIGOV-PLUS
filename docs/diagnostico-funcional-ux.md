@@ -150,3 +150,45 @@ Responsáveis, fiscais, CPF, matrícula e e-mail devem permanecer mascarados em 
 
 ### Pendências
 DDL não destrutiva, regras oficiais de tombamento, cálculo de depreciação, armazenamento validado de fotos, integração SIAFIC oficial, permissões finas por ação e testes em ambiente com Docker/.NET.
+
+## 26. Sprint Matriz de Aderência, Editais e POC Automatizada
+
+### Estado atual da POC
+
+O SIGOV PLUS já possuía rotas de POC operacional, implantação, suporte e aceite formal. Nesta sprint foi adicionada uma camada específica por edital, com roteiro, execução binária e bloqueio conceitual para não aprovar POC com requisito crítico não atendido.
+
+### Estado atual da documentação
+
+Foram criados documentos específicos para matriz de aderência, relatório de schema, smoke tests e checklist manual. A documentação orienta o uso seguro e reforça que fallback não representa funcionalidade persistida.
+
+### Estado atual dos módulos
+
+O catálogo estratégico cobre SaaS/Admin, Segurança, Pessoa/Endereço, RH, Protocolo, GED, Tributário, Contratos, Jurídico, Financeiro, Patrimônio, Obras, Portal, Transparência, Ouvidoria, Saúde, Educação, Saneamento, Social, Agro, BI, API, Integrações e Mobile/Campo.
+
+### Módulos com evidências
+
+Módulos com rotas operacionais e health checks podem ser evidenciados por URL, rota, relatório ou documento, desde que a evidência seja validada no fluxo de editais.
+
+### Módulos apenas em fallback
+
+Sem o schema `sigov.edital*`, os cadastros de edital, requisito, evidência e POC ficam em fallback honesto. O sistema não simula gravação nem atendimento.
+
+### Requisitos já cobertos
+
+Estão cobertos como organização operacional: sistema web, SaaS, multi-tenant, LGPD/auditoria, relatórios, POC, suporte, SLA, implantação, migração e módulos setoriais. A marcação como atendimento depende de evidência.
+
+### Requisitos que precisam evolução
+
+Persistência completa das tabelas de edital/POC, permissões granulares, storage de anexos, exportação PDF/DOCX e integração profunda com cada módulo devem evoluir na próxima sprint.
+
+### Riscos de demonstrar sem persistência
+
+Demonstrar cadastro em fallback pode induzir falsa aderência. Por isso as telas exibem aviso e ações críticas são auditadas/logadas.
+
+### Riscos LGPD
+
+Evidências não devem conter CPF, prontuários, dados de saúde, dados educacionais identificáveis ou documentos pessoais sem base legal, mascaramento e controle de acesso.
+
+### Próximos passos
+
+Criar migrations não destrutivas, habilitar permissões por perfil, ampliar relatórios em `/Relatorios`, integrar `/Busca`, adicionar dashboard operacional e validar em ambiente com .NET/Docker.

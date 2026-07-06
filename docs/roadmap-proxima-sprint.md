@@ -23,3 +23,12 @@
 - API pública com controle de escopo, LGPD e auditoria.
 - BI avançado para patrimônio, inventário, obras, medições e SIAFIC.
 - e-Sfinge/SIAFIC com validações oficiais e trilha de integração.
+
+## Próxima sprint - Editais, matriz e POC
+
+- Criar migrations não destrutivas para `sigov.edital`, requisitos, evidências, POC e relatório técnico.
+- Popular `modulo_saas` com rotas, limitações, documentação e evidências disponíveis.
+- Integrar Dashboard, Minha Central, Busca, Relatórios e permissões granulares.
+- Implementar storage seguro para anexos com classificação LGPD.
+- Implementar exportação PDF/DOCX real para relatório e proposta técnica.
+- Adicionar testes automatizados de rotas e regras contra falso atendimento.
