@@ -74,3 +74,9 @@ scripts/smoke-test-sigov.ps1
 ```
 
 Módulos parciais, demonstrativos ou em implantação não devem ser apresentados como funcionalidades integrais de produção. O fallback honesto permanece obrigatório.
+
+## Pós-RC: homologação real da API v1 e fluxo operacional
+
+A sprint Pós-RC adiciona uma base homologável para API key real, webhooks, outbox e persistência de Protocolo + GED + Workflow. A migration `20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql` é idempotente e não destrutiva, sempre com `tenant_id`, auditoria, LGPD, soft delete, `correlation_id` e índices operacionais. Rotas `/api/v1/*` passam a exigir `X-Api-Key` e `X-Tenant-Id`, com validação por hash e escopos; health permanece público.
+
+Fallback honesto permanece obrigatório: provedores oficiais de assinatura/OCR/storage externo e integrações sem configuração real não devem ser simulados.

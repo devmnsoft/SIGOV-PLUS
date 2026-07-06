@@ -76,3 +76,10 @@ Nenhum item principal foi classificado como indisponível nesta revisão documen
 | Assinatura | /AssinaturasDigitais | Em implantação | Config dependente | Sim | Sim | Baixa | Não | Sim | Depende provedor |
 | Integrações | /Integracoes | Em implantação | Config dependente | Sim | Sim | Baixa | Não | Sim | APIs/webhooks |
 
+
+## Atualização Pós-RC
+
+- Funcional real: schema homologável de API key, webhook, outbox, protocolo, GED, workflow, tarefas, notificações e validação pública.
+- Parcial: telas e actions ainda não conectadas ao serviço de persistência devem manter fallback honesto.
+- Dependente de provedor/configuração: assinatura oficial, OCR, storage externo e entregas HTTP reais.
+- Não disponível: simulação de assinatura oficial, OCR, pagamento/empenho ou exposição de dados sensíveis sem máscara.

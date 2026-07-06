@@ -73,6 +73,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<ApiKeyV1Middleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseCors("SigovCors");
 app.UseMiddleware<SimpleRateLimitMiddleware>();
