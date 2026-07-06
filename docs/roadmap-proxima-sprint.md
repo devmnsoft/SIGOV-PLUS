@@ -32,3 +32,33 @@
 - Implementar storage seguro para anexos com classificação LGPD.
 - Implementar exportação PDF/DOCX real para relatório e proposta técnica.
 - Adicionar testes automatizados de rotas e regras contra falso atendimento.
+
+## Consolidação funcional SIGOV PLUS - próxima sprint recomendada
+
+### Funcional agora
+- Login, Dashboard, relatórios administrativos e módulos com serviços já ligados a tabelas existentes.
+- Controllers navegáveis com fallback honesto para áreas ainda não persistidas.
+
+### Parcial com schema
+- Protocolo/GED/Workflow/Tarefas/Notificações após aplicação da migration `20260706120000_consolidacao_modulos_transversais.sql`.
+- Compras/Licitações/Contratos, Patrimônio/Obras e Portal/Ouvidoria dependem de validação do schema report local.
+
+### Fallback honesto
+- Ações oficiais como contrato, empenho, pagamento, tombamento, medição, assinatura e protocolo permanecem sem simulação quando o schema ou integrações oficiais não estiverem homologados.
+
+### Próximas migrations
+- Chaves estrangeiras condicionais após auditoria de dados legados.
+- Índices específicos por relatórios mais usados.
+- Campos de auditoria complementares por usuário/tenant onde ausentes.
+
+### Próximas integrações
+- Persistência transacional Protocolo + GED + Workflow.
+- Outbox worker com reprocessamento operacional.
+- Busca e relatórios por fonte real com máscara LGPD.
+
+### Próxima sprint recomendada
+1. Aplicar migrations em ambiente de homologação.
+2. Rodar schema report e revisar gaps restantes.
+3. Implementar services reais por fluxo, começando por Protocolo + GED + Workflow.
+4. Cobrir permissões finas e auditoria de exportações/downloads.
+5. Executar smoke test e POC com checklist manual.

@@ -192,3 +192,45 @@ Evidências não devem conter CPF, prontuários, dados de saúde, dados educacio
 ### Próximos passos
 
 Criar migrations não destrutivas, habilitar permissões por perfil, ampliar relatórios em `/Relatorios`, integrar `/Busca`, adicionar dashboard operacional e validar em ambiente com .NET/Docker.
+
+## 27. Sprint de consolidação funcional e integração real dos módulos existentes
+
+### Síntese
+
+Esta sprint muda a estratégia de criação de módulos para consolidação do que já existe. A aplicação contém controllers navegáveis e serviços operacionais com fallback honesto; a evolução segura exige confirmar schema, habilitar persistência real apenas onde houver tabela/colunas, preservar Dapper, auditoria, LGPD e multi-tenancy.
+
+### Classificação inicial
+
+- **Módulos já existentes:** ver `docs/inventario-modulos-sigov.md`.
+- **Persistência real:** SaaS/Admin, usuários/tenants, relatórios administrativos e partes de cadastros setoriais onde migrations já existem.
+- **Apenas navegáveis/fallback:** fluxos críticos de Protocolo, GED, Workflow, Tarefas, Notificações e módulos operacionais ainda dependem de confirmação do schema.
+- **POST sem persistência:** ações críticas mantêm antiforgery/auditoria e mensagem honesta quando o schema não está homologado.
+- **Sem auditoria/LGPD/relatório/busca:** marcados como prioridade de endurecimento no inventário e no checklist LGPD.
+
+| Módulo | Controller | Service | Views | Tabelas | Status | Salva? | Fallback? | Auditoria? | LGPD? | Busca? | Relatório? | Prioridade |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Protocolo | ProtocoloController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P1 |
+| GED | GEDController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P2 |
+| Workflow | WorkflowController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P3 |
+| Tarefas | TarefasController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P4 |
+| Notificações | NotificaçõesController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P5 |
+| Compras | ComprasController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P6 |
+| Licitações | LicitaçõesController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P7 |
+| Contratos | ContratosController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P8 |
+| Financeiro/SIAFIC | FinanceiroController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P9 |
+| Patrimônio | PatrimônioController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Almoxarifado | AlmoxarifadoController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Obras | ObrasController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Portal/Ouvidoria | PortalController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Dashboard/Minha Central | DashboardController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Busca | BuscaController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Relatórios | RelatóriosController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| Outbox/Worker | OutboxController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+| LGPD/Auditoria | LGPDController quando existente | ver inventário | Operational/Module, Hub ou view própria | ver gaps-schema | Parcial | Somente onde schema existe | Sim, honesto | Parcial | Parcial | Parcial | Parcial | P10 |
+
+### Prioridades
+
+1. Validar migrations aditivas transversais.
+2. Ativar persistência real em Protocolo + GED + Workflow somente com schema confirmado.
+3. Ampliar busca/relatórios com validação de tabela e máscara LGPD.
+4. Aplicar permissões finas nas ações críticas antes de expor botões.
