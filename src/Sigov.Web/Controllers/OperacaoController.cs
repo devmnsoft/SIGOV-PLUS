@@ -20,6 +20,11 @@ public sealed class OperacaoController : Controller
     [HttpGet("/Operacao/Logs")]
     [HttpGet("/Operacao/AuditoriaTecnica")]
     [HttpGet("/Operacao/Metricas")]
+    [HttpGet("/Operacao/ApiLogs")]
+    [HttpGet("/Operacao/Webhooks")]
+    [HttpGet("/Operacao/Outbox")]
+    [HttpGet("/Operacao/Worker")]
+    [HttpGet("/Operacao/MetricasFluxos")]
     [HttpGet("/Operacao/Erros")]
     [HttpGet("/Operacao/Backup")]
     public IActionResult Observabilidade() => View("Observabilidade", new OperacaoObservabilidadeViewModel(Request.Path.Value ?? "/Operacao/Logs"));

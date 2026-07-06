@@ -15,7 +15,7 @@ public sealed class AssinaturasDigitaisController : Controller
     public IActionResult Index() => View(new AssinaturasDigitaisViewModel());
     [HttpGet("/AssinaturasDigitais/Nova")] public IActionResult Nova() => View("Index", new AssinaturasDigitaisViewModel { Foco = "Nova solicitação" });
     [HttpGet("/AssinaturasDigitais/{id:long}")] public IActionResult Detalhe(long id) => View("Index", new AssinaturasDigitaisViewModel { Foco = $"Solicitação #{id}" });
-    [HttpPost("/AssinaturasDigitais/Nova")][ValidateAntiForgeryToken]
+    [HttpPost("/AssinaturasDigitais/Nova")][HttpPost("/AssinaturasDigitais/{id:long}/Assinar")][HttpPost("/AssinaturasDigitais/{id:long}/Recusar")][HttpPost("/AssinaturasDigitais/{id:long}/Cancelar")][ValidateAntiForgeryToken]
     public async Task<IActionResult> Solicitar(CancellationToken ct)
     {
         try { await _auditTrail.RegistrarAsync(null, null, "assinatura.solicitar", "assinatura_documento", null, null, new { status="em_implantacao" }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct); TempData["Warning"] = "Assinatura eletrônica interna em implantação; não há simulação de validade ICP-Brasil."; }

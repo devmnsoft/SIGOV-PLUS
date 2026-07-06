@@ -238,3 +238,21 @@ Esta sprint muda a estratégia de criação de módulos para consolidação do q
 ## Complemento RC 1.0.0-rc.2
 
 A revisão final de UX da Release Candidate deve priorizar rotas principais do menu, POC, Dashboard, Minha Central, páginas públicas e módulos parciais. Qualquer erro visível, console JS próprio ou link principal 404 é bloqueante para homologação.
+
+## 29. Sprint API, Mobile/Offline, Assinatura, BI avançado e Integrações
+
+| Área | Rotas | Controllers | Services | Tabelas | Status | Funcional | Parcial | Fallback | Pendências |
+|---|---|---|---|---|---|---|---|---|---|
+| API dos fluxos | `/api/v1/protocolos`, `/documentos`, `/tarefas`, `/notificacoes`, `/fluxos` | `*ApiController` | `ExternalApiEnvelope` | tabelas dos fluxos | Preparado | Envelope e paginação | Persistência por schema | Sim | Autenticação real por API key/JWT |
+| API Keys | `/Seguranca/ApiKeys` | `SegurancaController` | `ApiKeyService` | `api_key`, `api_key_escopo`, `api_requisicao_log` | Preparado | Hash/escopos | CRUD fallback | Sim | Persistir e auditar em DB |
+| Webhooks | `/Integracoes/Webhooks` | `IntegracoesController` | `WebhookService` | `webhook_configuracao`, `webhook_entrega`, `evento_operacional` | Preparado | Eventos/HMAC | Retry depende worker | Sim | Entregador real |
+| Mobile/Campo | `/MobileCampo/*`, `/api/v1/mobile/*` | `MobileCampoController`, `MobileSyncApiController` | payload versionado | `campo_*` | Preparado | Pull/push | Evidências dependem storage | Sim | Resolver conflitos real |
+| Offline/Sincronização | `/MobileCampo/Sincronizacao`, `/api/v1/mobile/sync/*` | `MobileSyncApiController` | regras de conflito | `campo_sincronizacao` | Preparado | Contrato API | Sem persistência local web | Sim | App/PWA IndexedDB |
+| Assinatura Digital | `/AssinaturasDigitais`, `/api/v1/assinaturas` | `AssinaturasDigitaisController`, `AssinaturasApiController` | assinatura simples/provider | `assinatura_*` | Preparado | Fluxo simples | ICP configurável | Sim | Provider Gov.br/ICP real |
+| Validação de Documentos | `/ValidarDocumento` | `ValidacaoDocumentoController` | validação pública | `portal_validacao_documento` | Criado | Código/hash | Download depende permissão | Sim | QR Code e storage público |
+| BI Avançado | `/Bi/Fluxos`, `/api/v1/bi/indicadores` | `BiController`, `BiApiController` | BI operacional | `bi_indicador`, `bi_dashboard` | Preparado | Indicadores base | Dados dependem tabelas | Sim | Queries consolidadas reais |
+| Integrações Oficiais | `/Integracoes` | `IntegracoesController` | monitor/conectores | `integracao_sistema`, `integracao_log` | Preparado | Governança | Sem simulação oficial | Sim | Configurações reais |
+| Observabilidade | `/Operacao/ApiLogs`, `/Webhooks`, `/Outbox`, `/Worker`, `/MetricasFluxos` | `OperacaoController` | logs operacionais | `api_requisicao_log`, `outbox_evento` | Preparado | Rotas | Métricas reais pendentes | Sim | Persistência e dashboards |
+| Segurança | API key/JWT, CORS, rate limit | middlewares/API v1 | `ApiKeyService` | `api_key` | Preparado | Hash/escopos | Filtro real pendente | Sim | Middleware de API key persistente |
+| LGPD | APIs, mobile, webhooks | API v1 | `LgpdExternalMaskingService` | auditoria/logs | Revisado | Mascaramento | Políticas por dado pendentes | Sim | DPIA por módulo sensível |
+| Auditoria | operações críticas | MVC/API | auditoria existente | `auditoria_evento` | Preparado | correlationId | DB depende schema | Sim | Relatórios de auditoria |
