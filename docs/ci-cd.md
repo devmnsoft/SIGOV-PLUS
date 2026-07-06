@@ -1,9 +1,7 @@
 # CI/CD
 
-O workflow `.github/workflows/ci.yml` executa restore, build Release, testes Release e build Docker para API, Web e Worker. Não há secrets hardcoded para publicação de imagens.
+Workflow mínimo em `.github/workflows/ci.yml`: checkout, setup .NET, restore, build, test, docker build de API/Web/Worker e publicação de resultados TRX/logs quando aplicável.
 
-## Comandos locais equivalentes
-
-```powershell
-scripts/validate.ps1
-```
+Segurança: não expor secrets; usar variáveis do GitHub Actions; banco PostgreSQL efêmero para testes.
+## Evidência desta execução
+O ambiente de agente em 2026-07-06 não possui `dotnet` nem `docker`; por isso comandos finais foram tentados e classificados como limitação operacional, não como aprovação técnica. A validação deve ser repetida em runner/estação com SDK .NET e Docker.

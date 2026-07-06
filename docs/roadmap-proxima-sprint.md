@@ -62,3 +62,11 @@
 3. Implementar services reais por fluxo, começando por Protocolo + GED + Workflow.
 4. Cobrir permissões finas e auditoria de exportações/downloads.
 5. Executar smoke test e POC com checklist manual.
+
+## Próxima sprint recomendada após RC 1.0.0-rc.2
+
+1. Executar validação completa em ambiente com .NET SDK e Docker.
+2. Corrigir falhas reais de build/test/smoke/menu/console encontradas na homologação.
+3. Ampliar testes automatizados de serviços transversais e permissões por módulo.
+4. Promover módulos parciais somente após persistência, auditoria, LGPD e relatórios comprovados.
+5. Coletar evidências visuais da POC e publicar pacote de release.

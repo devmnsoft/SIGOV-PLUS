@@ -140,3 +140,17 @@ scripts/docker-reset.ps1
 ## Produção/homologação técnica
 
 Use `docker-compose.prod.yml` como base para produção. Ele não expõe o PostgreSQL publicamente e exige secrets por variáveis de ambiente, especialmente `POSTGRES_PASSWORD` e `ConnectionStrings__DefaultConnection`.
+
+## Complemento Release Candidate 1.0.0-rc.2
+
+Sequência obrigatória para validação Docker da RC:
+
+```powershell
+docker compose down
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=200
+scripts/smoke-test-sigov.ps1
+```
+
+Validar PostgreSQL, migrations, API, Worker, Web, storage local, variáveis de ambiente e ausência de restart loop. Nesta execução do agente, Docker não estava instalado no container e a evidência foi registrada em `docs/runtime-smoke-tests.md`.

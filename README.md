@@ -57,3 +57,20 @@ O antigo conteúdo de conformidade/aderência fica tratado como módulo acessór
 - Etapa RH: módulo Recursos Humanos com cadastros de servidores/cargos/lotações/vínculos, folha inicial, ponto/frequência, férias/afastamentos, saúde ocupacional, eSocial estrutural, portal do servidor, dashboards, exportação CSV/JSON, auditoria JSONB, LGPD, outbox e integração preparada com Financeiro/SIAFIC.
 
 Etapa concluída: Recursos Humanos – Próxima etapa: Gestão de Patrimônio/Inventário/Obras (integração RH e Financeiro).
+
+## Release Candidate 1.0.0-rc.2
+
+Esta versão candidata congela o escopo do SIGOV PLUS para homologação técnica/comercial sem abrir módulos novos. A matriz oficial de status está em [`docs/matriz-modulos-release-candidate.md`](docs/matriz-modulos-release-candidate.md) e o escopo está em [`docs/release-candidate-escopo.md`](docs/release-candidate-escopo.md).
+
+Comandos esperados para validação em ambiente com .NET SDK e Docker:
+
+```powershell
+dotnet clean
+dotnet restore
+dotnet build
+dotnet test
+docker compose up -d --build
+scripts/smoke-test-sigov.ps1
+```
+
+Módulos parciais, demonstrativos ou em implantação não devem ser apresentados como funcionalidades integrais de produção. O fallback honesto permanece obrigatório.
