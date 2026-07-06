@@ -14,12 +14,16 @@ public sealed class ObrasController : Controller
     public ObrasController(ObrasService service, IAuditTrailService auditTrail, ILogger<ObrasController> logger) { _service = service; _auditTrail = auditTrail; _logger = logger; }
 
     [HttpGet, Route("/Obras")]
+    [Route("/Obras/Dashboard")]
     [Route("/Obras/Listar")]
     [Route("/Obras/Nova")]
     [Route("/Obras/Medicoes")]
     [Route("/Obras/Diario")]
+    [Route("/Obras/Diario/Novo")]
+    [Route("/Obras/Medicoes/Nova")]
     [Route("/Obras/Fotos")]
     [Route("/Obras/Fiscalizacao")]
+    [Route("/Obras/Relatorios")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
@@ -32,7 +36,13 @@ public sealed class ObrasController : Controller
     [HttpGet, Route("/Obras/Bens/{id:long}")]
     public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Obras", $"Detalhes #{id}", null, cancellationToken).ConfigureAwait(false));
 
+    [HttpGet, Route("/Obras/ObrasCsv")]
+    public IActionResult ObrasCsv() => File(System.Text.Encoding.UTF8.GetBytes("mensagem\nExportação em implantação neste ambiente; schema obra não confirmado.\n"), "text/csv; charset=utf-8", "obras.csv");
+
     [HttpPost, ValidateAntiForgeryToken, Route("/Obras/Nova")]
+    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/Medicoes/Nova")]
+    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/Diario/Novo")]
+    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/{id:long}/Fotos")]
     public async Task<IActionResult> Salvar(CancellationToken cancellationToken)
     {
         await Audit("obra.criar", "obra", null, cancellationToken).ConfigureAwait(false);

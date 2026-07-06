@@ -1,15 +1,14 @@
 # Runtime smoke tests
 
-## Sprint setorial — 2026-07-02
+## 2026-07-06 — validação inicial/final neste runner
 
-### Validação inicial obrigatória
+| Comando | Resultado | Observação |
+|---|---|---|
+| `dotnet restore` | Falhou | `dotnet: command not found` no ambiente. |
+| `dotnet build` | Falhou | `dotnet: command not found` no ambiente. |
+| `docker compose down` | Falhou | `docker: command not found` no ambiente. |
+| `docker compose up -d --build` | Falhou | `docker: command not found` no ambiente. |
+| `docker compose ps` | Falhou | `docker: command not found` no ambiente. |
+| `curl http://localhost:8080/Auth/Login` e rotas principais | Falhou | Aplicação não pôde subir sem Docker/.NET; conexões recusadas. |
 
-- `dotnet restore`: não executado com sucesso neste container porque o comando `dotnet` não está instalado.
-- `dotnet build`: não executado com sucesso neste container porque o comando `dotnet` não está instalado.
-- `docker compose down`: não executado com sucesso neste container porque o comando `docker` não está instalado.
-- `docker compose up -d --build`: não executado com sucesso neste container porque o comando `docker` não está instalado.
-- `docker compose ps`: não executado com sucesso neste container porque o comando `docker` não está instalado.
-
-### Rotas a validar em ambiente completo
-
-`/Auth/Login`, `/Dashboard`, `/MinhaCentral`, `/Educacao`, `/Saude`, `/Acs`, `/Saneamento`, `/Social`, `/Agro`, `/PortalCidadao`, `/PortalContribuinte`, `/Ouvidoria`, `/MobileCampo`, `/Gis`, `/BiSetorial`, `/Busca?q=teste`, `/Relatorios`, `/Operacao/Health` e `http://localhost:5001/api/health/live`.
+As falhas são limitação do ambiente de execução, não erro funcional confirmado do SIGOV PLUS. A sprint mantém fallback honesto e schema-safe até validação em ambiente com .NET 6, Docker e PostgreSQL.

@@ -14,3 +14,12 @@
 - Conectar eventos setoriais ao Workflow/Tarefas/Notificações/Agenda com regras parametrizadas.
 - Evoluir CSV seguro e auditoria de exportação por módulo.
 - Implementar offline sync real para Mobile/Campo sem simulação.
+
+## Próxima sprint — recomendações pós Patrimônio/Inventário/Obras
+
+- Transparência e Portal do Cidadão com dados públicos derivados de contratos, obras e pagamentos.
+- Ouvidoria integrada a protocolo, fiscalização e diário de obra.
+- Assinatura Digital para medições, termos de aceite, notificações e relatórios fotográficos.
+- API pública com controle de escopo, LGPD e auditoria.
+- BI avançado para patrimônio, inventário, obras, medições e SIAFIC.
+- e-Sfinge/SIAFIC com validações oficiais e trilha de integração.

@@ -70,6 +70,7 @@ builder.Services.AddScoped<ComprasService>();
 builder.Services.AddScoped<LicitacoesService>();
 builder.Services.AddScoped<AlmoxarifadoService>();
 builder.Services.AddScoped<PatrimonioService>();
+builder.Services.AddScoped<InventarioService>();
 builder.Services.AddScoped<FrotasService>();
 builder.Services.AddScoped<ObrasService>();
 builder.Services.AddScoped<TransparenciaService>();
