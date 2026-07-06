@@ -12,6 +12,7 @@ using Sigov.Infrastructure;
 using Sigov.Web.Branding;
 using Sigov.Web.Services;
 using Sigov.Web.Services.Operational;
+using Sigov.Web.Services.Editais;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -103,6 +104,7 @@ builder.Services.AddScoped<PocService>();
 builder.Services.AddScoped<PocRoteiroService>();
 builder.Services.AddScoped<PocEvidenciaService>();
 builder.Services.AddScoped<AceiteFormalService>();
+builder.Services.AddScoped<EditalPocService>();
 
 var app = builder.Build();
 
