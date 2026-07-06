@@ -15,10 +15,14 @@ public sealed class PatrimonioController : Controller
 
     [HttpGet, Route("/Patrimonio")]
     [Route("/Patrimonio/Bens")]
+    [Route("/Patrimonio/Dashboard")]
     [Route("/Patrimonio/Bens/Novo")]
     [Route("/Patrimonio/Movimentos")]
+    [Route("/Patrimonio/Localizacoes")]
+    [Route("/Patrimonio/Responsaveis")]
     [Route("/Patrimonio/Inventario")]
     [Route("/Patrimonio/Depreciacao")]
+    [Route("/Patrimonio/Relatorios")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
@@ -26,12 +30,18 @@ public sealed class PatrimonioController : Controller
     }
 
     [HttpGet, Route("/Patrimonio/Detalhes/{id:long}")]
+    [HttpGet, Route("/Patrimonio/Bens/{id:long}/Editar")]
     [HttpGet, Route("/Patrimonio/Solicitacoes/{id:long}")]
     [HttpGet, Route("/Patrimonio/Processos/{id:long}")]
     [HttpGet, Route("/Patrimonio/Bens/{id:long}")]
     public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Patrimonio", $"Detalhes #{id}", null, cancellationToken).ConfigureAwait(false));
 
+    [HttpGet, Route("/Patrimonio/BensCsv")]
+    public IActionResult BensCsv() => File(System.Text.Encoding.UTF8.GetBytes("mensagem\nExportação em implantação neste ambiente; schema patrimonio_bem não confirmado.\n"), "text/csv; charset=utf-8", "patrimonio-bens.csv");
+
     [HttpPost, ValidateAntiForgeryToken, Route("/Patrimonio/Bens/Novo")]
+    [HttpPost, ValidateAntiForgeryToken, Route("/Patrimonio/Bens/{id:long}/Editar")]
+    [HttpPost, ValidateAntiForgeryToken, Route("/Patrimonio/Bens/{id:long}/Baixar")]
     public async Task<IActionResult> Salvar(CancellationToken cancellationToken)
     {
         await Audit("patrimonio_bem.criar", "patrimonio_bem", null, cancellationToken).ConfigureAwait(false);

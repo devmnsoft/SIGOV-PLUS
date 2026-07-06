@@ -43,7 +43,7 @@ public sealed class PatrimonioService : OperationalModuleDataServiceBase
 {
     public PatrimonioService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<PatrimonioService> l) : base(c, s, a, f, l) { }
     protected override string ModuleKey => "Patrimonio";
-    protected override IReadOnlyList<string> CandidateTables => new[] { "patrimonio_bem", "patrimonio_movimento", "patrimonio_inventario", "patrimonio_depreciacao" };
+    protected override IReadOnlyList<string> CandidateTables => new[] { "patrimonio_bem", "patrimonio_grupo", "patrimonio_localizacao", "patrimonio_responsavel", "patrimonio_movimento", "patrimonio_inventario", "patrimonio_inventario_item", "patrimonio_baixa", "patrimonio_depreciacao", "rh_servidor", "rh_lotacao" };
 }
 public sealed class FrotasService : OperationalModuleDataServiceBase
 {
@@ -55,11 +55,17 @@ public sealed class ObrasService : OperationalModuleDataServiceBase
 {
     public ObrasService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<ObrasService> l) : base(c, s, a, f, l) { }
     protected override string ModuleKey => "Obras";
-    protected override IReadOnlyList<string> CandidateTables => new[] { "obra", "obra_medicao", "obra_diario", "obra_foto", "obra_fiscalizacao" };
+    protected override IReadOnlyList<string> CandidateTables => new[] { "obra", "obra_contrato", "obra_medicao", "obra_diario", "obra_foto", "obra_ocorrencia", "obra_fiscalizacao", "obra_garantia", "contrato", "contrato_fiscal" };
 }
 public sealed class TransparenciaService : OperationalModuleDataServiceBase
 {
     public TransparenciaService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<TransparenciaService> l) : base(c, s, a, f, l) { }
     protected override string ModuleKey => "Transparencia";
     protected override IReadOnlyList<string> CandidateTables => new[] { "receita_arrecadada", "empenho", "pagamento", "contrato", "licitacao", "servidor", "obra" };
+}
+public sealed class InventarioService : OperationalModuleDataServiceBase
+{
+    public InventarioService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<InventarioService> l) : base(c, s, a, f, l) { }
+    protected override string ModuleKey => "Inventario";
+    protected override IReadOnlyList<string> CandidateTables => new[] { "patrimonio_inventario", "patrimonio_inventario_item", "patrimonio_bem", "patrimonio_localizacao", "patrimonio_responsavel" };
 }

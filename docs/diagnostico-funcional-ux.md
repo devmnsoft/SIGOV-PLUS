@@ -123,3 +123,30 @@ Esta sprint reposiciona Protocolo, GED/OCR, Tributário, Contratos, Jurídico e 
 | GIS | `/Gis` | `GisController` | Sectors | `SectorModuleService` | `gis_*` | Ver relatório | Em implantação | Camadas/mapa placeholder | Não | Sim | Geolocalização | Média |
 | BI Setorial | `/BiSetorial` | `BiSetorialController` | Sectors | `SectorModuleService` | agregadas setoriais | Ver relatório | Em implantação | KPIs com fonte real quando houver | Não aplicável | Sim | Agregação | Média |
 | Relatórios Setoriais | `/Relatorios` | `RelatoriosController` | existentes | existentes/futuro | setoriais | Ver relatório | Parcial | Base para CSV seguro | Só com schema | Sim | Exportação | Alta |
+
+## 24. Sprint Patrimônio, Inventário e Obras
+
+### Estado atual
+- **Patrimônio:** módulo operacional parcial com Dapper e inspeção de schema; rotas de dashboard, bens, localizações, responsáveis, movimentos, depreciação, relatórios e CSV seguro.
+- **Inventário:** fluxo inicial rastreável para campanhas, itens, conclusão, divergências e relatórios; sem simular conclusão quando não há tabelas.
+- **Obras:** módulo operacional parcial para obras, medições, diário, fotos, fiscalização, relatórios e CSV.
+- **Contratos:** integração preparada por tabelas `contrato`, `contrato_aditivo`, `contrato_fiscal` e `contrato_documento`.
+- **Almoxarifado:** integração preparada por `almoxarifado_produto` e `almoxarifado_movimento`.
+- **RH integrado:** responsáveis/fiscais previstos por `rh_servidor` e `rh_lotacao`, com mascaramento e minimização LGPD.
+- **Financeiro/SIAFIC integrado:** ponte prevista por `conta_pagar`, `empenho`, `liquidacao`, `pagamento`, `patrimonio_bem` e `obra_medicao`.
+
+### Tabelas monitoradas
+`pessoa`, `endereco`, `rh_servidor`, `rh_lotacao`, `contrato`, `contrato_aditivo`, `contrato_fiscal`, `contrato_documento`, `almoxarifado_produto`, `almoxarifado_movimento`, tabelas `patrimonio_*`, tabelas `obra_*`, `conta_pagar`, `empenho`, `liquidacao`, `pagamento` e `auditoria_evento`.
+
+### Rotas e componentes
+Controllers existentes/evoluídos: `PatrimonioController`, `ObrasController`, `ContratosController`, `AlmoxarifadoController`, `RhController`, `FinanceiroController`, `MobileCampoController`, `BuscaController`, `RelatoriosController`. Criado `InventarioController`.
+Services existentes/evoluídos: `PatrimonioService`, `ObrasService`; criado `InventarioService`; todos usam `IDatabaseSchemaInspector` via base operacional.
+
+### Funcional/parcial/fallback
+Funcional quando as tabelas reais existem e colunas são detectadas por `information_schema`. Parcial quando uma parte do schema existe. Fallback honesto quando nenhuma tabela física é encontrada, com status “Em implantação neste ambiente”.
+
+### Riscos LGPD
+Responsáveis, fiscais, CPF, matrícula e e-mail devem permanecer mascarados em listagens e exportações. Evidências fotográficas futuras exigem finalidade, retenção e controle de acesso.
+
+### Pendências
+DDL não destrutiva, regras oficiais de tombamento, cálculo de depreciação, armazenamento validado de fotos, integração SIAFIC oficial, permissões finas por ação e testes em ambiente com Docker/.NET.

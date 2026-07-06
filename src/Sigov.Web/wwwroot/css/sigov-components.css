@@ -9,3 +9,6 @@
 .sigov-assistant{position:fixed;right:1rem;bottom:1rem;z-index:1080}.sigov-assistant[hidden]{display:block}.sigov-assistant[hidden] .sigov-assistant__panel{display:none}.sigov-assistant__panel{width:min(360px,calc(100vw - 2rem));box-shadow:0 24px 80px rgba(15,23,42,.22);margin-bottom:.75rem}.sigov-assistant__fab{width:3.25rem;height:3.25rem;border:0;border-radius:999px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:800;box-shadow:0 16px 40px rgba(37,99,235,.35)}
 .sigov-hero{background:radial-gradient(circle at top left,rgba(37,99,235,.12),transparent 35%),linear-gradient(135deg,#fff,#f8fafc)}
 .fw-black{font-weight:900}.sigov-table-wrap{overflow-x:auto}.sigov-card{border:1px solid rgba(148,163,184,.22);border-radius:1.25rem;background:var(--sigov-surface,#fff);box-shadow:0 10px 30px rgba(15,23,42,.05)}
+.asset-partial,.sigov-asset-card{border-radius:1.25rem;background:linear-gradient(135deg,#fff,#f8fafc)}
+.sigov-asset-hero{border-radius:1.5rem;background:linear-gradient(135deg,#0f172a,#1d4ed8);color:#fff;padding:1.5rem;margin-bottom:1rem}
+.sigov-asset-hero .badge{background:rgba(255,255,255,.16);color:#fff}

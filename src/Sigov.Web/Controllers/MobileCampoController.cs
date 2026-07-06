@@ -54,5 +54,9 @@ public sealed class MobileCampoController : Controller
     public MobileCampoController(Sigov.Web.Services.SectorModuleService service) => _service = service;
     [Route("/MobileCampo")]
     [Route("/MobileCampo/{pagina}")]
+    [Route("/MobileCampo/Inventario")]
+    [Route("/MobileCampo/Obras")]
+    [Route("/MobileCampo/Evidencias")]
+    [Route("/MobileCampo/Sincronizacao")]
     public async Task<IActionResult> Index(string? pagina, string? q, CancellationToken cancellationToken) => View("~/Views/Sectors/Module.cshtml", await _service.BuildAsync("Mobile/Campo", $"Mobile/Campo{(pagina is null ? "" : " — " + pagina)}", "Roteiros, coletas, evidências e sincronização offline planejada sem simulação.", new[] { "Roteiros", "Coletas", "Evidências", "Sincronização" }, new[] { "/MobileCampo/Roteiros", "/MobileCampo/Coletas", "/MobileCampo/Evidencias", "/MobileCampo/Sincronizacao" }, true, q, cancellationToken));
 }
