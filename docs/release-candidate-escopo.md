@@ -83,3 +83,11 @@ Nenhum item principal foi classificado como indisponível nesta revisão documen
 - Parcial: telas e actions ainda não conectadas ao serviço de persistência devem manter fallback honesto.
 - Dependente de provedor/configuração: assinatura oficial, OCR, storage externo e entregas HTTP reais.
 - Não disponível: simulação de assinatura oficial, OCR, pagamento/empenho ou exposição de dados sensíveis sem máscara.
+
+## Pós-RC 02 — persistência real operacional
+
+- Funcional real: API v1 com API key/tenant/escopos, Protocolo e GED persistindo nas tabelas Pós-RC, Outbox worker consumindo sigov.outbox_evento.
+- Parcial: telas MVC administrativas continuam com fallback honesto quando ação/formulário não possui todos os dados reais.
+- Dependente de provedor: OCR, ICP/Gov.br e entrega externa oficial de webhooks.
+- LGPD: respostas e logs não devem expor dados pessoais completos nem token claro.
+

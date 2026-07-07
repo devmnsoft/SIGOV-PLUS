@@ -1,12 +1,9 @@
-# Smoke test Release Candidate
+# Smoke test Release Candidate SIGOV PLUS
 
-O script `scripts/smoke-test-sigov.ps1` foi revisado para testar rotas principais Web/API, registrar status HTTP, continuar após falhas e gerar resumo final.
+Arquivo gerado/atualizado para Pós-RC 02. Execute:
 
-Resultado desta execução: pendente por ausência de `dotnet`/`docker` e serviços locais ativos no ambiente do agente.
+```powershell
+pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
+```
 
-## Atualização Pós-RC
-
-- Funcional real: schema homologável de API key, webhook, outbox, protocolo, GED, workflow, tarefas, notificações e validação pública.
-- Parcial: telas e actions ainda não conectadas ao serviço de persistência devem manter fallback honesto.
-- Dependente de provedor/configuração: assinatura oficial, OCR, storage externo e entregas HTTP reais.
-- Não disponível: simulação de assinatura oficial, OCR, pagamento/empenho ou exposição de dados sensíveis sem máscara.
+Cobertura: rotas web principais, health checks, API v1 sem chave (401 esperado) e API v1 com chave válida quando `SIGOV_SMOKE_API_KEY` e `SIGOV_SMOKE_TENANT_ID` estiverem definidos.

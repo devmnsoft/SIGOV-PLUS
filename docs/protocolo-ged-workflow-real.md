@@ -1,8 +1,15 @@
-# Pós-RC SIGOV PLUS
+# Protocolo, GED e Workflow reais
 
-Documento operacional da homologação Pós-RC.
+## Protocolo
 
-- Funcional real: schema tenant-aware, auditoria, correlação, LGPD e fallback honesto.
-- Parcial: telas/APIs que ainda dependem de conexão de serviço devem declarar indisponibilidade sem simular persistência.
-- Dependente de provedor/configuração: assinatura oficial, OCR e entregas HTTP externas.
-- Não disponível: aprovação automática sem evidência real ou exposição de dados sensíveis sem máscara.
+`POST /api/v1/protocolos` gera número sequencial por tenant/exercício, persiste `sigov.protocolo`, cria `sigov.workflow_instancia`, tarefa inicial, notificação e evento `protocolo.criado` em `sigov.outbox_evento`.
+
+`POST /api/v1/protocolos/{id}/tramitar` registra `sigov.protocolo_movimento`, conclui tarefas pendentes do protocolo, cria nova tarefa/notificação e publica `protocolo.tramitado`.
+
+## GED
+
+`POST /api/v1/documentos` calcula SHA-256, registra metadados em `sigov.documento`, versão em `sigov.documento_versao`, storage path local e evento `documento.criado`. Documento `PUBLICO` recebe código de validação em `sigov.portal_validacao_documento`.
+
+## Fallback honesto
+
+OCR e assinatura oficial permanecem dependentes de provedores reais e não são simulados como entrega oficial.

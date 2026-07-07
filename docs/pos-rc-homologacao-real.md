@@ -1,13 +1,15 @@
-# Pós-RC — Homologação real
+# Pós-RC 02 — homologação real
 
-Esta evolução concentra a base homologável em segurança real da API v1 e schema persistente para Protocolo + GED + Workflow + Tarefas + Notificações + Outbox.
+Este ciclo conecta a API v1 de Protocolo e GED às tabelas reais `sigov.protocolo`, `sigov.protocolo_movimento`, `sigov.workflow_instancia`, `sigov.tarefa`, `sigov.notificacao`, `sigov.documento`, `sigov.documento_versao`, `sigov.portal_validacao_documento` e `sigov.outbox_evento`.
 
-## Funcional real
-- Migration idempotente cria/completa as tabelas transversais com `tenant_id`, auditoria, soft delete, correlação e índices.
-- Middleware da API v1 exige API key, tenant e escopo por endpoint.
+## Classificação
 
-## Parcial
-- Endpoints existentes continuam com fallback honesto quando o serviço de persistência de fluxo ainda não estiver conectado à action.
+- **Funcional real:** autenticação API v1 por `X-Api-Key`/`X-Tenant-Id`, escopos mínimos, logs em `sigov.api_requisicao_log`, criação/listagem/detalhe/tramitação de protocolo via API, criação/listagem/detalhe de documento via API, outbox worker sobre `sigov.outbox_evento`.
+- **Parcial:** telas MVC de Protocolo/GED continuam com fallback honesto quando o formulário real não envia todos os campos necessários; as APIs já persistem nas tabelas Pós-RC.
+- **Em implantação/fallback:** UI de API keys e webhooks mantém mensagens seguras quando schema/configuração estiver indisponível.
+- **Dependente de provedor:** assinatura ICP/Gov.br, OCR real e integrações externas oficiais.
+- **Não disponível:** simulação de assinatura oficial, simulação de OCR e simulação de entrega de webhook como sucesso sem envio real.
 
-## Em implantação/fallback
-- Assinatura oficial, OCR e integrações externas dependem de provedores reais configurados.
+## LGPD e auditoria
+
+As respostas da API evitam expor CPF, CNPJ, e-mail, telefone, CNS e prontuário completos. O token da API key é validado por hash SHA-256 e nunca é gravado no log de requisição.
