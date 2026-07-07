@@ -96,3 +96,15 @@ Fallback honesto permanece obrigatório: provedores oficiais de assinatura/OCR/s
 - **Em implantação/fallback:** PDF/DOCX da POC, OCR, ICP-Brasil e Gov.br não são simulados.
 - **Dependente de provedor:** envio externo de webhook e validações oficiais dependem de infraestrutura configurada.
 - **Não disponível:** exposição de path físico de storage e dados pessoais completos em listagens/exports.
+
+## Pós-RC 04 — homologação final e dados demonstráveis
+
+Para preparar a demonstração/homologação técnica:
+
+```powershell
+docker compose up -d
+pwsh -NoProfile -File scripts/apply-demo-seed.ps1
+pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
+```
+
+O seed `database/postgres/seeds/pos_rc_homologacao_demo.sql` cria tenant, usuários, permissões, protocolos, documentos GED, workflows, tarefas, notificações, outbox, webhook inativo e API key demo apenas com hash. Os dados são fictícios e seguros para apresentação. Consulte `docs/guia-homologacao-comercial.md`, `docs/roteiro-demo-sigov-plus.md` e `docs/checklist-go-live-pos-rc.md`.
