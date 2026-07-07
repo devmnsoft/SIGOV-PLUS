@@ -1,7 +1,17 @@
 @model Sigov.Web.Models.PostBuild.GlobalSearchViewModel
-@{ ViewData["Title"]="Busca global"; ViewData["PageTitle"]="Busca global"; ViewData["PageDescription"]="Busca schema-safe com dados pessoais mascarados."; }
+@{ ViewData["Title"] = "Busca Global"; ViewData["PageTitle"]="Busca Global SIGOV"; ViewData["PageDescription"]="Consulta real em protocolo, GED, workflow, tarefas e notificações com tenant e LGPD."; }
 @await Html.PartialAsync("_PageIntro")
-<form class="sigov-card p-3 mb-3" method="get" action="/Busca"><input class="form-control" name="q" value="@Model?.Query" placeholder="Buscar..." /></form>
-@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
-<div class="list-group">@foreach (var r in Model?.Resultados ?? Array.Empty<Sigov.Web.Models.PostBuild.GlobalSearchResultViewModel>()) { <a class="list-group-item list-group-item-action" href="@r.Url"><span class="badge bg-primary">@r.Area</span> <strong>@r.Titulo</strong><br/><small>@r.Descricao • @r.Badge</small></a> }</div>
-@if (Model?.AreasIgnoradas.Any() == true) { <p class="text-muted mt-3">Áreas ignoradas por schema ausente: @string.Join(", ", Model.AreasIgnoradas).</p> }
+<form method="get" class="sigov-card p-4 mb-4"><label class="form-label fw-bold" for="q">Pesquisar</label><div class="input-group"><input id="q" name="q" value="@Model?.Query" class="form-control" placeholder="Número do protocolo, assunto, documento, status ou palavra-chave"/><button class="sigov-btn sigov-btn--primary" type="submit">Buscar</button></div><small class="text-muted">CPF/CNPJ, e-mail e telefone completos não são exibidos. Consultas com dados pessoais devem permanecer auditáveis.</small></form>
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning rounded-4">@Model.MensagemFallback</div> }
+@if (Model?.Resultados?.Any() == true) {
+  <div class="list-group">
+  @foreach (var r in Model.Resultados) {
+    <a class="list-group-item list-group-item-action" href="@r.Url">
+      <div class="d-flex flex-wrap justify-content-between gap-2"><div><span class="badge bg-primary">@r.Area</span> <strong>@r.Titulo</strong></div><span class="badge bg-secondary">@r.Status</span></div>
+      <p class="mb-1 text-muted">@r.Descricao</p>
+      <small>@(r.Data?.ToString("dd/MM/yyyy HH:mm") ?? "sem data") • @r.Badge @if (r.LgpdMascarado) { <span>• aviso LGPD: dado pessoal mascarado</span> }</small>
+    </a>
+  }
+  </div>
+} else { <div class="sigov-card p-4 text-center text-muted">Informe uma busca ou ajuste o termo. Nenhum resultado real foi simulado.</div> }
+@if (Model?.AreasIgnoradas?.Any() == true) { <p class="text-muted mt-3">Áreas ignoradas por schema indisponível: @string.Join(", ", Model.AreasIgnoradas)</p> }

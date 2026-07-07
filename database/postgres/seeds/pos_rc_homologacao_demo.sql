@@ -24,7 +24,7 @@ insert into sigov.usuario (id,tenant_id,nome,login,email,senha_hash,ativo,dados_
 on conflict (id) do update set tenant_id=excluded.tenant_id,nome=excluded.nome,login=excluded.login,email=excluded.email,ativo=true,dados_json=excluded.dados_json;
 
 insert into sigov.permissao (codigo,descricao) select p, 'Permissão demo Pós-RC 04' from unnest(array[
-'protocolo.visualizar','protocolo.criar','protocolo.tramitar','protocolo.anexar','ged.visualizar','ged.upload','ged.download','workflow.visualizar','workflow.avancar','tarefa.visualizar','tarefa.concluir','notificacao.visualizar','api_key.gerenciar','webhook.gerenciar','relatorio.exportar'
+'protocolo.visualizar','protocolo.criar','protocolo.tramitar','protocolo.anexar','protocolo.arquivar','ged.visualizar','ged.upload','ged.download','ged.classificar','workflow.visualizar','workflow.avancar','tarefa.visualizar','tarefa.concluir','notificacao.visualizar','api_key.gerenciar','webhook.gerenciar','relatorio.exportar'
 ]) p on conflict (codigo) do nothing;
 insert into sigov.usuario_permissao (tenant_id,usuario_id,permissao_id)
 select 1,u.id,p.id from sigov.usuario u cross join sigov.permissao p where u.tenant_id=1 on conflict do nothing;
