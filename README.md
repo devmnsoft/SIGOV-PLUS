@@ -80,3 +80,11 @@ Módulos parciais, demonstrativos ou em implantação não devem ser apresentado
 A sprint Pós-RC adiciona uma base homologável para API key real, webhooks, outbox e persistência de Protocolo + GED + Workflow. A migration `20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql` é idempotente e não destrutiva, sempre com `tenant_id`, auditoria, LGPD, soft delete, `correlation_id` e índices operacionais. Rotas `/api/v1/*` passam a exigir `X-Api-Key` e `X-Tenant-Id`, com validação por hash e escopos; health permanece público.
 
 Fallback honesto permanece obrigatório: provedores oficiais de assinatura/OCR/storage externo e integrações sem configuração real não devem ser simulados.
+
+## Pós-RC 02 — persistência real operacional
+
+- Funcional real: API v1 com API key/tenant/escopos, Protocolo e GED persistindo nas tabelas Pós-RC, Outbox worker consumindo sigov.outbox_evento.
+- Parcial: telas MVC administrativas continuam com fallback honesto quando ação/formulário não possui todos os dados reais.
+- Dependente de provedor: OCR, ICP/Gov.br e entrega externa oficial de webhooks.
+- LGPD: respostas e logs não devem expor dados pessoais completos nem token claro.
+

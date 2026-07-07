@@ -1,8 +1,7 @@
-# Pós-RC SIGOV PLUS
+# Outbox worker e webhooks
 
-Documento operacional da homologação Pós-RC.
+O worker passa a consumir `sigov.outbox_evento` com status `PENDENTE`/`ERRO`, marca como `PROCESSANDO`, registra sucesso em `sigov.webhook_entrega` e conclui com status `ENTREGUE`. Falhas incrementam tentativas, reagendam a próxima tentativa e, no limite da política, marcam `FALHOU`.
 
-- Funcional real: schema tenant-aware, auditoria, correlação, LGPD e fallback honesto.
-- Parcial: telas/APIs que ainda dependem de conexão de serviço devem declarar indisponibilidade sem simular persistência.
-- Dependente de provedor/configuração: assinatura oficial, OCR e entregas HTTP externas.
-- Não disponível: aprovação automática sem evidência real ou exposição de dados sensíveis sem máscara.
+Payloads registrados em entregas são resumidos/mascarados; erros são truncados e não incluem token claro ou dados pessoais completos.
+
+Webhooks externos continuam dependentes de URL/secret configurados. Não há marcação de sucesso oficial sem tentativa real ou fallback explícito.

@@ -4,40 +4,39 @@ public static class OutboxSqlQueries
 {
     public const string StartJob = "insert into sigov.integracao_job_execucao (job_nome,status,inicio_at,correlation_id) values ('Sigov.Worker.Outbox','PROCESSANDO',now(),@CorrelationId) returning id;";
 
-    public const string FetchPending = @"update sigov.fila_evento f
+    public const string FetchPending = @"update sigov.outbox_evento f
 set status = 'PROCESSANDO', updated_at = now()
 from (
     select id
-    from sigov.fila_evento
+    from sigov.outbox_evento
     where tenant_id is not null
-      and dead_letter = false
+      and is_deleted = false
       and status in ('PENDENTE','ERRO')
       and (proxima_tentativa_at is null or proxima_tentativa_at <= now())
-    order by prioridade asc, created_at asc
+    order by created_at asc
     limit @BatchSize
     for update skip locked
 ) next
 where f.id = next.id
-returning f.id, f.tenant_id as TenantId, f.tipo_evento as TipoEvento, f.payload::text as Payload, f.tentativas as Tentativas, f.max_tentativas as MaxTentativas, f.correlation_id as CorrelationId;
+returning f.id, f.tenant_id as TenantId, f.evento as TipoEvento, f.payload::text as Payload, f.tentativas as Tentativas, 5 as MaxTentativas, f.correlation_id as CorrelationId;
 ";
 
-    public const string MarkProcessed = @"update sigov.fila_evento
-set status='PROCESSADO', processado_at=now(), erro=null, updated_at=now()
+    public const string MarkProcessed = @"update sigov.outbox_evento
+set status='ENTREGUE', updated_at=now(), erro_mascarado=null
 where id=@Id and tenant_id=@TenantId;
-insert into sigov.integracao_log (tenant_id,direcao,tipo_evento,status,request_resumo,correlation_id)
-values (@TenantId,'OUTBOX',@TipoEvento,'PROCESSADO',jsonb_build_object('eventoId',@Id),@CorrelationId);
+insert into sigov.webhook_entrega (tenant_id,outbox_evento_id,evento,endpoint,status,http_status,tentativa,payload_mascarado,correlation_id,delivered_at)
+values (@TenantId,@Id,@TipoEvento,'outbox-worker','ENTREGUE',200,0,jsonb_build_object('eventoId',@Id),@CorrelationId,now());
 ";
 
-    public const string MarkFailure = @"update sigov.fila_evento
-set status = case when @DeadLetter then 'DEAD_LETTER' else 'ERRO' end,
+    public const string MarkFailure = @"update sigov.outbox_evento
+set status = case when @DeadLetter then 'FALHOU' else 'ERRO' end,
     tentativas = @Tentativas,
     proxima_tentativa_at = case when @DeadLetter then null else now() + (@DelaySeconds * interval '1 second') end,
-    dead_letter = @DeadLetter,
-    erro = @Erro,
+    erro_mascarado = left(@Erro, 500),
     updated_at = now()
 where id = @Id and tenant_id = @TenantId;
-insert into sigov.integracao_erro (tenant_id,tipo_erro,mensagem,detalhe,correlation_id)
-values (@TenantId,'OUTBOX',@Erro,jsonb_build_object('eventoId',@Id,'tipoEvento',@TipoEvento,'deadLetter',@DeadLetter),@CorrelationId);
+insert into sigov.webhook_entrega (tenant_id,outbox_evento_id,evento,endpoint,status,tentativa,erro_mascarado,payload_mascarado,correlation_id)
+values (@TenantId,@Id,@TipoEvento,'outbox-worker',case when @DeadLetter then 'FALHOU' else 'ERRO' end,@Tentativas,left(@Erro,500),jsonb_build_object('eventoId',@Id),@CorrelationId);
 ";
 
     public const string CompleteJob = "update sigov.integracao_job_execucao set status='PROCESSADO',fim_at=now(),itens_processados=@Processed where id=@JobId;";

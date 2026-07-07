@@ -12,3 +12,11 @@
 
 ## Fallback honesto obrigatório
 Quando a tabela/provedor não estiver disponível em uma implantação legada, telas e APIs devem informar indisponibilidade operacional e não gravar dados fictícios.
+
+## Pós-RC 02 — persistência real operacional
+
+- Funcional real: API v1 com API key/tenant/escopos, Protocolo e GED persistindo nas tabelas Pós-RC, Outbox worker consumindo sigov.outbox_evento.
+- Parcial: telas MVC administrativas continuam com fallback honesto quando ação/formulário não possui todos os dados reais.
+- Dependente de provedor: OCR, ICP/Gov.br e entrega externa oficial de webhooks.
+- LGPD: respostas e logs não devem expor dados pessoais completos nem token claro.
+
