@@ -12,8 +12,8 @@ public sealed class UserPermissionService : IUserPermissionService
     public bool HasPermission(ClaimsPrincipal user, string permission)
     {
         if (user?.Identity?.IsAuthenticated != true) return false;
-        if (user.IsInRole("Admin") || user.HasClaim("perfil", "admin")) return true;
-        return user.HasClaim("permission", permission) || user.HasClaim("permissao", permission);
+        if (user.IsInRole("Admin") || user.IsInRole("ADMIN_GERAL") || user.HasClaim("perfil", "admin") || user.HasClaim("perfil", "ADMIN_GERAL")) return true;
+        return user.HasClaim("permission", permission) || user.HasClaim("permissao", permission) || user.HasClaim("scope", permission);
     }
 }
 
