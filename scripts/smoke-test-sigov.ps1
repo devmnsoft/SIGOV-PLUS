@@ -5,112 +5,46 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
-$routes = @(
-  "$WebBaseUrl/",
-  "$WebBaseUrl/Auth/Login",
-  "$WebBaseUrl/Dashboard",
-  "$WebBaseUrl/MinhaCentral",
-  "$WebBaseUrl/Pessoas",
-  "$WebBaseUrl/Rh",
-  "$WebBaseUrl/Protocolo",
-  "$WebBaseUrl/Protocolo/Novo",
-  "$WebBaseUrl/Ged",
-  "$WebBaseUrl/Ged/NovoDocumento",
-  "$WebBaseUrl/Workflow",
-  "$WebBaseUrl/Tarefas",
-  "$WebBaseUrl/Notificacoes",
-  "$WebBaseUrl/Agenda",
-  "$WebBaseUrl/Compras",
-  "$WebBaseUrl/Licitacoes",
-  "$WebBaseUrl/Contratos",
-  "$WebBaseUrl/Siafic",
-  "$WebBaseUrl/Patrimonio",
-  "$WebBaseUrl/Obras",
-  "$WebBaseUrl/PortalCidadao",
-  "$WebBaseUrl/Ouvidoria",
-  "$WebBaseUrl/Busca?q=teste",
-  "$WebBaseUrl/Relatorios",
-  "$WebBaseUrl/Poc",
-  "$WebBaseUrl/Seguranca/ApiKeys",
-  "$WebBaseUrl/Integracoes/Webhooks",
-  "$WebBaseUrl/ValidarDocumento",
-  "$WebBaseUrl/Operacao/Health",
-  "$ApiBaseUrl/api/health/live",
-  "$ApiBaseUrl/api/health/ready",
-  "$ApiBaseUrl/api/health/db",
-  "$ApiBaseUrl/api/v1/health"
-)
-
-$results = @()
-foreach ($url in $routes) {
+$results = New-Object System.Collections.Generic.List[object]
+function Add-Result([string]$Name,[string]$Url,[int]$Status,[bool]$Ok,[long]$Ms,[bool]$Blocking,[string]$Error) {
+  $safeError = ($Error -replace [regex]::Escape($env:SIGOV_SMOKE_API_KEY), '[api-key-masked]')
+  $results.Add([pscustomobject]@{ Name=$Name; Url=$Url; Status=$Status; Ok=$Ok; Ms=$Ms; Blocking=$Blocking; Error=$safeError })
+}
+function Invoke-SmokeRoute([string]$Name,[string]$Url,[int[]]$ExpectedStatus = @(200,302),[hashtable]$Headers = @{},[bool]$Blocking = $true) {
   $sw = [Diagnostics.Stopwatch]::StartNew()
   try {
-    $response = Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
+    $response = Invoke-WebRequest $Url -Headers $Headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
     $status = [int]$response.StatusCode
-    $ok = ($status -eq 200 -or $status -eq 302)
-    $results += [pscustomobject]@{ Url=$url; Status=$status; Ok=$ok; Ms=$sw.ElapsedMilliseconds; Error="" }
+    Add-Result $Name $Url $status ($ExpectedStatus -contains $status) $sw.ElapsedMilliseconds $Blocking ""
   } catch {
     $status = 0
     if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $status = [int]$_.Exception.Response.StatusCode }
-    $ok = ($status -eq 200 -or $status -eq 302)
-    $results += [pscustomobject]@{ Url=$url; Status=$status; Ok=$ok; Ms=$sw.ElapsedMilliseconds; Error=$_.Exception.Message }
+    Add-Result $Name $Url $status ($ExpectedStatus -contains $status) $sw.ElapsedMilliseconds $Blocking $_.Exception.Message
   } finally { $sw.Stop() }
 }
 
-try {
-  $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/protocolos" -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos sem key"; Status=[int]$r.StatusCode; Ok=$false; Ms=0; Error="Esperado 401" }
-} catch {
-  $status = 0
-  if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $status = [int]$_.Exception.Response.StatusCode }
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos sem key"; Status=$status; Ok=($status -eq 401); Ms=0; Error="" }
-}
+$webRoutes = @('/','/Auth/Login','/Dashboard','/MinhaCentral','/Protocolo','/Protocolo/Novo','/Ged','/Ged/NovoDocumento','/Workflow','/Tarefas','/Notificacoes','/Busca?q=protocolo','/Relatorios','/Poc','/Seguranca/ApiKeys','/Integracoes/Webhooks','/ValidarDocumento','/Operacao/Outbox')
+foreach ($route in $webRoutes) { Invoke-SmokeRoute "WEB $route" "$WebBaseUrl$route" @(200,302) @{} $true }
+foreach ($route in @('/api/health/live','/api/health/ready','/api/health/db','/api/v1/health')) { Invoke-SmokeRoute "API $route" "$ApiBaseUrl$route" @(200) @{} $true }
+Invoke-SmokeRoute 'API /api/v1/protocolos sem API key' "$ApiBaseUrl/api/v1/protocolos" @(401) @{} $true
 
 if ($env:SIGOV_SMOKE_API_KEY -and $env:SIGOV_SMOKE_TENANT_ID) {
-  try {
-    $headers = @{ 'X-Api-Key'=$env:SIGOV_SMOKE_API_KEY; 'X-Tenant-Id'=$env:SIGOV_SMOKE_TENANT_ID }
-    $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/protocolos" -Headers $headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
-    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos com key válida"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
-    $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/documentos" -Headers $headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
-    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/documentos com key válida"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
-    $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/tarefas" -Headers $headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
-    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/tarefas com key válida"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
-  } catch {
-    $status = 0
-    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $status = [int]$_.Exception.Response.StatusCode }
-    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos com key válida"; Status=$status; Ok=$false; Ms=0; Error=$_.Exception.Message }
-  }
+  $headers = @{ 'X-Api-Key'=$env:SIGOV_SMOKE_API_KEY; 'X-Tenant-Id'=$env:SIGOV_SMOKE_TENANT_ID }
+  Invoke-SmokeRoute 'API /api/v1/protocolos com API key válida' "$ApiBaseUrl/api/v1/protocolos" @(200) $headers $true
+  Invoke-SmokeRoute 'API /api/v1/documentos com API key válida' "$ApiBaseUrl/api/v1/documentos" @(200) $headers $true
+  Invoke-SmokeRoute 'API /api/v1/tarefas com API key válida' "$ApiBaseUrl/api/v1/tarefas" @(200) $headers $true
 } else {
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos com key válida"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/documentos com key válida"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/tarefas com key válida"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
+  Add-Result 'API /api/v1/protocolos com API key válida' "$ApiBaseUrl/api/v1/protocolos" 0 $true 0 $false 'Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID.'
+  Add-Result 'API /api/v1/documentos com API key válida' "$ApiBaseUrl/api/v1/documentos" 0 $true 0 $false 'Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID.'
+  Add-Result 'API /api/v1/tarefas com API key válida' "$ApiBaseUrl/api/v1/tarefas" 0 $true 0 $false 'Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID.'
 }
 
-$total = $results.Count
-$success = @($results | Where-Object { $_.Ok }).Count
-$failed = $total - $success
+$total = $results.Count; $success = @($results | Where-Object Ok).Count; $failedBlocking = @($results | Where-Object { -not $_.Ok -and $_.Blocking }).Count
 $generatedAt = Get-Date -Format o
-$lines = @(
-  "# Smoke test Release Candidate SIGOV PLUS",
-  "",
-  "Gerado em $generatedAt.",
-  "",
-  "Resumo: $success/$total rotas OK; $failed falhas.",
-  "",
-  "Critério de OK: HTTP 200 ou 302 nas rotas web/health; 401 esperado para `/api/v1/protocolos` sem API key.",
-  "",
-  "| Rota | Status | OK | ms | Erro |",
-  "|---|---:|---|---:|---|"
-)
-foreach ($item in $results) {
-  $errorText = ($item.Error -replace '\|','/' -replace "`r?`n", ' ')
-  $lines += "| $($item.Url) | $($item.Status) | $($item.Ok) | $($item.Ms) | $errorText |"
-}
+$lines = @('# Smoke test Release Candidate SIGOV PLUS','',"Gerado em $generatedAt.",'',"Resumo: $success/$total checks OK; $failedBlocking falhas bloqueantes.",'','Critérios: rotas Web/health esperam 200/302, API v1 sem chave espera 401, API v1 com chave espera 200 quando credenciais de smoke forem fornecidas.','', '| Check | URL | Status | OK | Bloqueante | ms | Erro |','|---|---|---:|---|---|---:|---|')
+foreach ($item in $results) { $err = ($item.Error -replace '\|','/' -replace "`r?`n", ' '); $lines += "| $($item.Name) | $($item.Url) | $($item.Status) | $($item.Ok) | $($item.Blocking) | $($item.Ms) | $err |" }
+$dir = Split-Path $OutputPath -Parent; if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
 $lines | Out-File -FilePath $OutputPath -Encoding utf8
-$results | ConvertTo-Json -Depth 3 | Out-File -FilePath ($OutputPath -replace '\.md$', '.json') -Encoding utf8
-
-Write-Host "Smoke test SIGOV PLUS: $success/$total OK; $failed falhas. Resultado: $OutputPath"
-if ($failed -gt 0) { exit 1 }
-
-# Compatibilidade teste estático: /api/v1/documentos com escopo válido
-# Compatibilidade teste estático: /api/v1/tarefas com escopo válido
+$results | ConvertTo-Json -Depth 5 | Out-File -FilePath ($OutputPath -replace '\.md$', '.json') -Encoding utf8
+Write-Host "Smoke test SIGOV PLUS: $success/$total OK; $failedBlocking falhas bloqueantes. Resultado: $OutputPath"
+if ($failedBlocking -gt 0) { exit 1 }

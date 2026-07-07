@@ -2,11 +2,46 @@ name: ci
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main ]
   pull_request:
 
 jobs:
   build-test:
+    runs-on: ubuntu-latest
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
+      Sigov__Jwt__Secret: ci-only-secret-with-more-than-thirty-two-chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+      - name: Restore
+        run: dotnet restore sigov.sln
+      - name: Build
+        run: dotnet build sigov.sln --configuration Release --no-restore
+      - name: Test
+        run: dotnet test sigov.sln --configuration Release --no-build --logger trx --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker build API
+        run: docker build -f src/Sigov.Api/Dockerfile -t sigov-api:${{ github.sha }} .
+      - name: Docker build Web
+        run: docker build -f src/Sigov.Web/Dockerfile -t sigov-web:${{ github.sha }} .
+      - name: Docker build Worker
+        run: docker build -f src/Sigov.Worker/Dockerfile -t sigov-worker:${{ github.sha }} .
+
+  sql-validate:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -23,23 +58,54 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
-      Sigov__Jwt__Secret: ci-only-secret-with-more-than-thirty-two-chars
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: sigov
+      PGUSER: sigov
+      PGPASSWORD: sigov_ci_password
+      SIGOV_DEMO_SEED_ALLOW_NON_DEV: 'true'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.x'
-      - name: Restore
-        run: dotnet restore sigov.sln
-      - name: Build
-        run: dotnet build sigov.sln --configuration Release --no-restore
-      - name: Test
-        run: dotnet test sigov.sln --configuration Release --no-build --logger trx
-      - name: Docker build API
-        run: docker build -f src/Sigov.Api/Dockerfile -t sigov-api:${{ github.sha }} .
-      - name: Docker build Web
-        run: docker build -f src/Sigov.Web/Dockerfile -t sigov-web:${{ github.sha }} .
-      - name: Docker build Worker
-        run: docker build -f src/Sigov.Worker/Dockerfile -t sigov-worker:${{ github.sha }} .
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Apply migrations
+        run: |
+          for file in $(find database/postgres/migrations -maxdepth 1 -type f -name '*.sql' | sort); do
+            echo "Applying $file"
+            psql -v ON_ERROR_STOP=1 -f "$file"
+          done
+      - name: Apply demo seed twice
+        run: |
+          psql -v ON_ERROR_STOP=1 -f database/postgres/seeds/pos_rc_homologacao_demo.sql
+          psql -v ON_ERROR_STOP=1 -f database/postgres/seeds/pos_rc_homologacao_demo.sql
+      - name: Schema report
+        shell: pwsh
+        run: ./scripts/schema-report.ps1
+      - name: Validate critical tables
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "select to_regclass('sigov.api_key') as api_key, to_regclass('sigov.protocolo') as protocolo, to_regclass('sigov.documento') as documento, to_regclass('sigov.outbox') as outbox;"
+
+  smoke-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate scripts and docs
+        shell: pwsh
+        run: |
+          $required = @(
+            'scripts/apply-demo-seed.ps1',
+            'scripts/smoke-test-sigov.ps1',
+            'scripts/validate-release.ps1',
+            'scripts/package-release.ps1',
+            'docs/release-candidate-escopo.md',
+            'docs/matriz-modulos-release-candidate.md',
+            'docs/checklist-go-live-pos-rc.md'
+          )
+          foreach ($path in $required) { if (-not (Test-Path $path)) { throw "Arquivo obrigatório ausente: $path" } }
+          $smoke = Get-Content 'scripts/smoke-test-sigov.ps1' -Raw
+          foreach ($route in @('/Dashboard','/MinhaCentral','/Protocolo/Novo','/Ged/NovoDocumento','/Operacao/Outbox','/api/v1/protocolos')) {
+            if ($smoke -notlike "*$route*") { throw "Rota obrigatória ausente do smoke: $route" }
+          }
+          foreach ($legacy in @('/Busca?q=teste','/Operacao/Health')) {
+            if ($smoke -like "*$legacy*") { throw "Rota legada/removida ainda presente no smoke: $legacy" }
+          }

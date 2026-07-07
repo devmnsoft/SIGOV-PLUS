@@ -1,1 +1,6 @@
-{"status":"pendente_execucao_ambiente","classificacao":"Parcial","observacao":"Gerado para Pós-RC 03; executar scripts/smoke-test-sigov.ps1 em ambiente com dotnet, docker e pwsh."}
+{
+  "generatedBy": "pos-rc-05-hardening",
+  "status": "not-run-in-agent-container",
+  "reason": "pwsh, dotnet and docker are not installed in the current agent environment",
+  "expectedOutput": "scripts/smoke-test-sigov.ps1 overwrites this file during homologation"
+}

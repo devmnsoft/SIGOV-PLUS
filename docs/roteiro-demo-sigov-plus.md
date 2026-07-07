@@ -24,3 +24,14 @@
 - Documentos `DEMO-DOC-PUB-001`, `DEMO-DOC-PUB-002` e `DEMO-DOC-RES-001`.
 - Validação pública `PUB-DEMO-001` e `PUB-DEMO-002`.
 - Outbox em estados `PENDENTE`, `ENTREGUE` e `FALHOU`.
+
+## Bloco Pós-RC 05 — demo homologável
+
+1. Mostrar status do CI e explicar jobs de build/test, Docker e SQL.
+2. Abrir Dashboard com dados do seed demo.
+3. Criar e tramitar protocolo.
+4. Anexar documento GED e validar documento público.
+5. Executar Busca Global e exportar CSV com dados mascarados.
+6. Mostrar API key criada, sem revelar segredo completo.
+7. Mostrar outbox/webhook como operação monitorável, indicando dependências externas quando houver.
+8. Encerrar com pacote de release e pendências honestas.
