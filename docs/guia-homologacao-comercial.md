@@ -48,3 +48,7 @@ pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
 - Real com provedor interno/local: CSV, validação pública e API key/webhook por dados persistidos.
 - Parcial: PDF/DOCX de POC quando não houver infraestrutura de geração real.
 - Não simulado: ICP-Brasil, Gov.br e OCR.
+
+## Evidências Pós-RC 05 para demonstração comercial
+
+Antes da demonstração, anexar: workflow CI verde, Docker Compose saudável, seed demo aplicado sem duplicidade, smoke Markdown/JSON, checklist Go-Live, checklist LGPD e pacote de release gerado. Não apresentar como real qualquer integração dependente de provedor que não tenha contrato/configuração ativa.

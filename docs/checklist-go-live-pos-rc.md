@@ -30,3 +30,16 @@
 - [ ] Dependências externas documentadas.
 - [ ] ICP-Brasil/Gov.br/OCR não anunciados como funcionais sem provedor.
 - [ ] PDF/DOCX somente se infraestrutura real estiver habilitada.
+
+## Pós-RC 05 — hardening final
+
+- [ ] Workflow CI `build-test` executado com restore, build Release e testes.
+- [ ] Workflow CI `docker-build` executado para API, Web e Worker.
+- [ ] Workflow CI `sql-validate` aplicou migrations e seed demo duas vezes.
+- [ ] `docker compose up -d` validado em host com Docker.
+- [ ] `scripts/smoke-test-sigov.ps1` gerou Markdown e JSON.
+- [ ] Segurança/LGPD revisada conforme `docs/security-lgpd-hardening-pos-rc-05.md`.
+- [ ] Performance básica revisada conforme `docs/performance-pos-rc-05.md`.
+- [ ] Pacote `artifacts/release/sigov-plus-1.0.0-rc-final` gerado sem secrets.
+
+Observação honesta: este container de agente não possui `dotnet`, `docker` ou `pwsh`; evidências finais devem vir do CI e do ambiente de homologação.

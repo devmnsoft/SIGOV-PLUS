@@ -59,3 +59,26 @@ Data: 2026-07-06
 - **Em implantação/fallback:** PDF/DOCX da POC, OCR, ICP-Brasil e Gov.br não são simulados.
 - **Dependente de provedor:** envio externo de webhook e validações oficiais dependem de infraestrutura configurada.
 - **Não disponível:** exposição de path físico de storage e dados pessoais completos em listagens/exports.
+
+## Matriz final Pós-RC 05
+
+| Módulo/Capacidade | Status Pós-RC 05 | Observação honesta |
+|---|---|---|
+| Login/Auth | Funcional real se CI/homologação validar | Requer execução em ambiente com .NET/Docker |
+| Dashboard | Funcional real se validado com seed/dados reais | KPIs dependem de dados persistidos |
+| Minha Central | Funcional real se validada com tarefas/notificações reais | Conferir permissões por usuário |
+| Protocolo básico | Funcional real se criação/tramitação Web/API passar | Sem remover fallback honesto |
+| GED básico | Funcional real se upload/download permitido passar | Storage local deve estar montado |
+| Busca Global | Funcional real se encontrar dados reais com LGPD | Mascaramento obrigatório |
+| Relatórios CSV | Funcional real se exportar CSV real com LGPD | Não expor storage path/segredos |
+| API key/API v1 | Funcional real se sem key=401 e com key=200 | Chaves nunca completas em logs |
+| Seed demo | Funcional real se aplicar duas vezes sem duplicar | Bloqueado em Production |
+| Smoke test | Funcional real quando executado e anexado | Gera Markdown/JSON |
+| Workflow avançado | Parcial | Fluxos complexos seguem em evolução |
+| Tarefas avançadas | Parcial | Básico validável; automações avançadas pendentes |
+| Webhooks externos | Parcial | Entrega real depende de endpoint externo |
+| POC | Parcial | Evidências disponíveis; exportação avançada pode depender de evolução |
+| Assinatura/OCR/IA/Mobile offline | Parcial/Dependente de provedor | Não simular ICP, Gov.br ou OCR |
+| ICP/Gov.br | Dependente de provedor | Exige integração oficial |
+| SMTP/WhatsApp | Dependente de provedor | Exige credenciais e contrato |
+| Integrações oficiais externas | Dependente de provedor | Homologar por conector oficial |

@@ -41,3 +41,11 @@ A versão `v1.0.0` promove o release candidate para entrega final homologável e
 - Homologação assistida com usuário final ainda deve produzir evidências funcionais assinadas.
 - Testes E2E autenticados completos por perfil continuam no backlog pós-release.
 - Módulos estruturais/parciais permanecem documentados para evolução controlada.
+
+## Pós-RC 05 — hardening CI/CD e Go-Live
+
+- CI consolidado com jobs independentes para build/test, Docker, validação SQL e smoke estático.
+- Smoke E2E ampliado para rotas principais Web e API v1, com Markdown/JSON, tempos de resposta, bloqueante/não bloqueante e mascaramento de chave.
+- Scripts de release ajustados para gerar pacote `sigov-plus-1.0.0-rc-final` sem secrets.
+- Documentação de diagnóstico, testes manuais, segurança/LGPD e performance básica adicionada.
+- Limitação registrada: validação local real de .NET/Docker/PowerShell depende de ambiente com essas ferramentas instaladas.

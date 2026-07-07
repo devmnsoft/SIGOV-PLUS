@@ -99,3 +99,12 @@ Nenhum item principal foi classificado como indisponível nesta revisão documen
 - **Em implantação/fallback:** PDF/DOCX da POC, OCR, ICP-Brasil e Gov.br não são simulados.
 - **Dependente de provedor:** envio externo de webhook e validações oficiais dependem de infraestrutura configurada.
 - **Não disponível:** exposição de path físico de storage e dados pessoais completos em listagens/exports.
+
+## Atualização Pós-RC 05
+
+Classificação honesta para homologação final:
+
+- **Funcional real quando validado no CI/homologação:** Login/Auth, Dashboard com dados reais, Minha Central, Protocolo básico, GED básico, Busca, relatórios CSV, API key/API v1, seed demo e smoke test.
+- **Parcial:** workflow avançado, tarefas avançadas, webhooks externos sem endpoint real controlado, POC sem exportações avançadas, assinatura, OCR, IA e mobile/offline.
+- **Dependente de provedor:** ICP/Gov.br, OCR contratado, SMTP, WhatsApp e integrações oficiais externas.
+- **Não disponível nesta sprint:** módulos novos fora do escopo Pós-RC 05.

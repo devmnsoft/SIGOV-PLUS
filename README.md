@@ -108,3 +108,23 @@ pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
 ```
 
 O seed `database/postgres/seeds/pos_rc_homologacao_demo.sql` cria tenant, usuários, permissões, protocolos, documentos GED, workflows, tarefas, notificações, outbox, webhook inativo e API key demo apenas com hash. Os dados são fictícios e seguros para apresentação. Consulte `docs/guia-homologacao-comercial.md`, `docs/roteiro-demo-sigov-plus.md` e `docs/checklist-go-live-pos-rc.md`.
+
+## Pós-RC 05 — hardening CI/CD e pacote Go-Live
+
+Esta versão adiciona consolidação de CI/CD no GitHub Actions, smoke E2E Web/API, validação SQL em PostgreSQL, empacotamento de release e documentação de homologação final.
+
+### Validação recomendada
+
+```bash
+dotnet restore sigov.sln
+dotnet build sigov.sln --configuration Release
+dotnet test sigov.sln --configuration Release
+docker compose build --no-cache
+docker compose up -d
+```
+
+Depois, aplicar o seed demo e executar `scripts/smoke-test-sigov.ps1`. Em ambientes sem `pwsh`, aplicar `database/postgres/seeds/pos_rc_homologacao_demo.sql` via `psql` e executar o smoke em host com PowerShell 7.
+
+### Limitação honesta
+
+No container do agente da sprint Pós-RC 05, `dotnet`, `docker` e `pwsh` não estavam instalados; por isso, as evidências finais de build, testes, Docker e smoke devem ser obtidas no GitHub Actions e no ambiente de homologação.
