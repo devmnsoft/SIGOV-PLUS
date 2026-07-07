@@ -323,33 +323,51 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            var tenants = await CountOrNullAsync(connection, "select count(*) from sigov.tenant where ativo = true and is_deleted = false;", cancellationToken).ConfigureAwait(false);
-            var usuarios = await CountOrNullAsync(connection, "select count(*) from sigov.usuario where ativo = true and is_deleted = false;", cancellationToken).ConfigureAwait(false);
-            var planos = await CountOrNullAsync(connection, "select count(*) from sigov.plano_saas where ativo = true;", cancellationToken).ConfigureAwait(false);
-            var auditorias = await CountOrNullAsync(connection, "select count(*) from sigov.auditoria;", cancellationToken).ConfigureAwait(false);
-            var parametros = await CountOrNullAsync(connection, "select count(*) from sigov.parametro_sistema;", cancellationToken).ConfigureAwait(false);
-            var modulos = await ListarModulosAsync(null, cancellationToken).ConfigureAwait(false);
-            var hasFallback = tenants is null || usuarios is null || planos is null || auditorias is null || parametros is null;
+            var tenantId = 1L;
+            var protocolosAbertos = await CountOrNullAsync(connection, "select count(*) from sigov.protocolo where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('ABERTO','PENDENTE');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var protocolosTramitacao = await CountOrNullAsync(connection, "select count(*) from sigov.protocolo where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('EM_TRAMITACAO','TRAMITANDO');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var protocolosConcluidos = await CountOrNullAsync(connection, "select count(*) from sigov.protocolo where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('CONCLUIDO','ARQUIVADO');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var tarefasPendentes = await CountOrNullAsync(connection, "select count(*) from sigov.tarefa where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('PENDENTE','ABERTA');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var tarefasVencidas = await CountOrNullAsync(connection, "select count(*) from sigov.tarefa where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status)='VENCIDA';", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var notificacoesNaoLidas = await CountOrNullAsync(connection, "select count(*) from sigov.notificacao where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('NAO_LIDA','NOVA');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var documentosCriados = await CountOrNullAsync(connection, "select count(*) from sigov.documento where tenant_id=@TenantId and coalesce(is_deleted,false)=false;", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var outboxProblemas = await CountOrNullAsync(connection, "select count(*) from sigov.outbox_evento where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('PENDENTE','FALHOU');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+            var webhooksFalha = await CountOrNullAsync(connection, "select count(*) from sigov.webhook_entrega where tenant_id=@TenantId and upper(status) in ('FALHOU','ERRO');", cancellationToken, new { TenantId = tenantId }).ConfigureAwait(false);
+
+            var protocolosPorStatus = await QueryOrEmptyAsync<DashboardStatusSliceViewModel>(connection, @"select status as Status, count(*) as Total from sigov.protocolo where tenant_id=@TenantId and coalesce(is_deleted,false)=false group by status order by 2 desc;", new { TenantId = tenantId }, cancellationToken).ConfigureAwait(false);
+            var ultimosProtocolos = await QueryOrEmptyAsync<DashboardListItemViewModel>(connection, @"select numero as Titulo, assunto as Descricao, status as Status, '/Protocolo/Detalhe/' || id as Url, created_at as Data from sigov.protocolo where tenant_id=@TenantId and coalesce(is_deleted,false)=false order by created_at desc limit 5;", new { TenantId = tenantId }, cancellationToken).ConfigureAwait(false);
+            var tarefasCriticas = await QueryOrEmptyAsync<DashboardListItemViewModel>(connection, @"select titulo as Titulo, coalesce(dados_json->>'prazo','Tarefa operacional') as Descricao, status as Status, '/Tarefas' as Url, created_at as Data from sigov.tarefa where tenant_id=@TenantId and coalesce(is_deleted,false)=false and upper(status) in ('PENDENTE','VENCIDA','ABERTA') order by case when upper(status)='VENCIDA' then 0 else 1 end, created_at limit 5;", new { TenantId = tenantId }, cancellationToken).ConfigureAwait(false);
+            var documentosRecentes = await QueryOrEmptyAsync<DashboardListItemViewModel>(connection, @"select titulo as Titulo, classificacao_lgpd as Descricao, status as Status, '/Ged/Detalhe/' || id as Url, created_at as Data from sigov.documento where tenant_id=@TenantId and coalesce(is_deleted,false)=false order by created_at desc limit 5;", new { TenantId = tenantId }, cancellationToken).ConfigureAwait(false);
+            var modulos = await ListarModulosAsync(tenantId, cancellationToken).ConfigureAwait(false);
+            var hasFallback = new long?[] { protocolosAbertos, protocolosTramitacao, protocolosConcluidos, tarefasPendentes, tarefasVencidas, notificacoesNaoLidas, documentosCriados, outboxProblemas, webhooksFalha }.Any(x => x is null);
             return new DashboardViewModel
             {
                 Cards = new[]
                 {
-                    new DashboardCard("Clientes/Tenants ativos", FormatCount(tenants), tenants is null ? "Dados indisponíveis no ambiente local." : "Clientes SaaS habilitados.", tenants is null ? "secondary" : "primary"),
-                    new DashboardCard("Usuários ativos", FormatCount(usuarios), usuarios is null ? "Dados indisponíveis no ambiente local." : "Usuários aptos a acessar.", usuarios is null ? "secondary" : "success"),
-                    new DashboardCard("Módulos disponíveis", modulos.Count.ToString(), "Catálogo inicial SaaS.", "info"),
-                    new DashboardCard("Planos ativos", FormatCount(planos), planos is null ? "Dados indisponíveis no ambiente local." : "Catálogo comercial SaaS.", planos is null ? "secondary" : "primary"),
-                    new DashboardCard("Auditorias", FormatCount(auditorias), auditorias is null ? "Dados indisponíveis no ambiente local." : "Eventos LGPD registrados.", auditorias is null ? "secondary" : "warning"),
-                    new DashboardCard("Parâmetros", FormatCount(parametros), parametros is null ? "Dados indisponíveis no ambiente local." : "Configurações por escopo.", parametros is null ? "secondary" : "info")
+                    new DashboardCard("Protocolos abertos", FormatCount(protocolosAbertos), "Protocolos reais aguardando triagem.", protocolosAbertos is null ? "secondary" : "primary"),
+                    new DashboardCard("Protocolos em tramitação", FormatCount(protocolosTramitacao), "Fluxos reais em andamento.", protocolosTramitacao is null ? "secondary" : "info"),
+                    new DashboardCard("Protocolos concluídos", FormatCount(protocolosConcluidos), "Demandas encerradas ou arquivadas.", protocolosConcluidos is null ? "secondary" : "success"),
+                    new DashboardCard("Tarefas pendentes", FormatCount(tarefasPendentes), "Pendências operacionais.", tarefasPendentes is null ? "secondary" : "warning"),
+                    new DashboardCard("Tarefas vencidas", FormatCount(tarefasVencidas), "Itens críticos por prazo.", tarefasVencidas is null ? "secondary" : "danger"),
+                    new DashboardCard("Notificações não lidas", FormatCount(notificacoesNaoLidas), "Comunicações do usuário/tenant.", notificacoesNaoLidas is null ? "secondary" : "info"),
+                    new DashboardCard("Documentos criados", FormatCount(documentosCriados), "Documentos GED persistidos.", documentosCriados is null ? "secondary" : "success"),
+                    new DashboardCard("Outbox pendente/falho", FormatCount(outboxProblemas), "Eventos aguardando entrega ou correção.", outboxProblemas is null ? "secondary" : "warning"),
+                    new DashboardCard("Webhooks com falha", FormatCount(webhooksFalha), "Entregas recentes sem sucesso.", webhooksFalha is null ? "secondary" : "danger")
                 },
                 Ambiente = CriarAmbiente(!hasFallback),
                 Modulos = modulos,
-                MensagemFallback = hasFallback ? "Dados indisponíveis no ambiente local para uma ou mais tabelas. A tela permanece operacional sem expor detalhes técnicos." : string.Empty
+                ProtocolosPorStatus = protocolosPorStatus,
+                UltimosProtocolos = ultimosProtocolos,
+                TarefasCriticas = tarefasCriticas,
+                DocumentosRecentes = documentosRecentes,
+                AlertaOperacional = (outboxProblemas.GetValueOrDefault() + webhooksFalha.GetValueOrDefault()) > 0 ? "Há eventos outbox ou entregas webhook com pendência/falha. Acompanhe /Operacao/Outbox e Integrações." : string.Empty,
+                MensagemFallback = hasFallback ? "Dashboard em modo schema-safe: uma ou mais tabelas operacionais ainda não estão disponíveis; nenhum dado foi simulado como real." : string.Empty
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha ao montar dashboard inicial.");
-            return new DashboardViewModel { Cards = FallbackCards(), Ambiente = CriarAmbiente(false), Modulos = DefaultModules, MensagemFallback = "Não foi possível consultar o banco/API agora. Exibindo dados demonstrativos seguros." };
+            _logger.LogError(ex, "Falha ao montar dashboard operacional.");
+            return new DashboardViewModel { Cards = FallbackCards(), Ambiente = CriarAmbiente(false), Modulos = DefaultModules, MensagemFallback = "Não foi possível consultar dados reais agora. Exibindo fallback honesto sem classificar dados como funcionais." };
         }
     }
 
@@ -429,11 +447,11 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         new DashboardCard("Migrations", "Verificar", "Veja logs db-migrations.", "warning")
     };
 
-    private async Task<int?> CountOrNullAsync(System.Data.IDbConnection connection, string sql, CancellationToken cancellationToken)
+    private async Task<long?> CountOrNullAsync(System.Data.IDbConnection connection, string sql, CancellationToken cancellationToken, object? parameters = null)
     {
         try
         {
-            return await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -473,7 +491,20 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries)).Trim('-');
     }
 
-    private static string FormatCount(int? value) => value.HasValue ? value.Value.ToString() : "--";
+    private async Task<IReadOnlyCollection<T>> QueryOrEmptyAsync<T>(System.Data.IDbConnection connection, string sql, object parameters, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (await connection.QueryAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Consulta parcial do dashboard não disponível.");
+            return Array.Empty<T>();
+        }
+    }
+
+    private static string FormatCount(long? value) => value.HasValue ? value.Value.ToString() : "--";
     private static SigovFeatureStatus NormalizeStatus(string status)
     {
         if (string.IsNullOrWhiteSpace(status)) return SigovFeatureStatus.Indisponivel;
@@ -584,24 +615,27 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         if (query.Length < 2) return new GlobalSearchViewModel { Query = query, MensagemFallback = "Informe ao menos 2 caracteres para buscar." };
         var results = new List<GlobalSearchResultViewModel>();
         var ignored = new List<string>();
-        async Task Search(string area, string schema, string table, string titleColumn, string url)
+        var tenantId = 1L;
+        async Task SearchSql(string area, string table, string sql, object parameters)
         {
             try
             {
-                var cols = await _schemaInspector.GetColumnsAsync(schema, table, cancellationToken).ConfigureAwait(false);
-                if (!cols.Contains(titleColumn)) { ignored.Add(area); return; }
+                if (!await _schemaInspector.TableExistsAsync("sigov", table, cancellationToken).ConfigureAwait(false)) { ignored.Add(area); return; }
                 using var connection = _connectionFactory.CreateConnection();
-                var id = cols.Contains("id") ? "id::text" : "''";
-                var rows = await connection.QueryAsync<SearchRow>(new CommandDefinition($"select {id} as Id, {titleColumn}::text as Titulo from {schema}.{table} where {titleColumn}::text ilike '%' || @Q || '%' limit 5;", new { Q = query }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                results.AddRange(rows.Select(r => new GlobalSearchResultViewModel(area, MaskSearch(r.Titulo), $"Resultado real em {schema}.{table}", string.Format(url, r.Id), "Funcional")));
+                var rows = await connection.QueryAsync<SearchRow>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                results.AddRange(rows.Select(r => new GlobalSearchResultViewModel(area, MaskSearch(r.Titulo), r.Descricao, r.Url, "Funcional", r.Status, r.Data, r.LgpdMascarado)));
             }
             catch (Exception ex) { _logger.LogWarning(ex, "Busca parcial falhou em {Area}.", area); ignored.Add(area); }
         }
-        await Search("Tenants", "sigov", "tenant", "nome", "/Saas/Tenants/{0}").ConfigureAwait(false);
-        await Search("Módulos", "sigov", "modulo_saas", "nome", "/Marketplace/Modulo/{0}").ConfigureAwait(false);
-        await Search("Parâmetros", "sigov", "parametro_sistema", "chave", "/Saas/Parametros?busca={0}").ConfigureAwait(false);
-        await Search("Usuários", "sigov", "usuario", "nome", "/Seguranca/Usuarios").ConfigureAwait(false);
-        return new GlobalSearchViewModel { Query = query, Resultados = results, AreasIgnoradas = ignored.Distinct().ToArray(), MensagemFallback = ignored.Count > 0 ? "Algumas áreas foram ignoradas porque o schema não está disponível." : string.Empty };
+        var p = new { Q = query, TenantId = tenantId };
+        await SearchSql("Protocolo", "protocolo", @"select id::text as Id, numero || ' — ' || assunto as Titulo, 'Interessado/documento sempre mascarado por LGPD' as Descricao, status as Status, '/Protocolo/Detalhe/' || id as Url, created_at as Data, true as LgpdMascarado from sigov.protocolo where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (numero ilike '%'||@Q||'%' or assunto ilike '%'||@Q||'%' or status ilike '%'||@Q||'%' or coalesce(dados_json->>'interessado','') ilike '%'||@Q||'%') order by created_at desc limit 8;", p).ConfigureAwait(false);
+        await SearchSql("Movimento", "protocolo_movimento", @"select id::text as Id, 'Movimento de protocolo' as Titulo, left(coalesce(observacao,''),180) as Descricao, status as Status, '/Protocolo' as Url, created_at as Data, false as LgpdMascarado from sigov.protocolo_movimento where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (coalesce(observacao,'') ilike '%'||@Q||'%' or status ilike '%'||@Q||'%') order by created_at desc limit 5;", p).ConfigureAwait(false);
+        await SearchSql("Documento", "documento", @"select id::text as Id, titulo as Titulo, 'Documento GED sem storage_path exposto' as Descricao, status as Status, '/Ged/Detalhe/' || id as Url, created_at as Data, false as LgpdMascarado from sigov.documento where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (titulo ilike '%'||@Q||'%' or codigo ilike '%'||@Q||'%' or status ilike '%'||@Q||'%') order by created_at desc limit 8;", p).ConfigureAwait(false);
+        await SearchSql("Versão GED", "documento_versao", @"select id::text as Id, 'Versão GED #' || versao as Titulo, hash_sha256 as Descricao, status as Status, '/Ged' as Url, created_at as Data, false as LgpdMascarado from sigov.documento_versao where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (hash_sha256 ilike '%'||@Q||'%' or status ilike '%'||@Q||'%') order by created_at desc limit 5;", p).ConfigureAwait(false);
+        await SearchSql("Workflow", "workflow_instancia", @"select id::text as Id, 'Workflow #' || id as Titulo, coalesce(dados_json::text,'') as Descricao, status as Status, '/Workflow' as Url, created_at as Data, false as LgpdMascarado from sigov.workflow_instancia where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (status ilike '%'||@Q||'%' or coalesce(dados_json::text,'') ilike '%'||@Q||'%') order by created_at desc limit 5;", p).ConfigureAwait(false);
+        await SearchSql("Tarefa", "tarefa", @"select id::text as Id, titulo as Titulo, coalesce(dados_json::text,'') as Descricao, status as Status, '/Tarefas' as Url, created_at as Data, false as LgpdMascarado from sigov.tarefa where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (titulo ilike '%'||@Q||'%' or status ilike '%'||@Q||'%') order by created_at desc limit 8;", p).ConfigureAwait(false);
+        await SearchSql("Notificação", "notificacao", @"select id::text as Id, titulo as Titulo, left(coalesce(mensagem,''),180) as Descricao, status as Status, '/Notificacoes' as Url, created_at as Data, false as LgpdMascarado from sigov.notificacao where tenant_id=@TenantId and coalesce(is_deleted,false)=false and (titulo ilike '%'||@Q||'%' or coalesce(mensagem,'') ilike '%'||@Q||'%' or status ilike '%'||@Q||'%') order by created_at desc limit 8;", p).ConfigureAwait(false);
+        return new GlobalSearchViewModel { Query = query, Resultados = results, AreasIgnoradas = ignored.Distinct().ToArray(), MensagemFallback = ignored.Count > 0 ? "Algumas áreas foram ignoradas porque o schema não está disponível; resultados reais encontrados respeitam tenant e mascaramento LGPD." : string.Empty };
     }
 
     private static IReadOnlyCollection<SaasPlanoViewModel> DefaultPlans() => new[]
@@ -612,6 +646,6 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
     };
     private static string MaskSearch(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : (value.Contains('@') ? MaskEmail(value) : value);
     private sealed record SaasPlanoRow(long Id, string Codigo, string Nome, string Descricao, decimal ValorMensal, decimal ValorAnual, int LimiteUsuarios, int LimiteStorageGb, int LimiteTenants, string Suporte, string ModulosInclusos, bool Ativo, bool Recomendado, int Ordem);
-    private sealed record SearchRow(string Id, string Titulo);
+    private sealed record SearchRow(string Id, string Titulo, string Descricao, string Status, string Url, DateTimeOffset? Data, bool LgpdMascarado);
 
 }

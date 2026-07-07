@@ -65,8 +65,16 @@ public sealed class DashboardViewModel
     public IReadOnlyCollection<DashboardCard> Cards { get; init; } = Array.Empty<DashboardCard>();
     public IReadOnlyCollection<HealthItemViewModel> Ambiente { get; init; } = Array.Empty<HealthItemViewModel>();
     public IReadOnlyCollection<ModuleViewModel> Modulos { get; init; } = Array.Empty<ModuleViewModel>();
+    public IReadOnlyCollection<DashboardStatusSliceViewModel> ProtocolosPorStatus { get; init; } = Array.Empty<DashboardStatusSliceViewModel>();
+    public IReadOnlyCollection<DashboardListItemViewModel> UltimosProtocolos { get; init; } = Array.Empty<DashboardListItemViewModel>();
+    public IReadOnlyCollection<DashboardListItemViewModel> TarefasCriticas { get; init; } = Array.Empty<DashboardListItemViewModel>();
+    public IReadOnlyCollection<DashboardListItemViewModel> DocumentosRecentes { get; init; } = Array.Empty<DashboardListItemViewModel>();
+    public string AlertaOperacional { get; init; } = string.Empty;
     public string MensagemFallback { get; init; } = string.Empty;
 }
+
+public sealed record DashboardStatusSliceViewModel(string Status, long Total);
+public sealed record DashboardListItemViewModel(string Titulo, string Descricao, string Status, string Url, DateTimeOffset? Data);
 
 public sealed class TenantsViewModel
 {
@@ -174,7 +182,7 @@ public sealed class SaasNotificationsViewModel
     public string StatusFiltro { get; init; } = string.Empty;
     public string MensagemFallback { get; init; } = string.Empty;
 }
-public sealed record GlobalSearchResultViewModel(string Area, string Titulo, string Descricao, string Url, string Badge);
+public sealed record GlobalSearchResultViewModel(string Area, string Titulo, string Descricao, string Url, string Badge, string Status = "", DateTimeOffset? Data = null, bool LgpdMascarado = false);
 public sealed class GlobalSearchViewModel
 {
     public string Query { get; init; } = string.Empty;
