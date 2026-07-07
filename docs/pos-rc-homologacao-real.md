@@ -21,3 +21,11 @@ As respostas da API evitam expor CPF, CNPJ, e-mail, telefone, CNS e prontuário 
 - **Em implantação/fallback:** PDF/DOCX da POC, OCR, ICP-Brasil e Gov.br não são simulados.
 - **Dependente de provedor:** envio externo de webhook e validações oficiais dependem de infraestrutura configurada.
 - **Não disponível:** exposição de path físico de storage e dados pessoais completos em listagens/exports.
+
+## Pós-RC 04 — pacote final de homologação
+
+- Seed idempotente: `database/postgres/seeds/pos_rc_homologacao_demo.sql`.
+- Aplicação do seed: `pwsh -NoProfile -File scripts/apply-demo-seed.ps1`.
+- Smoke test release candidate: `pwsh -NoProfile -File scripts/smoke-test-sigov.ps1`.
+- Relatórios CSV reais adicionados para protocolos, documentos, tarefas, notificações, workflow, outbox, webhooks e auditoria operacional.
+- Dados demonstráveis são fictícios, seguros e não devem ser aplicados em Production.

@@ -1,0 +1,32 @@
+# Checklist go-live Pós-RC 04
+
+## Técnico
+
+- [ ] `dotnet build sigov.sln` sem erro.
+- [ ] `dotnet test sigov.sln` sem erro.
+- [ ] `docker compose up -d` saudável.
+- [ ] Health checks `/api/health/live`, `/ready`, `/db` OK.
+- [ ] Smoke test gera Markdown e JSON.
+
+## Dados e LGPD
+
+- [ ] Seed demo aplicado apenas em Development/Homologation.
+- [ ] Nenhum CPF/CNPJ/e-mail/telefone completo em telas ou CSV.
+- [ ] Tokens, API keys e secrets nunca exportados em claro.
+- [ ] Storage path não aparece em relatórios públicos.
+
+## Fluxos
+
+- [ ] Protocolo Web ponta a ponta.
+- [ ] GED com hash e validação pública.
+- [ ] Dashboard e Minha Central consultam tabelas reais quando disponíveis.
+- [ ] Busca global audita pesquisas sensíveis.
+- [ ] Relatórios aplicam tenant/permissão/auditoria.
+- [ ] Outbox processa conforme `Workers__Outbox__Enabled`.
+- [ ] POC não aprova crítico sem evidência real.
+
+## Pendências honestas
+
+- [ ] Dependências externas documentadas.
+- [ ] ICP-Brasil/Gov.br/OCR não anunciados como funcionais sem provedor.
+- [ ] PDF/DOCX somente se infraestrutura real estiver habilitada.

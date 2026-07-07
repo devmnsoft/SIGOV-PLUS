@@ -88,6 +88,30 @@ public sealed class RelatoriosController : Controller
     [HttpGet("/Relatorios/ParametrosCsv")]
     public async Task<IActionResult> ParametrosCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("parametro_sistema", "select chave, escopo, categoria, case when lower(chave) like '%senha%' or lower(chave) like '%token%' then '***' else valor::text end as valor from sigov.parametro_sistema order by categoria, chave limit 500;", "chave;escopo;categoria;valor", "parametros.csv", cancellationToken).ConfigureAwait(false);
 
+    [HttpGet("/Relatorios/ProtocolosCsv")]
+    public async Task<IActionResult> ProtocolosCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("protocolo", "select numero, status, assunto, regexp_replace(coalesce(dados_json->>'interessadoDocumento',''),'([0-9]{3})[0-9]+([0-9]{2})','\\1*****\\2') as interessado_mascarado, created_at from sigov.protocolo where tenant_id=1 and coalesce(is_deleted,false)=false order by created_at desc limit 1000;", "numero;status;assunto;interessado_mascarado;data", Timestamped("protocolos"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/DocumentosCsv")]
+    public async Task<IActionResult> DocumentosCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("documento", "select codigo, status, titulo, classificacao_lgpd, hash_sha256, created_at from sigov.documento where tenant_id=1 and coalesce(is_deleted,false)=false order by created_at desc limit 1000;", "codigo;status;titulo;classificacao_lgpd;hash_sha256;data", Timestamped("documentos"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/TarefasCsv")]
+    public async Task<IActionResult> TarefasCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("tarefa", "select t.id, coalesce(p.numero,'') as protocolo, t.titulo, t.status, t.responsavel_id, t.created_at, t.concluida_at from sigov.tarefa t left join sigov.protocolo p on p.id=t.protocolo_id where t.tenant_id=1 and coalesce(t.is_deleted,false)=false order by t.created_at desc limit 1000;", "id;protocolo;titulo;status;responsavel_id;criada_em;concluida_em", Timestamped("tarefas"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/NotificacoesCsv")]
+    public async Task<IActionResult> NotificacoesCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("notificacao", "select titulo, status, left(coalesce(mensagem,''),180) as mensagem, created_at from sigov.notificacao where tenant_id=1 and coalesce(is_deleted,false)=false order by created_at desc limit 1000;", "titulo;status;mensagem;data", Timestamped("notificacoes"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/WorkflowCsv")]
+    public async Task<IActionResult> WorkflowCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("workflow_instancia", "select wi.id, coalesce(p.numero,'') as protocolo, wi.status, wi.created_at from sigov.workflow_instancia wi left join sigov.protocolo p on p.id=wi.protocolo_id where wi.tenant_id=1 and coalesce(wi.is_deleted,false)=false order by wi.created_at desc limit 1000;", "id;protocolo;status;data", Timestamped("workflow"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/OutboxCsv")]
+    public async Task<IActionResult> OutboxCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("outbox_evento", "select evento, agregado, agregado_id, status, tentativas, proxima_tentativa_at, erro_mascarado, created_at from sigov.outbox_evento where tenant_id=1 and coalesce(is_deleted,false)=false order by created_at desc limit 1000;", "evento;agregado;agregado_id;status;tentativas;proxima_tentativa;erro_mascarado;data", Timestamped("outbox"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/WebhooksCsv")]
+    public async Task<IActionResult> WebhooksCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("webhook_configuracao", "select nome, regexp_replace(url,'(https?://)[^/]+','\\1***') as endpoint_mascarado, eventos::text as eventos, status, created_at from sigov.webhook_configuracao where tenant_id=1 and coalesce(is_deleted,false)=false order by created_at desc limit 1000;", "nome;endpoint_mascarado;eventos;status;data", Timestamped("webhooks"), cancellationToken).ConfigureAwait(false);
+
+    [HttpGet("/Relatorios/AuditoriaOperacionalCsv")]
+    public async Task<IActionResult> AuditoriaOperacionalCsv(CancellationToken cancellationToken) => await ExportSimpleAsync("api_requisicao_log", "select endpoint, method, status, status_code, elapsed_ms, started_at from sigov.api_requisicao_log where tenant_id=1 and coalesce(is_deleted,false)=false order by started_at desc limit 1000;", "endpoint;metodo;status;status_code;ms;data", Timestamped("auditoria-operacional"), cancellationToken).ConfigureAwait(false);
+
     private async Task<IActionResult> ExportSimpleAsync(string table, string sql, string header, string fileName, CancellationToken cancellationToken)
     {
         if (!await _schemaInspector.TableExistsAsync("sigov", table, cancellationToken).ConfigureAwait(false)) return Csv($"mensagem\nTabela sigov.{table} indisponível; exportação não gerada.\n", fileName);
@@ -99,6 +123,7 @@ public sealed class RelatoriosController : Controller
     private FileContentResult Csv(string content, string fileName) => File(new UTF8Encoding(true).GetBytes(content), "text/csv; charset=utf-8", fileName);
     private static string ToCsv(IEnumerable<string> headers, IEnumerable<string> rows) => string.Join('\n', headers.Concat(rows)) + "\n";
     private static string Escape(string value) => value.Replace(";", ",", StringComparison.Ordinal).Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+    private static string Timestamped(string prefix) => $"{prefix}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
     private sealed record UsuarioCsvRow(long Id, string Nome, string Login, string Email, bool Ativo);
     private sealed record TenantCsvRow(long Id, string Nome, string Slug, string Documento, string Email, bool Ativo);
     private sealed record ModuloCsvRow(long Tenant_Id, string Modulo_Codigo, string Status, bool Ativo);
