@@ -1,9 +1,5 @@
-# Smoke test Release Candidate SIGOV PLUS
+# Smoke test Release Candidate — Pós-RC 03
 
-Arquivo gerado/atualizado para Pós-RC 02. Execute:
+Classificação: **Parcial / pendente de execução no ambiente atual**.
 
-```powershell
-pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
-```
-
-Cobertura: rotas web principais, health checks, API v1 sem chave (401 esperado) e API v1 com chave válida quando `SIGOV_SMOKE_API_KEY` e `SIGOV_SMOKE_TENANT_ID` estiverem definidos.
+Execute `pwsh -NoProfile -File scripts/smoke-test-sigov.ps1` após `docker compose up -d` para validar rotas Web, health checks, API v1 sem key (401) e API v1 com key válida.

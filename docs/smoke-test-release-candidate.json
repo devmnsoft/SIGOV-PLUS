@@ -1,6 +1,1 @@
-{
-  "release": "pos-rc-02",
-  "script": "scripts/smoke-test-sigov.ps1",
-  "status": "pending-environment-execution",
-  "requires": ["docker compose", "pwsh", "SIGOV_SMOKE_API_KEY optional", "SIGOV_SMOKE_TENANT_ID optional"]
-}
+{"status":"pendente_execucao_ambiente","classificacao":"Parcial","observacao":"Gerado para Pós-RC 03; executar scripts/smoke-test-sigov.ps1 em ambiente com dotnet, docker e pwsh."}

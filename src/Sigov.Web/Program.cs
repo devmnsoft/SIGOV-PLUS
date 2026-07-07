@@ -105,6 +105,7 @@ builder.Services.AddScoped<PocRoteiroService>();
 builder.Services.AddScoped<PocEvidenciaService>();
 builder.Services.AddScoped<AceiteFormalService>();
 builder.Services.AddScoped<EditalPocService>();
+builder.Services.AddScoped<PosRcWebOperationalService>();
 
 var app = builder.Build();
 

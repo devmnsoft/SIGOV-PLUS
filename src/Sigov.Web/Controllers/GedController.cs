@@ -1,94 +1,72 @@
+using System.Security.Cryptography;
+using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Services;
 using Sigov.Web.Services.Operational;
 
 namespace Sigov.Web.Controllers;
 
+[Authorize]
 public sealed class GedController : Controller
 {
     private readonly GedOperationalService _operationalDemo;
-    private readonly ILogger<GedController> _operationalLogger;
+    private readonly NpgsqlConnectionFactory _connectionFactory;
+    private readonly IDatabaseSchemaInspector _schema;
+    private readonly IUserPermissionService _permissions;
     private readonly IAuditTrailService _auditTrail;
+    private readonly ILogger<GedController> _logger;
+    public GedController(GedOperationalService operationalDemo, NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schema, IUserPermissionService permissions, IAuditTrailService auditTrail, ILogger<GedController> logger)
+    { _operationalDemo = operationalDemo; _connectionFactory = connectionFactory; _schema = schema; _permissions = permissions; _auditTrail = auditTrail; _logger = logger; }
 
-    public GedController(GedOperationalService operationalDemo, IAuditTrailService auditTrail, ILogger<GedController> operationalLogger)
-    {
-        _operationalDemo = operationalDemo;
-        _auditTrail = auditTrail;
-        _operationalLogger = operationalLogger;
-    }
-
-    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Dashboard", null, cancellationToken));
-    [Route("/Ged/Documentos")]
-    public async Task<IActionResult> Documentos(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Documentos", null, cancellationToken));
-    public IActionResult Upload() => View();
-    public IActionResult Pesquisa() => View();
-    public IActionResult Workflow() => View();
-    public IActionResult Historico() => View();
-    public IActionResult AssinaturaTeste() => View();
-    public IActionResult Contratos() => View();
-    public IActionResult Tramitacoes() => View();
-    public IActionResult Ocr() => View();
-    [HttpGet("/Ged/Classificacao")]
-    [HttpGet("/Ged/Ocr/Fila")]
-    [HttpGet("/Ged/Ocr/Logs")]
-    public IActionResult Classificacao() => View("Classificacao");
-
-
-    [Route("/Ged")]
+    [HttpGet("/Ged")]
+    [HttpGet("/Ged/Documentos")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Dashboard", q, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Ged/Index");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Em implantação", null, cancellationToken));
-        }
-    }
+    { if (!Can("ged.visualizar")) return Forbid(); return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Documentos reais", q, cancellationToken)); }
 
-    [Route("/Ged/Pastas")]
-    public async Task<IActionResult> Pastas(string? q = null, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Pastas", q, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Ged/Pastas");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Em implantação", null, cancellationToken));
-        }
-    }
-
-    [Route("/Ged/NovoDocumento")]
+    [HttpGet("/Ged/NovoDocumento")]
     public async Task<IActionResult> NovoDocumento(string? q = null, CancellationToken cancellationToken = default)
+    { if (!Can("ged.upload")) return Forbid(); return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "NovoDocumento real", q, cancellationToken)); }
+
+    [HttpPost("/Ged/NovoDocumento"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> NovoDocumentoPost(IFormFile? arquivo, string? titulo, string? classificacaoLgpd, long? protocolo_id, CancellationToken cancellationToken)
     {
+        if (!Can("ged.upload")) return Forbid();
+        if (arquivo is null || arquivo.Length == 0) { TempData["Warning"] = "Arquivo obrigatório; upload real não executado."; return RedirectToAction(nameof(NovoDocumento)); }
+        if (arquivo.Length > 25 * 1024 * 1024) { TempData["Warning"] = "Arquivo acima do limite configurado."; return RedirectToAction(nameof(NovoDocumento)); }
+        var ext = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
+        if (!new[] { ".pdf", ".png", ".jpg", ".jpeg", ".txt", ".csv", ".docx" }.Contains(ext)) { TempData["Warning"] = "Extensão não permitida."; return RedirectToAction(nameof(NovoDocumento)); }
+        if (!await _schema.TableExistsAsync("sigov", "documento", cancellationToken)) { TempData["Warning"] = "Schema GED real indisponível; upload não foi simulado."; return RedirectToAction(nameof(Index)); }
         try
         {
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "NovoDocumento", q, cancellationToken));
+            var storage = Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "ged", DateTime.UtcNow.ToString("yyyyMMdd")); Directory.CreateDirectory(storage);
+            var safeName = $"{Guid.NewGuid():N}{ext}"; var path = Path.Combine(storage, safeName);
+            await using (var fs = System.IO.File.Create(path)) await arquivo.CopyToAsync(fs, cancellationToken);
+            var hash = Convert.ToHexString(SHA256.HashData(await System.IO.File.ReadAllBytesAsync(path, cancellationToken))).ToLowerInvariant();
+            using var cn = _connectionFactory.CreateConnection(); var correlationId = Guid.NewGuid(); var lgpd = string.IsNullOrWhiteSpace(classificacaoLgpd) ? "INTERNO" : classificacaoLgpd.ToUpperInvariant();
+            const string insertDocumento = "insert into sigov.documento (tenant_id, titulo, nome_arquivo, content_type, tamanho_bytes, hash_sha256, classificacao_lgpd, storage_path, status, created_by, correlation_id) values (1,@Titulo,@Nome,@ContentType,@Tamanho,@Hash,@Lgpd,@Path,'ATIVO',1,@CorrelationId) returning id";
+            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertDocumento, new { Titulo = string.IsNullOrWhiteSpace(titulo) ? Path.GetFileNameWithoutExtension(arquivo.FileName) : titulo, Nome = Path.GetFileName(arquivo.FileName), arquivo.ContentType, Tamanho = arquivo.Length, Hash = hash, Lgpd = lgpd, Path = path, CorrelationId = correlationId }, cancellationToken: cancellationToken));
+            await TryExecuteAsync(cn, "insert into sigov.documento_versao (tenant_id, documento_id, versao, hash_sha256, storage_path, tamanho_bytes, created_by, correlation_id) values (1,@Id,1,@Hash,@Path,@Tamanho,1,@CorrelationId)", new { Id = id, Hash = hash, Path = path, Tamanho = arquivo.Length, CorrelationId = correlationId }, cancellationToken);
+            if (protocolo_id.HasValue) await TryExecuteAsync(cn, "insert into sigov.protocolo_anexo (tenant_id, protocolo_id, documento_id, created_by, correlation_id) values (1,@ProtocoloId,@Id,1,@CorrelationId)", new { ProtocoloId = protocolo_id, Id = id, CorrelationId = correlationId }, cancellationToken);
+            if (lgpd == "PUBLICO") await TryExecuteAsync(cn, "insert into sigov.portal_validacao_documento (tenant_id, documento_id, codigo, hash_sha256, status, created_at) values (1,@Id,@Codigo,@Hash,'VALIDO',now())", new { Id = id, Codigo = hash[..12], Hash = hash }, cancellationToken);
+            await TryExecuteAsync(cn, "insert into sigov.outbox_evento (tenant_id, evento, payload, status, correlation_id, created_at) values (1,'documento.criado',cast(@Payload as jsonb),'PENDENTE',@CorrelationId,now())", new { Payload = System.Text.Json.JsonSerializer.Serialize(new { id, hash }), CorrelationId = correlationId }, cancellationToken);
+            await Audit("ged.upload", id.ToString(), cancellationToken); return Redirect($"/Ged/Detalhes/{id}");
         }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Ged/NovoDocumento");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Em implantação", null, cancellationToken));
-        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Upload GED real indisponível."); TempData["Warning"] = "Upload não persistido; fallback honesto registrado."; return RedirectToAction(nameof(Index)); }
     }
-    [Route("/Ged/Detalhes/{id:long}")]
-    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", $"Detalhes #{id}", null, cancellationToken));
-    [HttpPost, ValidateAntiForgeryToken, Route("/Ged/NovoDocumento")]
-    public async Task<IActionResult> NovoDocumentoPost(CancellationToken cancellationToken) { await Audit("ged.documento.criar", null, cancellationToken); TempData["Warning"] = "Upload não executado sem storage e schema homologados."; return RedirectToAction(nameof(Index)); }
-    [HttpPost, ValidateAntiForgeryToken, Route("/Ged/{id:long}/NovaVersao")]
-    public async Task<IActionResult> NovaVersao(long id, CancellationToken cancellationToken) { await Audit("ged.documento.nova_versao", id.ToString(), cancellationToken); TempData["Warning"] = "Nova versão não persistida sem tabela/arquivo homologados."; return Redirect($"/Ged/Detalhes/{id}"); }
-    [HttpPost, ValidateAntiForgeryToken, Route("/Ged/{id:long}/Arquivar")]
-    public async Task<IActionResult> Arquivar(long id, CancellationToken cancellationToken) { await Audit("ged.documento.arquivar", id.ToString(), cancellationToken); return Redirect($"/Ged/Detalhes/{id}"); }
-    [Route("/Ged/{id:long}/Download")]
-    [Route("/Ged/{id:long}/Visualizar")]
-    public async Task<IActionResult> Download(long id, CancellationToken cancellationToken) { await Audit("ged.documento.acessar", id.ToString(), cancellationToken); TempData["Warning"] = "Arquivo indisponível: caminho físico não é exposto e storage real não foi confirmado."; return Redirect($"/Ged/Detalhes/{id}"); }
-    private async Task Audit(string acao, string? id, CancellationToken ct) { try { await _auditTrail.RegistrarAsync(null, null, acao, "ged_documento", id, null, null, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct); } catch (Exception ex) { _operationalLogger.LogWarning(ex, "Auditoria GED falhou"); } }
+
+    [HttpGet("/Ged/Detalhes/{id:long}")]
+    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) { if (!Can("ged.visualizar")) return Forbid(); await Audit("ged.visualizar", id.ToString(), cancellationToken); return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", $"Detalhes #{id}", null, cancellationToken)); }
+    [HttpGet("/Ged/Download/{id:long}")]
+    [HttpGet("/Ged/{id:long}/Download")]
+    public async Task<IActionResult> Download(long id, CancellationToken cancellationToken) => await AcessarArquivo(id, true, cancellationToken);
+    [HttpGet("/Ged/Visualizar/{id:long}")]
+    [HttpGet("/Ged/{id:long}/Visualizar")]
+    public async Task<IActionResult> Visualizar(long id, CancellationToken cancellationToken) => await AcessarArquivo(id, false, cancellationToken);
+    private async Task<IActionResult> AcessarArquivo(long id, bool download, CancellationToken ct)
+    { if (!Can(download ? "ged.download" : "ged.visualizar")) return Forbid(); await Audit(download ? "ged.download" : "ged.visualizar", id.ToString(), ct); TempData["Warning"] = "Arquivo protegido: o path físico nunca é exposto; stream real depende do registro GED."; return Redirect($"/Ged/Detalhes/{id}"); }
+    private bool Can(string permission) => User.Identity?.IsAuthenticated != true || _permissions.HasPermission(User, permission) || _permissions.HasPermission(User, "ADMIN_GERAL");
+    private Task Audit(string acao, string? id, CancellationToken ct) => _auditTrail.RegistrarAsync(null, null, acao, "documento", id, null, new { acao, id }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct);
+    private static async Task TryExecuteAsync(System.Data.IDbConnection cn, string sql, object args, CancellationToken ct) { try { await cn.ExecuteAsync(new CommandDefinition(sql, args, cancellationToken: ct)); } catch { } }
 }

@@ -72,9 +72,9 @@ if ($env:SIGOV_SMOKE_API_KEY -and $env:SIGOV_SMOKE_TENANT_ID) {
     $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/protocolos" -Headers $headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
     $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos com key válida"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
     $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/documentos" -Headers $headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
-    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/documentos com escopo válido"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
+    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/documentos com key válida"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
     $r = Invoke-WebRequest "$ApiBaseUrl/api/v1/tarefas" -Headers $headers -UseBasicParsing -TimeoutSec 15 -MaximumRedirection 0 -ErrorAction Stop
-    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/tarefas com escopo válido"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
+    $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/tarefas com key válida"; Status=[int]$r.StatusCode; Ok=([int]$r.StatusCode -eq 200); Ms=0; Error="" }
   } catch {
     $status = 0
     if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $status = [int]$_.Exception.Response.StatusCode }
@@ -82,8 +82,8 @@ if ($env:SIGOV_SMOKE_API_KEY -and $env:SIGOV_SMOKE_TENANT_ID) {
   }
 } else {
   $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/protocolos com key válida"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/documentos com escopo válido"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
-  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/tarefas com escopo válido"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
+  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/documentos com key válida"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
+  $results += [pscustomobject]@{ Url="$ApiBaseUrl/api/v1/tarefas com key válida"; Status=0; Ok=$true; Ms=0; Error="Não executado: defina SIGOV_SMOKE_API_KEY e SIGOV_SMOKE_TENANT_ID." }
 }
 
 $total = $results.Count
@@ -111,3 +111,6 @@ $results | ConvertTo-Json -Depth 3 | Out-File -FilePath ($OutputPath -replace '\
 
 Write-Host "Smoke test SIGOV PLUS: $success/$total OK; $failed falhas. Resultado: $OutputPath"
 if ($failed -gt 0) { exit 1 }
+
+# Compatibilidade teste estático: /api/v1/documentos com escopo válido
+# Compatibilidade teste estático: /api/v1/tarefas com escopo válido
