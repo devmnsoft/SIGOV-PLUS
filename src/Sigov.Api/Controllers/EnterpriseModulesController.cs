@@ -9,12 +9,108 @@ public sealed class EnterpriseModulesController : ControllerBase
 {
     private static readonly Guid DemoTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IEnterpriseModuleService _service;
+    private readonly IEnterpriseCrudService? _crud;
     private readonly ILogger<EnterpriseModulesController> _logger;
 
     public EnterpriseModulesController(IEnterpriseModuleService service, ILogger<EnterpriseModulesController> logger)
     {
         _service = service;
+        _crud = service as IEnterpriseCrudService;
         _logger = logger;
+    }
+
+
+    [HttpGet("api/enterprise/{area}/export-csv")]
+    public async Task<IActionResult> EnterpriseExport(string area, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<string>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var csv = await _crud.ExportCsvAsync(NormalizeEnterpriseArea(area), ResolveTenantId(), cancellationToken);
+        return File(csv, "text/csv", $"enterprise-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
+    }
+
+    [HttpGet("api/enterprise/{area}")]
+    [HttpGet("api/industria/{area}")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<EnterpriseListItem>>>> EnterpriseList(string area, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
+    {
+        if (_crud is null) return NotFound(ApiResponse<IReadOnlyList<EnterpriseListItem>>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
+        var rows = await _crud.ListAsync(NormalizeEnterpriseArea(area, prefix), ResolveTenantId(), page, pageSize, search, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<EnterpriseListItem>>.Ok(rows, correlationId: CorrelationId()));
+    }
+
+    [HttpGet("api/enterprise/{area}/{id:guid}")]
+    [HttpGet("api/industria/{area}/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<EnterpriseListItem>>> EnterpriseGet(string area, Guid id, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseListItem>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
+        var row = await _crud.GetByIdAsync(NormalizeEnterpriseArea(area, prefix), id, ResolveTenantId(), cancellationToken);
+        return row is null ? NotFound(ApiResponse<EnterpriseListItem>.Fail("Registro não encontrado no tenant.", CorrelationId())) : Ok(ApiResponse<EnterpriseListItem>.Ok(row, correlationId: CorrelationId()));
+    }
+
+    [HttpPost("api/enterprise/{area}")]
+    [HttpPost("api/industria/{area}")]
+    public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> EnterpriseCreate(string area, [FromBody] EnterpriseMutationRequest request, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
+        var result = await _crud.CreateAsync(NormalizeEnterpriseArea(area, prefix), request, ResolveTenantId(), CorrelationId(), cancellationToken);
+        return Created($"{Request.Path}/{result.Id}", ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
+    }
+
+    [HttpPut("api/enterprise/{area}/{id:guid}")]
+    [HttpPut("api/industria/{area}/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> EnterpriseUpdate(string area, Guid id, [FromBody] EnterpriseMutationRequest request, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
+        var result = await _crud.UpdateAsync(NormalizeEnterpriseArea(area, prefix), id, request, ResolveTenantId(), CorrelationId(), cancellationToken);
+        return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
+    }
+
+    [HttpDelete("api/enterprise/{area}/{id:guid}")]
+    [HttpDelete("api/industria/{area}/{id:guid}")]
+    [HttpPost("api/enterprise/{area}/{id:guid}/inativar")]
+    public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> EnterpriseDelete(string area, Guid id, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
+        var result = await _crud.DeleteAsync(NormalizeEnterpriseArea(area, prefix), id, ResolveTenantId(), CorrelationId(), cancellationToken);
+        return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
+    }
+
+    [HttpPost("api/enterprise/{area}/{id:guid}/restaurar")]
+    public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> EnterpriseRestore(string area, Guid id, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var result = await _crud.RestoreAsync(NormalizeEnterpriseArea(area), id, ResolveTenantId(), CorrelationId(), cancellationToken);
+        return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
+    }
+
+
+
+    [HttpGet("api/{segment}/{area}/export-csv")]
+    public async Task<IActionResult> LegacyExport(string segment, string area, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<string>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var csv = await _crud.ExportCsvAsync($"{segment}/{area}", ResolveTenantId(), cancellationToken);
+        return File(csv, "text/csv", $"enterprise-{segment}-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
+    }
+
+    [HttpPut("api/{segment}/{area}/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> LegacyUpdate(string segment, string area, Guid id, [FromBody] EnterpriseMutationRequest request, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var result = await _crud.UpdateAsync($"{segment}/{area}", id, request, ResolveTenantId(), CorrelationId(), cancellationToken);
+        return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
+    }
+
+    [HttpDelete("api/{segment}/{area}/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> LegacyDelete(string segment, string area, Guid id, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var result = await _crud.DeleteAsync($"{segment}/{area}", id, ResolveTenantId(), CorrelationId(), cancellationToken);
+        return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
     [HttpGet("api/comercial/clientes")]
@@ -233,6 +329,8 @@ public sealed class EnterpriseModulesController : ControllerBase
         var value = Request.Headers["X-Tenant-Id"].FirstOrDefault();
         return Guid.TryParse(value, out var tenantId) ? tenantId : DemoTenantId;
     }
+
+    private static string NormalizeEnterpriseArea(string area, string prefix = "enterprise") => prefix == "industria" ? $"industria/{area}" : area.Contains('/') ? area : $"comercial/{area}";
 
     private static string SanitizeCsv(string? value) => (value ?? string.Empty).Replace(";", ",", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Replace("\r", " ", StringComparison.Ordinal);
 

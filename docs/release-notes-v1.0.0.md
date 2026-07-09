@@ -59,3 +59,8 @@ Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao
 - Incluídas tabelas `sigov.enterprise_*` idempotentes para Comercial, OS, Estoque/Compras, Industrial/Manutenção, Indústria Produção, eventos e auditoria.
 - Telas Enterprise existentes passam a usar template operacional com listagem real, formulário, detalhes, exportação CSV e avisos LGPD/fallback.
 - Jornadas mínimas funcionais: proposta aprovada gera pedido; pedido gera OS; OS consome estoque; saldo negativo é bloqueado; plano preventivo gera OS.
+
+## Pós-RC 08 — Enterprise E2E
+- Ajustado CRUD Enterprise REST para criação, edição por ID, soft delete, restauração, CSV seguro e auditoria.
+- Template Web Enterprise passou a executar inativação real via backend e edição via `PUT`.
+- Documentadas evidências, matriz CRUD e roteiro manual Pós-RC 08, com pendências honestas de ambiente para build/test/docker.

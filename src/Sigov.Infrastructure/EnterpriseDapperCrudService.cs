@@ -40,7 +40,11 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         ["industria/produtos"] = "enterprise_produto_industrial",
         ["industria/fichas-tecnicas"] = "enterprise_ficha_tecnica",
         ["industria/roteiros"] = "enterprise_roteiro_producao",
-        ["industria/ordens-producao"] = "enterprise_ordem_producao"
+        ["industria/ordens-producao"] = "enterprise_ordem_producao",
+        ["industria/apontamentos"] = "enterprise_apontamento_producao",
+        ["industria/qualidade"] = "enterprise_inspecao_qualidade",
+        ["industria/paradas"] = "enterprise_parada_falha",
+        ["industria/custos"] = "enterprise_custo_producao"
     };
 
     private readonly DapperContext _context;
@@ -168,18 +172,47 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
 
     public EnterpriseDashboard GetDashboard(string module, Guid tenantId) { var alertas = GetStock(tenantId).Where(s => s.AbaixoDoMinimo).Select(s => $"Produto {s.Produto} abaixo do mínimo").ToArray(); return new EnterpriseDashboard(module, List(ModuleArea(module), tenantId).Count, alertas.Length, alertas, Array.Empty<EnterpriseAuditEvent>()); }
 
-    public Task<IReadOnlyList<EnterpriseListItem>> ListAsync(string area, Guid tenantId, int page = 1, int pageSize = 50, string? search = null, CancellationToken cancellationToken = default) => Task.FromResult(List(area, tenantId));
+    public Task<IReadOnlyList<EnterpriseListItem>> ListAsync(string area, Guid tenantId, int page = 1, int pageSize = 50, string? search = null, CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<EnterpriseListItem>)List(area, tenantId).Where(x => string.IsNullOrWhiteSpace(search) || x.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || x.Status.Contains(search, StringComparison.OrdinalIgnoreCase)).Skip(Math.Max(0, page - 1) * pageSize).Take(pageSize).ToArray());
     public Task<EnterpriseListItem?> GetByIdAsync(string area, Guid id, Guid tenantId, CancellationToken cancellationToken = default) => Task.FromResult(List(area, tenantId).FirstOrDefault(x => x.Id == id));
     public Task<EnterpriseActionResult> CreateAsync(string area, EnterpriseMutationRequest request, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Upsert(area, request, tenantId, correlationId));
-    public Task<EnterpriseActionResult> UpdateAsync(string area, Guid id, EnterpriseMutationRequest request, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Upsert(area, request, tenantId, correlationId));
-    public Task<EnterpriseActionResult> DeleteAsync(string area, Guid id, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(SetStatus(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, "INATIVO", "Registro inativado com soft delete lógico.", correlationId));
-    public Task<EnterpriseActionResult> RestoreAsync(string area, Guid id, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(SetStatus(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, "ATIVO", "Registro restaurado.", correlationId));
+    public Task<EnterpriseActionResult> UpdateAsync(string area, Guid id, EnterpriseMutationRequest request, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Update(area, id, request, tenantId, correlationId));
+    public Task<EnterpriseActionResult> DeleteAsync(string area, Guid id, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(SoftDelete(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, correlationId));
+    public Task<EnterpriseActionResult> RestoreAsync(string area, Guid id, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Restore(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, correlationId));
     public Task<EnterpriseActionResult> ExecuteActionAsync(string area, Guid id, string action, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(SetStatus(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, action.ToUpperInvariant(), $"Ação {action} executada.", correlationId));
     public Task<EnterpriseDashboard> DashboardAsync(string module, Guid tenantId, CancellationToken cancellationToken = default) => Task.FromResult(GetDashboard(module, tenantId));
     public Task<byte[]> ExportCsvAsync(string area, Guid tenantId, CancellationToken cancellationToken = default) { var csv = "id;nome;status\n" + string.Join("\n", List(area, tenantId).Select(x => $"{x.Id};{x.Name};{x.Status}")); return Task.FromResult(Encoding.UTF8.GetBytes(csv)); }
     public Task<IReadOnlyList<EnterpriseListItem>> SearchAsync(string query, Guid tenantId, CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<EnterpriseListItem>)AreaTables.Keys.SelectMany(a => List(a, tenantId)).Where(x => x.Name.Contains(query, StringComparison.OrdinalIgnoreCase) || x.Status.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(50).ToArray());
 
-    private EnterpriseActionResult SetStatus(string table, Guid id, Guid tenantId, string status, string message, string correlationId) { try { using var cn = _context.CreateConnection(); cn.Execute($"update sigov.{table} set status=@status, updated_at=now(), updated_by='api', correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { status, tenantId, id, correlationId }); Audit(cn, tenantId, table, id, status.ToLowerInvariant(), correlationId); return new EnterpriseActionResult(id, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback status Enterprise."); return new EnterpriseActionResult(id, tenantId, status, message); } }
+    private EnterpriseActionResult Update(string area, Guid id, EnterpriseMutationRequest request, Guid tenantId, string correlationId)
+    {
+        if (!TryTable(area, out var table)) return _fallback.Upsert(area, request, tenantId, correlationId);
+        try
+        {
+            using var cn = _context.CreateConnection();
+            var affected = cn.Execute($"update sigov.{table} set nome=coalesce(nullif(@nome,''),nome), status=coalesce(nullif(@status,''),status), documento_masked=coalesce(@documento,documento_masked), email_masked=coalesce(@email,email_masked), telefone_masked=coalesce(@telefone,telefone_masked), updated_at=now(), updated_by='api', correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { id, tenantId, nome = request.Nome?.Trim(), status = request.Status?.Trim().ToUpperInvariant(), documento = MaskDocument(request.Documento), email = MaskEmail(request.Email), telefone = MaskPhone(request.Telefone), correlationId });
+            if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado.");
+            Audit(cn, tenantId, table, id, "editar", correlationId);
+            return new EnterpriseActionResult(id, tenantId, "OK", "Registro atualizado com auditoria.");
+        }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback update Enterprise."); return _fallback.Upsert(area, request, tenantId, correlationId); }
+    }
+
+    private EnterpriseActionResult SoftDelete(string table, Guid id, Guid tenantId, string correlationId) => MutateLifecycle(table, id, tenantId, true, "INATIVO", "Registro inativado com soft delete lógico.", correlationId);
+    private EnterpriseActionResult Restore(string table, Guid id, Guid tenantId, string correlationId) => MutateLifecycle(table, id, tenantId, false, "ATIVO", "Registro restaurado.", correlationId);
+    private EnterpriseActionResult MutateLifecycle(string table, Guid id, Guid tenantId, bool deleted, string status, string message, string correlationId)
+    {
+        try
+        {
+            using var cn = _context.CreateConnection();
+            var affected = cn.Execute($"update sigov.{table} set status=@status,is_deleted=@deleted,deleted_at=case when @deleted then now() else null end,deleted_by=case when @deleted then 'api' else null end,updated_at=now(),updated_by='api',correlation_id=@correlationId where tenant_id=@tenantId and id=@id", new { status, deleted, tenantId, id, correlationId });
+            if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado.");
+            Audit(cn, tenantId, table, id, deleted ? "inativar" : "restaurar", correlationId);
+            return new EnterpriseActionResult(id, tenantId, status, message);
+        }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ciclo de vida Enterprise."); return new EnterpriseActionResult(id, tenantId, status, message); }
+    }
+
+    private EnterpriseActionResult SetStatus(string table, Guid id, Guid tenantId, string status, string message, string correlationId) { try { using var cn = _context.CreateConnection(); var affected = cn.Execute($"update sigov.{table} set status=@status, updated_at=now(), updated_by='api', correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { status, tenantId, id, correlationId }); if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado."); Audit(cn, tenantId, table, id, status.ToLowerInvariant(), correlationId); return new EnterpriseActionResult(id, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback status Enterprise."); return new EnterpriseActionResult(id, tenantId, status, message); } }
     private EnterpriseActionResult InsertChild(string table, Guid tenantId, Guid parentId, string text, string correlationId, string status, string message) { try { using var cn = _context.CreateConnection(); cn.Execute($"insert into sigov.{table}(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@text,@status,jsonb_build_object('parent_id',@parentId),'api','api',@correlationId)", new { tenantId, parentId, codigo = $"EVT-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", text, status, correlationId }); return new EnterpriseActionResult(parentId, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback filho Enterprise."); return new EnterpriseActionResult(parentId, tenantId, status, message); } }
     private static void EnsureStock(System.Data.IDbConnection cn, Guid tenantId, Guid produtoId, string produto, decimal qtd, string correlationId) => cn.Execute("insert into sigov.enterprise_estoque_saldo(id,tenant_id,codigo,nome,status,produto_id,produto_nome,quantidade,minimo,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@produto,'ATIVO',@produtoId,@produto,@qtd,10,'{}','api','api',@correlationId) on conflict (tenant_id,produto_id) where is_deleted=false do nothing", new { tenantId, produtoId, produto, qtd, codigo = $"SLD-{produtoId.ToString()[..8]}", correlationId });
     private static void Audit(System.Data.IDbConnection cn, Guid tenantId, string entity, Guid id, string action, string correlationId) => cn.Execute("insert into sigov.enterprise_auditoria_operacional(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@nome,'REGISTRADO',jsonb_build_object('entity',@entity,'entity_id',@id,'action',@action),'api','api',@correlationId)", new { tenantId, codigo = $"AUD-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = action, entity, id, action, correlationId });

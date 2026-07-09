@@ -110,3 +110,9 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 - Incluídas tabelas `sigov.enterprise_*` idempotentes para Comercial, OS, Estoque/Compras, Industrial/Manutenção, Indústria Produção, eventos e auditoria.
 - Telas Enterprise existentes passam a usar template operacional com listagem real, formulário, detalhes, exportação CSV e avisos LGPD/fallback.
 - Jornadas mínimas funcionais: proposta aprovada gera pedido; pedido gera OS; OS consome estoque; saldo negativo é bloqueado; plano preventivo gera OS.
+
+## Pós-RC 08 — Enterprise
+| Bloco | Situação | Evidência |
+|---|---|---|
+| Comercial/OS/Estoque/Compras/Industrial | CRUD e ações operacionais revisados | `docs/matriz-crud-enterprise-pos-rc-08.md` |
+| Indústria Produção | MVP CRUD homologável, regras avançadas pendentes | `docs/jornadas-enterprise-pos-rc-08.md` |
