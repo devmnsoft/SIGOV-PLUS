@@ -96,6 +96,36 @@ public sealed class EnterprisePosRc07StaticTests
     }
 
     [Fact]
+    public void EnterpriseMigrationContainsFullAuditColumnsForMinimumTables()
+    {
+        var sql = File.ReadAllText(Path.Combine("..", "..", "..", "..", "database", "postgres", "migrations", "20260709120000_enterprise_funcional_crud.sql"));
+        var requiredTables = new[]
+        {
+            "enterprise_cliente", "enterprise_lead", "enterprise_oportunidade", "enterprise_proposta", "enterprise_proposta_item",
+            "enterprise_pedido_venda", "enterprise_pedido_venda_item", "enterprise_ordem_servico", "enterprise_os_item",
+            "enterprise_os_checklist", "enterprise_os_apontamento", "enterprise_os_agenda", "enterprise_os_historico",
+            "enterprise_produto", "enterprise_almoxarifado", "enterprise_estoque_saldo", "enterprise_estoque_movimento",
+            "enterprise_requisicao", "enterprise_fornecedor", "enterprise_pedido_compra", "enterprise_ativo_industrial",
+            "enterprise_plano_manutencao", "enterprise_medidor", "enterprise_leitura_medidor", "enterprise_parada_falha",
+            "enterprise_evento", "enterprise_auditoria_operacional"
+        };
+
+        foreach (var table in requiredTables) Assert.Contains(table, sql);
+        foreach (var column in new[] { "tenant_id", "status", "created_at", "created_by", "updated_at", "updated_by", "is_deleted", "correlation_id" }) Assert.Contains(column, sql);
+        Assert.DoesNotContain("drop table", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("create index if not exists", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void EnterpriseJavascriptCallsRealUpdateAndDeleteEndpoints()
+    {
+        var js = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Web", "wwwroot", "js", "enterprise-crud.js"));
+        Assert.Contains("method = id ? 'PUT' : 'POST'", js);
+        Assert.Contains("method: 'DELETE'", js);
+        Assert.DoesNotContain("endpoint DELETE estiver habilitado", js);
+    }
+
+    [Fact]
     public void EnterprisePageTemplateHasOperationalCrudElements()
     {
         var view = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Web", "Views", "Enterprise", "ModulePage.cshtml"));

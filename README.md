@@ -145,3 +145,6 @@ Homologação real multi-tenant e Go-Live controlado: ambiente local padronizado
 ## Pós-RC 07 — Enterprise funcional
 
 O bloco Enterprise agora possui migration PostgreSQL idempotente, serviço Dapper com fallback honesto, telas Razor operáveis, CSV com LGPD, seed demo fictício e rotas de smoke para Comercial, OS, Estoque/Compras, Industrial e Indústria Produção. Consulte `docs/enterprise-funcional-pos-rc-07.md` e `docs/diagnostico-enterprise-pos-rc-07.md`.
+
+### Enterprise Pós-RC 08
+A rodada Pós-RC 08 consolidou a validação Enterprise ponta a ponta com CRUD REST, template MVC/Razor operacional, smoke ampliado e documentação de homologação. Consulte `docs/diagnostico-enterprise-pos-rc-08.md`, `docs/enterprise-pos-rc-08-validacao-e2e.md`, `docs/jornadas-enterprise-pos-rc-08.md` e `docs/matriz-crud-enterprise-pos-rc-08.md`.
