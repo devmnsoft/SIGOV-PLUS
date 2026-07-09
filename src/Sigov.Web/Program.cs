@@ -50,6 +50,7 @@ builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardServ
 builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
 builder.Services.AddInfrastructure();
 builder.Services.AddScoped<IDatabaseSchemaInspector, DatabaseSchemaInspector>();
+builder.Services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
 builder.Services.AddScoped<PostBuildSaasService>();
 builder.Services.AddScoped<SegurancaAdminService>();
 builder.Services.AddScoped<MinhaCentralService>();

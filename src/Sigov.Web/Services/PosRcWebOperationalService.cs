@@ -10,12 +10,14 @@ public sealed class PosRcWebOperationalService
     private readonly NpgsqlConnectionFactory _connectionFactory;
     private readonly IDatabaseSchemaInspector _schema;
     private readonly ILogger<PosRcWebOperationalService> _logger;
+    private readonly ITenantContextAccessor _tenantContextAccessor;
 
-    public PosRcWebOperationalService(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schema, ILogger<PosRcWebOperationalService> logger)
+    public PosRcWebOperationalService(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schema, ILogger<PosRcWebOperationalService> logger, ITenantContextAccessor tenantContextAccessor)
     {
         _connectionFactory = connectionFactory;
         _schema = schema;
         _logger = logger;
+        _tenantContextAccessor = tenantContextAccessor;
     }
 
     public async Task<OperationalModuleViewModel> BuildProtocoloAsync(string screen, string? q, CancellationToken ct)
@@ -33,15 +35,15 @@ public sealed class PosRcWebOperationalService
         using var tx = await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
-            var tenantId = 1L; var userId = 1L; var correlationId = Guid.NewGuid(); var exercicio = DateTime.UtcNow.Year;
-            var seq = await cn.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(max(id),0)+1 from sigov.protocolo where tenant_id=@TenantId and exercicio=@Exercicio", new { TenantId = tenantId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return null; var userId = 1L; var correlationId = Guid.NewGuid(); var exercicio = DateTime.UtcNow.Year;
+            var seq = await cn.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(max(id),0)+1 from sigov.protocolo where tenant_id=@TenantId and exercicio=@Exercicio", new { TenantId = tenantId.Value, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
             var numero = $"{exercicio}-{seq:000000}";
             const string insertProtocolo = "insert into sigov.protocolo (tenant_id, numero, status, assunto, dados_json, created_by, correlation_id, exercicio) values (@TenantId,@Numero,'ABERTO',@Assunto,cast(@Dados as jsonb),@UserId,@CorrelationId,@Exercicio) returning id";
-            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertProtocolo, new { TenantId = tenantId, Numero = numero, Assunto = assunto, Dados = System.Text.Json.JsonSerializer.Serialize(new { interessado = LgpdMaskingHelper.MaskName(interessado), setorAtual = "Protocolo" }), UserId = userId, CorrelationId = correlationId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
-            await TryExecuteAsync(cn, tx, "insert into sigov.workflow_instancia (tenant_id, status, protocolo_id, created_by, correlation_id) values (@TenantId,'ATIVO',@Id,@UserId,@CorrelationId)", new { TenantId = tenantId, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
-            await TryExecuteAsync(cn, tx, "insert into sigov.tarefa (tenant_id, status, protocolo_id, titulo, responsavel_id, created_by, correlation_id) values (@TenantId,'PENDENTE',@Id,'Triar protocolo',@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
-            await TryExecuteAsync(cn, tx, "insert into sigov.notificacao (tenant_id, status, titulo, mensagem, usuario_id, created_by, correlation_id) values (@TenantId,'NAO_LIDA','Protocolo criado',@Msg,@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId, Msg = $"Protocolo {numero} criado", UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
-            await TryExecuteAsync(cn, tx, "insert into sigov.outbox_evento (tenant_id, evento, payload, status, correlation_id, created_at) values (@TenantId,'protocolo.criado',cast(@Payload as jsonb),'PENDENTE',@CorrelationId,now())", new { TenantId = tenantId, Payload = System.Text.Json.JsonSerializer.Serialize(new { id, numero }), CorrelationId = correlationId }, ct).ConfigureAwait(false);
+            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertProtocolo, new { TenantId = tenantId.Value, Numero = numero, Assunto = assunto, Dados = System.Text.Json.JsonSerializer.Serialize(new { interessado = LgpdMaskingHelper.MaskName(interessado), setorAtual = "Protocolo" }), UserId = userId, CorrelationId = correlationId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            await TryExecuteAsync(cn, tx, "insert into sigov.workflow_instancia (tenant_id, status, protocolo_id, created_by, correlation_id) values (@TenantId,'ATIVO',@Id,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
+            await TryExecuteAsync(cn, tx, "insert into sigov.tarefa (tenant_id, status, protocolo_id, titulo, responsavel_id, created_by, correlation_id) values (@TenantId,'PENDENTE',@Id,'Triar protocolo',@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
+            await TryExecuteAsync(cn, tx, "insert into sigov.notificacao (tenant_id, status, titulo, mensagem, usuario_id, created_by, correlation_id) values (@TenantId,'NAO_LIDA','Protocolo criado',@Msg,@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Msg = $"Protocolo {numero} criado", UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
+            await TryExecuteAsync(cn, tx, "insert into sigov.outbox_evento (tenant_id, evento, payload, status, correlation_id, created_at) values (@TenantId,'protocolo.criado',cast(@Payload as jsonb),'PENDENTE',@CorrelationId,now())", new { TenantId = tenantId.Value, Payload = System.Text.Json.JsonSerializer.Serialize(new { id, numero }), CorrelationId = correlationId }, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false); return id;
         }
         catch (Exception ex) { await tx.RollbackAsync(ct).ConfigureAwait(false); _logger.LogWarning(ex, "Fallback honesto ao criar protocolo Web real."); return null; }
@@ -50,19 +52,19 @@ public sealed class PosRcWebOperationalService
     public async Task<bool> TramitarProtocoloAsync(long id, string? observacao, CancellationToken ct)
     {
         if (!await _schema.TableExistsAsync("sigov", "protocolo_movimento", ct).ConfigureAwait(false)) return false;
-        using var cn = _connectionFactory.CreateConnection(); var correlationId = Guid.NewGuid();
-        const string insertMovimento = "insert into sigov.protocolo_movimento (tenant_id, protocolo_id, status, observacao, created_by, correlation_id) values (1,@Id,'TRAMITADO',@Observacao,1,@CorrelationId)";
-        await cn.ExecuteAsync(new CommandDefinition(insertMovimento, new { Id = id, Observacao = observacao, CorrelationId = correlationId }, cancellationToken: ct)).ConfigureAwait(false);
+        using var cn = _connectionFactory.CreateConnection(); var correlationId = Guid.NewGuid(); var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return false;
+        const string insertMovimento = "insert into sigov.protocolo_movimento (tenant_id, protocolo_id, status, observacao, created_by, correlation_id) values (@TenantId,@Id,'TRAMITADO',@Observacao,1,@CorrelationId)";
+        await cn.ExecuteAsync(new CommandDefinition(insertMovimento, new { TenantId = tenantId.Value, Id = id, Observacao = observacao, CorrelationId = correlationId }, cancellationToken: ct)).ConfigureAwait(false);
         await TryExecuteAsync(cn, null, "update sigov.tarefa set status='CONCLUIDA', concluida_at=now() where protocolo_id=@Id and concluida_at is null", new { Id = id }, ct).ConfigureAwait(false);
-        await TryExecuteAsync(cn, null, "insert into sigov.tarefa (tenant_id,status,protocolo_id,titulo,created_by,correlation_id) values (1,'PENDENTE',@Id,'Analisar tramitação',1,@CorrelationId)", new { Id = id, CorrelationId = correlationId }, ct).ConfigureAwait(false);
-        await TryExecuteAsync(cn, null, "insert into sigov.notificacao (tenant_id,status,titulo,mensagem,created_by,correlation_id) values (1,'NAO_LIDA','Protocolo tramitado',@Msg,1,@CorrelationId)", new { Msg = $"Protocolo {id} tramitado", CorrelationId = correlationId }, ct).ConfigureAwait(false);
-        await TryExecuteAsync(cn, null, "insert into sigov.outbox_evento (tenant_id, evento, payload, status, correlation_id, created_at) values (1,'protocolo.tramitado',cast(@Payload as jsonb),'PENDENTE',@CorrelationId,now())", new { Payload = System.Text.Json.JsonSerializer.Serialize(new { id }), CorrelationId = correlationId }, ct).ConfigureAwait(false);
+        await TryExecuteAsync(cn, null, "insert into sigov.tarefa (tenant_id,status,protocolo_id,titulo,created_by,correlation_id) values (@TenantId,'PENDENTE',@Id,'Analisar tramitação',1,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, CorrelationId = correlationId }, ct).ConfigureAwait(false);
+        await TryExecuteAsync(cn, null, "insert into sigov.notificacao (tenant_id,status,titulo,mensagem,created_by,correlation_id) values (@TenantId,'NAO_LIDA','Protocolo tramitado',@Msg,1,@CorrelationId)", new { TenantId = tenantId.Value, Msg = $"Protocolo {id} tramitado", CorrelationId = correlationId }, ct).ConfigureAwait(false);
+        await TryExecuteAsync(cn, null, "insert into sigov.outbox_evento (tenant_id, evento, payload, status, correlation_id, created_at) values (@TenantId,'protocolo.tramitado',cast(@Payload as jsonb),'PENDENTE',@CorrelationId,now())", new { TenantId = tenantId.Value, Payload = System.Text.Json.JsonSerializer.Serialize(new { id }), CorrelationId = correlationId }, ct).ConfigureAwait(false);
         return true;
     }
 
     private async Task<IReadOnlyList<DemoRecord>> QueryRecordsAsync(string table, string sql, string? q, CancellationToken ct)
     {
-        try { using var cn = _connectionFactory.CreateConnection(); var rows = await cn.QueryAsync<Row>(new CommandDefinition(sql, new { TenantId = 1L, Q = string.IsNullOrWhiteSpace(q) ? null : q, Like = $"%{q}%" }, cancellationToken: ct)).ConfigureAwait(false); return rows.Select(r => new DemoRecord(r.Id, r.Codigo, LgpdMaskingHelper.MaskName(r.Nome), r.Status, r.Responsavel, r.Atualizado_Em, LgpdMaskingHelper.MaskDocument(r.Documento))).ToArray(); }
+        try { using var cn = _connectionFactory.CreateConnection(); var rows = await cn.QueryAsync<Row>(new CommandDefinition(sql, new { TenantId = _tenantContextAccessor.Resolve().TenantId, Q = string.IsNullOrWhiteSpace(q) ? null : q, Like = $"%{q}%" }, cancellationToken: ct)).ConfigureAwait(false); return rows.Select(r => new DemoRecord(r.Id, r.Codigo, LgpdMaskingHelper.MaskName(r.Nome), r.Status, r.Responsavel, r.Atualizado_Em, LgpdMaskingHelper.MaskDocument(r.Documento))).ToArray(); }
         catch (Exception ex) { _logger.LogWarning(ex, "Fallback honesto em consulta real {Table}.", table); return Array.Empty<DemoRecord>(); }
     }
 

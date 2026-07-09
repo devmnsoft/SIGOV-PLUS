@@ -82,6 +82,6 @@ update sigov.api_key
        status='ATIVA',
        dados_json='{"aviso":"API key demo local/homologacao; rotacione antes de qualquer uso real; token claro nunca e salvo no banco","producao":false}'::jsonb
  where tenant_id=1 and prefixo='sigov_demo';
-delete from sigov.api_key_escopo where tenant_id=1 and api_key_id in (select id from sigov.api_key where prefixo='sigov_demo') and escopo in ('protocolo.read','protocolo.write','documento.read','documento.write','tarefa.read','tarefa.write');
+delete from sigov.api_key_escopo where tenant_id=1 and api_key_id in (select id from sigov.api_key where prefixo='sigov_demo') and escopo in ('protocolos.read','protocolos.write','documentos.read','documentos.write','tarefas.read','tarefas.write','notificacoes.read','webhooks.manage','mobile.sync','assinaturas.read','assinaturas.write','bi.read');
 insert into sigov.api_key_escopo (tenant_id,api_key_id,escopo,status,created_by)
 select 1,k.id,e,'ATIVO',2 from sigov.api_key k cross join unnest(array['protocolos.read','protocolos.write','documentos.read','documentos.write','tarefas.read','tarefas.write','notificacoes.read','webhooks.manage','mobile.sync','assinaturas.read','assinaturas.write','bi.read']) e where k.prefixo='sigov_demo' on conflict do nothing;

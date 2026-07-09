@@ -136,3 +136,8 @@ A Pós-RC 06 corrige a validação do schema para `sigov.outbox_evento`, adicion
 Chave demo **somente local/homologação**: `sigov_demo_local_only_2026_please_rotate`. Rotacione antes de qualquer uso real. O banco armazena apenas o hash SHA-256 hexadecimal.
 
 Documentação operacional: `docs/ci-cd-pos-rc-06.md`, `docs/smoke-e2e-pos-rc-06.md`, `docs/release-package-pos-rc-06.md` e `docs/diagnostico-pos-rc-06.md`.
+
+
+## Pós-RC 07
+
+Homologação real multi-tenant e Go-Live controlado: ambiente local padronizado para banco `sigov`, tenant resolvido por contexto, dashboard com fonte Real/Demo/Fallback, CI com Docker Compose E2E, package release sanitizado e go-live-check executável.

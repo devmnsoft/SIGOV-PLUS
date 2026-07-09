@@ -158,3 +158,23 @@ jobs:
           if((Get-ChildItem $pkg -Recurse -File | Select-String -Pattern 'POSTGRES_PASSWORD=123456' -Quiet)){ throw 'Secret real/exemplo inseguro detectado' }
       - uses: actions/upload-artifact@v4
         with: { name: sigov-plus-1.0.0-rc-final, path: artifacts/release/sigov-plus-1.0.0-rc-final }
+
+  go-live-check:
+    runs-on: ubuntu-latest
+    needs: [build-test, docker-build, sql-validate, smoke-static, docker-compose-e2e, release-package-check]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate release package
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Version 1.0.0-rc-final
+      - name: Run Pós-RC 07 go-live check
+        shell: pwsh
+        run: ./scripts/go-live-check.ps1 -AllowWarnings -ReleaseCandidateVersion 1.0.0-rc-final
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-live-check-pos-rc-07
+          path: |
+            docs/go-live-check-result.md
+            docs/go-live-check-result.json
+            artifacts/release/sigov-plus-1.0.0-rc-final
