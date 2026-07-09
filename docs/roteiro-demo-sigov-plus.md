@@ -35,3 +35,7 @@
 6. Mostrar API key criada, sem revelar segredo completo.
 7. Mostrar outbox/webhook como operação monitorável, indicando dependências externas quando houver.
 8. Encerrar com pacote de release e pendências honestas.
+
+## Complemento Pós-RC 06
+
+Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao_demo.sql` e executar `scripts/smoke-test-sigov.ps1` com `SIGOV_SMOKE_USE_DEMO_KEY=true`. A chave demo local documentada é `sigov_demo_local_only_2026_please_rotate`, deve ser rotacionada antes de qualquer uso real e nunca é salva em claro no banco.

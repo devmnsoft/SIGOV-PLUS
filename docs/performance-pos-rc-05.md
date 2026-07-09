@@ -18,3 +18,7 @@
 - Não implementar otimização pesada nesta etapa.
 - Bloquear lentidão óbvia: evitar `SELECT *` em consultas críticas, exigir `tenant_id`, usar `LIMIT/OFFSET` ou equivalente e registrar tempo no smoke.
 - Qualquer rota acima de 2s no smoke em ambiente limpo deve virar pendência de homologação.
+
+## Complemento Pós-RC 06
+
+O smoke Pós-RC 06 registra `elapsedMs` por rota no JSON/Markdown para triagem de rotas acima de 2s em ambiente limpo. Otimizações profundas permanecem fora do escopo desta correção.

@@ -49,3 +49,7 @@ A versão `v1.0.0` promove o release candidate para entrega final homologável e
 - Scripts de release ajustados para gerar pacote `sigov-plus-1.0.0-rc-final` sem secrets.
 - Documentação de diagnóstico, testes manuais, segurança/LGPD e performance básica adicionada.
 - Limitação registrada: validação local real de .NET/Docker/PowerShell depende de ambiente com essas ferramentas instaladas.
+
+## Complemento Pós-RC 06
+
+Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao_demo.sql` e executar `scripts/smoke-test-sigov.ps1` com `SIGOV_SMOKE_USE_DEMO_KEY=true`. A chave demo local documentada é `sigov_demo_local_only_2026_please_rotate`, deve ser rotacionada antes de qualquer uso real e nunca é salva em claro no banco.

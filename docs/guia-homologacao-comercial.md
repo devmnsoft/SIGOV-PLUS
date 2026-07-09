@@ -52,3 +52,7 @@ pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
 ## Evidências Pós-RC 05 para demonstração comercial
 
 Antes da demonstração, anexar: workflow CI verde, Docker Compose saudável, seed demo aplicado sem duplicidade, smoke Markdown/JSON, checklist Go-Live, checklist LGPD e pacote de release gerado. Não apresentar como real qualquer integração dependente de provedor que não tenha contrato/configuração ativa.
+
+## Complemento Pós-RC 06
+
+Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao_demo.sql` e executar `scripts/smoke-test-sigov.ps1` com `SIGOV_SMOKE_USE_DEMO_KEY=true`. A chave demo local documentada é `sigov_demo_local_only_2026_please_rotate`, deve ser rotacionada antes de qualquer uso real e nunca é salva em claro no banco.

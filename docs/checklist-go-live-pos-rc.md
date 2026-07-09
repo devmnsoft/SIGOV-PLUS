@@ -43,3 +43,13 @@
 - [ ] Pacote `artifacts/release/sigov-plus-1.0.0-rc-final` gerado sem secrets.
 
 Observação honesta: este container de agente não possui `dotnet`, `docker` ou `pwsh`; evidências finais devem vir do CI e do ambiente de homologação.
+
+## Pós-RC 06 — validação real
+
+- [ ] CI `sql-validate` usa `sigov.outbox_evento` e valida tabelas críticas.
+- [ ] Seed demo aplicado duas vezes sem duplicar protocolos demo.
+- [ ] API key demo valida hash e escopos pluralizados.
+- [ ] Smoke autenticado gera Markdown/JSON e mascara chave.
+- [ ] `docker-compose-e2e` anexou logs, smoke e schema report.
+- [ ] Package release gerado com `.env.example` sanitizado e sem `.env` real/storage/certificados.
+- [ ] Go-live check gerou `docs/go-live-check-result.md` e `.json`.

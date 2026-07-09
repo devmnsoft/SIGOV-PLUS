@@ -6,7 +6,7 @@ on:
       version:
         description: 'Release version'
         required: true
-        default: 'v1.0.0'
+        default: '1.0.0-rc-final'
       release_channel:
         description: 'Release channel'
         required: true
@@ -16,11 +16,6 @@ on:
         type: boolean
         required: true
         default: true
-      run_smoke_tests:
-        description: 'Run smoke tests against provided URLs'
-        type: boolean
-        required: true
-        default: false
 
 jobs:
   release-package:
@@ -35,37 +30,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.x'
-      - name: Set build date
-        run: echo "SIGOV_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
-      - name: Restore
-        run: dotnet restore sigov.sln
-      - name: Build Release
-        run: dotnet build sigov.sln --configuration Release --no-restore
-      - name: Test Release
-        run: dotnet test sigov.sln --configuration Release --no-build --logger trx
-      - name: Docker build API
-        if: ${{ inputs.build_docker }}
+        with: { dotnet-version: '6.0.x' }
+      - run: echo "SIGOV_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+      - run: dotnet restore sigov.sln
+      - run: dotnet build sigov.sln --configuration Release --no-restore
+      - run: dotnet test sigov.sln --configuration Release --no-build --logger trx
+      - if: ${{ inputs.build_docker }}
         run: docker build -f src/Sigov.Api/Dockerfile -t sigov-api:${{ github.sha }} .
-      - name: Docker build Web
-        if: ${{ inputs.build_docker }}
+      - if: ${{ inputs.build_docker }}
         run: docker build -f src/Sigov.Web/Dockerfile -t sigov-web:${{ github.sha }} .
-      - name: Docker build Worker
-        if: ${{ inputs.build_docker }}
+      - if: ${{ inputs.build_docker }}
         run: docker build -f src/Sigov.Worker/Dockerfile -t sigov-worker:${{ github.sha }} .
       - name: Validate release
         shell: pwsh
         run: ./scripts/validate-release.ps1 -SkipDockerBuild -SkipGoLiveCheck
-      - name: Smoke tests
-        if: ${{ inputs.run_smoke_tests }}
-        shell: pwsh
-        run: ./scripts/smoke-test.ps1 -SkipLogin
       - name: Package release
         shell: pwsh
         run: ./scripts/package-release.ps1 -Version '${{ inputs.version }}'
-      - name: Upload release package
-        uses: actions/upload-artifact@v4
+      - name: Go-live static check
+        shell: pwsh
+        run: ./scripts/go-live-check.ps1 -PackagePath 'artifacts/release/sigov-plus-${{ inputs.version }}' -AllowWarnings
+      - uses: actions/upload-artifact@v4
         with:
-          name: sigov-${{ inputs.version }}-release-package
-          path: artifacts/release/v1.0.0
+          name: sigov-plus-${{ inputs.version }}-release-package
+          path: artifacts/release/sigov-plus-${{ inputs.version }}

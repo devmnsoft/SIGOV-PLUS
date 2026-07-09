@@ -20,3 +20,7 @@
 ## Pendências honestas
 
 A validação local automática não foi executada neste container por ausência de `dotnet`, `docker` e `pwsh`. A verificação real deve ocorrer no GitHub Actions e no ambiente de homologação.
+
+## Complemento Pós-RC 06
+
+A chave demo documentada para homologação é local e rotacionável; no banco permanece apenas o hash SHA-256 hexadecimal. O smoke mascara a chave em logs e o pacote bloqueia `.env` real, certificados, chaves privadas, dumps, storage e backups.
