@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Enterprise;
+using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
 
 [Authorize]
 public sealed class MobileController : EnterprisePageControllerBase
 {
-    public MobileController(IEnterpriseModuleService service) : base(service) { }
+    public MobileController(IEnterpriseModuleService service, ITenantContextAccessor tenantContext, IWebHostEnvironment environment) : base(service, tenantContext, environment) { }
     public IActionResult Index() => RedirectToAction(nameof(Home));
     public IActionResult Login() => View("~/Views/Mobile/Login.cshtml");
     public IActionResult Home() => MobilePage("Início Mobile", "mobile.acessar", "/api/campo/dashboard");
@@ -26,7 +27,7 @@ public sealed class MobileController : EnterprisePageControllerBase
 [Authorize]
 public sealed class CampoController : EnterprisePageControllerBase
 {
-    public CampoController(IEnterpriseModuleService service) : base(service) { }
+    public CampoController(IEnterpriseModuleService service, ITenantContextAccessor tenantContext, IWebHostEnvironment environment) : base(service, tenantContext, environment) { }
     public IActionResult Dashboard() => ModulePage("campo_operacional", "Dashboard Campo", "campo.dashboard.visualizar", "/api/campo/dashboard");
     public IActionResult Atividades() => ModulePage("campo_operacional", "Atividades de Campo", "campo.atividades.visualizar", "/api/campo/atividades");
     public IActionResult Visitas() => ModulePage("campo_operacional", "Visitas Técnicas", "campo.visitas.visualizar", "/api/campo/visitas");

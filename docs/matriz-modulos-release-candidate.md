@@ -104,3 +104,9 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 | Smoke E2E | Funcional real se CI/homologação passar | Usa key demo apenas com `SIGOV_SMOKE_USE_DEMO_KEY=true` e mascara token. |
 | Go-Live Check | Funcional real se CI/homologação passar | Gera Markdown/JSON com bloqueios, warnings e versão RC. |
 | ICP-Brasil, Gov.br, OCR, SMTP, WhatsApp | Dependente de provedor | Sem simulação de funcionamento oficial; fallback honesto/documentado. |
+
+## Pós-RC 07 — Enterprise CRUD funcional
+
+- Incluídas tabelas `sigov.enterprise_*` idempotentes para Comercial, OS, Estoque/Compras, Industrial/Manutenção, Indústria Produção, eventos e auditoria.
+- Telas Enterprise existentes passam a usar template operacional com listagem real, formulário, detalhes, exportação CSV e avisos LGPD/fallback.
+- Jornadas mínimas funcionais: proposta aprovada gera pedido; pedido gera OS; OS consome estoque; saldo negativo é bloqueado; plano preventivo gera OS.

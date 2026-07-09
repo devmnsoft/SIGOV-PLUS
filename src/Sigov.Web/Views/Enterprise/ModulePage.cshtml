@@ -2,50 +2,62 @@
 @{
     ViewData["Title"] = Model.Title;
 }
-<section class="container py-4">
-    <div class="d-flex justify-content-between align-items-start mb-4">
+<section class="container-fluid py-4 enterprise-crud" data-api-route="@Model.ApiRoute" data-tenant-id="@Model.TenantId">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
         <div>
             <p class="text-uppercase text-primary fw-semibold mb-1">SIGOV PLUS • @Model.Module</p>
-            <h1 class="display-6">@Model.Title</h1>
-            <p class="lead">Base modular com tenant_id obrigatório, auditoria, LGPD, permissões dinâmicas e integração entre Comercial, OS, Industrial, Estoque, Compras e Comércio.</p>
+            <h1 class="display-6 mb-2">@Model.Title</h1>
+            <p class="lead mb-0">Jornada operacional com CRUD real, filtros, paginação, ações, auditoria, mascaramento LGPD e fallback honesto quando a estrutura ainda não foi aplicada.</p>
         </div>
-        <span class="badge bg-success">Permissão: @Model.Permission</span>
+        <div class="text-lg-end">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">@Model.Permission</span>
+            <div class="small text-muted mt-2">Tenant: @(Model.TenantId?.ToString() ?? "não resolvido")</div>
+        </div>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">Registros</span><h2>@Model.Dashboard.Registros</h2></div></div></div>
-        <div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">Pendências</span><h2>@Model.Dashboard.Pendencias</h2></div></div></div>
-        <div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">API</span><code>@Model.ApiRoute</code></div></div></div>
+        <div class="col-12 col-md-4"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Registros</span><h2>@Model.Dashboard.Registros</h2></div></div></div>
+        <div class="col-12 col-md-4"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Pendências</span><h2>@Model.Dashboard.Pendencias</h2></div></div></div>
+        <div class="col-12 col-md-4"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">API</span><code class="d-block text-break">@Model.ApiRoute</code></div></div></div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header">Integrações iniciais</div>
-        <div class="card-body">
+    <div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+        <span class="fw-bold">LGPD</span>
+        <span>Listagens e CSV exibem documento, e-mail e telefone mascarados. Dados completos exigem permissão específica e não são renderizados nesta tela operacional.</span>
+    </div>
+
+    @if (Model.Dashboard.Alertas.Count > 0)
+    {
+        <div class="alert alert-warning" role="alert">
+            <strong>Alertas operacionais:</strong>
             <ul class="mb-0">
-                <li>Proposta aprovada gera pedido e pedido confirmado pode gerar OS.</li>
-                <li>OS consome peças do estoque e bloqueia saldo negativo sem permissão.</li>
-                <li>Plano preventivo industrial gera OS preventiva.</li>
-                <li>Produto abaixo do mínimo gera alerta e OS concluída registra evento para financeiro futuro.</li>
+                @foreach (var alerta in Model.Dashboard.Alertas) { <li>@alerta</li> }
             </ul>
         </div>
-    </div>
+    }
 
-    <div class="card">
-        <div class="card-header">Alertas LGPD e auditoria</div>
-        <div class="card-body">
-            @if (Model.Dashboard.Alertas.Count == 0)
-            {
-                <p class="mb-0">Sem alertas críticos para o tenant demo.</p>
-            }
-            else
-            {
-                <ul class="mb-0">
-                    @foreach (var alerta in Model.Dashboard.Alertas)
-                    {
-                        <li>@alerta</li>
-                    }
-                </ul>
-            }
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex flex-column flex-lg-row justify-content-between gap-3">
+            <form class="row gy-2 gx-2 align-items-end enterprise-filters flex-grow-1">
+                <div class="col-12 col-lg-4"><label class="form-label small text-muted">Busca</label><input class="form-control" name="q" placeholder="Nome, código, status ou dado mascarado" /></div>
+                <div class="col-6 col-lg-2"><label class="form-label small text-muted">Status</label><select class="form-select" name="status"><option value="">Todos</option><option>ATIVO</option><option>ABERTO</option><option>APROVADA</option><option>CONFIRMADO</option><option>CONCLUIDA_EVENTO_FINANCEIRO_FUTURO</option></select></div>
+                <div class="col-6 col-lg-2"><label class="form-label small text-muted">Página</label><input class="form-control" name="page" type="number" min="1" value="1" /></div>
+                <div class="col-12 col-lg-4 d-flex gap-2"><button type="submit" class="btn btn-outline-primary">Filtrar</button><button type="button" class="btn btn-outline-secondary enterprise-export">Exportar CSV</button></div>
+            </form>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#enterpriseFormModal">Novo</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light"><tr><th>Nome</th><th>Status</th><th>Documento</th><th>E-mail</th><th>Telefone</th><th>Atualizado</th><th class="text-end">Ações</th></tr></thead>
+                <tbody class="enterprise-table-body"><tr><td colspan="7" class="text-center py-5 text-muted">Carregando dados reais...</td></tr></tbody>
+            </table>
         </div>
     </div>
+
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="enterpriseDetailPanel"><div class="offcanvas-header"><h5>Detalhes e auditoria</h5><button class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body enterprise-detail-body">Selecione um registro.</div></div>
+
+    <div class="modal fade" id="enterpriseFormModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><form class="enterprise-form"><div class="modal-header"><h5 class="modal-title">Novo / Editar registro</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" name="id" /><div class="row g-3"><div class="col-md-8"><label class="form-label">Nome/Título</label><input class="form-control" name="nome" required maxlength="160" /></div><div class="col-md-4"><label class="form-label">Status</label><input class="form-control" name="status" value="ATIVO" maxlength="60" /></div><div class="col-md-4"><label class="form-label">Documento</label><input class="form-control" name="documento" /></div><div class="col-md-4"><label class="form-label">E-mail</label><input class="form-control" name="email" type="email" /></div><div class="col-md-4"><label class="form-label">Telefone</label><input class="form-control" name="telefone" /></div><div class="col-md-4"><label class="form-label">Quantidade</label><input class="form-control" name="quantidade" type="number" value="1" /></div><div class="col-md-4"><label class="form-label">Valor</label><input class="form-control" name="valor" type="number" step="0.01" /></div></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div></form></div></div></div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3"><div class="toast enterprise-toast" role="status"><div class="toast-header"><strong class="me-auto">SIGOV Enterprise</strong><button type="button" class="btn-close" data-bs-dismiss="toast"></button></div><div class="toast-body"></div></div></div>
 </section>
+@section Scripts { <script src="~/js/enterprise-crud.js" asp-append-version="true"></script> }

@@ -29,7 +29,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
-builder.Services.AddSingleton<IEnterpriseModuleService, EnterpriseModuleService>();
+builder.Services.AddScoped<IEnterpriseModuleService, Sigov.Infrastructure.EnterpriseDapperCrudService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
 builder.Services.AddSingleton<IOnboardingService, OnboardingService>();

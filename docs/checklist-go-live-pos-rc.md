@@ -53,3 +53,9 @@ Observação honesta: este container de agente não possui `dotnet`, `docker` ou
 - [ ] `docker-compose-e2e` anexou logs, smoke e schema report.
 - [ ] Package release gerado com `.env.example` sanitizado e sem `.env` real/storage/certificados.
 - [ ] Go-live check gerou `docs/go-live-check-result.md` e `.json`.
+
+## Pós-RC 07 — Enterprise CRUD funcional
+
+- Incluídas tabelas `sigov.enterprise_*` idempotentes para Comercial, OS, Estoque/Compras, Industrial/Manutenção, Indústria Produção, eventos e auditoria.
+- Telas Enterprise existentes passam a usar template operacional com listagem real, formulário, detalhes, exportação CSV e avisos LGPD/fallback.
+- Jornadas mínimas funcionais: proposta aprovada gera pedido; pedido gera OS; OS consome estoque; saldo negativo é bloqueado; plano preventivo gera OS.
