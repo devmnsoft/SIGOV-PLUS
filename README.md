@@ -141,3 +141,7 @@ Documentação operacional: `docs/ci-cd-pos-rc-06.md`, `docs/smoke-e2e-pos-rc-06
 ## Pós-RC 07
 
 Homologação real multi-tenant e Go-Live controlado: ambiente local padronizado para banco `sigov`, tenant resolvido por contexto, dashboard com fonte Real/Demo/Fallback, CI com Docker Compose E2E, package release sanitizado e go-live-check executável.
+
+## Pós-RC 07 — Enterprise funcional
+
+O bloco Enterprise agora possui migration PostgreSQL idempotente, serviço Dapper com fallback honesto, telas Razor operáveis, CSV com LGPD, seed demo fictício e rotas de smoke para Comercial, OS, Estoque/Compras, Industrial e Indústria Produção. Consulte `docs/enterprise-funcional-pos-rc-07.md` e `docs/diagnostico-enterprise-pos-rc-07.md`.

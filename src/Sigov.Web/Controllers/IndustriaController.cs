@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Enterprise;
+using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
 
 [Authorize]
 public sealed class IndustriaController : EnterprisePageControllerBase
 {
-    public IndustriaController(IEnterpriseModuleService service) : base(service) { }
+    public IndustriaController(IEnterpriseModuleService service, ITenantContextAccessor tenantContext, IWebHostEnvironment environment) : base(service, tenantContext, environment) { }
 
     public IActionResult Dashboard() => IndustriaPage("Dashboard Industrial", "industria.dashboard.visualizar", "/api/industria/dashboard");
     public IActionResult CentrosTrabalho() => IndustriaPage("Centros de Trabalho", "industria.centros.visualizar", "/api/industria/centros-trabalho");

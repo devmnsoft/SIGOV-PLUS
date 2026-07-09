@@ -1,13 +1,11 @@
-using System.Collections.Concurrent;
-
 namespace Sigov.Application.Enterprise;
 
 public sealed class EnterpriseModuleService : IEnterpriseModuleService
 {
-    private readonly ConcurrentDictionary<string, EnterpriseListItem> _items = new();
-    private readonly ConcurrentDictionary<string, OrdemServicoDetail> _serviceOrders = new();
-    private readonly ConcurrentDictionary<string, EstoqueSaldo> _stock = new();
-    private readonly ConcurrentQueue<EnterpriseAuditEvent> _audit = new();
+    private readonly Dictionary<string, EnterpriseListItem> _items = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, OrdemServicoDetail> _serviceOrders = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, EstoqueSaldo> _stock = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Queue<EnterpriseAuditEvent> _audit = new();
 
     public IReadOnlyList<EnterpriseListItem> List(string area, Guid tenantId)
     {
@@ -184,6 +182,7 @@ public sealed class EnterpriseModuleService : IEnterpriseModuleService
     private void Audit(Guid tenantId, string entity, Guid entityId, string action, string correlationId)
     {
         _audit.Enqueue(new EnterpriseAuditEvent(tenantId, entity, entityId, action, DateTimeOffset.UtcNow, correlationId));
+        while (_audit.Count > 200) _audit.Dequeue();
     }
 
     private static string Key(string area, Guid tenantId, Guid id) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{area}:{tenantId}:{id}");

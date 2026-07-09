@@ -31,9 +31,11 @@ function Invoke-SmokeRoute([string]$Name,[string]$Url,[int[]]$ExpectedStatus = @
   catch { $status = 0; if ($_.Exception.Response -and $_.Exception.Response.StatusCode) { $status = [int]$_.Exception.Response.StatusCode }; Add-Result $Name $Url $status ($ExpectedStatus -contains $status) $sw.ElapsedMilliseconds $Blocking $_.Exception.Message }
   finally { $sw.Stop() }
 }
-$webRoutes = @('/','/Auth/Login','/Dashboard','/MinhaCentral','/Protocolo','/Protocolo/Novo','/Ged','/Ged/NovoDocumento','/Workflow','/Tarefas','/Notificacoes','/Busca?q=protocolo','/Relatorios','/Poc','/Seguranca/ApiKeys','/Integracoes/Webhooks','/ValidarDocumento','/Operacao/Outbox')
+$webRoutes = @('/','/Auth/Login','/Dashboard','/MinhaCentral','/Protocolo','/Protocolo/Novo','/Ged','/Ged/NovoDocumento','/Workflow','/Tarefas','/Notificacoes','/Busca?q=protocolo','/Relatorios','/Poc','/Seguranca/ApiKeys','/Integracoes/Webhooks','/ValidarDocumento','/Operacao/Outbox','/Comercio/Dashboard','/Comercio/Clientes','/Comercio/Produtos','/Comercio/Orcamentos','/Comercio/Pedidos','/OrdemServico/Dashboard','/OrdemServico/Ordens','/OrdemServico/Agenda','/OrdemServico/Checklist','/OrdemServico/Apontamentos','/Estoque/Dashboard','/Estoque/Produtos','/Estoque/Almoxarifados','/Estoque/Movimentos','/Estoque/Saldos','/ComprasComercial/Fornecedores','/ComprasComercial/Pedidos','/Industrial/Dashboard','/Industrial/Ativos','/Industrial/PlanosManutencao','/Industrial/Medidores','/Industrial/Paradas','/Industria/Dashboard','/Industria/OrdensProducao','/Industria/ChaoFabrica')
 foreach ($route in $webRoutes) { Invoke-SmokeRoute "WEB $route" "$WebBaseUrl$route" @(200,302) @{} $true }
 foreach ($route in @('/api/health/live','/api/health/ready','/api/health/db','/api/v1/health')) { Invoke-SmokeRoute "API $route" "$ApiBaseUrl$route" @(200) @{} $true }
+$enterpriseApiRoutes = @('/api/comercial/clientes','/api/comercial/propostas','/api/os/ordens','/api/estoque/produtos','/api/estoque/saldos','/api/industrial/ativos')
+foreach ($route in $enterpriseApiRoutes) { Invoke-SmokeRoute "API Enterprise $route" "$ApiBaseUrl$route" @(200,401,403) @{ 'X-Tenant-Id'='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } $true }
 Invoke-SmokeRoute 'API /api/v1/protocolos sem key' "$ApiBaseUrl/api/v1/protocolos" @(401) @{} $true
 if ($env:SIGOV_SMOKE_API_KEY -and $env:SIGOV_SMOKE_TENANT_ID) {
   Write-Host "API key de smoke: $(Mask-ApiKey $env:SIGOV_SMOKE_API_KEY)"

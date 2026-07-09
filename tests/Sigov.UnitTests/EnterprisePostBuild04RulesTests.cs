@@ -74,3 +74,34 @@ public sealed class EnterprisePostBuild04RulesTests
         dashboard.Alertas.Should().Contain(alerta => alerta.Contains("abaixo do mínimo", StringComparison.OrdinalIgnoreCase));
     }
 }
+
+public sealed class EnterprisePosRc07StaticTests
+{
+    [Fact]
+    public void EnterpriseMigrationContainsRequiredTablesAndTenant()
+    {
+        var sql = File.ReadAllText(Path.Combine("..", "..", "..", "..", "database", "postgres", "migrations", "20260709120000_enterprise_funcional_crud.sql"));
+        Assert.Contains("enterprise_cliente", sql);
+        Assert.Contains("enterprise_ordem_servico", sql);
+        Assert.Contains("enterprise_estoque_saldo", sql);
+        Assert.Contains("tenant_id uuid not null", sql);
+        Assert.Contains("create index if not exists", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void EnterpriseServiceDoesNotUseConcurrentDictionaryForRealFlow()
+    {
+        var source = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Application", "Enterprise", "EnterpriseModuleService.cs"));
+        Assert.DoesNotContain("ConcurrentDictionary", source);
+    }
+
+    [Fact]
+    public void EnterprisePageTemplateHasOperationalCrudElements()
+    {
+        var view = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Web", "Views", "Enterprise", "ModulePage.cshtml"));
+        Assert.Contains("enterprise-form", view);
+        Assert.Contains("Exportar CSV", view);
+        Assert.Contains("Detalhes", view);
+        Assert.Contains("Inativar", view);
+    }
+}
