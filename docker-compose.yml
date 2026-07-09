@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: sigov-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123456}
+      POSTGRES_DB: ${POSTGRES_DB:-sigov}
+      POSTGRES_USER: ${POSTGRES_USER:-sigov}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_only}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -25,9 +25,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-123456}
+      POSTGRES_DB: ${POSTGRES_DB:-sigov}
+      POSTGRES_USER: ${POSTGRES_USER:-sigov}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change_me_local_only}
     volumes:
       - ./database:/database:ro
     entrypoint: ["/usr/bin/env", "bash", "/database/docker/apply-migrations.sh"]
@@ -46,7 +46,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456};Pooling=true;Maximum Pool Size=50;Minimum Pool Size=0;Timeout=30;Command Timeout=60;Application Name=SigovDocker
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-sigov};Username=${POSTGRES_USER:-sigov};Password=${POSTGRES_PASSWORD:-change_me_local_only};Pooling=true;Maximum Pool Size=50;Minimum Pool Size=0;Timeout=30;Command Timeout=60;Application Name=SigovDocker
       Sigov__Database__Schema: sigov
       Sigov__Database__RunMigrationsOnStartup: "false"
       Sigov__Database__MigrationsPath: /app/database/postgres/migrations
@@ -83,7 +83,7 @@ services:
         condition: service_completed_successfully
     environment:
       ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456};Pooling=true;Application Name=SigovWorkerDocker
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-sigov};Username=${POSTGRES_USER:-sigov};Password=${POSTGRES_PASSWORD:-change_me_local_only};Pooling=true;Application Name=SigovWorkerDocker
       Workers__Outbox__Enabled: ${OUTBOX_WORKER_ENABLED:-false}
       OcrWorker__Enabled: ${OCR_WORKER_ENABLED:-false}
       PreviewWorker__Enabled: ${PREVIEW_WORKER_ENABLED:-false}
@@ -101,7 +101,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: ${ASPNETCORE_URLS:-http://+:8080}
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456};Pooling=true;Application Name=SigovWebDocker
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-sigov};Username=${POSTGRES_USER:-sigov};Password=${POSTGRES_PASSWORD:-change_me_local_only};Pooling=true;Application Name=SigovWebDocker
       Sigov__ApiBaseUrl: http://api:8080
       Sigov__Brand__Name: ${SIGOV_BRANDING_NAME:-SIGOV}
       Sigov__ReleaseChannel: ${SIGOV_RELEASE_CHANNEL:-dev}

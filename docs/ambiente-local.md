@@ -20,9 +20,9 @@ http://localhost:5001/api/health/live
 PostgreSQL:
 Host: localhost
 Porta: 5432
-Database: postgres
-Usuário: postgres
-Senha: 123456
+Database: sigov
+Usuário: sigov
+Senha: change_me_local_only
 
 ## Credenciais de desenvolvimento
 

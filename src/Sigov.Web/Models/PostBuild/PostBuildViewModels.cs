@@ -71,6 +71,10 @@ public sealed class DashboardViewModel
     public IReadOnlyCollection<DashboardListItemViewModel> DocumentosRecentes { get; init; } = Array.Empty<DashboardListItemViewModel>();
     public string AlertaOperacional { get; init; } = string.Empty;
     public string MensagemFallback { get; init; } = string.Empty;
+    public string DataSource { get; init; } = "Fallback";
+    public long? TenantId { get; init; }
+    public string TenantNome { get; init; } = string.Empty;
+    public bool IsGlobal { get; init; }
 }
 
 public sealed record DashboardStatusSliceViewModel(string Status, long Total);

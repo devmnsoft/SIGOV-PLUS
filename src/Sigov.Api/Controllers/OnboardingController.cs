@@ -14,7 +14,11 @@ public sealed class OnboardingController : ControllerBase
     public OnboardingController(IOnboardingService onboardingService) => _onboardingService = onboardingService;
 
     [HttpGet]
-    public ActionResult<ApiResponse<OnboardingJourneyDto>> GetDefault([FromQuery] long tenantId = 1) => Ok(ApiResponse<OnboardingJourneyDto>.Ok(_onboardingService.GetJourney(tenantId)));
+    public ActionResult<ApiResponse<OnboardingJourneyDto>> GetDefault([FromQuery] long? tenantId)
+    {
+        if (!tenantId.HasValue || tenantId.Value <= 0) return BadRequest(ApiResponse<OnboardingJourneyDto>.Fail("Informe tenantId para consultar onboarding."));
+        return Ok(ApiResponse<OnboardingJourneyDto>.Ok(_onboardingService.GetJourney(tenantId.Value)));
+    }
 
     [HttpGet("{tenantId:long}")]
     public ActionResult<ApiResponse<OnboardingJourneyDto>> Get(long tenantId) => Ok(ApiResponse<OnboardingJourneyDto>.Ok(_onboardingService.GetJourney(tenantId)));

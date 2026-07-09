@@ -86,3 +86,21 @@ Data: 2026-07-06
 ## Atualização Pós-RC 06
 
 A classificação funcional não abre módulos novos. A mudança desta sprint é operacional: CI executável, smoke autenticado, seed demo compatível, package sanitizado e evidências Go-Live.
+
+## Pós-RC 07 — homologação real multi-tenant e Go-Live
+
+| Área | Classificação | Evidência / limitação honesta |
+|---|---|---|
+| Dashboard | Funcional real se CI/homologação passar | Resolve tenant por contexto; sem tenant opera como Admin Global agregado; fallback não apresenta número fake. |
+| Minha Central | Parcial | Depende de schema operacional e autenticação de homologação. |
+| Protocolo | Funcional real se CI/homologação passar | API/Web usam tabelas reais, workflow/tarefa/notificação/outbox quando schema existe. |
+| GED | Funcional real se CI/homologação passar | Upload e metadados sem expor storage path; validação pública respeita classificação. |
+| Workflow, Tarefas, Notificações | Funcional real se CI/homologação passar | Acionados por protocolo real e validados por smoke/SQL em CI. |
+| Busca e Relatórios | Funcional real se CI/homologação passar | Consultas tenant-aware e mascaramento LGPD; Admin Global apenas quando sem tenant. |
+| API v1 e API Key | Funcional real se CI/homologação passar | `X-Api-Key` + `X-Tenant-Id`, hash SHA-256 e escopos plurais. |
+| Outbox | Funcional real se CI/homologação passar | Evidencia pendentes/falhos; entrega externa depende de endpoint configurado. |
+| Webhooks | Dependente de provedor | Configuração e falhas rastreadas; entrega real não é simulada. |
+| Package release | Funcional real se CI/homologação passar | Bloqueia `.env`, certificados/chaves, dumps, storage e senha trivial. |
+| Smoke E2E | Funcional real se CI/homologação passar | Usa key demo apenas com `SIGOV_SMOKE_USE_DEMO_KEY=true` e mascara token. |
+| Go-Live Check | Funcional real se CI/homologação passar | Gera Markdown/JSON com bloqueios, warnings e versão RC. |
+| ICP-Brasil, Gov.br, OCR, SMTP, WhatsApp | Dependente de provedor | Sem simulação de funcionamento oficial; fallback honesto/documentado. |
