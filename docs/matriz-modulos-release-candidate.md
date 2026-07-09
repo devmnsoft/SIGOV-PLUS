@@ -82,3 +82,7 @@ Data: 2026-07-06
 | ICP/Gov.br | Dependente de provedor | Exige integração oficial |
 | SMTP/WhatsApp | Dependente de provedor | Exige credenciais e contrato |
 | Integrações oficiais externas | Dependente de provedor | Homologar por conector oficial |
+
+## Atualização Pós-RC 06
+
+A classificação funcional não abre módulos novos. A mudança desta sprint é operacional: CI executável, smoke autenticado, seed demo compatível, package sanitizado e evidências Go-Live.

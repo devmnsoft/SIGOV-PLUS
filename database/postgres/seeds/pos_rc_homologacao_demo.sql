@@ -71,6 +71,17 @@ values (1,'Webhook Demo Inativo','https://example.invalid/sigov-webhook','sha256
 insert into sigov.webhook_entrega (tenant_id,webhook_configuracao_id,outbox_evento_id,evento,endpoint,status,http_status,tentativa,erro_mascarado,payload_mascarado,created_by)
 select 1,(select id from sigov.webhook_configuracao where nome='Webhook Demo Inativo' limit 1),o.id,o.evento,'https://example.invalid/sigov-webhook',case when o.status='ENTREGUE' then 'ENTREGUE' else 'FALHOU' end,case when o.status='ENTREGUE' then 200 else 503 end,o.tentativas,o.erro_mascarado,o.payload,2 from sigov.outbox_evento o where o.evento in ('documento.criado','webhook.teste') and not exists (select 1 from sigov.webhook_entrega e where e.outbox_evento_id=o.id);
 insert into sigov.api_key (tenant_id,nome,prefixo,api_key_hash,algoritmo_hash,status,dados_json,created_by)
-values (1,'API Key Demo Homologação','sigov_demo','sha256:demo-hash-sem-token-claro','SHA-256','ATIVA','{"aviso":"token claro exibido somente na criação; este seed armazena apenas hash"}',2) on conflict do nothing;
+values (1,'API Key Demo Homologação','sigov_demo','fc86ee2b04157910a83296966cd5033de0f564cbe8dc64d1f3a54238fb32063a','SHA-256','ATIVA','{"aviso":"API key demo local/homologacao; rotacione antes de qualquer uso real; token claro nunca e salvo no banco","producao":false}',2) on conflict do nothing;
 insert into sigov.api_key_escopo (tenant_id,api_key_id,escopo,status,created_by)
-select 1,k.id,e,'ATIVO',2 from sigov.api_key k cross join unnest(array['protocolo.read','protocolo.write','documento.read','tarefa.read']) e where k.prefixo='sigov_demo' on conflict do nothing;
+select 1,k.id,e,'ATIVO',2 from sigov.api_key k cross join unnest(array['protocolos.read','protocolos.write','documentos.read','documentos.write','tarefas.read','tarefas.write','notificacoes.read','webhooks.manage','mobile.sync','assinaturas.read','assinaturas.write','bi.read']) e where k.prefixo='sigov_demo' on conflict do nothing;
+
+-- Correção Pós-RC 06: garantir hash/escopos compatíveis mesmo quando seed antiga já existia.
+update sigov.api_key
+   set api_key_hash='fc86ee2b04157910a83296966cd5033de0f564cbe8dc64d1f3a54238fb32063a',
+       algoritmo_hash='SHA-256',
+       status='ATIVA',
+       dados_json='{"aviso":"API key demo local/homologacao; rotacione antes de qualquer uso real; token claro nunca e salvo no banco","producao":false}'::jsonb
+ where tenant_id=1 and prefixo='sigov_demo';
+delete from sigov.api_key_escopo where tenant_id=1 and api_key_id in (select id from sigov.api_key where prefixo='sigov_demo') and escopo in ('protocolo.read','protocolo.write','documento.read','documento.write','tarefa.read','tarefa.write');
+insert into sigov.api_key_escopo (tenant_id,api_key_id,escopo,status,created_by)
+select 1,k.id,e,'ATIVO',2 from sigov.api_key k cross join unnest(array['protocolos.read','protocolos.write','documentos.read','documentos.write','tarefas.read','tarefas.write','notificacoes.read','webhooks.manage','mobile.sync','assinaturas.read','assinaturas.write','bi.read']) e where k.prefixo='sigov_demo' on conflict do nothing;

@@ -128,3 +128,11 @@ Depois, aplicar o seed demo e executar `scripts/smoke-test-sigov.ps1`. Em ambien
 ### Limitação honesta
 
 No container do agente da sprint Pós-RC 05, `dotnet`, `docker` e `pwsh` não estavam instalados; por isso, as evidências finais de build, testes, Docker e smoke devem ser obtidas no GitHub Actions e no ambiente de homologação.
+
+## Pós-RC 06 — CI real, smoke autenticado e Go-Live
+
+A Pós-RC 06 corrige a validação do schema para `sigov.outbox_evento`, adiciona schema report compatível com Docker local e PostgreSQL service do CI, seed demo com API key compatível com o middleware, smoke autenticado mascarado, job Docker Compose E2E e package release sanitizado.
+
+Chave demo **somente local/homologação**: `sigov_demo_local_only_2026_please_rotate`. Rotacione antes de qualquer uso real. O banco armazena apenas o hash SHA-256 hexadecimal.
+
+Documentação operacional: `docs/ci-cd-pos-rc-06.md`, `docs/smoke-e2e-pos-rc-06.md`, `docs/release-package-pos-rc-06.md` e `docs/diagnostico-pos-rc-06.md`.

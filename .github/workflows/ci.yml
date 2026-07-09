@@ -15,48 +15,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.x'
-      - name: Restore
-        run: dotnet restore sigov.sln
-      - name: Build
-        run: dotnet build sigov.sln --configuration Release --no-restore
-      - name: Test
-        run: dotnet test sigov.sln --configuration Release --no-build --logger trx --results-directory TestResults
-      - name: Upload test results
-        if: always()
+        with: { dotnet-version: '6.0.x' }
+      - run: dotnet restore sigov.sln
+      - run: dotnet build sigov.sln --configuration Release --no-restore
+      - run: dotnet test sigov.sln --configuration Release --no-build --logger trx --results-directory TestResults
+      - if: always()
         uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: TestResults/**/*.trx
+        with: { name: test-results, path: 'TestResults/**/*.trx' }
 
   docker-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Docker build API
-        run: docker build -f src/Sigov.Api/Dockerfile -t sigov-api:${{ github.sha }} .
-      - name: Docker build Web
-        run: docker build -f src/Sigov.Web/Dockerfile -t sigov-web:${{ github.sha }} .
-      - name: Docker build Worker
-        run: docker build -f src/Sigov.Worker/Dockerfile -t sigov-worker:${{ github.sha }} .
+      - run: docker build -f src/Sigov.Api/Dockerfile -t sigov-api:${{ github.sha }} .
+      - run: docker build -f src/Sigov.Web/Dockerfile -t sigov-web:${{ github.sha }} .
+      - run: docker build -f src/Sigov.Worker/Dockerfile -t sigov-worker:${{ github.sha }} .
 
   sql-validate:
     runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
-        env:
-          POSTGRES_DB: sigov
-          POSTGRES_USER: sigov
-          POSTGRES_PASSWORD: sigov_ci_password
-        ports:
-          - 5432:5432
+        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: sigov_ci_password }
+        ports: [ '5432:5432' ]
         options: >-
-          --health-cmd "pg_isready -U sigov -d sigov"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
+          --health-cmd "pg_isready -U sigov -d sigov" --health-interval 10s --health-timeout 5s --health-retries 10
     env:
       PGHOST: localhost
       PGPORT: 5432
@@ -68,44 +51,110 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Apply migrations
+      - name: Apply migrations in order
         run: |
           for file in $(find database/postgres/migrations -maxdepth 1 -type f -name '*.sql' | sort); do
             echo "Applying $file"
             psql -v ON_ERROR_STOP=1 -f "$file"
           done
-      - name: Apply demo seed twice
+      - name: Apply demo seed twice and validate idempotency
         run: |
           psql -v ON_ERROR_STOP=1 -f database/postgres/seeds/pos_rc_homologacao_demo.sql
+          before=$(psql -At -c "select count(*) from sigov.protocolo where codigo like 'DEMO-PROT-%'")
           psql -v ON_ERROR_STOP=1 -f database/postgres/seeds/pos_rc_homologacao_demo.sql
-      - name: Schema report
+          after=$(psql -At -c "select count(*) from sigov.protocolo where codigo like 'DEMO-PROT-%'")
+          test "$before" = "$after"
+      - name: Schema report via psql
         shell: pwsh
-        run: ./scripts/schema-report.ps1
-      - name: Validate critical tables
+        run: ./scripts/schema-report.ps1 -Mode Psql -OutputPath docs/schema-report-ci.md
+      - name: Validate critical tables, demo key, scopes and no clear key
         run: |
-          psql -v ON_ERROR_STOP=1 -c "select to_regclass('sigov.api_key') as api_key, to_regclass('sigov.protocolo') as protocolo, to_regclass('sigov.documento') as documento, to_regclass('sigov.outbox') as outbox;"
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          select to_regclass('sigov.api_key'), to_regclass('sigov.api_key_escopo'), to_regclass('sigov.api_requisicao_log'), to_regclass('sigov.webhook_configuracao'), to_regclass('sigov.webhook_entrega'), to_regclass('sigov.outbox_evento'), to_regclass('sigov.protocolo'), to_regclass('sigov.documento'), to_regclass('sigov.workflow_instancia'), to_regclass('sigov.tarefa'), to_regclass('sigov.notificacao'), to_regclass('sigov.portal_validacao_documento');
+          do $$
+          declare missing int;
+          begin
+            if exists (select 1 from sigov.api_key where api_key_hash like 'sigov_demo_local_only%') then raise exception 'API key clara salva'; end if;
+            if not exists (select 1 from sigov.api_key where prefixo='sigov_demo' and api_key_hash='fc86ee2b04157910a83296966cd5033de0f564cbe8dc64d1f3a54238fb32063a' and algoritmo_hash='SHA-256' and status='ATIVA') then raise exception 'API key demo inválida'; end if;
+            select count(*) into missing from unnest(array['protocolos.read','protocolos.write','documentos.read','documentos.write','tarefas.read','tarefas.write','notificacoes.read','webhooks.manage','mobile.sync','assinaturas.read','assinaturas.write','bi.read']) s where not exists (select 1 from sigov.api_key k join sigov.api_key_escopo e on e.api_key_id=k.id where k.prefixo='sigov_demo' and e.escopo=s);
+            if missing > 0 then raise exception 'Escopos demo ausentes: %', missing; end if;
+          end $$;
+          SQL
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: schema-report-ci, path: docs/schema-report-ci.md }
 
   smoke-static:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate scripts and docs
+      - name: Static Pós-RC 06 checks
         shell: pwsh
         run: |
-          $required = @(
-            'scripts/apply-demo-seed.ps1',
-            'scripts/smoke-test-sigov.ps1',
-            'scripts/validate-release.ps1',
-            'scripts/package-release.ps1',
-            'docs/release-candidate-escopo.md',
-            'docs/matriz-modulos-release-candidate.md',
-            'docs/checklist-go-live-pos-rc.md'
-          )
-          foreach ($path in $required) { if (-not (Test-Path $path)) { throw "Arquivo obrigatório ausente: $path" } }
-          $smoke = Get-Content 'scripts/smoke-test-sigov.ps1' -Raw
-          foreach ($route in @('/Dashboard','/MinhaCentral','/Protocolo/Novo','/Ged/NovoDocumento','/Operacao/Outbox','/api/v1/protocolos')) {
-            if ($smoke -notlike "*$route*") { throw "Rota obrigatória ausente do smoke: $route" }
-          }
-          foreach ($legacy in @('/Busca?q=teste','/Operacao/Health')) {
-            if ($smoke -like "*$legacy*") { throw "Rota legada/removida ainda presente no smoke: $legacy" }
-          }
+          $ci = Get-Content '.github/workflows/ci.yml' -Raw
+          foreach ($job in @('build-test','docker-build','sql-validate','smoke-static','docker-compose-e2e','release-package-check')) { if ($ci -notmatch "(?m)^  $job:") { throw "Job ausente: $job" } }
+          if ($ci -notmatch 'sigov.outbox_evento') { throw 'CI não valida outbox_evento' }
+          if ($ci -match "to_regclass\('sigov\.outbox'\)") { throw 'CI ainda valida sigov.outbox legado' }
+          $schema = Get-Content 'scripts/schema-report.ps1' -Raw; if ($schema -notmatch "ValidateSet\('Auto','Docker','Psql'\)") { throw 'schema-report sem modo Psql' }
+          $smoke = Get-Content 'scripts/smoke-test-sigov.ps1' -Raw; if ($smoke -match 'Escape\(\$env:SIGOV_SMOKE_API_KEY\)') { throw 'Regex.Escape sem proteção no smoke' }; if ($smoke -match "'Resumo: \$success") { throw 'Resumo sem interpolação' }
+          $seed = Get-Content 'database/postgres/seeds/pos_rc_homologacao_demo.sql' -Raw; foreach($scope in @('protocolos.read','documentos.read','tarefas.read')) { if ($seed -notmatch $scope) { throw "Escopo ausente: $scope" } }; if ($seed -notmatch 'fc86ee2b04157910a83296966cd5033de0f564cbe8dc64d1f3a54238fb32063a') { throw 'Hash demo ausente' }
+          $pkg = Get-Content 'scripts/package-release.ps1' -Raw; if ($pkg -notmatch 'Sanitize-EnvExample') { throw 'package-release não sanitiza .env.example' }
+
+  docker-compose-e2e:
+    runs-on: ubuntu-latest
+    env:
+      SIGOV_SMOKE_USE_DEMO_KEY: 'true'
+      SIGOV_SMOKE_TENANT_ID: '1'
+      SIGOV_SMOKE_API_KEY: sigov_demo_local_only_2026_please_rotate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '6.0.x' }
+      - name: Compose up
+        run: |
+          docker compose down -v || true
+          docker compose build --no-cache
+          docker compose up -d
+      - name: Wait health
+        run: |
+          for i in {1..60}; do docker compose ps; curl -fsS http://localhost:5001/api/health/ready && curl -fsS http://localhost:8080/ && exit 0; sleep 5; done
+          exit 1
+      - name: Apply seed and schema report
+        shell: pwsh
+        run: |
+          ./scripts/apply-demo-seed.ps1
+          ./scripts/schema-report.ps1 -Mode Docker -OutputPath docs/schema-report-local.md
+      - name: Smoke authenticated
+        shell: pwsh
+        run: ./scripts/smoke-test-sigov.ps1
+      - if: always()
+        run: docker compose logs --no-color > docker-compose-e2e.log || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-e2e-evidence
+          path: |
+            docs/smoke-test-release-candidate.md
+            docs/smoke-test-release-candidate.json
+            docs/schema-report-local.md
+            docker-compose-e2e.log
+      - if: always()
+        run: docker compose down -v || true
+
+  release-package-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate release package
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Version 1.0.0-rc-final
+      - name: Validate release package
+        shell: pwsh
+        run: |
+          $pkg='artifacts/release/sigov-plus-1.0.0-rc-final'
+          foreach($p in @($pkg,"$pkg/release-manifest.json","$pkg/README.md","$pkg/docs","$pkg/database/postgres/migrations","$pkg/database/postgres/seeds","$pkg/scripts")){ if(-not(Test-Path $p)){ throw "Ausente: $p" } }
+          if(Test-Path "$pkg/.env"){ throw '.env real não pode estar no pacote' }
+          if(Test-Path "$pkg/storage"){ throw 'storage não pode estar no pacote' }
+          if((Get-ChildItem $pkg -Recurse -File | Select-String -Pattern 'POSTGRES_PASSWORD=123456' -Quiet)){ throw 'Secret real/exemplo inseguro detectado' }
+      - uses: actions/upload-artifact@v4
+        with: { name: sigov-plus-1.0.0-rc-final, path: artifacts/release/sigov-plus-1.0.0-rc-final }
