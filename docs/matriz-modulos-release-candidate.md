@@ -116,3 +116,11 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 |---|---|---|
 | Comercial/OS/Estoque/Compras/Industrial | CRUD e ações operacionais revisados | `docs/matriz-crud-enterprise-pos-rc-08.md` |
 | Indústria Produção | MVP CRUD homologável, regras avançadas pendentes | `docs/jornadas-enterprise-pos-rc-08.md` |
+
+
+## Pós-RC 09 — QA funcional Enterprise
+
+- Diagnóstico criado em `docs/diagnostico-enterprise-pos-rc-09.md`.
+- Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
+- Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
+- UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.

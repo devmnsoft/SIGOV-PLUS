@@ -1,0 +1,21 @@
+{
+  "release": "pos-rc-09",
+  "branch": "codex/pos-rc-09-enterprise-qa-produto",
+  "baseCommit": "4fe5c08",
+  "checks": {
+    "gitMainPull": { "status": "partial", "note": "main ausente no clone local" },
+    "dotnetBuild": { "status": "blocked", "error": "dotnet: command not found" },
+    "dotnetTest": { "status": "blocked", "error": "SDK .NET indisponivel" },
+    "dockerCompose": { "status": "not_run", "note": "requer stack local" },
+    "seed": { "status": "not_run", "note": "requer postgres" },
+    "smoke": { "status": "not_run", "note": "requer Web/API" },
+    "webUx": { "status": "updated" }
+  },
+  "honestPending": [
+    "Executar build/test em ambiente com dotnet",
+    "Validar docker compose e migrations",
+    "Aplicar seed duas vezes",
+    "Executar smoke real e anexar markdown/json gerados",
+    "Homologar permissões e auditoria com usuários reais de teste"
+  ]
+}
