@@ -64,3 +64,11 @@ Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao
 - Ajustado CRUD Enterprise REST para criação, edição por ID, soft delete, restauração, CSV seguro e auditoria.
 - Template Web Enterprise passou a executar inativação real via backend e edição via `PUT`.
 - Documentadas evidências, matriz CRUD e roteiro manual Pós-RC 08, com pendências honestas de ambiente para build/test/docker.
+
+
+## Pós-RC 09 — QA funcional Enterprise
+
+- Diagnóstico criado em `docs/diagnostico-enterprise-pos-rc-09.md`.
+- Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
+- Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
+- UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.

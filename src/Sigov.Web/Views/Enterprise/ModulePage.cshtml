@@ -44,7 +44,7 @@
                 <div class="col-6 col-lg-2"><label class="form-label small text-muted">Página</label><input class="form-control" name="page" type="number" min="1" value="1" /></div>
                 <div class="col-12 col-lg-4 d-flex gap-2"><button type="submit" class="btn btn-outline-primary">Filtrar</button><button type="button" class="btn btn-outline-secondary enterprise-export">Exportar CSV</button></div>
             </form>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#enterpriseFormModal">Novo</button>
+            <button type="button" class="btn btn-primary enterprise-new" data-bs-toggle="modal" data-bs-target="#enterpriseFormModal">Novo</button>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -52,6 +52,7 @@
                 <tbody class="enterprise-table-body"><tr><td colspan="7" class="text-center py-5 text-muted">Carregando dados reais...</td></tr></tbody>
             </table>
         </div>
+        <div class="card-footer bg-white d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2"><span class="small text-muted enterprise-status">Aguardando consulta.</span><div class="btn-group enterprise-pager" role="group" aria-label="Paginação"><button type="button" class="btn btn-outline-secondary btn-sm" data-page="-1">Anterior</button><button type="button" class="btn btn-outline-secondary btn-sm" data-page="1">Próxima</button></div></div>
     </div>
 
     <div class="offcanvas offcanvas-end" tabindex="-1" id="enterpriseDetailPanel"><div class="offcanvas-header"><h5>Detalhes e auditoria</h5><button class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body enterprise-detail-body">Selecione um registro.</div></div>

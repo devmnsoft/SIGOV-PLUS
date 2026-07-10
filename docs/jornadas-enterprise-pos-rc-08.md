@@ -14,3 +14,11 @@ Ativo, plano, medidor e parada possuem CRUD. Plano gera OS preventiva, leitura e
 
 ## Indústria Produção
 Centros, recursos, produtos industriais, fichas, roteiros e OP usam CRUD MVP em tabelas `enterprise_*`; apontamentos, qualidade, paradas e custos têm rotas operáveis para homologação inicial.
+
+
+## Pós-RC 09 — QA funcional Enterprise
+
+- Diagnóstico criado em `docs/diagnostico-enterprise-pos-rc-09.md`.
+- Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
+- Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
+- UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.

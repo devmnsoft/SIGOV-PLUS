@@ -66,3 +66,11 @@ Observação honesta: este container de agente não possui `dotnet`, `docker` ou
 - [ ] Reexecutar `docker compose build --no-cache && docker compose up -d` em homologação.
 - [ ] Aplicar seed Enterprise duas vezes e confirmar idempotência.
 - [ ] Executar roteiro manual Enterprise Pós-RC 08 e anexar evidências.
+
+
+## Pós-RC 09 — QA funcional Enterprise
+
+- Diagnóstico criado em `docs/diagnostico-enterprise-pos-rc-09.md`.
+- Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
+- Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
+- UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
