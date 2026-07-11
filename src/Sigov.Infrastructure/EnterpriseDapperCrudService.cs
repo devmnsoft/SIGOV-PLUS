@@ -91,8 +91,9 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
             var codigo = $"{CodePrefix(area)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
             var dados = JsonSerializer.Serialize(new { request.Valor, request.ClienteId, request.ProdutoId, request.Quantidade });
             using var cn = _context.CreateConnection();
-            var sql = $"insert into sigov.{table}(id,tenant_id,codigo,nome,status,documento_masked,email_masked,telefone_masked,dados_json,created_by,updated_by,correlation_id) values(@id,@tenantId,@codigo,@nome,@status,@documento,@email,@telefone,cast(@dados as jsonb),'api','api',@correlationId) returning id";
-            cn.ExecuteScalar<Guid>(sql, new { id, tenantId, codigo, nome, status, documento = MaskDocument(request.Documento), email = MaskEmail(request.Email), telefone = MaskPhone(request.Telefone), dados, correlationId });
+            var actor = Actor();
+            var sql = $"insert into sigov.{table}(id,tenant_id,codigo,nome,status,documento_masked,email_masked,telefone_masked,dados_json,created_by,updated_by,correlation_id) values(@id,@tenantId,@codigo,@nome,@status,@documento,@email,@telefone,cast(@dados as jsonb),@actor,@actor,@correlationId) returning id";
+            cn.ExecuteScalar<Guid>(sql, new { id, tenantId, codigo, nome, status, documento = MaskDocument(request.Documento), email = MaskEmail(request.Email), telefone = MaskPhone(request.Telefone), dados, correlationId, actor });
             Audit(cn, tenantId, table, id, "criar_editar", correlationId);
             if (table == "enterprise_produto") EnsureStock(cn, tenantId, id, nome, request.Quantidade.GetValueOrDefault(25), correlationId);
             return new EnterpriseActionResult(id, tenantId, "OK", "Registro salvo no PostgreSQL com tenant_id, auditoria e mascaramento LGPD.");
@@ -100,7 +101,7 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         catch (Exception ex) when (IsSchemaUnavailable(ex))
         {
             _logger.LogWarning(ex, "Fallback honesto Enterprise: tabela {Table} indisponível para gravação.", table);
-            return _fallback.Upsert(area, request, tenantId, correlationId);
+            return SchemaUnavailable(Guid.Empty, tenantId, "criar");
         }
         catch (Exception ex)
         {
@@ -117,14 +118,15 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         try
         {
             using var cn = _context.CreateConnection();
+            var actor = Actor();
             var status = cn.ExecuteScalar<string?>("select status from sigov.enterprise_proposta where tenant_id=@tenantId and id=@id and is_deleted=false", new { tenantId, id });
             if (status == "REPROVADA") return new EnterpriseActionResult(id, tenantId, "BLOQUEADO", "Não é permitido gerar pedido de proposta reprovada.");
             var pedidoId = Guid.NewGuid();
-            cn.Execute("insert into sigov.enterprise_pedido_venda(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(@pedidoId,@tenantId,@codigo,@nome,'ABERTO',jsonb_build_object('proposta_id',@id),'api','api',@correlationId)", new { pedidoId, tenantId, codigo = $"PED-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = $"Pedido da proposta {id.ToString()[..8]}", id, correlationId });
+            cn.Execute("insert into sigov.enterprise_pedido_venda(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(@pedidoId,@tenantId,@codigo,@nome,'ABERTO',jsonb_build_object('proposta_id',@id),@actor,@actor,@correlationId)", new { pedidoId, tenantId, codigo = $"PED-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = $"Pedido da proposta {id.ToString()[..8]}", id, correlationId, actor });
             Audit(cn, tenantId, "enterprise_proposta", id, "gerar_pedido", correlationId);
             return new EnterpriseActionResult(id, tenantId, "PEDIDO_GERADO", "Proposta aprovada gerou pedido comercial.", pedidoId);
         }
-        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ao gerar pedido Enterprise."); return _fallback.GenerateOrderFromProposal(id, tenantId, correlationId); }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ao gerar pedido Enterprise."); return SchemaUnavailable(id, tenantId, "gerar_pedido"); }
     }
 
     public EnterpriseActionResult ConfirmCommercialOrder(Guid id, Guid tenantId, string correlationId) => SetStatus("enterprise_pedido_venda", id, tenantId, "CONFIRMADO", "Pedido confirmado e elegível para OS quando aplicável.", correlationId);
@@ -135,14 +137,15 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         try
         {
             using var cn = _context.CreateConnection();
+            var actor = Actor();
             var status = cn.ExecuteScalar<string?>("select status from sigov.enterprise_pedido_venda where tenant_id=@tenantId and id=@id and is_deleted=false", new { tenantId, id });
             if (status == "CANCELADO") return new EnterpriseActionResult(id, tenantId, "BLOQUEADO", "Não é permitido gerar OS de pedido cancelado.");
             var osId = Guid.NewGuid();
-            cn.Execute("insert into sigov.enterprise_ordem_servico(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(@osId,@tenantId,@codigo,@nome,'ABERTA',jsonb_build_object('pedido_id',@id),'api','api',@correlationId)", new { osId, tenantId, codigo = $"OS-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = $"OS do pedido {id.ToString()[..8]}", id, correlationId });
+            cn.Execute("insert into sigov.enterprise_ordem_servico(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(@osId,@tenantId,@codigo,@nome,'ABERTA',jsonb_build_object('pedido_id',@id),@actor,@actor,@correlationId)", new { osId, tenantId, codigo = $"OS-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = $"OS do pedido {id.ToString()[..8]}", id, correlationId, actor });
             Audit(cn, tenantId, "enterprise_ordem_servico", osId, "criar_por_pedido", correlationId);
             return new EnterpriseActionResult(id, tenantId, "OS_GERADA", "Pedido gerou ordem de serviço integrada.", osId);
         }
-        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ao gerar OS Enterprise."); return _fallback.GenerateServiceOrderFromOrder(id, tenantId, correlationId); }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ao gerar OS Enterprise."); return SchemaUnavailable(id, tenantId, "gerar_os"); }
     }
 
     public OrdemServicoDetail GetServiceOrder(Guid id, Guid tenantId) { try { using var cn = _context.CreateConnection(); var row = cn.QuerySingleOrDefault<(Guid Id, Guid TenantId, string Codigo, string Status)>("select id,tenant_id,codigo,status from sigov.enterprise_ordem_servico where tenant_id=@tenantId and id=@id and is_deleted=false", new { tenantId, id }); return row.Id == Guid.Empty ? _fallback.GetServiceOrder(id, tenantId) : new(row.Id, row.TenantId, row.Codigo, row.Status, Array.Empty<string>(), Array.Empty<string>(), 0); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback detalhe OS Enterprise."); return _fallback.GetServiceOrder(id, tenantId); } }
@@ -159,15 +162,16 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         try
         {
             using var cn = _context.CreateConnection();
+            var actor = Actor();
             EnsureStock(cn, tenantId, produtoId, "Produto integrado", 20, correlationId);
             var saldo = cn.ExecuteScalar<decimal>("select quantidade from sigov.enterprise_estoque_saldo where tenant_id=@tenantId and produto_id=@produtoId and is_deleted=false", new { tenantId, produtoId });
             var signed = movement is "ENTRADA" or "AJUSTE_POSITIVO" ? quantidade : -quantidade;
             if (saldo + signed < 0 && !permitirSaldoNegativo) { Audit(cn, tenantId, "enterprise_estoque_movimento", produtoId, "bloquear_saldo_negativo", correlationId); return new EnterpriseActionResult(produtoId, tenantId, "SALDO_INSUFICIENTE", "Estoque não permite saldo negativo sem permissão explícita."); }
-            cn.Execute("update sigov.enterprise_estoque_saldo set quantidade=quantidade+@signed,updated_at=now(),correlation_id=@correlationId where tenant_id=@tenantId and produto_id=@produtoId; insert into sigov.enterprise_estoque_movimento(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@nome,@movement,jsonb_build_object('produto_id',@produtoId,'quantidade',@quantidade),'api','api',@correlationId);", new { tenantId, produtoId, signed, quantidade, movement, codigo = $"MOV-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = $"Movimento {movement}", correlationId });
+            cn.Execute("update sigov.enterprise_estoque_saldo set quantidade=quantidade+@signed,updated_at=now(),correlation_id=@correlationId where tenant_id=@tenantId and produto_id=@produtoId; insert into sigov.enterprise_estoque_movimento(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@nome,@movement,jsonb_build_object('produto_id',@produtoId,'quantidade',@quantidade),@actor,@actor,@correlationId);", new { tenantId, produtoId, signed, quantidade, movement, codigo = $"MOV-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = $"Movimento {movement}", correlationId, actor });
             Audit(cn, tenantId, "enterprise_estoque_movimento", produtoId, movement.ToLowerInvariant(), correlationId);
             return new EnterpriseActionResult(produtoId, tenantId, "OK", "Movimento de estoque registrado.");
         }
-        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback movimento estoque Enterprise."); return _fallback.MoveStock(tenantId, produtoId, quantidade, movement, permitirSaldoNegativo, correlationId); }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback movimento estoque Enterprise."); return SchemaUnavailable(produtoId, tenantId, "movimentar_estoque"); }
     }
 
     public EnterpriseDashboard GetDashboard(string module, Guid tenantId) { var alertas = GetStock(tenantId).Where(s => s.AbaixoDoMinimo).Select(s => $"Produto {s.Produto} abaixo do mínimo").ToArray(); return new EnterpriseDashboard(module, List(ModuleArea(module), tenantId).Count, alertas.Length, alertas, Array.Empty<EnterpriseAuditEvent>()); }
@@ -189,12 +193,13 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         try
         {
             using var cn = _context.CreateConnection();
-            var affected = cn.Execute($"update sigov.{table} set nome=coalesce(nullif(@nome,''),nome), status=coalesce(nullif(@status,''),status), documento_masked=coalesce(@documento,documento_masked), email_masked=coalesce(@email,email_masked), telefone_masked=coalesce(@telefone,telefone_masked), updated_at=now(), updated_by='api', correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { id, tenantId, nome = request.Nome?.Trim(), status = request.Status?.Trim().ToUpperInvariant(), documento = MaskDocument(request.Documento), email = MaskEmail(request.Email), telefone = MaskPhone(request.Telefone), correlationId });
+            var actor = Actor();
+            var affected = cn.Execute($"update sigov.{table} set nome=coalesce(nullif(@nome,''),nome), status=coalesce(nullif(@status,''),status), documento_masked=coalesce(@documento,documento_masked), email_masked=coalesce(@email,email_masked), telefone_masked=coalesce(@telefone,telefone_masked), updated_at=now(), updated_by=@actor, correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { id, tenantId, nome = request.Nome?.Trim(), status = request.Status?.Trim().ToUpperInvariant(), documento = MaskDocument(request.Documento), email = MaskEmail(request.Email), telefone = MaskPhone(request.Telefone), correlationId, actor });
             if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado.");
             Audit(cn, tenantId, table, id, "editar", correlationId);
             return new EnterpriseActionResult(id, tenantId, "OK", "Registro atualizado com auditoria.");
         }
-        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback update Enterprise."); return _fallback.Upsert(area, request, tenantId, correlationId); }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback update Enterprise."); return SchemaUnavailable(id, tenantId, "editar"); }
     }
 
     private EnterpriseActionResult SoftDelete(string table, Guid id, Guid tenantId, string correlationId) => MutateLifecycle(table, id, tenantId, true, "INATIVO", "Registro inativado com soft delete lógico.", correlationId);
@@ -204,18 +209,22 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
         try
         {
             using var cn = _context.CreateConnection();
-            var affected = cn.Execute($"update sigov.{table} set status=@status,is_deleted=@deleted,deleted_at=case when @deleted then now() else null end,deleted_by=case when @deleted then 'api' else null end,updated_at=now(),updated_by='api',correlation_id=@correlationId where tenant_id=@tenantId and id=@id", new { status, deleted, tenantId, id, correlationId });
+            var actor = Actor();
+            var affected = cn.Execute($"update sigov.{table} set status=@status,is_deleted=@deleted,deleted_at=case when @deleted then now() else null end,deleted_by=case when @deleted then @actor else null end,updated_at=now(),updated_by=@actor,correlation_id=@correlationId where tenant_id=@tenantId and id=@id", new { status, deleted, tenantId, id, correlationId, actor });
             if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado.");
             Audit(cn, tenantId, table, id, deleted ? "inativar" : "restaurar", correlationId);
             return new EnterpriseActionResult(id, tenantId, status, message);
         }
-        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ciclo de vida Enterprise."); return new EnterpriseActionResult(id, tenantId, status, message); }
+        catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback ciclo de vida Enterprise."); return SchemaUnavailable(id, tenantId, deleted ? "inativar" : "restaurar"); }
     }
 
-    private EnterpriseActionResult SetStatus(string table, Guid id, Guid tenantId, string status, string message, string correlationId) { try { using var cn = _context.CreateConnection(); var affected = cn.Execute($"update sigov.{table} set status=@status, updated_at=now(), updated_by='api', correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { status, tenantId, id, correlationId }); if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado."); Audit(cn, tenantId, table, id, status.ToLowerInvariant(), correlationId); return new EnterpriseActionResult(id, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback status Enterprise."); return new EnterpriseActionResult(id, tenantId, status, message); } }
-    private EnterpriseActionResult InsertChild(string table, Guid tenantId, Guid parentId, string text, string correlationId, string status, string message) { try { using var cn = _context.CreateConnection(); cn.Execute($"insert into sigov.{table}(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@text,@status,jsonb_build_object('parent_id',@parentId),'api','api',@correlationId)", new { tenantId, parentId, codigo = $"EVT-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", text, status, correlationId }); return new EnterpriseActionResult(parentId, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback filho Enterprise."); return new EnterpriseActionResult(parentId, tenantId, status, message); } }
-    private static void EnsureStock(System.Data.IDbConnection cn, Guid tenantId, Guid produtoId, string produto, decimal qtd, string correlationId) => cn.Execute("insert into sigov.enterprise_estoque_saldo(id,tenant_id,codigo,nome,status,produto_id,produto_nome,quantidade,minimo,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@produto,'ATIVO',@produtoId,@produto,@qtd,10,'{}','api','api',@correlationId) on conflict (tenant_id,produto_id) where is_deleted=false do nothing", new { tenantId, produtoId, produto, qtd, codigo = $"SLD-{produtoId.ToString()[..8]}", correlationId });
-    private static void Audit(System.Data.IDbConnection cn, Guid tenantId, string entity, Guid id, string action, string correlationId) => cn.Execute("insert into sigov.enterprise_auditoria_operacional(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@nome,'REGISTRADO',jsonb_build_object('entity',@entity,'entity_id',@id,'action',@action),'api','api',@correlationId)", new { tenantId, codigo = $"AUD-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = action, entity, id, action, correlationId });
+    private EnterpriseActionResult SetStatus(string table, Guid id, Guid tenantId, string status, string message, string correlationId) { try { using var cn = _context.CreateConnection(); var actor = Actor(); var affected = cn.Execute($"update sigov.{table} set status=@status, updated_at=now(), updated_by=@actor, correlation_id=@correlationId where tenant_id=@tenantId and id=@id and is_deleted=false", new { status, tenantId, id, correlationId, actor }); if (affected == 0) return new EnterpriseActionResult(id, tenantId, "NOT_FOUND", "Registro não encontrado para o tenant informado."); Audit(cn, tenantId, table, id, status.ToLowerInvariant(), correlationId); return new EnterpriseActionResult(id, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback status Enterprise."); return SchemaUnavailable(id, tenantId, status.ToLowerInvariant()); } }
+    private EnterpriseActionResult InsertChild(string table, Guid tenantId, Guid parentId, string text, string correlationId, string status, string message) { try { using var cn = _context.CreateConnection(); var actor = Actor(); cn.Execute($"insert into sigov.{table}(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@text,@status,jsonb_build_object('parent_id',@parentId),@actor,@actor,@correlationId)", new { tenantId, parentId, codigo = $"EVT-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", text, status, correlationId, actor }); return new EnterpriseActionResult(parentId, tenantId, status, message); } catch (Exception ex) when (IsSchemaUnavailable(ex)) { _logger.LogWarning(ex, "Fallback filho Enterprise."); return SchemaUnavailable(parentId, tenantId, status.ToLowerInvariant()); } }
+    private static void EnsureStock(System.Data.IDbConnection cn, Guid tenantId, Guid produtoId, string produto, decimal qtd, string correlationId) { var actor = Actor(); cn.Execute("insert into sigov.enterprise_estoque_saldo(id,tenant_id,codigo,nome,status,produto_id,produto_nome,quantidade,minimo,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@produto,'ATIVO',@produtoId,@produto,@qtd,10,'{}',@actor,@actor,@correlationId) on conflict (tenant_id,produto_id) where is_deleted=false do nothing", new { tenantId, produtoId, produto, qtd, codigo = $"SLD-{produtoId.ToString()[..8]}", correlationId, actor }); }
+    private static void Audit(System.Data.IDbConnection cn, Guid tenantId, string entity, Guid id, string action, string correlationId) { var actor = Actor(); cn.Execute("insert into sigov.enterprise_auditoria_operacional(id,tenant_id,codigo,nome,status,dados_json,created_by,updated_by,correlation_id) values(gen_random_uuid(),@tenantId,@codigo,@nome,'REGISTRADO',jsonb_build_object('entity',@entity,'entity_id',@id,'action',@action),@actor,@actor,@correlationId)", new { tenantId, codigo = $"AUD-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}", nome = action, entity, id, action, correlationId, actor }); }
+
+    private static string Actor() => EnterpriseExecutionContextAccessor.Current?.Actor ?? "sistema.enterprise";
+    private static EnterpriseActionResult SchemaUnavailable(Guid id, Guid tenantId, string operation) => new(id, tenantId, "SCHEMA_UNAVAILABLE", $"Schema Enterprise indisponível; operação real '{operation}' não persistiu e foi bloqueada por fallback honesto.");
     private static bool TryTable(string area, out string table) => AreaTables.TryGetValue(area, out table!);
     private static bool IsSchemaUnavailable(Exception ex) => ex is PostgresException pg && (pg.SqlState == "42P01" || pg.SqlState == "3F000") || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
     private static string CodePrefix(string area) => new(area.Where(char.IsLetterOrDigit).Take(3).ToArray()).ToUpperInvariant();

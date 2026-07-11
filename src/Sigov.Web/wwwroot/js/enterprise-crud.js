@@ -16,6 +16,8 @@
   let currentItems = [];
   let currentPage = 1;
   const pageSize = 20;
+  const areaKey = (api.split('/').filter(Boolean).pop() || 'default').toLowerCase();
+  const metadata = (window.SigovEnterpriseFormMetadata && (window.SigovEnterpriseFormMetadata[areaKey] || window.SigovEnterpriseFormMetadata.default)) || { actions: [] };
 
   const headers = (json = true) => {
     const h = { 'X-Tenant-Id': tenant };
@@ -70,7 +72,7 @@
       const id = getItemValue(item, 'id', 'Id');
       const status = getItemValue(item, 'status', 'Status') || 'ATIVO';
       const deleted = String(status).toUpperCase() === 'INATIVO';
-      return `<tr data-id="${escapeHtml(id)}"><td><strong>${escapeHtml(getItemValue(item, 'name', 'Name', 'nome', 'Nome'))}</strong><div class="small text-muted">${escapeHtml(id)}</div></td><td><span class="badge ${deleted ? 'bg-warning text-dark' : 'bg-secondary'}">${escapeHtml(status)}</span></td><td>${escapeHtml(getItemValue(item, 'documentMasked', 'DocumentMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'emailMasked', 'EmailMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'phoneMasked', 'PhoneMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'updatedAt', 'UpdatedAt'))}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary enterprise-details">Detalhes</button> <button class="btn btn-sm btn-outline-secondary enterprise-edit">Editar</button> <button class="btn btn-sm btn-outline-danger enterprise-delete">Inativar</button> <button class="btn btn-sm btn-outline-success enterprise-restore">Restaurar</button></td></tr>`;
+      return `<tr data-id="${escapeHtml(id)}"><td><strong>${escapeHtml(getItemValue(item, 'name', 'Name', 'nome', 'Nome'))}</strong><div class="small text-muted">${escapeHtml(id)}</div></td><td><span class="badge ${deleted ? 'bg-warning text-dark' : 'bg-secondary'}">${escapeHtml(status)}</span></td><td>${escapeHtml(getItemValue(item, 'documentMasked', 'DocumentMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'emailMasked', 'EmailMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'phoneMasked', 'PhoneMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'updatedAt', 'UpdatedAt'))}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary enterprise-details">Detalhes</button> <button class="btn btn-sm btn-outline-secondary enterprise-edit">Editar</button> <button class="btn btn-sm btn-outline-danger enterprise-delete">Inativar</button> <button class="btn btn-sm btn-outline-success enterprise-restore">Restaurar</button> ${metadata.actions.map(a => `<button class="btn btn-sm btn-outline-dark enterprise-op" data-action="${escapeHtml(a.key)}">${escapeHtml(a.label)}</button>`).join(' ')}</td></tr>`;
     }).join('');
   }
   function fillForm(item = {}) {
@@ -118,7 +120,20 @@
     if (ev.target.matches('.enterprise-edit')) { fillForm(item); bootstrap.Modal.getOrCreateInstance(modalElement).show(); }
     if (ev.target.matches('.enterprise-delete')) lifecycle(tr.dataset.id, false);
     if (ev.target.matches('.enterprise-restore')) lifecycle(tr.dataset.id, true);
+    if (ev.target.matches('.enterprise-op')) operational(tr.dataset.id, ev.target.dataset.action);
   });
+  async function operational(id, action) {
+    if (!action || !confirm(`Confirmar ação operacional: ${action}?`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`${actionApi}/${id}/${action}`, { method: 'POST', headers: headers(), body: JSON.stringify({ quantidade: 1 }) });
+      const payload = await r.text();
+      if (!r.ok) throw new Error(payload || `HTTP ${r.status}`);
+      toast('Ação operacional executada com auditoria.');
+      await load();
+    } catch (e) { toast(`Ação bloqueada: ${e.message}`, true); }
+    finally { setBusy(false); }
+  }
   exportButton?.addEventListener('click', async () => {
     const r = await fetch(`${actionApi}/export-csv?${buildQuery()}`, { headers: headers(false) });
     if (!r.ok) return toast('Falha ao exportar CSV.', true);

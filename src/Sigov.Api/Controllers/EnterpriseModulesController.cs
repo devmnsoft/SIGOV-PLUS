@@ -1,22 +1,49 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Sigov.Api.Contracts;
 using Sigov.Application.Enterprise;
 
 namespace Sigov.Api.Controllers;
 
 [ApiController]
-public sealed class EnterpriseModulesController : ControllerBase
+[Authorize]
+public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFilter
 {
     private static readonly Guid DemoTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IEnterpriseModuleService _service;
     private readonly IEnterpriseCrudService? _crud;
     private readonly ILogger<EnterpriseModulesController> _logger;
+    private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
 
-    public EnterpriseModulesController(IEnterpriseModuleService service, ILogger<EnterpriseModulesController> logger)
+    public EnterpriseModulesController(IEnterpriseModuleService service, ILogger<EnterpriseModulesController> logger, IWebHostEnvironment environment, IConfiguration configuration)
     {
         _service = service;
         _crud = service as IEnterpriseCrudService;
         _logger = logger;
+        _environment = environment;
+        _configuration = configuration;
+    }
+
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    {
+        var path = Request.Path.Value ?? string.Empty;
+        if (path.StartsWith("/api/enterprise", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/comercial", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/os", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/estoque", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/compras", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/industrial", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/industria", StringComparison.OrdinalIgnoreCase))
+        {
+            var action = ResolveEnterpriseAction(path);
+            var area = Area().Replace("export-csv", string.Empty, StringComparison.OrdinalIgnoreCase).Trim('/');
+            var permission = PermissionFor(area, action);
+            var denied = EnsureTenantAndPermission(permission);
+            if (denied is not null) { context.Result = denied; return; }
+
+            var tenantId = ResolveTenantId();
+            var login = User.Identity?.Name ?? User.FindFirst("preferred_username")?.Value ?? User.FindFirst("sub")?.Value ?? "usuario.autenticado";
+            EnterpriseExecutionContextAccessor.Current = new EnterpriseExecutionContext(tenantId, User.FindFirst("sub")?.Value ?? login, login, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), CorrelationId(), User.Claims.Select(c => c.Value).ToArray());
+        }
+
+        try { await next(); }
+        finally { EnterpriseExecutionContextAccessor.Current = null; }
     }
 
 
@@ -327,7 +354,57 @@ public sealed class EnterpriseModulesController : ControllerBase
     private Guid ResolveTenantId()
     {
         var value = Request.Headers["X-Tenant-Id"].FirstOrDefault();
-        return Guid.TryParse(value, out var tenantId) ? tenantId : DemoTenantId;
+        if (Guid.TryParse(value, out var tenantId)) return tenantId;
+
+        var allowDemo = _configuration.GetValue<bool>("Enterprise:AllowDemoTenantFallback");
+        if (!_environment.IsProduction() && allowDemo)
+        {
+            _logger.LogWarning("Enterprise usando tenant demo por fallback explícito. Environment={Environment}; CorrelationId={CorrelationId}", _environment.EnvironmentName, CorrelationId());
+            return DemoTenantId;
+        }
+
+        throw new InvalidOperationException("TENANT_REQUIRED");
+    }
+
+    private IActionResult? EnsureTenantAndPermission(string permission)
+    {
+        if (!User.Identity?.IsAuthenticated ?? true) return Unauthorized(ApiResponse<string>.Fail("Autenticação obrigatória para API Enterprise.", CorrelationId()));
+        try { _ = ResolveTenantId(); }
+        catch (InvalidOperationException ex) when (ex.Message == "TENANT_REQUIRED")
+        {
+            return BadRequest(ApiResponse<string>.Fail("Tenant obrigatório. Informe X-Tenant-Id válido; fallback demo é proibido em produção.", CorrelationId()));
+        }
+
+        if (HasEnterprisePermission(permission)) return null;
+        return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<string>.Fail($"Permissão Enterprise ausente: {permission}.", CorrelationId()));
+    }
+
+    private static string ResolveEnterpriseAction(string path)
+    {
+        if (path.Contains("export-csv", StringComparison.OrdinalIgnoreCase)) return "CSV";
+        foreach (var action in new[] { "aprovar", "reprovar", "confirmar", "cancelar", "iniciar", "concluir", "agendar", "pausar", "gerar-pedido", "gerar-os", "entrada", "saida", "ajuste" })
+            if (path.EndsWith("/" + action, StringComparison.OrdinalIgnoreCase) || path.Contains("/" + action + "/", StringComparison.OrdinalIgnoreCase)) return action.ToUpperInvariant().Replace('-', '_');
+        return "";
+    }
+
+    private bool HasEnterprisePermission(string permission)
+    {
+        if (User.IsInRole("ADMIN_GERAL") || User.HasClaim("role", "ADMIN_GERAL")) return true;
+        if (User.IsInRole("ADMIN_TENANT") || User.HasClaim("role", "ADMIN_TENANT")) return true;
+        return User.Claims.Any(c => (c.Type.Equals("permission", StringComparison.OrdinalIgnoreCase) || c.Type.Equals("permissions", StringComparison.OrdinalIgnoreCase) || c.Type.Equals("scope", StringComparison.OrdinalIgnoreCase)) && c.Value.Split(' ', ',', ';').Any(v => v.Equals(permission, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private string PermissionFor(string area, string action)
+    {
+        var normalized = area.Trim('/').ToLowerInvariant();
+        if (normalized is "clientes" or "comercial/clientes") return action switch { "GET" => "comercial.clientes.visualizar", "POST" => "comercial.clientes.criar", "PUT" => "comercial.clientes.editar", "DELETE" => "comercial.clientes.inativar", _ => "comercial.clientes.visualizar" };
+        if (normalized.Contains("propostas", StringComparison.Ordinal)) return action switch { "" => "comercial.propostas.visualizar", "APROVAR" => "comercial.propostas.aprovar", "REPROVAR" => "comercial.propostas.reprovar", "GERAR_PEDIDO" => "comercial.propostas.aprovar", _ => "comercial.propostas.criar" };
+        if (normalized.Contains("pedidos", StringComparison.Ordinal)) return action switch { "" => "comercial.pedidos.visualizar", "CONFIRMAR" => "comercial.pedidos.confirmar", "CANCELAR" => "comercial.pedidos.cancelar", "GERAR_OS" => "comercial.pedidos.confirmar", _ => "comercial.pedidos.visualizar" };
+        if (normalized.Contains("produtos", StringComparison.Ordinal)) return action switch { "POST" => "estoque.produtos.criar", "PUT" => "estoque.produtos.editar", "DELETE" => "estoque.produtos.inativar", _ => "estoque.produtos.visualizar" };
+        if (normalized.Contains("fornecedores", StringComparison.Ordinal)) return action switch { "POST" => "compras.fornecedores.criar", "PUT" => "compras.fornecedores.editar", _ => "compras.fornecedores.visualizar" };
+        if (normalized.Contains("ativos", StringComparison.Ordinal)) return action switch { "POST" => "industrial.ativos.criar", "PUT" => "industrial.ativos.editar", _ => "industrial.ativos.visualizar" };
+        if (normalized.Contains("ordens", StringComparison.Ordinal)) return action switch { "" => "os.ordens.visualizar", "INICIAR" => "os.ordens.iniciar", "CONCLUIR" => "os.ordens.concluir", "CANCELAR" => "os.ordens.cancelar", "AGENDAR" => "os.ordens.agendar", "PAUSAR" => "os.ordens.pausar", _ => "os.ordens.criar" };
+        return action == "CSV" ? "enterprise.relatorios.exportar" : "enterprise.relatorios.exportar";
     }
 
     private static string NormalizeEnterpriseArea(string area, string prefix = "enterprise") => prefix == "industria" ? $"industria/{area}" : area.Contains('/') ? area : $"comercial/{area}";

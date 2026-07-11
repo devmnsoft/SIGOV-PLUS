@@ -1,0 +1,1 @@
+{"checks":[{"command":"node --check src/Sigov.Web/wwwroot/js/enterprise-crud.js","status":"passed"},{"command":"node --check src/Sigov.Web/wwwroot/js/enterprise-form-metadata.js","status":"passed"},{"command":"dotnet build sigov.sln --configuration Release","status":"not_run","reason":"dotnet not found in container"}]}
