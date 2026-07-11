@@ -156,3 +156,7 @@ A rodada Pós-RC 08 consolidou a validação Enterprise ponta a ponta com CRUD R
 - Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
 - Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
 - UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
+
+## Pós-RC 10 — Hardening Enterprise
+
+A rodada Pós-RC 10 endurece a operação Enterprise com autenticação obrigatória na API, tenant real obrigatório, permissões por ação, auditoria com contexto de usuário, fallback honesto para schema indisponível, formulários por entidade, ações operacionais por tela e CSV com LGPD/fórmula segura. Consulte `docs/diagnostico-enterprise-pos-rc-10.md`, `docs/security-lgpd-enterprise-pos-rc-10.md`, `docs/jornadas-enterprise-pos-rc-10.md`, `docs/matriz-crud-enterprise-pos-rc-10.md`, `docs/enterprise-manual-usuario-pos-rc-10.md` e `docs/enterprise-qa-checklist-pos-rc-10.md`.

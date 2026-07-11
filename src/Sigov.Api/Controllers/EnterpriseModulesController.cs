@@ -31,8 +31,8 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         var path = Request.Path.Value ?? string.Empty;
         if (path.StartsWith("/api/enterprise", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/comercial", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/os", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/estoque", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/compras", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/industrial", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/industria", StringComparison.OrdinalIgnoreCase))
         {
-            var action = ResolveEnterpriseAction(path);
-            var area = Area().Replace("export-csv", string.Empty, StringComparison.OrdinalIgnoreCase).Trim('/');
+            var action = ResolveEnterpriseAction(path, Request.Method);
+            var area = NormalizePermissionArea(Area().Replace("export-csv", string.Empty, StringComparison.OrdinalIgnoreCase).Trim('/'));
             var permission = PermissionFor(area, action);
             var denied = EnsureTenantAndPermission(permission);
             if (denied is not null) { context.Result = denied; return; }
@@ -82,6 +82,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
         var result = await _crud.CreateAsync(NormalizeEnterpriseArea(area, prefix), request, ResolveTenantId(), CorrelationId(), cancellationToken);
+        if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
         return Created($"{Request.Path}/{result.Id}", ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
@@ -92,6 +93,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
         var result = await _crud.UpdateAsync(NormalizeEnterpriseArea(area, prefix), id, request, ResolveTenantId(), CorrelationId(), cancellationToken);
+        if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
         return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
@@ -103,6 +105,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var prefix = Request.Path.Value?.StartsWith("/api/industria/", StringComparison.OrdinalIgnoreCase) == true ? "industria" : "enterprise";
         var result = await _crud.DeleteAsync(NormalizeEnterpriseArea(area, prefix), id, ResolveTenantId(), CorrelationId(), cancellationToken);
+        if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
         return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
@@ -111,6 +114,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     {
         if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var result = await _crud.RestoreAsync(NormalizeEnterpriseArea(area), id, ResolveTenantId(), CorrelationId(), cancellationToken);
+        if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
         return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
@@ -219,6 +223,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         {
             var tenantId = ResolveTenantId();
             var result = _service.Upsert(Area(), request, tenantId, CorrelationId());
+            if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
             return result.Status == "FORBIDDEN"
                 ? StatusCode(StatusCodes.Status403Forbidden, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()))
                 : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
@@ -330,11 +335,18 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     [HttpGet("api/enterprise/{module}/dashboard")]
     public ActionResult<ApiResponse<EnterpriseDashboard>> Dashboard(string module) => Ok(ApiResponse<EnterpriseDashboard>.Ok(_service.GetDashboard(module, ResolveTenantId()), correlationId: CorrelationId()));
 
-    private ActionResult<ApiResponse<EnterpriseActionResult>> ServiceStatus(Guid id, string status) => Ok(ApiResponse<EnterpriseActionResult>.Ok(_service.ChangeServiceOrderStatus(id, ResolveTenantId(), status, CorrelationId()), correlationId: CorrelationId()));
+    private ActionResult<ApiResponse<EnterpriseActionResult>> ServiceStatus(Guid id, string status)
+    {
+        var result = _service.ChangeServiceOrderStatus(id, ResolveTenantId(), status, CorrelationId());
+        return result.Status == "SCHEMA_UNAVAILABLE"
+            ? StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()))
+            : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
+    }
 
     private ActionResult<ApiResponse<EnterpriseActionResult>> StockMove(EnterpriseMutationRequest request, string movement)
     {
         var result = _service.MoveStock(ResolveTenantId(), request.ProdutoId.GetValueOrDefault(Guid.Parse("11111111-1111-1111-1111-111111111111")), request.Quantidade.GetValueOrDefault(1), movement, request.PermitirSaldoNegativo.GetValueOrDefault(), CorrelationId());
+        if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
         return result.Status == "SALDO_INSUFICIENTE" ? Conflict(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
@@ -342,7 +354,11 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     {
         try
         {
-            return Ok(ApiResponse<EnterpriseActionResult>.Ok(action(id, ResolveTenantId(), CorrelationId()), correlationId: CorrelationId()));
+            var result = action(id, ResolveTenantId(), CorrelationId());
+            if (result.Status == "SCHEMA_UNAVAILABLE") return StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
+            if (result.Status == "BLOQUEADO") return Conflict(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
+            if (result.Status == "NOT_FOUND") return NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId()));
+            return Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
         }
         catch (Exception ex)
         {
@@ -379,12 +395,12 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<string>.Fail($"Permissão Enterprise ausente: {permission}.", CorrelationId()));
     }
 
-    private static string ResolveEnterpriseAction(string path)
+    private static string ResolveEnterpriseAction(string path, string method)
     {
         if (path.Contains("export-csv", StringComparison.OrdinalIgnoreCase)) return "CSV";
-        foreach (var action in new[] { "aprovar", "reprovar", "confirmar", "cancelar", "iniciar", "concluir", "agendar", "pausar", "gerar-pedido", "gerar-os", "entrada", "saida", "ajuste" })
+        foreach (var action in new[] { "aprovar", "reprovar", "confirmar", "cancelar", "iniciar", "concluir", "agendar", "pausar", "restaurar", "gerar-pedido", "gerar-os", "entrada", "saida", "ajuste" })
             if (path.EndsWith("/" + action, StringComparison.OrdinalIgnoreCase) || path.Contains("/" + action + "/", StringComparison.OrdinalIgnoreCase)) return action.ToUpperInvariant().Replace('-', '_');
-        return "";
+        return method.ToUpperInvariant();
     }
 
     private bool HasEnterprisePermission(string permission)
@@ -397,7 +413,8 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     private string PermissionFor(string area, string action)
     {
         var normalized = area.Trim('/').ToLowerInvariant();
-        if (normalized is "clientes" or "comercial/clientes") return action switch { "GET" => "comercial.clientes.visualizar", "POST" => "comercial.clientes.criar", "PUT" => "comercial.clientes.editar", "DELETE" => "comercial.clientes.inativar", _ => "comercial.clientes.visualizar" };
+        if (action == "CSV") return "enterprise.relatorios.exportar";
+        if (normalized is "clientes" or "comercial/clientes") return action switch { "GET" => "comercial.clientes.visualizar", "POST" => "comercial.clientes.criar", "PUT" => "comercial.clientes.editar", "DELETE" => "comercial.clientes.inativar", "RESTAURAR" => "comercial.clientes.editar", _ => "comercial.clientes.visualizar" };
         if (normalized.Contains("propostas", StringComparison.Ordinal)) return action switch { "" => "comercial.propostas.visualizar", "APROVAR" => "comercial.propostas.aprovar", "REPROVAR" => "comercial.propostas.reprovar", "GERAR_PEDIDO" => "comercial.propostas.aprovar", _ => "comercial.propostas.criar" };
         if (normalized.Contains("pedidos", StringComparison.Ordinal)) return action switch { "" => "comercial.pedidos.visualizar", "CONFIRMAR" => "comercial.pedidos.confirmar", "CANCELAR" => "comercial.pedidos.cancelar", "GERAR_OS" => "comercial.pedidos.confirmar", _ => "comercial.pedidos.visualizar" };
         if (normalized.Contains("produtos", StringComparison.Ordinal)) return action switch { "POST" => "estoque.produtos.criar", "PUT" => "estoque.produtos.editar", "DELETE" => "estoque.produtos.inativar", _ => "estoque.produtos.visualizar" };
@@ -407,9 +424,19 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         return action == "CSV" ? "enterprise.relatorios.exportar" : "enterprise.relatorios.exportar";
     }
 
+    private static string NormalizePermissionArea(string area)
+    {
+        if (area.StartsWith("enterprise/", StringComparison.OrdinalIgnoreCase)) return area["enterprise/".Length..];
+        return area;
+    }
+
     private static string NormalizeEnterpriseArea(string area, string prefix = "enterprise") => prefix == "industria" ? $"industria/{area}" : area.Contains('/') ? area : $"comercial/{area}";
 
-    private static string SanitizeCsv(string? value) => (value ?? string.Empty).Replace(";", ",", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Replace("\r", " ", StringComparison.Ordinal);
+    private static string SanitizeCsv(string? value)
+    {
+        var safe = (value ?? string.Empty).Replace(";", ",", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Replace("\r", " ", StringComparison.Ordinal);
+        return safe.Length > 0 && "=+-@".Contains(safe[0], StringComparison.Ordinal) ? "'" + safe : safe;
+    }
 
     private string Area() => Request.Path.Value?.Trim('/').Replace("api/", string.Empty, StringComparison.OrdinalIgnoreCase) ?? "enterprise";
 

@@ -124,3 +124,10 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 - Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
 - Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
 - UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
+
+## Pós-RC 10 — Enterprise seguro
+
+- Endurecimento de API Enterprise com `[Authorize]`, tenant obrigatório, permissões por ação e respostas 401/403/503 coerentes.
+- UX Enterprise com metadata de formulário por entidade e ações operacionais sem botões placeholder.
+- CSV seguro com mascaramento LGPD, sanitização de separador/quebras de linha e proteção contra fórmulas.
+- Documentação de diagnóstico, jornadas, QA, matriz CRUD e segurança LGPD Pós-RC 10 adicionada.

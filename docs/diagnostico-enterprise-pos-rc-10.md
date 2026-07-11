@@ -25,3 +25,23 @@ Base: PR #107, template ModulePage, enterprise-crud.js e CRUD Dapper existentes.
 - git checkout main falhou porque o repositório local possui apenas a branch work; foi criada a branch codex/pos-rc-10-enterprise-hardening-produto a partir dela.
 - dotnet não está instalado no container; build/test devem rodar no GitHub Actions.
 - Docker/pwsh não foram executados após a limitação de dotnet local; não declarar validação verde runtime sem CI.
+
+
+## Validação local em 2026-07-11
+
+| Comando | Resultado | Observação |
+|---|---|---|
+| `git checkout main && git pull` | Não executado | Repositório local não possui branch/remoto `main`; branch de trabalho criada a partir de `work`. |
+| `node --check src/Sigov.Web/wwwroot/js/enterprise-crud.js` | OK | Sintaxe JS validada. |
+| `node --check src/Sigov.Web/wwwroot/js/enterprise-form-metadata.js` | OK | Metadata por entidade validada. |
+| `dotnet clean/restore/build/test sigov.sln` | Não executado | `dotnet` não está instalado no container. |
+| `docker compose down/build/up/ps` | Não executado | `docker` não está instalado no container. |
+| `pwsh scripts/apply-demo-seed.ps1` | Não executado | `pwsh` não está instalado no container. |
+| `pwsh scripts/smoke-test-sigov.ps1` | Não executado | `pwsh` não está instalado no container. |
+
+## Correções Pós-RC 10 aplicadas nesta rodada
+
+- API normaliza área de permissão para rotas `/api/enterprise/*`, usa verbo HTTP para CRUD e trata `SCHEMA_UNAVAILABLE` com HTTP 503.
+- CSV Enterprise passa a neutralizar fórmulas e preservar mascaramento LGPD.
+- Páginas Web deixam de depender de tenant demo fixo em `ComercialController` e preservam tenant real resolvido.
+- `enterprise-crud.js` renderiza formulário por metadata, evita quebra sem Bootstrap/modal/offcanvas, trata exportação sem permissão e chama endpoint real de movimento de estoque.

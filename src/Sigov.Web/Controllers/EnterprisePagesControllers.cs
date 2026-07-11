@@ -37,12 +37,12 @@ public abstract class EnterprisePageControllerBase : Controller
         if (Guid.TryParse(User.FindFirst("tenant_id")?.Value, out var claimTenant)) return claimTenant;
         if (Guid.TryParse(Request.Headers["X-Tenant-Id"].FirstOrDefault(), out var headerTenant)) return headerTenant;
         var contextTenant = _tenantContext.Resolve();
-        if (contextTenant.TenantId.HasValue && _environment.IsDevelopment()) return DevelopmentFallbackTenantId;
+        if (contextTenant.TenantId.HasValue) return contextTenant.TenantId.Value;
         return _environment.IsDevelopment() ? DevelopmentFallbackTenantId : null;
     }
 }
 
-public sealed record EnterprisePageViewModel(string Module, string Title, string Permission, string ApiRoute, EnterpriseDashboard Dashboard, Guid? TenantId);
+public sealed record EnterprisePageViewModel(string Module, string Title, string Permission, string ApiRoute, EnterpriseDashboard Dashboard, Guid? TenantId = null);
 
 public sealed class OrdemServicoController : EnterprisePageControllerBase
 {

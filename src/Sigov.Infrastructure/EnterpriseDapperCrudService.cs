@@ -184,7 +184,7 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
     public Task<EnterpriseActionResult> RestoreAsync(string area, Guid id, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(Restore(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, correlationId));
     public Task<EnterpriseActionResult> ExecuteActionAsync(string area, Guid id, string action, Guid tenantId, string correlationId, CancellationToken cancellationToken = default) => Task.FromResult(SetStatus(AreaTables.GetValueOrDefault(area, "enterprise_evento"), id, tenantId, action.ToUpperInvariant(), $"Ação {action} executada.", correlationId));
     public Task<EnterpriseDashboard> DashboardAsync(string module, Guid tenantId, CancellationToken cancellationToken = default) => Task.FromResult(GetDashboard(module, tenantId));
-    public Task<byte[]> ExportCsvAsync(string area, Guid tenantId, CancellationToken cancellationToken = default) { var csv = "id;nome;status\n" + string.Join("\n", List(area, tenantId).Select(x => $"{x.Id};{x.Name};{x.Status}")); return Task.FromResult(Encoding.UTF8.GetBytes(csv)); }
+    public Task<byte[]> ExportCsvAsync(string area, Guid tenantId, CancellationToken cancellationToken = default) { var csv = "\uFEFFid;nome;status\n" + string.Join("\n", List(area, tenantId).Select(x => $"{x.Id};{CsvCell(x.Name)};{CsvCell(x.Status)}")); return Task.FromResult(Encoding.UTF8.GetBytes(csv)); }
     public Task<IReadOnlyList<EnterpriseListItem>> SearchAsync(string query, Guid tenantId, CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<EnterpriseListItem>)AreaTables.Keys.SelectMany(a => List(a, tenantId)).Where(x => x.Name.Contains(query, StringComparison.OrdinalIgnoreCase) || x.Status.Contains(query, StringComparison.OrdinalIgnoreCase)).Take(50).ToArray());
 
     private EnterpriseActionResult Update(string area, Guid id, EnterpriseMutationRequest request, Guid tenantId, string correlationId)
@@ -233,4 +233,9 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
     private static string? MaskEmail(string? value) { if (string.IsNullOrWhiteSpace(value) || !value.Contains('@', StringComparison.Ordinal)) return null; var p = value.Split('@', 2); return $"{p[0][0]}***@{p[1]}"; }
     private static string? MaskPhone(string? value) => string.IsNullOrWhiteSpace(value) ? null : $"(**) ****-{OnlyDigits(value).TakeLast(4).Aggregate(string.Empty, (c, d) => c + d)}";
     private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
+    private static string CsvCell(string? value)
+    {
+        var safe = (value ?? string.Empty).Replace(";", ",", StringComparison.Ordinal).Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+        return safe.Length > 0 && "=+-@".Contains(safe[0], StringComparison.Ordinal) ? "'" + safe : safe;
+    }
 }

@@ -72,3 +72,14 @@ Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao
 - Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
 - Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
 - UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
+
+## Pós-RC 10 — Hardening Enterprise
+
+- API Enterprise exige autenticação, tenant e permissão por ação.
+- Tenant demo não é usado silenciosamente em produção.
+- Auditoria Dapper usa `EnterpriseExecutionContext` com ator real quando disponível.
+- Fallback de ações críticas retorna `SCHEMA_UNAVAILABLE`/HTTP 503 em vez de falso sucesso.
+- Formulários Enterprise passam a ser renderizados por metadata da entidade.
+- Botões operacionais chamam endpoints reais e respeitam jornadas de proposta, pedido, OS, estoque e industrial.
+- CSV Enterprise mascara LGPD e neutraliza fórmulas maliciosas.
+- Evidências locais registram limitação do container sem `dotnet`, `docker` e `pwsh`; validação runtime completa permanece no CI/ambiente válido.

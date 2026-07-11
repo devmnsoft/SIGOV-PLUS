@@ -33,6 +33,9 @@
     el.classList.toggle('text-bg-success', !isError);
     bootstrap.Toast.getOrCreateInstance(el).show();
   };
+  const openModal = () => window.bootstrap && modalElement ? bootstrap.Modal.getOrCreateInstance(modalElement).show() : null;
+  const closeModal = () => window.bootstrap && modalElement ? bootstrap.Modal.getInstance(modalElement)?.hide() : null;
+  const openDetails = () => window.bootstrap ? bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('enterpriseDetailPanel')).show() : null;
   const getItemValue = (item, ...names) => names.map(n => item[n]).find(v => v !== undefined && v !== null) ?? '';
   const actionApi = api.replace(/\/dashboard$/i, '');
   const buildQuery = () => {
@@ -47,6 +50,26 @@
     root.classList.toggle('enterprise-busy', busy);
     root.querySelectorAll('button, input, select').forEach(el => { if (!el.closest('.toast')) el.disabled = busy; });
   };
+  function renderFormFields() {
+    const row = form?.querySelector('.enterprise-form-fields');
+    if (!row || !metadata.fields) return;
+    row.textContent = '';
+    metadata.fields.forEach(([name, label, type, required]) => {
+      const col = document.createElement('div');
+      col.className = name === 'nome' ? 'col-md-8' : 'col-md-4';
+      const labelEl = document.createElement('label');
+      labelEl.className = 'form-label';
+      labelEl.textContent = label;
+      const input = document.createElement('input');
+      input.className = 'form-control';
+      input.name = name;
+      input.type = type || 'text';
+      if (required) input.required = true;
+      if (name === 'status') input.value = 'ATIVO';
+      col.append(labelEl, input);
+      row.appendChild(col);
+    });
+  }
   async function load() {
     setBusy(true);
     body.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Consultando dados do tenant...</td></tr>';
@@ -78,9 +101,9 @@
   function fillForm(item = {}) {
     form.reset();
     form.elements.id.value = getItemValue(item, 'id', 'Id');
-    form.elements.nome.value = getItemValue(item, 'name', 'Name', 'nome', 'Nome');
-    form.elements.status.value = getItemValue(item, 'status', 'Status') || 'ATIVO';
-    titleElement.textContent = form.elements.id.value ? 'Editar registro' : 'Novo registro';
+    if (form.elements.nome) form.elements.nome.value = getItemValue(item, 'name', 'Name', 'nome', 'Nome');
+    if (form.elements.status) form.elements.status.value = getItemValue(item, 'status', 'Status') || 'ATIVO';
+    if (titleElement) titleElement.textContent = form.elements.id.value ? 'Editar registro' : 'Novo registro';
   }
   async function submitForm(ev) {
     ev.preventDefault();
@@ -94,7 +117,7 @@
       const r = await fetch(id ? `${actionApi}/${id}` : actionApi, { method: id ? 'PUT' : 'POST', headers: headers(), body: JSON.stringify(data) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       toast('Registro salvo com auditoria.');
-      bootstrap.Modal.getInstance(modalElement)?.hide();
+      closeModal();
       await load();
     } catch (e) { toast(`Falha ao salvar: ${e.message}`, true); }
     finally { setBusy(false); }
@@ -114,10 +137,11 @@
     const tr = ev.target.closest('tr[data-id]'); if (!tr) return;
     const item = currentItems.find(x => String(getItemValue(x, 'id', 'Id')) === tr.dataset.id) || {};
     if (ev.target.matches('.enterprise-details')) {
-      root.querySelector('.enterprise-detail-body').innerHTML = `<dl class="row"><dt class="col-sm-4">ID</dt><dd class="col-sm-8 text-break">${escapeHtml(tr.dataset.id)}</dd><dt class="col-sm-4">Nome</dt><dd class="col-sm-8">${escapeHtml(getItemValue(item, 'name', 'Name'))}</dd><dt class="col-sm-4">Status</dt><dd class="col-sm-8">${escapeHtml(getItemValue(item, 'status', 'Status'))}</dd></dl><p class="alert alert-info small">Dados sensíveis permanecem mascarados. Ações críticas registram auditoria operacional por tenant.</p>`;
-      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('enterpriseDetailPanel')).show();
+      const detail = root.querySelector('.enterprise-detail-body');
+      if (detail) detail.innerHTML = `<dl class="row"><dt class="col-sm-4">ID</dt><dd class="col-sm-8 text-break">${escapeHtml(tr.dataset.id)}</dd><dt class="col-sm-4">Nome</dt><dd class="col-sm-8">${escapeHtml(getItemValue(item, 'name', 'Name'))}</dd><dt class="col-sm-4">Status</dt><dd class="col-sm-8">${escapeHtml(getItemValue(item, 'status', 'Status'))}</dd></dl><p class="alert alert-info small">Dados sensíveis permanecem mascarados. Ações críticas registram auditoria operacional por tenant.</p>`;
+      openDetails();
     }
-    if (ev.target.matches('.enterprise-edit')) { fillForm(item); bootstrap.Modal.getOrCreateInstance(modalElement).show(); }
+    if (ev.target.matches('.enterprise-edit')) { fillForm(item); openModal(); }
     if (ev.target.matches('.enterprise-delete')) lifecycle(tr.dataset.id, false);
     if (ev.target.matches('.enterprise-restore')) lifecycle(tr.dataset.id, true);
     if (ev.target.matches('.enterprise-op')) operational(tr.dataset.id, ev.target.dataset.action);
@@ -126,7 +150,8 @@
     if (!action || !confirm(`Confirmar ação operacional: ${action}?`)) return;
     setBusy(true);
     try {
-      const r = await fetch(`${actionApi}/${id}/${action}`, { method: 'POST', headers: headers(), body: JSON.stringify({ quantidade: 1 }) });
+      const url = action.startsWith('/') ? action : `${actionApi}/${id}/${action}`;
+      const r = await fetch(url, { method: 'POST', headers: headers(), body: JSON.stringify({ produtoId: id, quantidade: 1 }) });
       const payload = await r.text();
       if (!r.ok) throw new Error(payload || `HTTP ${r.status}`);
       toast('Ação operacional executada com auditoria.');
@@ -135,15 +160,18 @@
     finally { setBusy(false); }
   }
   exportButton?.addEventListener('click', async () => {
-    const r = await fetch(`${actionApi}/export-csv?${buildQuery()}`, { headers: headers(false) });
-    if (!r.ok) return toast('Falha ao exportar CSV.', true);
-    const blob = await r.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `enterprise-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('CSV exportado com filtros e LGPD.');
+    try {
+      const r = await fetch(`${actionApi}/export-csv?${buildQuery()}`, { headers: headers(false) });
+      if (!r.ok) return toast(r.status === 403 ? 'Sem permissão para exportar CSV.' : 'Falha ao exportar CSV.', true);
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `enterprise-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('CSV exportado com filtros e LGPD.');
+    } catch (e) { toast(`Falha ao exportar CSV: ${e.message}`, true); }
   });
+  renderFormFields();
   load();
 })();
