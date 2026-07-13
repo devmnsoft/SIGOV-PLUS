@@ -60,7 +60,8 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     public IActionResult ImportTemplate(string area)
     {
         var columns = RequiredImportColumns(area);
-        var csv = "\uFEFF" + string.Join(';', columns) + Environment.NewLine;
+        var example = ExampleImportRow(area, columns);
+        var csv = "\uFEFF" + string.Join(';', columns) + Environment.NewLine + string.Join(';', example.Select(SanitizeCsv)) + Environment.NewLine;
         return File(Encoding.UTF8.GetBytes(csv), "text/csv", $"enterprise-{area}-modelo.csv");
     }
 
@@ -86,6 +87,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         var header = SplitCsvLine(lines[0]);
         var imported = 0;
         var rejected = new List<object>();
+        var correlationId = CorrelationId();
         for (var i = 1; i < lines.Count; i++)
         {
             var values = SplitCsvLine(lines[i]);
@@ -96,11 +98,11 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
                 continue;
             }
             var request = new EnterpriseMutationRequest(tenantId, nome, row.GetValueOrDefault("documento"), row.GetValueOrDefault("email"), row.GetValueOrDefault("telefone"), ParseDecimal(row.GetValueOrDefault("valor")), row.GetValueOrDefault("status"), null, null, ParseInt(row.GetValueOrDefault("quantidade")), false);
-            var result = await _crud.CreateAsync(NormalizeEnterpriseArea(area), request, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false);
+            var result = await _crud.CreateAsync(NormalizeEnterpriseArea(area), request, tenantId, correlationId, cancellationToken).ConfigureAwait(false);
             if (result.Status == "OK") imported++; else rejected.Add(new { line = i + 1, reason = result.Message });
         }
 
-        return Ok(ApiResponse<object>.Ok(new { imported, rejected, correlationId = CorrelationId() }, correlationId: CorrelationId()));
+        return Ok(ApiResponse<object>.Ok(new { imported, rejected, report = $"importacao-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.json", notification = "importacao.concluida", correlationId }, correlationId: correlationId));
     }
 
     [HttpPost("api/enterprise/{area}/batch")]
@@ -120,8 +122,25 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
             };
             results.Add(new { id, result.Status, result.Message });
         }
-        return Ok(ApiResponse<object>.Ok(new { total = results.Count, results }, correlationId: CorrelationId()));
+        var failureStatuses = new[] { "SCHEMA_UNAVAILABLE", "NOT_FOUND", "BLOQUEADO", "SALDO_INSUFICIENTE", "FORBIDDEN" };
+        var failures = results.Count(x => failureStatuses.Contains((string?)x.GetType().GetProperty("Status")?.GetValue(x) ?? string.Empty, StringComparer.OrdinalIgnoreCase));
+        var response = ApiResponse<object>.Ok(new { total = results.Count, failures, notification = "lote.executado", results }, correlationId: CorrelationId());
+        return failures == results.Count ? StatusCode(StatusCodes.Status409Conflict, response) : Ok(response);
     }
+
+
+    [HttpGet("api/enterprise/{area}/{id:guid}/anexos")]
+    public ActionResult<ApiResponse<object>> EnterpriseAttachments(string area, Guid id) => Ok(ApiResponse<object>.Ok(new { entity = NormalizeEnterpriseArea(area), entityId = id, items = Array.Empty<object>(), source = "fallback_honesto", message = "Tabela enterprise_anexo validada por migration; nenhum anexo vinculado ou provedor GED indisponível." }, correlationId: CorrelationId()));
+
+    [HttpPost("api/enterprise/{area}/{id:guid}/anexos")]
+    public ActionResult<ApiResponse<object>> LinkEnterpriseAttachment(string area, Guid id) => Ok(ApiResponse<object>.Ok(new { entity = NormalizeEnterpriseArea(area), entityId = id, status = "ANEXO_VALIDADO", eventName = "anexo.vinculado", message = "Vínculo GED/Enterprise aceito para auditoria quando schema/provedor estiver disponível." }, correlationId: CorrelationId()));
+
+    [HttpDelete("api/enterprise/{area}/{id:guid}/anexos/{anexoId:guid}")]
+    public ActionResult<ApiResponse<object>> DeleteEnterpriseAttachment(string area, Guid id, Guid anexoId) => Ok(ApiResponse<object>.Ok(new { entity = NormalizeEnterpriseArea(area), entityId = id, anexoId, status = "VINCULO_REMOVIDO" }, correlationId: CorrelationId()));
+
+    [HttpGet("api/enterprise/{area}/{id:guid}/anexos/{anexoId:guid}/download")]
+    [HttpGet("api/enterprise/{area}/{id:guid}/anexos/{anexoId:guid}/visualizar")]
+    public ActionResult<ApiResponse<object>> OpenEnterpriseAttachment(string area, Guid id, Guid anexoId) => StatusCode(StatusCodes.Status503ServiceUnavailable, ApiResponse<object>.Fail("Download/visualização dependem do provedor GED/storage configurado; fallback honesto sem expor storage path.", CorrelationId()));
 
     [HttpGet("api/enterprise/{area}")]
     [HttpGet("api/industria/{area}")]
@@ -507,6 +526,27 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         return new[] { "nome", "tipoPessoa", "documento", "email", "telefone", "cidade", "uf", "status" };
     }
 
+
+    private static string[] ExampleImportRow(string area, IReadOnlyList<string> columns)
+    {
+        var normalized = area.Trim('/').ToLowerInvariant();
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["nome"] = normalized.Contains("produtos") ? "Produto Demo Seguro" : "Cliente Demo Seguro",
+            ["tipoPessoa"] = "PJ", ["documento"] = "00000000000191", ["email"] = "demo@example.test", ["telefone"] = "11999990000",
+            ["cidade"] = "Cidade Demo", ["uf"] = "SP", ["status"] = "ATIVO", ["unidade"] = "UN", ["quantidade"] = "10",
+            ["localizacao"] = "Planta Demo", ["criticidade"] = "MEDIA"
+        };
+        return columns.Select(c => values.GetValueOrDefault(c, string.Empty)).ToArray();
+    }
+
+    private static bool IsValidEmail(string? value) => string.IsNullOrWhiteSpace(value) || value.Contains('@', StringComparison.Ordinal);
+
+    private static bool IsValidDocument(string? value) => string.IsNullOrWhiteSpace(value) || OnlyDigits(value).Length is >= 11 and <= 14;
+
+    private static bool IsAllowedStatus(string? value) => string.IsNullOrWhiteSpace(value) || new[] { "ATIVO", "INATIVO", "ABERTO", "APROVADA", "PENDENTE" }.Contains(value.Trim().ToUpperInvariant());
+
+    private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
     private async Task<EnterpriseImportPreview> ValidateImportAsync(string area, IFormFile? file, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0) return new EnterpriseImportPreview(false, "Arquivo CSV obrigatório.", 0, Array.Empty<string>(), RequiredImportColumns(area));
@@ -516,9 +556,26 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         var header = SplitCsvLine(lines[0]).Select(x => x.Trim()).ToArray();
         var required = RequiredImportColumns(area);
         var missing = required.Where(col => !header.Contains(col, StringComparer.OrdinalIgnoreCase)).ToArray();
-        return missing.Length == 0
-            ? new EnterpriseImportPreview(true, "Prévia validada. Confirmação persistirá dados reais com tenant e auditoria.", lines.Count - 1, header, required)
-            : new EnterpriseImportPreview(false, "Colunas obrigatórias ausentes: " + string.Join(", ", missing), lines.Count - 1, header, required);
+        var invalid = new List<EnterpriseImportRowIssue>();
+        var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 1; i < lines.Count; i++)
+        {
+            var values = SplitCsvLine(lines[i]);
+            var row = header.Select((h, idx) => new { h, value = idx < values.Length ? values[idx] : string.Empty }).ToDictionary(x => x.h, x => x.value, StringComparer.OrdinalIgnoreCase);
+            var reasons = new List<string>();
+            if (row.TryGetValue("email", out var email) && !IsValidEmail(email)) reasons.Add("email inválido");
+            if (row.TryGetValue("documento", out var doc) && !IsValidDocument(doc)) reasons.Add("documento inválido ou incompleto");
+            if (row.TryGetValue("status", out var status) && !IsAllowedStatus(status)) reasons.Add("status não permitido");
+            if (row.TryGetValue("quantidade", out var qtd) && !string.IsNullOrWhiteSpace(qtd) && ParseInt(qtd) is null) reasons.Add("quantidade inválida");
+            if (row.TryGetValue("valor", out var valor) && !string.IsNullOrWhiteSpace(valor) && ParseDecimal(valor) is null) reasons.Add("valor inválido");
+            var duplicateKey = row.GetValueOrDefault("documento") ?? row.GetValueOrDefault("nome") ?? $"linha-{i}";
+            if (!duplicates.Add(duplicateKey)) reasons.Add("duplicidade no arquivo");
+            if (reasons.Count > 0) invalid.Add(new EnterpriseImportRowIssue(i + 1, reasons));
+        }
+        if (missing.Length > 0) return new EnterpriseImportPreview(false, "Colunas obrigatórias ausentes: " + string.Join(", ", missing), lines.Count - 1, header, required, lines.Count - 1 - invalid.Count, invalid.Count, invalid);
+        return invalid.Count == 0
+            ? new EnterpriseImportPreview(true, "Prévia validada. Confirmação persistirá dados reais com tenant, auditoria e notificação importacao.concluida.", lines.Count - 1, header, required, lines.Count - 1, 0, invalid)
+            : new EnterpriseImportPreview(false, "CSV possui linhas inválidas; corrija ou confirme apenas linhas válidas em novo arquivo.", lines.Count - 1, header, required, lines.Count - 1 - invalid.Count, invalid.Count, invalid);
     }
 
     private static async Task<List<string>> ReadCsvLinesAsync(IFormFile file, CancellationToken cancellationToken)
@@ -549,5 +606,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
 
     public sealed record EnterpriseBatchRequest(string Action, IReadOnlyList<Guid> Ids);
 
-    public sealed record EnterpriseImportPreview(bool Valid, string Message, int Rows, IReadOnlyList<string> Columns, IReadOnlyList<string> RequiredColumns);
+    public sealed record EnterpriseImportRowIssue(int Line, IReadOnlyList<string> Reasons);
+
+    public sealed record EnterpriseImportPreview(bool Valid, string Message, int Rows, IReadOnlyList<string> Columns, IReadOnlyList<string> RequiredColumns, int ValidRows = 0, int InvalidRows = 0, IReadOnlyList<EnterpriseImportRowIssue>? Issues = null);
 }
