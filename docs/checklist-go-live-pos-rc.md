@@ -74,3 +74,14 @@ Observação honesta: este container de agente não possui `dotnet`, `docker` ou
 - Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
 - Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
 - UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
+
+## Pós-RC 11 — consolidação funcional final
+
+- [ ] Diagnóstico `docs/diagnostico-consolidacao-pos-rc-11.md` revisado com classificação por área.
+- [ ] Formulários Enterprise exibem campos completos por entidade, validação HTML5 e status permitido.
+- [ ] Ações em lote recusam seleção vazia, pedem confirmação e registram resultado parcial.
+- [ ] Prévia de importação CSV valida colunas obrigatórias antes de qualquer persistência real.
+- [ ] Anexos Enterprise/GED usam `sigov.enterprise_anexo` com tenant, classificação LGPD e correlação.
+- [ ] Smoke, go-live e pacote de release geram evidências sem secrets nem dados pessoais completos.
+
+Observação honesta: se `dotnet`, `docker` ou `pwsh` não estiverem disponíveis no executor local, registrar limitação e usar CI/homologação para evidência real.

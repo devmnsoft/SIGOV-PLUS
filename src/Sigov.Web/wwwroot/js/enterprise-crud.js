@@ -8,6 +8,9 @@
   const form = root.querySelector('.enterprise-form');
   const filters = root.querySelector('.enterprise-filters');
   const exportButton = root.querySelector('.enterprise-export');
+  const batchBar = root.querySelector('.enterprise-batch');
+  const importButton = root.querySelector('.enterprise-import-preview');
+  const importFile = root.querySelector('.enterprise-import-file');
   const newButton = root.querySelector('.enterprise-new');
   const pager = root.querySelector('.enterprise-pager');
   const statusText = root.querySelector('.enterprise-status');
@@ -17,7 +20,8 @@
   let currentPage = 1;
   const pageSize = 20;
   const areaKey = (api.split('/').filter(Boolean).pop() || 'default').toLowerCase();
-  const metadata = (window.SigovEnterpriseFormMetadata && (window.SigovEnterpriseFormMetadata[areaKey] || window.SigovEnterpriseFormMetadata.default)) || { actions: [] };
+  const metadata = (window.SigovEnterpriseFormMetadata && (window.SigovEnterpriseFormMetadata[areaKey] || window.SigovEnterpriseFormMetadata.default)) || { actions: [], fields: [] };
+  const normalizeField = field => Array.isArray(field) ? { name: field[0], label: field[1], type: field[2] || 'text', required: !!field[3] } : field;
 
   const headers = (json = true) => {
     const h = { 'X-Tenant-Id': tenant };
@@ -54,18 +58,34 @@
     const row = form?.querySelector('.enterprise-form-fields');
     if (!row || !metadata.fields) return;
     row.textContent = '';
-    metadata.fields.forEach(([name, label, type, required]) => {
+    metadata.fields.map(normalizeField).forEach(field => {
+      const { name, label, type, required } = field;
       const col = document.createElement('div');
       col.className = name === 'nome' ? 'col-md-8' : 'col-md-4';
       const labelEl = document.createElement('label');
       labelEl.className = 'form-label';
       labelEl.textContent = label;
-      const input = document.createElement('input');
-      input.className = 'form-control';
+      let input;
+      if (type === 'select') {
+        input = document.createElement('select');
+        input.className = 'form-select';
+        (field.options || ['ATIVO','INATIVO']).forEach(optionValue => { const opt = document.createElement('option'); opt.value = optionValue; opt.textContent = optionValue; input.appendChild(opt); });
+      } else if (type === 'textarea') {
+        input = document.createElement('textarea');
+        input.className = 'form-control';
+        input.rows = 3;
+      } else {
+        input = document.createElement('input');
+        input.className = 'form-control';
+        input.type = type || 'text';
+        if (field.step) input.step = field.step;
+        if (field.min !== undefined) input.min = field.min;
+      }
       input.name = name;
-      input.type = type || 'text';
       if (required) input.required = true;
-      if (name === 'status') input.value = 'ATIVO';
+      if (field.max) input.maxLength = field.max;
+      if (name === 'status' && !input.value) input.value = (field.options && field.options[0]) || 'ATIVO';
+      if (field.validation === 'documento') input.pattern = '[0-9\.\/\-]{5,20}';
       col.append(labelEl, input);
       row.appendChild(col);
     });
@@ -95,14 +115,14 @@
       const id = getItemValue(item, 'id', 'Id');
       const status = getItemValue(item, 'status', 'Status') || 'ATIVO';
       const deleted = String(status).toUpperCase() === 'INATIVO';
-      return `<tr data-id="${escapeHtml(id)}"><td><strong>${escapeHtml(getItemValue(item, 'name', 'Name', 'nome', 'Nome'))}</strong><div class="small text-muted">${escapeHtml(id)}</div></td><td><span class="badge ${deleted ? 'bg-warning text-dark' : 'bg-secondary'}">${escapeHtml(status)}</span></td><td>${escapeHtml(getItemValue(item, 'documentMasked', 'DocumentMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'emailMasked', 'EmailMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'phoneMasked', 'PhoneMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'updatedAt', 'UpdatedAt'))}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary enterprise-details">Detalhes</button> <button class="btn btn-sm btn-outline-secondary enterprise-edit">Editar</button> <button class="btn btn-sm btn-outline-danger enterprise-delete">Inativar</button> <button class="btn btn-sm btn-outline-success enterprise-restore">Restaurar</button> ${metadata.actions.map(a => `<button class="btn btn-sm btn-outline-dark enterprise-op" data-action="${escapeHtml(a.key)}">${escapeHtml(a.label)}</button>`).join(' ')}</td></tr>`;
+      return `<tr data-id="${escapeHtml(id)}"><td><input class="form-check-input enterprise-select me-2" type="checkbox" aria-label="Selecionar registro" value="${escapeHtml(id)}"> <strong>${escapeHtml(getItemValue(item, 'name', 'Name', 'nome', 'Nome'))}</strong><div class="small text-muted">${escapeHtml(id)}</div></td><td><span class="badge ${deleted ? 'bg-warning text-dark' : 'bg-secondary'}">${escapeHtml(status)}</span></td><td>${escapeHtml(getItemValue(item, 'documentMasked', 'DocumentMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'emailMasked', 'EmailMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'phoneMasked', 'PhoneMasked')) || '-'}</td><td>${escapeHtml(getItemValue(item, 'updatedAt', 'UpdatedAt'))}</td><td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary enterprise-details">Detalhes</button> <button class="btn btn-sm btn-outline-secondary enterprise-edit">Editar</button> <button class="btn btn-sm btn-outline-danger enterprise-delete">Inativar</button> <button class="btn btn-sm btn-outline-success enterprise-restore">Restaurar</button> ${metadata.actions.map(a => `<button class="btn btn-sm btn-outline-dark enterprise-op" data-action="${escapeHtml(a.key)}">${escapeHtml(a.label)}</button>`).join(' ')}</td></tr>`;
     }).join('');
   }
   function fillForm(item = {}) {
     form.reset();
     form.elements.id.value = getItemValue(item, 'id', 'Id');
     if (form.elements.nome) form.elements.nome.value = getItemValue(item, 'name', 'Name', 'nome', 'Nome');
-    if (form.elements.status) form.elements.status.value = getItemValue(item, 'status', 'Status') || 'ATIVO';
+    if (form.elements.status) { const rawStatus = getItemValue(item, 'status', 'Status') || 'ATIVO'; form.elements.status.value = String(rawStatus).split(':').pop(); }
     if (titleElement) titleElement.textContent = form.elements.id.value ? 'Editar registro' : 'Novo registro';
   }
   async function submitForm(ev) {
@@ -110,6 +130,7 @@
     const data = Object.fromEntries(new FormData(form).entries());
     data.quantidade = Number(data.quantidade || 0);
     data.valor = data.valor ? Number(data.valor) : null;
+    data.TenantId = tenant || null;
     const id = data.id;
     delete data.id;
     setBusy(true);
@@ -148,10 +169,12 @@
   });
   async function operational(id, action) {
     if (!action || !confirm(`Confirmar ação operacional: ${action}?`)) return;
+    const configured = (metadata.actions || []).find(a => a.key === action) || {};
+    if (configured.method === 'GET') { window.location.href = action; return; }
     setBusy(true);
     try {
       const url = action.startsWith('/') ? action : `${actionApi}/${id}/${action}`;
-      const r = await fetch(url, { method: 'POST', headers: headers(), body: JSON.stringify({ produtoId: id, quantidade: 1 }) });
+      const r = await fetch(url, { method: 'POST', headers: headers(), body: JSON.stringify({ produtoId: id, quantidade: 1, tenantId: tenant || null }) });
       const payload = await r.text();
       if (!r.ok) throw new Error(payload || `HTTP ${r.status}`);
       toast('Ação operacional executada com auditoria.');
@@ -159,6 +182,42 @@
     } catch (e) { toast(`Ação bloqueada: ${e.message}`, true); }
     finally { setBusy(false); }
   }
+  
+  function selectedIds() {
+    return Array.from(root.querySelectorAll('.enterprise-select:checked')).map(x => x.value).filter(Boolean);
+  }
+  async function runBatch(action) {
+    const ids = selectedIds();
+    if (!ids.length) return toast('Selecione ao menos um registro para ação em lote.', true);
+    if (!confirm(`Confirmar ação em lote (${action}) para ${ids.length} registro(s)?`)) return;
+    setBusy(true);
+    try {
+      const batchApi = actionApi.replace(/^\/api\/[^/]+\//, '/api/enterprise/');
+      const r = await fetch(`${batchApi}/batch`, { method: 'POST', headers: headers(), body: JSON.stringify({ action, ids }) });
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(payload?.message || payload?.Message || `HTTP ${r.status}`);
+      const items = payload?.data?.results || payload?.Data?.results || [];
+      const failures = items.filter(x => x.status === 'NOT_FOUND' || x.Status === 'NOT_FOUND' || x.status === 'SCHEMA_UNAVAILABLE' || x.Status === 'SCHEMA_UNAVAILABLE');
+      toast(`Lote concluído: ${items.length || ids.length} item(ns), falhas: ${failures.length}.`, failures.length > 0);
+      await load();
+    } catch (e) { toast(`Lote bloqueado: ${e.message}`, true); }
+    finally { setBusy(false); }
+  }
+  async function previewImport() {
+    const file = importFile?.files?.[0];
+    if (!file) return toast('Selecione um CSV para pré-visualizar.', true);
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const headersCsv = (lines[0] || '').split(';').map(x => x.trim().toLowerCase());
+    const required = (metadata.fields || []).map(normalizeField).filter(f => f.required).map(f => f.name.toLowerCase());
+    const missing = required.filter(name => !headersCsv.includes(name));
+    const preview = root.querySelector('.enterprise-import-preview-result');
+    if (preview) preview.textContent = missing.length ? `Colunas obrigatórias ausentes: ${missing.join(', ')}. Nenhuma importação foi confirmada.` : `Prévia local OK: ${Math.max(0, lines.length - 1)} linha(s). Confirmação exige endpoint real e auditoria.`;
+    toast(missing.length ? 'CSV rejeitado na prévia segura.' : 'Prévia CSV validada localmente; confirme somente com endpoint real.', !!missing.length);
+  }
+  batchBar?.addEventListener('click', ev => { const btn = ev.target.closest('[data-batch-action]'); if (btn) runBatch(btn.dataset.batchAction); });
+  importButton?.addEventListener('click', previewImport);
+
   exportButton?.addEventListener('click', async () => {
     try {
       const r = await fetch(`${actionApi}/export-csv?${buildQuery()}`, { headers: headers(false) });
