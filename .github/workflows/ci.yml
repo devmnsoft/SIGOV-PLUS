@@ -1,6 +1,7 @@
 name: ci
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
@@ -92,7 +93,7 @@ jobs:
         shell: pwsh
         run: |
           $ci = Get-Content '.github/workflows/ci.yml' -Raw
-          foreach ($job in @('build-test','docker-build','sql-validate','smoke-static','docker-compose-e2e','release-package-check')) { if ($ci -notmatch "(?m)^  $job:") { throw "Job ausente: $job" } }
+          foreach ($job in @('build-test','docker-build','sql-validate','smoke-static','docker-compose-e2e','release-package-check','go-live-check')) { if ($ci -notmatch "(?m)^  $job:") { throw "Job ausente: $job" } }
           if ($ci -notmatch 'sigov.outbox_evento') { throw 'CI não valida outbox_evento' }
           if ($ci -match "to_regclass\('sigov\.outbox'\)") { throw 'CI ainda valida sigov.outbox legado' }
           $schema = Get-Content 'scripts/schema-report.ps1' -Raw; if ($schema -notmatch "ValidateSet\('Auto','Docker','Psql'\)") { throw 'schema-report sem modo Psql' }
@@ -137,6 +138,8 @@ jobs:
             docs/smoke-test-release-candidate.md
             docs/smoke-test-release-candidate.json
             docs/schema-report-local.md
+            docs/evidencias-consolidacao-pos-rc-13.md
+            docs/evidencias-consolidacao-pos-rc-13.json
             docker-compose-e2e.log
       - if: always()
         run: docker compose down -v || true
@@ -167,13 +170,13 @@ jobs:
       - name: Generate release package
         shell: pwsh
         run: ./scripts/package-release.ps1 -Version 1.0.0-rc-final
-      - name: Run Pós-RC 07 go-live check
+      - name: Run Pós-RC 13 go-live check
         shell: pwsh
         run: ./scripts/go-live-check.ps1 -AllowWarnings -ReleaseCandidateVersion 1.0.0-rc-final
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: go-live-check-pos-rc-07
+          name: go-live-check-pos-rc-13
           path: |
             docs/go-live-check-result.md
             docs/go-live-check-result.json
