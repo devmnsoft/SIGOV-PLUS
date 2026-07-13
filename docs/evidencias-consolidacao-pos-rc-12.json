@@ -1,0 +1,6 @@
+{
+  "release": "pos-rc-12",
+  "status": "evidencias_parciais_com_limitacao_ambiente",
+  "checks": ["node --check enterprise-crud.js"],
+  "pendencias": ["dotnet indisponivel no ambiente local", "docker nao validado localmente"]
+}

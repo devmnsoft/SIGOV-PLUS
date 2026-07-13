@@ -10,6 +10,8 @@
   const exportButton = root.querySelector('.enterprise-export');
   const batchBar = root.querySelector('.enterprise-batch');
   const importButton = root.querySelector('.enterprise-import-preview');
+  const importConfirmButton = root.querySelector('.enterprise-import-confirm');
+  const importTemplateButton = root.querySelector('.enterprise-import-template');
   const importFile = root.querySelector('.enterprise-import-file');
   const newButton = root.querySelector('.enterprise-new');
   const pager = root.querySelector('.enterprise-pager');
@@ -42,6 +44,7 @@
   const openDetails = () => window.bootstrap ? bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('enterpriseDetailPanel')).show() : null;
   const getItemValue = (item, ...names) => names.map(n => item[n]).find(v => v !== undefined && v !== null) ?? '';
   const actionApi = api.replace(/\/dashboard$/i, '');
+  const enterpriseApi = actionApi.replace(/^\/api\/[^/]+\//, '/api/enterprise/');
   const buildQuery = () => {
     const params = new URLSearchParams(new FormData(filters || undefined));
     params.set('page', String(currentPage));
@@ -192,8 +195,7 @@
     if (!confirm(`Confirmar ação em lote (${action}) para ${ids.length} registro(s)?`)) return;
     setBusy(true);
     try {
-      const batchApi = actionApi.replace(/^\/api\/[^/]+\//, '/api/enterprise/');
-      const r = await fetch(`${batchApi}/batch`, { method: 'POST', headers: headers(), body: JSON.stringify({ action, ids }) });
+      const r = await fetch(`${enterpriseApi}/batch`, { method: 'POST', headers: headers(), body: JSON.stringify({ action, ids }) });
       const payload = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(payload?.message || payload?.Message || `HTTP ${r.status}`);
       const items = payload?.data?.results || payload?.Data?.results || [];
@@ -203,20 +205,30 @@
     } catch (e) { toast(`Lote bloqueado: ${e.message}`, true); }
     finally { setBusy(false); }
   }
-  async function previewImport() {
+  async function sendImport(confirmImport = false) {
     const file = importFile?.files?.[0];
-    if (!file) return toast('Selecione um CSV para pré-visualizar.', true);
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).filter(Boolean);
-    const headersCsv = (lines[0] || '').split(';').map(x => x.trim().toLowerCase());
-    const required = (metadata.fields || []).map(normalizeField).filter(f => f.required).map(f => f.name.toLowerCase());
-    const missing = required.filter(name => !headersCsv.includes(name));
+    if (!file) return toast('Selecione um CSV.', true);
+    const data = new FormData();
+    data.append('file', file);
+    data.append('arquivo', file);
     const preview = root.querySelector('.enterprise-import-preview-result');
-    if (preview) preview.textContent = missing.length ? `Colunas obrigatórias ausentes: ${missing.join(', ')}. Nenhuma importação foi confirmada.` : `Prévia local OK: ${Math.max(0, lines.length - 1)} linha(s). Confirmação exige endpoint real e auditoria.`;
-    toast(missing.length ? 'CSV rejeitado na prévia segura.' : 'Prévia CSV validada localmente; confirme somente com endpoint real.', !!missing.length);
+    setBusy(true);
+    try {
+      const endpoint = confirmImport ? 'import-confirm' : 'import-preview';
+      const r = await fetch(`${enterpriseApi}/${endpoint}`, { method: 'POST', headers: headers(false), body: data });
+      const payload = await r.json().catch(() => ({}));
+      const info = payload.data || payload.Data || {};
+      if (preview) preview.textContent = r.ok ? `${confirmImport ? 'Importação' : 'Prévia'}: ${info.validRows ?? info.imported ?? info.rows ?? 0} válida(s), ${info.invalidRows ?? (info.rejected || []).length ?? 0} inválida(s).` : (payload.message || payload.Message || 'CSV rejeitado.');
+      if (!r.ok) throw new Error(payload.message || payload.Message || `HTTP ${r.status}`);
+      toast(confirmImport ? 'Importação concluída com auditoria/notificação.' : 'Prévia validada pelo backend; nada foi persistido.');
+      if (confirmImport) await load();
+    } catch (e) { toast(`${confirmImport ? 'Importação' : 'Prévia'} bloqueada: ${e.message}`, true); }
+    finally { setBusy(false); }
   }
   batchBar?.addEventListener('click', ev => { const btn = ev.target.closest('[data-batch-action]'); if (btn) runBatch(btn.dataset.batchAction); });
-  importButton?.addEventListener('click', previewImport);
+  importButton?.addEventListener('click', () => sendImport(false));
+  importConfirmButton?.addEventListener('click', () => sendImport(true));
+  importTemplateButton?.addEventListener('click', () => { window.location.href = `${enterpriseApi}/import-template`; });
 
   exportButton?.addEventListener('click', async () => {
     try {
