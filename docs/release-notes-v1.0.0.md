@@ -91,3 +91,9 @@ Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao
 - Adiciona prévia/importação CSV segura, ação em lote por endpoint auditável e checklist de falhas parciais.
 - Introduz migration idempotente `sigov.enterprise_anexo` para vínculos GED/Enterprise com classificação LGPD.
 - Atualiza smoke, go-live e pacote de release para incluir artefatos Pós-RC 11 e não declarar homologação sem runtime real.
+
+## Pós-RC 13
+
+- Consolida workflow_dispatch no CI, artifacts de homologação, smoke ampliado para Agenda/Kanban e pacote release.
+- Disponibiliza Kanban operacional simples em `/Kanban`, `/Kanban/Tarefas`, `/Kanban/OS` e `/Kanban/Propostas` com fallback honesto.
+- Inclui documentação Pós-RC 13 para diagnóstico, manuais, matrizes, LGPD, importação, lote, anexos, agenda/SLA/Kanban e evidências.

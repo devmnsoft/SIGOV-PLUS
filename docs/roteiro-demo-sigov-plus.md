@@ -53,3 +53,11 @@ Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao
 - Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
 - Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
 - UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
+
+## Roteiro complementar Pós-RC 13
+
+1. Validar login e permissões.
+2. Abrir Minha Central e Dashboard com indicação de fonte real/fallback/demo.
+3. Executar Protocolo/GED/Enterprise, importação CSV, ações em lote e anexos.
+4. Consultar Agenda, SLA, Kanban, Busca, Relatórios, Auditoria, Notificações e Tarefas.
+5. Confirmar LGPD, ausência de falso sucesso, ausência de dados sensíveis completos e geração de evidências.
