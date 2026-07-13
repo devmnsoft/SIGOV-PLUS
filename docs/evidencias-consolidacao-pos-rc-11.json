@@ -1,0 +1,6 @@
+{
+  "release": "1.0.0-rc-final",
+  "generatedAt": "2026-07-13T00:00:00Z",
+  "status": "pendente_de_runtime_local",
+  "observacao": "Evidências reais devem ser geradas pelos scripts de smoke/go-live no ambiente homologado."
+}

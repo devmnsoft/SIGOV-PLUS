@@ -83,3 +83,11 @@ Para homologação técnica, aplicar `database/postgres/seeds/pos_rc_homologacao
 - Botões operacionais chamam endpoints reais e respeitam jornadas de proposta, pedido, OS, estoque e industrial.
 - CSV Enterprise mascara LGPD e neutraliza fórmulas maliciosas.
 - Evidências locais registram limitação do container sem `dotnet`, `docker` e `pwsh`; validação runtime completa permanece no CI/ambiente válido.
+
+## Pós-RC 11 — consolidação funcional final
+
+- Consolida diagnóstico Pós-RC 11, evidências e manuais de homologação.
+- Amplia formulários Enterprise com campos por entidade, validações HTML5, status permitidos e ações operacionais com rotas reais.
+- Adiciona prévia/importação CSV segura, ação em lote por endpoint auditável e checklist de falhas parciais.
+- Introduz migration idempotente `sigov.enterprise_anexo` para vínculos GED/Enterprise com classificação LGPD.
+- Atualiza smoke, go-live e pacote de release para incluir artefatos Pós-RC 11 e não declarar homologação sem runtime real.

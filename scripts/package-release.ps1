@@ -22,7 +22,7 @@ function Assert-SafeContent([string]$Path,[string]$Relative) {
   $content = Get-Content $Path -Raw -ErrorAction SilentlyContinue
   if ($Relative -ne '.env.example' -and $content -match '(?i)(SIGOV_SMOKE_API_KEY\s*=\s*[^\s#]+|POSTGRES_PASSWORD\s*=\s*[^\s#]+|Password=123456|private[_-]?key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)') { throw "Possível segredo em $Relative" }
 }
-$copyFiles = @('README.md','docker-compose.yml','.env.example','docs/release-notes-v1.0.0.md','docs/checklist-go-live-pos-rc.md','docs/roteiro-demo-sigov-plus.md','docs/matriz-modulos-release-candidate.md','docs/smoke-test-release-candidate.md','docs/smoke-test-release-candidate.json','docs/release-candidate-escopo.md','docs/pos-rc-homologacao-real.md','docs/guia-homologacao-comercial.md','docs/ci-cd-pos-rc-06.md','docs/smoke-e2e-pos-rc-06.md','docs/release-package-pos-rc-06.md','docs/diagnostico-pos-rc-06.md')
+$copyFiles = @('README.md','docker-compose.yml','.env.example','docs/release-notes-v1.0.0.md','docs/checklist-go-live-pos-rc.md','docs/roteiro-demo-sigov-plus.md','docs/diagnostico-consolidacao-pos-rc-11.md','docs/evidencias-consolidacao-pos-rc-11.md','docs/evidencias-consolidacao-pos-rc-11.json','docs/manual-usuario-sigov-pos-rc-11.md','docs/manual-admin-sigov-pos-rc-11.md','docs/jornadas-operacionais-pos-rc-11.md','docs/matriz-funcional-pos-rc-11.md','docs/matriz-crud-enterprise-pos-rc-11.md','docs/security-lgpd-pos-rc-11.md','docs/checklist-homologacao-pos-rc-11.md','docs/importacao-enterprise-pos-rc-11.md','docs/acoes-lote-enterprise-pos-rc-11.md','docs/smoke-test-release-candidate.md','docs/smoke-test-release-candidate.json')
 foreach ($file in $copyFiles) {
   $source = Join-Path $root $file
   if (Test-Path $source) {

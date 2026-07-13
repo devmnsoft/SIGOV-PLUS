@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Sigov.Api.Contracts;
 using Sigov.Application.Enterprise;
+using System.Text;
 
 namespace Sigov.Api.Controllers;
 
@@ -53,6 +54,73 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         if (_crud is null) return NotFound(ApiResponse<string>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var csv = await _crud.ExportCsvAsync(NormalizeEnterpriseArea(area), ResolveTenantId(), cancellationToken);
         return File(csv, "text/csv", $"enterprise-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
+    }
+
+    [HttpGet("api/enterprise/{area}/import-template")]
+    public IActionResult ImportTemplate(string area)
+    {
+        var columns = RequiredImportColumns(area);
+        var csv = "\uFEFF" + string.Join(';', columns) + Environment.NewLine;
+        return File(Encoding.UTF8.GetBytes(csv), "text/csv", $"enterprise-{area}-modelo.csv");
+    }
+
+    [HttpPost("api/enterprise/{area}/import-preview")]
+    public async Task<ActionResult<ApiResponse<object>>> ImportPreview(string area, IFormFile? file, CancellationToken cancellationToken)
+    {
+        var preview = await ValidateImportAsync(area, file, cancellationToken).ConfigureAwait(false);
+        return preview.Valid
+            ? Ok(ApiResponse<object>.Ok(preview, correlationId: CorrelationId()))
+            : BadRequest(ApiResponse<object>.Fail(preview.Message, CorrelationId()));
+    }
+
+    [HttpPost("api/enterprise/{area}/import-confirm")]
+    public async Task<ActionResult<ApiResponse<object>>> ImportConfirm(string area, IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<object>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        var preview = await ValidateImportAsync(area, file, cancellationToken).ConfigureAwait(false);
+        if (!preview.Valid) return BadRequest(ApiResponse<object>.Fail(preview.Message, CorrelationId()));
+        if (file is null) return BadRequest(ApiResponse<object>.Fail("Arquivo CSV obrigatório.", CorrelationId()));
+
+        var tenantId = ResolveTenantId();
+        var lines = await ReadCsvLinesAsync(file, cancellationToken).ConfigureAwait(false);
+        var header = SplitCsvLine(lines[0]);
+        var imported = 0;
+        var rejected = new List<object>();
+        for (var i = 1; i < lines.Count; i++)
+        {
+            var values = SplitCsvLine(lines[i]);
+            var row = header.Select((h, idx) => new { h, value = idx < values.Length ? values[idx] : string.Empty }).ToDictionary(x => x.h, x => x.value, StringComparer.OrdinalIgnoreCase);
+            if (!row.TryGetValue("nome", out var nome) || string.IsNullOrWhiteSpace(nome))
+            {
+                rejected.Add(new { line = i + 1, reason = "nome obrigatório" });
+                continue;
+            }
+            var request = new EnterpriseMutationRequest(tenantId, nome, row.GetValueOrDefault("documento"), row.GetValueOrDefault("email"), row.GetValueOrDefault("telefone"), ParseDecimal(row.GetValueOrDefault("valor")), row.GetValueOrDefault("status"), null, null, ParseInt(row.GetValueOrDefault("quantidade")), false);
+            var result = await _crud.CreateAsync(NormalizeEnterpriseArea(area), request, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false);
+            if (result.Status == "OK") imported++; else rejected.Add(new { line = i + 1, reason = result.Message });
+        }
+
+        return Ok(ApiResponse<object>.Ok(new { imported, rejected, correlationId = CorrelationId() }, correlationId: CorrelationId()));
+    }
+
+    [HttpPost("api/enterprise/{area}/batch")]
+    public async Task<ActionResult<ApiResponse<object>>> EnterpriseBatch(string area, [FromBody] EnterpriseBatchRequest request, CancellationToken cancellationToken)
+    {
+        if (_crud is null) return NotFound(ApiResponse<object>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
+        if (request.Ids.Count == 0) return BadRequest(ApiResponse<object>.Fail("Selecione ao menos um registro para ação em lote.", CorrelationId()));
+        var tenantId = ResolveTenantId();
+        var results = new List<object>();
+        foreach (var id in request.Ids.Distinct())
+        {
+            EnterpriseActionResult result = request.Action.ToLowerInvariant() switch
+            {
+                "inativar" => await _crud.DeleteAsync(NormalizeEnterpriseArea(area), id, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false),
+                "restaurar" => await _crud.RestoreAsync(NormalizeEnterpriseArea(area), id, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false),
+                _ => await _crud.ExecuteActionAsync(NormalizeEnterpriseArea(area), id, request.Action, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false)
+            };
+            results.Add(new { id, result.Status, result.Message });
+        }
+        return Ok(ApiResponse<object>.Ok(new { total = results.Count, results }, correlationId: CorrelationId()));
     }
 
     [HttpGet("api/enterprise/{area}")]
@@ -430,6 +498,43 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         return area;
     }
 
+    private static string[] RequiredImportColumns(string area)
+    {
+        var normalized = area.Trim('/').ToLowerInvariant();
+        if (normalized.Contains("produtos", StringComparison.Ordinal)) return new[] { "documento", "nome", "unidade", "quantidade", "status" };
+        if (normalized.Contains("fornecedores", StringComparison.Ordinal)) return new[] { "nome", "documento", "email", "telefone", "cidade", "uf", "status" };
+        if (normalized.Contains("ativos", StringComparison.Ordinal)) return new[] { "documento", "nome", "localizacao", "criticidade", "status" };
+        return new[] { "nome", "tipoPessoa", "documento", "email", "telefone", "cidade", "uf", "status" };
+    }
+
+    private async Task<EnterpriseImportPreview> ValidateImportAsync(string area, IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0) return new EnterpriseImportPreview(false, "Arquivo CSV obrigatório.", 0, Array.Empty<string>(), RequiredImportColumns(area));
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return new EnterpriseImportPreview(false, "Somente arquivos .csv são aceitos.", 0, Array.Empty<string>(), RequiredImportColumns(area));
+        var lines = await ReadCsvLinesAsync(file, cancellationToken).ConfigureAwait(false);
+        if (lines.Count < 2) return new EnterpriseImportPreview(false, "CSV deve conter cabeçalho e ao menos uma linha.", 0, Array.Empty<string>(), RequiredImportColumns(area));
+        var header = SplitCsvLine(lines[0]).Select(x => x.Trim()).ToArray();
+        var required = RequiredImportColumns(area);
+        var missing = required.Where(col => !header.Contains(col, StringComparer.OrdinalIgnoreCase)).ToArray();
+        return missing.Length == 0
+            ? new EnterpriseImportPreview(true, "Prévia validada. Confirmação persistirá dados reais com tenant e auditoria.", lines.Count - 1, header, required)
+            : new EnterpriseImportPreview(false, "Colunas obrigatórias ausentes: " + string.Join(", ", missing), lines.Count - 1, header, required);
+    }
+
+    private static async Task<List<string>> ReadCsvLinesAsync(IFormFile file, CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        var text = await reader.ReadToEndAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).ToList();
+    }
+
+    private static string[] SplitCsvLine(string line) => line.Split(';').Select(cell => cell.Trim().Trim('"')).ToArray();
+
+    private static decimal? ParseDecimal(string? value) => decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+    private static int? ParseInt(string? value) => int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
     private static string NormalizeEnterpriseArea(string area, string prefix = "enterprise") => prefix == "industria" ? $"industria/{area}" : area.Contains('/') ? area : $"comercial/{area}";
 
     private static string SanitizeCsv(string? value)
@@ -441,4 +546,8 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     private string Area() => Request.Path.Value?.Trim('/').Replace("api/", string.Empty, StringComparison.OrdinalIgnoreCase) ?? "enterprise";
 
     private string CorrelationId() => HttpContext.TraceIdentifier;
+
+    public sealed record EnterpriseBatchRequest(string Action, IReadOnlyList<Guid> Ids);
+
+    public sealed record EnterpriseImportPreview(bool Valid, string Message, int Rows, IReadOnlyList<string> Columns, IReadOnlyList<string> RequiredColumns);
 }

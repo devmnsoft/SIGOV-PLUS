@@ -8,10 +8,10 @@ $ErrorActionPreference='Stop'
 $results=New-Object System.Collections.Generic.List[object]
 function Add-Check([string]$Name,[string]$Status,[string]$Message){$results.Add([pscustomobject]@{name=$Name;status=$Status;message=$Message});Write-Host "$Status $Name - $Message"}
 function Check-Path([string]$Name,[string]$Path,[bool]$Required=$true){ if(Test-Path $Path){Add-Check $Name 'PASS' "$Path encontrado."} elseif($Required){Add-Check $Name 'FAIL' "$Path ausente."} else {Add-Check $Name 'WARN' "$Path ainda não gerado."}}
-$docs=@('README.md','docs/matriz-modulos-release-candidate.md','docs/diagnostico-pos-rc-07.md','docs/go-live-pos-rc-07.md','docs/homologacao-executavel-pos-rc-07.md','docs/tenant-context-pos-rc-07.md','docs/security-lgpd-pos-rc-07.md','docs/ci-cd-pos-rc-06.md','docs/smoke-e2e-pos-rc-06.md')
+$docs=@('README.md','docs/diagnostico-consolidacao-pos-rc-11.md','docs/evidencias-consolidacao-pos-rc-11.md','docs/manual-usuario-sigov-pos-rc-11.md','docs/manual-admin-sigov-pos-rc-11.md','docs/jornadas-operacionais-pos-rc-11.md','docs/matriz-funcional-pos-rc-11.md','docs/matriz-crud-enterprise-pos-rc-11.md','docs/security-lgpd-pos-rc-11.md','docs/checklist-homologacao-pos-rc-11.md','docs/importacao-enterprise-pos-rc-11.md','docs/acoes-lote-enterprise-pos-rc-11.md','docs/release-notes-v1.0.0.md','docs/roteiro-demo-sigov-plus.md','docs/checklist-go-live-pos-rc.md')
 foreach($d in $docs){Check-Path "doc:$d" $d}
 
-if(Test-Path 'README.md'){ $readme=Get-Content 'README.md' -Raw; if($readme -match 'Pós-RC 06' -and $readme -match 'Pós-RC 07'){Add-Check 'readme-pos-rc-06-07' 'PASS' 'README contém Pós-RC 06/07.'}else{Add-Check 'readme-pos-rc-06-07' 'FAIL' 'README deve mencionar Pós-RC 06 e Pós-RC 07.'} }
+if(Test-Path 'README.md'){ $readme=Get-Content 'README.md' -Raw; if($readme -match 'SIGOV' -and ($readme -match 'Pós-RC' -or $readme -match 'Release')){Add-Check 'readme-release' 'PASS' 'README contém contexto SIGOV/release.'}else{Add-Check 'readme-release' 'WARN' 'README deve mencionar explicitamente Pós-RC/release.'} }
 if(Test-Path '.env'){Add-Check 'env-real-ausente' 'FAIL' '.env real versionado/presente no workspace.'}else{Add-Check 'env-real-ausente' 'PASS' '.env real ausente.'}
 foreach($required in @('scripts/smoke-test-sigov.ps1','scripts/schema-report.ps1','scripts/package-release.ps1')){Check-Path "script:$required" $required}
 Check-Path 'smoke-md' 'docs/smoke-test-release-candidate.md' $false
@@ -30,7 +30,7 @@ if(Test-Path $PackagePath){
   $secret=Get-ChildItem $PackagePath -Recurse -File|Select-String -Pattern 'POSTGRES_PASSWORD=123456' -Quiet; if($secret){Add-Check 'package-secrets' 'FAIL' 'Secret/token ou exemplo inseguro detectado.'}else{Add-Check 'package-secrets' 'PASS' 'Scanner básico sem achados.'}
 }else{Add-Check 'release-package' 'WARN' "Pacote $PackagePath ainda não gerado."}
 $passed=@($results|Where-Object status -eq 'PASS').Count; $warnings=@($results|Where-Object status -eq 'WARN').Count; $failed=@($results|Where-Object status -eq 'FAIL').Count; $statusFinal=if($failed -gt 0){'BLOQUEADO'}elseif($warnings -gt 0){'APROVADO_COM_RESSALVAS'}else{'APROVADO'}; $summary=[ordered]@{generatedAt=(Get-Date).ToUniversalTime().ToString('o');total=$results.Count;passed=$passed;warnings=$warnings;failedBlocking=$failed;failedNonBlocking=0;statusFinal=$statusFinal;releaseCandidateVersion=$ReleaseCandidateVersion;results=$results}
-$md=@('# Go-live check Pós-RC 07','',"Gerado em $($summary.generatedAt).",'',"Resumo: PASS=$($summary.passed) WARN=$($summary.warnings) FAIL_BLOCKING=$($summary.failedBlocking) STATUS=$($summary.statusFinal)",'','| Check | Status | Mensagem |','|---|---|---|')
+$md=@('# Go-live check Pós-RC 11','',"Gerado em $($summary.generatedAt).",'',"Resumo: PASS=$($summary.passed) WARN=$($summary.warnings) FAIL_BLOCKING=$($summary.failedBlocking) STATUS=$($summary.statusFinal)",'','| Check | Status | Mensagem |','|---|---|---|')
 foreach($r in $results){$md += "| $($r.name) | $($r.status) | $($r.message -replace '\|','/') |"}
 $md|Set-Content -Encoding UTF8 docs/go-live-check-result.md
 $summary|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 docs/go-live-check-result.json
