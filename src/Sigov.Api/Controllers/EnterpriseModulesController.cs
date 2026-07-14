@@ -111,7 +111,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         if (_crud is null) return NotFound(ApiResponse<object>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         if (request.Ids.Count == 0) return BadRequest(ApiResponse<object>.Fail("Selecione ao menos um registro para ação em lote.", CorrelationId()));
         var tenantId = ResolveTenantId();
-        var results = new List<object>();
+        var results = new List<EnterpriseBatchItemResult>();
         foreach (var id in request.Ids.Distinct())
         {
             EnterpriseActionResult result = request.Action.ToLowerInvariant() switch
@@ -120,12 +120,13 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
                 "restaurar" => await _crud.RestoreAsync(NormalizeEnterpriseArea(area), id, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false),
                 _ => await _crud.ExecuteActionAsync(NormalizeEnterpriseArea(area), id, request.Action, tenantId, CorrelationId(), cancellationToken).ConfigureAwait(false)
             };
-            results.Add(new { id, result.Status, result.Message });
+            results.Add(new EnterpriseBatchItemResult(id, result.Status, result.Message, !FailureStatuses.Contains(result.Status)));
         }
-        var failureStatuses = new[] { "SCHEMA_UNAVAILABLE", "NOT_FOUND", "BLOQUEADO", "SALDO_INSUFICIENTE", "FORBIDDEN" };
-        var failures = results.Count(x => failureStatuses.Contains((string?)x.GetType().GetProperty("Status")?.GetValue(x) ?? string.Empty, StringComparer.OrdinalIgnoreCase));
-        var response = ApiResponse<object>.Ok(new { total = results.Count, failures, notification = "lote.executado", results }, correlationId: CorrelationId());
-        return failures == results.Count ? StatusCode(StatusCodes.Status409Conflict, response) : Ok(response);
+        var failures = results.Count(x => !x.Success);
+        var successes = results.Count - failures;
+        var report = new { file = $"lote-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.json", generatedAt = DateTimeOffset.UtcNow, eventName = failures > 0 ? "lote.com_falhas" : "lote.executado" };
+        var response = ApiResponse<object>.Ok(new { total = results.Count, successes, failures, notification = report.eventName, report, results }, correlationId: CorrelationId());
+        return failures == results.Count ? StatusCode(StatusCodes.Status409Conflict, response) : failures > 0 ? StatusCode(StatusCodes.Status207MultiStatus, response) : Ok(response);
     }
 
 
@@ -558,6 +559,12 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         var missing = required.Where(col => !header.Contains(col, StringComparer.OrdinalIgnoreCase)).ToArray();
         var invalid = new List<EnterpriseImportRowIssue>();
         var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var existingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_crud is not null)
+        {
+            var rows = await _crud.ListAsync(NormalizeEnterpriseArea(area), ResolveTenantId(), 1, 1000, null, cancellationToken).ConfigureAwait(false);
+            foreach (var item in rows) existingNames.Add(item.Name);
+        }
         for (var i = 1; i < lines.Count; i++)
         {
             var values = SplitCsvLine(lines[i]);
@@ -570,6 +577,7 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
             if (row.TryGetValue("valor", out var valor) && !string.IsNullOrWhiteSpace(valor) && ParseDecimal(valor) is null) reasons.Add("valor inválido");
             var duplicateKey = row.GetValueOrDefault("documento") ?? row.GetValueOrDefault("nome") ?? $"linha-{i}";
             if (!duplicates.Add(duplicateKey)) reasons.Add("duplicidade no arquivo");
+            if (row.TryGetValue("nome", out var nomeExistente) && !string.IsNullOrWhiteSpace(nomeExistente) && existingNames.Contains(nomeExistente.Trim())) reasons.Add("duplicidade no banco");
             if (reasons.Count > 0) invalid.Add(new EnterpriseImportRowIssue(i + 1, reasons));
         }
         if (missing.Length > 0) return new EnterpriseImportPreview(false, "Colunas obrigatórias ausentes: " + string.Join(", ", missing), lines.Count - 1, header, required, lines.Count - 1 - invalid.Count, invalid.Count, invalid);
@@ -604,7 +612,11 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
 
     private string CorrelationId() => HttpContext.TraceIdentifier;
 
+    private static readonly HashSet<string> FailureStatuses = new(StringComparer.OrdinalIgnoreCase) { "SCHEMA_UNAVAILABLE", "NOT_FOUND", "BLOQUEADO", "SALDO_INSUFICIENTE", "FORBIDDEN" };
+
     public sealed record EnterpriseBatchRequest(string Action, IReadOnlyList<Guid> Ids);
+
+    public sealed record EnterpriseBatchItemResult(Guid Id, string Status, string Message, bool Success);
 
     public sealed record EnterpriseImportRowIssue(int Line, IReadOnlyList<string> Reasons);
 

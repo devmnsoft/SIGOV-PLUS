@@ -160,3 +160,15 @@ A rodada Pós-RC 08 consolidou a validação Enterprise ponta a ponta com CRUD R
 ## Pós-RC 10 — Hardening Enterprise
 
 A rodada Pós-RC 10 endurece a operação Enterprise com autenticação obrigatória na API, tenant real obrigatório, permissões por ação, auditoria com contexto de usuário, fallback honesto para schema indisponível, formulários por entidade, ações operacionais por tela e CSV com LGPD/fórmula segura. Consulte `docs/diagnostico-enterprise-pos-rc-10.md`, `docs/security-lgpd-enterprise-pos-rc-10.md`, `docs/jornadas-enterprise-pos-rc-10.md`, `docs/matriz-crud-enterprise-pos-rc-10.md`, `docs/enterprise-manual-usuario-pos-rc-10.md` e `docs/enterprise-qa-checklist-pos-rc-10.md`.
+
+## Pós-RC 14 — runtime, CI/CD e operação real
+
+A consolidação Pós-RC 14 corrige o smoke com interpolação real, atualiza artefatos CI/CD para evidências Pós-RC 14, fortalece o Kanban autenticado/autorizado com dados Enterprise quando o schema existe, mantém fallback honesto para indisponibilidade de schema/provedor GED, e documenta pendências runtime que dependem de ambiente Docker/PostgreSQL/GED configurado.
+
+Documentos principais:
+
+- `docs/diagnostico-tecnico-pos-rc-14.md`
+- `docs/evidencias-consolidacao-pos-rc-14.md`
+- `docs/manual-usuario-sigov-pos-rc-14.md`
+- `docs/manual-admin-sigov-pos-rc-14.md`
+- `docs/checklist-homologacao-pos-rc-14.md`

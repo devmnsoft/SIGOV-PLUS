@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Static Pós-RC 06 checks
+      - name: Static Pós-RC 14 checks
         shell: pwsh
         run: |
           $ci = Get-Content '.github/workflows/ci.yml' -Raw
@@ -138,8 +138,8 @@ jobs:
             docs/smoke-test-release-candidate.md
             docs/smoke-test-release-candidate.json
             docs/schema-report-local.md
-            docs/evidencias-consolidacao-pos-rc-13.md
-            docs/evidencias-consolidacao-pos-rc-13.json
+            docs/evidencias-consolidacao-pos-rc-14.md
+            docs/evidencias-consolidacao-pos-rc-14.json
             docker-compose-e2e.log
       - if: always()
         run: docker compose down -v || true
@@ -170,13 +170,13 @@ jobs:
       - name: Generate release package
         shell: pwsh
         run: ./scripts/package-release.ps1 -Version 1.0.0-rc-final
-      - name: Run Pós-RC 13 go-live check
+      - name: Run Pós-RC 14 go-live check
         shell: pwsh
         run: ./scripts/go-live-check.ps1 -AllowWarnings -ReleaseCandidateVersion 1.0.0-rc-final
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: go-live-check-pos-rc-13
+          name: go-live-check-pos-rc-14
           path: |
             docs/go-live-check-result.md
             docs/go-live-check-result.json

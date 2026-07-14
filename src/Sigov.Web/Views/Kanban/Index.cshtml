@@ -1,18 +1,22 @@
+@model Sigov.Web.Controllers.KanbanBoardViewModel
 @{
   ViewData["Title"] = "Kanban Operacional";
   ViewData["PageTitle"] = "Kanban Operacional";
-  ViewData["PageDescription"] = "Visão simples de tarefas, OS e propostas por status, com fallback honesto quando dados reais não estiverem disponíveis.";
-  var columns = new[] { "Aberta", "Em andamento", "Aguardando", "Concluída", "Vencida" };
+  var sourceBadge = Model.Fonte == "real" ? "success" : "warning";
 }
-@await Html.PartialAsync("_PageIntro")
-<section class="sigov-card p-4 mb-4">
-  <div class="d-flex flex-wrap justify-content-between gap-3 align-items-center">
-    <div><span class="sigov-badge sigov-badge--info">Razor + Bootstrap</span><h1 class="h3 mt-2">Kanban por tenant e permissão</h1><p class="text-muted mb-0">Use os filtros para alternar Tarefas, OS e Propostas. Nenhum dado sensível completo é exibido.</p></div>
+<section class="sigov-card p-4 mb-3">
+  <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+    <div><span class="sigov-badge sigov-badge--@sourceBadge">Fonte: @Model.Fonte</span><h1 class="h3 mt-2">Kanban @Model.Tipo por tenant e permissão</h1><p class="text-muted mb-0">Cards reais são carregados quando o schema existe. Fallback honesto não declara persistência sem banco.</p></div>
     <div class="d-flex gap-2 flex-wrap"><a class="sigov-btn sigov-btn--ghost" href="/Kanban/Tarefas">Tarefas</a><a class="sigov-btn sigov-btn--ghost" href="/Kanban/OS">OS</a><a class="sigov-btn sigov-btn--ghost" href="/Kanban/Propostas">Propostas</a></div>
   </div>
 </section>
+<form method="get" class="sigov-card p-3 mb-3 row g-2"><div class="col-md-4"><input class="form-control" name="responsavel" value="@Model.Responsavel" placeholder="Responsável" /></div><div class="col-md-4"><select class="form-select" name="sla"><option value="">SLA: todos</option><option value="VENCIDO">Vencido</option><option value="NO_PRAZO">No prazo</option></select></div><div class="col-md-4"><button class="btn btn-primary" type="submit">Filtrar</button></div></form>
 <div class="row g-3">
-@foreach (var col in columns) {
-  <div class="col-md"><div class="sigov-card p-3 h-100"><h2 class="h6">@col</h2><article class="border rounded-4 p-3 bg-light"><span class="sigov-badge sigov-badge--warning">fallback honesto</span><h3 class="h6 mt-2">Sem cards reais carregados</h3><p class="text-muted small">Dados reais dependem das tabelas de tarefas, OS ou propostas e do tenant resolvido.</p><a class="sigov-btn sigov-btn--ghost w-100" href="/Busca?q=@Uri.EscapeDataString(col)">Abrir detalhe</a></article></div></div>
+@foreach (var col in Model.Colunas) {
+  var cards = Model.Cards.Where(c => string.Equals(c.Status, col, StringComparison.OrdinalIgnoreCase)).ToList();
+  <div class="col-lg-2 col-md-4"><div class="sigov-card h-100 p-3"><h2 class="h6">@col.Replace("_", " ") <span class="badge bg-secondary">@cards.Count</span></h2>
+  @if (cards.Count == 0) { <div class="alert alert-light border small">Sem cards reais nesta coluna.</div> }
+  @foreach (var card in cards) { <article class="border rounded p-2 mb-2"><strong>@card.Titulo</strong><div class="small text-muted">@card.AtualizadoEm.ToLocalTime().ToString("g") · @card.Fonte</div><a class="btn btn-sm btn-outline-primary mt-2" href="@card.Link">Abrir detalhe</a><form method="post" action="/Kanban/Status" class="mt-2">@Html.AntiForgeryToken()<input type="hidden" name="tipo" value="@Model.Tipo"/><input type="hidden" name="id" value="@card.Id"/><select class="form-select form-select-sm" name="status">@foreach (var target in Model.Colunas) { <option value="@target">@target.Replace("_", " ")</option> }</select><button type="submit" class="btn btn-sm btn-success mt-1">Mudar status</button></form></article> }
+  </div></div>
 }
 </div>
