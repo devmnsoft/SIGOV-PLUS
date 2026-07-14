@@ -1,0 +1,19 @@
+{
+  "generatedAt": "2026-07-14T16:48:52.157860Z",
+  "commit": "64028aed452b4c6ae4bfd35d9f8d8bc2730de41f Merge pull request #114 from devmnsoft/codex/corrigir-bugs-e-validar-runtime-no-sigov-plus",
+  "build": {
+    "dotnet": "not_found",
+    "status": "WARN_ENV"
+  },
+  "docker": {
+    "status": "not_executed"
+  },
+  "smoke": {
+    "status": "not_executed"
+  },
+  "notes": [
+    "dotnet command not found in workspace",
+    "Pós-RC 15 artifacts updated",
+    "Kanban production tenant fallback hardened"
+  ]
+}

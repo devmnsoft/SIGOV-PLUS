@@ -172,3 +172,20 @@ Documentos principais:
 - `docs/manual-usuario-sigov-pos-rc-14.md`
 - `docs/manual-admin-sigov-pos-rc-14.md`
 - `docs/checklist-homologacao-pos-rc-14.md`
+
+## Pós-RC 15 — validação runtime, CI verde e release homologável
+
+A consolidação Pós-RC 15 atualiza os artefatos de CI/CD, smoke, go-live e pacote de release para evidências Pós-RC 15, registra diagnóstico técnico completo e endurece o Kanban para não usar tenant demo em produção. O fluxo mantém fallback honesto para schema/storage/GED ausente, sem declarar sucesso quando a persistência real não ocorre.
+
+Artefatos principais:
+
+- `docs/diagnostico-tecnico-pos-rc-15.md`
+- `docs/evidencias-consolidacao-pos-rc-15.md`
+- `docs/evidencias-consolidacao-pos-rc-15.json`
+- `docs/manual-usuario-sigov-pos-rc-15.md`
+- `docs/manual-admin-sigov-pos-rc-15.md`
+- `docs/checklist-homologacao-pos-rc-15.md`
+- `docs/importacao-enterprise-pos-rc-15.md`
+- `docs/acoes-lote-enterprise-pos-rc-15.md`
+- `docs/anexos-enterprise-ged-pos-rc-15.md`
+- `docs/agenda-sla-kanban-pos-rc-15.md`

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Models.Operational;
 using Sigov.Web.Services;
@@ -30,7 +31,8 @@ public sealed class KanbanController : Controller
     private static readonly Guid DemoTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IAuditTrailService _audit;
     private readonly IEnterpriseCrudService? _crud;
-    public KanbanController(IAuditTrailService audit, IEnterpriseModuleService enterprise) { _audit = audit; _crud = enterprise as IEnterpriseCrudService; }
+    private readonly IWebHostEnvironment _environment;
+    public KanbanController(IAuditTrailService audit, IEnterpriseModuleService enterprise, IWebHostEnvironment environment) { _audit = audit; _crud = enterprise as IEnterpriseCrudService; _environment = environment; }
 
     [HttpGet("/Kanban")]
     [HttpGet("/Kanban/Tarefas")]
@@ -96,7 +98,11 @@ public sealed class KanbanController : Controller
     }
 
     private IActionResult RedirectToBoard(string tipo) => Redirect(tipo switch { "OS" => "/Kanban/OS", "Propostas" => "/Kanban/Propostas", _ => "/Kanban/Tarefas" });
-    private Guid ResolveTenantId() => Guid.TryParse(User.FindFirst("tenant_id")?.Value ?? User.FindFirst("tenant")?.Value, out var tenant) ? tenant : DemoTenantId;
+    private Guid ResolveTenantId()
+    {
+        if (Guid.TryParse(User.FindFirst("tenant_id")?.Value ?? User.FindFirst("tenant")?.Value, out var tenant)) return tenant;
+        return _environment.IsProduction() ? Guid.Empty : DemoTenantId;
+    }
     private static string ResolveTipo(string? value) => (value ?? string.Empty).Contains("OS", StringComparison.OrdinalIgnoreCase) ? "OS" : (value ?? string.Empty).Contains("Propostas", StringComparison.OrdinalIgnoreCase) ? "Propostas" : "Tarefas";
     private static string[] AllowedStatuses(string tipo) => tipo switch { "OS" => new[] { "ABERTA", "AGENDADA", "EM_EXECUCAO", "PAUSADA", "CONCLUIDA", "CANCELADA" }, "Propostas" => new[] { "RASCUNHO", "ENVIADA", "EM_ANALISE", "APROVADA", "REPROVADA", "CONVERTIDA_EM_PEDIDO" }, _ => new[] { "ABERTA", "EM_ANDAMENTO", "AGUARDANDO", "CONCLUIDA", "VENCIDA" } };
 }
