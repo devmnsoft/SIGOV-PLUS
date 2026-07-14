@@ -58,9 +58,9 @@ $lines|Out-File -FilePath $OutputPath -Encoding utf8
 $summary|ConvertTo-Json -Depth 8|Out-File -FilePath ($OutputPath -replace '\.md$','.json') -Encoding utf8
 Write-Host "Smoke test SIGOV PLUS: $success/$total OK; $failedBlocking falhas bloqueantes. Resultado: $OutputPath"
 
-# Evidências Pós-RC 14 consolidadas a partir do smoke runtime.
-$evidenceMd = 'docs/evidencias-consolidacao-pos-rc-14.md'
-$evidenceJson = 'docs/evidencias-consolidacao-pos-rc-14.json'
-@('# Evidências consolidação Pós-RC 14','',"Gerado em $generatedAt.",'',"Smoke: $success/$total checks OK; falhas bloqueantes: $failedBlocking.",'',"Fonte: execução local/CI de scripts/smoke-test-sigov.ps1.") | Out-File -FilePath $evidenceMd -Encoding utf8
+# Evidências Pós-RC 15 consolidadas a partir do smoke runtime.
+$evidenceMd = 'docs/evidencias-consolidacao-pos-rc-15.md'
+$evidenceJson = 'docs/evidencias-consolidacao-pos-rc-15.json'
+@('# Evidências consolidação Pós-RC 15','',"Gerado em $generatedAt.",'',"Smoke: $success/$total checks OK; falhas bloqueantes: $failedBlocking.",'',"Fonte: execução local/CI de scripts/smoke-test-sigov.ps1.") | Out-File -FilePath $evidenceMd -Encoding utf8
 $summary | ConvertTo-Json -Depth 8 | Out-File -FilePath $evidenceJson -Encoding utf8
 if($failedBlocking -gt 0){ exit 1 }
