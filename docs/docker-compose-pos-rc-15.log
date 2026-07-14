@@ -1,1 +1,20 @@
-Docker E2E Pós-RC 15 não executado neste workspace: dotnet/docker runtime não comprovado localmente. Ver evidências e CI.
+Pós-RC 15 Docker compose validation log
+Generated: 2026-07-14
+
+Command: docker compose down -v
+Status: NOT EXECUTED IN THIS WORKSPACE
+Reason: /bin/bash: docker: command not found
+
+Command: docker compose build --no-cache
+Status: NOT EXECUTED IN THIS WORKSPACE
+Reason: /bin/bash: docker: command not found
+
+Command: docker compose up -d
+Status: NOT EXECUTED IN THIS WORKSPACE
+Reason: /bin/bash: docker: command not found
+
+Command: docker compose ps
+Status: NOT EXECUTED IN THIS WORKSPACE
+Reason: /bin/bash: docker: command not found
+
+Honest conclusion: Docker runtime evidence remains pending for an environment with Docker Engine/Compose, PostgreSQL and .NET SDK/runtime available. No production homologation is claimed from this workspace.

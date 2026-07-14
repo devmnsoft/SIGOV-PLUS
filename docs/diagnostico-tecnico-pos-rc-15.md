@@ -33,3 +33,18 @@ Gerado em 2026-07-14T16:48:52.156390Z.
 ## Conclusão honesta
 
 O workspace atual não possui `dotnet`, portanto build/test runtime local ficaram bloqueados por limitação de ambiente e foram registrados nas evidências. As correções aplicadas removem referências Pós-RC 14 dos artefatos de CI/release/smoke, fortalecem o tenant do Kanban para não usar fallback demo em produção e documentam pendências que só podem ser fechadas com Docker/PostgreSQL/GED em execução.
+
+## Complemento de auditoria Pós-RC 15 — .NET, pacotes e ambiente
+
+| Área | Arquivo | Problema encontrado | Tipo | Risco | Correção aplicada | Status |
+|---|---|---|---|---|---|---|
+| Compatibilidade .NET | Directory.Build.props | Projeto permanece em `net6.0` com C# 10, `Nullable=enable`, `TreatWarningsAsErrors=true`, `AnalysisLevel=latest` e code style no build. | Compatibilidade .NET | .NET 6 fora de suporte e variação de analyzers conforme SDK. | Criado plano de migração documentado sem migração automática. | Documentado |
+| Pacote NuGet | Directory.Packages.props | Versões centralizadas já existem, mas faltava artefato específico de auditoria Pós-RC 15. | Pacote NuGet | Upgrade às cegas poderia quebrar Dapper/Npgsql/Serilog/FluentValidation/Testcontainers. | Criada auditoria `docs/auditoria-dotnet-pacotes-pos-rc-15.md`. | Corrigido |
+| CI/CD | scripts/go-live-check.ps1 | Checklist Pós-RC 15 não exigia os novos documentos de auditoria .NET e plano de migração. | CI/CD | Go-live poderia aprovar release sem evidência de pacote/runtime. | Incluídos `auditoria-dotnet-pacotes` e `plano-migracao-dotnet` na matriz obrigatória. | Corrigido |
+| Release | scripts/package-release.ps1 | Pacote release não copiava auditoria .NET nem plano de migração. | CI/CD | Artefato final incompleto para homologação. | Incluídos os dois documentos no package release. | Corrigido |
+| Documentação | README.md | Lista Pós-RC 15 não referenciava os documentos de auditoria de pacote e migração. | Documentação | Operação poderia não encontrar decisões de compatibilidade. | README atualizado com links dos documentos. | Corrigido |
+| Docker | docs/docker-compose-pos-rc-15.log | Workspace atual não possui Docker (`docker: command not found`). | Docker/Runtime | Não há evidência local de containers saudáveis. | Log atualizado com pendência honesta e sem declarar homologação. | Pendente ambiente |
+| Build/Test | sigov.sln | Workspace atual não possui SDK .NET (`dotnet: command not found`). | Compilação/Runtime | Não há evidência local de build/test; CI/ambiente com SDK deve executar. | Limitação registrada sem falso sucesso. | Pendente ambiente |
+| Seeds | scripts/apply-demo-seed.ps1 | Workspace atual não possui PowerShell (`pwsh: command not found`). | Banco/migration | Seed idempotente precisa rodar em ambiente com pwsh/PostgreSQL. | Limitação registrada. | Pendente ambiente |
+| JavaScript | src/Sigov.Web/wwwroot/js/enterprise-crud.js | Sintaxe JS validada com `node --check`. | JavaScript | N/A. | Nenhuma correção necessária. | Validado |
+| JavaScript | src/Sigov.Web/wwwroot/js/enterprise-form-metadata.js | Sintaxe JS validada com `node --check`. | JavaScript | N/A. | Nenhuma correção necessária. | Validado |

@@ -180,6 +180,8 @@ A consolidação Pós-RC 15 atualiza os artefatos de CI/CD, smoke, go-live e pac
 Artefatos principais:
 
 - `docs/diagnostico-tecnico-pos-rc-15.md`
+- `docs/auditoria-dotnet-pacotes-pos-rc-15.md`
+- `docs/plano-migracao-dotnet-pos-rc-15.md`
 - `docs/evidencias-consolidacao-pos-rc-15.md`
 - `docs/evidencias-consolidacao-pos-rc-15.json`
 - `docs/manual-usuario-sigov-pos-rc-15.md`
