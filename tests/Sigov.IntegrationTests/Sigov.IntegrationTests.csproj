@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Sigov.Testing\Sigov.Testing.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Domain\Sigov.Domain.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Infrastructure\Sigov.Infrastructure.csproj" />
   </ItemGroup>

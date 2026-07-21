@@ -73,6 +73,7 @@ using Sigov.Application.Enterprise;
 using Sigov.Application.Operational;
 using Sigov.Infrastructure.Comercio;
 using Sigov.Infrastructure.Operational;
+using Sigov.Infrastructure.Enterprise;
 
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Industria;
@@ -102,6 +103,7 @@ public static class DependencyInjection
         services.AddScoped<IKanbanService, Sigov.Application.Operational.KanbanService>();
         services.AddScoped<ITarefaNotificationService, NotificacaoRepository>();
         services.AddScoped<IOperationalEventPublisher, OutboxOperationalEventPublisher>();
+        services.AddScoped<IEnterpriseTenantMappingService, EnterpriseTenantMappingService>();
         services.AddScoped<EnterpriseDapperCrudService>();
         services.AddScoped<IEnterpriseModuleService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
         services.AddScoped<IEnterpriseCrudService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
