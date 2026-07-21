@@ -195,3 +195,7 @@ Artefatos principais:
 ## Pós-RC 16 — estabilização arquitetural
 
 A rodada Pós-RC 16 registra a auditoria de interfaces, DI e dependências entre projetos em `docs/diagnostico-pos-rc-16-inicial.md`, `docs/matriz-interfaces-pos-rc-16.md`, `docs/matriz-di-pos-rc-16.md` e `docs/evidencias-pos-rc-16.md`. O foco desta etapa é estabilizar a base antes de novos módulos grandes, eliminando casts indevidos entre contratos Enterprise e adicionando teste arquitetural para impedir referências proibidas entre camadas.
+
+## Pós-RC 17 — validação técnica
+
+A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.

@@ -136,3 +136,7 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 
 - Auditoria de DI e interfaces Enterprise registrada em `docs/matriz-di-pos-rc-16.md` e `docs/matriz-interfaces-pos-rc-16.md`.
 - Evidências e limitações de ambiente registradas em `docs/evidencias-pos-rc-16.md`.
+
+## Pós-RC 17 — validação técnica
+
+A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.
