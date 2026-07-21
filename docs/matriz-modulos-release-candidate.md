@@ -140,3 +140,7 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 ## Pós-RC 17 — validação técnica
 
 A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.
+
+## Pós-RC 20 — infraestrutura operacional
+
+O escopo corrente preserva os módulos existentes e concentra a estabilização em PostgreSQL standalone, manifest de migrations, separação de seeds e versionamento `1.0.0-rc20`.

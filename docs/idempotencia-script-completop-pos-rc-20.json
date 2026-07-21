@@ -1,0 +1,1 @@
+{"status":"pending-ci","reason":"PostgreSQL indisponível no ambiente local; CI executa dupla aplicação com pipefail."}

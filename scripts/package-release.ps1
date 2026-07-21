@@ -1,5 +1,5 @@
 param(
-  [string]$Version = '1.0.0-rc17',
+  [string]$Version = '1.0.0-rc20',
   [string]$OutputDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ function Assert-SafeContent([string]$Path,[string]$Relative) {
   $allowedScannerSource = ($Relative -eq 'scripts/package-release.ps1' -and $content -match 'SIGOV_SMOKE_API_KEY')
   if ($Relative -ne '.env.example' -and -not $allowedDemoSmoke -and -not $allowedScannerSource -and $content -match '(?i)(SIGOV_SMOKE_API_KEY\s*=\s*[^\s#]+|POSTGRES_PASSWORD\s*=\s*[^\s#]+|Password=123456|private[_-]?key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)') { throw "Possível segredo em $Relative" }
 }
-$copyFiles = @('README.md','docker-compose.yml','.env.example','docs/release-notes-v1.0.0.md','docs/checklist-go-live-pos-rc.md','docs/roteiro-demo-sigov-plus.md','docs/diagnostico-pos-rc-17-inicial.md','docs/diagnostico-ci-pos-rc-17.md','docs/diagnostico-build-pos-rc-17.md','docs/diagnostico-migrations-pos-rc-17.md','docs/diagnostico-docker-pos-rc-17.md','docs/testes-pos-rc-17.md','docs/diagnostico-pos-rc-17-final.md','docs/evidencias-pos-rc-17.md','docs/evidencias-pos-rc-17.json','docs/manual-usuario-sigov-pos-rc-15.md','docs/manual-admin-sigov-pos-rc-15.md','docs/jornadas-operacionais-pos-rc-15.md','docs/matriz-funcional-pos-rc-15.md','docs/matriz-crud-enterprise-pos-rc-15.md','docs/security-lgpd-pos-rc-15.md','docs/checklist-homologacao-pos-rc-15.md','docs/importacao-enterprise-pos-rc-15.md','docs/acoes-lote-enterprise-pos-rc-15.md','docs/anexos-enterprise-ged-pos-rc-15.md','docs/agenda-sla-kanban-pos-rc-15.md','docs/smoke-test-release-candidate.md','docs/smoke-test-release-candidate.json')
+$copyFiles = @('README.md','docker-compose.yml','.env.example','docs/release-notes-v1.0.0.md','docs/checklist-go-live-pos-rc.md','docs/roteiro-demo-sigov-plus.md','docs/diagnostico-pos-rc-20-inicial.md','docs/diagnostico-ci-pos-rc-20.md','docs/diagnostico-build-pos-rc-20.md','docs/diagnostico-migrations-pos-rc-20.md','docs/diagnostico-docker-pos-rc-20.md','docs/testes-pos-rc-20.md','docs/diagnostico-pos-rc-20-final.md','docs/evidencias-pos-rc-20.md','docs/evidencias-pos-rc-20.json','docs/manual-usuario-sigov-pos-rc-15.md','docs/manual-admin-sigov-pos-rc-15.md','docs/jornadas-operacionais-pos-rc-15.md','docs/matriz-funcional-pos-rc-15.md','docs/matriz-crud-enterprise-pos-rc-15.md','docs/security-lgpd-pos-rc-15.md','docs/checklist-homologacao-pos-rc-15.md','docs/importacao-enterprise-pos-rc-15.md','docs/acoes-lote-enterprise-pos-rc-15.md','docs/anexos-enterprise-ged-pos-rc-15.md','docs/agenda-sla-kanban-pos-rc-15.md','docs/smoke-test-release-candidate.md','docs/smoke-test-release-candidate.json')
 foreach ($file in $copyFiles) {
   $source = Join-Path $root $file
   if (Test-Path $source) {

@@ -112,3 +112,7 @@ Classificação honesta para homologação final:
 ## Pós-RC 17 — validação técnica
 
 A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.
+
+## Pós-RC 20 — escopo corrente
+
+O release candidate `1.0.0-rc20` prioriza baseline PostgreSQL segura, idempotência de `script_completop.sql`, CI com logs completos e bootstrap administrativo explícito sem senha padrão no SQL estrutural.

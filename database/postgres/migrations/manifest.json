@@ -1,0 +1,445 @@
+{
+  "migrations": [
+    {
+      "version": "001",
+      "file": "001_create_sigov_schema.sql",
+      "description": "create_sigov_schema",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "d15951b9cb7e455b047527afc56e61f0dac74bce24414cae20de958cf884531d"
+    },
+    {
+      "version": "002",
+      "file": "002_create_sigov_infrastructure.sql",
+      "description": "create_sigov_infrastructure",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130"
+    },
+    {
+      "version": "003",
+      "file": "003_create_sigov_core.sql",
+      "description": "create_sigov_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e"
+    },
+    {
+      "version": "004",
+      "file": "004_create_sigov_security_audit_lgpd.sql",
+      "description": "create_sigov_security_audit_lgpd",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2"
+    },
+    {
+      "version": "005",
+      "file": "005_create_sigov_bi_workflow.sql",
+      "description": "create_sigov_bi_workflow",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+    },
+    {
+      "version": "006",
+      "file": "006_create_sigov_financeiro_tributario.sql",
+      "description": "create_sigov_financeiro_tributario",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+    },
+    {
+      "version": "007",
+      "file": "007_create_sigov_compras_rh_educacao.sql",
+      "description": "create_sigov_compras_rh_educacao",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+    },
+    {
+      "version": "008",
+      "file": "008_create_sigov_saude_social_saneamento.sql",
+      "description": "create_sigov_saude_social_saneamento",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+    },
+    {
+      "version": "009",
+      "file": "009_create_sigov_suporte_integracao_geo.sql",
+      "description": "create_sigov_suporte_integracao_geo",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441"
+    },
+    {
+      "version": "010",
+      "file": "010_create_sigov_indexes_constraints.sql",
+      "description": "create_sigov_indexes_constraints",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3"
+    },
+    {
+      "version": "011",
+      "file": "011_seed_sigov_dev.sql",
+      "description": "seed_sigov_dev",
+      "category": "development-seed",
+      "includeInBaseline": false,
+      "applyAutomatically": false,
+      "checksum": "c7beb5fd376638f7aa6ee9096e28d9bd21be342e7182b10e60d992c9bc348606"
+    },
+    {
+      "version": "012",
+      "file": "012_compat_move_legacy_schemas_to_sigov.sql",
+      "description": "compat_move_legacy_schemas_to_sigov",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699"
+    },
+    {
+      "version": "013",
+      "file": "013_sigov_foundation_refactor_fixups.sql",
+      "description": "sigov_foundation_refactor_fixups",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367"
+    },
+    {
+      "version": "014",
+      "file": "014_saas_tenants_planos_assinaturas.sql",
+      "description": "saas_tenants_planos_assinaturas",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0"
+    },
+    {
+      "version": "015",
+      "file": "015_saas_tenant_id_operational_tables.sql",
+      "description": "saas_tenant_id_operational_tables",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f"
+    },
+    {
+      "version": "016",
+      "file": "016_saas_rls_indexes_usage_operacao.sql",
+      "description": "saas_rls_indexes_usage_operacao",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55"
+    },
+    {
+      "version": "017",
+      "file": "017_processos_digitais_protocolo_ged.sql",
+      "description": "processos_digitais_protocolo_ged",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea"
+    },
+    {
+      "version": "018",
+      "file": "018_financeiro_siafic_base.sql",
+      "description": "financeiro_siafic_base",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c"
+    },
+    {
+      "version": "019",
+      "file": "019_core_pessoas_enderecos_operacional.sql",
+      "description": "core_pessoas_enderecos_operacional",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e"
+    },
+    {
+      "version": "020",
+      "file": "020_rh_completo.sql",
+      "description": "rh_completo",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e"
+    },
+    {
+      "version": "021",
+      "file": "021_educacao_base.sql",
+      "description": "educacao_base",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6"
+    },
+    {
+      "version": "022",
+      "file": "022_saude_acs_base.sql",
+      "description": "saude_acs_base",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c"
+    },
+    {
+      "version": "023",
+      "file": "023_saneamento_base.sql",
+      "description": "saneamento_base",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff"
+    },
+    {
+      "version": "024",
+      "file": "024_assistencia_social_base.sql",
+      "description": "assistencia_social_base",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "4a05c6594b297f58185fd5c1cfa0b4fd93f4d725a56e4c4f2135d86e49096531"
+    },
+    {
+      "version": "025",
+      "file": "025_integracoes_outbox_webhooks_base.sql",
+      "description": "integracoes_outbox_webhooks_base",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c"
+    },
+    {
+      "version": "026",
+      "file": "026_agro_fundacao_geo_dashboard.sql",
+      "description": "agro_fundacao_geo_dashboard",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc"
+    },
+    {
+      "version": "20260607090000",
+      "file": "20260607090000_ui_commercial_finish.sql",
+      "description": "ui_commercial_finish",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847"
+    },
+    {
+      "version": "20260608090000",
+      "file": "20260608090000_saas_parametrizacao_perfis_modulos.sql",
+      "description": "saas_parametrizacao_perfis_modulos",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb"
+    },
+    {
+      "version": "20260608100000",
+      "file": "20260608100000_agro_produtores_propriedades_producao.sql",
+      "description": "agro_produtores_propriedades_producao",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10"
+    },
+    {
+      "version": "20260608110000",
+      "file": "20260608110000_agro_programas_beneficios_patrulha_mecanizada.sql",
+      "description": "agro_programas_beneficios_patrulha_mecanizada",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe"
+    },
+    {
+      "version": "20260608120000",
+      "file": "20260608120000_plantao_pro_white_label_b2b_launch.sql",
+      "description": "plantao_pro_white_label_b2b_launch",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1"
+    },
+    {
+      "version": "20260608120000",
+      "file": "20260608120000_saas_comercial_white_label_planos.sql",
+      "description": "saas_comercial_white_label_planos",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b"
+    },
+    {
+      "version": "20260608130000",
+      "file": "20260608130000_agro_estradas_feiras_agroindustrias.sql",
+      "description": "agro_estradas_feiras_agroindustrias",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9"
+    },
+    {
+      "version": "20260608140000",
+      "file": "20260608140000_agro_relatorios_bi_transparencia.sql",
+      "description": "agro_relatorios_bi_transparencia",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad"
+    },
+    {
+      "version": "20260609090000",
+      "file": "20260609090000_pos_build_dashboard_saas.sql",
+      "description": "pos_build_dashboard_saas",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d"
+    },
+    {
+      "version": "20260609120000",
+      "file": "20260609120000_pos_build_03_saas_implantacao_tributario.sql",
+      "description": "pos_build_03_saas_implantacao_tributario",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c"
+    },
+    {
+      "version": "20260610100000",
+      "file": "20260610100000_pos_build_04_enterprise_modules.sql",
+      "description": "pos_build_04_enterprise_modules",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593"
+    },
+    {
+      "version": "20260610120000",
+      "file": "20260610120000_pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro.sql",
+      "description": "pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b"
+    },
+    {
+      "version": "20260610150000",
+      "file": "20260610150000_pos_build_06_industria_producao.sql",
+      "description": "pos_build_06_industria_producao",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "ad8395869491ec4533e48caa57357bec8e6ffa02e418f53fcf0cb2c4ea52135f"
+    },
+    {
+      "version": "20260610180000",
+      "file": "20260610180000_pos_build_07_financeiro_integrado.sql",
+      "description": "pos_build_07_financeiro_integrado",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "59038c4ff12346e241fdb879a096fe9fca46cec6aa957b3843791ae381cbe8da"
+    },
+    {
+      "version": "20260610200000",
+      "file": "20260610200000_pos_build_08_tributario_avancado_iptu_iss_dam.sql",
+      "description": "pos_build_08_tributario_avancado_iptu_iss_dam",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "725138bf822225fad6dd78493612c712341752bf6061b8b56fda9e4428b94877"
+    },
+    {
+      "version": "20260610220000",
+      "file": "20260610220000_pos_build_09_ged_ocr_assinatura_automacao.sql",
+      "description": "pos_build_09_ged_ocr_assinatura_automacao",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860"
+    },
+    {
+      "version": "20260611110000",
+      "file": "20260611110000_pos_build_11_ia_automacao_assistentes.sql",
+      "description": "pos_build_11_ia_automacao_assistentes",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "9189f560237c88b1ca7caceca3265d30e17857fd6691be591d24e79280acb005"
+    },
+    {
+      "version": "20260611130000",
+      "file": "20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql",
+      "description": "pos_build_12_mobile_pwa_campo_offline_geo",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71"
+    },
+    {
+      "version": "20260706120000",
+      "file": "20260706120000_consolidacao_modulos_transversais.sql",
+      "description": "consolidacao_modulos_transversais",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc"
+    },
+    {
+      "version": "20260706153000",
+      "file": "20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql",
+      "description": "pos_rc_protocolo_ged_workflow_api_outbox",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064"
+    },
+    {
+      "version": "20260709120000",
+      "file": "20260709120000_enterprise_funcional_crud.sql",
+      "description": "enterprise_funcional_crud",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784"
+    },
+    {
+      "version": "20260713120000",
+      "file": "20260713120000_pos_rc_11_enterprise_anexos_release.sql",
+      "description": "pos_rc_11_enterprise_anexos_release",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7"
+    },
+    {
+      "version": "20260721120000",
+      "file": "20260721120000_pos_rc_17_runtime_nucleo_operacional.sql",
+      "description": "pos_rc_17_runtime_nucleo_operacional",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06"
+    }
+  ]
+}
