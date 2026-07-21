@@ -255,18 +255,35 @@ insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('tributario','nfse','emitir','tributario.nfse.emitir','Emitir NFS-e simulada',true),
 ('tributario','livro_eletronico','visualizar','tributario.livro_eletronico.visualizar','Visualizar livro eletrônico tributário',true),
 ('tributario','livro_eletronico','gerar','tributario.livro_eletronico.gerar','Gerar livro eletrônico tributário',true)
-on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
+on conflict (modulo, chave)
+do update set
+    recurso = excluded.recurso,
+    acao = excluded.acao,
+    descricao = excluded.descricao,
+    ativo = true,
+    is_deleted = false;
 
-insert into sigov.perfil_acesso (nome, descricao, codigo_externo, ativo) values
-('Tributário Admin','Administra IPTU, ISS, taxas, DAM, dívida ativa, NFS-e simulada e livro eletrônico.','TRIBUTARIO_ADMIN',true),
-('Fiscal Tributário','Opera lançamentos, arrecadação, parcelamentos e relatórios fiscais.','FISCAL_TRIBUTARIO',true),
-('Consulta Tributária','Consulta dashboard, livro eletrônico e relatórios fiscais.','CONSULTA_TRIBUTARIA',true)
-on conflict do nothing;
+insert into sigov.perfil_acesso (tenant_id, nome, descricao, codigo_externo, ativo)
+select t.id, v.nome, v.descricao, v.codigo_externo, true
+from sigov.tenant t
+cross join (values
+    ('Tributário Admin','Administra IPTU, ISS, taxas, DAM, dívida ativa, NFS-e simulada e livro eletrônico.','TRIBUTARIO_ADMIN'),
+    ('Fiscal Tributário','Opera lançamentos, arrecadação, parcelamentos e relatórios fiscais.','FISCAL_TRIBUTARIO'),
+    ('Consulta Tributária','Consulta dashboard, livro eletrônico e relatórios fiscais.','CONSULTA_TRIBUTARIA')
+) v(nome, descricao, codigo_externo)
+where t.slug = 'plataforma-global'
+and not exists (
+    select 1
+    from sigov.perfil_acesso pa
+    where pa.tenant_id = t.id
+      and pa.codigo_externo = v.codigo_externo
+      and pa.is_deleted = false
+);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.modulo='tributario' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false
   and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','TRIBUTARIO_ADMIN')
@@ -275,7 +292,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('tributario.dashboard.visualizar','tributario.iptu.visualizar','tributario.iss.visualizar','tributario.taxas.visualizar','tributario.divida_ativa.visualizar','tributario.parcelamento.visualizar','tributario.arrecadacao.visualizar','tributario.arrecadacao.registrar','tributario.nfse.visualizar','tributario.livro_eletronico.visualizar','tributario.livro_eletronico.gerar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FISCAL_TRIBUTARIO'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -283,7 +300,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('tributario.dashboard.visualizar','tributario.iptu.visualizar','tributario.iss.visualizar','tributario.taxas.visualizar','tributario.divida_ativa.visualizar','tributario.parcelamento.visualizar','tributario.arrecadacao.visualizar','tributario.nfse.visualizar','tributario.livro_eletronico.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='CONSULTA_TRIBUTARIA'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -291,16 +308,6 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.tenant_modulo_pacote (codigo, nome, descricao, modulos_json) values
 ('GOV_TRIBUTARIO_PLUS','Gov Tributário Plus','Pacote fiscal municipal com Tributário Avançado, Financeiro Público e LGPD.', '["tributario","financeiro_publico","auditoria-lgpd"]'::jsonb)
 on conflict (codigo) do update set nome=excluded.nome, descricao=excluded.descricao, modulos_json=excluded.modulos_json;
-
-insert into sigov.contribuinte (tenant_id, inscricao, nome, documento, tipo_pessoa, email, telefone, consentimento_lgpd)
-select t.id, seed.inscricao, seed.nome, seed.documento, seed.tipo_pessoa, seed.email, seed.telefone, true
-from sigov.tenant t
-cross join (values
-    ('MUN-000001','Contribuinte Exemplo IPTU','12345678901','FISICA','iptu.demo@sigov.local','(11) 3000-0001'),
-    ('MUN-000002','Prestador Exemplo ISS','12345678000199','JURIDICA','iss.demo@sigov.local','(11) 3000-0002')
-) as seed(inscricao,nome,documento,tipo_pessoa,email,telefone)
-where t.slug in ('plataforma-global','prefeitura-demo','tenant-demo')
-on conflict (tenant_id, inscricao) do update set nome=excluded.nome, email=excluded.email, telefone=excluded.telefone, updated_at=now();
 
 insert into sigov.tributos_impostos (tenant_id, codigo, nome, tipo, aliquota, fundamento_legal, vinculo_origem)
 select t.id, seed.codigo, seed.nome, seed.tipo, seed.aliquota, seed.fundamento_legal, seed.vinculo_origem

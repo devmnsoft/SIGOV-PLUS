@@ -50,8 +50,6 @@ public sealed class OperationalDemoService
     {
         var tables = GetModuleTables(module);
         var existingTables = await InspectExistingTablesAsync(tables, cancellationToken).ConfigureAwait(false);
-        var usesRealData = false;
-        var status = existingTables.Count > 0 ? "Parcial" : "Em implantação";
         return BuildFallbackModel(module, screen, q, existingTables);
     }
 

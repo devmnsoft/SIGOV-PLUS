@@ -349,7 +349,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "2778012235360e950bb4f6f794c4754828320136b66f8626b4e6720b92ef60fc"
+      "checksum": "2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5"
     },
     {
       "version": "20260610180000",
@@ -367,7 +367,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "725138bf822225fad6dd78493612c712341752bf6061b8b56fda9e4428b94877"
+      "checksum": "3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2"
     },
     {
       "version": "20260610220000",
@@ -440,6 +440,14 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06"
+    },
+    {
+      "version": "20260722120000",
+      "description": "Enterprise tenant mapping",
+      "file": "20260722120000_enterprise_tenant_mapping.sql",
+      "checksum": "5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7",
+      "category": "schema",
+      "applyAutomatically": true
     }
   ]
 }
