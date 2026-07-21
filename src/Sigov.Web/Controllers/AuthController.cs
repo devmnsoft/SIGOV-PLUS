@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Abstractions;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Models.Auth;
+using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
 

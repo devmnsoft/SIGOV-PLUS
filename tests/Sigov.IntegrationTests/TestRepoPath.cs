@@ -2,23 +2,23 @@ namespace Sigov.Testing;
 
 public static class TestRepoPath
 {
-    public static string Root
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    public static string Root { get; } = FindRoot(AppContext.BaseDirectory);
 
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "sigov.sln")))
+    public static string Get(string relativePath) => Path.Combine(Root, relativePath);
+
+    private static string FindRoot(string start)
+    {
+        var directory = new DirectoryInfo(start);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "sigov.sln")) && Directory.Exists(Path.Combine(directory.FullName, "src")))
             {
-                directory = directory.Parent;
+                return directory.FullName;
             }
 
-            return directory?.FullName ?? Directory.GetCurrentDirectory();
+            directory = directory.Parent;
         }
-    }
 
-    public static string Get(string relativePath)
-    {
-        return Path.Combine(Root, relativePath);
+        throw new InvalidOperationException($"Repository root not found from '{start}'.");
     }
 }

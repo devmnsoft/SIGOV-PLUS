@@ -33,7 +33,7 @@ public sealed class ContatoFormViewModel
     public bool Principal { get; set; }
 }
 
-public sealed class UsuarioFormViewModel
+public class UsuarioFormViewModel
 {
     public long? Id { get; set; }
 
@@ -59,7 +59,7 @@ public sealed class UsuarioFiltroViewModel
     public bool? Bloqueado { get; set; }
 }
 
-public sealed class PerfilFormViewModel
+public class PerfilFormViewModel
 {
     [Required]
     [StringLength(80)]

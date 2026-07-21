@@ -1,3 +1,4 @@
+using Sigov.Testing;
 using Xunit;
 
 namespace Sigov.IntegrationTests;

@@ -39,9 +39,9 @@ public sealed class PatrimonioController : Controller
     [HttpGet, Route("/Patrimonio/BensCsv")]
     public IActionResult BensCsv() => File(System.Text.Encoding.UTF8.GetBytes("mensagem\nExportação em implantação neste ambiente; schema patrimonio_bem não confirmado.\n"), "text/csv; charset=utf-8", "patrimonio-bens.csv");
 
-    [HttpPost, ValidateAntiForgeryToken, Route("/Patrimonio/Bens/Novo")]
-    [HttpPost, ValidateAntiForgeryToken, Route("/Patrimonio/Bens/{id:long}/Editar")]
-    [HttpPost, ValidateAntiForgeryToken, Route("/Patrimonio/Bens/{id:long}/Baixar")]
+    [HttpPost, Route("/Patrimonio/Bens/Novo")]
+    [HttpPost, Route("/Patrimonio/Bens/{id:long}/Editar")]
+    [HttpPost, Route("/Patrimonio/Bens/{id:long}/Baixar")]
     public async Task<IActionResult> Salvar(CancellationToken cancellationToken)
     {
         await Audit("patrimonio_bem.criar", "patrimonio_bem", null, cancellationToken).ConfigureAwait(false);
