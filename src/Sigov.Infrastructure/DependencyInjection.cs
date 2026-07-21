@@ -98,7 +98,8 @@ public static class DependencyInjection
         services.AddScoped<INotificacaoRepository, NotificacaoRepository>();
         services.AddScoped<INotificacaoService, Sigov.Application.Operational.NotificacaoService>();
         services.AddScoped<INotificacaoPreferenceService, NotificacaoPreferenceRepository>();
-        services.AddScoped<IKanbanService, KanbanRepository>();
+        services.AddScoped<IKanbanRepository, KanbanRepository>();
+        services.AddScoped<IKanbanService, Sigov.Application.Operational.KanbanService>();
         services.AddScoped<ITarefaNotificationService, NotificacaoRepository>();
         services.AddScoped<IOperationalEventPublisher, OutboxOperationalEventPublisher>();
         services.AddScoped<EnterpriseDapperCrudService>();

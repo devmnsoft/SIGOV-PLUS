@@ -1,0 +1,1 @@
+Ambiente local sem psql. A cadeia deve ser executada pelo job sql-validate e pelo job standalone-postgres-runtime com PostgreSQL 16.

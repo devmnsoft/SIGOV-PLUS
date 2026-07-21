@@ -21,7 +21,9 @@ public sealed class MigrationRunner
         _migrationsPath = ResolveMigrationsPath(configuredPath);
     }
 
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    public Task RunAsync(CancellationToken cancellationToken = default) => RunAsync("ApplyPending", cancellationToken);
+
+    public async Task RunAsync(string migrationMode, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -44,6 +46,7 @@ public sealed class MigrationRunner
 ", cancellationToken: cancellationToken)).ConfigureAwait(false);
 
             var files = Directory.GetFiles(_migrationsPath, "*.sql").OrderBy(static file => file, StringComparer.OrdinalIgnoreCase);
+            var validateOnly = string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase);
             foreach (var file in files)
             {
                 var version = Path.GetFileNameWithoutExtension(file).Split('_', 2)[0];
@@ -57,6 +60,17 @@ public sealed class MigrationRunner
 
                 if (alreadyApplied)
                 {
+                    var storedChecksum = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("select checksum from sigov.schema_migrations where version = @Version;", new { Version = version }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                    if (!string.Equals(storedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning("Checksum divergente para migration sigov {Version}. Banco={StoredChecksum}; Arquivo={Checksum}", version, storedChecksum, checksum);
+                    }
+                    continue;
+                }
+
+                if (validateOnly)
+                {
+                    _logger.LogWarning("Migration pendente {Version} detectada em modo ValidateOnly.", version);
                     continue;
                 }
 

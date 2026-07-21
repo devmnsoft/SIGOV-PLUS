@@ -318,6 +318,41 @@ create table if not exists sigov.b2b_lgpd_consentimentos (
     reg_date timestamptz not null default now()
 );
 
+
+-- Compatibilidade Pós-RC 19: CREATE TABLE IF NOT EXISTS não adiciona colunas ausentes em instalações legadas.
+-- Antes dos índices, garantir explicitamente todas as colunas usadas pelas tabelas B2B versionadas.
+alter table sigov.b2b_planos add column if not exists ativo boolean not null default true;
+alter table sigov.b2b_planos add column if not exists publico boolean not null default true;
+alter table sigov.b2b_planos add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_assinaturas add column if not exists tenant_id bigint;
+alter table sigov.b2b_assinaturas add column if not exists status varchar(40) not null default 'ATIVO';
+alter table sigov.b2b_assinaturas add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_tenant_white_label add column if not exists dominio_customizado varchar(250);
+alter table sigov.b2b_tenant_white_label add column if not exists subdominio varchar(120);
+alter table sigov.b2b_tenant_white_label add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_cadastro_cliente_solicitacoes add column if not exists cnpj varchar(30) not null default '';
+alter table sigov.b2b_cadastro_cliente_solicitacoes add column if not exists status varchar(60) not null default 'PENDENTE';
+alter table sigov.b2b_cadastro_cliente_solicitacoes add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_api_chaves add column if not exists tenant_id bigint;
+alter table sigov.b2b_api_chaves add column if not exists api_key_hash varchar(128) not null default '';
+alter table sigov.b2b_api_uso add column if not exists tenant_id bigint;
+alter table sigov.b2b_api_uso add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_parceiro_tenants add column if not exists parceiro_id bigint;
+alter table sigov.b2b_parceiro_tenants add column if not exists tenant_id bigint;
+alter table sigov.b2b_parceiro_tenants add column if not exists status varchar(40) not null default 'ATIVO';
+alter table sigov.b2b_contratos add column if not exists tenant_id bigint;
+alter table sigov.b2b_contratos add column if not exists status varchar(40) not null default 'ATIVO';
+alter table sigov.b2b_contratos add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_suporte_chamados add column if not exists tenant_id bigint;
+alter table sigov.b2b_suporte_chamados add column if not exists status varchar(40) not null default 'ABERTO';
+alter table sigov.b2b_suporte_chamados add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_telemetria_alertas add column if not exists status varchar(40) not null default 'ABERTO';
+alter table sigov.b2b_telemetria_alertas add column if not exists severidade varchar(40) not null default 'INFO';
+alter table sigov.b2b_telemetria_alertas add column if not exists reg_date timestamptz not null default now();
+alter table sigov.b2b_telemetria_endpoint_performance add column if not exists tenant_id bigint;
+alter table sigov.b2b_telemetria_endpoint_performance add column if not exists duracao_ms bigint not null default 0;
+alter table sigov.b2b_telemetria_endpoint_performance add column if not exists reg_date timestamptz not null default now();
+
 create index if not exists idx_b2b_planos_status_reg_date on sigov.b2b_planos (ativo, publico, reg_date);
 create index if not exists idx_b2b_assinaturas_tenant_status on sigov.b2b_assinaturas (tenant_id, status, reg_date);
 create index if not exists idx_b2b_white_label_dominio on sigov.b2b_tenant_white_label (dominio_customizado);

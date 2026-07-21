@@ -19,6 +19,7 @@ public sealed class DatabaseOptions
     public string Schema { get; set; } = "sigov";
     public bool RunMigrationsOnStartup { get; set; }
     public string MigrationsPath { get; set; } = "database/postgres/migrations";
+    public string MigrationMode { get; set; } = "Disabled";
 }
 
 public sealed class SecurityOptions

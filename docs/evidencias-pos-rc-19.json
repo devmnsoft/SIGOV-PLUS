@@ -1,0 +1,5 @@
+{
+  "date": "2026-07-21",
+  "localLimitations": ["dotnet not found", "pwsh not found", "psql not executed locally"],
+  "ciJobsAdded": ["script-completop-validate", "standalone-postgres-runtime"]
+}

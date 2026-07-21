@@ -83,11 +83,16 @@ if (app.Environment.IsProduction() && string.IsNullOrWhiteSpace(app.Configuratio
     throw new InvalidOperationException("ConnectionStrings:DefaultConnection deve ser fornecida por variável de ambiente/secret manager em Production.");
 }
 
-if (app.Configuration.GetValue("Sigov:Database:RunMigrationsOnStartup", false))
+var migrationMode = app.Configuration.GetValue<string>("Sigov:Database:MigrationMode") ?? (app.Configuration.GetValue("Sigov:Database:RunMigrationsOnStartup", false) ? "ApplyPending" : "Disabled");
+if (app.Environment.IsProduction() && string.Equals(migrationMode, "ApplyPending", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(app.Configuration["Sigov:Database:MigrationMode"]))
+{
+    throw new InvalidOperationException("Sigov:Database:MigrationMode deve ser configurado explicitamente em Production.");
+}
+if (!string.Equals(migrationMode, "Disabled", StringComparison.OrdinalIgnoreCase))
 {
     using var scope = app.Services.CreateScope();
     var runner = scope.ServiceProvider.GetRequiredService<MigrationRunner>();
-    await runner.RunAsync().ConfigureAwait(false);
+    await runner.RunAsync(migrationMode).ConfigureAwait(false);
 }
 
 if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInProduction)
