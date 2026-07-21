@@ -385,7 +385,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "9189f560237c88b1ca7caceca3265d30e17857fd6691be591d24e79280acb005"
+      "checksum": "bb88f758ecde61bfd1383ba6427937197cf832f86d3e5a819d572f82a3ce1ab1"
     },
     {
       "version": "20260611130000",
