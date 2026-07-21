@@ -1,3 +1,15 @@
-# Diagnóstico final Pós-RC 17
+# Núcleo Operacional Transversal Pós-RC 17
 
-Correções aplicadas para centralizar DI Enterprise, separar smoke estático de smoke E2E, padronizar release `1.0.0-rc17`, endurecer validação de pacote/go-live e publicar artifacts obrigatórios no CI.
+Este incremento introduz contratos transversais para tarefas, agenda, prazos, notificações, Kanban e publicação de eventos operacionais na outbox, mantendo Dapper e PostgreSQL.
+
+## Entregas implementadas
+
+- Contratos de Application para `ITarefaRepository`, `ITarefaService`, `ITarefaHistoricoRepository`, `ITarefaNotificationService`, `IAgendaService`, `IPrazoOperacionalService`, `INotificacaoService`, `IKanbanService` e `IOperationalEventPublisher`.
+- Implementação Dapper consolidada em repositório operacional.
+- Máquina de transição de tarefas no serviço de aplicação.
+- Migration PostgreSQL idempotente para tabelas operacionais e outbox padronizada.
+- Registros de Dependency Injection para todos os contratos operacionais.
+
+## Limitações reais
+
+A execução local não possui SDK .NET, Docker, PostgreSQL ou PowerShell. Portanto, build, testes, Docker, migrations reais, smoke e go-live não puderam ser comprovados neste ambiente. Nenhum sucesso foi declarado sem execução.

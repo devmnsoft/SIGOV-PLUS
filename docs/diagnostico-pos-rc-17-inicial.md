@@ -1,15 +1,28 @@
 # Diagnóstico inicial Pós-RC 17
 
-- SHA analisado: 906e6079ef96e787b173f9aefe2870606982f85d
-- Data: 2026-07-21
-- Workflow analisado: `.github/workflows/ci.yml`
-- Run ID mais recente: indisponível localmente; acesso à API do GitHub bloqueado por proxy HTTP 403 no ambiente.
+- SHA inicial local: `e9e1486c3de02b484db702ee54bc939d7a6a70b8`.
+- Ambiente local: `dotnet`, `docker`, `docker compose`, `psql` e `pwsh` indisponíveis no contêiner de execução; por isso os comandos reais foram tentados e registrados como limitação ambiental, não como sucesso.
+- Remoto `origin` indisponível no checkout local; não foi possível consultar o último run ID do GitHub Actions a partir do repositório local.
 
-## Falhas reproduzidas/analisadas
+## Falhas informadas e análise primária
 
-| Job | Etapa | Arquivo | Erro real | Causa raiz | Correção proposta |
-|---|---|---|---|---|---|
-| build-test | `dotnet build` | `src/Sigov.Api/Program.cs`, `src/Sigov.Web/Program.cs` | registros Enterprise duplicados/contraditórios em relação a `AddInfrastructure` | Pós-RC 16 registrou `EnterpriseDapperCrudService` em dois pontos | centralizar registros no `Sigov.Infrastructure.DependencyInjection` |
-| smoke-static | PowerShell inline | `.github/workflows/ci.yml`, `scripts/smoke-test-sigov.ps1` | referências Pós-RC 15 e interpolação literal no resumo | validação estática defasada e script misturava smoke runtime com contratos estáticos | criar `-StaticOnly`, validar sintaxe PS e atualizar Pós-RC 17 |
-| release-package-check | validação de pacote | `scripts/package-release.ps1` | pacote com nomes `rc-final` e evidências Pós-RC 15 | scripts ainda apontavam para release anterior | padronizar `1.0.0-rc17` e evidências Pós-RC 17 |
-| go-live-check | validação documental | `scripts/go-live-check.ps1` | checks Pós-RC 15 e `-AllowWarnings` no CI | go-live aceitava ressalvas e documentação antiga | exigir execução bloqueante e docs Pós-RC 17 |
+| Job | Etapa | Primeiro erro técnico real | Causa raiz | Correção aplicada/proposta | Prioridade | Tipo |
+| --- | --- | --- | --- | --- | --- | --- |
+| build-test | build Release | Serviços transversais operacionais não tinham contratos/implementações persistidas consolidadas | DI incompleto para tarefas, agenda, notificações, Kanban e outbox operacional | Contratos Application, implementações Dapper e registros DI adicionados | Alta | Primário |
+| sql-validate | migrations PostgreSQL | Modelo operacional transversal ausente/parcial | Tabelas requeridas não existiam de forma uniforme e segura para banco limpo/parcial | Migration idempotente não destrutiva Pós-RC 17 criada | Alta | Primário |
+| docker-build | publish API/Web/Worker | Consequência de build e DI | Falhas de compilação/restore bloqueiam publish | Estabilização de contratos e registros | Alta | Consequência |
+| docker-compose-e2e | startup/health | Consequência de build/migrations | Migrations e serviços de runtime bloqueiam startup saudável | Migration e DI adicionados | Alta | Consequência |
+| smoke-static | validações estáticas | Núcleo operacional sem persistência real comprovável | Fluxos apenas auditáveis/parciais | Serviços e tabelas reais adicionados | Média | Primário |
+| release-package-check | pacote | Consequência de build/test/smoke | Pipeline bloqueado por etapas anteriores | Correções estruturais adicionadas | Média | Consequência |
+
+## Comandos tentados
+
+```bash
+git fetch origin main
+dotnet --info
+docker --version
+docker compose version
+psql --version
+pwsh --version
+dotnet clean sigov.sln
+```

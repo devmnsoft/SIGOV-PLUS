@@ -1,15 +1,15 @@
-# Diagnóstico inicial Pós-RC 17
+# Núcleo Operacional Transversal Pós-RC 17
 
-- SHA analisado: 906e6079ef96e787b173f9aefe2870606982f85d
-- Data: 2026-07-21
-- Workflow analisado: `.github/workflows/ci.yml`
-- Run ID mais recente: indisponível localmente; acesso à API do GitHub bloqueado por proxy HTTP 403 no ambiente.
+Este incremento introduz contratos transversais para tarefas, agenda, prazos, notificações, Kanban e publicação de eventos operacionais na outbox, mantendo Dapper e PostgreSQL.
 
-## Falhas reproduzidas/analisadas
+## Entregas implementadas
 
-| Job | Etapa | Arquivo | Erro real | Causa raiz | Correção proposta |
-|---|---|---|---|---|---|
-| build-test | `dotnet build` | `src/Sigov.Api/Program.cs`, `src/Sigov.Web/Program.cs` | registros Enterprise duplicados/contraditórios em relação a `AddInfrastructure` | Pós-RC 16 registrou `EnterpriseDapperCrudService` em dois pontos | centralizar registros no `Sigov.Infrastructure.DependencyInjection` |
-| smoke-static | PowerShell inline | `.github/workflows/ci.yml`, `scripts/smoke-test-sigov.ps1` | referências Pós-RC 15 e interpolação literal no resumo | validação estática defasada e script misturava smoke runtime com contratos estáticos | criar `-StaticOnly`, validar sintaxe PS e atualizar Pós-RC 17 |
-| release-package-check | validação de pacote | `scripts/package-release.ps1` | pacote com nomes `rc-final` e evidências Pós-RC 15 | scripts ainda apontavam para release anterior | padronizar `1.0.0-rc17` e evidências Pós-RC 17 |
-| go-live-check | validação documental | `scripts/go-live-check.ps1` | checks Pós-RC 15 e `-AllowWarnings` no CI | go-live aceitava ressalvas e documentação antiga | exigir execução bloqueante e docs Pós-RC 17 |
+- Contratos de Application para `ITarefaRepository`, `ITarefaService`, `ITarefaHistoricoRepository`, `ITarefaNotificationService`, `IAgendaService`, `IPrazoOperacionalService`, `INotificacaoService`, `IKanbanService` e `IOperationalEventPublisher`.
+- Implementação Dapper consolidada em repositório operacional.
+- Máquina de transição de tarefas no serviço de aplicação.
+- Migration PostgreSQL idempotente para tabelas operacionais e outbox padronizada.
+- Registros de Dependency Injection para todos os contratos operacionais.
+
+## Limitações reais
+
+A execução local não possui SDK .NET, Docker, PostgreSQL ou PowerShell. Portanto, build, testes, Docker, migrations reais, smoke e go-live não puderam ser comprovados neste ambiente. Nenhum sucesso foi declarado sem execução.
