@@ -26,6 +26,22 @@ create table if not exists sigov.kanban_card (id bigserial primary key, tenant_i
 create table if not exists sigov.kanban_historico (id bigserial primary key, tenant_id bigint not null, card_id bigint not null references sigov.kanban_card(id), acao text not null, antes_json jsonb null, depois_json jsonb null, created_at timestamptz not null default now(), created_by bigint null, correlation_id text null);
 
 create table if not exists sigov.outbox_evento (id bigserial primary key, tenant_id bigint not null, event_id uuid not null, event_type text not null, event_version int not null default 1, aggregate_type text not null, aggregate_id text not null, user_id bigint null, correlation_id text null, occurred_at timestamptz not null default now(), payload jsonb not null default '{}'::jsonb, status text not null default 'PENDING', attempts int not null default 0, next_attempt_at timestamptz null, idempotency_key text null unique);
+alter table sigov.outbox_evento add column if not exists event_id uuid;
+alter table sigov.outbox_evento add column if not exists event_type text;
+alter table sigov.outbox_evento add column if not exists event_version int not null default 1;
+alter table sigov.outbox_evento add column if not exists aggregate_type text;
+alter table sigov.outbox_evento add column if not exists aggregate_id text;
+alter table sigov.outbox_evento add column if not exists user_id bigint;
+alter table sigov.outbox_evento add column if not exists occurred_at timestamptz not null default now();
+alter table sigov.outbox_evento add column if not exists attempts int not null default 0;
+alter table sigov.outbox_evento add column if not exists next_attempt_at timestamptz;
+alter table sigov.outbox_evento add column if not exists idempotency_key text;
+create unique index if not exists ux_outbox_evento_idempotency_key on sigov.outbox_evento (idempotency_key) where idempotency_key is not null;
+update sigov.outbox_evento set event_id = coalesce(event_id, gen_random_uuid()), event_type = coalesce(event_type, evento, 'operacional.legado'), aggregate_type = coalesce(aggregate_type, agregado, 'legado'), aggregate_id = coalesce(aggregate_id, agregado_id::text, id::text), attempts = coalesce(attempts, tentativas, 0), next_attempt_at = coalesce(next_attempt_at, proxima_tentativa_at, now()) where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null;
+alter table sigov.outbox_evento alter column event_id set not null;
+alter table sigov.outbox_evento alter column event_type set not null;
+alter table sigov.outbox_evento alter column aggregate_type set not null;
+alter table sigov.outbox_evento alter column aggregate_id set not null;
 
 create index if not exists ix_tarefa_tenant_status on sigov.tarefa (tenant_id, status);
 create index if not exists ix_tarefa_responsavel_prazo on sigov.tarefa (tenant_id, responsavel_id, prazo_em);

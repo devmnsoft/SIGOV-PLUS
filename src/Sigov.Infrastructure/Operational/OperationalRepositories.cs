@@ -98,6 +98,66 @@ returning id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id 
     }
 }
 
+public sealed class TarefaService : ITarefaService
+{
+    private static readonly IReadOnlyDictionary<string, ISet<string>> AllowedTransitions = new Dictionary<string, ISet<string>>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ABERTA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ATRIBUIDA", "EM_ANDAMENTO", "CANCELADA" },
+        ["ATRIBUIDA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "AGUARDANDO", "PAUSADA", "CONCLUIDA", "CANCELADA" },
+        ["EM_ANDAMENTO"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "AGUARDANDO", "PAUSADA", "CONCLUIDA", "CANCELADA", "VENCIDA" },
+        ["AGUARDANDO"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CANCELADA", "VENCIDA" },
+        ["PAUSADA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CANCELADA" },
+        ["CONCLUIDA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "REABERTA" },
+        ["REABERTA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CANCELADA" },
+        ["VENCIDA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA" },
+        ["CANCELADA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase)()
+    };
+
+    private readonly ITarefaRepository _repository;
+    private readonly ITarefaHistoricoRepository _historico;
+    private readonly ITarefaNotificationService _notifications;
+    private readonly IOperationalEventPublisher _events;
+
+    public TarefaService(ITarefaRepository repository, ITarefaHistoricoRepository historico, ITarefaNotificationService notifications, IOperationalEventPublisher events)
+    {
+        _repository = repository;
+        _historico = historico;
+        _notifications = notifications;
+        _events = events;
+    }
+
+    public async Task<TarefaDto> CriarAsync(CriarTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
+    {
+        var tarefa = await _repository.CriarAsync(request, context, cancellationToken).ConfigureAwait(false);
+        await _historico.RegistrarAsync(tarefa.Id, "tarefa.criada", null, tarefa, context, cancellationToken).ConfigureAwait(false);
+        await _events.PublishAsync(new OperationalEvent("tarefa.criada", "tarefa", tarefa.Id.ToString(), context.TenantId, context.UserId, context.CorrelationId, new { tarefaId = tarefa.Id, tarefa.Status, tarefa.Prioridade }, $"tarefa:criada:{context.TenantId}:{tarefa.Id}"), cancellationToken).ConfigureAwait(false);
+        if (tarefa.ResponsavelId.HasValue)
+        {
+            await _notifications.NotificarAsync(tarefa.Id, "criada", context, cancellationToken).ConfigureAwait(false);
+        }
+
+        return tarefa;
+    }
+
+    public Task<TarefaDto?> ObterAsync(long tenantId, long tarefaId, CancellationToken cancellationToken) => _repository.ObterAsync(tenantId, tarefaId, cancellationToken);
+
+    public Task<IReadOnlyList<TarefaDto>> ListarAsync(long tenantId, long? responsavelId, string? status, int page, int pageSize, CancellationToken cancellationToken) => _repository.ListarAsync(tenantId, responsavelId, status, page, pageSize, cancellationToken);
+
+    public async Task<TarefaDto> AlterarStatusAsync(AlterarStatusTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
+    {
+        var antes = await _repository.ObterAsync(context.TenantId, request.TarefaId, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Tarefa não encontrada para o tenant informado.");
+        if (!AllowedTransitions.TryGetValue(antes.Status, out var allowed) || !allowed.Contains(request.NovoStatus))
+        {
+            throw new InvalidOperationException($"Transição de tarefa inválida: {antes.Status} -> {request.NovoStatus}.");
+        }
+
+        var depois = await _repository.AlterarStatusAsync(request, context, cancellationToken).ConfigureAwait(false);
+        await _historico.RegistrarAsync(depois.Id, $"tarefa.{request.NovoStatus.ToLowerInvariant()}", antes, depois, context, cancellationToken).ConfigureAwait(false);
+        await _events.PublishAsync(new OperationalEvent($"tarefa.{request.NovoStatus.ToLowerInvariant()}", "tarefa", depois.Id.ToString(), context.TenantId, context.UserId, context.CorrelationId, new { tarefaId = depois.Id, statusAnterior = antes.Status, statusNovo = depois.Status }, $"tarefa:status:{context.TenantId}:{depois.Id}:{depois.Status}"), cancellationToken).ConfigureAwait(false);
+        return depois;
+    }
+}
+
 public sealed class AgendaService : IAgendaService { private readonly IAgendaRepository _repository; public AgendaService(IAgendaRepository repository) => _repository = repository; public Task<AgendaCompromissoDto> CriarAsync(CriarCompromissoRequest request, OperationalCommandContext context, CancellationToken cancellationToken) => _repository.CriarAsync(request, context, cancellationToken); }
 public sealed class PrazoOperacionalService : IPrazoOperacionalService { private readonly IPrazoOperacionalRepository _repository; public PrazoOperacionalService(IPrazoOperacionalRepository repository) => _repository = repository; public Task<IReadOnlyList<PrazoOperacionalDto>> ListarVencidosAsync(long tenantId, DateTimeOffset referencia, CancellationToken cancellationToken) => _repository.ListarVencidosAsync(tenantId, referencia, cancellationToken); }
 public sealed class NotificacaoService : INotificacaoService { private readonly INotificacaoRepository _repository; public NotificacaoService(INotificacaoRepository repository) => _repository = repository; public Task<IReadOnlyList<NotificacaoDto>> ListarAsync(long tenantId, long usuarioId, bool? lida, CancellationToken cancellationToken) => _repository.ListarAsync(tenantId, usuarioId, lida, cancellationToken); public Task MarcarLidaAsync(long tenantId, long usuarioId, long notificacaoId, string correlationId, CancellationToken cancellationToken) => _repository.MarcarLidaAsync(tenantId, usuarioId, notificacaoId, correlationId, cancellationToken); }
