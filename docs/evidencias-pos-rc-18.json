@@ -1,0 +1,1 @@
+{"releaseCandidate":"1.0.0-rc18","localEnvironment":{"dotnet":"not-found"},"checks":[{"command":"dotnet build sigov.sln --configuration Release --no-restore","status":"warning","reason":"dotnet not found"}]}
