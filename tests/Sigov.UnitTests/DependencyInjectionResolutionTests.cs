@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Enterprise;
+using Sigov.Application.Operational;
 using Sigov.Infrastructure;
 using Sigov.Infrastructure.Common;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -32,6 +33,13 @@ public sealed class DependencyInjectionResolutionTests
         scope.ServiceProvider.GetRequiredService<ITenantResolver>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<IAuditService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<IOutboxService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ITarefaService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IAgendaService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IPrazoOperacionalService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<INotificacaoService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<INotificacaoPreferenceService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IKanbanService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IOperationalEventPublisher>().Should().NotBeNull();
         scope.ServiceProvider.GetServices<IHealthCheck>().Should().NotBeEmpty();
     }
 
