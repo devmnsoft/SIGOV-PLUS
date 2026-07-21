@@ -5,159 +5,20 @@ using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Operational;
 
-public sealed class TarefaRepository : ITarefaRepository, ITarefaHistoricoRepository, IAgendaRepository, IPrazoOperacionalRepository, INotificacaoRepository, INotificacaoPreferenceService, IKanbanService, ITarefaNotificationService, IOperationalEventPublisher
+public sealed class TarefaRepository : ITarefaRepository
 {
     private readonly DapperContext _context;
     public TarefaRepository(DapperContext context) => _context = context;
-
     public async Task<TarefaDto> CriarAsync(CriarTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        const string sql = @"insert into sigov.tarefa (tenant_id, titulo, descricao, prioridade, responsavel_id, prazo_em, status, created_by, updated_by, correlation_id)
-values (@TenantId, @Titulo, @Descricao, @Prioridade, @ResponsavelId, @PrazoEm, 'ABERTA', @UserId, @UserId, @CorrelationId)
-returning id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt;";
-        using var connection = _context.CreateConnection();
-        return await connection.QuerySingleAsync<TarefaDto>(new CommandDefinition(sql, new { context.TenantId, request.Titulo, request.Descricao, request.Prioridade, request.ResponsavelId, request.PrazoEm, context.UserId, context.CorrelationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task<TarefaDto?> ObterAsync(long tenantId, long tarefaId, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<TarefaDto>(new CommandDefinition(@"select id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt from sigov.tarefa where tenant_id = @TenantId and id = @TarefaId and is_deleted = false;", new { TenantId = tenantId, TarefaId = tarefaId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<TarefaDto>> ListarAsync(long tenantId, long? responsavelId, string? status, int page, int pageSize, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        var rows = await connection.QueryAsync<TarefaDto>(new CommandDefinition(@"select id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt from sigov.tarefa where tenant_id = @TenantId and is_deleted = false and (@ResponsavelId is null or responsavel_id = @ResponsavelId) and (@Status is null or status = @Status) order by prazo_em nulls last, id limit @Limit offset @Offset;", new { TenantId = tenantId, ResponsavelId = responsavelId, Status = status, Limit = Math.Clamp(pageSize, 1, 200), Offset = Math.Max(page - 1, 0) * Math.Clamp(pageSize, 1, 200) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.AsList();
-    }
-
-    public async Task<TarefaDto> AlterarStatusAsync(AlterarStatusTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        return await connection.QuerySingleAsync<TarefaDto>(new CommandDefinition(@"update sigov.tarefa set status = @Status, updated_at = now(), updated_by = @UserId, correlation_id = @CorrelationId where tenant_id = @TenantId and id = @TarefaId and is_deleted = false returning id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt;", new { Status = request.NovoStatus, context.UserId, context.CorrelationId, context.TenantId, request.TarefaId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task RegistrarAsync(long tarefaId, string acao, object? antes, object? depois, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.tarefa_historico (tenant_id, tarefa_id, acao, antes_json, depois_json, created_by, correlation_id, ip_address, user_agent) values (@TenantId, @TarefaId, @Acao, @Antes::jsonb, @Depois::jsonb, @UserId, @CorrelationId, @IpAddress, @UserAgent);", new { context.TenantId, TarefaId = tarefaId, Acao = acao, Antes = JsonSerializer.Serialize(antes), Depois = JsonSerializer.Serialize(depois), context.UserId, context.CorrelationId, context.IpAddress, context.UserAgent }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task<AgendaCompromissoDto> CriarAsync(CriarCompromissoRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        return await connection.QuerySingleAsync<AgendaCompromissoDto>(new CommandDefinition(@"insert into sigov.agenda_compromisso (tenant_id, titulo, descricao, inicio_em, fim_em, status, created_by, updated_by, correlation_id) values (@TenantId, @Titulo, @Descricao, @InicioEm, @FimEm, 'AGENDADO', @UserId, @UserId, @CorrelationId) returning id, tenant_id as TenantId, titulo, inicio_em as InicioEm, fim_em as FimEm, status;", new { context.TenantId, request.Titulo, request.Descricao, request.InicioEm, request.FimEm, context.UserId, context.CorrelationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<PrazoOperacionalDto>> ListarVencidosAsync(long tenantId, DateTimeOffset referencia, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        var rows = await connection.QueryAsync<PrazoOperacionalDto>(new CommandDefinition(@"select id, tenant_id as TenantId, titulo, vence_em as VenceEm, status, tarefa_id as TarefaId from sigov.prazo_operacional where tenant_id = @TenantId and status <> 'CONCLUIDO' and vence_em < @Referencia and is_deleted = false;", new { TenantId = tenantId, Referencia = referencia }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.AsList();
-    }
-
-    public async Task<IReadOnlyList<NotificacaoDto>> ListarAsync(long tenantId, long usuarioId, bool? lida, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        var rows = await connection.QueryAsync<NotificacaoDto>(new CommandDefinition(@"select id, tenant_id as TenantId, usuario_id as UsuarioId, tipo, titulo, lida, created_at as CreatedAt from sigov.notificacao_usuario where tenant_id = @TenantId and usuario_id = @UsuarioId and (@Lida is null or lida = @Lida) order by created_at desc;", new { TenantId = tenantId, UsuarioId = usuarioId, Lida = lida }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.AsList();
-    }
-
-    public async Task MarcarLidaAsync(long tenantId, long usuarioId, long notificacaoId, string correlationId, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(@"update sigov.notificacao_usuario set lida = true, lida_em = now(), correlation_id = @CorrelationId where tenant_id = @TenantId and usuario_id = @UsuarioId and id = @NotificacaoId;", new { TenantId = tenantId, UsuarioId = usuarioId, NotificacaoId = notificacaoId, CorrelationId = correlationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task SalvarAsync(long tenantId, long usuarioId, string tipo, bool habilitada, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.notificacao_preferencia (tenant_id, usuario_id, tipo, habilitada) values (@TenantId, @UsuarioId, @Tipo, @Habilitada) on conflict (tenant_id, usuario_id, tipo) do update set habilitada = excluded.habilitada, updated_at = now();", new { TenantId = tenantId, UsuarioId = usuarioId, Tipo = tipo, Habilitada = habilitada }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<KanbanCardDto>> ListarAsync(long tenantId, string origem, long? responsavelId, string? sla, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        var rows = await connection.QueryAsync<KanbanCardDto>(new CommandDefinition(@"select id, tenant_id as TenantId, origem, entidade_id as EntidadeId, titulo, coluna, ordem, responsavel_id as ResponsavelId, prazo_em as PrazoEm from sigov.kanban_card where tenant_id = @TenantId and origem = @Origem and (@ResponsavelId is null or responsavel_id = @ResponsavelId) and (@Sla is null or sla = @Sla) and is_deleted = false order by coluna, ordem, id;", new { TenantId = tenantId, Origem = origem, ResponsavelId = responsavelId, Sla = sla }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.AsList();
-    }
-
-    public async Task MoverAsync(long tenantId, long cardId, string coluna, int ordem, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(@"update sigov.kanban_card set coluna = @Coluna, ordem = @Ordem, updated_at = now(), updated_by = @UserId, correlation_id = @CorrelationId where tenant_id = @TenantId and id = @CardId and is_deleted = false; insert into sigov.kanban_historico (tenant_id, card_id, acao, depois_json, created_by, correlation_id) values (@TenantId, @CardId, 'kanban.status.alterado', jsonb_build_object('coluna', @Coluna, 'ordem', @Ordem), @UserId, @CorrelationId);", new { TenantId = tenantId, CardId = cardId, Coluna = coluna, Ordem = ordem, context.UserId, context.CorrelationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    public Task NotificarAsync(long tarefaId, string tipo, OperationalCommandContext context, CancellationToken cancellationToken) => PublishAsync(new OperationalEvent($"notificacao.{tipo}", "tarefa", tarefaId.ToString(), context.TenantId, context.UserId, context.CorrelationId, new { tarefaId, tipo }, $"notificacao:{tipo}:{tarefaId}:{context.UserId}"), cancellationToken);
-
-    public async Task PublishAsync(OperationalEvent operationalEvent, CancellationToken cancellationToken)
-    {
-        using var connection = _context.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.outbox_evento (tenant_id, event_id, event_type, event_version, aggregate_type, aggregate_id, user_id, correlation_id, occurred_at, payload, status, attempts, next_attempt_at, idempotency_key) values (@TenantId, gen_random_uuid(), @EventType, 1, @AggregateType, @AggregateId, @UserId, @CorrelationId, now(), @Payload::jsonb, 'PENDING', 0, now(), @IdempotencyKey) on conflict (idempotency_key) do nothing;", new { operationalEvent.TenantId, operationalEvent.EventType, operationalEvent.AggregateType, operationalEvent.AggregateId, operationalEvent.UserId, operationalEvent.CorrelationId, Payload = JsonSerializer.Serialize(operationalEvent.Payload), operationalEvent.IdempotencyKey }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
+    { const string sql = @"insert into sigov.tarefa (tenant_id, titulo, descricao, prioridade, responsavel_id, prazo_em, status, created_by, updated_by, correlation_id) values (@TenantId, @Titulo, @Descricao, @Prioridade, @ResponsavelId, @PrazoEm, 'ABERTA', @UserId, @UserId, @CorrelationId) returning id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt;"; using var connection = _context.CreateConnection(); return await connection.QuerySingleAsync<TarefaDto>(new CommandDefinition(sql, new { context.TenantId, request.Titulo, request.Descricao, request.Prioridade, request.ResponsavelId, request.PrazoEm, context.UserId, context.CorrelationId }, cancellationToken: cancellationToken)).ConfigureAwait(false); }
+    public async Task<TarefaDto?> ObterAsync(long tenantId, long tarefaId, CancellationToken cancellationToken) { using var connection = _context.CreateConnection(); return await connection.QuerySingleOrDefaultAsync<TarefaDto>(new CommandDefinition(@"select id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt from sigov.tarefa where tenant_id = @TenantId and id = @TarefaId and is_deleted = false;", new { TenantId = tenantId, TarefaId = tarefaId }, cancellationToken: cancellationToken)).ConfigureAwait(false); }
+    public async Task<IReadOnlyList<TarefaDto>> ListarAsync(long tenantId, long? responsavelId, string? status, int page, int pageSize, CancellationToken cancellationToken) { using var connection = _context.CreateConnection(); var rows = await connection.QueryAsync<TarefaDto>(new CommandDefinition(@"select id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt from sigov.tarefa where tenant_id = @TenantId and is_deleted = false and (@ResponsavelId is null or responsavel_id = @ResponsavelId) and (@Status is null or status = @Status) order by prazo_em nulls last, id limit @Limit offset @Offset;", new { TenantId = tenantId, ResponsavelId = responsavelId, Status = status, Limit = Math.Clamp(pageSize, 1, 200), Offset = Math.Max(page - 1, 0) * Math.Clamp(pageSize, 1, 200) }, cancellationToken: cancellationToken)).ConfigureAwait(false); return rows.AsList(); }
+    public async Task<TarefaDto> AlterarStatusAsync(AlterarStatusTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken) { using var connection = _context.CreateConnection(); return await connection.QuerySingleAsync<TarefaDto>(new CommandDefinition(@"update sigov.tarefa set status = @Status, updated_at = now(), updated_by = @UserId, correlation_id = @CorrelationId where tenant_id = @TenantId and id = @TarefaId and is_deleted = false returning id, tenant_id as TenantId, titulo, status, prioridade, responsavel_id as ResponsavelId, prazo_em as PrazoEm, created_at as CreatedAt;", new { Status = request.NovoStatus, context.UserId, context.CorrelationId, context.TenantId, request.TarefaId }, cancellationToken: cancellationToken)).ConfigureAwait(false); }
 }
-
-public sealed class TarefaService : ITarefaService
-{
-    private static readonly IReadOnlyDictionary<string, ISet<string>> AllowedTransitions = new Dictionary<string, ISet<string>>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["ABERTA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ATRIBUIDA", "EM_ANDAMENTO", "CANCELADA" },
-        ["ATRIBUIDA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "AGUARDANDO", "PAUSADA", "CONCLUIDA", "CANCELADA" },
-        ["EM_ANDAMENTO"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "AGUARDANDO", "PAUSADA", "CONCLUIDA", "CANCELADA", "VENCIDA" },
-        ["AGUARDANDO"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CANCELADA", "VENCIDA" },
-        ["PAUSADA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CANCELADA" },
-        ["CONCLUIDA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "REABERTA" },
-        ["REABERTA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CANCELADA" },
-        ["VENCIDA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA" },
-        ["CANCELADA"] = new HashSet<string>(StringComparer.OrdinalIgnoreCase)()
-    };
-
-    private readonly ITarefaRepository _repository;
-    private readonly ITarefaHistoricoRepository _historico;
-    private readonly ITarefaNotificationService _notifications;
-    private readonly IOperationalEventPublisher _events;
-
-    public TarefaService(ITarefaRepository repository, ITarefaHistoricoRepository historico, ITarefaNotificationService notifications, IOperationalEventPublisher events)
-    {
-        _repository = repository;
-        _historico = historico;
-        _notifications = notifications;
-        _events = events;
-    }
-
-    public async Task<TarefaDto> CriarAsync(CriarTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        var tarefa = await _repository.CriarAsync(request, context, cancellationToken).ConfigureAwait(false);
-        await _historico.RegistrarAsync(tarefa.Id, "tarefa.criada", null, tarefa, context, cancellationToken).ConfigureAwait(false);
-        await _events.PublishAsync(new OperationalEvent("tarefa.criada", "tarefa", tarefa.Id.ToString(), context.TenantId, context.UserId, context.CorrelationId, new { tarefaId = tarefa.Id, tarefa.Status, tarefa.Prioridade }, $"tarefa:criada:{context.TenantId}:{tarefa.Id}"), cancellationToken).ConfigureAwait(false);
-        if (tarefa.ResponsavelId.HasValue)
-        {
-            await _notifications.NotificarAsync(tarefa.Id, "criada", context, cancellationToken).ConfigureAwait(false);
-        }
-
-        return tarefa;
-    }
-
-    public Task<TarefaDto?> ObterAsync(long tenantId, long tarefaId, CancellationToken cancellationToken) => _repository.ObterAsync(tenantId, tarefaId, cancellationToken);
-
-    public Task<IReadOnlyList<TarefaDto>> ListarAsync(long tenantId, long? responsavelId, string? status, int page, int pageSize, CancellationToken cancellationToken) => _repository.ListarAsync(tenantId, responsavelId, status, page, pageSize, cancellationToken);
-
-    public async Task<TarefaDto> AlterarStatusAsync(AlterarStatusTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
-    {
-        var antes = await _repository.ObterAsync(context.TenantId, request.TarefaId, cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Tarefa não encontrada para o tenant informado.");
-        if (!AllowedTransitions.TryGetValue(antes.Status, out var allowed) || !allowed.Contains(request.NovoStatus))
-        {
-            throw new InvalidOperationException($"Transição de tarefa inválida: {antes.Status} -> {request.NovoStatus}.");
-        }
-
-        var depois = await _repository.AlterarStatusAsync(request, context, cancellationToken).ConfigureAwait(false);
-        await _historico.RegistrarAsync(depois.Id, $"tarefa.{request.NovoStatus.ToLowerInvariant()}", antes, depois, context, cancellationToken).ConfigureAwait(false);
-        await _events.PublishAsync(new OperationalEvent($"tarefa.{request.NovoStatus.ToLowerInvariant()}", "tarefa", depois.Id.ToString(), context.TenantId, context.UserId, context.CorrelationId, new { tarefaId = depois.Id, statusAnterior = antes.Status, statusNovo = depois.Status }, $"tarefa:status:{context.TenantId}:{depois.Id}:{depois.Status}"), cancellationToken).ConfigureAwait(false);
-        return depois;
-    }
-}
-
-public sealed class AgendaService : IAgendaService { private readonly IAgendaRepository _repository; public AgendaService(IAgendaRepository repository) => _repository = repository; public Task<AgendaCompromissoDto> CriarAsync(CriarCompromissoRequest request, OperationalCommandContext context, CancellationToken cancellationToken) => _repository.CriarAsync(request, context, cancellationToken); }
-public sealed class PrazoOperacionalService : IPrazoOperacionalService { private readonly IPrazoOperacionalRepository _repository; public PrazoOperacionalService(IPrazoOperacionalRepository repository) => _repository = repository; public Task<IReadOnlyList<PrazoOperacionalDto>> ListarVencidosAsync(long tenantId, DateTimeOffset referencia, CancellationToken cancellationToken) => _repository.ListarVencidosAsync(tenantId, referencia, cancellationToken); }
-public sealed class NotificacaoService : INotificacaoService { private readonly INotificacaoRepository _repository; public NotificacaoService(INotificacaoRepository repository) => _repository = repository; public Task<IReadOnlyList<NotificacaoDto>> ListarAsync(long tenantId, long usuarioId, bool? lida, CancellationToken cancellationToken) => _repository.ListarAsync(tenantId, usuarioId, lida, cancellationToken); public Task MarcarLidaAsync(long tenantId, long usuarioId, long notificacaoId, string correlationId, CancellationToken cancellationToken) => _repository.MarcarLidaAsync(tenantId, usuarioId, notificacaoId, correlationId, cancellationToken); }
+public sealed class TarefaHistoricoRepository : ITarefaHistoricoRepository { private readonly DapperContext _context; public TarefaHistoricoRepository(DapperContext context)=>_context=context; public async Task RegistrarAsync(long tarefaId,string acao,object? antes,object? depois,OperationalCommandContext context,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.tarefa_historico (tenant_id, tarefa_id, acao, antes_json, depois_json, created_by, correlation_id, ip_address, user_agent) values (@TenantId, @TarefaId, @Acao, @Antes::jsonb, @Depois::jsonb, @UserId, @CorrelationId, @IpAddress, @UserAgent);", new { context.TenantId, TarefaId=tarefaId, Acao=acao, Antes=JsonSerializer.Serialize(antes), Depois=JsonSerializer.Serialize(depois), context.UserId, context.CorrelationId, context.IpAddress, context.UserAgent}, cancellationToken:cancellationToken)).ConfigureAwait(false);} }
+public sealed class AgendaRepository : IAgendaRepository { private readonly DapperContext _context; public AgendaRepository(DapperContext context)=>_context=context; public async Task<AgendaCompromissoDto> CriarAsync(CriarCompromissoRequest request, OperationalCommandContext context,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); return await connection.QuerySingleAsync<AgendaCompromissoDto>(new CommandDefinition(@"insert into sigov.agenda_compromisso (tenant_id, titulo, descricao, inicio_em, fim_em, status, created_by, updated_by, correlation_id) values (@TenantId, @Titulo, @Descricao, @InicioEm, @FimEm, 'AGENDADO', @UserId, @UserId, @CorrelationId) returning id, tenant_id as TenantId, titulo, inicio_em as InicioEm, fim_em as FimEm, status;", new { context.TenantId, request.Titulo, request.Descricao, request.InicioEm, request.FimEm, context.UserId, context.CorrelationId}, cancellationToken:cancellationToken)).ConfigureAwait(false);} }
+public sealed class PrazoOperacionalRepository : IPrazoOperacionalRepository { private readonly DapperContext _context; public PrazoOperacionalRepository(DapperContext context)=>_context=context; public async Task<IReadOnlyList<PrazoOperacionalDto>> ListarVencidosAsync(long tenantId,DateTimeOffset referencia,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); var rows=await connection.QueryAsync<PrazoOperacionalDto>(new CommandDefinition(@"select id, tenant_id as TenantId, titulo, vence_em as VenceEm, status, tarefa_id as TarefaId from sigov.prazo_operacional where tenant_id = @TenantId and status <> 'CONCLUIDO' and vence_em < @Referencia and is_deleted = false;", new {TenantId=tenantId, Referencia=referencia}, cancellationToken:cancellationToken)).ConfigureAwait(false); return rows.AsList();} }
+public sealed class NotificacaoRepository : INotificacaoRepository, ITarefaNotificationService { private readonly DapperContext _context; public NotificacaoRepository(DapperContext context)=>_context=context; public async Task<IReadOnlyList<NotificacaoDto>> ListarAsync(long tenantId,long usuarioId,bool? lida,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); var rows=await connection.QueryAsync<NotificacaoDto>(new CommandDefinition(@"select id, tenant_id as TenantId, usuario_id as UsuarioId, tipo, titulo, lida, created_at as CreatedAt from sigov.notificacao_usuario where tenant_id = @TenantId and usuario_id = @UsuarioId and (@Lida is null or lida = @Lida) order by created_at desc;", new {TenantId=tenantId, UsuarioId=usuarioId, Lida=lida}, cancellationToken:cancellationToken)).ConfigureAwait(false); return rows.AsList();} public async Task MarcarLidaAsync(long tenantId,long usuarioId,long notificacaoId,string correlationId,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); await connection.ExecuteAsync(new CommandDefinition(@"update sigov.notificacao_usuario set lida = true, lida_em = now(), correlation_id = @CorrelationId where tenant_id = @TenantId and usuario_id = @UsuarioId and id = @NotificacaoId;", new {TenantId=tenantId, UsuarioId=usuarioId, NotificacaoId=notificacaoId, CorrelationId=correlationId}, cancellationToken:cancellationToken)).ConfigureAwait(false);} public Task NotificarAsync(long tarefaId,string tipo,OperationalCommandContext context,CancellationToken cancellationToken)=>Task.CompletedTask; }
+public sealed class NotificacaoPreferenceRepository : INotificacaoPreferenceService { private readonly DapperContext _context; public NotificacaoPreferenceRepository(DapperContext context)=>_context=context; public async Task SalvarAsync(long tenantId,long usuarioId,string tipo,bool habilitada,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.notificacao_preferencia (tenant_id, usuario_id, tipo, habilitada) values (@TenantId, @UsuarioId, @Tipo, @Habilitada) on conflict (tenant_id, usuario_id, tipo) do update set habilitada = excluded.habilitada, updated_at = now();", new {TenantId=tenantId, UsuarioId=usuarioId, Tipo=tipo, Habilitada=habilitada}, cancellationToken:cancellationToken)).ConfigureAwait(false);} }
+public sealed class KanbanRepository : IKanbanService { private readonly DapperContext _context; public KanbanRepository(DapperContext context)=>_context=context; public async Task<IReadOnlyList<KanbanCardDto>> ListarAsync(long tenantId,string origem,long? responsavelId,string? sla,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); var rows=await connection.QueryAsync<KanbanCardDto>(new CommandDefinition(@"select id, tenant_id as TenantId, origem, entidade_id as EntidadeId, titulo, coluna, ordem, responsavel_id as ResponsavelId, prazo_em as PrazoEm from sigov.kanban_card where tenant_id = @TenantId and origem = @Origem and (@ResponsavelId is null or responsavel_id = @ResponsavelId) and (@Sla is null or sla = @Sla) and is_deleted = false order by coluna, ordem, id;", new {TenantId=tenantId, Origem=origem, ResponsavelId=responsavelId, Sla=sla}, cancellationToken:cancellationToken)).ConfigureAwait(false); return rows.AsList();} public async Task MoverAsync(long tenantId,long cardId,string coluna,int ordem,OperationalCommandContext context,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); await connection.ExecuteAsync(new CommandDefinition(@"update sigov.kanban_card set coluna = @Coluna, ordem = @Ordem, updated_at = now(), updated_by = @UserId, correlation_id = @CorrelationId where tenant_id = @TenantId and id = @CardId and is_deleted = false; insert into sigov.kanban_historico (tenant_id, card_id, acao, depois_json, created_by, correlation_id) values (@TenantId, @CardId, 'kanban.status.alterado', jsonb_build_object('coluna', @Coluna, 'ordem', @Ordem), @UserId, @CorrelationId);", new {TenantId=tenantId, CardId=cardId, Coluna=coluna, Ordem=ordem, context.UserId, context.CorrelationId}, cancellationToken:cancellationToken)).ConfigureAwait(false);} }
+public sealed class OutboxOperationalEventPublisher : IOperationalEventPublisher { private readonly DapperContext _context; public OutboxOperationalEventPublisher(DapperContext context)=>_context=context; public async Task PublishAsync(OperationalEvent operationalEvent,CancellationToken cancellationToken){using var connection=_context.CreateConnection(); await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.outbox_evento (tenant_id, event_id, event_type, event_version, aggregate_type, aggregate_id, user_id, correlation_id, occurred_at, payload, status, attempts, next_attempt_at, idempotency_key) values (@TenantId, gen_random_uuid(), @EventType, 1, @AggregateType, @AggregateId, @UserId, @CorrelationId, now(), @Payload::jsonb, 'PENDING', 0, now(), @IdempotencyKey) on conflict (idempotency_key) do nothing;", new {operationalEvent.TenantId, operationalEvent.EventType, operationalEvent.AggregateType, operationalEvent.AggregateId, operationalEvent.UserId, operationalEvent.CorrelationId, Payload=JsonSerializer.Serialize(operationalEvent.Payload), operationalEvent.IdempotencyKey}, cancellationToken:cancellationToken)).ConfigureAwait(false);} }

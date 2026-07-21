@@ -1,19 +1,25 @@
-insert into sigov.permissao (modulo, recurso, acao, chave, descricao, ativo)
-values
-('agro','produtor','visualizar','agro.produtor.visualizar','Visualizar produtores rurais.',true),('agro','produtor','criar','agro.produtor.criar','Criar produtores rurais.',true),('agro','produtor','editar','agro.produtor.editar','Editar produtores rurais.',true),('agro','produtor','excluir','agro.produtor.excluir','Excluir produtores rurais.',true),('agro','produtor','visualizar_dados_completos','agro.produtor.visualizar_dados_completos','Visualizar dados pessoais completos de produtores rurais.',true),
+with seed(modulo, recurso, acao, chave, descricao, ativo) as (
+  values
+  ('agro','produtor','visualizar','agro.produtor.visualizar','Visualizar produtores rurais.',true),('agro','produtor','criar','agro.produtor.criar','Criar produtores rurais.',true),('agro','produtor','editar','agro.produtor.editar','Editar produtores rurais.',true),('agro','produtor','excluir','agro.produtor.excluir','Excluir produtores rurais.',true),('agro','produtor','visualizar_dados_completos','agro.produtor.visualizar_dados_completos','Visualizar dados pessoais completos de produtores rurais.',true),
 ('agro','propriedade','visualizar','agro.propriedade.visualizar','Visualizar propriedades rurais.',true),('agro','propriedade','criar','agro.propriedade.criar','Criar propriedades rurais.',true),('agro','propriedade','editar','agro.propriedade.editar','Editar propriedades rurais.',true),('agro','propriedade','excluir','agro.propriedade.excluir','Excluir propriedades rurais.',true),
 ('agro','talhao','visualizar','agro.talhao.visualizar','Visualizar talhões.',true),('agro','talhao','criar','agro.talhao.criar','Criar talhões.',true),('agro','talhao','editar','agro.talhao.editar','Editar talhões.',true),
 ('agro','cultura','visualizar','agro.cultura.visualizar','Visualizar culturas.',true),('agro','cultura','criar','agro.cultura.criar','Criar culturas.',true),('agro','cultura','editar','agro.cultura.editar','Editar culturas.',true),
 ('agro','safra','visualizar','agro.safra.visualizar','Visualizar safras.',true),('agro','safra','criar','agro.safra.criar','Criar safras.',true),('agro','safra','editar','agro.safra.editar','Editar safras.',true),
 ('agro','producao','visualizar','agro.producao.visualizar','Visualizar produção agrícola.',true),('agro','producao','criar','agro.producao.criar','Criar produção agrícola.',true),('agro','producao','editar','agro.producao.editar','Editar produção agrícola.',true),('agro','producao','excluir','agro.producao.excluir','Excluir produção agrícola.',true)
-on conflict (chave) do update set descricao=excluded.descricao, ativo=true, is_deleted=false;
-
-insert into sigov.feature_flag_def (codigo, nome, descricao, modulo, ativo)
-values ('agro.produtores','Produtores rurais','Habilita cadastro de produtores rurais.','agro',true),('agro.producao','Produção agrícola','Habilita cadastros produtivos agrícolas.','agro',true)
-on conflict (codigo) do update set ativo=true;
-
-insert into sigov.tenant_feature_flag (tenant_id, modulo_codigo, feature_codigo, habilitado, parametros)
-select t.id, 'agro', f.codigo, true, '{}'::jsonb from sigov.tenant t cross join sigov.feature_flag_def f where f.modulo='agro' and not exists (select 1 from sigov.tenant_feature_flag x where x.tenant_id=t.id and x.modulo_codigo='agro' and x.feature_codigo=f.codigo);
+), atualizadas as (
+  update sigov.permissao p
+     set descricao = s.descricao,
+         ativo = true,
+         is_deleted = false,
+         updated_at = now()
+    from seed s
+   where p.chave = s.chave
+   returning p.chave
+)
+insert into sigov.permissao (modulo, recurso, acao, chave, descricao, ativo)
+select s.modulo, s.recurso, s.acao, s.chave, s.descricao, s.ativo
+  from seed s
+ where not exists (select 1 from sigov.permissao p where p.chave = s.chave);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa

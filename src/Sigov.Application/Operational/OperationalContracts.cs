@@ -30,13 +30,19 @@ public interface ITarefaNotificationService
     Task NotificarAsync(long tarefaId, string tipo, OperationalCommandContext context, CancellationToken cancellationToken);
 }
 
-public interface ITarefaService : ITarefaRepository { }
+public interface ITarefaService
+{
+    Task<TarefaDto> CriarAsync(CriarTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken);
+    Task<TarefaDto?> ObterAsync(long tenantId, long tarefaId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TarefaDto>> ListarAsync(long tenantId, long? responsavelId, string? status, int page, int pageSize, CancellationToken cancellationToken);
+    Task<TarefaDto> AlterarStatusAsync(AlterarStatusTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken);
+}
 public interface IAgendaRepository { Task<AgendaCompromissoDto> CriarAsync(CriarCompromissoRequest request, OperationalCommandContext context, CancellationToken cancellationToken); }
-public interface IAgendaService : IAgendaRepository { }
+public interface IAgendaService { Task<AgendaCompromissoDto> CriarAsync(CriarCompromissoRequest request, OperationalCommandContext context, CancellationToken cancellationToken); }
 public interface IPrazoOperacionalRepository { Task<IReadOnlyList<PrazoOperacionalDto>> ListarVencidosAsync(long tenantId, DateTimeOffset referencia, CancellationToken cancellationToken); }
-public interface IPrazoOperacionalService : IPrazoOperacionalRepository { }
+public interface IPrazoOperacionalService { Task<IReadOnlyList<PrazoOperacionalDto>> ListarVencidosAsync(long tenantId, DateTimeOffset referencia, CancellationToken cancellationToken); }
 public interface INotificacaoRepository { Task<IReadOnlyList<NotificacaoDto>> ListarAsync(long tenantId, long usuarioId, bool? lida, CancellationToken cancellationToken); Task MarcarLidaAsync(long tenantId, long usuarioId, long notificacaoId, string correlationId, CancellationToken cancellationToken); }
-public interface INotificacaoService : INotificacaoRepository { }
+public interface INotificacaoService { Task<IReadOnlyList<NotificacaoDto>> ListarAsync(long tenantId, long usuarioId, bool? lida, CancellationToken cancellationToken); Task MarcarLidaAsync(long tenantId, long usuarioId, long notificacaoId, string correlationId, CancellationToken cancellationToken); }
 public interface INotificacaoPreferenceService { Task SalvarAsync(long tenantId, long usuarioId, string tipo, bool habilitada, CancellationToken cancellationToken); }
 public interface IKanbanService { Task<IReadOnlyList<KanbanCardDto>> ListarAsync(long tenantId, string origem, long? responsavelId, string? sla, CancellationToken cancellationToken); Task MoverAsync(long tenantId, long cardId, string coluna, int ordem, OperationalCommandContext context, CancellationToken cancellationToken); }
 public interface IOperationalEventPublisher { Task PublishAsync(OperationalEvent operationalEvent, CancellationToken cancellationToken); }
