@@ -1,9 +1,16 @@
 param(
   [string]$WebBaseUrl = 'http://localhost:8080',
   [string]$ApiBaseUrl = 'http://localhost:5001',
-  [string]$OutputPath = 'docs/smoke-test-release-candidate.md'
+  [string]$OutputPath = 'docs/smoke-test-release-candidate.md',
+  [switch]$StaticOnly
 )
 $ErrorActionPreference = 'Continue'
+if ($StaticOnly) {
+  $required = @('README.md','docker-compose.yml','.github/workflows/ci.yml','database/postgres/seeds/pos_rc_homologacao_demo.sql','scripts/package-release.ps1','scripts/go-live-check.ps1')
+  foreach ($item in $required) { if (-not (Test-Path $item)) { throw "Arquivo obrigatório ausente: $item" } }
+  Write-Host 'Smoke estático SIGOV PLUS concluído.'
+  return
+}
 if ($env:SIGOV_SMOKE_USE_DEMO_KEY -eq 'true') {
   if ([string]::IsNullOrWhiteSpace($env:SIGOV_SMOKE_API_KEY)) { $env:SIGOV_SMOKE_API_KEY = 'sigov_demo_local_only_2026_please_rotate' }
   if ([string]::IsNullOrWhiteSpace($env:SIGOV_SMOKE_TENANT_ID)) { $env:SIGOV_SMOKE_TENANT_ID = '1' }
@@ -58,9 +65,9 @@ $lines|Out-File -FilePath $OutputPath -Encoding utf8
 $summary|ConvertTo-Json -Depth 8|Out-File -FilePath ($OutputPath -replace '\.md$','.json') -Encoding utf8
 Write-Host "Smoke test SIGOV PLUS: $success/$total OK; $failedBlocking falhas bloqueantes. Resultado: $OutputPath"
 
-# Evidências Pós-RC 15 consolidadas a partir do smoke runtime.
-$evidenceMd = 'docs/evidencias-consolidacao-pos-rc-15.md'
-$evidenceJson = 'docs/evidencias-consolidacao-pos-rc-15.json'
-@('# Evidências consolidação Pós-RC 15','',"Gerado em $generatedAt.",'',"Smoke: $success/$total checks OK; falhas bloqueantes: $failedBlocking.",'',"Fonte: execução local/CI de scripts/smoke-test-sigov.ps1.") | Out-File -FilePath $evidenceMd -Encoding utf8
+# Evidências Pós-RC 17 geradas a partir do smoke runtime.
+$evidenceMd = 'docs/evidencias-pos-rc-17.md'
+$evidenceJson = 'docs/evidencias-pos-rc-17.json'
+@('# Evidências Pós-RC 17','',"Gerado em $generatedAt.",'',"Smoke: $success/$total checks OK; falhas bloqueantes: $failedBlocking.",'',"Fonte: execução local/CI de scripts/smoke-test-sigov.ps1.") | Out-File -FilePath $evidenceMd -Encoding utf8
 $summary | ConvertTo-Json -Depth 8 | Out-File -FilePath $evidenceJson -Encoding utf8
 if($failedBlocking -gt 0){ exit 1 }

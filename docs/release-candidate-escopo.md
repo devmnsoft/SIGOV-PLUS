@@ -108,3 +108,7 @@ Classificação honesta para homologação final:
 - **Parcial:** workflow avançado, tarefas avançadas, webhooks externos sem endpoint real controlado, POC sem exportações avançadas, assinatura, OCR, IA e mobile/offline.
 - **Dependente de provedor:** ICP/Gov.br, OCR contratado, SMTP, WhatsApp e integrações oficiais externas.
 - **Não disponível nesta sprint:** módulos novos fora do escopo Pós-RC 05.
+
+## Pós-RC 17 — validação técnica
+
+A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.

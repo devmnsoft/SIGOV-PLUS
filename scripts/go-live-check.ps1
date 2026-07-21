@@ -1,14 +1,14 @@
 param(
-  [string]$PackagePath = 'artifacts/release/sigov-plus-1.0.0-rc-final',
+  [string]$PackagePath = 'artifacts/release/sigov-plus-1.0.0-rc17',
   [switch]$AllowWarnings,
   [switch]$StaticOnly,
-  [string]$ReleaseCandidateVersion = '1.0.0-rc-final'
+  [string]$ReleaseCandidateVersion = '1.0.0-rc17'
 )
 $ErrorActionPreference='Stop'
 $results=New-Object System.Collections.Generic.List[object]
 function Add-Check([string]$Name,[string]$Status,[string]$Message){$results.Add([pscustomobject]@{name=$Name;status=$Status;message=$Message});Write-Host "$Status $Name - $Message"}
 function Check-Path([string]$Name,[string]$Path,[bool]$Required=$true){ if(Test-Path $Path){Add-Check $Name 'PASS' "$Path encontrado."} elseif($Required){Add-Check $Name 'FAIL' "$Path ausente."} else {Add-Check $Name 'WARN' "$Path ainda não gerado."}}
-$docs=@('README.md','docs/diagnostico-tecnico-pos-rc-15.md','docs/auditoria-dotnet-pacotes-pos-rc-15.md','docs/plano-migracao-dotnet-pos-rc-15.md','docs/evidencias-consolidacao-pos-rc-15.md','docs/manual-usuario-sigov-pos-rc-15.md','docs/manual-admin-sigov-pos-rc-15.md','docs/jornadas-operacionais-pos-rc-15.md','docs/matriz-funcional-pos-rc-15.md','docs/matriz-crud-enterprise-pos-rc-15.md','docs/security-lgpd-pos-rc-15.md','docs/checklist-homologacao-pos-rc-15.md','docs/importacao-enterprise-pos-rc-15.md','docs/acoes-lote-enterprise-pos-rc-15.md','docs/anexos-enterprise-ged-pos-rc-15.md','docs/agenda-sla-kanban-pos-rc-15.md','docs/release-notes-v1.0.0.md','docs/roteiro-demo-sigov-plus.md','docs/checklist-go-live-pos-rc.md')
+$docs=@('README.md','docs/diagnostico-pos-rc-17-final.md','docs/diagnostico-build-pos-rc-17.md','docs/diagnostico-migrations-pos-rc-17.md','docs/evidencias-pos-rc-17.md','docs/testes-pos-rc-17.md','docs/diagnostico-docker-pos-rc-17.md','docs/jornadas-operacionais-pos-rc-15.md','docs/matriz-funcional-pos-rc-15.md','docs/matriz-crud-enterprise-pos-rc-15.md','docs/security-lgpd-pos-rc-15.md','docs/checklist-homologacao-pos-rc-15.md','docs/importacao-enterprise-pos-rc-15.md','docs/acoes-lote-enterprise-pos-rc-15.md','docs/anexos-enterprise-ged-pos-rc-15.md','docs/agenda-sla-kanban-pos-rc-15.md','docs/release-notes-v1.0.0.md','docs/roteiro-demo-sigov-plus.md','docs/checklist-go-live-pos-rc.md')
 foreach($d in $docs){Check-Path "doc:$d" $d}
 
 if(Test-Path 'README.md'){ $readme=Get-Content 'README.md' -Raw; if($readme -match 'SIGOV' -and ($readme -match 'Pós-RC' -or $readme -match 'Release')){Add-Check 'readme-release' 'PASS' 'README contém contexto SIGOV/release.'}else{Add-Check 'readme-release' 'WARN' 'README deve mencionar explicitamente Pós-RC/release.'} }
@@ -30,7 +30,7 @@ if(Test-Path $PackagePath){
   $secret=Get-ChildItem $PackagePath -Recurse -File|Select-String -Pattern 'POSTGRES_PASSWORD=123456' -Quiet; if($secret){Add-Check 'package-secrets' 'FAIL' 'Secret/token ou exemplo inseguro detectado.'}else{Add-Check 'package-secrets' 'PASS' 'Scanner básico sem achados.'}
 }else{Add-Check 'release-package' 'WARN' "Pacote $PackagePath ainda não gerado."}
 $passed=@($results|Where-Object status -eq 'PASS').Count; $warnings=@($results|Where-Object status -eq 'WARN').Count; $failed=@($results|Where-Object status -eq 'FAIL').Count; $statusFinal=if($failed -gt 0){'BLOQUEADO'}elseif($warnings -gt 0){'APROVADO_COM_RESSALVAS'}else{'APROVADO'}; $summary=[ordered]@{generatedAt=(Get-Date).ToUniversalTime().ToString('o');total=$results.Count;passed=$passed;warnings=$warnings;failedBlocking=$failed;failedNonBlocking=0;statusFinal=$statusFinal;releaseCandidateVersion=$ReleaseCandidateVersion;results=$results}
-$md=@('# Go-live check Pós-RC 15','',"Gerado em $($summary.generatedAt).",'',"Resumo: PASS=$($summary.passed) WARN=$($summary.warnings) FAIL_BLOCKING=$($summary.failedBlocking) STATUS=$($summary.statusFinal)",'','| Check | Status | Mensagem |','|---|---|---|')
+$md=@('# Go-live check Pós-RC 17','',"Gerado em $($summary.generatedAt).",'',"Resumo: PASS=$($summary.passed) WARN=$($summary.warnings) FAIL_BLOCKING=$($summary.failedBlocking) STATUS=$($summary.statusFinal)",'','| Check | Status | Mensagem |','|---|---|---|')
 foreach($r in $results){$md += "| $($r.name) | $($r.status) | $($r.message -replace '\|','/') |"}
 $md|Set-Content -Encoding UTF8 docs/go-live-check-result.md
 $summary|ConvertTo-Json -Depth 8|Set-Content -Encoding UTF8 docs/go-live-check-result.json
