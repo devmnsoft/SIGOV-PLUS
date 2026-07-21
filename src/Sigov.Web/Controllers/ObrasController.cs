@@ -39,10 +39,10 @@ public sealed class ObrasController : Controller
     [HttpGet, Route("/Obras/ObrasCsv")]
     public IActionResult ObrasCsv() => File(System.Text.Encoding.UTF8.GetBytes("mensagem\nExportação em implantação neste ambiente; schema obra não confirmado.\n"), "text/csv; charset=utf-8", "obras.csv");
 
-    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/Nova")]
-    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/Medicoes/Nova")]
-    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/Diario/Novo")]
-    [HttpPost, ValidateAntiForgeryToken, Route("/Obras/{id:long}/Fotos")]
+    [HttpPost, Route("/Obras/Nova")]
+    [HttpPost, Route("/Obras/Medicoes/Nova")]
+    [HttpPost, Route("/Obras/Diario/Novo")]
+    [HttpPost, Route("/Obras/{id:long}/Fotos")]
     public async Task<IActionResult> Salvar(CancellationToken cancellationToken)
     {
         await Audit("obra.criar", "obra", null, cancellationToken).ConfigureAwait(false);

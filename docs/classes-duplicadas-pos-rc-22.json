@@ -1,0 +1,16 @@
+{
+  "duplicates": [
+    {
+      "type": "controller",
+      "name": "MobileCampoController",
+      "namespace": "Sigov.Web.Controllers",
+      "files": [
+        "src/Sigov.Web/Controllers/OperationalTransversalController.cs",
+        "src/Sigov.Web/Controllers/MobileCampoController.cs"
+      ],
+      "decision": "keep-operational-transversal-controller",
+      "kept": "src/Sigov.Web/Controllers/OperationalTransversalController.cs",
+      "removedFrom": "src/Sigov.Web/Controllers/MobileCampoController.cs"
+    }
+  ]
+}

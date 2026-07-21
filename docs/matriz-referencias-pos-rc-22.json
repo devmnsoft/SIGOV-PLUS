@@ -1,0 +1,8 @@
+{
+  "status": "static-partial",
+  "environmentLimitations": ["dotnet", "pwsh", "psql", "docker"],
+  "items": [
+    { "component": "AuthController", "dependency": "Sigov.Web.Services.IAuditTrailService", "decision": "namespace-import-added" },
+    { "component": "PosRc03WebOperationalStaticTests", "dependency": "TestRepoPath", "decision": "shared-helper-added" }
+  ]
+}
