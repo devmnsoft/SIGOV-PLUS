@@ -55,7 +55,7 @@ public sealed class MigrationRunner
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition("create schema if not exists sigov;", cancellationToken: cancellationToken)).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition(@"create table if not exists sigov.schema_migrations (
-    id bigserial primary key,
+    id bigint generated always as identity primary key,
     version varchar(50) not null unique,
     description varchar(250) not null,
     checksum varchar(128) not null,
@@ -68,15 +68,24 @@ public sealed class MigrationRunner
 ", cancellationToken: cancellationToken)).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition("alter table sigov.schema_migrations add column if not exists category varchar(40) not null default 'schema'; alter table sigov.schema_migrations add column if not exists source varchar(40) not null default 'manifest'; alter table sigov.schema_migrations add column if not exists success boolean not null default true; alter table sigov.schema_migrations add column if not exists execution_ms bigint null;", cancellationToken: cancellationToken)).ConfigureAwait(false);
 
-            var files = LoadManifestFiles();
+            var migrations = LoadManifestFiles();
             var validateOnly = string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase);
             var validation = new MigrationValidationResult();
-            foreach (var file in files)
+            foreach (var migration in migrations)
             {
-                var version = Path.GetFileNameWithoutExtension(file).Split('_', 2)[0];
-                var description = Path.GetFileNameWithoutExtension(file);
+                var file = migration.FilePath;
+                var version = migration.Version;
+                var description = migration.Description;
+                var category = migration.Category;
+                var expectedChecksum = migration.Checksum;
                 var sql = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
                 var checksum = Checksum(sql);
+                if (!string.Equals(expectedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
+                {
+                    validation.ChecksumMismatch.Add(version);
+                    _logger.LogError("Checksum divergente no manifest para migration sigov {Version}. Manifest={ExpectedChecksum}; Arquivo={Checksum}", version, expectedChecksum, checksum);
+                    continue;
+                }
 
                 var alreadyApplied = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
                     "select exists (select 1 from sigov.schema_migrations where version = @Version);",
@@ -105,8 +114,8 @@ public sealed class MigrationRunner
                 await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
                 await connection.ExecuteAsync(new CommandDefinition(sql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.schema_migrations (version, description, checksum, category, source, success, execution_ms)
-values (@Version, @Description, @Checksum, 'schema', 'manifest', true, @ExecutionMs);
-", new { Version = version, Description = description, Checksum = checksum, ExecutionMs = (long)(DateTimeOffset.UtcNow - started).TotalMilliseconds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+values (@Version, @Description, @Checksum, @Category, 'manifest', true, @ExecutionMs);
+", new { Version = version, Description = description, Checksum = checksum, Category = category, ExecutionMs = (long)(DateTimeOffset.UtcNow - started).TotalMilliseconds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 validation.Applied.Add(version);
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
@@ -123,7 +132,7 @@ values (@Version, @Description, @Checksum, 'schema', 'manifest', true, @Executio
         }
     }
 
-    private IReadOnlyList<string> LoadManifestFiles()
+    private IReadOnlyList<ManifestMigration> LoadManifestFiles()
     {
         if (!File.Exists(_manifestPath))
         {
@@ -131,12 +140,43 @@ values (@Version, @Description, @Checksum, 'schema', 'manifest', true, @Executio
         }
 
         using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(_manifestPath));
-        return document.RootElement.GetProperty("migrations").EnumerateArray()
-            .Where(static item => item.TryGetProperty("applyAutomatically", out var apply) && apply.ValueKind == System.Text.Json.JsonValueKind.True)
-            .Select(item => Path.Combine(Path.GetDirectoryName(_manifestPath) ?? string.Empty, item.GetProperty("file").GetString() ?? string.Empty))
-            .Where(File.Exists)
-            .ToArray();
+        var basePath = Path.GetDirectoryName(_manifestPath) ?? string.Empty;
+        var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<ManifestMigration>();
+        foreach (var item in document.RootElement.GetProperty("migrations").EnumerateArray())
+        {
+            var version = item.GetProperty("version").GetString() ?? string.Empty;
+            var file = item.GetProperty("file").GetString() ?? string.Empty;
+            var description = item.GetProperty("description").GetString() ?? Path.GetFileNameWithoutExtension(file);
+            var category = item.GetProperty("category").GetString() ?? "schema";
+            var checksum = item.GetProperty("checksum").GetString() ?? string.Empty;
+            if (!versions.Add(version))
+            {
+                throw new InvalidOperationException($"Versão duplicada no manifest de migrations: {version}.");
+            }
+
+            if (!files.Add(file))
+            {
+                throw new InvalidOperationException($"Arquivo duplicado no manifest de migrations: {file}.");
+            }
+
+            if (item.TryGetProperty("applyAutomatically", out var apply) && apply.ValueKind == System.Text.Json.JsonValueKind.True)
+            {
+                var filePath = Path.Combine(basePath, file);
+                if (!File.Exists(filePath))
+                {
+                    throw new FileNotFoundException("Migration automática ausente no manifest.", filePath);
+                }
+
+                result.Add(new ManifestMigration(version, filePath, description, category, checksum));
+            }
+        }
+
+        return result;
     }
+
+    private sealed record ManifestMigration(string Version, string FilePath, string Description, string Category, string Checksum);
 
     private static string ResolveMigrationsPath(string? configuredPath)
     {

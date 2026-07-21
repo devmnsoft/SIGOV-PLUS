@@ -7,7 +7,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "d15951b9cb7e455b047527afc56e61f0dac74bce24414cae20de958cf884531d"
+      "checksum": "db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8"
     },
     {
       "version": "002",
@@ -280,7 +280,7 @@
       "checksum": "935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1"
     },
     {
-      "version": "20260608120000",
+      "version": "20260608120001",
       "file": "20260608120000_saas_comercial_white_label_planos.sql",
       "description": "saas_comercial_white_label_planos",
       "category": "schema",

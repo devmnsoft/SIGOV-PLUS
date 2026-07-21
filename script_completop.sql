@@ -1,5 +1,5 @@
 -- SIGOV PLUS - script_completop.sql
--- Versão: Pós-RC 20
+-- Versão: Pós-RC 23A
 -- Data: 2026-07-21
 -- Arquivo autônomo gerado de database/postgres/migrations/manifest.json, sem includes, comandos shell ou seeds demonstrativos.
 
@@ -13,29 +13,49 @@ $$;
 
 create schema if not exists sigov;
 create table if not exists sigov.schema_migrations (
-    version text primary key,
-    description text not null,
-    checksum text not null,
-    category text not null default 'schema',
+    id bigint generated always as identity primary key,
+    version varchar(50) not null unique,
+    description varchar(250) not null,
+    checksum varchar(128) not null,
+    category varchar(40) not null default 'schema',
+    source varchar(40) not null default 'manifest',
+    success boolean not null default true,
+    execution_ms bigint null,
     applied_at timestamptz not null default now()
 );
+alter table sigov.schema_migrations
+    add column if not exists category varchar(40) not null default 'schema',
+    add column if not exists source varchar(40) not null default 'manifest',
+    add column if not exists success boolean not null default true,
+    add column if not exists execution_ms bigint null;
 
 -- ==================================================
 -- MIGRATION: 001_create_sigov_schema.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: d15951b9cb7e455b047527afc56e61f0dac74bce24414cae20de958cf884531d
+-- CHECKSUM_SHA256: db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8
 -- ==================================================
 create schema if not exists sigov;
 
 create table if not exists sigov.schema_migrations (
-    id bigserial primary key,
+    id bigint generated always as identity primary key,
     version varchar(50) not null unique,
     description varchar(250) not null,
     checksum varchar(128) not null,
+    category varchar(40) not null default 'schema',
+    source varchar(40) not null default 'manifest',
+    success boolean not null default true,
+    execution_ms bigint null,
     applied_at timestamptz not null default now()
 );
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('001', 'create_sigov_schema', 'd15951b9cb7e455b047527afc56e61f0dac74bce24414cae20de958cf884531d', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+
+alter table sigov.schema_migrations
+    add column if not exists category varchar(40) not null default 'schema',
+    add column if not exists source varchar(40) not null default 'manifest',
+    add column if not exists success boolean not null default true,
+    add column if not exists execution_ms bigint null;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('001', 'create_sigov_schema', 'db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 002_create_sigov_infrastructure.sql
@@ -107,7 +127,7 @@ create table if not exists sigov.fila_evento (
     correlation_id uuid null
 );
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('002', 'create_sigov_infrastructure', '82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('002', 'create_sigov_infrastructure', '82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 003_create_sigov_core.sql
@@ -385,7 +405,7 @@ create table if not exists sigov.agenda_obrigacao (
     correlation_id uuid null
 );
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('003', 'create_sigov_core', '915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('003', 'create_sigov_core', '915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 004_create_sigov_security_audit_lgpd.sql
@@ -810,7 +830,7 @@ create table if not exists sigov.dpo_historico (
     correlation_id uuid null
 );
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('004', 'create_sigov_security_audit_lgpd', '5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('004', 'create_sigov_security_audit_lgpd', '5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 005_create_sigov_bi_workflow.sql
@@ -819,7 +839,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, ap
 -- ==================================================
 -- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('005', 'create_sigov_bi_workflow', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('005', 'create_sigov_bi_workflow', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 006_create_sigov_financeiro_tributario.sql
@@ -828,7 +848,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, ap
 -- ==================================================
 -- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('006', 'create_sigov_financeiro_tributario', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('006', 'create_sigov_financeiro_tributario', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 007_create_sigov_compras_rh_educacao.sql
@@ -837,7 +857,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, ap
 -- ==================================================
 -- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('007', 'create_sigov_compras_rh_educacao', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('007', 'create_sigov_compras_rh_educacao', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 008_create_sigov_saude_social_saneamento.sql
@@ -846,7 +866,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, ap
 -- ==================================================
 -- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('008', 'create_sigov_saude_social_saneamento', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('008', 'create_sigov_saude_social_saneamento', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 009_create_sigov_suporte_integracao_geo.sql
@@ -1059,7 +1079,7 @@ create table if not exists sigov.geolocalizacao (
     correlation_id uuid null
 );
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('009', 'create_sigov_suporte_integracao_geo', 'be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('009', 'create_sigov_suporte_integracao_geo', 'be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 010_create_sigov_indexes_constraints.sql
@@ -1092,7 +1112,7 @@ create index if not exists idx_chamado_created_at on sigov.chamado(created_at);
 create index if not exists idx_endereco_pessoa_id on sigov.endereco(pessoa_id);
 create index if not exists idx_contato_pessoa_id on sigov.contato(pessoa_id);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('010', 'create_sigov_indexes_constraints', 'ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('010', 'create_sigov_indexes_constraints', 'ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 012_compat_move_legacy_schemas_to_sigov.sql
@@ -1129,7 +1149,7 @@ begin
     end loop;
 end $$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('012', 'compat_move_legacy_schemas_to_sigov', 'cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('012', 'compat_move_legacy_schemas_to_sigov', 'cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 013_sigov_foundation_refactor_fixups.sql
@@ -1236,7 +1256,7 @@ create index if not exists idx_usuario_email on sigov.usuario (email) where is_d
 create index if not exists idx_permissao_modulo_recurso_acao on sigov.permissao (modulo, recurso, acao) where is_deleted = false;
 create index if not exists idx_controle_sequencial_chave on sigov.controle_sequencial (chave, ano);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('013', 'sigov_foundation_refactor_fixups', '83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('013', 'sigov_foundation_refactor_fixups', '83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 014_saas_tenants_planos_assinaturas.sql
@@ -1441,7 +1461,7 @@ insert into sigov.tenant (nome, nome_fantasia, slug, status, ambiente, data_inic
 values ('Tenant de Desenvolvimento sigov', 'sigov Development', 'municipio-demo', 'ATIVO', 'DEVELOPMENT', now())
 on conflict (slug) do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('014', 'saas_tenants_planos_assinaturas', 'b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('014', 'saas_tenants_planos_assinaturas', 'b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 015_saas_tenant_id_operational_tables.sql
@@ -1501,7 +1521,7 @@ create index if not exists idx_chamado_tenant_numero on sigov.chamado (tenant_id
 create index if not exists idx_trilha_auditoria_tenant_created_at on sigov.trilha_auditoria (tenant_id, created_at desc);
 create index if not exists idx_solicitacao_titular_tenant_status on sigov.solicitacao_titular (tenant_id, status);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('015', 'saas_tenant_id_operational_tables', '0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('015', 'saas_tenant_id_operational_tables', '0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 016_saas_rls_indexes_usage_operacao.sql
@@ -1666,7 +1686,7 @@ create index if not exists idx_tenant_dominio_dominio on sigov.tenant_dominio (d
 create index if not exists idx_tenant_assinatura_status on sigov.tenant_assinatura (status);
 create index if not exists idx_tenant_modulo_tenant_modulo on sigov.tenant_modulo (tenant_id, modulo_saas_id);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('016', 'saas_rls_indexes_usage_operacao', 'b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('016', 'saas_rls_indexes_usage_operacao', 'b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 017_processos_digitais_protocolo_ged.sql
@@ -2084,7 +2104,7 @@ from (values
 ) as p(chave, descricao)
 on conflict (modulo, chave) do update set recurso = excluded.recurso, acao = excluded.acao, descricao = excluded.descricao, ativo = true, is_deleted = false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('017', 'processos_digitais_protocolo_ged', '591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('017', 'processos_digitais_protocolo_ged', '591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 018_financeiro_siafic_base.sql
@@ -2271,7 +2291,7 @@ select t.id, e.id, ex.id, '1500', 'Recursos não vinculados de impostos', 'Seed 
 from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.is_deleted=false join sigov.exercicio ex on ex.entidade_id=e.id and ex.is_deleted=false
 where t.is_deleted=false on conflict do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('018', 'financeiro_siafic_base', '6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('018', 'financeiro_siafic_base', '6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 019_core_pessoas_enderecos_operacional.sql
@@ -2305,7 +2325,7 @@ values
     ('core', 'pessoas', 'exportar', 'core.exportar', 'Exportar cadastro de pessoas', true)
 on conflict do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('019', 'core_pessoas_enderecos_operacional', 'b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('019', 'core_pessoas_enderecos_operacional', 'b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 020_rh_completo.sql
@@ -2386,7 +2406,7 @@ values
     ('rh', 'financeiro', 'integrar', 'rh.financeiro.integrar', 'Preparar integração de folha com Financeiro/SIAFIC', true)
 on conflict do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('020', 'rh_completo', '614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('020', 'rh_completo', '614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 021_educacao_base.sql
@@ -2953,7 +2973,7 @@ begin
     end if;
 end $$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('021', 'educacao_base', '3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('021', 'educacao_base', '3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 022_saude_acs_base.sql
@@ -3343,7 +3363,7 @@ begin
     end if;
 end $$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('022', 'saude_acs_base', '4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('022', 'saude_acs_base', '4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 023_saneamento_base.sql
@@ -3672,7 +3692,7 @@ values
 ('saneamento','exportar','executar','saneamento.exportar','Exportar dados',true)
 on conflict (modulo, recurso, acao) do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('023', 'saneamento_base', 'a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('023', 'saneamento_base', 'a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 024_assistencia_social_base.sql
@@ -3733,7 +3753,7 @@ insert into sigov.modulo_saas (codigo, nome, descricao, categoria, ordem, rota_b
 insert into sigov.permissao (modulo, recurso, acao, chave, descricao, ativo) values
 ('social','dashboard','visualizar','social.dashboard.visualizar','Visualizar dashboard social',true),('social','unidade','visualizar','social.unidade.visualizar','Visualizar unidades sociais',true),('social','unidade','criar','social.unidade.criar','Criar unidade social',true),('social','unidade','editar','social.unidade.editar','Editar unidade social',true),('social','unidade','excluir','social.unidade.excluir','Excluir unidade social',true),('social','familia','visualizar','social.familia.visualizar','Visualizar famílias',true),('social','familia','criar','social.familia.criar','Criar família',true),('social','familia','editar','social.familia.editar','Editar família',true),('social','familia','excluir','social.familia.excluir','Excluir família',true),('social','familia','visualizar_dados_completos','social.familia.visualizar_dados_completos','Visualizar dados completos de família',true),('social','pessoa','visualizar','social.pessoa.visualizar','Visualizar pessoas sociais',true),('social','pessoa','criar','social.pessoa.criar','Criar pessoa social',true),('social','pessoa','editar','social.pessoa.editar','Editar pessoa social',true),('social','pessoa','excluir','social.pessoa.excluir','Excluir pessoa social',true),('social','cadastro','criar','social.cadastro.criar','Criar cadastro social',true),('social','vulnerabilidade','criar','social.vulnerabilidade.criar','Registrar vulnerabilidade',true),('social','programa','visualizar','social.programa.visualizar','Visualizar programas',true),('social','programa','criar','social.programa.criar','Criar programa',true),('social','programa','editar','social.programa.editar','Editar programa',true),('social','programa','excluir','social.programa.excluir','Excluir programa',true),('social','beneficio','visualizar','social.beneficio.visualizar','Visualizar benefícios',true),('social','beneficio','criar','social.beneficio.criar','Criar benefício',true),('social','beneficio','editar','social.beneficio.editar','Editar benefício',true),('social','beneficio','conceder','social.beneficio.conceder','Conceder benefício',true),('social','beneficio','autorizar','social.beneficio.autorizar','Autorizar benefício',true),('social','beneficio','entregar','social.beneficio.entregar','Entregar benefício',true),('social','atendimento','visualizar','social.atendimento.visualizar','Visualizar atendimentos',true),('social','atendimento','criar','social.atendimento.criar','Criar atendimento',true),('social','atendimento','encaminhar','social.atendimento.encaminhar','Criar encaminhamento',true),('social','visita','visualizar','social.visita.visualizar','Visualizar visitas',true),('social','visita','criar','social.visita.criar','Criar visita',true),('social','parecer','visualizar','social.parecer.visualizar','Visualizar pareceres',true),('social','parecer','criar','social.parecer.criar','Criar parecer',true),('social','parecer','visualizar_sigiloso','social.parecer.visualizar_sigiloso','Visualizar parecer sigiloso',true),('social','acompanhamento','visualizar','social.acompanhamento.visualizar','Visualizar acompanhamento',true),('social','acompanhamento','criar','social.acompanhamento.criar','Criar acompanhamento',true),('social','acompanhamento','encerrar','social.acompanhamento.encerrar','Encerrar acompanhamento',true),('social','vigilancia','visualizar','social.vigilancia.visualizar','Visualizar vigilância',true),('social','vigilancia','criar','social.vigilancia.criar','Criar vigilância',true),('social','exportar','executar','social.exportar','Exportar dados sociais',true) on conflict (modulo, recurso, acao) do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('024', 'assistencia_social_base', '4a05c6594b297f58185fd5c1cfa0b4fd93f4d725a56e4c4f2135d86e49096531', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('024', 'assistencia_social_base', '4a05c6594b297f58185fd5c1cfa0b4fd93f4d725a56e4c4f2135d86e49096531', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 025_integracoes_outbox_webhooks_base.sql
@@ -3937,7 +3957,7 @@ cross join (values
 where t.slug = 'municipio-demo'
 on conflict (tenant_id, codigo) do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('025', 'integracoes_outbox_webhooks_base', 'f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('025', 'integracoes_outbox_webhooks_base', 'f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 026_agro_fundacao_geo_dashboard.sql
@@ -4030,7 +4050,7 @@ select
   cross join lateral (
       select id
         from sigov.tenant
-       where slug = 'plataforma-global'
+       where slug = 'plataforma'
        order by id
        limit 1
   ) t
@@ -4162,7 +4182,7 @@ select k.tenant_id,
   left join feicoes f on f.tenant_id = k.tenant_id and f.entidade_id is not distinct from k.entidade_id
   left join eventos e on e.tenant_id = k.tenant_id and e.entidade_id is not distinct from k.entidade_id;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('026', 'agro_fundacao_geo_dashboard', '00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('026', 'agro_fundacao_geo_dashboard', '00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260607090000_ui_commercial_finish.sql
@@ -4252,7 +4272,7 @@ CREATE INDEX IF NOT EXISTS ix_onboarding_etapa_tenant_jornada ON sigov.onboardin
 CREATE INDEX IF NOT EXISTS ix_onboarding_tarefa_tenant_jornada ON sigov.onboarding_tarefa (tenant_id, jornada_id, ordem, status);
 CREATE INDEX IF NOT EXISTS ix_onboarding_evento_tenant_jornada ON sigov.onboarding_evento (tenant_id, jornada_id, created_at);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260607090000', 'ui_commercial_finish', '5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260607090000', 'ui_commercial_finish', '5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608090000_saas_parametrizacao_perfis_modulos.sql
@@ -4475,7 +4495,7 @@ create index if not exists idx_usuario_escopo_acesso_usuario on sigov.usuario_es
 create index if not exists idx_usuario_contexto_global_log_usuario on sigov.usuario_contexto_global_log (usuario_global_id, iniciado_at desc);
 create index if not exists idx_usuario_contexto_global_log_tenant on sigov.usuario_contexto_global_log (tenant_destino_id, iniciado_at desc);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608090000', 'saas_parametrizacao_perfis_modulos', '3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608090000', 'saas_parametrizacao_perfis_modulos', '3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608100000_agro_produtores_propriedades_producao.sql
@@ -4507,7 +4527,7 @@ select s.modulo, s.recurso, s.acao, s.chave, s.descricao, s.ativo
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false where pa.ativo=true and pa.is_deleted=false and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') or upper(pa.nome) like '%ADMINISTRADOR%') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false where pa.ativo=true and pa.is_deleted=false and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') or upper(pa.nome) like '%ADMINISTRADOR%') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 create table if not exists sigov.agro_produtor (id bigint generated always as identity primary key, tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id), pessoa_id bigint not null references sigov.pessoa(id), codigo_produtor varchar(80) not null, tipo_produtor varchar(80) not null, inscricao_estadual varchar(80) null, inscricao_municipal varchar(80) null, numero_produtor_rural varchar(80) null, associacao_cooperativa varchar(250) null, principal_atividade varchar(150) null, situacao varchar(40) not null, data_cadastro date not null default current_date, observacao text null, ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), created_by bigint null, updated_at timestamptz null, updated_by bigint null, deleted_at timestamptz null, deleted_by bigint null, correlation_id uuid null, constraint uk_agro_produtor_tenant_entidade_codigo unique(tenant_id,entidade_id,codigo_produtor), constraint uk_agro_produtor_tenant_entidade_pessoa unique(tenant_id,entidade_id,pessoa_id));
 create table if not exists sigov.agro_propriedade (id bigint generated always as identity primary key, tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id), produtor_id bigint not null references sigov.agro_produtor(id), codigo_propriedade varchar(80) not null, nome varchar(250) not null, localidade varchar(250) null, comunidade varchar(250) null, endereco_json jsonb not null default '{}'::jsonb, area_total_ha numeric(18,4) null, area_produtiva_ha numeric(18,4) null, area_preservacao_ha numeric(18,4) null, latitude numeric(12,8) null, longitude numeric(12,8) null, geojson jsonb null, situacao varchar(40) not null, observacao text null, ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), created_by bigint null, updated_at timestamptz null, updated_by bigint null, deleted_at timestamptz null, deleted_by bigint null, correlation_id uuid null, constraint uk_agro_propriedade_tenant_entidade_codigo unique(tenant_id,entidade_id,codigo_propriedade), constraint ck_agro_propriedade_areas check ((area_total_ha is null or area_total_ha >= 0) and (area_produtiva_ha is null or area_produtiva_ha >= 0) and (area_total_ha is null or area_produtiva_ha is null or area_produtiva_ha <= area_total_ha)), constraint ck_agro_propriedade_coords check ((latitude is null and longitude is null) or (latitude between -90 and 90 and longitude between -180 and 180)));
@@ -4537,7 +4557,7 @@ camadas as (select tenant_id, entidade_id, count(*)::bigint total_camadas from s
 select k.tenant_id,k.entidade_id,coalesce(c.total_camadas,0)::bigint total_camadas,coalesce(f.total_feicoes,0)::bigint total_feicoes,coalesce(e.total_eventos,0)::bigint total_eventos,coalesce(p.total_produtores,0)::bigint total_produtores,coalesce(pr.total_propriedades,0)::bigint total_propriedades,0::bigint total_visitas,0::bigint total_servicos_maquina,0::bigint total_pontos_criticos,coalesce(p.produtores_ativos,0)::bigint produtores_ativos,coalesce(pr.area_total_mapeada,0)::numeric(18,4) area_total_mapeada,coalesce(pr.area_produtiva,0)::numeric(18,4) area_produtiva,coalesce(t.total_talhoes,0)::bigint total_talhoes,coalesce(cu.culturas_cadastradas,0)::bigint culturas_cadastradas,coalesce(s.safras_ativas,0)::bigint safras_ativas,coalesce(pa.producao_estimada,0)::numeric(18,4) producao_estimada,coalesce(pa.producao_realizada,0)::numeric(18,4) producao_realizada
 from chaves k left join camadas c on c.tenant_id=k.tenant_id and c.entidade_id is not distinct from k.entidade_id left join feicoes f on f.tenant_id=k.tenant_id and f.entidade_id is not distinct from k.entidade_id left join eventos e on e.tenant_id=k.tenant_id and e.entidade_id is not distinct from k.entidade_id left join produtores p on p.tenant_id=k.tenant_id and p.entidade_id is not distinct from k.entidade_id left join propriedades pr on pr.tenant_id=k.tenant_id and pr.entidade_id is not distinct from k.entidade_id left join talhoes t on t.tenant_id=k.tenant_id and t.entidade_id is not distinct from k.entidade_id left join culturas cu on cu.tenant_id=k.tenant_id and cu.entidade_id is not distinct from k.entidade_id left join safras s on s.tenant_id=k.tenant_id and s.entidade_id is not distinct from k.entidade_id left join producao pa on pa.tenant_id=k.tenant_id and pa.entidade_id is not distinct from k.entidade_id;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608100000', 'agro_produtores_propriedades_producao', '64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608100000', 'agro_produtores_propriedades_producao', '64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608110000_agro_programas_beneficios_patrulha_mecanizada.sql
@@ -4569,7 +4589,7 @@ on conflict (modulo, recurso, acao) do update set chave=excluded.chave, descrica
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.tenant_feature_flag (tenant_id, feature_flag_def_id, habilitado, ativo)
@@ -4640,7 +4660,7 @@ conflitos as (select a.tenant_id, a.entidade_id, count(*)::bigint alertas_confli
 select k.tenant_id,k.entidade_id,coalesce(c.total_camadas,0)::bigint total_camadas,coalesce(f.total_feicoes,0)::bigint total_feicoes,coalesce(e.total_eventos,0)::bigint total_eventos,coalesce(p.total_produtores,0)::bigint total_produtores,coalesce(pr.total_propriedades,0)::bigint total_propriedades,0::bigint total_visitas,coalesce(sv.total_servicos_maquina,0)::bigint total_servicos_maquina,0::bigint total_pontos_criticos,coalesce(p.produtores_ativos,0)::bigint produtores_ativos,coalesce(pr.area_total_mapeada,0)::numeric(18,4) area_total_mapeada,coalesce(pr.area_produtiva,0)::numeric(18,4) area_produtiva,coalesce(t.total_talhoes,0)::bigint total_talhoes,coalesce(cu.culturas_cadastradas,0)::bigint culturas_cadastradas,coalesce(sf.safras_ativas,0)::bigint safras_ativas,coalesce(pa.producao_estimada,0)::numeric(18,4) producao_estimada,coalesce(pa.producao_realizada,0)::numeric(18,4) producao_realizada,coalesce(pg.total_programas,0)::bigint total_programas,coalesce(bn.total_beneficios,0)::bigint total_beneficios,coalesce(co.beneficios_concedidos_mes,0)::bigint beneficios_concedidos_mes,coalesce(m.total_maquinas,0)::bigint total_maquinas,coalesce(sv.servicos_maquina_pendentes,0)::bigint servicos_maquina_pendentes,coalesce(sv.servicos_maquina_executados_mes,0)::bigint servicos_maquina_executados_mes,coalesce(co.concessoes_solicitadas,0)::bigint concessoes_solicitadas,coalesce(co.concessoes_autorizadas,0)::bigint concessoes_autorizadas,coalesce(co.concessoes_entregues_mes,0)::bigint concessoes_entregues_mes,coalesce(im.insumos_distribuidos_mes,0)::bigint insumos_distribuidos_mes,coalesce(sv.servicos_maquina_agendados,0)::bigint servicos_maquina_agendados,coalesce(sv.horas_trabalhadas_mes,0)::numeric(18,4) horas_trabalhadas_mes,coalesce(sv.area_atendida_mes,0)::numeric(18,4) area_atendida_mes,coalesce(cf.alertas_conflito_agenda,0)::bigint alertas_conflito_agenda
 from chaves k left join camadas c on c.tenant_id=k.tenant_id and c.entidade_id is not distinct from k.entidade_id left join feicoes f on f.tenant_id=k.tenant_id and f.entidade_id is not distinct from k.entidade_id left join eventos e on e.tenant_id=k.tenant_id and e.entidade_id is not distinct from k.entidade_id left join produtores p on p.tenant_id=k.tenant_id and p.entidade_id is not distinct from k.entidade_id left join propriedades pr on pr.tenant_id=k.tenant_id and pr.entidade_id is not distinct from k.entidade_id left join talhoes t on t.tenant_id=k.tenant_id and t.entidade_id is not distinct from k.entidade_id left join culturas cu on cu.tenant_id=k.tenant_id and cu.entidade_id is not distinct from k.entidade_id left join safras sf on sf.tenant_id=k.tenant_id and sf.entidade_id is not distinct from k.entidade_id left join producao pa on pa.tenant_id=k.tenant_id and pa.entidade_id is not distinct from k.entidade_id left join programas pg on pg.tenant_id=k.tenant_id and pg.entidade_id is not distinct from k.entidade_id left join beneficios bn on bn.tenant_id=k.tenant_id and bn.entidade_id is not distinct from k.entidade_id left join concessoes co on co.tenant_id=k.tenant_id and co.entidade_id is not distinct from k.entidade_id left join insumos_mes im on im.tenant_id=k.tenant_id and im.entidade_id is not distinct from k.entidade_id left join maquinas m on m.tenant_id=k.tenant_id and m.entidade_id is not distinct from k.entidade_id left join servicos sv on sv.tenant_id=k.tenant_id and sv.entidade_id is not distinct from k.entidade_id left join conflitos cf on cf.tenant_id=k.tenant_id and cf.entidade_id is not distinct from k.entidade_id;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608110000', 'agro_programas_beneficios_patrulha_mecanizada', 'eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608110000', 'agro_programas_beneficios_patrulha_mecanizada', 'eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608120000_plantao_pro_white_label_b2b_launch.sql
@@ -5067,7 +5087,7 @@ BEGIN
     END IF;
 END $$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608120000', 'plantao_pro_white_label_b2b_launch', '935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608120000', 'plantao_pro_white_label_b2b_launch', '935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608120000_saas_comercial_white_label_planos.sql
@@ -5378,7 +5398,7 @@ values
 ('AUDITOR','Auditor','AUDITOR','Acessa auditoria e conformidade conforme permissão.', '["saas.assinaturas.visualizar"]'::jsonb)
 on conflict (codigo) do update set nome=excluded.nome, nivel_base=excluded.nivel_base, descricao=excluded.descricao, permissoes_json=excluded.permissoes_json, ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608120000', 'saas_comercial_white_label_planos', '3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608120001', 'saas_comercial_white_label_planos', '3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608130000_agro_estradas_feiras_agroindustrias.sql
@@ -5456,7 +5476,7 @@ select k.tenant_id,k.entidade_id,coalesce(base.total_camadas,0)::bigint total_ca
 -- AgroInspecaoMunicipalConcluida, AgroCompraAgriculturaFamiliarRegistrada, AgroCompraAgriculturaFamiliarCancelada,
 -- AgroGeoFeicaoAtualizada. Payload mínimo: tenantId, entidadeId, exercicioId, origem, origemId, tipoEvento, correlationId.
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608130000', 'agro_estradas_feiras_agroindustrias', 'c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608130000', 'agro_estradas_feiras_agroindustrias', 'c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260608140000_agro_relatorios_bi_transparencia.sql
@@ -5536,7 +5556,7 @@ insert into sigov.agro_dicionario_dados(tabela_nome,campo_nome,nome_amigavel,des
 ('agro_compra_agricultura_familiar','produto','Produto adquirido','Campo publicável apenas agregado por produto.','COMPRAS_AF',false,false,true,null)
 on conflict do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260608140000', 'agro_relatorios_bi_transparencia', '48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608140000', 'agro_relatorios_bi_transparencia', '48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260609090000_pos_build_dashboard_saas.sql
@@ -5629,7 +5649,7 @@ from sigov.tenant t
 left join sigov.usuario u on false
 where false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260609090000', 'pos_build_dashboard_saas', 'e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260609090000', 'pos_build_dashboard_saas', 'e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260609120000_pos_build_03_saas_implantacao_tributario.sql
@@ -5888,7 +5908,7 @@ cross join (values
 ) as v(codigo,nome,descricao)
 on conflict (tenant_id,codigo) do nothing;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260609120000', 'pos_build_03_saas_implantacao_tributario', '81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260609120000', 'pos_build_03_saas_implantacao_tributario', '81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260610100000_pos_build_04_enterprise_modules.sql
@@ -5957,7 +5977,7 @@ values
 ('comercio','*','gerenciar','comercio.*','Gerenciar módulo de Comércio',true)
 on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260610100000', 'pos_build_04_enterprise_modules', 'ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610100000', 'pos_build_04_enterprise_modules', 'ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260610120000_pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro.sql
@@ -6348,7 +6368,7 @@ on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.ativo=true and p.is_deleted=false and (p.modulo in ('comercio','financeiro') or p.chave like 'financeiro.contas_receber.%')
 where pa.ativo=true and pa.is_deleted=false
   and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','GERENTE_COMERCIAL') or upper(pa.nome) like '%ADMIN%')
@@ -6357,7 +6377,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('comercio.pdv.acessar','comercio.vendas.criar','comercio.vendas.finalizar','comercio.caixa.abrir','comercio.caixa.fechar','comercio.caixa.suprimento','comercio.caixa.sangria')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('OPERADOR_CAIXA','CAIXA')
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -6365,7 +6385,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('comercio.clientes.visualizar','comercio.clientes.criar','comercio.clientes.editar','comercio.orcamentos.visualizar','comercio.orcamentos.criar','comercio.pedidos.visualizar','comercio.pedidos.criar','comercio.vendas.criar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('VENDEDOR','REPRESENTANTE')
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -6395,12 +6415,12 @@ insert into sigov.saas_plano_modulo (plano_id, modulo_codigo, incluso)
 select p.id, pm.modulo, true from plano_modulos pm join sigov.saas_plano p on p.codigo=pm.codigo
 on conflict (plano_id, modulo_codigo) do update set incluso=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260610120000', 'pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro', '884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610120000', 'pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro', '884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260610150000_pos_build_06_industria_producao.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: ad8395869491ec4533e48caa57357bec8e6ffa02e418f53fcf0cb2c4ea52135f
+-- CHECKSUM_SHA256: 2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5
 -- ==================================================
 -- SIGOV Pós-Build 06: Indústria e Produção avançada, chão de fábrica e integrações.
 -- Migration idempotente: CREATE TABLE/INDEX IF NOT EXISTS e seeds com ON CONFLICT, sem remoção destrutiva.
@@ -6813,12 +6833,12 @@ begin
     end loop;
 end $$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260610150000', 'pos_build_06_industria_producao', 'ad8395869491ec4533e48caa57357bec8e6ffa02e418f53fcf0cb2c4ea52135f', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610150000', 'pos_build_06_industria_producao', '2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260610180000_pos_build_07_financeiro_integrado.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 59038c4ff12346e241fdb879a096fe9fca46cec6aa957b3843791ae381cbe8da
+-- CHECKSUM_SHA256: 7524a57b97313f65ca623dfbb1865d20588fbc55d23d69835e550c8837c291fe
 -- ==================================================
 create schema if not exists sigov;
 
@@ -6859,13 +6879,18 @@ insert into sigov.financeiro_forma_pagamento (tenant_id,codigo,nome,tipo,gera_re
 
 insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('financeiro','dashboard','visualizar','financeiro.dashboard.visualizar','Visualizar dashboard financeiro',true),('financeiro','plano_contas','visualizar','financeiro.plano_contas.visualizar','Visualizar plano de contas',true),('financeiro','plano_contas','criar','financeiro.plano_contas.criar','Criar plano de contas',true),('financeiro','plano_contas','editar','financeiro.plano_contas.editar','Editar plano de contas',true),('financeiro','centros_custo','visualizar','financeiro.centros_custo.visualizar','Visualizar centros de custo',true),('financeiro','centros_custo','criar','financeiro.centros_custo.criar','Criar centros de custo',true),('financeiro','centros_custo','editar','financeiro.centros_custo.editar','Editar centros de custo',true),('financeiro','naturezas','visualizar','financeiro.naturezas.visualizar','Visualizar naturezas',true),('financeiro','naturezas','criar','financeiro.naturezas.criar','Criar naturezas',true),('financeiro','naturezas','editar','financeiro.naturezas.editar','Editar naturezas',true),('financeiro','contas_bancarias','visualizar','financeiro.contas_bancarias.visualizar','Visualizar contas bancárias',true),('financeiro','contas_bancarias','criar','financeiro.contas_bancarias.criar','Criar contas bancárias',true),('financeiro','contas_bancarias','editar','financeiro.contas_bancarias.editar','Editar contas bancárias',true),('financeiro','formas_pagamento','visualizar','financeiro.formas_pagamento.visualizar','Visualizar formas de pagamento',true),('financeiro','formas_pagamento','criar','financeiro.formas_pagamento.criar','Criar formas de pagamento',true),('financeiro','formas_pagamento','editar','financeiro.formas_pagamento.editar','Editar formas de pagamento',true),('financeiro','contas_receber','visualizar','financeiro.contas_receber.visualizar','Visualizar contas a receber',true),('financeiro','contas_receber','criar','financeiro.contas_receber.criar','Criar contas a receber',true),('financeiro','contas_receber','editar','financeiro.contas_receber.editar','Editar contas a receber',true),('financeiro','contas_receber','baixar','financeiro.contas_receber.baixar','Baixar contas a receber',true),('financeiro','contas_receber','cancelar','financeiro.contas_receber.cancelar','Cancelar contas a receber',true),('financeiro','contas_receber','estornar','financeiro.contas_receber.estornar','Estornar contas a receber',true),('financeiro','contas_pagar','visualizar','financeiro.contas_pagar.visualizar','Visualizar contas a pagar',true),('financeiro','contas_pagar','criar','financeiro.contas_pagar.criar','Criar contas a pagar',true),('financeiro','contas_pagar','editar','financeiro.contas_pagar.editar','Editar contas a pagar',true),('financeiro','contas_pagar','baixar','financeiro.contas_pagar.baixar','Baixar contas a pagar',true),('financeiro','contas_pagar','cancelar','financeiro.contas_pagar.cancelar','Cancelar contas a pagar',true),('financeiro','contas_pagar','estornar','financeiro.contas_pagar.estornar','Estornar contas a pagar',true),('financeiro','movimentos','visualizar','financeiro.movimentos.visualizar','Visualizar movimentos',true),('financeiro','movimentos','criar','financeiro.movimentos.criar','Criar movimentos',true),('financeiro','movimentos','estornar','financeiro.movimentos.estornar','Estornar movimentos',true),('financeiro','fluxo_caixa','visualizar','financeiro.fluxo_caixa.visualizar','Visualizar fluxo de caixa',true),('financeiro','conciliacao','visualizar','financeiro.conciliacao.visualizar','Visualizar conciliação',true),('financeiro','conciliacao','criar','financeiro.conciliacao.criar','Criar conciliação',true),('financeiro','conciliacao','concluir','financeiro.conciliacao.concluir','Concluir conciliação',true),('financeiro','configuracao','visualizar','financeiro.configuracao.visualizar','Visualizar configuração financeira',true),('financeiro','configuracao','editar','financeiro.configuracao.editar','Editar configuração financeira',true)
-on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
+on conflict (modulo,chave) do update set recurso=excluded.recurso, acao=excluded.acao, descricao=excluded.descricao, ativo=true, is_deleted=false;
 
-insert into sigov.perfil_acesso (nome, descricao, codigo_externo, ativo) values
+insert into sigov.perfil_acesso (tenant_id, nome, descricao, codigo_externo, ativo)
+select t.id, v.nome, v.descricao, v.codigo_externo, v.ativo
+from sigov.tenant t
+cross join (values
 ('Financeiro Admin','Administra contas, caixa, baixas, estornos, conciliação e configurações.','FINANCEIRO_ADMIN',true),
 ('Financeiro Operador','Opera contas a receber, contas a pagar e movimentos autorizados.','FINANCEIRO_OPERADOR',true),
 ('Financeiro Consulta','Consulta dashboards, fluxo e relatórios financeiros.','FINANCEIRO_CONSULTA',true),
 ('Gerente Financeiro','Gerencia indicadores, aprovações e conciliação financeira.','GERENTE_FINANCEIRO',true)
+) v(nome, descricao, codigo_externo, ativo)
+where t.slug = 'plataforma-global'
 on conflict do nothing;
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
@@ -6886,12 +6911,12 @@ cross join lateral (select id from sigov.tenant where slug = 'plataforma-global'
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FINANCEIRO_CONSULTA'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260610180000', 'pos_build_07_financeiro_integrado', '59038c4ff12346e241fdb879a096fe9fca46cec6aa957b3843791ae381cbe8da', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610180000', 'pos_build_07_financeiro_integrado', '7524a57b97313f65ca623dfbb1865d20588fbc55d23d69835e550c8837c291fe', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260610200000_pos_build_08_tributario_avancado_iptu_iss_dam.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 725138bf822225fad6dd78493612c712341752bf6061b8b56fda9e4428b94877
+-- CHECKSUM_SHA256: 3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2
 -- ==================================================
 -- SIGOV - Evolução Pós-Build 08: Tributário Avançado e Fiscal Integrado
 -- Idempotente, schema sigov, multi-tenant, LGPD e auditoria fiscal.
@@ -7150,13 +7175,30 @@ insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('tributario','nfse','emitir','tributario.nfse.emitir','Emitir NFS-e simulada',true),
 ('tributario','livro_eletronico','visualizar','tributario.livro_eletronico.visualizar','Visualizar livro eletrônico tributário',true),
 ('tributario','livro_eletronico','gerar','tributario.livro_eletronico.gerar','Gerar livro eletrônico tributário',true)
-on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
+on conflict (modulo, chave)
+do update set
+    recurso = excluded.recurso,
+    acao = excluded.acao,
+    descricao = excluded.descricao,
+    ativo = true,
+    is_deleted = false;
 
-insert into sigov.perfil_acesso (nome, descricao, codigo_externo, ativo) values
-('Tributário Admin','Administra IPTU, ISS, taxas, DAM, dívida ativa, NFS-e simulada e livro eletrônico.','TRIBUTARIO_ADMIN',true),
-('Fiscal Tributário','Opera lançamentos, arrecadação, parcelamentos e relatórios fiscais.','FISCAL_TRIBUTARIO',true),
-('Consulta Tributária','Consulta dashboard, livro eletrônico e relatórios fiscais.','CONSULTA_TRIBUTARIA',true)
-on conflict do nothing;
+insert into sigov.perfil_acesso (tenant_id, nome, descricao, codigo_externo, ativo)
+select t.id, v.nome, v.descricao, v.codigo_externo, true
+from sigov.tenant t
+cross join (values
+    ('Tributário Admin','Administra IPTU, ISS, taxas, DAM, dívida ativa, NFS-e simulada e livro eletrônico.','TRIBUTARIO_ADMIN'),
+    ('Fiscal Tributário','Opera lançamentos, arrecadação, parcelamentos e relatórios fiscais.','FISCAL_TRIBUTARIO'),
+    ('Consulta Tributária','Consulta dashboard, livro eletrônico e relatórios fiscais.','CONSULTA_TRIBUTARIA')
+) v(nome, descricao, codigo_externo)
+where t.slug = 'plataforma-global'
+and not exists (
+    select 1
+    from sigov.perfil_acesso pa
+    where pa.tenant_id = t.id
+      and pa.codigo_externo = v.codigo_externo
+      and pa.is_deleted = false
+);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
@@ -7187,16 +7229,6 @@ insert into sigov.tenant_modulo_pacote (codigo, nome, descricao, modulos_json) v
 ('GOV_TRIBUTARIO_PLUS','Gov Tributário Plus','Pacote fiscal municipal com Tributário Avançado, Financeiro Público e LGPD.', '["tributario","financeiro_publico","auditoria-lgpd"]'::jsonb)
 on conflict (codigo) do update set nome=excluded.nome, descricao=excluded.descricao, modulos_json=excluded.modulos_json;
 
-insert into sigov.contribuinte (tenant_id, inscricao, nome, documento, tipo_pessoa, email, telefone, consentimento_lgpd)
-select t.id, seed.inscricao, seed.nome, seed.documento, seed.tipo_pessoa, seed.email, seed.telefone, true
-from sigov.tenant t
-cross join (values
-    ('MUN-000001','Contribuinte Exemplo IPTU','12345678901','FISICA','iptu.demo@sigov.local','(11) 3000-0001'),
-    ('MUN-000002','Prestador Exemplo ISS','12345678000199','JURIDICA','iss.demo@sigov.local','(11) 3000-0002')
-) as seed(inscricao,nome,documento,tipo_pessoa,email,telefone)
-where t.slug in ('plataforma-global','prefeitura-demo','tenant-demo')
-on conflict (tenant_id, inscricao) do update set nome=excluded.nome, email=excluded.email, telefone=excluded.telefone, updated_at=now();
-
 insert into sigov.tributos_impostos (tenant_id, codigo, nome, tipo, aliquota, fundamento_legal, vinculo_origem)
 select t.id, seed.codigo, seed.nome, seed.tipo, seed.aliquota, seed.fundamento_legal, seed.vinculo_origem
 from sigov.tenant t
@@ -7208,7 +7240,7 @@ cross join (values
 where t.slug in ('plataforma-global','prefeitura-demo','tenant-demo')
 on conflict (tenant_id, codigo) do update set nome=excluded.nome, aliquota=excluded.aliquota, fundamento_legal=excluded.fundamento_legal, updated_at=now();
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260610200000', 'pos_build_08_tributario_avancado_iptu_iss_dam', '725138bf822225fad6dd78493612c712341752bf6061b8b56fda9e4428b94877', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610200000', 'pos_build_08_tributario_avancado_iptu_iss_dam', '3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260610220000_pos_build_09_ged_ocr_assinatura_automacao.sql
@@ -7569,7 +7601,7 @@ on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
 join sigov.permissao p on p.chave in ('ged.visualizar','ged.upload','ged.download','ged.indexar','ged.assinar','ged.tramitar','contrato.visualizar','contrato.criar','contrato.assinar','fluxo.visualizar','ocr.processar')
 where pa.ativo=true and pa.is_deleted=false
   and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT') or upper(pa.nome) like '%ADMIN%')
@@ -7608,7 +7640,7 @@ insert into sigov.tenant_modulo_pacote (codigo, nome, descricao, modulos_json) v
 ('GED_AUTOMACAO_PLUS','GED Automação Plus','GED completo com OCR simulado, contratos, protocolos, workflow, tramitação e assinatura digital simulada.', '["ged","ocr","contrato","fluxo","processos","integracoes","auditoria-lgpd"]'::jsonb)
 on conflict (codigo) do update set nome=excluded.nome, descricao=excluded.descricao, modulos_json=excluded.modulos_json;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260610220000', 'pos_build_09_ged_ocr_assinatura_automacao', 'f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610220000', 'pos_build_09_ged_ocr_assinatura_automacao', 'f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260611110000_pos_build_11_ia_automacao_assistentes.sql
@@ -7958,7 +7990,7 @@ insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo) values
 ('ia','consumo','recalcular','ia.consumo.recalcular','Recalcular consumo IA',true)
 on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=excluded.ativo;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', '9189f560237c88b1ca7caceca3265d30e17857fd6691be591d24e79280acb005', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', '9189f560237c88b1ca7caceca3265d30e17857fd6691be591d24e79280acb005', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql
@@ -8309,7 +8341,7 @@ on conflict do nothing;
 -- campo.formularios.visualizar, campo.formularios.criar, campo.formularios.responder, campo.notificacoes.visualizar, campo.sincronizacao.visualizar, campo.sincronizacao.reprocessar.
 -- Perfis sugeridos: OPERADOR_CAMPO, TECNICO_CAMPO, AGENTE_SAUDE, LEITURISTA, FISCAL_CAMPO, SUPERVISOR_CAMPO, ADMIN_CAMPO; ADMIN_GERAL recebe todas.
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260611130000', 'pos_build_12_mobile_pwa_campo_offline_geo', '2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611130000', 'pos_build_12_mobile_pwa_campo_offline_geo', '2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260706120000_consolidacao_modulos_transversais.sql
@@ -8387,7 +8419,7 @@ CREATE INDEX IF NOT EXISTS ix_obra_tenant_status ON sigov.obra(tenant_id,status)
 COMMENT ON TABLE sigov.outbox_evento IS 'Outbox transacional para eventos operacionais SIGOV PLUS com reprocessamento por worker.';
 COMMENT ON TABLE sigov.protocolo IS 'Protocolo operacional multi-tenant; não representa simulação quando persistido por fluxo homologado.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260706120000', 'consolidacao_modulos_transversais', '2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706120000', 'consolidacao_modulos_transversais', '2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql
@@ -8524,7 +8556,7 @@ create index if not exists ix_tarefa_protocolo_id on sigov.tarefa (protocolo_id)
 create index if not exists ix_notificacao_usuario_usuario_id on sigov.notificacao_usuario (usuario_id);
 create index if not exists ix_outbox_evento_evento on sigov.outbox_evento (evento);
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260706153000', 'pos_rc_protocolo_ged_workflow_api_outbox', 'ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706153000', 'pos_rc_protocolo_ged_workflow_api_outbox', 'ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260709120000_enterprise_funcional_crud.sql
@@ -8580,7 +8612,7 @@ alter table sigov.enterprise_estoque_saldo add column if not exists quantidade n
 alter table sigov.enterprise_estoque_saldo add column if not exists minimo numeric(18,4) not null default 0;
 create unique index if not exists enterprise_estoque_saldo_tenant_produto_uidx on sigov.enterprise_estoque_saldo(tenant_id, produto_id) where is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260709120000', 'enterprise_funcional_crud', 'db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260709120000', 'enterprise_funcional_crud', 'db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260713120000_pos_rc_11_enterprise_anexos_release.sql
@@ -8616,7 +8648,7 @@ where not exists (
   select 1 from sigov.enterprise_anexo where tenant_id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid and entidade='cliente' and entidade_id='22222222-2222-2222-2222-222222222222'::uuid and documento_id=1
 );
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260713120000', 'pos_rc_11_enterprise_anexos_release', '50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260713120000', 'pos_rc_11_enterprise_anexos_release', '50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260721120000_pos_rc_17_runtime_nucleo_operacional.sql
@@ -8677,6 +8709,7 @@ create index if not exists ix_kanban_filtros on sigov.kanban_card (tenant_id, or
 create index if not exists ix_outbox_evento_status on sigov.outbox_evento (status, next_attempt_at);
 commit;
 
-insert into sigov.schema_migrations(version, description, checksum, category, applied_at) values ('20260721120000', 'pos_rc_17_runtime_nucleo_operacional', '5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06', 'schema', now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260721120000', 'pos_rc_17_runtime_nucleo_operacional', '5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
+-- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
