@@ -225,3 +225,7 @@ A rodada Pós-RC 16 registra a auditoria de interfaces, DI e dependências entre
 ## Pós-RC 17 — validação técnica
 
 A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.
+
+## Pós-RC 20 — baseline PostgreSQL standalone
+
+A trilha Pós-RC 20 centraliza a versão `1.0.0-rc20`, separa seeds demonstrativos da baseline estrutural e exige que `script_completop.sql` seja gerado por `scripts/generate-script-completop.ps1` a partir de `database/postgres/migrations/manifest.json`. A criação do primeiro administrador não é feita no SQL estrutural; use explicitamente `scripts/create-initial-admin.ps1` ou `scripts/create-initial-admin.sh` após instalar o banco.
