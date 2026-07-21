@@ -13,15 +13,15 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
 {
     private static readonly Guid DemoTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IEnterpriseModuleService _service;
-    private readonly IEnterpriseCrudService? _crud;
+    private readonly IEnterpriseCrudService _crud;
     private readonly ILogger<EnterpriseModulesController> _logger;
     private readonly IWebHostEnvironment _environment;
     private readonly IConfiguration _configuration;
 
-    public EnterpriseModulesController(IEnterpriseModuleService service, ILogger<EnterpriseModulesController> logger, IWebHostEnvironment environment, IConfiguration configuration)
+    public EnterpriseModulesController(IEnterpriseModuleService service, IEnterpriseCrudService crud, ILogger<EnterpriseModulesController> logger, IWebHostEnvironment environment, IConfiguration configuration)
     {
         _service = service;
-        _crud = service as IEnterpriseCrudService;
+        _crud = crud;
         _logger = logger;
         _environment = environment;
         _configuration = configuration;
@@ -51,7 +51,6 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     [HttpGet("api/enterprise/{area}/export-csv")]
     public async Task<IActionResult> EnterpriseExport(string area, CancellationToken cancellationToken)
     {
-        if (_crud is null) return NotFound(ApiResponse<string>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var csv = await _crud.ExportCsvAsync(NormalizeEnterpriseArea(area), ResolveTenantId(), cancellationToken);
         return File(csv, "text/csv", $"enterprise-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
     }
@@ -77,7 +76,6 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     [HttpPost("api/enterprise/{area}/import-confirm")]
     public async Task<ActionResult<ApiResponse<object>>> ImportConfirm(string area, IFormFile? file, CancellationToken cancellationToken)
     {
-        if (_crud is null) return NotFound(ApiResponse<object>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var preview = await ValidateImportAsync(area, file, cancellationToken).ConfigureAwait(false);
         if (!preview.Valid) return BadRequest(ApiResponse<object>.Fail(preview.Message, CorrelationId()));
         if (file is null) return BadRequest(ApiResponse<object>.Fail("Arquivo CSV obrigatório.", CorrelationId()));
@@ -211,7 +209,6 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
     [HttpGet("api/{segment}/{area}/export-csv")]
     public async Task<IActionResult> LegacyExport(string segment, string area, CancellationToken cancellationToken)
     {
-        if (_crud is null) return NotFound(ApiResponse<string>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
         var csv = await _crud.ExportCsvAsync($"{segment}/{area}", ResolveTenantId(), cancellationToken);
         return File(csv, "text/csv", $"enterprise-{segment}-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
     }

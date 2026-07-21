@@ -131,3 +131,8 @@ A classificação funcional não abre módulos novos. A mudança desta sprint é
 - UX Enterprise com metadata de formulário por entidade e ações operacionais sem botões placeholder.
 - CSV seguro com mascaramento LGPD, sanitização de separador/quebras de linha e proteção contra fórmulas.
 - Documentação de diagnóstico, jornadas, QA, matriz CRUD e segurança LGPD Pós-RC 10 adicionada.
+
+## Pós-RC 16
+
+- Auditoria de DI e interfaces Enterprise registrada em `docs/matriz-di-pos-rc-16.md` e `docs/matriz-interfaces-pos-rc-16.md`.
+- Evidências e limitações de ambiente registradas em `docs/evidencias-pos-rc-16.md`.

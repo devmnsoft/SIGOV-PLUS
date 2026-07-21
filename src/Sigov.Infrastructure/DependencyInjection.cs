@@ -86,7 +86,9 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
         services.AddScoped<IComercioEstoqueService, ComercioEstoqueService>();
-        services.AddScoped<IEnterpriseCrudService, EnterpriseDapperCrudService>();
+        services.AddScoped<EnterpriseDapperCrudService>();
+        services.AddScoped<IEnterpriseModuleService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
+        services.AddScoped<IEnterpriseCrudService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
         services.AddScoped<UserPreferenceRepository>();
         services.AddScoped<OnboardingRepository>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
