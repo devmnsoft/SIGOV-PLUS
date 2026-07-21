@@ -1,3 +1,29 @@
+# SIGOV PLUS
+
+## Execução sem Docker
+
+A execução local principal do Pós-RC 19 usa PostgreSQL instalado diretamente e processos .NET iniciados por `scripts/start-local.ps1` ou `scripts/start-local.sh`. O script `scripts/start-dev.ps1` delega para o fluxo local sem Docker.
+
+## Configuração do PostgreSQL
+
+Copie `.env.local.example` para `.env.local`, ajuste host, porta, database, usuário e senha locais e exporte a connection string via `ConnectionStrings__DefaultConnection`.
+
+## Execução de `script_completop.sql`
+
+O arquivo `script_completop.sql` fica na raiz, é autônomo e deve ser executado com PostgreSQL 16: `psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U sigov -d sigov -f script_completop.sql`. O mesmo conteúdo pode ser colado no pgAdmin Query Tool.
+
+## Inicialização local
+
+Windows: `pwsh -NoProfile -File scripts/start-local.ps1`. Linux: `./scripts/start-local.sh`. URLs padrão: Web `http://localhost:5000`, API `http://localhost:5001`, Swagger `http://localhost:5001/swagger`.
+
+## Docker opcional
+
+Docker Compose permanece como alternativa para validações de container, mas não é requisito para executar API, Web e Worker.
+
+## Produção
+
+Em produção, forneça segredos por variáveis de ambiente ou secret manager e configure explicitamente `Sigov:Database:MigrationMode`.
+
 # sigov
 
 Plataforma SaaS de gestão pública municipal para operação real de prefeituras, câmaras, autarquias, fundos, secretarias e unidades descentralizadas.

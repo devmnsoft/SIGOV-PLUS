@@ -1,0 +1,4 @@
+{
+  "status": "pending-ci",
+  "reason": "psql indisponível no contêiner local; validação estrutural executada no GitHub Actions"
+}
