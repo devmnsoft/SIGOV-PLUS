@@ -4030,7 +4030,7 @@ select
   cross join lateral (
       select id
         from sigov.tenant
-       where slug = 'plataforma'
+       where slug = 'plataforma-global'
        order by id
        limit 1
   ) t
@@ -4507,7 +4507,7 @@ select s.modulo, s.recurso, s.acao, s.chave, s.descricao, s.ativo
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false where pa.ativo=true and pa.is_deleted=false and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') or upper(pa.nome) like '%ADMINISTRADOR%') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false where pa.ativo=true and pa.is_deleted=false and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') or upper(pa.nome) like '%ADMINISTRADOR%') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 create table if not exists sigov.agro_produtor (id bigint generated always as identity primary key, tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id), pessoa_id bigint not null references sigov.pessoa(id), codigo_produtor varchar(80) not null, tipo_produtor varchar(80) not null, inscricao_estadual varchar(80) null, inscricao_municipal varchar(80) null, numero_produtor_rural varchar(80) null, associacao_cooperativa varchar(250) null, principal_atividade varchar(150) null, situacao varchar(40) not null, data_cadastro date not null default current_date, observacao text null, ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), created_by bigint null, updated_at timestamptz null, updated_by bigint null, deleted_at timestamptz null, deleted_by bigint null, correlation_id uuid null, constraint uk_agro_produtor_tenant_entidade_codigo unique(tenant_id,entidade_id,codigo_produtor), constraint uk_agro_produtor_tenant_entidade_pessoa unique(tenant_id,entidade_id,pessoa_id));
 create table if not exists sigov.agro_propriedade (id bigint generated always as identity primary key, tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id), produtor_id bigint not null references sigov.agro_produtor(id), codigo_propriedade varchar(80) not null, nome varchar(250) not null, localidade varchar(250) null, comunidade varchar(250) null, endereco_json jsonb not null default '{}'::jsonb, area_total_ha numeric(18,4) null, area_produtiva_ha numeric(18,4) null, area_preservacao_ha numeric(18,4) null, latitude numeric(12,8) null, longitude numeric(12,8) null, geojson jsonb null, situacao varchar(40) not null, observacao text null, ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), created_by bigint null, updated_at timestamptz null, updated_by bigint null, deleted_at timestamptz null, deleted_by bigint null, correlation_id uuid null, constraint uk_agro_propriedade_tenant_entidade_codigo unique(tenant_id,entidade_id,codigo_propriedade), constraint ck_agro_propriedade_areas check ((area_total_ha is null or area_total_ha >= 0) and (area_produtiva_ha is null or area_produtiva_ha >= 0) and (area_total_ha is null or area_produtiva_ha is null or area_produtiva_ha <= area_total_ha)), constraint ck_agro_propriedade_coords check ((latitude is null and longitude is null) or (latitude between -90 and 90 and longitude between -180 and 180)));
@@ -4569,7 +4569,7 @@ on conflict (modulo, recurso, acao) do update set chave=excluded.chave, descrica
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.modulo='agro' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','ADMINISTRADOR_ENTIDADE','COORDENADOR','DIRETOR','OPERADOR','AUDITOR','SUPORTE') and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.tenant_feature_flag (tenant_id, feature_flag_def_id, habilitado, ativo)
@@ -6348,7 +6348,7 @@ on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.ativo=true and p.is_deleted=false and (p.modulo in ('comercio','financeiro') or p.chave like 'financeiro.contas_receber.%')
 where pa.ativo=true and pa.is_deleted=false
   and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','GERENTE_COMERCIAL') or upper(pa.nome) like '%ADMIN%')
@@ -6357,7 +6357,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('comercio.pdv.acessar','comercio.vendas.criar','comercio.vendas.finalizar','comercio.caixa.abrir','comercio.caixa.fechar','comercio.caixa.suprimento','comercio.caixa.sangria')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('OPERADOR_CAIXA','CAIXA')
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -6365,7 +6365,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('comercio.clientes.visualizar','comercio.clientes.criar','comercio.clientes.editar','comercio.orcamentos.visualizar','comercio.orcamentos.criar','comercio.pedidos.visualizar','comercio.pedidos.criar','comercio.vendas.criar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('VENDEDOR','REPRESENTANTE')
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -6711,13 +6711,20 @@ insert into sigov.saas_plano_modulo (plano_id, modulo_codigo, incluso)
 select p.id, pm.modulo, true from plano_modulos pm join sigov.saas_plano p on p.codigo=pm.codigo
 on conflict (plano_id, modulo_codigo) do update set incluso=true;
 
-insert into sigov.perfil_acesso (nome, descricao, codigo_externo, ativo) values
-('Gerente Industrial','Gerencia produção, chão de fábrica, custos e indicadores.','GERENTE_INDUSTRIAL',true),
-('PCP','Planeja e libera ordens de produção.','PCP',true),
-('Operador de Produção','Realiza apontamentos de chão de fábrica.','OPERADOR_PRODUCAO',true),
-('Qualidade','Executa inspeções e liberações de qualidade.','QUALIDADE',true),
-('Manutenção','Atua em paradas e OS de manutenção.','MANUTENCAO',true)
-on conflict do nothing;
+insert into sigov.perfil_acesso (tenant_id, nome, descricao, codigo_externo, ativo)
+select t.id, v.nome, v.descricao, v.codigo_externo, true
+from (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
+cross join (values
+('Gerente Industrial','Gerencia produção, chão de fábrica, custos e indicadores.','GERENTE_INDUSTRIAL'),
+('PCP','Planeja e libera ordens de produção.','PCP'),
+('Operador de Produção','Realiza apontamentos de chão de fábrica.','OPERADOR_PRODUCAO'),
+('Qualidade','Executa inspeções e liberações de qualidade.','QUALIDADE'),
+('Manutenção','Atua em paradas e OS de manutenção.','MANUTENCAO')
+) as v(nome, descricao, codigo_externo)
+where not exists (
+    select 1 from sigov.perfil_acesso pa
+    where pa.tenant_id = t.id and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) = v.codigo_externo
+);
 
 insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo) values
 ('industria','dashboard','visualizar','industria.dashboard.visualizar','Visualizar dashboard industrial',true),
@@ -6757,26 +6764,26 @@ on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.modulo='industria' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','GERENTE_INDUSTRIAL') or upper(pa.nome) like '%ADMIN%')
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.dashboard.visualizar','industria.ordens.visualizar','industria.ordens.criar','industria.ordens.liberar','industria.fichas.visualizar','industria.roteiros.visualizar','industria.custos.visualizar')
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.dashboard.visualizar','industria.ordens.visualizar','industria.ordens.criar','industria.ordens.liberar','industria.fichas.visualizar','industria.roteiros.visualizar','industria.custos.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='PCP'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.chao_fabrica.acessar','industria.ordens.visualizar','industria.ordens.iniciar','industria.apontamentos.criar','industria.materiais.consumir','industria.producao.registrar','industria.refugo.registrar')
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.chao_fabrica.acessar','industria.ordens.visualizar','industria.ordens.iniciar','industria.apontamentos.criar','industria.materiais.consumir','industria.producao.registrar','industria.refugo.registrar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='OPERADOR_PRODUCAO'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.qualidade.visualizar','industria.qualidade.inspecionar','industria.ordens.visualizar')
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.chave in ('industria.qualidade.visualizar','industria.qualidade.inspecionar','industria.ordens.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='QUALIDADE'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
@@ -6863,19 +6870,19 @@ on conflict do nothing;
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.modulo='financeiro' and p.ativo=true and p.is_deleted=false
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.modulo='financeiro' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','FINANCEIRO_ADMIN','GERENTE_FINANCEIRO')
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_receber.baixar','financeiro.contas_pagar.visualizar','financeiro.contas_pagar.baixar','financeiro.movimentos.visualizar','financeiro.movimentos.criar','financeiro.fluxo_caixa.visualizar')
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_receber.baixar','financeiro.contas_pagar.visualizar','financeiro.contas_pagar.baixar','financeiro.movimentos.visualizar','financeiro.movimentos.criar','financeiro.fluxo_caixa.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FINANCEIRO_OPERADOR'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_pagar.visualizar','financeiro.movimentos.visualizar','financeiro.fluxo_caixa.visualizar','financeiro.conciliacao.visualizar')
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t join sigov.permissao p on p.chave in ('financeiro.dashboard.visualizar','financeiro.contas_receber.visualizar','financeiro.contas_pagar.visualizar','financeiro.movimentos.visualizar','financeiro.fluxo_caixa.visualizar','financeiro.conciliacao.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FINANCEIRO_CONSULTA'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
@@ -7154,7 +7161,7 @@ on conflict do nothing;
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.modulo='tributario' and p.ativo=true and p.is_deleted=false
 where pa.ativo=true and pa.is_deleted=false
   and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT','TRIBUTARIO_ADMIN')
@@ -7163,7 +7170,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('tributario.dashboard.visualizar','tributario.iptu.visualizar','tributario.iss.visualizar','tributario.taxas.visualizar','tributario.divida_ativa.visualizar','tributario.parcelamento.visualizar','tributario.arrecadacao.visualizar','tributario.arrecadacao.registrar','tributario.nfse.visualizar','tributario.livro_eletronico.visualizar','tributario.livro_eletronico.gerar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='FISCAL_TRIBUTARIO'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -7171,7 +7178,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('tributario.dashboard.visualizar','tributario.iptu.visualizar','tributario.iss.visualizar','tributario.taxas.visualizar','tributario.divida_ativa.visualizar','tributario.parcelamento.visualizar','tributario.arrecadacao.visualizar','tributario.nfse.visualizar','tributario.livro_eletronico.visualizar')
 where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_')))='CONSULTA_TRIBUTARIA'
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
@@ -7562,7 +7569,7 @@ on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=
 insert into sigov.perfil_permissao (tenant_id, perfil_acesso_id, permissao_id)
 select coalesce(pa.tenant_id, t.id), pa.id, p.id
 from sigov.perfil_acesso pa
-cross join lateral (select id from sigov.tenant where slug = 'plataforma' order by id limit 1) t
+cross join lateral (select id from sigov.tenant where slug = 'plataforma-global' order by id limit 1) t
 join sigov.permissao p on p.chave in ('ged.visualizar','ged.upload','ged.download','ged.indexar','ged.assinar','ged.tramitar','contrato.visualizar','contrato.criar','contrato.assinar','fluxo.visualizar','ocr.processar')
 where pa.ativo=true and pa.is_deleted=false
   and (coalesce(pa.codigo_externo, upper(replace(pa.nome,' ','_'))) in ('ADMIN_GERAL','ADMINISTRADOR_GERAL','ADMIN_TENANT','ADMINISTRADOR_TENANT') or upper(pa.nome) like '%ADMIN%')

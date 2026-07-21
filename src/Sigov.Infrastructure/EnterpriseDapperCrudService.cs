@@ -227,12 +227,12 @@ public sealed class EnterpriseDapperCrudService : IEnterpriseModuleService, IEnt
     private static EnterpriseActionResult SchemaUnavailable(Guid id, Guid tenantId, string operation) => new(id, tenantId, "SCHEMA_UNAVAILABLE", $"Schema Enterprise indisponível; operação real '{operation}' não persistiu e foi bloqueada por fallback honesto.");
     private static bool TryTable(string area, out string table) => AreaTables.TryGetValue(area, out table!);
     private static bool IsSchemaUnavailable(Exception ex) => ex is PostgresException pg && (pg.SqlState == "42P01" || pg.SqlState == "3F000") || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
-    private static string CodePrefix(string area) => new(area.Where(char.IsLetterOrDigit).Take(3).ToArray()).ToUpperInvariant();
+    private static string CodePrefix(string area) => new string(area.Where(char.IsLetterOrDigit).Take(3).ToArray()).ToUpperInvariant();
     private static string ModuleArea(string module) => module switch { "ordem_servico" => "os/ordens", "estoque_compras" => "estoque/produtos", "manutencao_industrial" => "industrial/ativos", _ => "comercial/clientes" };
     private static string? MaskDocument(string? value) => string.IsNullOrWhiteSpace(value) ? null : $"***{OnlyDigits(value).TakeLast(4).Aggregate(string.Empty, (c, d) => c + d)}";
     private static string? MaskEmail(string? value) { if (string.IsNullOrWhiteSpace(value) || !value.Contains('@', StringComparison.Ordinal)) return null; var p = value.Split('@', 2); return $"{p[0][0]}***@{p[1]}"; }
     private static string? MaskPhone(string? value) => string.IsNullOrWhiteSpace(value) ? null : $"(**) ****-{OnlyDigits(value).TakeLast(4).Aggregate(string.Empty, (c, d) => c + d)}";
-    private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
+    private static string OnlyDigits(string value) => new string(value.Where(char.IsDigit).ToArray());
     private static string CsvCell(string? value)
     {
         var safe = (value ?? string.Empty).Replace(";", ",", StringComparison.Ordinal).Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
