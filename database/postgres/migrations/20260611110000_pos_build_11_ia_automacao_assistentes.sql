@@ -256,10 +256,15 @@ insert into sigov.ia_assistente(codigo,nome,descricao,tipo,ativo) values
 ('ASSISTENTE_SUPORTE','Assistente Suporte','Apoio a atendimento e suporte.','SUPORTE',true)
 on conflict(codigo) do update set nome=excluded.nome,descricao=excluded.descricao,tipo=excluded.tipo,ativo=excluded.ativo;
 
+
+create unique index if not exists ux_ia_prompt_template_global_codigo
+on sigov.ia_prompt_template(codigo)
+where tenant_id is null;
+
 insert into sigov.ia_prompt_template(tenant_id,codigo,nome,modulo_codigo,tipo,template,exige_confirmacao,ativo)
 select v.tenant_id,v.codigo,v.nome,v.modulo_codigo,v.tipo,v.template,v.exige_confirmacao,v.ativo
 from (values
-(null,'resumo_documento','Resumo de documento','ged','RESUMO','Resuma o documento, indique pontos relevantes e informe se houver dados insuficientes.',false,true),
+(null::bigint,'resumo_documento','Resumo de documento','ged','RESUMO','Resuma o documento, indique pontos relevantes e informe se houver dados insuficientes.',false,true),
 (null,'resumo_processo','Resumo de processo','protocolo','RESUMO','Resuma o processo e sugira próximos passos sem executar ações críticas.',false,true),
 (null,'resumo_os','Resumo de OS','ordem_servico','RESUMO','Resuma o histórico da OS e a próxima ação segura.',false,true),
 (null,'resumo_contrato','Resumo de contrato','contrato','RESUMO','Resuma contrato, vigência, cláusulas e riscos.',false,true),
@@ -278,7 +283,7 @@ from (values
 ) as v(tenant_id,codigo,nome,modulo_codigo,tipo,template,exige_confirmacao,ativo)
 where not exists (
     select 1 from sigov.ia_prompt_template t
-    where ((t.tenant_id is null and v.tenant_id is null) or t.tenant_id = v.tenant_id)
+    where t.tenant_id is not distinct from v.tenant_id
       and t.codigo = v.codigo
 );
 

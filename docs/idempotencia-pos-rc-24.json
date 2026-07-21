@@ -1,0 +1,5 @@
+{
+  "status": "failed",
+  "reason": "PostgreSQL 16/psql indisponível no ambiente local de execução",
+  "script": "script_completop.sql"
+}

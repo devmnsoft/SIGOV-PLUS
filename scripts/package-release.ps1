@@ -27,13 +27,25 @@ function Assert-SafeContent([string]$Path,[string]$Relative) {
   $allowedScannerSource = ($Relative -eq 'scripts/package-release.ps1' -and $content -match 'SIGOV_SMOKE_API_KEY')
   if ($Relative -ne '.env.example' -and -not $allowedDemoSmoke -and -not $allowedScannerSource -and $content -match '(?i)(SIGOV_SMOKE_API_KEY\s*=\s*[^\s#]+|POSTGRES_PASSWORD\s*=\s*[^\s#]+|Password=123456|private[_-]?key|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)') { throw "Possível segredo em $Relative" }
 }
+
+function Copy-ReleaseItem([string]$Source, [string]$Destination, [string]$RelativePath) {
+  if (-not (Test-Path $Source)) { throw "Origem ausente para pacote: $RelativePath" }
+  Assert-SafePath $RelativePath
+  $parent = Split-Path $Destination -Parent
+  if (-not [string]::IsNullOrWhiteSpace($parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+  if ($RelativePath -eq '.env.example') { Sanitize-EnvExample $Source $Destination } else { Copy-Item $Source -Destination $Destination -Force }
+  if (-not (Test-Path $Destination)) { throw "Falha ao copiar item do pacote: $RelativePath" }
+  Assert-SafeContent $Destination $RelativePath
+  $hash = (Get-FileHash -Algorithm SHA256 -Path $Destination).Hash
+  Add-Content -Path (Join-Path $root 'package-release.log') -Encoding UTF8 -Value ("COPY {0} {1}" -f $RelativePath, $hash)
+  return $hash
+}
 $copyFiles = @('README.md','docker-compose.yml','.env.example','script_completop.sql','global.json','eng/version.json','docs/release-notes-v1.0.0.md','docs/checklist-go-live-pos-rc.md','docs/roteiro-demo-sigov-plus.md','docs/diagnostico-pos-rc-23a-inicial.md','docs/diagnostico-ci-pos-rc-23a.md','docs/diagnostico-build-pos-rc-20.md','docs/diagnostico-migrations-pos-rc-20.md','docs/diagnostico-docker-pos-rc-20.md','docs/testes-pos-rc-20.md','docs/diagnostico-pos-rc-20-final.md','docs/evidencias-pos-rc-20.md','docs/evidencias-pos-rc-20.json','docs/manual-usuario-sigov-pos-rc-15.md','docs/manual-admin-sigov-pos-rc-15.md','docs/jornadas-operacionais-pos-rc-15.md','docs/matriz-funcional-pos-rc-15.md','docs/matriz-crud-enterprise-pos-rc-15.md','docs/security-lgpd-pos-rc-15.md','docs/checklist-homologacao-pos-rc-15.md','docs/importacao-enterprise-pos-rc-15.md','docs/acoes-lote-enterprise-pos-rc-15.md','docs/anexos-enterprise-ged-pos-rc-15.md','docs/agenda-sla-kanban-pos-rc-15.md','docs/smoke-test-release-candidate.md','docs/smoke-test-release-candidate.json')
 foreach ($file in $copyFiles) {
   $source = Join-Path $root $file
   if (Test-Path $source) {
     $dest = Join-Path $package $file
-    New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
-    if ($file -eq '.env.example') { Sanitize-EnvExample $source $dest } else { Copy-Item $source -Destination $dest }
+    Copy-ReleaseItem -Source $source -Destination $dest -RelativePath $file | Out-Null
   }
 }
 foreach ($dir in @('database/postgres/migrations','database/postgres/seeds/homologacao')) { $source = Join-Path $root $dir; if (Test-Path $source) { Copy-Item $source -Destination (Join-Path $package $dir) -Recurse -Force } }

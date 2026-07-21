@@ -3,6 +3,7 @@
     <AssemblyName>Sigov.ApiTests</AssemblyName>
     <RootNamespace>Sigov.ApiTests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
     <NoWarn>$(NoWarn);xUnit1030</NoWarn>
   </PropertyGroup>
   <ItemGroup>

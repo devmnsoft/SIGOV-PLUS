@@ -3,6 +3,7 @@
     <AssemblyName>Sigov.IntegrationTests</AssemblyName>
     <RootNamespace>Sigov.IntegrationTests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sigov.Testing\Sigov.Testing.csproj" />
