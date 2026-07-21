@@ -1,0 +1,23 @@
+{
+  "releaseCandidate": "1.0.0-rc16",
+  "environment": {
+    "dotnet": "command not found",
+    "docker": "command not found",
+    "psql": "command not found",
+    "pwsh": "command not found"
+  },
+  "checks": [
+    { "command": "rg \"as IEnterpriseCrudService|IEnterpriseCrudService\\?\" src -n", "status": "passed" },
+    { "command": "git diff --check", "status": "passed" }
+  ],
+  "notExecuted": [
+    "dotnet clean sigov.sln",
+    "dotnet restore sigov.sln",
+    "dotnet build sigov.sln --configuration Release --no-restore",
+    "dotnet test sigov.sln --configuration Release --no-build --logger trx --results-directory TestResults",
+    "dotnet format sigov.sln --verify-no-changes",
+    "docker compose build --no-cache",
+    "docker compose up -d",
+    "pwsh scripts/*.ps1"
+  ]
+}

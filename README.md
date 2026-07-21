@@ -191,3 +191,7 @@ Artefatos principais:
 - `docs/acoes-lote-enterprise-pos-rc-15.md`
 - `docs/anexos-enterprise-ged-pos-rc-15.md`
 - `docs/agenda-sla-kanban-pos-rc-15.md`
+
+## Pós-RC 16 — estabilização arquitetural
+
+A rodada Pós-RC 16 registra a auditoria de interfaces, DI e dependências entre projetos em `docs/diagnostico-pos-rc-16-inicial.md`, `docs/matriz-interfaces-pos-rc-16.md`, `docs/matriz-di-pos-rc-16.md` e `docs/evidencias-pos-rc-16.md`. O foco desta etapa é estabilizar a base antes de novos módulos grandes, eliminando casts indevidos entre contratos Enterprise e adicionando teste arquitetural para impedir referências proibidas entre camadas.
