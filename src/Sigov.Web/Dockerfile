@@ -1,7 +1,6 @@
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
 
-COPY sigov.sln ./
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/Sigov.Domain/Sigov.Domain.csproj src/Sigov.Domain/
 COPY src/Sigov.Application/Sigov.Application.csproj src/Sigov.Application/
@@ -9,11 +8,8 @@ COPY src/Sigov.Infrastructure/Sigov.Infrastructure.csproj src/Sigov.Infrastructu
 COPY src/Sigov.Api/Sigov.Api.csproj src/Sigov.Api/
 COPY src/Sigov.Web/Sigov.Web.csproj src/Sigov.Web/
 COPY src/Sigov.Worker/Sigov.Worker.csproj src/Sigov.Worker/
-COPY tests/Sigov.UnitTests/Sigov.UnitTests.csproj tests/Sigov.UnitTests/
-COPY tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj tests/Sigov.IntegrationTests/
-COPY tests/Sigov.ApiTests/Sigov.ApiTests.csproj tests/Sigov.ApiTests/
 
-RUN dotnet restore sigov.sln
+RUN dotnet restore src/Sigov.Web/Sigov.Web.csproj
 
 COPY . .
 RUN dotnet publish src/Sigov.Web/Sigov.Web.csproj -c Release -o /app/publish --no-restore

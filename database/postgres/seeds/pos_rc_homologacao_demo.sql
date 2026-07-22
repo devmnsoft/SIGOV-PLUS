@@ -5,29 +5,43 @@
 create schema if not exists sigov;
 
 -- Tabelas transversais mínimas quando o ambiente recebeu somente migrations Pós-RC.
-create table if not exists sigov.tenant (id bigserial primary key, nome varchar(200) not null, slug varchar(120), documento varchar(30), email varchar(180), status varchar(30) default 'ATIVO', ativo boolean default true, dados_json jsonb, created_at timestamptz default now(), is_deleted boolean default false);
-create table if not exists sigov.usuario (id bigserial primary key, tenant_id bigint, nome varchar(200), login varchar(120), email varchar(180), senha_hash text, ativo boolean default true, dados_json jsonb, created_at timestamptz default now(), is_deleted boolean default false);
-create table if not exists sigov.permissao (id bigserial primary key, codigo varchar(120) not null unique, descricao varchar(240), created_at timestamptz default now());
-create table if not exists sigov.usuario_permissao (id bigserial primary key, tenant_id bigint, usuario_id bigint, permissao_id bigint, created_at timestamptz default now(), unique(usuario_id, permissao_id));
 
 insert into sigov.tenant (id,nome,slug,documento,email,status,ativo,dados_json)
 values (1,'Prefeitura Demo SIGOV','prefeitura-demo-sigov','00.000.000/0000-00','homologacao-demo@sigov.local','ATIVO',true,'{"ambiente":"Homologacao","dados":"ficticios"}'::jsonb)
 on conflict (id) do update set nome=excluded.nome, slug=excluded.slug, documento=excluded.documento, status='ATIVO', ativo=true, dados_json=excluded.dados_json;
 
 insert into sigov.usuario (id,tenant_id,nome,login,email,senha_hash,ativo,dados_json) values
-(1,1,'Admin Geral Demo','admin.geral','admin.geral@sigov.local','DEMO_HASH_NAO_USAR_EM_PRODUCAO',true,'{"perfil":"admin geral","senha_demo":"documentada fora do banco"}'::jsonb),
-(2,1,'Admin Tenant Demo','admin.tenant','admin.tenant@sigov.local','DEMO_HASH_NAO_USAR_EM_PRODUCAO',true,'{"perfil":"admin tenant"}'::jsonb),
-(3,1,'Coordenação Protocolo Demo','coord.protocolo','coord.protocolo@sigov.local','DEMO_HASH_NAO_USAR_EM_PRODUCAO',true,'{"perfil":"coordenador protocolo"}'::jsonb),
-(4,1,'Servidor Protocolo Demo','servidor.protocolo','servidor.protocolo@sigov.local','DEMO_HASH_NAO_USAR_EM_PRODUCAO',true,'{"perfil":"servidor protocolo"}'::jsonb),
-(5,1,'Operador GED Demo','operador.ged','operador.ged@sigov.local','DEMO_HASH_NAO_USAR_EM_PRODUCAO',true,'{"perfil":"operador ged"}'::jsonb),
-(6,1,'Consulta Demo','consulta','consulta@sigov.local','DEMO_HASH_NAO_USAR_EM_PRODUCAO',true,'{"perfil":"consulta"}'::jsonb)
+(1,1,'Admin Geral Demo','admin.geral','admin.geral@sigov.local','pbkdf2:homologacao:troca-obrigatoria:nao-production:hash-gerado-pelo-servico',true,'{"perfil":"admin geral","senha_demo":"documentada fora do banco"}'::jsonb),
+(2,1,'Admin Tenant Demo','admin.tenant','admin.tenant@sigov.local','pbkdf2:homologacao:troca-obrigatoria:nao-production:hash-gerado-pelo-servico',true,'{"perfil":"admin tenant"}'::jsonb),
+(3,1,'Coordenação Protocolo Demo','coord.protocolo','coord.protocolo@sigov.local','pbkdf2:homologacao:troca-obrigatoria:nao-production:hash-gerado-pelo-servico',true,'{"perfil":"coordenador protocolo"}'::jsonb),
+(4,1,'Servidor Protocolo Demo','servidor.protocolo','servidor.protocolo@sigov.local','pbkdf2:homologacao:troca-obrigatoria:nao-production:hash-gerado-pelo-servico',true,'{"perfil":"servidor protocolo"}'::jsonb),
+(5,1,'Operador GED Demo','operador.ged','operador.ged@sigov.local','pbkdf2:homologacao:troca-obrigatoria:nao-production:hash-gerado-pelo-servico',true,'{"perfil":"operador ged"}'::jsonb),
+(6,1,'Consulta Demo','consulta','consulta@sigov.local','pbkdf2:homologacao:troca-obrigatoria:nao-production:hash-gerado-pelo-servico',true,'{"perfil":"consulta"}'::jsonb)
 on conflict (id) do update set tenant_id=excluded.tenant_id,nome=excluded.nome,login=excluded.login,email=excluded.email,ativo=true,dados_json=excluded.dados_json;
 
-insert into sigov.permissao (codigo,descricao) select p, 'Permissão demo Pós-RC 04' from unnest(array[
-'protocolo.visualizar','protocolo.criar','protocolo.tramitar','protocolo.anexar','protocolo.arquivar','ged.visualizar','ged.upload','ged.download','ged.classificar','workflow.visualizar','workflow.avancar','tarefa.visualizar','tarefa.concluir','notificacao.visualizar','api_key.gerenciar','webhook.gerenciar','relatorio.exportar'
-]) p on conflict (codigo) do nothing;
-insert into sigov.usuario_permissao (tenant_id,usuario_id,permissao_id)
-select 1,u.id,p.id from sigov.usuario u cross join sigov.permissao p where u.tenant_id=1 on conflict do nothing;
+with permissoes_demo(modulo,recurso,acao,chave,descricao,ativo) as (values
+('protocolo','protocolo','visualizar','protocolo.visualizar','Permissão demo homologação: visualizar protocolo',true),
+('protocolo','protocolo','criar','protocolo.criar','Permissão demo homologação: criar protocolo',true),
+('protocolo','protocolo','tramitar','protocolo.tramitar','Permissão demo homologação: tramitar protocolo',true),
+('protocolo','protocolo','anexar','protocolo.anexar','Permissão demo homologação: anexar protocolo',true),
+('protocolo','protocolo','arquivar','protocolo.arquivar','Permissão demo homologação: arquivar protocolo',true),
+('ged','documento','visualizar','ged.visualizar','Permissão demo homologação: visualizar GED',true),
+('ged','documento','upload','ged.upload','Permissão demo homologação: upload GED',true),
+('ged','documento','download','ged.download','Permissão demo homologação: download GED',true),
+('ged','documento','classificar','ged.classificar','Permissão demo homologação: classificar GED',true),
+('workflow','workflow','visualizar','workflow.visualizar','Permissão demo homologação: visualizar workflow',true),
+('workflow','workflow','avancar','workflow.avancar','Permissão demo homologação: avançar workflow',true),
+('operacional','tarefa','visualizar','tarefa.visualizar','Permissão demo homologação: visualizar tarefa',true),
+('operacional','tarefa','concluir','tarefa.concluir','Permissão demo homologação: concluir tarefa',true),
+('operacional','notificacao','visualizar','notificacao.visualizar','Permissão demo homologação: visualizar notificação',true),
+('integracoes','api_key','gerenciar','api_key.gerenciar','Permissão demo homologação: gerenciar API key',true),
+('integracoes','webhook','gerenciar','webhook.gerenciar','Permissão demo homologação: gerenciar webhook',true),
+('bi','relatorio','exportar','relatorio.exportar','Permissão demo homologação: exportar relatório',true)
+)
+insert into sigov.permissao (modulo,recurso,acao,chave,descricao,ativo)
+select modulo,recurso,acao,chave,descricao,ativo from permissoes_demo
+on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
+
 
 -- Dados operacionais reais no schema Pós-RC. Todos os documentos/pessoas são fictícios e mascaráveis.
 insert into sigov.protocolo (tenant_id,numero,codigo,status,assunto,dados_json,created_by,created_at,exercicio) values
