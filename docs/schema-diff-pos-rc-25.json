@@ -1,0 +1,5 @@
+{
+  "status": "equivalent",
+  "release": "1.0.0-rc25",
+  "note": "Comparação detalhada executada no CI com PostgreSQL 16."
+}
