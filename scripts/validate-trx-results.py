@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-import glob, json, sys, xml.etree.ElementTree as ET
+import argparse, glob, json, sys, xml.etree.ElementTree as ET
 from pathlib import Path
+parser=argparse.ArgumentParser()
+parser.add_argument('patterns', nargs='+')
+parser.add_argument('--json-output', default='artifacts/test-summary.json')
+parser.add_argument('--markdown-output', default='artifacts/test-summary.md')
+args=parser.parse_args()
 paths=[]
-for arg in sys.argv[1:]: paths += glob.glob(arg, recursive=True)
+for arg in args.patterns: paths += glob.glob(arg, recursive=True)
 if not paths:
     print('No TRX files found')
     sys.exit(1)
@@ -20,10 +25,11 @@ for path in sorted(set(paths)):
     if total <= 0 or fail != 0 or skipped != 0 or passed != total:
         print(f'{path}: invalid counters total={total} passed={passed} failed={fail} skipped={skipped}')
         failed=True
-Path('artifacts').mkdir(exist_ok=True)
-Path('artifacts/test-summary.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
+json_path=Path(args.json_output); md_path=Path(args.markdown_output)
+json_path.parent.mkdir(parents=True, exist_ok=True); md_path.parent.mkdir(parents=True, exist_ok=True)
+json_path.write_text(json.dumps(rows,indent=2),encoding='utf-8')
 md=['| projeto | total | passed | failed | skipped | duração | TRX |','|---|---:|---:|---:|---:|---|---|']
 for r in rows: md.append(f"| {r['project']} | {r['total']} | {r['passed']} | {r['failed']} | {r['skipped']} | {r['duration']} | {r['trx']} |")
-Path('artifacts/test-summary.md').write_text('\n'.join(md)+'\n',encoding='utf-8')
+md_path.write_text('\n'.join(md)+'\n',encoding='utf-8')
 print(f'TRX validation: PASS ({len(rows)} file(s))')
 sys.exit(1 if failed else 0)

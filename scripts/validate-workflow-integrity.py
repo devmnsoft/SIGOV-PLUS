@@ -53,8 +53,28 @@ def dfs(n):
     for dep in graph.get(n,[]): dfs(dep)
     visiting.remove(n); seen.add(n)
 for j in jobs: dfs(j)
-if not re.search(r'ACTIONLINT_VERSION=\d+\.\d+\.\d+', text): errors.append('actionlint version is not pinned centrally')
-if 'ACTIONLINT_SHA256=' not in text or 'sha256sum -c -' not in text: errors.append('actionlint checksum validation is required')
+version_matches=re.findall(r'ACTIONLINT_VERSION:\s*(v\d+\.\d+\.\d+)|ACTIONLINT_VERSION=(v\d+\.\d+\.\d+)', text)
+versions={v for pair in version_matches for v in pair if v}
+if not versions:
+    errors.append('ACTIONLINT_VERSION with exact vX.Y.Z pin is required')
+elif versions != {'v1.7.7'}:
+    errors.append('ACTIONLINT_VERSION must be exactly v1.7.7')
+if re.search(r'actionlint[^\n]*(latest|@main|@master)', text, re.I):
+    errors.append('actionlint latest/main/master references are forbidden')
+if 'github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}' not in text:
+    errors.append('go install must use github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}')
+if not re.search(r'uses:\s*actions/setup-go@[0-9a-f]{40}\b', text):
+    errors.append('actions/setup-go must be pinned to a full commit SHA')
+if 'actionlint" -version' not in text and 'actionlint -version' not in text:
+    errors.append('actionlint -version must be logged')
+if 'workflow-integrity-install.log' not in text:
+    errors.append('workflow-integrity-install.log artifact is required')
+if 'workflow-integrity.log' not in text:
+    errors.append('workflow-integrity.log artifact is required')
+if 'workflow-integrity-result.json' not in text:
+    errors.append('workflow-integrity-result.json artifact is required')
+if 'ACTIONLINT_SHA256=' in text or 'sha256sum -c -' in text or 'actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz' in text:
+    errors.append('manual actionlint tarball/checksum bootstrap is forbidden')
 for flt in re.findall(r'--filter\s+"FullyQualifiedName~([^"]+)"', text):
     if not any(flt in p.read_text(encoding='utf-8', errors='ignore') for p in Path('tests').rglob('*.cs')):
         errors.append(f'test filter has no matching test source: {flt}')

@@ -1,0 +1,7 @@
+{
+  "initialSha": "086b56d28e424266a0504d101693bed0fe09b6a2",
+  "initialWorkflow": { "runNumber": 292, "runId": 30051181611, "jobId": 89353389308, "failedStep": "Install workflow tooling" },
+  "previousActionlint": { "version": "1.7.7", "bootstrap": "manual tarball download with hardcoded sha256" },
+  "newActionlint": { "version": "v1.7.7", "installer": "go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7" },
+  "requiredArtifacts": ["workflow-integrity-install.log", "workflow-integrity.log", "workflow-integrity-result.json"]
+}
