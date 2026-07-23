@@ -1,0 +1,6 @@
+{
+  "shaInicial": "913aee3f18c1760b2d834fe3412693079eb8f78d",
+  "workflowInicial": { "run": 290, "id": 30039733106, "resultado": "failure" },
+  "release": "1.0.0-rc27a",
+  "artifacts": ["workflow-integrity-log", "build-test-artifacts", "dependency-injection-log", "web-smoke-log", "powershell-lint-artifacts", "migrations-manifest-log", "seed-idempotency-log", "script-completop-validate-log", "script-completop-idempotency-log", "schema-equivalence-artifacts", "standalone-postgres-runtime-logs", "docker-build-log", "docker-compose-e2e-log", "ui-contrast-log", "go-live-check-log"]
+}
