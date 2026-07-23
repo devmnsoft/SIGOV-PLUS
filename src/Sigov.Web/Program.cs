@@ -133,3 +133,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
 app.Run();
+
+public partial class Program { }

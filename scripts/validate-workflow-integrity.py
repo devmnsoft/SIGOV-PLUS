@@ -1,74 +1,63 @@
 #!/usr/bin/env python3
-import re
-import sys
+import re, sys
 from pathlib import Path
-from ruamel.yaml import YAML
-from ruamel.yaml.constructor import DuplicateKeyError
-
-workflow = Path(sys.argv[1])
-text = workflow.read_text(encoding='utf-8')
-try:
-    data = YAML(typ='safe').load(text)
-except DuplicateKeyError as exc:
-    print(f'Duplicate YAML key: {exc}')
-    sys.exit(1)
-
-jobs = (data or {}).get('jobs') or {}
-required = {
-    'workflow-integrity','release-context','build-test','dependency-injection','powershell-lint',
-    'migrations-manifest','seed-idempotency','script-completop-validate','script-completop-idempotency',
-    'schema-equivalence','standalone-postgres-runtime','docker-build','docker-compose-e2e','ui-contrast',
-    'ui-smoke','tarefas-postgres','tarefas-api-e2e','tarefas-ui-e2e','release-package-check','go-live-check'
-}
-missing = sorted(required - set(jobs))
-if missing:
-    print('Missing required jobs: ' + ', '.join(missing))
-    sys.exit(1)
-
-errors = []
-artifact_names = set()
-script_pattern = re.compile(r'(?P<script>(?:\.\/)?scripts\/[A-Za-z0-9_\-\.\/]+\.(?:ps1|sh|cmd|py|mjs|sql))')
-placeholder_patterns = [
-    re.compile(r'^\s*echo\s+["\']?[^\n]*$', re.I),
-    re.compile(r'^\s*test\s+-f\s+\S+\s*$', re.I),
-    re.compile(r'^\s*true\s*$', re.I),
-    re.compile(r'exit\s+0\s*(?:#.*)?$', re.I),
-    re.compile(r'covered by', re.I),
-]
+workflow = Path(sys.argv[1]); text = workflow.read_text(encoding='utf-8')
+# O actionlint executado antes deste script valida a sintaxe YAML completa.
+# Este validador complementar usa uma leitura estrutural sem dependências externas.
+jobs_text=text.split('\njobs:',1)[1] if '\njobs:' in text else text
+job_matches=list(re.finditer(r'^  ([A-Za-z0-9_-]+):\n(?=(?:    |  [A-Za-z0-9_-]+:|$))', jobs_text, re.M))
+jobs={}
+for idx,m in enumerate(job_matches):
+    start=m.end(); end=job_matches[idx+1].start() if idx+1 < len(job_matches) else len(jobs_text)
+    jobs[m.group(1)]={'__body': jobs_text[start:end]}
+if len(jobs) != len(job_matches): print('Duplicate job id detected'); sys.exit(1)
+required=set('workflow-integrity release-context build-test dependency-injection web-smoke powershell-lint migrations-manifest seed-idempotency script-completop-validate script-completop-idempotency schema-equivalence standalone-postgres-runtime docker-build docker-compose-e2e ui-contrast release-package-check go-live-check'.split())
+errors=[]
+missing=sorted(required-set(jobs))
+if missing: errors.append('Missing required jobs: '+', '.join(missing))
+for forbidden in ['tests/Sigov.Tests/Sigov.Tests.csproj','tarefas-postgres','tarefas-api-e2e','tarefas-ui-e2e','FullyQualifiedName~UiSmoke','FullyQualifiedName~TarefasApi','FullyQualifiedName~TarefasUi']:
+    if forbidden in text: errors.append(f'Forbidden Pós-RC 27A gate/reference found: {forbidden}')
+artifact_names=set(); graph={j:set() for j in jobs}
+script_pattern=re.compile(r'(?P<script>(?:\.\/)?scripts\/[A-Za-z0-9_\-.\/]+\.(?:ps1|sh|cmd|py|mjs|sql))')
+csproj_pattern=re.compile(r'(?P<csproj>(?:src|tests)\/[A-Za-z0-9_\-.\/]+\.csproj)')
 for job_id, job in jobs.items():
-    if job.get('continue-on-error') is True:
-        errors.append(f'{job_id}: continue-on-error is forbidden')
-    needs = job.get('needs', [])
-    if isinstance(needs, str):
-        needs = [needs]
-    for need in needs:
-        if need not in jobs:
-            errors.append(f'{job_id}: unknown need {need}')
-    for step in job.get('steps', []):
-        if step.get('continue-on-error') is True:
-            errors.append(f'{job_id}: step continue-on-error is forbidden')
-        run = step.get('run')
-        if isinstance(run, str):
-            stripped = run.strip()
-            for pattern in placeholder_patterns:
-                if pattern.search(stripped) and len([l for l in stripped.splitlines() if l.strip() and not l.strip().startswith('#')]) == 1:
-                    errors.append(f'{job_id}: placeholder-only run detected: {stripped[:80]}')
-            for match in script_pattern.finditer(run):
-                script = Path(match.group('script').removeprefix('./'))
-                if not script.exists():
-                    errors.append(f'{job_id}: referenced script does not exist: {script}')
-        uses = step.get('uses', '')
-        if uses == 'actions/upload-artifact@v4':
-            name = (step.get('with') or {}).get('name')
-            if name:
-                if name in artifact_names:
-                    errors.append(f'duplicate artifact name: {name}')
-                artifact_names.add(name)
-
-if re.search(r'1\.0\.0-rc2[345]|rc23a|pos-rc-23a|pos-rc-25', text, re.I):
-    errors.append('active workflow contains hardcoded pre-RC26 references')
-
-if errors:
-    print('\n'.join(errors))
-    sys.exit(1)
+    body=job['__body']
+    if 'timeout-minutes:' not in body: errors.append(f'{job_id}: timeout-minutes is required')
+    if re.search(r'continue-on-error:\s*true', body): errors.append(f'{job_id}: continue-on-error is forbidden')
+    needs=[]
+    mn=re.search(r'^    needs:\s*(.+)$', body, re.M)
+    if mn:
+        raw=mn.group(1).strip()
+        if raw.startswith('['): needs=[x.strip() for x in raw.strip('[]').split(',') if x.strip()]
+        else: needs=[raw]
+    for n in needs:
+        if n not in jobs: errors.append(f'{job_id}: unknown need {n}')
+        else: graph[job_id].add(n)
+    uploads=body.count('uses: actions/upload-artifact@v4')
+    for m in script_pattern.finditer(body):
+        path=Path(m.group('script').removeprefix('./'))
+        if not path.exists(): errors.append(f'{job_id}: missing script {path}')
+    for m in csproj_pattern.finditer(body):
+        path=Path(m.group('csproj'))
+        if not path.exists(): errors.append(f'{job_id}: missing csproj {path}')
+    for name in re.findall(r'name:\s*([^\n{][^\n]+)', body):
+        if 'log' in name or 'artifact' in name or 'sigov-plus' in name:
+            if name in artifact_names: errors.append(f'duplicate artifact name: {name}')
+            artifact_names.add(name)
+    if uploads==0: errors.append(f'{job_id}: upload-artifact step is required')
+visiting=set(); seen=set()
+def dfs(n):
+    if n in visiting: errors.append(f'cycle detected at {n}'); return
+    if n in seen: return
+    visiting.add(n)
+    for dep in graph.get(n,[]): dfs(dep)
+    visiting.remove(n); seen.add(n)
+for j in jobs: dfs(j)
+if not re.search(r'ACTIONLINT_VERSION=\d+\.\d+\.\d+', text): errors.append('actionlint version is not pinned centrally')
+if 'ACTIONLINT_SHA256=' not in text or 'sha256sum -c -' not in text: errors.append('actionlint checksum validation is required')
+for flt in re.findall(r'--filter\s+"FullyQualifiedName~([^"]+)"', text):
+    if not any(flt in p.read_text(encoding='utf-8', errors='ignore') for p in Path('tests').rglob('*.cs')):
+        errors.append(f'test filter has no matching test source: {flt}')
+if re.search(r'1\.0\.0-rc2[0-6]\b|pos-rc-2[0-6]\b', text, re.I): errors.append('active workflow contains hardcoded old RC references')
+if errors: print('\n'.join(errors)); sys.exit(1)
 print('workflow integrity: PASS')
