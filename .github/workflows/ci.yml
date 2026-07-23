@@ -3,7 +3,7 @@ name: ci
 on:
   workflow_dispatch:
   push:
-    branches: [ main, codex/pos-rc-27a-ci-real-homologado ]
+    branches: [ main, codex/pos-rc-27a1-desbloquear-ci-integral ]
   pull_request:
 
 permissions:
@@ -15,26 +15,51 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Install workflow tooling
+      - name: Setup Go for actionlint
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Install pinned actionlint
+        env:
+          ACTIONLINT_VERSION: v1.7.7
         run: |
-          set -euo pipefail
-          ACTIONLINT_VERSION=1.7.7
-          ACTIONLINT_SHA256=023070a287cd8c6e348edb582c297280c079569ac8079378f671d2cc3d9f90b7
-          curl -fsSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "${ACTIONLINT_SHA256}  actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | sha256sum -c -
-          tar -xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
-          sudo mv actionlint /usr/local/bin/actionlint
-          actionlint -version | tee workflow-integrity.log
+          set -Euo pipefail
+          touch workflow-integrity-install.log workflow-integrity.log
+          trap 'code=$?; echo "Falha na linha ${LINENO}; comando=${BASH_COMMAND}; exit=${code}" | tee -a workflow-integrity-install.log; exit ${code}' ERR
+          mkdir -p "$RUNNER_TEMP/actionlint-bin"
+          export GOBIN="$RUNNER_TEMP/actionlint-bin"
+          export PATH="$GOBIN:$PATH"
+          {
+            echo "Go:"
+            go version
+            echo "Actionlint module:"
+            echo "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+            go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+            "$GOBIN/actionlint" -version
+          } 2>&1 | tee -a workflow-integrity-install.log
+          echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Validate workflow structure and required scripts
         run: |
-          set -euo pipefail
-          actionlint .github/workflows/ci.yml 2>&1 | tee -a workflow-integrity.log
-          python3 scripts/validate-workflow-integrity.py .github/workflows/ci.yml 2>&1 | tee -a workflow-integrity.log
+          set -Euo pipefail
+          touch workflow-integrity.log workflow-integrity-result.json
+          actionlint_exit=0
+          validator_exit=0
+          actionlint_version="$(actionlint -version 2>&1 | head -n 1 || true)"
+          actionlint .github/workflows/ci.yml 2>&1 | tee -a workflow-integrity.log || actionlint_exit=$?
+          python3 scripts/validate-workflow-integrity.py .github/workflows/ci.yml 2>&1 | tee -a workflow-integrity.log || validator_exit=$?
+          status=success
+          if [ "$actionlint_exit" -ne 0 ] || [ "$validator_exit" -ne 0 ]; then status=failed; fi
+          STATUS="$status" ACTIONLINT_VERSION_REPORTED="$actionlint_version" ACTIONLINT_EXIT="$actionlint_exit" VALIDATOR_EXIT="$validator_exit" python3 -c 'import datetime,json,os; result={"status":os.environ["STATUS"],"actionlintVersion":os.environ["ACTIONLINT_VERSION_REPORTED"],"actionlintExitCode":int(os.environ["ACTIONLINT_EXIT"]),"customValidatorExitCode":int(os.environ["VALIDATOR_EXIT"]),"timestampUtc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"commitSha":os.environ.get("GITHUB_SHA","")}; open("workflow-integrity-result.json","w",encoding="utf-8").write(json.dumps(result,indent=2)+"\n")'
+          if [ "$actionlint_exit" -ne 0 ] || [ "$validator_exit" -ne 0 ]; then exit 1; fi
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: workflow-integrity-log
-          path: workflow-integrity.log
+          name: workflow-integrity-artifacts
+          path: |
+            workflow-integrity-install.log
+            workflow-integrity.log
+            workflow-integrity-result.json
 
   release-context:
     runs-on: ubuntu-latest
@@ -87,7 +112,7 @@ jobs:
       - run: |
           set -euo pipefail
           dotnet test sigov.sln --configuration Release --no-build --logger trx --results-directory TestResults 2>&1 | tee test.log
-          python3 scripts/validate-trx-results.py TestResults/**/*.trx | tee -a test.log
+          python3 scripts/validate-trx-results.py 'TestResults/**/*.trx' --json-output artifacts/tests/build-test/test-summary.json --markdown-output artifacts/tests/build-test/test-summary.md | tee -a test.log
       - run: |
           set -euo pipefail
           dotnet format sigov.sln --verify-no-changes --no-restore 2>&1 | tee format.log
@@ -100,8 +125,8 @@ jobs:
             build.log
             test.log
             format.log
-            artifacts/test-summary.json
-            artifacts/test-summary.md
+            artifacts/tests/build-test/test-summary.json
+            artifacts/tests/build-test/test-summary.md
             TestResults/**/*.trx
 
   dependency-injection:
@@ -115,7 +140,7 @@ jobs:
       - run: |
           set -euo pipefail
           dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj --configuration Release --filter "FullyQualifiedName~DependencyInjectionResolutionTests" --logger trx --results-directory TestResults/DependencyInjection 2>&1 | tee dependency-injection.log
-          python3 scripts/validate-trx-results.py TestResults/DependencyInjection/*.trx | tee -a dependency-injection.log
+          python3 scripts/validate-trx-results.py 'TestResults/DependencyInjection/*.trx' --json-output artifacts/tests/dependency-injection/test-summary.json --markdown-output artifacts/tests/dependency-injection/test-summary.md | tee -a dependency-injection.log
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -123,6 +148,8 @@ jobs:
           path: |
             dependency-injection.log
             TestResults/DependencyInjection/*.trx
+            artifacts/tests/dependency-injection/test-summary.json
+            artifacts/tests/dependency-injection/test-summary.md
 
   powershell-lint:
     needs: workflow-integrity
@@ -407,7 +434,7 @@ jobs:
       - run: |
           set -euo pipefail
           dotnet test tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj --configuration Release --filter "FullyQualifiedName~WebRuntimeSmokeTests" --logger trx --results-directory TestResults/WebSmoke 2>&1 | tee web-smoke.log
-          python3 scripts/validate-trx-results.py TestResults/WebSmoke/*.trx | tee -a web-smoke.log
+          python3 scripts/validate-trx-results.py 'TestResults/WebSmoke/*.trx' --json-output artifacts/tests/web-smoke/test-summary.json --markdown-output artifacts/tests/web-smoke/test-summary.md | tee -a web-smoke.log
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -415,6 +442,8 @@ jobs:
           path: |
             web-smoke.log
             TestResults/WebSmoke/*.trx
+            artifacts/tests/web-smoke/test-summary.json
+            artifacts/tests/web-smoke/test-summary.md
 
   release-package-check:
     needs: [release-context, docker-compose-e2e, ui-contrast, web-smoke]

@@ -2,7 +2,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Sigov.Infrastructure.Data;
+using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.IntegrationTests;
 
@@ -12,7 +12,13 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<WebApplicationFactory<P
 
     public WebRuntimeSmokeTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory.WithWebHostBuilder(builder => builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=sigov_test;Username=sigov;Password=sigov"));
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=sigov_test;Username=sigov;Password=sigov");
+            builder.UseSetting("Sigov:Database:MigrationMode", "Disabled");
+            builder.UseSetting("Sigov:Storage:LocalPath", Path.Combine(Path.GetTempPath(), "sigov-web-smoke-storage"));
+        });
     }
 
     [Fact]
@@ -31,7 +37,7 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
-    public async Task AuthenticatedRoute_ShouldRedirectAnonymousUserToLogin()
+    public async Task AuthenticatedRoute_ShouldRedirectAnonymousUserToLoginOrReturnUnauthorized()
     {
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         using var response = await client.GetAsync("/MinhaCentral");
@@ -44,12 +50,27 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
-    public void WebApplication_ShouldBuildDependencyInjectionContainerAndExposeCssAssets()
+    public void WebApplication_ShouldBuildDependencyInjectionContainerWithRealDapperService()
     {
         using var scope = _factory.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<DapperContext>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<NpgsqlConnectionFactory>().Should().NotBeNull();
+    }
 
-        File.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "site.css")).Should().BeTrue();
-        File.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "sigov-base.css")).Should().BeTrue();
+    [Theory]
+    [InlineData("/css/site.css")]
+    [InlineData("/css/sigov-base.css")]
+    [InlineData("/css/sigov-tokens.css")]
+    public async Task CssAssets_ShouldBeServedByHttpWithoutHtmlError(string path)
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.GetAsync(path);
+        var css = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("text/css");
+        css.Should().NotBeNullOrWhiteSpace();
+        css.Should().NotContain("<html", StringComparison.OrdinalIgnoreCase);
+        css.Should().NotContain("StackTrace", StringComparison.OrdinalIgnoreCase);
     }
 }
