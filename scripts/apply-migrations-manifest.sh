@@ -19,11 +19,16 @@ for e in data.get('migrations',[]):
     if e['version'] in seen_v or e['file'] in seen_f: raise SystemExit('Duplicidade no manifest')
     seen_v.add(e['version']); seen_f.add(e['file'])
     path=root/'database/postgres/migrations'/e['file']
-    if hashlib.sha256(path.read_bytes()).hexdigest() != e['checksum']: raise SystemExit(f'Checksum divergente: {e["file"]}')
+    content=path.read_text(encoding='utf-8').replace('\r\n','\n')
+    if hashlib.sha256(content.encode('utf-8')).hexdigest() != e['checksum']: raise SystemExit(f'Checksum divergente: {e["file"]}')
     if e.get('applyAutomatically') is True: print(f"{e['version']}|{e['file']}|{e['category']}|{e['checksum']}")
 PY
 if [[ "$VALIDATE_ONLY" == "true" || -z "$HOST_NAME" || -z "$DATABASE" || -z "$USER_NAME" ]]; then exit 0; fi
-export PGSSLMODE="$SSL_MODE"
+if [[ -n "$SSL_MODE" ]]; then
+  export PGSSLMODE="$SSL_MODE"
+else
+  unset PGSSLMODE || true
+fi
 while IFS='|' read -r version file category checksum; do
   start=$(date -u +%Y-%m-%dT%H:%M:%SZ); begin=$(date +%s%3N); result=success; sanitized=""
   if ! output=$(psql -h "$HOST_NAME" -p "$PORT" -U "$USER_NAME" -d "$DATABASE" -v ON_ERROR_STOP=1 -f "$ROOT/database/postgres/migrations/$file" 2>&1); then

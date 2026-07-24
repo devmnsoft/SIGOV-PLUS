@@ -31,9 +31,9 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<WebApplicationFactory<P
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("text/html");
         html.Should().Contain("<html", Exactly.Once());
-        html.Should().Contain("login", StringComparison.OrdinalIgnoreCase);
+        html.Contains("login", StringComparison.OrdinalIgnoreCase).Should().BeTrue();
         html.Should().NotContain("System.");
-        html.Should().NotContain("StackTrace", StringComparison.OrdinalIgnoreCase);
+        html.Contains("StackTrace", StringComparison.OrdinalIgnoreCase).Should().BeFalse();
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<WebApplicationFactory<P
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("text/css");
         css.Should().NotBeNullOrWhiteSpace();
-        css.Should().NotContain("<html", StringComparison.OrdinalIgnoreCase);
-        css.Should().NotContain("StackTrace", StringComparison.OrdinalIgnoreCase);
+        css.Contains("<html", StringComparison.OrdinalIgnoreCase).Should().BeFalse();
+        css.Contains("StackTrace", StringComparison.OrdinalIgnoreCase).Should().BeFalse();
     }
 }

@@ -1,0 +1,5 @@
+{
+  "initialSha": "45a4a171e3190ffbd10da5512c33396fbcd3dad3",
+  "initialWorkflow": { "runId": "30052753674", "runNumber": 294, "result": "failure" },
+  "localEnvironmentLimitations": ["origin remote unavailable", "dotnet unavailable", "pwsh unavailable", "psql unavailable"]
+}

@@ -255,7 +255,8 @@ jobs:
       - uses: actions/checkout@v4
       - shell: pwsh
         run: |
-          ./scripts/generate-script-completop.ps1 -Verify 2>&1 | Tee-Object -FilePath script-completop-validate.log
+          New-Item -ItemType File -Force -Path script-completop-validate.log | Out-Null
+          ./scripts/generate-script-completop.ps1 -Verify 2>&1 | Tee-Object -FilePath script-completop-validate.log -Append
           ./scripts/validate-script-completop.ps1 2>&1 | Tee-Object -FilePath script-completop-validate.log -Append
       - if: always()
         uses: actions/upload-artifact@v4

@@ -1,7 +1,10 @@
 -- SIGOV PLUS - script_completop.sql
--- Versão: Pós-RC 23A
--- Data: 2026-07-21
--- Arquivo autônomo gerado de database/postgres/migrations/manifest.json, sem includes, comandos shell ou seeds demonstrativos.
+-- Produto: SIGOV PLUS
+-- Versão: 1.0.0-rc27a2
+-- Fonte: database/postgres/migrations/manifest.json
+-- Gerado de forma determinística
+-- Arquivo autônomo sem includes, comandos shell ou seeds demonstrativos.
+-- Checksum oficial: SHA-256 do conteúdo UTF-8 normalizado com LF.
 
 do $$
 begin
@@ -7645,7 +7648,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 -- ==================================================
 -- MIGRATION: 20260611110000_pos_build_11_ia_automacao_assistentes.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 9189f560237c88b1ca7caceca3265d30e17857fd6691be591d24e79280acb005
+-- CHECKSUM_SHA256: bb88f758ecde61bfd1383ba6427937197cf832f86d3e5a819d572f82a3ce1ab1
 -- ==================================================
 alter table sigov.tenant_uso_mensal add column if not exists ia_interacoes int not null default 0;
 alter table sigov.tenant_uso_mensal add column if not exists ia_tokens_entrada int not null default 0;
@@ -7903,10 +7906,15 @@ insert into sigov.ia_assistente(codigo,nome,descricao,tipo,ativo) values
 ('ASSISTENTE_SUPORTE','Assistente Suporte','Apoio a atendimento e suporte.','SUPORTE',true)
 on conflict(codigo) do update set nome=excluded.nome,descricao=excluded.descricao,tipo=excluded.tipo,ativo=excluded.ativo;
 
+
+create unique index if not exists ux_ia_prompt_template_global_codigo
+on sigov.ia_prompt_template(codigo)
+where tenant_id is null;
+
 insert into sigov.ia_prompt_template(tenant_id,codigo,nome,modulo_codigo,tipo,template,exige_confirmacao,ativo)
 select v.tenant_id,v.codigo,v.nome,v.modulo_codigo,v.tipo,v.template,v.exige_confirmacao,v.ativo
 from (values
-(null,'resumo_documento','Resumo de documento','ged','RESUMO','Resuma o documento, indique pontos relevantes e informe se houver dados insuficientes.',false,true),
+(null::bigint,'resumo_documento','Resumo de documento','ged','RESUMO','Resuma o documento, indique pontos relevantes e informe se houver dados insuficientes.',false,true),
 (null,'resumo_processo','Resumo de processo','protocolo','RESUMO','Resuma o processo e sugira próximos passos sem executar ações críticas.',false,true),
 (null,'resumo_os','Resumo de OS','ordem_servico','RESUMO','Resuma o histórico da OS e a próxima ação segura.',false,true),
 (null,'resumo_contrato','Resumo de contrato','contrato','RESUMO','Resuma contrato, vigência, cláusulas e riscos.',false,true),
@@ -7925,7 +7933,7 @@ from (values
 ) as v(tenant_id,codigo,nome,modulo_codigo,tipo,template,exige_confirmacao,ativo)
 where not exists (
     select 1 from sigov.ia_prompt_template t
-    where ((t.tenant_id is null and v.tenant_id is null) or t.tenant_id = v.tenant_id)
+    where t.tenant_id is not distinct from v.tenant_id
       and t.codigo = v.codigo
 );
 
@@ -7990,7 +7998,7 @@ insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo) values
 ('ia','consumo','recalcular','ia.consumo.recalcular','Recalcular consumo IA',true)
 on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=excluded.ativo;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', '9189f560237c88b1ca7caceca3265d30e17857fd6691be591d24e79280acb005', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', 'bb88f758ecde61bfd1383ba6427937197cf832f86d3e5a819d572f82a3ce1ab1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql
