@@ -3,8 +3,11 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $migrationsDir = Join-Path $root 'database/postgres/migrations'
 $manifestPath = Join-Path $migrationsDir 'manifest.json'
+$versionPath = Join-Path $root 'eng/version.json'
 $out = Join-Path $root 'script_completop.sql'
 if (-not (Test-Path $manifestPath)) { throw "Manifest de migrations não encontrado: $manifestPath" }
+if (-not (Test-Path $versionPath)) { throw "Arquivo de versão não encontrado: $versionPath" }
+$versionInfo = Get-Content $versionPath -Raw | ConvertFrom-Json
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 $names = @{}
 $versions = @{}
@@ -19,9 +22,12 @@ foreach ($entry in $manifest.migrations) {
 }
 $sb = [System.Text.StringBuilder]::new()
 [void]$sb.AppendLine('-- SIGOV PLUS - script_completop.sql')
-[void]$sb.AppendLine('-- Versão: Pós-RC 23A')
-[void]$sb.AppendLine('-- Data: 2026-07-21')
-[void]$sb.AppendLine('-- Arquivo autônomo gerado de database/postgres/migrations/manifest.json, sem includes, comandos shell ou seeds demonstrativos.')
+[void]$sb.AppendLine("-- Produto: $($versionInfo.product)")
+[void]$sb.AppendLine("-- Versão: $($versionInfo.version)")
+[void]$sb.AppendLine('-- Fonte: database/postgres/migrations/manifest.json')
+[void]$sb.AppendLine('-- Gerado de forma determinística')
+[void]$sb.AppendLine('-- Arquivo autônomo sem includes, comandos shell ou seeds demonstrativos.')
+[void]$sb.AppendLine('-- Checksum oficial: SHA-256 do conteúdo UTF-8 normalizado com LF.')
 [void]$sb.AppendLine()
 [void]$sb.AppendLine("do `$`$")
 [void]$sb.AppendLine('begin')
