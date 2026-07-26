@@ -1,5 +1,36 @@
 {
   "initialSha": "45a4a171e3190ffbd10da5512c33396fbcd3dad3",
-  "initialWorkflow": { "runId": "30052753674", "runNumber": 294, "result": "failure" },
-  "localEnvironmentLimitations": ["origin remote unavailable", "dotnet unavailable", "pwsh unavailable", "psql unavailable"]
+  "initialWorkflow": {
+    "runId": "30052753674",
+    "runNumber": 294,
+    "result": "failure"
+  },
+  "localChecks": [
+    {
+      "command": "bash scripts/test-sslmode-contract.sh",
+      "result": "pass",
+      "evidence": "sslmode contract: ok"
+    },
+    {
+      "command": "bash -n scripts/apply-migrations-manifest.sh",
+      "result": "pass"
+    },
+    {
+      "command": "python3 manifest checksum verification",
+      "result": "pass",
+      "evidence": "manifest-checksum-ok; count 50"
+    },
+    {
+      "command": "bash -n scripts/*.sh",
+      "result": "pass"
+    }
+  ],
+  "localEnvironmentLimitations": [
+    "origin remote unavailable",
+    "dotnet unavailable",
+    "pwsh unavailable",
+    "psql unavailable",
+    "docker unavailable",
+    "gh unavailable"
+  ]
 }
