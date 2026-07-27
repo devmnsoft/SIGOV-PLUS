@@ -54,7 +54,25 @@ CREATE TABLE IF NOT EXISTS sigov.obra_foto (id BIGSERIAL PRIMARY KEY, tenant_id 
 
 CREATE INDEX IF NOT EXISTS ix_workflow_tenant_status ON sigov.workflow(tenant_id,status);
 CREATE INDEX IF NOT EXISTS ix_workflow_instancia_entidade ON sigov.workflow_instancia(tenant_id,entidade_tipo,entidade_id);
-CREATE INDEX IF NOT EXISTS ix_tarefa_tenant_status_prazo ON sigov.tarefa(tenant_id,status,prazo_at);
+DO $$
+DECLARE
+  coluna_prazo text;
+BEGIN
+  SELECT column_name
+    INTO coluna_prazo
+    FROM information_schema.columns
+   WHERE table_schema = 'sigov'
+     AND table_name = 'tarefa'
+     AND column_name IN ('prazo_em', 'prazo_at')
+   ORDER BY CASE column_name WHEN 'prazo_em' THEN 0 ELSE 1 END
+   LIMIT 1;
+
+  IF coluna_prazo IS NOT NULL THEN
+    EXECUTE format(
+      'CREATE INDEX IF NOT EXISTS ix_tarefa_tenant_status_prazo ON sigov.tarefa(tenant_id,status,%I)',
+      coluna_prazo);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS ix_notificacao_tenant_status ON sigov.notificacao(tenant_id,status,created_at);
 CREATE INDEX IF NOT EXISTS ix_outbox_evento_status ON sigov.outbox_evento(status,created_at);
 CREATE INDEX IF NOT EXISTS ix_evento_operacional_correlation ON sigov.evento_operacional(correlation_id);

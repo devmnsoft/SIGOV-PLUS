@@ -403,7 +403,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc"
+      "checksum": "983dfb35b7a953103c97ec439947ea0967b6132d914934c1fc0253c1ce233d1a",
+      "knownChecksums": [
+        "2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc"
+      ],
+      "postConditionSql": "select to_regclass('sigov.tarefa') is not null"
     },
     {
       "version": "20260706153000",
@@ -448,6 +452,15 @@
       "checksum": "5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7",
       "category": "schema",
       "applyAutomatically": true
+    },
+    {
+      "version": "20260727120000",
+      "file": "20260727120000_pos_rc_27b2_tarefa_canonica.sql",
+      "description": "pos_rc_27b2_tarefa_canonica",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662"
     }
   ]
 }
