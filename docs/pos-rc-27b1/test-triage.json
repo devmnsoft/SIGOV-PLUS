@@ -1,0 +1,17 @@
+{
+  "workflowRunId": 30209603139,
+  "reportedExecuted": 533,
+  "reportedFailed": 54,
+  "sourceAvailableLocally": false,
+  "allowedCategories": [
+    "regressão real",
+    "ambiente Testing ausente",
+    "banco necessário",
+    "path de repositório incorreto",
+    "contrato estático obsoleto",
+    "regra de negócio divergente",
+    "teste frágil de implementação"
+  ],
+  "cases": [],
+  "note": "FQNs dependem dos logs/TRX do workflow e não foram fabricados."
+}

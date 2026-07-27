@@ -1,24 +1,11 @@
 namespace Sigov.Testing;
 
+/// <summary>Compatibility facade for tests migrated to <see cref="RepositoryPathResolver"/>.</summary>
 public static class TestRepoPath
 {
-    public static string Root
-    {
-        get
-        {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    private static readonly Lazy<RepositoryPathResolver> Resolver = new(() => new RepositoryPathResolver());
 
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "sigov.sln")))
-            {
-                directory = directory.Parent;
-            }
+    public static string Root => Resolver.Value.RepoRoot;
 
-            return directory?.FullName ?? Directory.GetCurrentDirectory();
-        }
-    }
-
-    public static string Get(string relativePath)
-    {
-        return Path.Combine(Root, relativePath);
-    }
+    public static string Get(string relativePath) => Resolver.Value.Resolve(relativePath);
 }

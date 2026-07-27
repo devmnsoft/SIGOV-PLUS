@@ -1,0 +1,16 @@
+{
+  "baseSha": "ee6496957b02829c60aa476ac967ed1dc95a8528",
+  "workflowRunId": 30209603139,
+  "migrationIaChecksum": "8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8",
+  "checks": {
+    "migrationStaticContract": "passed",
+    "manifestChecksum": "passed",
+    "dotnet": "not-run-tool-unavailable",
+    "postgres": "not-run-tool-unavailable",
+    "docker": "not-run-tool-unavailable",
+    "playwright": "not-run-gates-blocked"
+  },
+  "gateAComplete": false,
+  "gateBStarted": false,
+  "gateCStarted": false
+}
