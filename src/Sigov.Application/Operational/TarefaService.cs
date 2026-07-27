@@ -11,7 +11,6 @@ public sealed class TarefaService : ITarefaService
         ["PAUSADA"] = new[] { "EM_ANDAMENTO", "CANCELADA" },
         ["CONCLUIDA"] = new[] { "REABERTA" },
         ["CANCELADA"] = Array.Empty<string>(),
-        ["VENCIDA"] = new[] { "EM_ANDAMENTO", "CANCELADA" },
         ["REABERTA"] = new[] { "EM_ANDAMENTO", "CANCELADA" }
     };
 
@@ -25,6 +24,9 @@ public sealed class TarefaService : ITarefaService
 
     public async Task<TarefaDto> CriarAsync(CriarTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.Titulo)) throw new ArgumentException("Título é obrigatório.", nameof(request));
+        if (!new[] { "BAIXA", "NORMAL", "ALTA", "CRITICA" }.Contains(request.Prioridade, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Prioridade inválida.", nameof(request));
         var tarefa = await _repository.CriarAsync(request, context, cancellationToken).ConfigureAwait(false);
         await _historico.RegistrarAsync(tarefa.Id, "tarefa.criada", null, tarefa, context, cancellationToken).ConfigureAwait(false);
         await _events.PublishAsync(new OperationalEvent("tarefa.criada", "tarefa", tarefa.Id.ToString(), context.TenantId, context.UserId, context.CorrelationId, new { tarefa.Id, tarefa.Status }, $"tarefa:{tarefa.Id}:criada"), cancellationToken).ConfigureAwait(false);
@@ -66,9 +68,14 @@ public sealed class TarefaService : ITarefaService
     public async Task<TarefaDto> DelegarAsync(DelegarTarefaRequest request, OperationalCommandContext context, CancellationToken cancellationToken)
     {
         var atual = await ObterObrigatoriaAsync(context.TenantId, request.TarefaId, cancellationToken).ConfigureAwait(false);
-        if (!string.Equals(atual.Status, TarefaStatus.ATRIBUIDA.ToString(), StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(request.Comentario))
         {
-            throw new InvalidOperationException("Delegação é uma ação permitida somente para tarefas atribuídas; ela não cria status DELEGADA.");
+            throw new ArgumentException("O motivo da delegação é obrigatório.", nameof(request));
+        }
+        if (string.Equals(atual.Status, TarefaStatus.CONCLUIDA.ToString(), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(atual.Status, TarefaStatus.CANCELADA.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Tarefas concluídas ou canceladas não podem ser delegadas.");
         }
         var alterada = await _repository.DelegarAsync(request, context, cancellationToken).ConfigureAwait(false);
         await _historico.RegistrarAsync(alterada.Id, "tarefa.delegada", atual, alterada, context, cancellationToken).ConfigureAwait(false);

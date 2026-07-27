@@ -1,3 +1,4 @@
+using Sigov.Testing;
 using FluentAssertions;
 using Xunit;
 
@@ -5,7 +6,7 @@ namespace Sigov.IntegrationTests;
 
 public sealed class SaneamentoModuleSmokeTests
 {
-    private static string Migration => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "../../../../../database/postgres/migrations/023_saneamento_base.sql"));
+    private static string Migration => File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/023_saneamento_base.sql"));
 
     [Fact]
     public void Migration_Deve_Criar_Tabelas_No_Schema_Sigov_Com_TenantId()

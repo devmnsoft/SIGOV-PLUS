@@ -4,4 +4,12 @@
     <RootNamespace>Sigov.Testing</RootNamespace>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\Sigov.Api\Sigov.Api.csproj" Aliases="SigovApi" />
+    <ProjectReference Include="..\..\src\Sigov.Web\Sigov.Web.csproj" Aliases="SigovWeb" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
 </Project>

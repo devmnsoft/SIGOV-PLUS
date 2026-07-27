@@ -1,0 +1,9 @@
+{
+  "workflowRunId": 30276103871,
+  "workflowRunNumber": 302,
+  "reportedFailures": 54,
+  "distribution": { "hostPostgresql": 15, "paths": 12, "dependencyInjection": 4, "contractsAssertions": 23 },
+  "trxAvailableInCheckout": false,
+  "cases": [],
+  "integrityNote": "FQNs não foram fabricados sem os três TRX autenticados."
+}

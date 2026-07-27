@@ -1,3 +1,4 @@
+using Sigov.Testing;
 using FluentAssertions;
 using Xunit;
 
@@ -5,7 +6,7 @@ namespace Sigov.IntegrationTests;
 
 public sealed class AgroFundacaoModuleTests
 {
-    private static readonly string Migration = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "../../../../../database/postgres/migrations/026_agro_fundacao_geo_dashboard.sql"));
+    private static readonly string Migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/026_agro_fundacao_geo_dashboard.sql"));
 
     [Fact]
     public void Migration_Deve_Criar_Tabelas_E_View_No_Schema_Sigov()
