@@ -346,4 +346,8 @@ insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo) values
 ('ia','configuracao','editar','ia.configuracao.editar','Editar configuração IA',true),
 ('ia','consumo','visualizar','ia.consumo.visualizar','Visualizar consumo IA',true),
 ('ia','consumo','recalcular','ia.consumo.recalcular','Recalcular consumo IA',true)
-on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=excluded.ativo;
+on conflict (modulo, chave) do update set
+    recurso = excluded.recurso,
+    acao = excluded.acao,
+    descricao = excluded.descricao,
+    ativo = excluded.ativo;
