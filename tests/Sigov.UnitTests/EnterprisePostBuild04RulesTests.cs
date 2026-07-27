@@ -1,3 +1,4 @@
+using Sigov.Testing;
 using FluentAssertions;
 using Sigov.Application.Enterprise;
 using Xunit;
@@ -80,7 +81,7 @@ public sealed class EnterprisePosRc07StaticTests
     [Fact]
     public void EnterpriseMigrationContainsRequiredTablesAndTenant()
     {
-        var sql = File.ReadAllText(Path.Combine("..", "..", "..", "..", "database", "postgres", "migrations", "20260709120000_enterprise_funcional_crud.sql"));
+        var sql = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260709120000_enterprise_funcional_crud.sql"));
         Assert.Contains("enterprise_cliente", sql);
         Assert.Contains("enterprise_ordem_servico", sql);
         Assert.Contains("enterprise_estoque_saldo", sql);
@@ -91,14 +92,14 @@ public sealed class EnterprisePosRc07StaticTests
     [Fact]
     public void EnterpriseServiceDoesNotUseConcurrentDictionaryForRealFlow()
     {
-        var source = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Application", "Enterprise", "EnterpriseModuleService.cs"));
+        var source = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Enterprise/EnterpriseModuleService.cs"));
         Assert.DoesNotContain("ConcurrentDictionary", source);
     }
 
     [Fact]
     public void EnterpriseMigrationContainsFullAuditColumnsForMinimumTables()
     {
-        var sql = File.ReadAllText(Path.Combine("..", "..", "..", "..", "database", "postgres", "migrations", "20260709120000_enterprise_funcional_crud.sql"));
+        var sql = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260709120000_enterprise_funcional_crud.sql"));
         var requiredTables = new[]
         {
             "enterprise_cliente", "enterprise_lead", "enterprise_oportunidade", "enterprise_proposta", "enterprise_proposta_item",
@@ -119,7 +120,7 @@ public sealed class EnterprisePosRc07StaticTests
     [Fact]
     public void EnterpriseJavascriptCallsRealUpdateAndDeleteEndpoints()
     {
-        var js = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Web", "wwwroot", "js", "enterprise-crud.js"));
+        var js = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/enterprise-crud.js"));
         Assert.Contains("method = id ? 'PUT' : 'POST'", js);
         Assert.Contains("method: 'DELETE'", js);
         Assert.DoesNotContain("endpoint DELETE estiver habilitado", js);
@@ -128,7 +129,7 @@ public sealed class EnterprisePosRc07StaticTests
     [Fact]
     public void EnterprisePageTemplateHasOperationalCrudElements()
     {
-        var view = File.ReadAllText(Path.Combine("..", "..", "..", "..", "src", "Sigov.Web", "Views", "Enterprise", "ModulePage.cshtml"));
+        var view = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Enterprise/ModulePage.cshtml"));
         Assert.Contains("enterprise-form", view);
         Assert.Contains("Exportar CSV", view);
         Assert.Contains("Detalhes", view);

@@ -1,15 +1,29 @@
 namespace Sigov.Application.Operational;
 
-public sealed record OperationalCommandContext(long TenantId, long UserId, string CorrelationId, string? IpAddress = null, string? UserAgent = null);
+public sealed record OperationalCommandContext(long TenantId, long UserId, Guid CorrelationId, string? IpAddress = null, string? UserAgent = null);
 
-public sealed record TarefaDto(long Id, long TenantId, string Titulo, string Status, string Prioridade, long? ResponsavelId, DateTimeOffset? PrazoEm, DateTimeOffset CreatedAt, long Version = 0);
+public sealed record TarefaDto(
+    long Id,
+    long TenantId,
+    string Titulo,
+    string? Descricao,
+    string Status,
+    string Prioridade,
+    long? ResponsavelId,
+    DateTimeOffset? PrazoEm,
+    string SituacaoPrazo,
+    string? Entidade,
+    string? EntidadeId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    long Version);
 public sealed record CriarTarefaRequest(string Titulo, string? Descricao, string Prioridade, long? ResponsavelId, DateTimeOffset? PrazoEm);
 public sealed record AlterarStatusTarefaRequest(long TarefaId, string NovoStatus, string? Comentario, long Version = 0);
 public sealed record AtualizarTarefaRequest(long TarefaId, string Titulo, string? Descricao, string Prioridade, long? ResponsavelId, DateTimeOffset? PrazoEm, long Version);
 public sealed record AtribuirTarefaRequest(long TarefaId, long ResponsavelId, long Version);
 public sealed record DelegarTarefaRequest(long TarefaId, long NovoResponsavelId, string? Comentario, long Version);
 public sealed record ComentarioTarefaRequest(long TarefaId, string Comentario);
-public sealed record VinculoTarefaRequest(long TarefaId, string Tipo, long EntidadeId);
+public sealed record VinculoTarefaRequest(long TarefaId, string Entidade, string EntidadeId);
 public sealed record TarefaHistoricoDto(long Id, long TarefaId, string Acao, DateTimeOffset CreatedAt);
 
 public sealed record AgendaCompromissoDto(long Id, long TenantId, string Titulo, DateTimeOffset InicioEm, DateTimeOffset FimEm, string Status);
@@ -17,7 +31,7 @@ public sealed record CriarCompromissoRequest(string Titulo, string? Descricao, D
 public sealed record PrazoOperacionalDto(long Id, long TenantId, string Titulo, DateTimeOffset VenceEm, string Status, long? TarefaId);
 public sealed record NotificacaoDto(long Id, long TenantId, long UsuarioId, string Tipo, string Titulo, bool Lida, DateTimeOffset CreatedAt);
 public sealed record KanbanCardDto(long Id, long TenantId, string Origem, long EntidadeId, string Titulo, string Coluna, int Ordem, long? ResponsavelId, DateTimeOffset? PrazoEm);
-public sealed record OperationalEvent(string EventType, string AggregateType, string AggregateId, long TenantId, long UserId, string CorrelationId, object Payload, string IdempotencyKey);
+public sealed record OperationalEvent(string EventType, string AggregateType, string AggregateId, long TenantId, long UserId, Guid CorrelationId, object Payload, string IdempotencyKey);
 
 public interface ITarefaRepository
 {

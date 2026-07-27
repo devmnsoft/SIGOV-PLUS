@@ -403,9 +403,10 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "983dfb35b7a953103c97ec439947ea0967b6132d914934c1fc0253c1ce233d1a",
+      "checksum": "5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d",
       "knownChecksums": [
-        "2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc"
+        "2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc",
+        "983dfb35b7a953103c97ec439947ea0967b6132d914934c1fc0253c1ce233d1a"
       ],
       "postConditionSql": "select to_regclass('sigov.tarefa') is not null"
     },
@@ -461,6 +462,15 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662"
+    },
+    {
+      "version": "20260727160000",
+      "file": "20260727160000_pos_rc_27b3_operacional_canonico.sql",
+      "description": "pos_rc_27b3_operacional_canonico",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8"
     }
   ]
 }

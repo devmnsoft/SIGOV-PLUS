@@ -1,6 +1,6 @@
 -- SIGOV PLUS - script_completop.sql
 -- Produto: SIGOV PLUS
--- Versão: 1.0.0-rc27a2
+-- Versão: 1.0.0-rc27b3
 -- Fonte: database/postgres/migrations/manifest.json
 -- Gerado de forma determinística
 -- Arquivo autônomo sem includes, comandos shell ou seeds demonstrativos.
@@ -7648,7 +7648,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 -- ==================================================
 -- MIGRATION: 20260611110000_pos_build_11_ia_automacao_assistentes.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: bb88f758ecde61bfd1383ba6427937197cf832f86d3e5a819d572f82a3ce1ab1
+-- CHECKSUM_SHA256: 8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8
 -- ==================================================
 alter table sigov.tenant_uso_mensal add column if not exists ia_interacoes int not null default 0;
 alter table sigov.tenant_uso_mensal add column if not exists ia_tokens_entrada int not null default 0;
@@ -7996,9 +7996,13 @@ insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo) values
 ('ia','configuracao','editar','ia.configuracao.editar','Editar configuração IA',true),
 ('ia','consumo','visualizar','ia.consumo.visualizar','Visualizar consumo IA',true),
 ('ia','consumo','recalcular','ia.consumo.recalcular','Recalcular consumo IA',true)
-on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=excluded.ativo;
+on conflict (modulo, chave) do update set
+    recurso = excluded.recurso,
+    acao = excluded.acao,
+    descricao = excluded.descricao,
+    ativo = excluded.ativo;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', 'bb88f758ecde61bfd1383ba6427937197cf832f86d3e5a819d572f82a3ce1ab1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', '8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql
@@ -8354,7 +8358,7 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 -- ==================================================
 -- MIGRATION: 20260706120000_consolidacao_modulos_transversais.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc
+-- CHECKSUM_SHA256: 5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d
 -- ==================================================
 -- SIGOV PLUS - consolidação funcional e integração real dos módulos existentes
 -- Migration aditiva/idempotente. Não remove, renomeia ou altera tipos existentes.
@@ -8412,13 +8416,48 @@ CREATE TABLE IF NOT EXISTS sigov.obra_foto (id BIGSERIAL PRIMARY KEY, tenant_id 
 
 CREATE INDEX IF NOT EXISTS ix_workflow_tenant_status ON sigov.workflow(tenant_id,status);
 CREATE INDEX IF NOT EXISTS ix_workflow_instancia_entidade ON sigov.workflow_instancia(tenant_id,entidade_tipo,entidade_id);
-CREATE INDEX IF NOT EXISTS ix_tarefa_tenant_status_prazo ON sigov.tarefa(tenant_id,status,prazo_at);
-CREATE INDEX IF NOT EXISTS ix_notificacao_tenant_status ON sigov.notificacao(tenant_id,status,created_at);
-CREATE INDEX IF NOT EXISTS ix_outbox_evento_status ON sigov.outbox_evento(status,created_at);
+CREATE OR REPLACE FUNCTION pg_temp.create_index_when_columns_exist(
+  target_schema text,
+  target_table text,
+  target_index text,
+  target_columns text[],
+  target_predicate text DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  quoted_columns text;
+BEGIN
+  IF to_regclass(format('%I.%I', target_schema, target_table)) IS NULL OR target_columns IS NULL OR cardinality(target_columns) = 0 THEN
+    RETURN;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM unnest(target_columns) AS requested(column_name)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM information_schema.columns actual
+      WHERE actual.table_schema = target_schema
+        AND actual.table_name = target_table
+        AND actual.column_name = requested.column_name
+        AND actual.data_type NOT IN ('ARRAY', 'USER-DEFINED')
+    )
+  ) THEN
+    RETURN;
+  END IF;
+
+  SELECT string_agg(format('%I', column_name), ',') INTO quoted_columns FROM unnest(target_columns) AS column_name;
+  EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I.%I (%s)%s', target_index, target_schema, target_table,
+    quoted_columns, CASE WHEN nullif(btrim(target_predicate), '') IS NULL THEN '' ELSE ' WHERE ' || target_predicate END);
+END $$;
+
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_tenant_status_prazo', ARRAY['tenant_id','status','prazo_em'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_tenant_status_prazo', ARRAY['tenant_id','status','prazo_at'], NULL)
+ WHERE NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'sigov' AND indexname = 'ix_tarefa_tenant_status_prazo');
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'notificacao', 'ix_notificacao_tenant_status', ARRAY['tenant_id','status','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_tenant_usuario', ARRAY['tenant_id','usuario_id','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_status', ARRAY['status','created_at'], NULL);
 CREATE INDEX IF NOT EXISTS ix_evento_operacional_correlation ON sigov.evento_operacional(correlation_id);
-CREATE INDEX IF NOT EXISTS ix_protocolo_tenant_status ON sigov.protocolo(tenant_id,status,created_at);
-CREATE INDEX IF NOT EXISTS ix_documento_tenant_status ON sigov.documento(tenant_id,status,created_at);
-CREATE INDEX IF NOT EXISTS ix_contrato_tenant_status_vigencia ON sigov.contrato(tenant_id,status,vigencia_fim);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'protocolo', 'ix_protocolo_tenant_status', ARRAY['tenant_id','status','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'documento', 'ix_documento_tenant_status', ARRAY['tenant_id','status','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'contrato', 'ix_contrato_tenant_status_vigencia', ARRAY['tenant_id','status','vigencia_fim'], NULL);
 CREATE INDEX IF NOT EXISTS ix_compra_solicitacao_tenant_status ON sigov.compra_solicitacao(tenant_id,status,created_at);
 CREATE INDEX IF NOT EXISTS ix_licitacao_tenant_status ON sigov.licitacao(tenant_id,status,created_at);
 CREATE INDEX IF NOT EXISTS ix_patrimonio_bem_tenant_status ON sigov.patrimonio_bem(tenant_id,status);
@@ -8427,7 +8466,7 @@ CREATE INDEX IF NOT EXISTS ix_obra_tenant_status ON sigov.obra(tenant_id,status)
 COMMENT ON TABLE sigov.outbox_evento IS 'Outbox transacional para eventos operacionais SIGOV PLUS com reprocessamento por worker.';
 COMMENT ON TABLE sigov.protocolo IS 'Protocolo operacional multi-tenant; não representa simulação quando persistido por fluxo homologado.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706120000', 'consolidacao_modulos_transversais', '2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706120000', 'consolidacao_modulos_transversais', '5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
 -- MIGRATION: 20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql
@@ -8718,6 +8757,157 @@ create index if not exists ix_outbox_evento_status on sigov.outbox_evento (statu
 commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260721120000', 'pos_rc_17_runtime_nucleo_operacional', '5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- ==================================================
+-- MIGRATION: 20260727120000_pos_rc_27b2_tarefa_canonica.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662
+-- ==================================================
+-- Pós-RC 27B.2: reconciliação aditiva do contrato operacional de Tarefas.
+alter table sigov.tarefa add column if not exists version bigint not null default 1;
+alter table sigov.tarefa add column if not exists prazo_em timestamptz null;
+alter table sigov.tarefa add column if not exists entidade text null;
+alter table sigov.tarefa add column if not exists entidade_id text null;
+alter table sigov.tarefa add column if not exists concluida_em timestamptz null;
+alter table sigov.tarefa add column if not exists cancelada_em timestamptz null;
+alter table sigov.tarefa add column if not exists motivo_cancelamento text null;
+
+DO $$
+BEGIN
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name='prazo_at') then
+    execute 'update sigov.tarefa set prazo_em = coalesce(prazo_em, prazo_at) where prazo_em is null';
+    comment on column sigov.tarefa.prazo_at is 'LEGADO: use prazo_em; mantida para compatibilidade nesta versão.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name='entidade_tipo') then
+    execute 'update sigov.tarefa set entidade = coalesce(entidade, entidade_tipo) where entidade is null';
+    comment on column sigov.tarefa.entidade_tipo is 'LEGADO: use entidade; mantida para compatibilidade nesta versão.';
+  end if;
+END $$;
+
+create index if not exists ix_tarefa_tenant_status on sigov.tarefa(tenant_id, status) where is_deleted = false;
+create index if not exists ix_tarefa_tenant_responsavel_prazo on sigov.tarefa(tenant_id, responsavel_id, prazo_em) where is_deleted = false;
+create index if not exists ix_tarefa_tenant_version on sigov.tarefa(tenant_id, version) where is_deleted = false;
+create index if not exists ix_tarefa_tenant_entidade on sigov.tarefa(tenant_id, entidade, entidade_id) where is_deleted = false;
+
+alter table sigov.tarefa_vinculo add column if not exists entidade text null;
+alter table sigov.tarefa_vinculo add column if not exists entidade_id text null;
+DO $$
+BEGIN
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa_vinculo' and column_name='tipo') then
+    execute 'update sigov.tarefa_vinculo set entidade = coalesce(entidade, tipo) where entidade is null';
+    comment on column sigov.tarefa_vinculo.tipo is 'LEGADO: use entidade; mantida para compatibilidade nesta versão.';
+  end if;
+END $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260727120000', 'pos_rc_27b2_tarefa_canonica', 'ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- ==================================================
+-- MIGRATION: 20260727160000_pos_rc_27b3_operacional_canonico.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8
+-- ==================================================
+-- Pós-RC 27B.3: contrato operacional canônico, aditivo e idempotente.
+create schema if not exists sigov;
+
+alter table sigov.tarefa add column if not exists descricao text null;
+alter table sigov.tarefa add column if not exists status text;
+alter table sigov.tarefa add column if not exists prioridade text;
+alter table sigov.tarefa add column if not exists responsavel_id bigint null;
+alter table sigov.tarefa add column if not exists prazo_em timestamptz null;
+alter table sigov.tarefa add column if not exists origem text null;
+alter table sigov.tarefa add column if not exists entidade text null;
+alter table sigov.tarefa add column if not exists entidade_id text null;
+alter table sigov.tarefa add column if not exists version bigint not null default 1;
+alter table sigov.tarefa add column if not exists concluida_em timestamptz null;
+alter table sigov.tarefa add column if not exists cancelada_em timestamptz null;
+alter table sigov.tarefa add column if not exists motivo_cancelamento text null;
+alter table sigov.tarefa add column if not exists created_at timestamptz not null default now();
+alter table sigov.tarefa add column if not exists created_by bigint null;
+alter table sigov.tarefa add column if not exists updated_at timestamptz not null default now();
+alter table sigov.tarefa add column if not exists updated_by bigint null;
+alter table sigov.tarefa add column if not exists is_deleted boolean not null default false;
+alter table sigov.tarefa add column if not exists correlation_id uuid null;
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name='data_limite') then
+    execute 'update sigov.tarefa set prazo_em = coalesce(prazo_em, data_limite) where prazo_em is null';
+    comment on column sigov.tarefa.data_limite is 'LEGADO: use prazo_em; mantida para compatibilidade.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name='prazo_at') then
+    execute 'update sigov.tarefa set prazo_em = coalesce(prazo_em, prazo_at) where prazo_em is null';
+    comment on column sigov.tarefa.prazo_at is 'LEGADO: use prazo_em; mantida para compatibilidade.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name='entidade_tipo') then
+    execute 'update sigov.tarefa set entidade = coalesce(entidade, entidade_tipo) where entidade is null';
+    comment on column sigov.tarefa.entidade_tipo is 'LEGADO: use entidade; mantida para compatibilidade.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name='concluida_at') then
+    execute 'update sigov.tarefa set concluida_em = coalesce(concluida_em, concluida_at) where concluida_em is null';
+    comment on column sigov.tarefa.concluida_at is 'LEGADO: use concluida_em; mantida para compatibilidade.';
+  end if;
+end $$;
+
+update sigov.tarefa set status = 'ABERTA' where status is null or status in ('PENDENTE', 'pendente');
+update sigov.tarefa set prioridade = 'NORMAL' where prioridade is null or btrim(prioridade) = '';
+alter table sigov.tarefa alter column status set default 'ABERTA';
+alter table sigov.tarefa alter column status set not null;
+alter table sigov.tarefa alter column prioridade set default 'NORMAL';
+alter table sigov.tarefa alter column prioridade set not null;
+
+create index if not exists ix_tarefa_tenant_status on sigov.tarefa(tenant_id, status) where is_deleted = false;
+create index if not exists ix_tarefa_tenant_responsavel_prazo on sigov.tarefa(tenant_id, responsavel_id, prazo_em) where is_deleted = false;
+create index if not exists ix_tarefa_tenant_version on sigov.tarefa(tenant_id, version) where is_deleted = false;
+create index if not exists ix_tarefa_tenant_entidade on sigov.tarefa(tenant_id, entidade, entidade_id) where is_deleted = false;
+
+alter table sigov.notificacao add column if not exists tenant_id bigint;
+alter table sigov.notificacao add column if not exists tipo text;
+alter table sigov.notificacao add column if not exists titulo text;
+alter table sigov.notificacao add column if not exists mensagem text;
+alter table sigov.notificacao add column if not exists modulo text null;
+alter table sigov.notificacao add column if not exists prioridade text not null default 'NORMAL';
+alter table sigov.notificacao add column if not exists origem text null;
+alter table sigov.notificacao add column if not exists entidade text null;
+alter table sigov.notificacao add column if not exists entidade_id text null;
+alter table sigov.notificacao add column if not exists status text not null default 'CRIADA';
+alter table sigov.notificacao add column if not exists created_at timestamptz not null default now();
+alter table sigov.notificacao add column if not exists created_by bigint null;
+alter table sigov.notificacao add column if not exists updated_at timestamptz not null default now();
+alter table sigov.notificacao add column if not exists updated_by bigint null;
+alter table sigov.notificacao add column if not exists is_deleted boolean not null default false;
+alter table sigov.notificacao add column if not exists correlation_id uuid null;
+
+alter table sigov.notificacao_usuario add column if not exists tenant_id bigint;
+alter table sigov.notificacao_usuario add column if not exists notificacao_id bigint;
+alter table sigov.notificacao_usuario add column if not exists usuario_id bigint;
+alter table sigov.notificacao_usuario add column if not exists tipo text null;
+alter table sigov.notificacao_usuario add column if not exists titulo text null;
+alter table sigov.notificacao_usuario add column if not exists lida boolean not null default false;
+alter table sigov.notificacao_usuario add column if not exists lida_em timestamptz null;
+alter table sigov.notificacao_usuario add column if not exists arquivada boolean not null default false;
+alter table sigov.notificacao_usuario add column if not exists created_at timestamptz not null default now();
+alter table sigov.notificacao_usuario add column if not exists created_by bigint null;
+alter table sigov.notificacao_usuario add column if not exists updated_at timestamptz not null default now();
+alter table sigov.notificacao_usuario add column if not exists updated_by bigint null;
+alter table sigov.notificacao_usuario add column if not exists is_deleted boolean not null default false;
+alter table sigov.notificacao_usuario add column if not exists correlation_id uuid null;
+
+alter table sigov.tarefa_vinculo add column if not exists entidade text null;
+alter table sigov.tarefa_vinculo add column if not exists entidade_id text null;
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='notificacao_usuario' and column_name='lida_at') then
+    execute 'update sigov.notificacao_usuario set lida = (lida_at is not null), lida_em = coalesce(lida_em, lida_at)';
+    comment on column sigov.notificacao_usuario.lida_at is 'LEGADO: use lida/lida_em; mantida para compatibilidade.';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa_vinculo' and column_name='tipo') then
+    execute 'update sigov.tarefa_vinculo set entidade = coalesce(entidade, tipo) where entidade is null';
+    comment on column sigov.tarefa_vinculo.tipo is 'LEGADO: use entidade; mantida para compatibilidade.';
+  end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260727160000', 'pos_rc_27b3_operacional_canonico', 'bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]

@@ -1,0 +1,6 @@
+{
+  "baseSha": "59d7720fd6c2d2ff9c27e8bad6394f559372b81b",
+  "workflowRunId": 30276103871,
+  "localChecks": { "json": "passed", "workflowIntegrity": "passed", "gitDiffCheck": "passed" },
+  "notExecuted": ["dotnet", "powershell", "postgresql", "docker", "playwright", "github-actions-artifacts"]
+}

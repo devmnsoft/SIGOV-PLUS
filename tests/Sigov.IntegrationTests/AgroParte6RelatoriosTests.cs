@@ -1,10 +1,11 @@
+using Sigov.Testing;
 using FluentAssertions;
 using Xunit;
 
 namespace Sigov.IntegrationTests;
 public sealed class AgroParte6RelatoriosTests
 {
-    private readonly string _migration = File.ReadAllText(Path.Combine("..", "..", "..", "..", "database", "postgres", "migrations", "20260608140000_agro_relatorios_bi_transparencia.sql"));
+    private readonly string _migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260608140000_agro_relatorios_bi_transparencia.sql"));
     [Fact] public void Migration_Cria_Tabelas_Da_Parte_6_No_Schema_Sigov()
     {
         foreach (var table in new[] { "agro_indicador", "agro_indicador_valor", "agro_relatorio_modelo", "agro_relatorio_execucao", "agro_dataset_publico", "agro_dataset_publicacao", "agro_dataset_download_log", "agro_dicionario_dados", "agro_painel_comercial_config" })

@@ -54,31 +54,48 @@ CREATE TABLE IF NOT EXISTS sigov.obra_foto (id BIGSERIAL PRIMARY KEY, tenant_id 
 
 CREATE INDEX IF NOT EXISTS ix_workflow_tenant_status ON sigov.workflow(tenant_id,status);
 CREATE INDEX IF NOT EXISTS ix_workflow_instancia_entidade ON sigov.workflow_instancia(tenant_id,entidade_tipo,entidade_id);
-DO $$
+CREATE OR REPLACE FUNCTION pg_temp.create_index_when_columns_exist(
+  target_schema text,
+  target_table text,
+  target_index text,
+  target_columns text[],
+  target_predicate text DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
-  coluna_prazo text;
+  quoted_columns text;
 BEGIN
-  SELECT column_name
-    INTO coluna_prazo
-    FROM information_schema.columns
-   WHERE table_schema = 'sigov'
-     AND table_name = 'tarefa'
-     AND column_name IN ('prazo_em', 'prazo_at')
-   ORDER BY CASE column_name WHEN 'prazo_em' THEN 0 ELSE 1 END
-   LIMIT 1;
-
-  IF coluna_prazo IS NOT NULL THEN
-    EXECUTE format(
-      'CREATE INDEX IF NOT EXISTS ix_tarefa_tenant_status_prazo ON sigov.tarefa(tenant_id,status,%I)',
-      coluna_prazo);
+  IF to_regclass(format('%I.%I', target_schema, target_table)) IS NULL OR target_columns IS NULL OR cardinality(target_columns) = 0 THEN
+    RETURN;
   END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM unnest(target_columns) AS requested(column_name)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM information_schema.columns actual
+      WHERE actual.table_schema = target_schema
+        AND actual.table_name = target_table
+        AND actual.column_name = requested.column_name
+        AND actual.data_type NOT IN ('ARRAY', 'USER-DEFINED')
+    )
+  ) THEN
+    RETURN;
+  END IF;
+
+  SELECT string_agg(format('%I', column_name), ',') INTO quoted_columns FROM unnest(target_columns) AS column_name;
+  EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I.%I (%s)%s', target_index, target_schema, target_table,
+    quoted_columns, CASE WHEN nullif(btrim(target_predicate), '') IS NULL THEN '' ELSE ' WHERE ' || target_predicate END);
 END $$;
-CREATE INDEX IF NOT EXISTS ix_notificacao_tenant_status ON sigov.notificacao(tenant_id,status,created_at);
-CREATE INDEX IF NOT EXISTS ix_outbox_evento_status ON sigov.outbox_evento(status,created_at);
+
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_tenant_status_prazo', ARRAY['tenant_id','status','prazo_em'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_tenant_status_prazo', ARRAY['tenant_id','status','prazo_at'], NULL)
+ WHERE NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'sigov' AND indexname = 'ix_tarefa_tenant_status_prazo');
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'notificacao', 'ix_notificacao_tenant_status', ARRAY['tenant_id','status','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_tenant_usuario', ARRAY['tenant_id','usuario_id','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_status', ARRAY['status','created_at'], NULL);
 CREATE INDEX IF NOT EXISTS ix_evento_operacional_correlation ON sigov.evento_operacional(correlation_id);
-CREATE INDEX IF NOT EXISTS ix_protocolo_tenant_status ON sigov.protocolo(tenant_id,status,created_at);
-CREATE INDEX IF NOT EXISTS ix_documento_tenant_status ON sigov.documento(tenant_id,status,created_at);
-CREATE INDEX IF NOT EXISTS ix_contrato_tenant_status_vigencia ON sigov.contrato(tenant_id,status,vigencia_fim);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'protocolo', 'ix_protocolo_tenant_status', ARRAY['tenant_id','status','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'documento', 'ix_documento_tenant_status', ARRAY['tenant_id','status','created_at'], NULL);
+SELECT pg_temp.create_index_when_columns_exist('sigov', 'contrato', 'ix_contrato_tenant_status_vigencia', ARRAY['tenant_id','status','vigencia_fim'], NULL);
 CREATE INDEX IF NOT EXISTS ix_compra_solicitacao_tenant_status ON sigov.compra_solicitacao(tenant_id,status,created_at);
 CREATE INDEX IF NOT EXISTS ix_licitacao_tenant_status ON sigov.licitacao(tenant_id,status,created_at);
 CREATE INDEX IF NOT EXISTS ix_patrimonio_bem_tenant_status ON sigov.patrimonio_bem(tenant_id,status);

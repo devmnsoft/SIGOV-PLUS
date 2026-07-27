@@ -97,7 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Testing
+      DOTNET_ENVIRONMENT: Testing
       ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
       Sigov__Jwt__Secret: ci-only-secret-with-more-than-thirty-two-chars
     steps:
