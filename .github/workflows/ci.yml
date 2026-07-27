@@ -152,6 +152,34 @@ jobs:
             artifacts/tests/dependency-injection/test-summary.json
             artifacts/tests/dependency-injection/test-summary.md
 
+  test-path-contract:
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '6.0.x' }
+      - name: Reject fragile test repository paths
+        run: |
+          set -euo pipefail
+          mkdir -p TestResults/TestPathContract artifacts/tests/test-path-contract
+          dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj --configuration Release \
+            --filter "FullyQualifiedName~RepositoryPathContractTests" \
+            --logger trx --results-directory TestResults/TestPathContract 2>&1 | tee test-path-contract.log
+          python3 scripts/validate-trx-results.py 'TestResults/TestPathContract/*.trx' \
+            --json-output artifacts/tests/test-path-contract/test-summary.json \
+            --markdown-output artifacts/tests/test-path-contract/test-summary.md | tee -a test-path-contract.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-path-contract-artifacts
+          path: |
+            test-path-contract.log
+            TestResults/TestPathContract/*.trx
+            artifacts/tests/test-path-contract/test-summary.json
+            artifacts/tests/test-path-contract/test-summary.md
+
   powershell-lint:
     needs: workflow-integrity
     runs-on: ubuntu-latest
@@ -468,7 +496,7 @@ jobs:
             ${{ needs.release-context.outputs.release_directory }}
 
   go-live-check:
-    needs: [workflow-integrity, release-context, build-test, dependency-injection, web-smoke, powershell-lint, migrations-manifest, seed-idempotency, script-completop-validate, script-completop-idempotency, schema-equivalence, standalone-postgres-runtime, docker-build, docker-compose-e2e, ui-contrast, release-package-check]
+    needs: [workflow-integrity, release-context, build-test, test-path-contract, dependency-injection, web-smoke, powershell-lint, migrations-manifest, seed-idempotency, script-completop-validate, script-completop-idempotency, schema-equivalence, standalone-postgres-runtime, docker-build, docker-compose-e2e, ui-contrast, release-package-check]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

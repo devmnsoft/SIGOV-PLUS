@@ -11,7 +11,7 @@ for idx,m in enumerate(job_matches):
     start=m.end(); end=job_matches[idx+1].start() if idx+1 < len(job_matches) else len(jobs_text)
     jobs[m.group(1)]={'__body': jobs_text[start:end]}
 if len(jobs) != len(job_matches): print('Duplicate job id detected'); sys.exit(1)
-required=set('workflow-integrity release-context build-test dependency-injection web-smoke powershell-lint migrations-manifest seed-idempotency script-completop-validate script-completop-idempotency schema-equivalence standalone-postgres-runtime docker-build docker-compose-e2e ui-contrast release-package-check go-live-check'.split())
+required=set('workflow-integrity release-context build-test test-path-contract dependency-injection web-smoke powershell-lint migrations-manifest seed-idempotency script-completop-validate script-completop-idempotency schema-equivalence standalone-postgres-runtime docker-build docker-compose-e2e ui-contrast release-package-check go-live-check'.split())
 errors=[]
 missing=sorted(required-set(jobs))
 if missing: errors.append('Missing required jobs: '+', '.join(missing))
