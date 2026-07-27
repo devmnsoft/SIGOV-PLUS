@@ -96,8 +96,33 @@ public sealed class MigrationRunner
                     var storedChecksum = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("select checksum from sigov.schema_migrations where version = @Version;", new { Version = version }, cancellationToken: cancellationToken)).ConfigureAwait(false);
                     if (!string.Equals(storedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
                     {
-                        validation.ChecksumMismatch.Add(version);
-                        _logger.LogError("Checksum divergente para migration sigov {Version}. Banco={StoredChecksum}; Arquivo={Checksum}", version, storedChecksum, checksum);
+                        var isKnownHistoricalChecksum = migration.KnownChecksums.Contains(storedChecksum ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+                        if (!isKnownHistoricalChecksum)
+                        {
+                            validation.ChecksumMismatch.Add(version);
+                            _logger.LogError("Checksum desconhecido para migration sigov {Version}. Banco={StoredChecksum}; Arquivo={Checksum}", version, storedChecksum, checksum);
+                            continue;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(migration.PostConditionSql))
+                        {
+                            validation.ChecksumMismatch.Add(version);
+                            _logger.LogError("Migration sigov {Version} declarou checksum histórico sem postConditionSql.", version);
+                            continue;
+                        }
+
+                        var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                            migration.PostConditionSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                        if (!postConditionPassed)
+                        {
+                            validation.Failed.Add(version);
+                            _logger.LogError("Pós-condição reprovada para checksum histórico da migration sigov {Version}. Banco={StoredChecksum}", version, storedChecksum);
+                            continue;
+                        }
+
+                        _logger.LogWarning(
+                            "Checksum histórico conhecido aceito para migration sigov {Version}, após pós-condição aprovada. Banco={StoredChecksum}; Atual={Checksum}. O checksum armazenado foi preservado.",
+                            version, storedChecksum, checksum);
                     }
                     continue;
                 }
@@ -120,7 +145,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            if (validateOnly && !validation.IsValid)
+            if (!validation.IsValid)
             {
                 throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.");
             }
@@ -151,6 +176,12 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
             var description = item.GetProperty("description").GetString() ?? Path.GetFileNameWithoutExtension(file);
             var category = item.GetProperty("category").GetString() ?? "schema";
             var checksum = item.GetProperty("checksum").GetString() ?? string.Empty;
+            var knownChecksums = item.TryGetProperty("knownChecksums", out var known) && known.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? known.EnumerateArray().Select(value => value.GetString() ?? string.Empty).Where(value => value.Length > 0).ToArray()
+                : Array.Empty<string>();
+            var postConditionSql = item.TryGetProperty("postConditionSql", out var postCondition) && postCondition.ValueKind == System.Text.Json.JsonValueKind.String
+                ? postCondition.GetString()
+                : null;
             if (!versions.Add(version))
             {
                 throw new InvalidOperationException($"Versão duplicada no manifest de migrations: {version}.");
@@ -169,14 +200,21 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
                     throw new FileNotFoundException("Migration automática ausente no manifest.", filePath);
                 }
 
-                result.Add(new ManifestMigration(version, filePath, description, category, checksum));
+                result.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums, postConditionSql));
             }
         }
 
         return result;
     }
 
-    private sealed record ManifestMigration(string Version, string FilePath, string Description, string Category, string Checksum);
+    private sealed record ManifestMigration(
+        string Version,
+        string FilePath,
+        string Description,
+        string Category,
+        string Checksum,
+        IReadOnlyList<string> KnownChecksums,
+        string? PostConditionSql);
 
     private static string ResolveMigrationsPath(string? configuredPath)
     {
