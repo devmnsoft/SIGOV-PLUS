@@ -448,11 +448,12 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d",
+      "checksum": "0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e",
       "knownChecksums": [
-        "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06"
+        "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06",
+        "ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d"
       ],
-      "postConditionSql": "select not exists (select 1 from sigov.outbox_evento where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null or attempts is null)"
+      "postConditionSql": "select to_regclass('sigov.tarefa') is not null and to_regclass('sigov.outbox_evento') is not null and not exists (select 1 from sigov.outbox_evento where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null or attempts is null)"
     },
     {
       "version": "20260722120000",
