@@ -6,3 +6,4 @@
 .sigov-main { padding: 1.5rem; }
 .sigov-sidebar-collapsed .sigov-sidebar { display: none; }
 @media (max-width: 767.98px) { .sigov-sidebar { min-height: auto; } .sigov-main { padding: 1rem; } }
+.sigov-global-search{display:flex;align-items:center;gap:.5rem;flex:1;max-width:42rem;margin-inline:auto}.sigov-global-search .form-control{background:var(--sigov-card)}.sigov-icon-btn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px}.sigov-icon-btn svg{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.sigov-user-chip{display:flex;align-items:center;gap:.6rem}.sigov-user-chip small{display:block}.sigov-avatar{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:var(--sigov-blue);color:#fff;font-weight:800}

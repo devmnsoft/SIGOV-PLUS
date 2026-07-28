@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -12,13 +11,7 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<SigovWebFactory>
 
     public WebRuntimeSmokeTests(SigovWebFactory factory)
     {
-        _factory = factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=sigov_test;Username=sigov;Password=sigov");
-            builder.UseSetting("Sigov:Database:MigrationMode", "Disabled");
-            builder.UseSetting("Sigov:Storage:LocalPath", Path.Combine(Path.GetTempPath(), "sigov-web-smoke-storage"));
-        });
+        _factory = factory;
     }
 
     [Fact]

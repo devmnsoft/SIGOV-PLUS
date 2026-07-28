@@ -1,47 +1,38 @@
 @{
   var path = Context.Request.Path.Value ?? string.Empty;
   Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
-  string em(string codigo) => $"/Modulo/EmImplantacao?codigo={codigo}";
+  Func<string[], string> opened = urls => urls.Any(url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase)) ? "open" : string.Empty;
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
-<aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal SIGOV PLUS">
-  <div class="sigov-sidebar__header"><span class="sigov-sidebar__eyebrow">Plataforma SaaS</span><strong>Gestão Pública & Empresarial</strong></div>
+<aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
+  <div class="sigov-sidebar__header"><span class="sigov-sidebar__eyebrow">Área de trabalho</span><strong>Encontre o que precisa</strong></div>
   <nav class="sigov-sidebar__nav">
-    <details class="sigov-nav-group" open><summary>A. Início</summary>
-      <a class="sigov-nav-link@(active("/MinhaCentral"))" href="/MinhaCentral">◎ Minha Central</a><a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard">▣ Dashboard</a><a class="sigov-nav-link@(active("/Jornada"))" href="/Jornada">O que fazer agora</a><a class="sigov-nav-link" href="/Notificacoes">Notificações</a>
+    <details class="sigov-nav-group" open><summary>Início</summary>
+      <a class="sigov-nav-link@(active("/MinhaCentral"))" href="/MinhaCentral">Minha Central</a>
+      <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard">Dashboard</a>
+      <a class="sigov-nav-link@(active("/Notificacoes"))" href="/Notificacoes">Notificações</a>
     </details>
-    <details class="sigov-nav-group"><summary>B. Implantação</summary>
-      <a class="sigov-nav-link@(active("/Onboarding"))" href="/Onboarding">Onboarding</a><a class="sigov-nav-link@(active("/Saas/Implantacao"))" href="/Saas/Implantacao">Implantação Guiada</a><a class="sigov-nav-link" href="@em("checklist-configuracao")">Checklist de Configuração</a><a class="sigov-nav-link" href="@em("dados-cliente")">Dados do Cliente</a><a class="sigov-nav-link@(active("/Core"))" href="/Core/Entidades">Entidade/Exercício</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Tarefas","/Agenda","/Preferencias"})><summary>Meu trabalho</summary>
+      <a class="sigov-nav-link@(active("/Tarefas/Minhas"))" href="/Tarefas/Minhas">Minhas tarefas</a>
+      <a class="sigov-nav-link@(active("/Tarefas/Equipe"))" href="/Tarefas/Equipe">Tarefas da equipe</a>
+      <a class="sigov-nav-link@(active("/Agenda"))" href="/Agenda">Agenda e prazos</a>
+      <a class="sigov-nav-link@(active("/Preferencias/Recentes"))" href="/Preferencias/Recentes">Itens recentes</a>
+      <a class="sigov-nav-link@(active("/Preferencias/Favoritos"))" href="/Preferencias/Favoritos">Favoritos</a>
     </details>
-    <details class="sigov-nav-group" open><summary>C. Administração SaaS</summary>
-      <a class="sigov-nav-link@(active("/Saas/Tenants"))" href="/Saas/Tenants">Clientes/Tenants</a><a class="sigov-nav-link@(active("/Saas/Planos"))" href="/Saas/Planos">Planos</a><a class="sigov-nav-link" href="/Saas/Assinaturas">Assinaturas</a><a class="sigov-nav-link@(active("/Saas/Implantacao"))" href="/Saas/Implantacao">Implantação Guiada</a><a class="sigov-nav-link@(active("/Saas/Modulos"))" href="/Saas/Modulos">Módulos</a><a class="sigov-nav-link@(active("/Saas/Parametros"))" href="/Saas/Parametros">Parâmetros</a><a class="sigov-nav-link" href="/Saas/Tenants/1/WhiteLabel">White Label</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Protocolo","/Ged","/Workflow","/Assinaturas"})><summary>Processos e documentos</summary>
+      <a class="sigov-nav-link@(active("/Protocolo"))" href="/Protocolo">Protocolo</a>
+      <a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard">Documentos</a>
+      <a class="sigov-nav-link@(active("/Workflow"))" href="/Workflow">Fluxos de trabalho</a>
+      <a class="sigov-nav-link@(active("/Assinaturas"))" href="/AssinaturasDigitais">Assinaturas</a>
     </details>
-    <details class="sigov-nav-group" open><summary>D. Segurança</summary>
-      <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios">Usuários</a><a class="sigov-nav-link@(active("/Seguranca/Perfis"))" href="/Seguranca/Perfis">Perfis</a><a class="sigov-nav-link@(active("/Seguranca/Permissoes"))" href="/Seguranca/Permissoes">Permissões</a><a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas">Auditoria</a><a class="sigov-nav-link@(active("/Lgpd"))" href="/Lgpd/Dashboard">LGPD</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Siafic","/Planejamento","/Compras","/Contratos","/Patrimonio","/Obras","/Rh","/Saude","/Educacao"})><summary>Gestão</summary>
+      <a class="sigov-nav-link@(active("/Planejamento"))" href="/Planejamento">Planejamento</a><a class="sigov-nav-link@(active("/Compras"))" href="/Compras">Compras</a><a class="sigov-nav-link@(active("/Contratos"))" href="/Contratos">Contratos</a><a class="sigov-nav-link@(active("/Patrimonio"))" href="/Patrimonio">Patrimônio</a><a class="sigov-nav-link@(active("/Obras"))" href="/Obras">Obras</a>
     </details>
-    <details class="sigov-nav-group"><summary>E. Governo</summary>
-      <a class="sigov-nav-link@(active("/Tributario"))" href="/Tributario/Dashboard">Tributário</a><a class="sigov-nav-link@(active("/Protocolos"))" href="/Protocolos">Protocolo</a><a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard">GED/OCR</a><a class="sigov-nav-link" href="@em("contratos")">Contratos</a><a class="sigov-nav-link" href="@em("juridico")">Jurídico</a><a class="sigov-nav-link@(active("/Rh"))" href="/Rh/Dashboard">RH</a><a class="sigov-nav-link@(active("/Saude"))" href="/Saude/Dashboard">Saúde</a><a class="sigov-nav-link@(active("/Educacao"))" href="/Educacao/Dashboard">Educação</a><a class="sigov-nav-link@(active("/Agro"))" href="/Agro/Dashboard">Agro</a><a class="sigov-nav-link@(active("/Saneamento"))" href="/Saneamento/Dashboard">Saneamento</a><a class="sigov-nav-link@(active("/Social"))" href="/Social/Dashboard">Social</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd","/Administracao"})><summary>Administração</summary>
+      <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios">Usuários</a><a class="sigov-nav-link@(active("/Seguranca/Perfis"))" href="/Seguranca/Perfis">Perfis</a><a class="sigov-nav-link@(active("/Seguranca/Permissoes"))" href="/Seguranca/Permissoes">Permissões</a><a class="sigov-nav-link@(active("/Saas/Modulos"))" href="/Saas/Modulos">Módulos</a><a class="sigov-nav-link@(active("/TenantConfiguracao"))" href="/TenantConfiguracao">Identidade visual</a><a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas">Auditoria</a><a class="sigov-nav-link@(active("/Lgpd"))" href="/Lgpd/Dashboard">Privacidade</a>
     </details>
-
-    <details class="sigov-nav-group" open><summary>Gestão Patrimonial e Obras</summary>
-      <a class="sigov-nav-link@(active("/Patrimonio"))" href="/Patrimonio">Patrimônio</a><a class="sigov-nav-link@(active("/Inventario"))" href="/Inventario">Inventário</a><a class="sigov-nav-link@(active("/Obras"))" href="/Obras">Obras</a><a class="sigov-nav-link@(active("/Obras/Fiscalizacao"))" href="/Obras/Fiscalizacao">Fiscalização</a><a class="sigov-nav-link@(active("/Obras/Medicoes"))" href="/Obras/Medicoes">Medições</a><a class="sigov-nav-link@(active("/Obras/Diario"))" href="/Obras/Diario">Diário de Obra</a><a class="sigov-nav-link@(active("/Obras/Fotos"))" href="/Obras/Fotos">Relatório Fotográfico</a>
-    </details>
-
-    <details class="sigov-nav-group" open><summary>Gestão Administrativa</summary>
-      <a class="sigov-nav-link@(active("/Siafic"))" href="/Siafic">SIAFIC</a><a class="sigov-nav-link@(active("/Planejamento"))" href="/Planejamento">Planejamento</a><a class="sigov-nav-link@(active("/Tesouraria"))" href="/Tesouraria">Tesouraria</a><a class="sigov-nav-link@(active("/Compras"))" href="/Compras">Compras</a><a class="sigov-nav-link@(active("/Licitacoes"))" href="/Licitacoes">Licitações</a><a class="sigov-nav-link@(active("/Contratos"))" href="/Contratos">Contratos</a><a class="sigov-nav-link@(active("/Almoxarifado"))" href="/Almoxarifado">Almoxarifado</a><a class="sigov-nav-link@(active("/Patrimonio"))" href="/Patrimonio">Patrimônio</a><a class="sigov-nav-link@(active("/Frotas"))" href="/Frotas">Frotas</a><a class="sigov-nav-link@(active("/Obras"))" href="/Obras">Obras</a><a class="sigov-nav-link@(active("/Transparencia"))" href="/Transparencia">Transparência</a>
-    </details>
-    <details class="sigov-nav-group"><summary>F. Empresas</summary>
-      <a class="sigov-nav-link@(active("/Marketplace"))" href="/Marketplace">Marketplace</a><a class="sigov-nav-link@(active("/Portal"))" href="/Portal">Portal do Cliente</a><a class="sigov-nav-link@(active("/Comercial"))" href="/Comercial">Comercial/CRM</a><a class="sigov-nav-link" href="@em("varejo-pdv")">Varejo/PDV</a><a class="sigov-nav-link" href="@em("atacado")">Atacado</a><a class="sigov-nav-link" href="@em("estoque")">Estoque</a><a class="sigov-nav-link@(active("/Financeiro"))" href="/Financeiro/Dashboard">Financeiro</a><a class="sigov-nav-link@(active("/Industria"))" href="/Industria/Dashboard">Indústria</a><a class="sigov-nav-link" href="@em("manutencao")">Manutenção</a><a class="sigov-nav-link" href="@em("ordem-de-servico")">Ordem de Serviço</a>
-    </details>
-
-    <details class="sigov-nav-group" open><summary>Editais e POC</summary>
-      <a class="sigov-nav-link@(active("/Editais"))" href="/Editais">Editais</a><a class="sigov-nav-link" href="/Editais/1/Requisitos">Requisitos</a><a class="sigov-nav-link@(active("/MatrizAderencia"))" href="/MatrizAderencia">Matriz de Aderência</a><a class="sigov-nav-link" href="/Editais/1/Evidencias">Evidências</a><a class="sigov-nav-link@(active("/Poc/Editais"))" href="/Poc/Editais">POC por Edital</a><a class="sigov-nav-link" href="/Editais/1/RelatorioAderencia">Relatório de Aderência</a><a class="sigov-nav-link" href="/Editais/1/PropostaTecnica">Proposta Técnica</a><a class="sigov-nav-link" href="/MatrizAderencia">Plano de Ação</a>
-    </details>
-    <details class="sigov-nav-group"><summary>G. Operação</summary>
-      <a class="sigov-nav-link@(active("/MobileCampo"))" href="/MobileCampo/Dashboard">Mobile/Campo</a><a class="sigov-nav-link@(active("/Integracoes"))" href="/Integracoes/Dashboard">Integrações</a><a class="sigov-nav-link@(active("/IA"))" href="/IA/Dashboard">IA</a><a class="sigov-nav-link@(active("/Operacao/Health"))" href="/Operacao/Health">Health</a>
-    </details>
-    <details class="sigov-nav-group"><summary>H. Ajuda</summary>
-      <a class="sigov-nav-link@(active("/Manual"))" href="/Manual">Manual do Sistema</a><a class="sigov-nav-link@(active("/Ajuda"))" href="/Ajuda">Central de Ajuda</a><a class="sigov-nav-link@(active("/Modulos"))" href="/Modulos">Mapa do Sistema</a><a class="sigov-nav-link@(active("/Poc"))" href="/Poc">POC/Demonstração</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Ajuda","/Manual"})><summary>Ajuda</summary>
+      <a class="sigov-nav-link@(active("/Ajuda"))" href="/Ajuda">Central de Ajuda</a><a class="sigov-nav-link@(active("/Manual"))" href="/Manual">Manual</a><a class="sigov-nav-link@(active("/Modulos"))" href="/Modulos">Sobre o sistema</a>
     </details>
   </nav>
 </aside>
