@@ -13,6 +13,8 @@ using Sigov.Application.Executive;
 using Sigov.Application.Onboarding;
 using Sigov.Application.Ui;
 using Sigov.Api.Filters;
+using Sigov.Api.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +31,8 @@ builder.Services.AddSingleton<IValidateOptions<SigovOptions>, SigovOptionsValida
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 builder.Services.AddScoped<EnterpriseExecutionContextFilter>();
+builder.Services.AddScoped<IEnterpriseAuthorizationService, EnterpriseAuthorizationService>();
+builder.Services.AddSingleton<IAuthorizationHandler, EnterpriseAuthorizationHandler>();
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();

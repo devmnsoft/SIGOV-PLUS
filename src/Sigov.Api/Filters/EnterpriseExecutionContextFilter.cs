@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Sigov.Api.Contracts;
 using Sigov.Application.Enterprise;
+using Sigov.Api.Authorization;
 
 namespace Sigov.Api.Filters;
 
@@ -12,12 +13,14 @@ public sealed class EnterpriseExecutionContextFilter : IAsyncActionFilter
     private readonly IWebHostEnvironment _environment;
     private readonly IConfiguration _configuration;
     private readonly ILogger<EnterpriseExecutionContextFilter> _logger;
+    private readonly IEnterpriseAuthorizationService _authorization;
 
-    public EnterpriseExecutionContextFilter(IWebHostEnvironment environment, IConfiguration configuration, ILogger<EnterpriseExecutionContextFilter> logger)
+    public EnterpriseExecutionContextFilter(IWebHostEnvironment environment, IConfiguration configuration, ILogger<EnterpriseExecutionContextFilter> logger, IEnterpriseAuthorizationService authorization)
     {
         _environment = environment;
         _configuration = configuration;
         _logger = logger;
+        _authorization = authorization;
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -27,6 +30,19 @@ public sealed class EnterpriseExecutionContextFilter : IAsyncActionFilter
         if (tenantId is null)
         {
             context.Result = new BadRequestObjectResult(ApiResponse<string>.Fail("Tenant obrigatório. Informe X-Tenant-Id válido; fallback demo é proibido em produção.", http.TraceIdentifier));
+            return;
+        }
+
+        if (http.User.Identity?.IsAuthenticated != true)
+        {
+            context.Result = new UnauthorizedObjectResult(ApiResponse<string>.Fail("Autenticação obrigatória para API Enterprise.", http.TraceIdentifier));
+            return;
+        }
+
+        var permission = _authorization.ResolveRequiredPermission(http.Request, context.RouteData);
+        if (!await _authorization.AuthorizeAsync(http.User, tenantId.Value, permission, http.RequestAborted).ConfigureAwait(false))
+        {
+            context.Result = new ObjectResult(ApiResponse<string>.Fail($"Permissão Enterprise ausente: {permission}.", http.TraceIdentifier)) { StatusCode = StatusCodes.Status403Forbidden };
             return;
         }
 
