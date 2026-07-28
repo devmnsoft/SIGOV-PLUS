@@ -1,0 +1,8 @@
+{
+  "workflowRun": 318,
+  "status": "not_verified",
+  "reason": "GitHub artifacts and the .NET SDK are unavailable",
+  "total": null,
+  "failed": null,
+  "skipped": null
+}
