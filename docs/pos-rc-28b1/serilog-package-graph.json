@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "centralVersions": {
+    "Serilog.AspNetCore": "10.0.0",
+    "Serilog.Settings.Configuration": "10.0.0",
+    "Serilog.Sinks.Console": "6.1.1",
+    "Serilog.Sinks.File": "7.0.0"
+  },
+  "minimumsRequiredBySerilogAspNetCore": {
+    "Serilog.Settings.Configuration": "10.0.0",
+    "Serilog.Sinks.Console": "6.1.1",
+    "Serilog.Sinks.File": "7.0.0"
+  },
+  "projects": {
+    "Sigov.Api": { "direct": ["Serilog.AspNetCore", "Serilog.Settings.Configuration", "Serilog.Sinks.Console", "Serilog.Sinks.File"], "origin": "host" },
+    "Sigov.Web": { "direct": ["Serilog.AspNetCore", "Serilog.Settings.Configuration", "Serilog.Sinks.Console", "Serilog.Sinks.File"], "origin": "host" },
+    "Sigov.Worker": { "direct": ["Serilog.AspNetCore", "Serilog.Settings.Configuration", "Serilog.Sinks.Console", "Serilog.Sinks.File"], "origin": "host" },
+    "Sigov.Infrastructure": { "direct": [], "transitive": [], "origin": "none" },
+    "Sigov.Testing": { "direct": [], "transitiveOrigin": ["Sigov.Api", "Sigov.Web"] },
+    "Sigov.ApiTests": { "direct": [], "transitiveOrigin": ["Sigov.Api", "Sigov.Testing"] },
+    "Sigov.IntegrationTests": { "direct": [], "transitiveOrigin": ["Sigov.Web", "Sigov.Testing"] },
+    "Sigov.UnitTests": { "direct": [], "transitiveOrigin": ["Sigov.Testing", "Sigov.Web", "Sigov.Worker"] }
+  },
+  "conflict": {
+    "code": "NU1605",
+    "previousVersions": ["3.4.0", "4.1.0", "5.0.0"],
+    "correction": "central versions aligned with Serilog.AspNetCore 10.0.0"
+  }
+}
+

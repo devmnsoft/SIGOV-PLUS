@@ -1,0 +1,121 @@
+name: net10-restore-build-test
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  restore-locked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: mkdir -p artifacts/build
+      - run: dotnet restore sigov.sln --locked-mode --verbosity normal -bl:artifacts/build/restore.binlog 2>&1 | tee artifacts/build/restore.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-locked-artifacts
+          path: artifacts/build/restore.*
+
+  build-debug:
+    needs: restore-locked
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet restore sigov.sln --locked-mode
+      - run: mkdir -p artifacts/build && dotnet build sigov.sln -c Debug --no-restore -bl:artifacts/build/debug-build.binlog
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: debug-build-binlog, path: artifacts/build/debug-build.binlog }
+
+  build-release:
+    needs: restore-locked
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet restore sigov.sln --locked-mode
+      - run: mkdir -p artifacts/build && dotnet build sigov.sln -c Release --no-restore -bl:artifacts/build/release-build.binlog
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: release-build-binlog, path: artifacts/build/release-build.binlog }
+
+  unit-tests:
+    needs: build-debug
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj -c Debug --logger trx --results-directory TestResults/Unit
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: unit-tests-trx, path: TestResults/Unit/*.trx }
+
+  api-tests:
+    needs: build-debug
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet test tests/Sigov.ApiTests/Sigov.ApiTests.csproj -c Debug --logger trx --results-directory TestResults/Api
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: api-tests-trx, path: TestResults/Api/*.trx }
+
+  integration-tests:
+    needs: build-debug
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet test tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj -c Debug --logger trx --results-directory TestResults/Integration
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: integration-tests-trx, path: TestResults/Integration/*.trx }
+
+  dependency-injection:
+    needs: build-debug
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj -c Debug --filter "FullyQualifiedName~DependencyInjectionResolutionTests" --logger trx --results-directory TestResults/DependencyInjection
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: dependency-injection-trx, path: TestResults/DependencyInjection/*.trx }
+
+  package-security:
+    needs: restore-locked
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: |
+          mkdir -p artifacts/packages
+          dotnet list sigov.sln package --include-transitive --format json > artifacts/packages/package-graph.json
+          dotnet list sigov.sln package --vulnerable --include-transitive --format json > artifacts/packages/package-vulnerabilities.json
+          dotnet list sigov.sln package --outdated --include-transitive
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-security-reports
+          path: artifacts/packages/*.json
