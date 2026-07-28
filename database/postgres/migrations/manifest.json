@@ -417,7 +417,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064"
+      "checksum": "55e2f1187b948d502bb6278e03df8bd7add6e9e67b97999572aa65fcc2c6a5fb",
+      "knownChecksums": [
+        "ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064"
+      ],
+      "postConditionSql": "select to_regclass('sigov.protocolo') is not null and to_regclass('sigov.documento') is not null and to_regclass('sigov.workflow_instancia') is not null and to_regclass('sigov.outbox_evento') is not null"
     },
     {
       "version": "20260709120000",

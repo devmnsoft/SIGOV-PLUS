@@ -4,10 +4,10 @@ using Xunit;
 
 namespace Sigov.ApiTests;
 
-public sealed class SaneamentoApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class SaneamentoApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
-    public SaneamentoApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    private readonly SigovApiFactory _factory;
+    public SaneamentoApiTests(SigovApiFactory factory) => _factory = factory;
     [Fact]
     public async Task Dashboard_Sem_Tenant_Deve_Bloquear_Acesso_Ao_Modulo()
     {

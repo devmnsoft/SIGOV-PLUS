@@ -51,79 +51,121 @@ alter table if exists sigov.protocolo add column if not exists tenant_id bigint;
 alter table if exists sigov.documento add column if not exists tenant_id bigint;
 alter table if exists sigov.workflow_instancia add column if not exists tenant_id bigint;
 
-create index if not exists ix_api_key_tenant_id on sigov.api_key (tenant_id);
-create index if not exists ix_api_key_status on sigov.api_key (status);
-create index if not exists ix_api_key_created_at on sigov.api_key (created_at);
-create index if not exists ix_api_key_escopo_tenant_id on sigov.api_key_escopo (tenant_id);
-create index if not exists ix_api_key_escopo_status on sigov.api_key_escopo (status);
-create index if not exists ix_api_key_escopo_created_at on sigov.api_key_escopo (created_at);
-create index if not exists ix_api_requisicao_log_tenant_id on sigov.api_requisicao_log (tenant_id);
-create index if not exists ix_api_requisicao_log_status on sigov.api_requisicao_log (status);
-create index if not exists ix_api_requisicao_log_created_at on sigov.api_requisicao_log (created_at);
-create index if not exists ix_webhook_configuracao_tenant_id on sigov.webhook_configuracao (tenant_id);
-create index if not exists ix_webhook_configuracao_status on sigov.webhook_configuracao (status);
-create index if not exists ix_webhook_configuracao_created_at on sigov.webhook_configuracao (created_at);
-create index if not exists ix_webhook_entrega_tenant_id on sigov.webhook_entrega (tenant_id);
-create index if not exists ix_webhook_entrega_status on sigov.webhook_entrega (status);
-create index if not exists ix_webhook_entrega_created_at on sigov.webhook_entrega (created_at);
-create index if not exists ix_outbox_evento_tenant_id on sigov.outbox_evento (tenant_id);
-create index if not exists ix_outbox_evento_status on sigov.outbox_evento (status);
-create index if not exists ix_outbox_evento_created_at on sigov.outbox_evento (created_at);
-create index if not exists ix_protocolo_tenant_id on sigov.protocolo (tenant_id);
-create index if not exists ix_protocolo_status on sigov.protocolo (status);
-create index if not exists ix_protocolo_created_at on sigov.protocolo (created_at);
-create index if not exists ix_protocolo_movimento_tenant_id on sigov.protocolo_movimento (tenant_id);
-create index if not exists ix_protocolo_movimento_status on sigov.protocolo_movimento (status);
-create index if not exists ix_protocolo_movimento_created_at on sigov.protocolo_movimento (created_at);
-create index if not exists ix_protocolo_anexo_tenant_id on sigov.protocolo_anexo (tenant_id);
-create index if not exists ix_protocolo_anexo_status on sigov.protocolo_anexo (status);
-create index if not exists ix_protocolo_anexo_created_at on sigov.protocolo_anexo (created_at);
-create index if not exists ix_documento_tenant_id on sigov.documento (tenant_id);
-create index if not exists ix_documento_status on sigov.documento (status);
-create index if not exists ix_documento_created_at on sigov.documento (created_at);
-create index if not exists ix_documento_versao_tenant_id on sigov.documento_versao (tenant_id);
-create index if not exists ix_documento_versao_status on sigov.documento_versao (status);
-create index if not exists ix_documento_versao_created_at on sigov.documento_versao (created_at);
-create index if not exists ix_ged_pasta_tenant_id on sigov.ged_pasta (tenant_id);
-create index if not exists ix_ged_pasta_status on sigov.ged_pasta (status);
-create index if not exists ix_ged_pasta_created_at on sigov.ged_pasta (created_at);
-create index if not exists ix_workflow_tenant_id on sigov.workflow (tenant_id);
-create index if not exists ix_workflow_status on sigov.workflow (status);
-create index if not exists ix_workflow_created_at on sigov.workflow (created_at);
-create index if not exists ix_workflow_etapa_tenant_id on sigov.workflow_etapa (tenant_id);
-create index if not exists ix_workflow_etapa_status on sigov.workflow_etapa (status);
-create index if not exists ix_workflow_etapa_created_at on sigov.workflow_etapa (created_at);
-create index if not exists ix_workflow_transicao_tenant_id on sigov.workflow_transicao (tenant_id);
-create index if not exists ix_workflow_transicao_status on sigov.workflow_transicao (status);
-create index if not exists ix_workflow_transicao_created_at on sigov.workflow_transicao (created_at);
-create index if not exists ix_workflow_instancia_tenant_id on sigov.workflow_instancia (tenant_id);
-create index if not exists ix_workflow_instancia_status on sigov.workflow_instancia (status);
-create index if not exists ix_workflow_instancia_created_at on sigov.workflow_instancia (created_at);
-create index if not exists ix_workflow_historico_tenant_id on sigov.workflow_historico (tenant_id);
-create index if not exists ix_workflow_historico_status on sigov.workflow_historico (status);
-create index if not exists ix_workflow_historico_created_at on sigov.workflow_historico (created_at);
-create index if not exists ix_tarefa_tenant_id on sigov.tarefa (tenant_id);
-create index if not exists ix_tarefa_status on sigov.tarefa (status);
-create index if not exists ix_tarefa_created_at on sigov.tarefa (created_at);
-create index if not exists ix_notificacao_tenant_id on sigov.notificacao (tenant_id);
-create index if not exists ix_notificacao_status on sigov.notificacao (status);
-create index if not exists ix_notificacao_created_at on sigov.notificacao (created_at);
-create index if not exists ix_notificacao_usuario_tenant_id on sigov.notificacao_usuario (tenant_id);
-create index if not exists ix_notificacao_usuario_status on sigov.notificacao_usuario (status);
-create index if not exists ix_notificacao_usuario_created_at on sigov.notificacao_usuario (created_at);
-create index if not exists ix_portal_validacao_documento_tenant_id on sigov.portal_validacao_documento (tenant_id);
-create index if not exists ix_portal_validacao_documento_status on sigov.portal_validacao_documento (status);
-create index if not exists ix_portal_validacao_documento_created_at on sigov.portal_validacao_documento (created_at);
-create index if not exists ix_api_key_prefixo on sigov.api_key (prefixo);
-create index if not exists ix_api_key_escopo_api_key_id on sigov.api_key_escopo (api_key_id);
-create index if not exists ix_api_key_escopo_escopo on sigov.api_key_escopo (escopo);
-create index if not exists ix_protocolo_numero on sigov.protocolo (numero);
-create index if not exists ix_documento_hash_sha256 on sigov.documento (hash_sha256);
-create index if not exists ix_portal_validacao_documento_codigo_publico on sigov.portal_validacao_documento (codigo_publico);
-create index if not exists ix_protocolo_movimento_protocolo_id on sigov.protocolo_movimento (protocolo_id);
-create index if not exists ix_protocolo_anexo_protocolo_id on sigov.protocolo_anexo (protocolo_id);
-create index if not exists ix_protocolo_anexo_documento_id on sigov.protocolo_anexo (documento_id);
-create index if not exists ix_documento_versao_documento_id on sigov.documento_versao (documento_id);
-create index if not exists ix_tarefa_protocolo_id on sigov.tarefa (protocolo_id);
-create index if not exists ix_notificacao_usuario_usuario_id on sigov.notificacao_usuario (usuario_id);
-create index if not exists ix_outbox_evento_evento on sigov.outbox_evento (evento);
+create or replace function pg_temp.create_index_when_columns_exist(
+    schema_name text,
+    table_name text,
+    index_name text,
+    column_names text[],
+    index_expression text,
+    predicate text default null)
+returns void
+language plpgsql
+as $function$
+declare
+    missing_columns text[];
+begin
+    if to_regclass(format('%I.%I', schema_name, table_name)) is null then
+        raise notice 'Index % ignored: table %.% does not exist', index_name, schema_name, table_name;
+        return;
+    end if;
+
+    select array_agg(requested.column_name order by requested.ordinality)
+      into missing_columns
+      from unnest(column_names) with ordinality requested(column_name, ordinality)
+     where not exists (
+         select 1
+           from information_schema.columns existing
+          where existing.table_schema = schema_name
+            and existing.table_name = table_name
+            and existing.column_name = requested.column_name);
+
+    if missing_columns is not null then
+        raise notice 'Index % ignored: missing columns % on %.%', index_name, missing_columns, schema_name, table_name;
+        return;
+    end if;
+
+    execute format('create index if not exists %I on %I.%I %s%s',
+        index_name,
+        schema_name,
+        table_name,
+        index_expression,
+        case when predicate is null then '' else ' where ' || predicate end);
+end;
+$function$;
+
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key', 'ix_api_key_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key', 'ix_api_key_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key', 'ix_api_key_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key_escopo', 'ix_api_key_escopo_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key_escopo', 'ix_api_key_escopo_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key_escopo', 'ix_api_key_escopo_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_requisicao_log', 'ix_api_requisicao_log_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_requisicao_log', 'ix_api_requisicao_log_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_requisicao_log', 'ix_api_requisicao_log_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'webhook_configuracao', 'ix_webhook_configuracao_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'webhook_configuracao', 'ix_webhook_configuracao_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'webhook_configuracao', 'ix_webhook_configuracao_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'webhook_entrega', 'ix_webhook_entrega_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'webhook_entrega', 'ix_webhook_entrega_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'webhook_entrega', 'ix_webhook_entrega_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo', 'ix_protocolo_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo', 'ix_protocolo_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo', 'ix_protocolo_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_movimento', 'ix_protocolo_movimento_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_movimento', 'ix_protocolo_movimento_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_movimento', 'ix_protocolo_movimento_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_anexo', 'ix_protocolo_anexo_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_anexo', 'ix_protocolo_anexo_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_anexo', 'ix_protocolo_anexo_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento', 'ix_documento_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento', 'ix_documento_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento', 'ix_documento_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento_versao', 'ix_documento_versao_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento_versao', 'ix_documento_versao_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento_versao', 'ix_documento_versao_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'ged_pasta', 'ix_ged_pasta_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'ged_pasta', 'ix_ged_pasta_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'ged_pasta', 'ix_ged_pasta_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow', 'ix_workflow_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow', 'ix_workflow_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow', 'ix_workflow_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_etapa', 'ix_workflow_etapa_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_etapa', 'ix_workflow_etapa_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_etapa', 'ix_workflow_etapa_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_transicao', 'ix_workflow_transicao_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_transicao', 'ix_workflow_transicao_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_transicao', 'ix_workflow_transicao_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_instancia', 'ix_workflow_instancia_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_instancia', 'ix_workflow_instancia_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_instancia', 'ix_workflow_instancia_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_historico', 'ix_workflow_historico_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_historico', 'ix_workflow_historico_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'workflow_historico', 'ix_workflow_historico_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao', 'ix_notificacao_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao', 'ix_notificacao_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao', 'ix_notificacao_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'portal_validacao_documento', 'ix_portal_validacao_documento_tenant_id', array['tenant_id'], '(tenant_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'portal_validacao_documento', 'ix_portal_validacao_documento_status', array['status'], '(status)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'portal_validacao_documento', 'ix_portal_validacao_documento_created_at', array['created_at'], '(created_at)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key', 'ix_api_key_prefixo', array['prefixo'], '(prefixo)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key_escopo', 'ix_api_key_escopo_api_key_id', array['api_key_id'], '(api_key_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'api_key_escopo', 'ix_api_key_escopo_escopo', array['escopo'], '(escopo)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo', 'ix_protocolo_numero', array['numero'], '(numero)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento', 'ix_documento_hash_sha256', array['hash_sha256'], '(hash_sha256)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'portal_validacao_documento', 'ix_portal_validacao_documento_codigo_publico', array['codigo_publico'], '(codigo_publico)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_movimento', 'ix_protocolo_movimento_protocolo_id', array['protocolo_id'], '(protocolo_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_anexo', 'ix_protocolo_anexo_protocolo_id', array['protocolo_id'], '(protocolo_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'protocolo_anexo', 'ix_protocolo_anexo_documento_id', array['documento_id'], '(documento_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'documento_versao', 'ix_documento_versao_documento_id', array['documento_id'], '(documento_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_protocolo_id', array['protocolo_id'], '(protocolo_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_usuario_id', array['usuario_id'], '(usuario_id)', null);
+select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_evento', array['evento'], '(evento)', null);

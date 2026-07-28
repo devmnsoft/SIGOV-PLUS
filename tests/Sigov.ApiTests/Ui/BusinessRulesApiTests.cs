@@ -5,11 +5,11 @@ using Xunit;
 
 namespace Sigov.ApiTests.Ui;
 
-public sealed class BusinessRulesApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class BusinessRulesApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public BusinessRulesApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public BusinessRulesApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Regras_De_Negocio_Deve_Responder_Lista_E_Modulo()

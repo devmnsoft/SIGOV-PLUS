@@ -1,0 +1,14 @@
+{
+  "baseSha": "fba0f5e9b20907bdfb21d2a595e5940a46fafa22",
+  "referenceWorkflowRun": 30307186680,
+  "checks": {
+    "ambiguousProgramReferencesRemaining": 0,
+    "diffCheck": "passed",
+    "build": "not-run-dotnet-unavailable",
+    "baseline": "not-run-pwsh-unavailable",
+    "remoteWorkflow": "not-read-gh-unavailable"
+  },
+  "gate0": "open",
+  "gate1": "not-started",
+  "gate2": "not-started"
+}

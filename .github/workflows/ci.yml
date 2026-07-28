@@ -3,7 +3,7 @@ name: ci
 on:
   workflow_dispatch:
   push:
-    branches: [ main, codex/pos-rc-27a1-desbloquear-ci-integral ]
+    branches: [ main ]
   pull_request:
 
 permissions:

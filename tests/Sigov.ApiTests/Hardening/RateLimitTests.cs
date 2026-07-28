@@ -10,7 +10,7 @@ public sealed class RateLimitTests
     [Fact]
     public async Task Health_Live_Nao_Deve_Ser_Bloqueado_Pelo_RateLimit()
     {
-        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        await using var factory = new SigovApiFactory().WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) =>
             {

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 namespace Sigov.Testing;
 
 /// <summary>API host with production middleware and isolated, database-free Testing configuration.</summary>
-public sealed class SigovApiFactory : WebApplicationFactory<SigovApi::Program>
+public sealed class SigovApiFactory : WebApplicationFactory<SigovApi::Sigov.Api.ApiEntryPointMarker>
 {
     private readonly string _storagePath = Path.Combine(Path.GetTempPath(), "sigov-tests", Guid.NewGuid().ToString("N"));
 

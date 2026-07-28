@@ -4,11 +4,11 @@ using Xunit;
 
 namespace Sigov.ApiTests.Release;
 
-public sealed class HealthVersionApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthVersionApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public HealthVersionApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public HealthVersionApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task HealthVersion_Deve_Retornar_Versao_E_Schema_Sigov()
