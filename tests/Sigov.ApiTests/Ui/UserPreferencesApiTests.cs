@@ -5,11 +5,11 @@ using Xunit;
 
 namespace Sigov.ApiTests.Ui;
 
-public sealed class UserPreferencesApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class UserPreferencesApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public UserPreferencesApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public UserPreferencesApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Preferencias_Deve_Exigir_Usuario()

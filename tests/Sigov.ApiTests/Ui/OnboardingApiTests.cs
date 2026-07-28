@@ -5,11 +5,11 @@ using Xunit;
 
 namespace Sigov.ApiTests.Ui;
 
-public sealed class OnboardingApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class OnboardingApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public OnboardingApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public OnboardingApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Onboarding_Deve_Retornar_Jornada_Padrao()

@@ -4,11 +4,11 @@ using Xunit;
 
 namespace Sigov.ApiTests;
 
-public sealed class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthEndpointTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public HealthEndpointTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public HealthEndpointTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Health_Deve_Retornar_Sucesso()

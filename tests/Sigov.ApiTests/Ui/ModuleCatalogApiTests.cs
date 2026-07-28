@@ -5,11 +5,11 @@ using Xunit;
 
 namespace Sigov.ApiTests.Ui;
 
-public sealed class ModuleCatalogApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ModuleCatalogApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public ModuleCatalogApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public ModuleCatalogApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Catalogo_De_Modulos_Deve_Responder_Rotas_Comerciais()

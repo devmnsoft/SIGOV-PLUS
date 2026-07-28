@@ -6,10 +6,10 @@ using Xunit;
 
 namespace Sigov.ApiTests;
 
-public sealed class IntegracoesApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class IntegracoesApiTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
-    public IntegracoesApiTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    private readonly SigovApiFactory _factory;
+    public IntegracoesApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task DashboardSemTenant_RetornaBadRequestOuForbidden()

@@ -4,11 +4,11 @@ using Xunit;
 
 namespace Sigov.ApiTests.Hardening;
 
-public sealed class SecurityHeadersTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class SecurityHeadersTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public SecurityHeadersTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public SecurityHeadersTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Deve_Retornar_Headers_De_Seguranca()

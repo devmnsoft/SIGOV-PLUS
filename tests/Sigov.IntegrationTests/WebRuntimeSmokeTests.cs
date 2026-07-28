@@ -6,11 +6,11 @@ using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.IntegrationTests;
 
-public sealed class WebRuntimeSmokeTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class WebRuntimeSmokeTests : IClassFixture<SigovWebFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovWebFactory _factory;
 
-    public WebRuntimeSmokeTests(WebApplicationFactory<Program> factory)
+    public WebRuntimeSmokeTests(SigovWebFactory factory)
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {

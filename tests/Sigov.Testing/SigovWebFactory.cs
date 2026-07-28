@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 namespace Sigov.Testing;
 
 /// <summary>Web host using appsettings.Testing.json and isolated temporary storage.</summary>
-public sealed class SigovWebFactory : WebApplicationFactory<SigovWeb::Program>
+public sealed class SigovWebFactory : WebApplicationFactory<SigovWeb::Sigov.Web.WebEntryPointMarker>
 {
     private readonly string _storagePath = Path.Combine(Path.GetTempPath(), "sigov-web-tests", Guid.NewGuid().ToString("N"));
 

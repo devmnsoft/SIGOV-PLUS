@@ -5,11 +5,11 @@ using Xunit;
 
 namespace Sigov.ApiTests;
 
-public sealed class ApiContractRegressionTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly SigovApiFactory _factory;
 
-    public ApiContractRegressionTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public ApiContractRegressionTests(SigovApiFactory factory) => _factory = factory;
 
     [Theory]
     [InlineData("/api/health", HttpStatusCode.OK)]
