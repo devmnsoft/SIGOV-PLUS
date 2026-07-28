@@ -2,6 +2,7 @@ using Dapper;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Models.Operational;
 using Sigov.Web.Services;
+using Sigov.Application.Operational;
 
 namespace Sigov.Web.Services.Operational;
 
@@ -30,15 +31,34 @@ public sealed class OperationalEventService
 {
     private readonly NpgsqlConnectionFactory _factory; private readonly IDatabaseSchemaInspector _schema; private readonly ILogger<OperationalEventService> _logger;
     public OperationalEventService(NpgsqlConnectionFactory factory, IDatabaseSchemaInspector schema, ILogger<OperationalEventService> logger) { _factory = factory; _schema = schema; _logger = logger; }
-    public async Task TryRegisterAsync(string type, string module, string entity, string? entityId, object payload, CancellationToken ct)
-    { try { if (!await _schema.TableExistsAsync("sigov", "evento_operacional", ct)) { _logger.LogInformation("Evento operacional em fallback: {Type}/{Module}/{Entity}/{EntityId}", type, module, entity, entityId); return; } using var c = _factory.CreateConnection(); await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.evento_operacional (tipo, modulo, entidade, entidade_id, payload, status, criado_em) values (@Type,@Module,@Entity,@EntityId,cast(@Payload as jsonb),'Aberto',now())", new { Type=type, Module=module, Entity=entity, EntityId=entityId, Payload=System.Text.Json.JsonSerializer.Serialize(payload)}, cancellationToken: ct)); } catch(Exception ex) { _logger.LogWarning(ex, "Falha não bloqueante ao registrar evento operacional {Type}", type); } }
+    public async Task<bool> TryRegisterAsync(string type, string module, string entity, string? entityId, object payload, CancellationToken ct)
+    { try { if (!await _schema.TableExistsAsync("sigov", "evento_operacional", ct)) { _logger.LogWarning("Tabela de evento operacional indisponível: {Type}/{Module}/{Entity}/{EntityId}", type, module, entity, entityId); return false; } using var c = _factory.CreateConnection(); var rows = await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.evento_operacional (tenant_id, tipo_evento, modulo, entidade_tipo, entidade_id, payload, status, correlation_id, created_at, processed_at) values (@TenantId,@Type,@Module,@Entity,@EntityId,cast(@Payload as jsonb),'ABERTO',@CorrelationId,now(),null)", new { TenantId=0L, Type=type, Module=module, Entity=entity, EntityId=entityId, Payload=System.Text.Json.JsonSerializer.Serialize(payload), CorrelationId=Guid.NewGuid().ToString() }, cancellationToken: ct)); return rows == 1; } catch(Exception ex) { _logger.LogError(ex, "Falha crítica ao registrar evento operacional {Type}", type); return false; } }
 }
 
 public sealed class OutboxSigovService
 {
-    private readonly OperationalEventService _events; private readonly ILogger<OutboxSigovService> _logger;
-    public OutboxSigovService(OperationalEventService events, ILogger<OutboxSigovService> logger) { _events = events; _logger = logger; }
-    public Task TryEnqueueAsync(string type, string module, string entity, string? entityId, object payload, CancellationToken ct) { _logger.LogInformation("Outbox preparado para worker futuro: {Type}", type); return _events.TryRegisterAsync(type, module, entity, entityId, payload, ct); }
+    private readonly IOperationalEventPublisher _publisher; private readonly IHttpContextAccessor _httpContext; private readonly ILogger<OutboxSigovService> _logger;
+    public OutboxSigovService(IOperationalEventPublisher publisher, IHttpContextAccessor httpContext, ILogger<OutboxSigovService> logger) { _publisher = publisher; _httpContext = httpContext; _logger = logger; }
+    public async Task<bool> TryEnqueueAsync(string type, string module, string entity, string? entityId, object payload, CancellationToken ct)
+    {
+        var http = _httpContext.HttpContext;
+        if (!long.TryParse(http?.Request.Headers["X-Tenant-Id"].FirstOrDefault(), out var tenantId) || tenantId <= 0)
+        {
+            _logger.LogError("Outbox rejeitado porque o tenant operacional não foi resolvido. EventType={EventType}", type);
+            return false;
+        }
+        var correlationId = Guid.TryParse(http?.TraceIdentifier, out var parsed) ? parsed : Guid.NewGuid();
+        try
+        {
+            await _publisher.PublishAsync(new OperationalEvent(type, entity, entityId ?? "indefinido", tenantId, 0, correlationId, payload, $"{module}:{entity}:{entityId}:{correlationId}"), ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha crítica ao persistir evento na outbox. EventType={EventType}", type);
+            return false;
+        }
+    }
 }
 
 public abstract class OperationalHubServiceBase

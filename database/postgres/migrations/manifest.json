@@ -448,7 +448,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06"
+      "checksum": "ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d",
+      "knownChecksums": [
+        "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06"
+      ],
+      "postConditionSql": "select not exists (select 1 from sigov.outbox_evento where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null or attempts is null)"
     },
     {
       "version": "20260722120000",

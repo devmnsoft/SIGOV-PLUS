@@ -1,0 +1,1 @@
+{"baseSha":"200eb8e416efc8fcda2af4b2836750a6c56351de","sourceRun":30365430804,"localDotnetAvailable":false,"completed":["enterprise-filter-extraction","historical-outbox-backfill","operational-event-columns","real-outbox-publisher","release-version"],"ciRequired":true}

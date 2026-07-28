@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
+using Sigov.Api.Filters;
 using Sigov.Api.Contracts;
 using Sigov.Application.Enterprise;
 using System.Text;
@@ -9,7 +9,8 @@ namespace Sigov.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFilter
+[ServiceFilter(typeof(EnterpriseExecutionContextFilter))]
+public sealed class EnterpriseModulesController : ControllerBase
 {
     private static readonly Guid DemoTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IEnterpriseModuleService _service;
@@ -26,27 +27,6 @@ public sealed class EnterpriseModulesController : ControllerBase, IAsyncActionFi
         _environment = environment;
         _configuration = configuration;
     }
-
-    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
-    {
-        var path = Request.Path.Value ?? string.Empty;
-        if (path.StartsWith("/api/enterprise", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/comercial", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/os", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/estoque", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/compras", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/industrial", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/api/industria", StringComparison.OrdinalIgnoreCase))
-        {
-            var action = ResolveEnterpriseAction(path, Request.Method);
-            var area = NormalizePermissionArea(Area().Replace("export-csv", string.Empty, StringComparison.OrdinalIgnoreCase).Trim('/'));
-            var permission = PermissionFor(area, action);
-            var denied = EnsureTenantAndPermission(permission);
-            if (denied is not null) { context.Result = denied; return; }
-
-            var tenantId = ResolveTenantId();
-            var login = User.Identity?.Name ?? User.FindFirst("preferred_username")?.Value ?? User.FindFirst("sub")?.Value ?? "usuario.autenticado";
-            EnterpriseExecutionContextAccessor.Current = new EnterpriseExecutionContext(tenantId, User.FindFirst("sub")?.Value ?? login, login, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), CorrelationId(), User.Claims.Select(c => c.Value).ToArray());
-        }
-
-        try { await next(); }
-        finally { EnterpriseExecutionContextAccessor.Current = null; }
-    }
-
 
     [HttpGet("api/enterprise/{area}/export-csv")]
     public async Task<IActionResult> EnterpriseExport(string area, CancellationToken cancellationToken)

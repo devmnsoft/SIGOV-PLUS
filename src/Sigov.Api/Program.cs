@@ -12,6 +12,7 @@ using Sigov.Application.Demo;
 using Sigov.Application.Executive;
 using Sigov.Application.Onboarding;
 using Sigov.Application.Ui;
+using Sigov.Api.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,7 @@ builder.Services.AddOptions<SigovOptions>()
 builder.Services.AddSingleton<IValidateOptions<SigovOptions>, SigovOptionsValidator>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
+builder.Services.AddScoped<EnterpriseExecutionContextFilter>();
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
