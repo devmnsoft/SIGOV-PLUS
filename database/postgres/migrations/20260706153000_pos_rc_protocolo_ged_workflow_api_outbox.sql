@@ -52,44 +52,44 @@ alter table if exists sigov.documento add column if not exists tenant_id bigint;
 alter table if exists sigov.workflow_instancia add column if not exists tenant_id bigint;
 
 create or replace function pg_temp.create_index_when_columns_exist(
-    schema_name text,
-    table_name text,
-    index_name text,
-    column_names text[],
-    index_expression text,
-    predicate text default null)
+    p_schema_name text,
+    p_table_name text,
+    p_index_name text,
+    p_column_names text[],
+    p_index_expression text,
+    p_predicate text default null)
 returns void
 language plpgsql
 as $function$
 declare
     missing_columns text[];
 begin
-    if to_regclass(format('%I.%I', schema_name, table_name)) is null then
-        raise notice 'Index % ignored: table %.% does not exist', index_name, schema_name, table_name;
+    if to_regclass(format('%I.%I', p_schema_name, p_table_name)) is null then
+        raise notice 'Index % ignored: table %.% does not exist', p_index_name, p_schema_name, p_table_name;
         return;
     end if;
 
     select array_agg(requested.column_name order by requested.ordinality)
       into missing_columns
-      from unnest(column_names) with ordinality requested(column_name, ordinality)
+      from unnest(p_column_names) with ordinality requested(column_name, ordinality)
      where not exists (
          select 1
            from information_schema.columns existing
-          where existing.table_schema = schema_name
-            and existing.table_name = table_name
+          where existing.table_schema = p_schema_name
+            and existing.table_name = p_table_name
             and existing.column_name = requested.column_name);
 
     if missing_columns is not null then
-        raise notice 'Index % ignored: missing columns % on %.%', index_name, missing_columns, schema_name, table_name;
+        raise notice 'Index % ignored: missing columns % on %.%', p_index_name, missing_columns, p_schema_name, p_table_name;
         return;
     end if;
 
     execute format('create index if not exists %I on %I.%I %s%s',
-        index_name,
-        schema_name,
-        table_name,
-        index_expression,
-        case when predicate is null then '' else ' where ' || predicate end);
+        p_index_name,
+        p_schema_name,
+        p_table_name,
+        p_index_expression,
+        case when p_predicate is null then '' else ' where ' || p_predicate end);
 end;
 $function$;
 

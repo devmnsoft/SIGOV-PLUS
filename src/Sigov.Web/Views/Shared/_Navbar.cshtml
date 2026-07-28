@@ -1,25 +1,29 @@
-<nav class="sigov-topbar" aria-label="Barra superior SIGOV">
+@{
+  var usuarioNome = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
+  var perfil = User.Claims.FirstOrDefault(c => c.Type == "perfil" || c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))?.Value;
+}
+<nav class="sigov-topbar" aria-label="Barra superior">
   <div class="sigov-topbar__left">
-    <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu">☰</button>
-    <a class="sigov-brand" href="/Dashboard" aria-label="Ir para o dashboard">
-      <img class="sigov-logo" src="~/img/sigov-logo.svg" alt="SIGOV PLUS" />
+    <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu" title="Abrir menu">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <a class="sigov-brand" href="/MinhaCentral" aria-label="Ir para Minha Central">
+      <img class="sigov-logo" src="~/img/sigov-logo.svg" alt="" aria-hidden="true" />
       <span class="sigov-brand__text">SIGOV <strong>PLUS</strong></span>
     </a>
   </div>
-  <div class="sigov-topbar__context" aria-label="Contexto da sessão">
-    <span class="sigov-context-pill">Tenant: <strong>Principal</strong></span>
-    <span class="sigov-context-pill">Entidade: <strong>Matriz</strong></span>
-    <span class="sigov-context-pill">Exercício: <strong>@DateTime.UtcNow.Year</strong></span>
-    <span class="sigov-badge sigov-badge--success">Ambiente seguro</span>
-    <span class="sigov-badge sigov-badge--info">@(System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production")</span>
-  </div>
+  <form class="sigov-global-search" method="get" action="/Busca" role="search">
+    <label class="visually-hidden" for="sigovGlobalSearch">Busca global</label>
+    <input id="sigovGlobalSearch" class="form-control" name="q" type="search" placeholder="Buscar tarefas, protocolos e documentos" autocomplete="off">
+    <button class="sigov-icon-btn" type="submit" aria-label="Pesquisar" title="Pesquisar"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg></button>
+  </form>
   <div class="sigov-topbar__actions">
-    <form class="d-none d-xl-flex" method="get" action="/Busca" role="search"><input class="form-control form-control-sm" name="q" placeholder="Buscar usuários, módulos, processos..." aria-label="Busca global"><button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="submit">Buscar</button></form>
-    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Notificacoes">Notificações</a>
-    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Operacao/Health">Health</a>
-    <button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="button" data-sigov-theme-toggle>Tema</button>
-    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Ajuda">Ajuda</a>
-    <span class="sigov-user-chip">Admin</span>
-    <a class="sigov-btn sigov-btn--primary sigov-btn--sm" href="/Auth/Logout">Sair</a>
+    <a class="sigov-icon-btn" href="/Notificacoes" aria-label="Abrir notificações" title="Notificações"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></a>
+    <a class="sigov-icon-btn d-none d-sm-inline-flex" href="/Ajuda" aria-label="Abrir ajuda" title="Ajuda"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.3 2.4c-1 .4-1 1-1 2M12 17h.01"/></svg></a>
+    <button class="sigov-icon-btn" type="button" data-sigov-theme-toggle aria-label="Alternar tema" title="Alternar tema"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z"/></svg></button>
+    @if (!string.IsNullOrWhiteSpace(usuarioNome)) {
+      <span class="sigov-user-chip" title="@perfil"><span class="sigov-avatar" aria-hidden="true">@usuarioNome[..1].ToUpperInvariant()</span><span><strong>@usuarioNome</strong>@if (!string.IsNullOrWhiteSpace(perfil)) { <small>@perfil</small> }</span></span>
+    }
+    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm d-none d-md-inline-flex" href="/Auth/Logout">Sair</a>
   </div>
 </nav>

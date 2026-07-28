@@ -1,1 +1,2 @@
 @import url('./sigov-tokens.css');
+@media(max-width:767.98px){.sigov-topbar{gap:.4rem}.sigov-global-search{order:3;flex-basis:100%;max-width:none}.sigov-global-search .form-control{min-width:0}.sigov-main{padding-bottom:5.5rem}button,a,input,select{scroll-margin-top:6rem}}@media(max-width:390px){.sigov-topbar__actions{gap:.25rem}.sigov-icon-btn{min-width:44px;min-height:44px}.sigov-main{padding-inline:12px}}

@@ -9,14 +9,6 @@
   <meta name="theme-color" content="#0F172A">
   <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="~/css/site.css" rel="stylesheet">
-  <link href="~/css/sigov-brand.css" rel="stylesheet">
-  <link href="~/css/sigov-theme-light.css" rel="stylesheet">
-  <link href="~/css/sigov-theme-dark.css" rel="stylesheet">
-  <link href="~/css/sigov-layout.css" rel="stylesheet">
-  <link href="~/css/sigov-components.css" rel="stylesheet">
-  <link href="~/css/sigov-forms.css" rel="stylesheet">
-  <link href="~/css/sigov-grids.css" rel="stylesheet">
-  <link href="~/css/sigov-dashboard.css" rel="stylesheet">
 </head>
 <body class="sigov-app">
   @await Html.PartialAsync("_DemoBanner")
@@ -25,6 +17,7 @@
     <div class="sigov-workspace">
       @await Html.PartialAsync("_Sidebar")
       <main class="sigov-main" id="conteudo-principal" tabindex="-1">
+        @await Html.PartialAsync("_Breadcrumb")
         @await Html.PartialAsync("_Alerts")
         @RenderBody()
       </main>

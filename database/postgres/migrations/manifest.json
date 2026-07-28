@@ -417,7 +417,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "55e2f1187b948d502bb6278e03df8bd7add6e9e67b97999572aa65fcc2c6a5fb",
+      "checksum": "a8b4347d56e0a9debcbe6ae15c254a5650e638c30454c0b6ada9fb062102ce39",
       "knownChecksums": [
         "ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064"
       ],
