@@ -37,7 +37,37 @@ alter table sigov.outbox_evento add column if not exists attempts int not null d
 alter table sigov.outbox_evento add column if not exists next_attempt_at timestamptz;
 alter table sigov.outbox_evento add column if not exists idempotency_key text;
 create unique index if not exists ux_outbox_evento_idempotency_key on sigov.outbox_evento (idempotency_key) where idempotency_key is not null;
-update sigov.outbox_evento set event_id = coalesce(event_id, gen_random_uuid()), event_type = coalesce(event_type, evento, 'operacional.legado'), aggregate_type = coalesce(aggregate_type, agregado, 'legado'), aggregate_id = coalesce(aggregate_id, agregado_id::text, id::text), attempts = coalesce(attempts, tentativas, 0), next_attempt_at = coalesce(next_attempt_at, proxima_tentativa_at, now()) where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null;
+do $migration$
+declare
+  columns text[];
+  event_type_source text := quote_literal('operacional.legado');
+  aggregate_type_source text := quote_literal('legado');
+  aggregate_id_source text := 'id::text';
+  attempts_source text := '0';
+  next_attempt_source text := 'now()';
+begin
+  select array_agg(column_name) into columns
+    from information_schema.columns
+   where table_schema = 'sigov' and table_name = 'outbox_evento';
+
+  if 'tipo_evento' = any(columns) then event_type_source := 'tipo_evento::text';
+  elsif 'evento' = any(columns) then event_type_source := 'evento::text'; end if;
+
+  if 'entidade_tipo' = any(columns) then aggregate_type_source := 'entidade_tipo::text';
+  elsif 'agregado' = any(columns) then aggregate_type_source := 'agregado::text'; end if;
+
+  if 'entidade_id' = any(columns) then aggregate_id_source := 'entidade_id::text';
+  elsif 'agregado_id' = any(columns) then aggregate_id_source := 'agregado_id::text'; end if;
+
+  if 'tentativas' = any(columns) then attempts_source := 'tentativas'; end if;
+  if 'proxima_tentativa_at' = any(columns) then next_attempt_source := 'proxima_tentativa_at';
+  elsif 'created_at' = any(columns) then next_attempt_source := 'created_at'; end if;
+
+  execute format(
+    'update sigov.outbox_evento set event_id=coalesce(event_id,gen_random_uuid()), event_type=coalesce(event_type,%s,%L), aggregate_type=coalesce(aggregate_type,%s,%L), aggregate_id=coalesce(aggregate_id,%s), attempts=coalesce(attempts,%s,0), next_attempt_at=coalesce(next_attempt_at,%s,now()) where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null or attempts is null',
+    event_type_source, 'operacional.legado', aggregate_type_source, 'legado', aggregate_id_source, attempts_source, next_attempt_source);
+end
+$migration$;
 alter table sigov.outbox_evento alter column event_id set not null;
 alter table sigov.outbox_evento alter column event_type set not null;
 alter table sigov.outbox_evento alter column aggregate_type set not null;

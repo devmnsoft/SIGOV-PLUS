@@ -1,0 +1,1 @@
+{"runId":30365430804,"expectedTotal":45,"trxAvailable":false,"groups":[{"name":"api-host-action-routing","count":15},{"name":"sidebar-estatica","count":6},{"name":"seed-obsoleto","count":6},{"name":"dependency-injection","count":4},{"name":"worker-outbox","count":2},{"name":"migrations","count":2},{"name":"demais-contratos","count":10}],"pendingFqns":45}
