@@ -470,7 +470,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662"
+      "checksum": "177f36a01775fbc78039e1f77555def37ed0e15442946530bd55f5bd9539c62d",
+      "knownChecksums": [
+        "ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662"
+      ],
+      "postConditionSql": "select to_regclass('sigov.tarefa') is not null and not exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name in ('status','prioridade','responsavel_id','is_deleted','updated_at','updated_by','correlation_id') having count(*) <> 7)"
     },
     {
       "version": "20260727160000",
