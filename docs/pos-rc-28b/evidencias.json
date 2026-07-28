@@ -1,0 +1,10 @@
+{
+  "baseShaExpected": "1a419c382667b18f6caa6af9ba8160a543637468",
+  "baseShaLocal": "1a419c382667b18f6caa6af9ba8160a543637468",
+  "originMain": null,
+  "workflowId": 30400626285,
+  "workflowRun": 318,
+  "artifactsImported": false,
+  "dotnetAvailable": false,
+  "gates": "not_verified"
+}

@@ -106,7 +106,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '10.0.x' }
       - run: dotnet --info | tee dotnet-info.log
-      - run: dotnet restore sigov.sln
+      - name: Restore locked dependencies with diagnostics
+        run: ./scripts/ci/restore-locked.sh
       - run: |
           set -euo pipefail
           dotnet build sigov.sln --configuration Release --no-restore 2>&1 | tee build.log
@@ -123,6 +124,9 @@ jobs:
           name: build-test-artifacts
           path: |
             dotnet-info.log
+            artifacts/build/restore.log
+            artifacts/build/restore.binlog
+            artifacts/build/restore-summary.json
             build.log
             test.log
             format.log
