@@ -73,11 +73,64 @@ alter table sigov.outbox_evento alter column event_type set not null;
 alter table sigov.outbox_evento alter column aggregate_type set not null;
 alter table sigov.outbox_evento alter column aggregate_id set not null;
 
-create index if not exists ix_tarefa_tenant_status on sigov.tarefa (tenant_id, status);
-create index if not exists ix_tarefa_responsavel_prazo on sigov.tarefa (tenant_id, responsavel_id, prazo_em);
-create index if not exists ix_agenda_periodo on sigov.agenda_compromisso (tenant_id, inicio_em, fim_em);
-create index if not exists ix_prazo_vencimento on sigov.prazo_operacional (tenant_id, status, vence_em);
-create index if not exists ix_notificacao_usuario_lida on sigov.notificacao_usuario (tenant_id, usuario_id, lida);
-create index if not exists ix_kanban_filtros on sigov.kanban_card (tenant_id, origem, responsavel_id, sla, coluna);
-create index if not exists ix_outbox_evento_status on sigov.outbox_evento (status, next_attempt_at);
+-- This migration can run over schemas created by releases that predate the
+-- canonical operational contract.  CREATE TABLE IF NOT EXISTS deliberately
+-- does not mutate those tables, so indexes must not assume canonical columns.
+create or replace function pg_temp.create_index_when_columns_exist(
+  p_schema_name text,
+  p_table_name text,
+  p_index_name text,
+  p_required_columns text[],
+  p_index_expression text,
+  p_predicate text default null
+) returns void
+language plpgsql
+as $helper$
+declare
+  missing_columns text[];
+  statement text;
+begin
+  if to_regclass(format('%I.%I', p_schema_name, p_table_name)) is null then
+    raise notice 'Skipping index %: table %.% does not exist',
+      p_index_name, p_schema_name, p_table_name;
+    return;
+  end if;
+
+  select array_agg(required_column order by required_column)
+    into missing_columns
+    from unnest(p_required_columns) required_column
+   where not exists (
+     select 1
+       from information_schema.columns
+      where table_schema = p_schema_name
+        and table_name = p_table_name
+        and column_name = required_column
+   );
+
+  if cardinality(missing_columns) > 0 then
+    raise notice 'Skipping index % on %.%: missing columns %',
+      p_index_name, p_schema_name, p_table_name, missing_columns;
+    return;
+  end if;
+
+  statement := format(
+    'create index if not exists %I on %I.%I (%s)',
+    p_index_name, p_schema_name, p_table_name, p_index_expression);
+  if nullif(btrim(p_predicate), '') is not null then
+    statement := statement || ' where ' || p_predicate;
+  end if;
+
+  -- Do not catch execution errors: malformed expressions and predicates must
+  -- fail the migration instead of being mistaken for historical compatibility.
+  execute statement;
+end
+$helper$;
+
+select pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_tenant_status', array['tenant_id', 'status'], 'tenant_id, status');
+select pg_temp.create_index_when_columns_exist('sigov', 'tarefa', 'ix_tarefa_responsavel_prazo', array['tenant_id', 'responsavel_id', 'prazo_em'], 'tenant_id, responsavel_id, prazo_em');
+select pg_temp.create_index_when_columns_exist('sigov', 'agenda_compromisso', 'ix_agenda_periodo', array['tenant_id', 'inicio_em', 'fim_em'], 'tenant_id, inicio_em, fim_em');
+select pg_temp.create_index_when_columns_exist('sigov', 'prazo_operacional', 'ix_prazo_vencimento', array['tenant_id', 'status', 'vence_em'], 'tenant_id, status, vence_em');
+select pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_lida', array['tenant_id', 'usuario_id', 'lida'], 'tenant_id, usuario_id, lida');
+select pg_temp.create_index_when_columns_exist('sigov', 'kanban_card', 'ix_kanban_filtros', array['tenant_id', 'origem', 'responsavel_id', 'sla', 'coluna'], 'tenant_id, origem, responsavel_id, sla, coluna');
+select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_status', array['status', 'next_attempt_at'], 'status, next_attempt_at');
 commit;
