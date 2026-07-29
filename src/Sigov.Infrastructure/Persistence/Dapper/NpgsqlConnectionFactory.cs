@@ -9,11 +9,15 @@ public sealed class NpgsqlConnectionFactory
 
     public NpgsqlConnectionFactory(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection");
-        if (string.IsNullOrWhiteSpace(_connectionString))
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException("ConnectionStrings:DefaultConnection não configurada. Em Production use variável de ambiente ou secret manager.");
         }
+
+        _connectionString = connectionString;
     }
 
     public NpgsqlConnection CreateConnection() => new(_connectionString);
