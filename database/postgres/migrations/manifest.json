@@ -484,6 +484,15 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8"
+    },
+    {
+      "version": "20260730120000",
+      "file": "20260730120000_pos_rc_29_comercial_operacional.sql",
+      "description": "pos_rc_29_comercial_operacional",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5"
     }
   ]
 }

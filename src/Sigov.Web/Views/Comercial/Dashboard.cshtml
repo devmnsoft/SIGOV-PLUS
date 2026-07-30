@@ -1,0 +1,6 @@
+@{ ViewData["Title"]="Dashboard Comercial"; }
+<link rel="stylesheet" href="~/css/comercial/comercial.css" />
+<main class="container-fluid commercial-shell" data-commercial-dashboard>
+<header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4"><div><span class="commercial-eyebrow">Visão operacional</span><h1>Dashboard Comercial</h1><p class="text-muted mb-0">Indicadores calculados a partir dos registros do tenant.</p></div><select class="form-select w-auto" id="periodo"><option value="30">Últimos 30 dias</option><option value="7">Últimos 7 dias</option><option value="0">Hoje</option></select></header>
+<div class="row g-3" id="kpis" aria-live="polite"><div class="col-12"><div class="commercial-skeleton"></div></div></div><section class="commercial-panel mt-4"><h2 class="h5">Funil por fase</h2><div id="funilResumo"></div></section>
+</main><script src="~/js/comercial/comercial.js" defer></script>

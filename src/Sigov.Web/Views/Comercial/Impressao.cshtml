@@ -1,0 +1,3 @@
+@model Guid
+@{ Layout=null; }
+<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Proposta comercial</title><link rel="stylesheet" href="~/css/comercial/comercial.css"></head><body class="proposal-print" data-proposal-print="@Model"><header><h1>Proposta comercial</h1><p id="proposalNumber">Carregando…</p></header><main id="proposalPrint" aria-live="polite"></main><footer><p>Documento para conferência e aceite. Código de validação: @Model.ToString("N")</p><div class="signature">Aceite do cliente</div></footer><script src="~/js/comercial/comercial.js"></script></body></html>
