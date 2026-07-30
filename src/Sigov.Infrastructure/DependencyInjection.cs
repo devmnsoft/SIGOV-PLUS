@@ -95,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<IComercioEstoqueService, ComercioEstoqueService>();
         services.AddSingleton<ICommercialPersonalDataProtector, CommercialPersonalDataProtector>();
         services.AddScoped<ICommercialRepository, CommercialRepository>();
+        services.AddScoped<ICommercialApplicationService, CommercialApplicationService>();
         services.AddSingleton<IDocumentTemplateRenderer, SafeDocumentTemplateRenderer>();
         services.AddScoped<ITarefaRepository, TarefaRepository>();
         services.AddScoped<ITarefaHistoricoRepository, TarefaHistoricoRepository>();

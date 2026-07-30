@@ -29,6 +29,7 @@ public sealed record PropostaItemDto(Guid Id, Guid? ProdutoId, string Descricao,
 public sealed record PedidoResumoDto(Guid Id, string Numero, string Cliente, string Status, decimal Total, DateOnly? PrevisaoEntrega, long Version);
 public sealed record PedidoDetalheDto(Guid Id, string Numero, Guid PropostaId, Guid ClienteId, string Status, decimal Subtotal, decimal Desconto, decimal Total, bool RequerOrdemServico, Guid? OrdemServicoId, long Version);
 public sealed record ConfirmarPedidoRequest(long Version);
+public sealed record CommercialExecutionContext(Guid TenantId, Guid UsuarioId, bool PodeVisualizarDadosPessoais, string CorrelationId);
 public sealed record CancelarPedidoRequest(string Motivo, long Version);
 public sealed record GerarOrdemServicoRequest(string? Observacao, long Version);
 public sealed record ComercialTimelineItemDto(DateTimeOffset Data, string Tipo, string Descricao, string? Usuario, string CorrelationId);
@@ -51,6 +52,28 @@ public interface ICommercialRepository
     Task AprovarPropostaAsync(Guid tenantId, Guid usuarioId, Guid id, long version, string correlationId, CancellationToken ct);
     Task<PedidoDetalheDto> GerarPedidoAsync(Guid tenantId, Guid usuarioId, Guid propostaId, string idempotencyKey, string correlationId, CancellationToken ct);
     Task<PagedResult<PedidoResumoDto>> ListarPedidosAsync(Guid tenantId, int pagina, int tamanho, CancellationToken ct);
-    Task ConfirmarPedidoAsync(Guid tenantId, Guid usuarioId, Guid id, long version, string correlationId, CancellationToken ct);
+    Task ConfirmarPedidoAsync(Guid tenantId, Guid usuarioId, Guid id, long version, string idempotencyKey, string correlationId, CancellationToken ct);
     Task<ComercialDashboardDto> ObterDashboardAsync(Guid tenantId, DateOnly inicio, DateOnly fim, CancellationToken ct);
+}
+
+/// <summary>Fronteira de aplicação canônica do Comercial. Controllers nunca coordenam repositórios.</summary>
+public interface ICommercialApplicationService
+{
+    Task<PagedResult<ClienteResumoDto>> ListarClientesAsync(CommercialExecutionContext context, ClienteFiltro filtro, CancellationToken ct);
+    Task<ClienteDetalheDto?> ObterClienteAsync(CommercialExecutionContext context, Guid id, CancellationToken ct);
+    Task<Guid> CriarClienteAsync(CommercialExecutionContext context, CriarClienteRequest request, CancellationToken ct);
+    Task<PagedResult<LeadResumoDto>> ListarLeadsAsync(CommercialExecutionContext context, int pagina, int tamanho, string? busca, CancellationToken ct);
+    Task<Guid> CriarLeadAsync(CommercialExecutionContext context, CriarLeadRequest request, CancellationToken ct);
+    Task<ConversaoLeadDto> ConverterLeadAsync(CommercialExecutionContext context, Guid id, ConverterLeadRequest request, CancellationToken ct);
+    Task<PagedResult<OportunidadeResumoDto>> ListarOportunidadesAsync(CommercialExecutionContext context, int pagina, int tamanho, string? fase, string? busca, CancellationToken ct);
+    Task MoverFaseAsync(CommercialExecutionContext context, Guid id, MoverOportunidadeRequest request, CancellationToken ct);
+    Task<PagedResult<PropostaResumoDto>> ListarPropostasAsync(CommercialExecutionContext context, int pagina, int tamanho, CancellationToken ct);
+    Task<PropostaDetalheDto?> ObterPropostaAsync(CommercialExecutionContext context, Guid id, CancellationToken ct);
+    Task<Guid> CriarPropostaAsync(CommercialExecutionContext context, CriarPropostaRequest request, CancellationToken ct);
+    Task EmitirAsync(CommercialExecutionContext context, Guid id, long version, CancellationToken ct);
+    Task AprovarAsync(CommercialExecutionContext context, Guid id, long version, CancellationToken ct);
+    Task<PedidoDetalheDto> GerarPedidoAsync(CommercialExecutionContext context, Guid propostaId, string idempotencyKey, CancellationToken ct);
+    Task<PagedResult<PedidoResumoDto>> ListarPedidosAsync(CommercialExecutionContext context, int pagina, int tamanho, CancellationToken ct);
+    Task ConfirmarPedidoAsync(CommercialExecutionContext context, Guid id, long version, string idempotencyKey, CancellationToken ct);
+    Task<ComercialDashboardDto> ObterDashboardAsync(CommercialExecutionContext context, DateOnly inicio, DateOnly fim, CancellationToken ct);
 }

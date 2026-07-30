@@ -502,6 +502,15 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042"
+    },
+    {
+      "version": "20260730210000",
+      "file": "20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql",
+      "description": "pos_rc_31_consolidacao_comercial_financeiro",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf"
     }
   ]
 }
