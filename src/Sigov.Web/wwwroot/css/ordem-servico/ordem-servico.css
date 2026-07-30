@@ -1,0 +1,1 @@
+.os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}.os-grid .card{transition:transform .15s,box-shadow .15s}.os-grid .card:focus-within,.os-grid .card:hover{transform:translateY(-2px);box-shadow:0 .5rem 1rem rgba(0,0,0,.12)}@media(max-width:576px){.os-grid{grid-template-columns:1fr}.modal-dialog{margin:.5rem}}

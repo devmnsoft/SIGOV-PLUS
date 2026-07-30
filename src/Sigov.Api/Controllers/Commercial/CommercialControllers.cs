@@ -82,10 +82,12 @@ public sealed class CommercialProposalsController(ICommercialApplicationService 
 }
 
 [Route("api/comercial/pedidos")]
-public sealed class CommercialOrdersController(ICommercialApplicationService application) : CommercialControllerBase(application)
+public sealed class CommercialOrdersController(ICommercialApplicationService application, Sigov.Application.OrdemServico.IOrdemServicoApplicationService ordensServico) : CommercialControllerBase(application)
 {
     [HttpGet, Authorize(Policy = "comercial.pedidos.visualizar")]
     public async Task<IActionResult> List(int pagina = 1, int tamanho = 20, CancellationToken ct = default) => Ok(await Application.ListarPedidosAsync(Context(), pagina, tamanho, ct));
+    [HttpPost("{id:guid}/gerar-os"), Authorize(Policy = "os.ordens.criar")]
+    public async Task<IActionResult> ServiceOrder(Guid id, CancellationToken ct) { var c=Context(); return Ok(await ordensServico.GerarDoPedidoAsync(new(c.TenantId,c.UsuarioId,c.CorrelationId),id,Request.Headers["Idempotency-Key"].ToString(),ct)); }
     [HttpPost("{id:guid}/confirmar"), Authorize(Policy = "comercial.pedidos.confirmar")]
     public async Task<IActionResult> Confirm(Guid id, ConfirmarPedidoRequest request, CancellationToken ct) { await Application.ConfirmarPedidoAsync(Context(), id, request.Version, Request.Headers["Idempotency-Key"].ToString(), ct); return NoContent(); }
 }

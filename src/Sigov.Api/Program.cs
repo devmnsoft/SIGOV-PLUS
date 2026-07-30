@@ -41,7 +41,9 @@ builder.Services.AddAuthorization(options =>
         "comercial.leads.visualizar", "comercial.leads.criar", "comercial.leads.converter",
         "comercial.oportunidades.visualizar", "comercial.oportunidades.editar",
         "comercial.propostas.visualizar", "comercial.propostas.criar", "comercial.propostas.emitir", "comercial.propostas.aprovar",
-        "comercial.pedidos.visualizar", "comercial.pedidos.criar", "comercial.pedidos.confirmar"
+        "comercial.pedidos.visualizar", "comercial.pedidos.criar", "comercial.pedidos.confirmar",
+        "os.dashboard.visualizar", "os.ordens.visualizar", "os.ordens.criar", "os.ordens.agendar", "os.ordens.atribuir", "os.ordens.iniciar", "os.ordens.pausar", "os.ordens.concluir", "os.ordens.cancelar",
+        "os.checklist.visualizar", "os.checklist.responder", "os.apontamentos.visualizar", "os.apontamentos.criar", "os.pecas.visualizar", "os.pecas.consumir", "os.pecas.devolver"
     ];
     foreach (var permission in commercialPermissions)
         options.AddPolicy(permission, policy => policy.RequireAssertion(context =>

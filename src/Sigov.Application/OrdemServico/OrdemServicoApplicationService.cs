@@ -1,0 +1,23 @@
+namespace Sigov.Application.OrdemServico;
+
+public sealed class OrdemServicoApplicationService(IOrdemServicoRepository repository) : IOrdemServicoApplicationService
+{
+    private static void Validar(OrdemServicoContext c) { if (c.TenantId == Guid.Empty || c.UsuarioId == Guid.Empty) throw new UnauthorizedAccessException("Tenant e usuário são obrigatórios."); }
+    private static void Chave(string key) { if (string.IsNullOrWhiteSpace(key) || key.Length > 200) throw new ArgumentException("Idempotency-Key válida é obrigatória."); }
+    public Task<Common.PagedResult<OrdemServicoResumoDto>> ListarAsync(OrdemServicoContext c, OrdemServicoFiltro f, CancellationToken ct) { Validar(c); return repository.ListarAsync(c.TenantId, f, ct); }
+    public Task<OrdemServicoDetalheDto?> ObterAsync(OrdemServicoContext c, Guid id, CancellationToken ct) { Validar(c); return repository.ObterAsync(c.TenantId, id, ct); }
+    public Task<Guid> CriarAsync(OrdemServicoContext c, CriarOrdemServicoRequest r, string key, CancellationToken ct) { Validar(c); Chave(key); return repository.CriarAsync(c.TenantId, c.UsuarioId, r, key, c.CorrelationId, ct); }
+    public Task<Guid> GerarDoPedidoAsync(OrdemServicoContext c, Guid pedidoId, string key, CancellationToken ct) { Validar(c); Chave(key); return repository.GerarDoPedidoAsync(c.TenantId, c.UsuarioId, pedidoId, key, c.CorrelationId, ct); }
+    public Task AgendarAsync(OrdemServicoContext c, Guid id, AgendarOrdemServicoRequest r, CancellationToken ct) { Validar(c); if (r.Fim <= r.Inicio) throw new ArgumentException("O fim deve ser posterior ao início."); return repository.AgendarAsync(c.TenantId, c.UsuarioId, id, r, c.CorrelationId, ct); }
+    public Task AtribuirAsync(OrdemServicoContext c, Guid id, AtribuirTecnicoRequest r, CancellationToken ct) { Validar(c); return repository.AtribuirAsync(c.TenantId, c.UsuarioId, id, r, c.CorrelationId, ct); }
+    public Task TransicionarAsync(OrdemServicoContext c, Guid id, string destino, long version, string? motivo, DateTimeOffset? inicio, CancellationToken ct) { Validar(c); return repository.TransicionarAsync(c.TenantId, c.UsuarioId, id, destino, version, motivo, inicio, c.CorrelationId, ct); }
+    public Task<IReadOnlyList<OrdemServicoAgendaDto>> AgendaAsync(OrdemServicoContext c, DateTimeOffset i, DateTimeOffset f, Guid? t, CancellationToken ct) { Validar(c); return repository.AgendaAsync(c.TenantId, i, f, t, ct); }
+    public Task<IReadOnlyList<OrdemServicoChecklistDto>> ChecklistAsync(OrdemServicoContext c, Guid id, CancellationToken ct) { Validar(c); return repository.ChecklistAsync(c.TenantId, id, ct); }
+    public Task ResponderChecklistAsync(OrdemServicoContext c, Guid id, ResponderChecklistRequest r, CancellationToken ct) { Validar(c); return repository.ResponderChecklistAsync(c.TenantId, c.UsuarioId, id, r, c.CorrelationId, ct); }
+    public Task<IReadOnlyList<OrdemServicoApontamentoDto>> ApontamentosAsync(OrdemServicoContext c, Guid id, CancellationToken ct) { Validar(c); return repository.ApontamentosAsync(c.TenantId, id, ct); }
+    public Task RegistrarApontamentoAsync(OrdemServicoContext c, Guid id, RegistrarApontamentoRequest r, string key, CancellationToken ct) { Validar(c); Chave(key); if (r.Fim < r.Inicio || r.IntervaloMinutos < 0) throw new ArgumentException("Período de apontamento inválido."); return repository.RegistrarApontamentoAsync(c.TenantId, c.UsuarioId, id, r, key, c.CorrelationId, ct); }
+    public Task<IReadOnlyList<OrdemServicoConsumoDto>> PecasAsync(OrdemServicoContext c, Guid id, CancellationToken ct) { Validar(c); return repository.PecasAsync(c.TenantId, id, ct); }
+    public Task ConsumirPecaAsync(OrdemServicoContext c, Guid id, ConsumirPecaRequest r, string key, CancellationToken ct) { Validar(c); Chave(key); if (r.Quantidade <= 0) throw new ArgumentException("Quantidade deve ser positiva."); return repository.ConsumirAsync(c.TenantId, c.UsuarioId, id, r, key, c.CorrelationId, ct); }
+    public Task DevolverPecaAsync(OrdemServicoContext c, Guid id, DevolverPecaRequest r, string key, CancellationToken ct) { Validar(c); Chave(key); if (r.Quantidade <= 0) throw new ArgumentException("Quantidade deve ser positiva."); return repository.DevolverAsync(c.TenantId, c.UsuarioId, id, r, key, c.CorrelationId, ct); }
+    public Task<OrdemServicoDashboardDto> DashboardAsync(OrdemServicoContext c, CancellationToken ct) { Validar(c); return repository.DashboardAsync(c.TenantId, ct); }
+}

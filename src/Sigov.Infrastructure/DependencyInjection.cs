@@ -78,6 +78,8 @@ using Sigov.Infrastructure.Comercio;
 using Sigov.Infrastructure.Operational;
 using Sigov.Infrastructure.Enterprise;
 using Sigov.Infrastructure.Commercial;
+using Sigov.Application.OrdemServico;
+using Sigov.Infrastructure.OrdemServico;
 
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Industria;
@@ -96,6 +98,8 @@ public static class DependencyInjection
         services.AddSingleton<ICommercialPersonalDataProtector, CommercialPersonalDataProtector>();
         services.AddScoped<ICommercialRepository, CommercialRepository>();
         services.AddScoped<ICommercialApplicationService, CommercialApplicationService>();
+        services.AddScoped<IOrdemServicoRepository, OrdemServicoRepository>();
+        services.AddScoped<IOrdemServicoApplicationService, OrdemServicoApplicationService>();
         services.AddSingleton<IDocumentTemplateRenderer, SafeDocumentTemplateRenderer>();
         services.AddScoped<ITarefaRepository, TarefaRepository>();
         services.AddScoped<ITarefaHistoricoRepository, TarefaHistoricoRepository>();
