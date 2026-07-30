@@ -74,6 +74,7 @@ using Sigov.Application.Operational;
 using Sigov.Infrastructure.Comercio;
 using Sigov.Infrastructure.Operational;
 using Sigov.Infrastructure.Enterprise;
+using Sigov.Infrastructure.Commercial;
 
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Industria;
@@ -89,6 +90,8 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<MigrationRunner>();
         services.AddScoped<IComercioEstoqueService, ComercioEstoqueService>();
+        services.AddSingleton<ICommercialPersonalDataProtector, CommercialPersonalDataProtector>();
+        services.AddScoped<ICommercialRepository, CommercialRepository>();
         services.AddScoped<ITarefaRepository, TarefaRepository>();
         services.AddScoped<ITarefaHistoricoRepository, TarefaHistoricoRepository>();
         services.AddScoped<ITarefaService, Sigov.Application.Operational.TarefaService>();

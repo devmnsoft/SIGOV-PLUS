@@ -1,0 +1,4 @@
+@model Sigov.Web.Controllers.CommercialPage
+@{ ViewData["Title"]=Model.Title; }
+<link rel="stylesheet" href="~/css/comercial/comercial.css" />
+<main class="container-fluid commercial-shell" data-commercial-list data-endpoint="@Model.Endpoint"><header class="d-flex justify-content-between align-items-center mb-4"><div><span class="commercial-eyebrow">Comercial</span><h1>@Model.Title</h1></div>@if(Model.CreateLabel is not null){<button class="btn btn-primary" type="button">@Model.CreateLabel</button>}</header><form class="commercial-panel mb-3" role="search"><label class="form-label" for="busca">Buscar</label><div class="input-group"><input class="form-control" id="busca" name="busca" autocomplete="off"/><button class="btn btn-outline-primary">Filtrar</button></div></form><div id="listContent" aria-live="polite"><div class="commercial-skeleton"></div></div></main><script src="~/js/comercial/comercial.js" defer></script>
