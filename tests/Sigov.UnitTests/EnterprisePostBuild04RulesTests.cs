@@ -14,16 +14,30 @@ public sealed class EnterprisePostBuild04RulesTests
     public void Cliente_comercial_respeita_tenant_id_e_mascara_dados_sensiveis()
     {
         var service = new EnterpriseModuleService();
-        service.Upsert("comercial/clientes", new EnterpriseMutationRequest(TenantA, "Cliente A", "12345678000199", "cliente@example.com", "11999998888", null, null, null, null, null, null), TenantA, "corr-1");
+        var created = service.Upsert("comercial/clientes", new EnterpriseMutationRequest(TenantA, "Cliente A", "12345678000199", "cliente@example.com", "11999998888", null, null, null, null, null, null), TenantA, "corr-1");
         service.Upsert("comercial/clientes", new EnterpriseMutationRequest(TenantB, "Cliente B", "99999999000199", "outro@example.com", "11888887777", null, null, null, null, null, null), TenantB, "corr-2");
 
         var clientesA = service.List("comercial/clientes", TenantA);
+        var cliente = clientesA.Single(item => item.Id == created.Id);
 
         clientesA.Should().ContainSingle();
-        clientesA[0].TenantId.Should().Be(TenantA);
-        clientesA[0].DocumentMasked.Should().Be("***0199");
-        clientesA[0].EmailMasked.Should().Be("c***@example.com");
-        clientesA[0].PhoneMasked.Should().Be("(**) ****-8888");
+        cliente.TenantId.Should().Be(TenantA);
+        cliente.DocumentMasked.Should().Be("***0199").And.NotContain("12345678000199");
+        cliente.EmailMasked.Should().Be("c***@example.com").And.NotBe("cliente@example.com");
+        cliente.PhoneMasked.Should().Be("(**) ****-8888").And.NotContain("11999998888");
+        service.List("comercial/clientes", TenantB).Should().OnlyContain(item => item.TenantId == TenantB);
+    }
+
+    [Fact]
+    public void Enterprise_store_is_isolated_and_does_not_seed_demo_clients()
+    {
+        var first = new EnterpriseModuleService();
+        var second = new EnterpriseModuleService();
+        first.Upsert("comercial/clientes", new EnterpriseMutationRequest(TenantA, "Somente primeiro", null, null, null, null, null, null, null, null, null), TenantA, "corr-isolation");
+
+        first.List("comercial/clientes", TenantA).Should().ContainSingle();
+        second.List("comercial/clientes", TenantA).Should().BeEmpty();
+        first.List("comercial/clientes", TenantA).Should().NotContain(item => item.Name == "Cliente demonstração");
     }
 
     [Fact]
@@ -120,10 +134,21 @@ public sealed class EnterprisePosRc07StaticTests
     [Fact]
     public void EnterpriseJavascriptCallsRealUpdateAndDeleteEndpoints()
     {
-        var js = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/enterprise-crud.js"));
-        Assert.Contains("method = id ? 'PUT' : 'POST'", js);
-        Assert.Contains("method: 'DELETE'", js);
-        Assert.DoesNotContain("endpoint DELETE estiver habilitado", js);
+        var requestModule = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/enterprise/enterprise-request.js"));
+        var client = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/enterprise-crud.js"));
+
+        Assert.Contains("resolveEnterpriseMethod", requestModule);
+        Assert.Contains("buildEnterpriseUrl", requestModule);
+        Assert.Contains("buildEnterpriseRequest", requestModule);
+        Assert.Contains("'PUT'", requestModule);
+        Assert.Contains("'POST'", requestModule);
+        Assert.Contains("'DELETE'", requestModule);
+        Assert.Contains("'Content-Type': 'application/json'", requestModule);
+        Assert.Contains("delete body.tenantId", requestModule);
+        Assert.Contains("delete body.TenantId", requestModule);
+        Assert.Contains("if (!r.ok) throw new Error", client);
+        Assert.Contains("await load()", client);
+        Assert.DoesNotContain("endpoint DELETE estiver habilitado", client);
     }
 
     [Fact]

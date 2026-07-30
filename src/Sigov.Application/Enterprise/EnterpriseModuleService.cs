@@ -169,8 +169,6 @@ public sealed class EnterpriseModuleService : IEnterpriseModuleService
             return;
         }
 
-        var clienteId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        _items[Key("comercial/clientes", tenantId, clienteId)] = new EnterpriseListItem(clienteId, tenantId, "Cliente demonstração", "comercial/clientes:ATIVO", "***0199", "c***@sigov.local", "(**) ****-8888", DateTimeOffset.UtcNow);
         var osId = Guid.Parse("33333333-3333-3333-3333-333333333333");
         _items[Key("os/ordens", tenantId, osId)] = new EnterpriseListItem(osId, tenantId, "OS demonstração", "os/ordens:ABERTA", null, null, null, DateTimeOffset.UtcNow);
         _serviceOrders[Key("os", tenantId, osId)] = new OrdemServicoDetail(osId, tenantId, "OS-DEMO", "ABERTA", new[] { "Diagnóstico inicial" }, new[] { "Checklist seguro" }, 0);

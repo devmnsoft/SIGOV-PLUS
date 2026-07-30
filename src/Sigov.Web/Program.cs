@@ -13,6 +13,7 @@ using Sigov.Web.Branding;
 using Sigov.Web.Services;
 using Sigov.Web.Services.Operational;
 using Sigov.Web.Services.Editais;
+using Sigov.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,15 +49,11 @@ builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>()
 builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardService>();
 builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
 builder.Services.AddInfrastructure();
-builder.Services.AddScoped<IDatabaseSchemaInspector, DatabaseSchemaInspector>();
-builder.Services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
-builder.Services.AddScoped<PostBuildSaasService>();
+builder.Services.AddSigovWebOperationalServices();
 builder.Services.AddScoped<SegurancaAdminService>();
-builder.Services.AddScoped<MinhaCentralService>();
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
 builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
-builder.Services.AddScoped<OperationalDemoService>();
 builder.Services.AddScoped<SectorModuleService>();
 builder.Services.AddScoped<ProtocoloOperationalService>();
 builder.Services.AddScoped<GedOperationalService>();
@@ -75,9 +72,7 @@ builder.Services.AddScoped<InventarioService>();
 builder.Services.AddScoped<FrotasService>();
 builder.Services.AddScoped<ObrasService>();
 builder.Services.AddScoped<TransparenciaService>();
-builder.Services.AddScoped<IOperationalStatusService, OperationalStatusService>();
 builder.Services.AddScoped<OperationalEventService>();
-builder.Services.AddScoped<OutboxSigovService>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<WorkflowDefinitionService>();
 builder.Services.AddScoped<WorkflowInstanceService>();
