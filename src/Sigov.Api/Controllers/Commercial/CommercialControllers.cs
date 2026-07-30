@@ -1,24 +1,91 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Commercial;
+
 namespace Sigov.Api.Controllers.Commercial;
-[ApiController,Authorize]
-public abstract class CommercialControllerBase(ICommercialRepository repository):ControllerBase
+
+[ApiController]
+[Authorize]
+public abstract class CommercialControllerBase(ICommercialApplicationService application) : ControllerBase
 {
- protected ICommercialRepository Repository {get;}=repository;
- protected Guid Tenant()=>Guid.TryParse(User.FindFirst("tenant_id")?.Value,out var id)&&id!=Guid.Empty?id:throw new UnauthorizedAccessException("Tenant não resolvido.");
- protected Guid UserId()=>Guid.TryParse(User.FindFirst("sub")?.Value,out var id)?id:Guid.Empty;
- protected string Correlation()=>HttpContext.TraceIdentifier;
+    protected ICommercialApplicationService Application { get; } = application;
+
+    protected CommercialExecutionContext Context()
+    {
+        if (!Guid.TryParse(User.FindFirst("enterprise_tenant_id")?.Value ?? User.FindFirst("tenant_id")?.Value, out var tenantId) || tenantId == Guid.Empty)
+            throw new UnauthorizedAccessException("Tenant Enterprise não resolvido; o mapeamento explícito é obrigatório.");
+        if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
+            throw new UnauthorizedAccessException("Usuário não resolvido.");
+        return new(tenantId, userId, User.HasClaim("permission", "comercial.clientes.dados_pessoais.visualizar"), HttpContext.TraceIdentifier);
+    }
 }
+
 [Route("api/comercial/dashboard")]
-public sealed class CommercialDashboardController(ICommercialRepository r):CommercialControllerBase(r){[HttpGet]public async Task<ActionResult<ApiResponse<ComercialDashboardDto>>> Get([FromQuery]DateOnly? inicio,[FromQuery]DateOnly? fim,CancellationToken ct){var end=fim??DateOnly.FromDateTime(DateTime.UtcNow);var data=await Repository.ObterDashboardAsync(Tenant(),inicio??end.AddDays(-30),end,ct);return Ok(ApiResponse<ComercialDashboardDto>.Ok(data,correlationId:Correlation()));}}
+public sealed class CommercialDashboardController(ICommercialApplicationService application) : CommercialControllerBase(application)
+{
+    [HttpGet]
+    [Authorize(Policy = "comercial.dashboard.visualizar")]
+    public async Task<ActionResult<ApiResponse<ComercialDashboardDto>>> Get(DateOnly? inicio, DateOnly? fim, CancellationToken ct)
+    {
+        var end = fim ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var data = await Application.ObterDashboardAsync(Context(), inicio ?? end.AddDays(-30), end, ct);
+        return Ok(ApiResponse<ComercialDashboardDto>.Ok(data, correlationId: HttpContext.TraceIdentifier));
+    }
+}
+
 [Route("api/comercial/clientes")]
-public sealed class CommercialClientsController(ICommercialRepository r):CommercialControllerBase(r){[HttpGet]public async Task<IActionResult> List([FromQuery]ClienteFiltro filtro,CancellationToken ct)=>Ok(ApiResponse<object>.Ok(await Repository.ListarClientesAsync(Tenant(),filtro,ct),correlationId:Correlation()));[HttpGet("{id:guid}")]public async Task<IActionResult> Get(Guid id,CancellationToken ct){var x=await Repository.ObterClienteAsync(Tenant(),id,User.HasClaim("permission","comercial.clientes.dados_pessoais.visualizar"),ct);return x is null?NotFound(ApiResponse<object>.Fail("Cliente não encontrado.",Correlation())):Ok(ApiResponse<ClienteDetalheDto>.Ok(x,correlationId:Correlation()));}[HttpPost]public async Task<IActionResult>Create(CriarClienteRequest request,CancellationToken ct){var id=await Repository.CriarClienteAsync(Tenant(),UserId(),request,Correlation(),ct);return CreatedAtAction(nameof(Get),new{id},ApiResponse<Guid>.Ok(id,correlationId:Correlation()));}}
+public sealed class CommercialClientsController(ICommercialApplicationService application) : CommercialControllerBase(application)
+{
+    [HttpGet, Authorize(Policy = "comercial.clientes.visualizar")]
+    public async Task<IActionResult> List([FromQuery] ClienteFiltro filtro, CancellationToken ct) => Ok(await Application.ListarClientesAsync(Context(), filtro, ct));
+    [HttpGet("{id:guid}"), Authorize(Policy = "comercial.clientes.visualizar")]
+    public async Task<IActionResult> Get(Guid id, CancellationToken ct) { var value = await Application.ObterClienteAsync(Context(), id, ct); return value is null ? NotFound() : Ok(value); }
+    [HttpPost, Authorize(Policy = "comercial.clientes.criar")]
+    public async Task<IActionResult> Create(CriarClienteRequest request, CancellationToken ct) { var id = await Application.CriarClienteAsync(Context(), request, ct); return CreatedAtAction(nameof(Get), new { id }, id); }
+}
+
 [Route("api/comercial/leads")]
-public sealed class CommercialLeadsController(ICommercialRepository r):CommercialControllerBase(r){[HttpGet]public async Task<IActionResult>List(int pagina=1,int tamanho=20,string? busca=null,CancellationToken ct=default)=>Ok(ApiResponse<object>.Ok(await Repository.ListarLeadsAsync(Tenant(),pagina,tamanho,busca,ct),correlationId:Correlation()));[HttpPost]public async Task<IActionResult>Create(CriarLeadRequest request,CancellationToken ct){var id=await Repository.CriarLeadAsync(Tenant(),UserId(),request,Correlation(),ct);return Created($"/api/comercial/leads/{id}",ApiResponse<Guid>.Ok(id,correlationId:Correlation()));}[HttpPost("{id:guid}/converter")]public async Task<IActionResult>Convert(Guid id,ConverterLeadRequest request,CancellationToken ct)=>Ok(ApiResponse<ConversaoLeadDto>.Ok(await Repository.ConverterLeadAsync(Tenant(),UserId(),id,request,Correlation(),ct),correlationId:Correlation()));}
+public sealed class CommercialLeadsController(ICommercialApplicationService application) : CommercialControllerBase(application)
+{
+    [HttpGet, Authorize(Policy = "comercial.leads.visualizar")]
+    public async Task<IActionResult> List(int pagina = 1, int tamanho = 20, string? busca = null, CancellationToken ct = default) => Ok(await Application.ListarLeadsAsync(Context(), pagina, tamanho, busca, ct));
+    [HttpPost, Authorize(Policy = "comercial.leads.criar")]
+    public async Task<IActionResult> Create(CriarLeadRequest request, CancellationToken ct) => Ok(await Application.CriarLeadAsync(Context(), request, ct));
+    [HttpPost("{id:guid}/converter"), Authorize(Policy = "comercial.leads.converter")]
+    public async Task<IActionResult> Convert(Guid id, ConverterLeadRequest request, CancellationToken ct) => Ok(await Application.ConverterLeadAsync(Context(), id, request, ct));
+}
+
 [Route("api/comercial/oportunidades")]
-public sealed class CommercialOpportunitiesController(ICommercialRepository r):CommercialControllerBase(r){[HttpGet]public async Task<IActionResult>List(int pagina=1,int tamanho=100,string? fase=null,string? busca=null,CancellationToken ct=default)=>Ok(ApiResponse<object>.Ok(await Repository.ListarOportunidadesAsync(Tenant(),pagina,tamanho,fase,busca,ct),correlationId:Correlation()));[HttpPost("{id:guid}/mover-fase")]public async Task<IActionResult>Move(Guid id,MoverOportunidadeRequest request,CancellationToken ct){await Repository.MoverOportunidadeAsync(Tenant(),UserId(),id,request,Correlation(),ct);return Ok(ApiResponse<object>.Ok(new{id},correlationId:Correlation()));}}
+public sealed class CommercialOpportunitiesController(ICommercialApplicationService application) : CommercialControllerBase(application)
+{
+    [HttpGet, Authorize(Policy = "comercial.oportunidades.visualizar")]
+    public async Task<IActionResult> List(int pagina = 1, int tamanho = 100, string? fase = null, string? busca = null, CancellationToken ct = default) => Ok(await Application.ListarOportunidadesAsync(Context(), pagina, tamanho, fase, busca, ct));
+    [HttpPost("{id:guid}/mover-fase"), Authorize(Policy = "comercial.oportunidades.editar")]
+    public async Task<IActionResult> Move(Guid id, MoverOportunidadeRequest request, CancellationToken ct) { await Application.MoverFaseAsync(Context(), id, request, ct); return NoContent(); }
+}
+
 [Route("api/comercial/propostas")]
-public sealed class CommercialProposalsController(ICommercialRepository r):CommercialControllerBase(r){[HttpGet]public async Task<IActionResult>List(int pagina=1,int tamanho=20,CancellationToken ct=default)=>Ok(ApiResponse<object>.Ok(await Repository.ListarPropostasAsync(Tenant(),pagina,tamanho,ct),correlationId:Correlation()));[HttpGet("{id:guid}")]public async Task<IActionResult>Get(Guid id,CancellationToken ct){var x=await Repository.ObterPropostaAsync(Tenant(),id,ct);return x is null?NotFound():Ok(ApiResponse<PropostaDetalheDto>.Ok(x,correlationId:Correlation()));}[HttpPost]public async Task<IActionResult>Create(CriarPropostaRequest request,CancellationToken ct){var id=await Repository.CriarPropostaAsync(Tenant(),UserId(),request,Correlation(),ct);return CreatedAtAction(nameof(Get),new{id},ApiResponse<Guid>.Ok(id,correlationId:Correlation()));}[HttpPost("{id:guid}/emitir")]public async Task<IActionResult>Issue(Guid id,EmitirPropostaRequest request,CancellationToken ct){await Repository.EmitirPropostaAsync(Tenant(),UserId(),id,request.Version,Correlation(),ct);return Ok();}[HttpPost("{id:guid}/aprovar")]public async Task<IActionResult>Approve(Guid id,DecidirPropostaRequest request,CancellationToken ct){await Repository.AprovarPropostaAsync(Tenant(),UserId(),id,request.Version,Correlation(),ct);return Ok();}[HttpPost("{id:guid}/gerar-pedido")]public async Task<IActionResult>Order(Guid id,CancellationToken ct){var key=Request.Headers["Idempotency-Key"].ToString();return Ok(ApiResponse<PedidoDetalheDto>.Ok(await Repository.GerarPedidoAsync(Tenant(),UserId(),id,key,Correlation(),ct),correlationId:Correlation()));}}
+public sealed class CommercialProposalsController(ICommercialApplicationService application) : CommercialControllerBase(application)
+{
+    [HttpGet, Authorize(Policy = "comercial.propostas.visualizar")]
+    public async Task<IActionResult> List(int pagina = 1, int tamanho = 20, CancellationToken ct = default) => Ok(await Application.ListarPropostasAsync(Context(), pagina, tamanho, ct));
+    [HttpGet("{id:guid}"), Authorize(Policy = "comercial.propostas.visualizar")]
+    public async Task<IActionResult> Get(Guid id, CancellationToken ct) { var value = await Application.ObterPropostaAsync(Context(), id, ct); return value is null ? NotFound() : Ok(value); }
+    [HttpPost, Authorize(Policy = "comercial.propostas.criar")]
+    public async Task<IActionResult> Create(CriarPropostaRequest request, CancellationToken ct) { var id = await Application.CriarPropostaAsync(Context(), request, ct); return CreatedAtAction(nameof(Get), new { id }, id); }
+    [HttpPost("{id:guid}/emitir"), Authorize(Policy = "comercial.propostas.emitir")]
+    public async Task<IActionResult> Issue(Guid id, EmitirPropostaRequest request, CancellationToken ct) { await Application.EmitirAsync(Context(), id, request.Version, ct); return NoContent(); }
+    [HttpPost("{id:guid}/aprovar"), Authorize(Policy = "comercial.propostas.aprovar")]
+    public async Task<IActionResult> Approve(Guid id, DecidirPropostaRequest request, CancellationToken ct) { await Application.AprovarAsync(Context(), id, request.Version, ct); return NoContent(); }
+    [HttpPost("{id:guid}/gerar-pedido"), Authorize(Policy = "comercial.pedidos.criar")]
+    public async Task<IActionResult> Order(Guid id, CancellationToken ct) => Ok(await Application.GerarPedidoAsync(Context(), id, Request.Headers["Idempotency-Key"].ToString(), ct));
+}
+
 [Route("api/comercial/pedidos")]
-public sealed class CommercialOrdersController(ICommercialRepository r):CommercialControllerBase(r){[HttpGet]public async Task<IActionResult>List(int pagina=1,int tamanho=20,CancellationToken ct=default)=>Ok(ApiResponse<object>.Ok(await Repository.ListarPedidosAsync(Tenant(),pagina,tamanho,ct),correlationId:Correlation()));[HttpPost("{id:guid}/confirmar")]public async Task<IActionResult>Confirm(Guid id,ConfirmarPedidoRequest request,CancellationToken ct){await Repository.ConfirmarPedidoAsync(Tenant(),UserId(),id,request.Version,Correlation(),ct);return Ok();}}
+public sealed class CommercialOrdersController(ICommercialApplicationService application) : CommercialControllerBase(application)
+{
+    [HttpGet, Authorize(Policy = "comercial.pedidos.visualizar")]
+    public async Task<IActionResult> List(int pagina = 1, int tamanho = 20, CancellationToken ct = default) => Ok(await Application.ListarPedidosAsync(Context(), pagina, tamanho, ct));
+    [HttpPost("{id:guid}/confirmar"), Authorize(Policy = "comercial.pedidos.confirmar")]
+    public async Task<IActionResult> Confirm(Guid id, ConfirmarPedidoRequest request, CancellationToken ct) { await Application.ConfirmarPedidoAsync(Context(), id, request.Version, Request.Headers["Idempotency-Key"].ToString(), ct); return NoContent(); }
+}

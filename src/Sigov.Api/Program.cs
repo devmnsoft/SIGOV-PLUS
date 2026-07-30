@@ -33,6 +33,23 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<EnterpriseExecutionContextFilter>();
 builder.Services.AddScoped<IEnterpriseAuthorizationService, EnterpriseAuthorizationService>();
 builder.Services.AddSingleton<IAuthorizationHandler, EnterpriseAuthorizationHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    string[] commercialPermissions =
+    [
+        "comercial.dashboard.visualizar", "comercial.clientes.visualizar", "comercial.clientes.criar",
+        "comercial.leads.visualizar", "comercial.leads.criar", "comercial.leads.converter",
+        "comercial.oportunidades.visualizar", "comercial.oportunidades.editar",
+        "comercial.propostas.visualizar", "comercial.propostas.criar", "comercial.propostas.emitir", "comercial.propostas.aprovar",
+        "comercial.pedidos.visualizar", "comercial.pedidos.criar", "comercial.pedidos.confirmar"
+    ];
+    foreach (var permission in commercialPermissions)
+        options.AddPolicy(permission, policy => policy.RequireAssertion(context =>
+            context.User.IsInRole("ADMIN_GERAL") || context.User.IsInRole("ADMIN_TENANT") ||
+            context.User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope")
+                .SelectMany(c => c.Value.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Contains(permission, StringComparer.OrdinalIgnoreCase))));
+});
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
