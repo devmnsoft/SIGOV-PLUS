@@ -33,7 +33,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "SIGOV.AUTH";
         options.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    string[] osPermissions = ["os.dashboard.visualizar", "os.ordens.visualizar", "os.ordens.agendar"];
+    foreach (var permission in osPermissions)
+        options.AddPolicy(permission, policy => policy.RequireAssertion(context =>
+            context.User.IsInRole("ADMIN_GERAL") || context.User.IsInRole("ADMIN_TENANT") ||
+            context.User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope")
+                .SelectMany(c => c.Value.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Contains(permission, StringComparer.OrdinalIgnoreCase))));
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
