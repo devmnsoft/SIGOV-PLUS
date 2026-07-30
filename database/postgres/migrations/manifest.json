@@ -493,6 +493,15 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5"
+    },
+    {
+      "version": "20260730180000",
+      "file": "20260730180000_pos_rc_30_financeiro_empresarial_real.sql",
+      "description": "pos_rc_30_financeiro_empresarial_real",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042"
     }
   ]
 }

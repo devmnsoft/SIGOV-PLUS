@@ -19,6 +19,8 @@ using Sigov.Infrastructure.Processos;
 using Sigov.Application.Financeiro;
 using Sigov.Application.Core;
 using Sigov.Infrastructure.Financeiro;
+using Sigov.Application.FinanceiroEmpresarial;
+using Sigov.Infrastructure.FinanceiroEmpresarial;
 using Sigov.Application.Rh;
 using Sigov.Infrastructure.Rh;
 using Sigov.Application.Educacao;
@@ -254,6 +256,7 @@ public static class DependencyInjection
         services.AddScoped<IReceitaRepository, ReceitaRepository>();
         services.AddScoped<IFinanceiroSequencialService, FinanceiroSequencialRepository>();
         services.AddScoped<IFinanceiroDashboardRepository, FinanceiroDashboardRepository>();
+        services.AddScoped<IFinanceiroEmpresarialRepository, FinanceiroEmpresarialRepository>();
         services.AddScoped<IPlanoContasService, PlanoContasService>();
         services.AddScoped<IFonteRecursoService, FonteRecursoService>();
         services.AddScoped<IProgramaService, ProgramaService>();
