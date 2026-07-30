@@ -69,6 +69,7 @@ using Sigov.Application.Saas.Perfis;
 using Sigov.Application.Saas.WhiteLabel;
 using Sigov.Application.Saas.Comercial;
 using Sigov.Application.Comercio;
+using Sigov.Application.Commercial;
 using Sigov.Application.Enterprise;
 using Sigov.Application.Operational;
 using Sigov.Infrastructure.Comercio;
@@ -92,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<IComercioEstoqueService, ComercioEstoqueService>();
         services.AddSingleton<ICommercialPersonalDataProtector, CommercialPersonalDataProtector>();
         services.AddScoped<ICommercialRepository, CommercialRepository>();
+        services.AddSingleton<IDocumentTemplateRenderer, SafeDocumentTemplateRenderer>();
         services.AddScoped<ITarefaRepository, TarefaRepository>();
         services.AddScoped<ITarefaHistoricoRepository, TarefaHistoricoRepository>();
         services.AddScoped<ITarefaService, Sigov.Application.Operational.TarefaService>();
