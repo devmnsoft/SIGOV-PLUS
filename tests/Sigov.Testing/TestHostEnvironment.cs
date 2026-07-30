@@ -1,27 +1,45 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 
 namespace Sigov.Testing;
 
-/// <summary>A deterministic host environment for tests that must not inherit developer settings.</summary>
-public sealed class TestHostEnvironment : IWebHostEnvironment
+public sealed class TestHostEnvironment : IHostEnvironment, IWebHostEnvironment
 {
-    public TestHostEnvironment(string contentRootPath, string? webRootPath = null)
+    public TestHostEnvironment(string? contentRootPath = null, string? webRootPath = null)
     {
-        ApplicationName = "SIGOV PLUS Tests";
-        EnvironmentName = "Testing";
-        ContentRootPath = Path.GetFullPath(contentRootPath);
+        ContentRootPath = Path.GetFullPath(contentRootPath ?? Directory.GetCurrentDirectory());
+        WebRootPath = Path.GetFullPath(webRootPath ?? ResolveWebRoot(ContentRootPath));
+
+        if (!Directory.Exists(ContentRootPath))
+        {
+            throw new DirectoryNotFoundException($"The test content root does not exist: {ContentRootPath}");
+        }
+
+        if (!Directory.Exists(WebRootPath))
+        {
+            throw new DirectoryNotFoundException($"The test web root does not exist: {WebRootPath}");
+        }
+
         ContentRootFileProvider = new PhysicalFileProvider(ContentRootPath);
-        WebRootPath = Path.GetFullPath(webRootPath ?? Path.Combine(ContentRootPath, "wwwroot"));
-        WebRootFileProvider = Directory.Exists(WebRootPath)
-            ? new PhysicalFileProvider(WebRootPath)
-            : new NullFileProvider();
+        WebRootFileProvider = new PhysicalFileProvider(WebRootPath);
     }
 
-    public string ApplicationName { get; set; }
-    public string EnvironmentName { get; set; }
+    public string EnvironmentName { get; set; } = "Testing";
+
+    public string ApplicationName { get; set; } = "SIGOV PLUS Tests";
+
     public string ContentRootPath { get; set; }
+
     public IFileProvider ContentRootFileProvider { get; set; }
+
     public string WebRootPath { get; set; }
+
     public IFileProvider WebRootFileProvider { get; set; }
+
+    private static string ResolveWebRoot(string contentRootPath)
+    {
+        var webRoot = Path.Combine(contentRootPath, "src", "Sigov.Web", "wwwroot");
+        return Directory.Exists(webRoot) ? webRoot : contentRootPath;
+    }
 }

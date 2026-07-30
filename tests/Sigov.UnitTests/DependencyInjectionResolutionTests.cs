@@ -15,6 +15,8 @@ using Sigov.Infrastructure.Persistence.Migrations;
 using Sigov.Web.Services;
 using Sigov.Web.Services.Operational;
 using Sigov.Worker.Outbox;
+using Sigov.Testing;
+using Sigov.Web;
 
 namespace Sigov.UnitTests;
 
@@ -58,6 +60,9 @@ public sealed class DependencyInjectionResolutionTests
         var crud = scope.ServiceProvider.GetRequiredService<IEnterpriseCrudService>();
 
         module.Should().BeSameAs(crud);
+
+        using var otherScope = provider.CreateScope();
+        otherScope.ServiceProvider.GetRequiredService<IEnterpriseModuleService>().Should().NotBeSameAs(module);
     }
 
     [Fact]
@@ -74,12 +79,7 @@ public sealed class DependencyInjectionResolutionTests
     public void Web_operational_services_resolve_with_infrastructure_services()
     {
         var services = CreateBaseServices().AddInfrastructure();
-        services.AddScoped<IDatabaseSchemaInspector, DatabaseSchemaInspector>();
-        services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
-        services.AddScoped<MinhaCentralService>();
-        services.AddScoped<OperationalDemoService>();
-        services.AddScoped<IOperationalStatusService, OperationalStatusService>();
-        services.AddScoped<OutboxSigovService>();
+        services.AddSigovWebOperationalServices();
 
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         using var scope = provider.CreateScope();
@@ -87,6 +87,7 @@ public sealed class DependencyInjectionResolutionTests
         scope.ServiceProvider.GetRequiredService<IDatabaseSchemaInspector>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<ITenantContextAccessor>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<MinhaCentralService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<PostBuildSaasService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<OperationalDemoService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<IOperationalStatusService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<OutboxSigovService>().Should().NotBeNull();
@@ -127,6 +128,7 @@ public sealed class DependencyInjectionResolutionTests
         services.AddLogging();
         services.AddOptions();
         services.AddHttpContextAccessor();
+        services.AddSigovTestHostEnvironment();
         return services;
     }
 }

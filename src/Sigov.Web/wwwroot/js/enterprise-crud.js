@@ -4,6 +4,7 @@
 
   const api = (root.dataset.apiRoute || '').replace(/\/$/, '');
   const tenant = root.dataset.tenantId || '';
+  const requestFactory = window.SigovEnterpriseRequest;
   const body = root.querySelector('.enterprise-table-body');
   const form = root.querySelector('.enterprise-form');
   const filters = root.querySelector('.enterprise-filters');
@@ -133,12 +134,13 @@
     const data = Object.fromEntries(new FormData(form).entries());
     data.quantidade = Number(data.quantidade || 0);
     data.valor = data.valor ? Number(data.valor) : null;
-    data.TenantId = tenant || null;
     const id = data.id;
     delete data.id;
     setBusy(true);
     try {
-      const r = await fetch(id ? `${actionApi}/${id}` : actionApi, { method: id ? 'PUT' : 'POST', headers: headers(), body: JSON.stringify(data) });
+      const request = requestFactory.buildEnterpriseRequest(id, data);
+      request.headers['X-Tenant-Id'] = tenant;
+      const r = await fetch(requestFactory.buildEnterpriseUrl(actionApi, id), request);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       toast('Registro salvo com auditoria.');
       closeModal();
@@ -149,7 +151,9 @@
   async function lifecycle(id, restore) {
     if (!confirm(restore ? 'Confirmar restauração deste registro?' : 'Confirmar inativação deste registro?')) return;
     const url = restore ? `${actionApi}/${id}/restaurar` : `${actionApi}/${id}`;
-    const r = await fetch(url, { method: restore ? 'POST' : 'DELETE', headers: headers(false) });
+    const request = restore ? { method: 'POST', headers: headers(false) } : requestFactory.buildEnterpriseDeleteRequest();
+    request.headers['X-Tenant-Id'] = tenant;
+    const r = await fetch(url, request);
     toast(r.ok ? (restore ? 'Registro restaurado com auditoria.' : 'Registro inativado com auditoria.') : 'Falha na ação de ciclo de vida.', !r.ok);
     if (r.ok) await load();
   }
