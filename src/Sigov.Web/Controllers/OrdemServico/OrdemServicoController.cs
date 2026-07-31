@@ -13,4 +13,7 @@ public sealed class OrdemServicoController : Controller
     [HttpGet("/OrdemServico/Dashboard")]
     [Authorize(Policy="os.dashboard.visualizar")]
     public IActionResult Dashboard()=>View("~/Views/OrdemServico/Dashboard/Index.cshtml");
+    [HttpGet("/OrdemServico/Ordens/{id:guid}")]
+    [Authorize(Policy="os.ordens.visualizar")]
+    public IActionResult Detalhe(Guid id)=>View("~/Views/Tecnico/Ordens/Detalhe.cshtml",id);
 }

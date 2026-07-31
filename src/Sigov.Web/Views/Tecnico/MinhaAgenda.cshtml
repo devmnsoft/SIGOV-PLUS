@@ -1,0 +1,8 @@
+@{ ViewData["Title"] = "Minha agenda técnica"; }
+<link rel="stylesheet" href="~/css/ordem-servico/ordem-servico.css" />
+<main class="container py-3" data-tecnico-agenda>
+ <header class="mb-3"><h1 class="h2">Minha agenda</h1><p class="text-secondary">Atendimentos de hoje</p></header>
+ <div class="alert alert-warning d-none" data-offline role="status">Sem conexão. Os dados já exibidos continuam disponíveis, mas ações não serão sincronizadas.</div>
+ <div class="row g-3" data-items aria-live="polite"><div class="placeholder-glow"><span class="placeholder col-12"></span></div></div>
+</main>
+<script type="module" src="~/js/ordem-servico/tecnico.js"></script>

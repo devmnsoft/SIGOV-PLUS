@@ -511,6 +511,24 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf"
+    },
+    {
+      "version": "20260730090000",
+      "file": "20260730090000_pos_rc_32_ordem_servico.sql",
+      "description": "pos_rc_32_ordem_servico",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c"
+    },
+    {
+      "version": "20260731120000",
+      "file": "20260731120000_pos_rc_33_operacao_servicos_campo.sql",
+      "description": "pos_rc_33_operacao_servicos_campo",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "56970917a32ca0a69809717b4d009f6ed7071c000c50fec56b44351ac1acdb04"
     }
   ]
 }

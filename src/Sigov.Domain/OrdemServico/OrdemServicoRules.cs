@@ -11,14 +11,14 @@ public static class OrdemServicoRules
         [OrdemServicoStatus.Rascunho] = [OrdemServicoStatus.Aberta, OrdemServicoStatus.Cancelada],
         [OrdemServicoStatus.Aberta] = [OrdemServicoStatus.EmTriagem, OrdemServicoStatus.Agendada, OrdemServicoStatus.Cancelada],
         [OrdemServicoStatus.EmTriagem] = [OrdemServicoStatus.Agendada, OrdemServicoStatus.AguardandoCliente, OrdemServicoStatus.AguardandoPeca, OrdemServicoStatus.Cancelada],
-        [OrdemServicoStatus.Agendada] = [OrdemServicoStatus.EmDeslocamento, OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Cancelada],
+        [OrdemServicoStatus.Agendada] = [OrdemServicoStatus.EmDeslocamento, OrdemServicoStatus.EmExecucao, OrdemServicoStatus.AguardandoCliente, OrdemServicoStatus.Cancelada],
         [OrdemServicoStatus.EmDeslocamento] = [OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Pausada, OrdemServicoStatus.Cancelada],
-        [OrdemServicoStatus.EmExecucao] = [OrdemServicoStatus.Pausada, OrdemServicoStatus.AguardandoCliente, OrdemServicoStatus.AguardandoPeca, OrdemServicoStatus.Concluida],
-        [OrdemServicoStatus.Pausada] = [OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Cancelada],
-        [OrdemServicoStatus.AguardandoCliente] = [OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Cancelada],
-        [OrdemServicoStatus.AguardandoPeca] = [OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Cancelada],
+        [OrdemServicoStatus.EmExecucao] = [OrdemServicoStatus.Pausada, OrdemServicoStatus.AguardandoCliente, OrdemServicoStatus.AguardandoPeca, OrdemServicoStatus.Concluida, OrdemServicoStatus.Cancelada],
+        [OrdemServicoStatus.Pausada] = [OrdemServicoStatus.EmExecucao, OrdemServicoStatus.AguardandoCliente, OrdemServicoStatus.AguardandoPeca, OrdemServicoStatus.Cancelada],
+        [OrdemServicoStatus.AguardandoCliente] = [OrdemServicoStatus.Agendada, OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Cancelada],
+        [OrdemServicoStatus.AguardandoPeca] = [OrdemServicoStatus.Agendada, OrdemServicoStatus.EmExecucao, OrdemServicoStatus.Cancelada],
         [OrdemServicoStatus.Concluida] = [OrdemServicoStatus.Reaberta],
-        [OrdemServicoStatus.Reaberta] = [OrdemServicoStatus.EmTriagem, OrdemServicoStatus.Agendada],
+        [OrdemServicoStatus.Reaberta] = [OrdemServicoStatus.EmTriagem, OrdemServicoStatus.Agendada, OrdemServicoStatus.EmExecucao],
         [OrdemServicoStatus.Cancelada] = []
     };
 

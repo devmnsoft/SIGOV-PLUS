@@ -67,6 +67,12 @@ public sealed class MigrationRunner
 );
 ", cancellationToken: cancellationToken)).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition("alter table sigov.schema_migrations add column if not exists category varchar(40) not null default 'schema'; alter table sigov.schema_migrations add column if not exists source varchar(40) not null default 'manifest'; alter table sigov.schema_migrations add column if not exists success boolean not null default true; alter table sigov.schema_migrations add column if not exists execution_ms bigint null;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var versionType = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("select data_type from information_schema.columns where table_schema='sigov' and table_name='schema_migrations' and column_name='version';", cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!string.Equals(versionType, "character varying", StringComparison.OrdinalIgnoreCase) && !string.Equals(versionType, "text", StringComparison.OrdinalIgnoreCase))
+            {
+                await connection.ExecuteAsync(new CommandDefinition("alter table sigov.schema_migrations alter column version type varchar(50) using version::text;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+                _logger.LogInformation("Coluna schema_migrations.version convertida de {PreviousType} para a versão completa textual do manifest.", versionType);
+            }
 
             var migrations = LoadManifestFiles();
             var validateOnly = string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase);
