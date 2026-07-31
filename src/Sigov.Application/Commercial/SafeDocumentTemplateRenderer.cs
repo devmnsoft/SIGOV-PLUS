@@ -22,15 +22,24 @@ public sealed partial class SafeDocumentTemplateRenderer : IDocumentTemplateRend
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(values);
+        if (string.IsNullOrWhiteSpace(template))
+            throw new ArgumentException("O template deve possuir conteúdo.", nameof(template));
         RejectExecutableContent(template);
 
-        return PlaceholderRegex().Replace(template, match =>
+        var rendered = PlaceholderRegex().Replace(template, match =>
         {
             var key = match.Groups[1].Value;
             if (!AllowedPlaceholders.Contains(key)) throw new ArgumentException($"Placeholder não permitido: {key}.", nameof(template));
             if (!values.TryGetValue(key, out var value)) return string.Empty;
-            return key == "itens.tabela" ? SanitizeItemsTable(value) : WebUtility.HtmlEncode(value);
+            return key == "itens.tabela"
+                ? SanitizeItemsTable(value)
+                : WebUtility.HtmlEncode(value ?? string.Empty) ?? string.Empty;
         });
+
+        if (rendered is null)
+            throw new InvalidOperationException("Não foi possível renderizar o template informado.");
+
+        return rendered;
     }
 
     private static void RejectExecutableContent(string template)
