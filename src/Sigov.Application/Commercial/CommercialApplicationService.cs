@@ -1,4 +1,5 @@
 using Sigov.Application.Common;
+using Sigov.Domain.Comercial;
 
 namespace Sigov.Application.Commercial;
 
