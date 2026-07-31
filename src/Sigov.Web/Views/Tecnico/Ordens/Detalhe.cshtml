@@ -1,0 +1,13 @@
+@model Guid
+@{ ViewData["Title"] = "Execução da ordem"; }
+<link rel="stylesheet" href="~/css/ordem-servico/ordem-servico.css" />
+<main class="container py-3 pb-5" data-tecnico-execucao data-id="@Model">
+ <div class="alert alert-warning d-none" data-offline role="status">Offline: consulte os dados exibidos. Para evitar perda de evidências, as ações estão temporariamente bloqueadas.</div>
+ <header class="sticky-top bg-body py-2 border-bottom"><div class="d-flex justify-content-between"><h1 class="h4 mb-0" data-numero>Ordem</h1><span class="badge text-bg-primary" data-status>Carregando</span></div><div class="small text-secondary" data-cliente></div></header>
+ <section class="my-3"><h2 class="h5">Atendimento</h2><p data-descricao></p><div class="d-grid gap-2"><button class="btn btn-primary btn-lg" data-action="iniciar-deslocamento">Iniciar deslocamento</button><button class="btn btn-success btn-lg" data-action="iniciar">Iniciar execução</button><button class="btn btn-warning btn-lg" data-action="pausar">Pausar</button><button class="btn btn-outline-primary btn-lg" data-action="retomar">Retomar</button></div></section>
+ <section class="my-4"><h2 class="h5">Checklist</h2><form class="vstack gap-3" data-checklist></form></section>
+ <section class="my-4"><h2 class="h5">Aceite interno</h2><p class="small text-warning">O aceite interno não substitui assinatura digital ICP-Brasil.</p><form data-aceite><input class="form-control mb-2" name="nome" placeholder="Nome do responsável" required><input class="form-control mb-2" name="documentoMascarado" placeholder="Documento mascarado" required><textarea class="form-control mb-2" name="observacao" placeholder="Observação"></textarea><label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirmado" required> Confirmo o aceite do serviço executado</label><button class="btn btn-outline-success btn-lg w-100">Registrar aceite</button></form></section>
+ <button class="btn btn-success btn-lg w-100" data-action="concluir">Concluir atendimento</button>
+ <div class="visually-hidden" aria-live="polite" data-live></div>
+</main>
+<script type="module" src="~/js/ordem-servico/tecnico.js"></script>
