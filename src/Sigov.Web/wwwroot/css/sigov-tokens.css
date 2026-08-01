@@ -39,10 +39,13 @@
   --sigov-text-on-primary: #ffffff;
   --sigov-text-on-dark: #f8fafc;
   --sigov-border: #cbd5e1;
+  --sigov-border-subtle: #e2e8f0;
   --sigov-border-strong: #64748b;
   --sigov-focus: #f59e0b;
   --sigov-success: #15803d;
   --sigov-warning: #a16207;
+  --sigov-warning-subtle: #fff7df;
+  --sigov-warning-strong: #7a4b00;
   --sigov-danger: #b91c1c;
   --sigov-info: #0369a1;
   --sigov-primary-active: var(--sigov-primary-900);
@@ -90,6 +93,9 @@ html[data-sigov-theme="dark"] {
   --sigov-text-on-primary: #0f172a;
   --sigov-text-on-dark: #f8fafc;
   --sigov-border: #334155;
+  --sigov-border-subtle: #1e293b;
   --sigov-border-strong: #94a3b8;
+  --sigov-warning-subtle: #422006;
+  --sigov-warning-strong: #fde68a;
   --sigov-focus: #fbbf24;
 }
