@@ -1,1 +1,33 @@
 .sigov-dashboard-card { border: 1px solid var(--sigov-border); border-radius: var(--sigov-radius); background: var(--sigov-surface); box-shadow: var(--sigov-shadow); }
+
+.central-header { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--sigov-space-6); margin-bottom:var(--sigov-space-8); }
+.central-header h1 { margin:.35rem 0; font-size:clamp(1.75rem,3vw,2.35rem); letter-spacing:-.035em; }
+.central-header p { margin:0; color:var(--sigov-text-secondary); }
+.central-header__context,.central-eyebrow { color:var(--sigov-primary-700); font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.central-header__actions { display:flex; flex-wrap:wrap; gap:var(--sigov-space-3); }
+.central-header kbd { margin-left:.4rem; border:1px solid var(--sigov-border); background:var(--sigov-surface-muted); color:var(--sigov-text-secondary); }
+.central-grid { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(18rem,.65fr); gap:var(--sigov-space-5); }
+.central-panel { min-width:0; padding:var(--sigov-space-6); border:1px solid var(--sigov-border-subtle); border-radius:var(--sigov-radius-xl); background:var(--sigov-surface); box-shadow:var(--sigov-shadow-xs); }
+.central-panel--wide { grid-row:span 2; }
+.central-panel--attention { border-top:3px solid var(--sigov-warning); }
+.central-panel__heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:var(--sigov-space-5); }
+.central-panel__heading h2 { margin:.2rem 0 0; font-size:1.1rem; }
+.central-panel__heading>a { font-size:.875rem; font-weight:650; }
+.central-count { display:grid; min-width:2rem; height:2rem; place-items:center; border-radius:var(--sigov-radius-full); background:var(--sigov-warning-subtle, #fff7df); color:var(--sigov-warning-strong, #7a4b00); font-weight:750; }
+.central-worklist,.central-modules,.central-timeline { margin:0; padding:0; list-style:none; }
+.central-worklist li+li,.central-modules li+li,.central-timeline li+li { border-top:1px solid var(--sigov-border-subtle); }
+.central-worklist a { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.9rem .25rem; color:var(--sigov-text-primary); text-decoration:none; }
+.central-worklist a:hover strong { color:var(--sigov-primary-700); }
+.central-worklist small,.central-shortcuts small { display:block; margin-top:.2rem; color:var(--sigov-text-muted); font-size:.8rem; font-weight:400; }
+.central-shortcuts { display:grid; gap:.35rem; }
+.central-shortcuts a { display:flex; align-items:flex-start; gap:.75rem; padding:.75rem; border-radius:var(--sigov-radius-md); color:var(--sigov-text-primary); text-decoration:none; }
+.central-shortcuts a:hover { background:var(--sigov-surface-muted); }
+.central-shortcuts__mark { width:.55rem; height:.55rem; flex:0 0 auto; margin-top:.35rem; border:2px solid var(--sigov-primary-600); border-radius:50%; }
+.central-timeline li { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.75rem; padding:1rem .25rem; }
+.central-timeline__dot { width:.65rem; height:.65rem; border-radius:50%; background:var(--sigov-primary-600); box-shadow:0 0 0 4px var(--sigov-primary-50); }
+.central-timeline div span,.central-timeline time { display:block; color:var(--sigov-text-muted); font-size:.8rem; }
+.central-modules li { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.7rem .1rem; }
+.central-empty { display:grid; gap:.3rem; padding:2rem 1rem; text-align:center; color:var(--sigov-text-secondary); }
+.central-empty strong { color:var(--sigov-text-primary); }
+@media (max-width: 991.98px) { .central-header { align-items:flex-start; flex-direction:column; } .central-grid { grid-template-columns:1fr; } .central-panel--wide { grid-row:auto; } }
+@media (max-width: 575.98px) { .central-header__actions,.central-header__actions .sigov-btn { width:100%; } .central-panel { padding:var(--sigov-space-4); } .central-timeline { overflow:hidden; } .central-timeline li { grid-template-columns:auto minmax(0,1fr); } .central-timeline time { grid-column:2; } }
