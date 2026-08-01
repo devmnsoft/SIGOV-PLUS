@@ -27,7 +27,7 @@
       event.preventDefault();
     }
   });
-  const icons = { success: '✓', error: '!', warning: '⚠', info: 'i' };
+  const icons = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
   const defaults = { success: 'Sucesso', error: 'Erro', warning: 'Atenção', info: 'Informação' };
   function host() {
     let el = document.getElementById('sigov-toast-host') || document.getElementById('sigov-toast-container');
@@ -38,7 +38,20 @@
     if (!message) return;
     const toast = document.createElement('div');
     toast.className = `sigov-toast sigov-toast--${type}`;
-    toast.innerHTML = `<div class="sigov-toast__icon">${icons[type] || icons.info}</div><div class="sigov-toast__body"><strong>${title || defaults[type]}</strong><span>${message}</span></div><button type="button" aria-label="Fechar">×</button>`;
+    const icon = document.createElement('div');
+    icon.className = 'sigov-toast__icon';
+    icon.innerHTML = `<svg class="sigov-icon sigov-icon--20" width="20" height="20" aria-hidden="true"><use href="/icons/sigov-icons.svg#${icons[type] || icons.info}"></use></svg>`;
+    const body = document.createElement('div');
+    body.className = 'sigov-toast__body';
+    const heading = document.createElement('strong');
+    heading.textContent = title || defaults[type];
+    const content = document.createElement('span');
+    content.textContent = message;
+    body.append(heading, content);
+    const close = document.createElement('button');
+    close.type = 'button'; close.setAttribute('aria-label', 'Fechar');
+    close.innerHTML = '<svg class="sigov-icon sigov-icon--16" width="16" height="16" aria-hidden="true"><use href="/icons/sigov-icons.svg#close"></use></svg>';
+    toast.append(icon, body, close);
     toast.querySelector('button').addEventListener('click', () => toast.remove());
     host().appendChild(toast);
     setTimeout(() => toast.remove(), 5200);
@@ -100,12 +113,47 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function setSidebar(open) {
+    document.body.classList.toggle('sigov-sidebar-open', open);
+    document.querySelectorAll('[data-sigov-sidebar-toggle]').forEach(button => button.setAttribute('aria-expanded', String(open)));
+  }
+
+  function handleAction(event) {
+    const trigger = event.target.closest('[data-sigov-sidebar-toggle],[data-sigov-sidebar-close],[data-sigov-theme-toggle]');
+    if (!trigger || trigger.disabled || trigger.getAttribute('aria-disabled') === 'true') return;
+    if (trigger.matches('[data-sigov-sidebar-toggle]')) setSidebar(!document.body.classList.contains('sigov-sidebar-open'));
+    if (trigger.matches('[data-sigov-sidebar-close]')) setSidebar(false);
+    if (trigger.matches('[data-sigov-theme-toggle]')) {
+      const next = document.documentElement.dataset.sigovTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.sigovTheme = next;
+      localStorage.setItem('sigov-theme', next);
+      trigger.setAttribute('aria-pressed', String(next === 'dark'));
+      SigovNotify.info(`Tema ${next === 'dark' ? 'escuro' : 'claro'} aplicado.`, 'Tema');
+    }
+  }
+
+  function init(root) {
+    const scope = root || document;
     const h = document.getElementById('sigov-toast-host');
-    if (h) ['success','error','warning','info'].forEach(t => h.dataset[t] && showToast(t, h.dataset[t]));
-    document.querySelectorAll('[data-sigov-sidebar-toggle]').forEach(btn => btn.addEventListener('click', () => document.body.classList.toggle('sigov-sidebar-open')));
-    document.querySelectorAll('[data-sigov-sidebar-close]').forEach(el => el.addEventListener('click', () => document.body.classList.remove('sigov-sidebar-open')));
+    if (h && !h.dataset.sigovInitialized) {
+      ['success','error','warning','info'].forEach(t => h.dataset[t] && showToast(t, h.dataset[t]));
+      h.dataset.sigovInitialized = 'true';
+    }
     const theme = localStorage.getItem('sigov-theme') || 'light'; document.documentElement.dataset.sigovTheme = theme;
-    document.querySelectorAll('[data-sigov-theme-toggle]').forEach(btn => btn.addEventListener('click', () => { const next = document.documentElement.dataset.sigovTheme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.sigovTheme = next; localStorage.setItem('sigov-theme', next); SigovNotify.info(`Tema ${next === 'dark' ? 'escuro' : 'claro'} aplicado.`, 'Tema'); }));
+    scope.querySelectorAll('[data-sigov-theme-toggle]').forEach(button => button.setAttribute('aria-pressed', String(theme === 'dark')));
+    scope.querySelectorAll('img[data-sigov-image-fallback]').forEach(image => {
+      if (image.dataset.sigovFallbackBound) return;
+      image.dataset.sigovFallbackBound = 'true';
+      image.addEventListener('error', () => {
+        if (image.src.endsWith(image.dataset.sigovImageFallback)) return;
+        image.src = image.dataset.sigovImageFallback;
+      });
+    });
+  }
+
+  document.addEventListener('click', handleAction);
+  window.SigovUI = { init };
+  document.addEventListener('DOMContentLoaded', () => {
+    init(document);
   });
 })();
