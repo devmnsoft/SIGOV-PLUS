@@ -108,7 +108,7 @@ $(function () {
 
   $(document).on('click', '[data-sigov-action="delete-pessoa"]', async function () {
     const id = $(this).data('id');
-    if (!window.confirm('Confirma a exclusão lógica da pessoa?')) return;
+    if (!window.SigovConfirm || !await window.SigovConfirm.show({ title: 'Excluir pessoa', message: 'Confirma a exclusão lógica da pessoa?', variant: 'danger', confirmText: 'Excluir' })) return;
     try { await request(`/api/pessoas/${id}`, { method: 'DELETE' }); notify('Pessoa excluída com soft delete.', 'success'); $('#pessoas-filtro').trigger('submit'); } catch (error) { notify(errorMessage(error), 'danger'); }
   });
 

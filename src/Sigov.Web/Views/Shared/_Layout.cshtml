@@ -11,6 +11,7 @@
   <link href="~/css/site.css" rel="stylesheet">
 </head>
 <body class="sigov-app">
+  <a class="sigov-skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
   @await Html.PartialAsync("_DemoBanner")
   <div class="sigov-app-shell">
     @await Html.PartialAsync("_Navbar")
@@ -24,6 +25,7 @@
     </div>
   </div>
   @await Html.PartialAsync("_ConfirmModal")
+  @await Html.PartialAsync("_CommandPalette")
   @await Html.PartialAsync("_ToastHost")
   @await Html.PartialAsync("_SigovAssistant")
   @await Html.PartialAsync("_Footer")
@@ -33,6 +35,7 @@
   <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
   <script src="~/js/sigov.core.js"></script>
   <script src="~/js/sigov-ui.js" asp-append-version="true"></script>
+  <script src="~/js/sigov-command-palette.js" asp-append-version="true"></script>
   <script src="~/js/sigov.api.js"></script>
   <script src="~/js/sigov.errors.js"></script>
   <script src="~/js/sigov.toast.js"></script>

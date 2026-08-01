@@ -51,7 +51,7 @@
   };
   window.SigovConfirm = { show: (options) => new Promise((resolve) => {
     const opts = options || {}, modalEl = document.getElementById('sigovConfirmModal');
-    if (!modalEl || !window.bootstrap) { resolve(window.confirm(opts.message || 'Confirmar operação?')); return; }
+    if (!modalEl || !window.bootstrap) { resolve(false); return; }
     modalEl.querySelector('#sigovConfirmTitle').textContent = opts.title || 'Confirmar operação';
     modalEl.querySelector('#sigovConfirmMessage').textContent = opts.message || 'Confirme antes de continuar. Esta operação será auditada.';
     const ok = modalEl.querySelector('[data-sigov-confirm-ok]');
