@@ -1,0 +1,24 @@
+<div class="sigov-command-backdrop" data-sigov-command-close hidden></div>
+<section class="sigov-command" id="sigovCommandPalette" role="dialog" aria-modal="true" aria-labelledby="sigovCommandTitle" hidden>
+  <header class="sigov-command__header">
+    <div><span class="sigov-command__eyebrow">Navegação rápida</span><h2 id="sigovCommandTitle">O que você precisa fazer?</h2></div>
+    <button class="sigov-icon-btn" type="button" data-sigov-command-close aria-label="Fechar paleta">×</button>
+  </header>
+  <label class="visually-hidden" for="sigovCommandSearch">Buscar comando</label>
+  <input class="sigov-command__search" id="sigovCommandSearch" type="search" placeholder="Busque módulos e ações" autocomplete="off" />
+  <div class="sigov-command__results" data-sigov-command-results>
+    <p class="sigov-command__group">Criar</p>
+    <a href="/Comercial/Clientes/Novo" data-command="novo cliente cadastrar cliente">Novo cliente</a>
+    <a href="/Comercial/Propostas/Nova" data-command="nova proposta comercial">Nova proposta</a>
+    <a href="/OrdemServico/Nova" data-command="nova ordem serviço os">Nova ordem de serviço</a>
+    <a href="/Financeiro/ContasReceber/Nova" data-command="nova conta receber financeiro">Nova conta a receber</a>
+    <p class="sigov-command__group">Navegar</p>
+    <a href="/MinhaCentral" data-command="início minha central">Minha Central</a>
+    <a href="/ContratosB2B" data-command="contratos serviço recorrente">Contratos de serviço</a>
+    <a href="/Patrimonio" data-command="ativos equipamentos patrimônio">Ativos e equipamentos</a>
+    <a href="/Sla/Monitoramento" data-command="sla monitoramento prazo">Monitoramento de SLA</a>
+    <a href="/Ajuda" data-command="ajuda suporte manual">Central de ajuda</a>
+    <p class="sigov-command__empty" data-sigov-command-empty hidden>Nenhum comando encontrado. Tente outro termo.</p>
+  </div>
+  <footer><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></footer>
+</section>
