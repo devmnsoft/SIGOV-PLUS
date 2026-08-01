@@ -5,7 +5,7 @@
 <nav class="sigov-topbar" aria-label="Barra superior">
   <div class="sigov-topbar__left">
     <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu" title="Abrir menu">
-      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <sigov-icon name="menu" size="20" />
     </button>
     <a class="sigov-brand" href="/MinhaCentral" aria-label="Ir para Minha Central">
       <img class="sigov-logo" src="~/img/sigov-logo.svg" alt="" aria-hidden="true" />
@@ -15,14 +15,14 @@
   <form class="sigov-global-search" method="get" action="/Busca" role="search">
     <label class="visually-hidden" for="sigovGlobalSearch">Busca global</label>
     <input id="sigovGlobalSearch" class="form-control" name="q" type="search" placeholder="Buscar tarefas, protocolos e documentos" autocomplete="off">
-    <button class="sigov-icon-btn" type="submit" aria-label="Pesquisar" title="Pesquisar"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg></button>
+    <button class="sigov-icon-btn" type="submit" aria-label="Pesquisar" title="Pesquisar"><sigov-icon name="search" size="20" /></button>
   </form>
   <div class="sigov-topbar__actions">
     <button class="sigov-btn sigov-btn--primary sigov-btn--sm d-none d-sm-inline-flex" type="button" data-sigov-quick-create aria-haspopup="dialog">Novo</button>
-    <button class="sigov-icon-btn" type="button" data-sigov-command-open aria-haspopup="dialog" aria-label="Abrir paleta de comandos" title="Paleta de comandos (Ctrl+K)"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></button>
-    <a class="sigov-icon-btn" href="/Notificacoes" aria-label="Abrir notificações" title="Notificações"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></a>
-    <a class="sigov-icon-btn d-none d-sm-inline-flex" href="/Ajuda" aria-label="Abrir ajuda" title="Ajuda"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.3 2.4c-1 .4-1 1-1 2M12 17h.01"/></svg></a>
-    <button class="sigov-icon-btn" type="button" data-sigov-theme-toggle aria-label="Alternar tema" title="Alternar tema"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z"/></svg></button>
+    <sigov-icon-button icon="command" label="Abrir paleta de comandos" tooltip="Paleta de comandos (Ctrl+K)" action="command-open" />
+    <a class="sigov-icon-btn" href="/Notificacoes" aria-label="Abrir notificações" title="Notificações"><sigov-icon name="notifications" size="20" /></a>
+    <a class="sigov-icon-btn d-none d-sm-inline-flex" href="/Ajuda" aria-label="Abrir ajuda" title="Ajuda"><sigov-icon name="help" size="20" /></a>
+    <sigov-icon-button icon="theme" label="Alternar tema" action="theme-toggle" />
     @if (!string.IsNullOrWhiteSpace(usuarioNome)) {
       <span class="sigov-user-chip" title="@perfil"><span class="sigov-avatar" aria-hidden="true">@usuarioNome[..1].ToUpperInvariant()</span><span><strong>@usuarioNome</strong>@if (!string.IsNullOrWhiteSpace(perfil)) { <small>@perfil</small> }</span></span>
     }

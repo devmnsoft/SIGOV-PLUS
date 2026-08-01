@@ -215,6 +215,9 @@ jobs:
       - name: Static smoke with log
         shell: pwsh
         run: ./scripts/smoke-test-sigov.ps1 -StaticOnly 2>&1 | Tee-Object -FilePath smoke-static.log
+      - name: Validate web assets
+        shell: pwsh
+        run: ./scripts/validate-web-assets.ps1 2>&1 | Tee-Object -FilePath web-assets.log
       - if: always()
         uses: actions/upload-artifact@v4
         with:

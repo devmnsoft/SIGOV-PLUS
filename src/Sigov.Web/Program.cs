@@ -14,6 +14,7 @@ using Sigov.Web.Services;
 using Sigov.Web.Services.Operational;
 using Sigov.Web.Services.Editais;
 using Sigov.Web;
+using Sigov.Web.Services.Visual;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,8 @@ builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<ISigovBrandProvider, SigovBrandProvider>();
 builder.Services.AddSingleton<ITenantBrandingProvider, TenantBrandingProvider>();
+builder.Services.AddSingleton<IIconRegistry, IconRegistry>();
+builder.Services.AddSingleton<IVisualAssetProvider, VisualAssetProvider>();
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
