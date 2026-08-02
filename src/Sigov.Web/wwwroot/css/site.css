@@ -7,3 +7,11 @@
 @import url('./sigov-dashboard.css');
 @import url('./sigov-responsive.css');
 @import url('./sigov-utilities.css');
+
+/* Sprite inline disponível antes do app shell, sem ocupar espaço ou receber foco. */
+.sigov-icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
