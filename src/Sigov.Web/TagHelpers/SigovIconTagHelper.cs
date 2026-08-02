@@ -18,7 +18,7 @@ public sealed class SigovIconTagHelper(IIconRegistry registry) : TagHelper
         if (!Sizes.Contains(Size)) throw new InvalidOperationException($"Tamanho de ícone não canônico: {Size}");
         output.TagName = "svg";
         var suppliedClass = output.Attributes["class"]?.Value?.ToString();
-        output.Attributes.SetAttribute("class", string.Join(' ', new[] { "sigov-icon", $"sigov-icon--{Size}", suppliedClass }.Where(value => !string.IsNullOrWhiteSpace(value))));
+        output.Attributes.SetAttribute("class", string.Join(" ", new[] { "sigov-icon", $"sigov-icon--{Size}", suppliedClass }.Where(value => !string.IsNullOrWhiteSpace(value))));
         output.Attributes.SetAttribute("width", Size);
         output.Attributes.SetAttribute("height", Size);
         output.Attributes.SetAttribute("focusable", "false");
