@@ -486,6 +486,16 @@
       "checksum": "bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8"
     },
     {
+      "version": "20260730110000",
+      "file": "20260730110000_pos_rc_36b_permissao_chave_canonica.sql",
+      "description": "pos_rc_36b_permissao_chave_canonica",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "86277931662e2c1bd2c7acc1196c9c1c772c76e6a0d775203db61cea753c03d3",
+      "postConditionSql": "select to_regclass('sigov.permissao_chave_uidx') is not null and not exists (select chave from sigov.permissao group by chave having count(*) > 1)"
+    },
+    {
       "version": "20260730120000",
       "file": "20260730120000_pos_rc_29_comercial_operacional.sql",
       "description": "pos_rc_29_comercial_operacional",

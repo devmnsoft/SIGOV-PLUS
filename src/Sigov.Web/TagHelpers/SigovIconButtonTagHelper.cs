@@ -27,7 +27,7 @@ public sealed class SigovIconButtonTagHelper(IIconRegistry registry) : TagHelper
         else if (Type is "button" or "submit" or "reset") output.Attributes.SetAttribute("type", Type);
         else throw new InvalidOperationException($"Tipo de botão SIGOV inválido: {Type}");
         var suppliedClass = output.Attributes["class"]?.Value?.ToString();
-        output.Attributes.SetAttribute("class", string.Join(' ', new[] { "sigov-icon-btn", $"sigov-icon-btn--{Variant}", suppliedClass }.Where(value => !string.IsNullOrWhiteSpace(value))));
+        output.Attributes.SetAttribute("class", string.Join(" ", new[] { "sigov-icon-btn", $"sigov-icon-btn--{Variant}", suppliedClass }.Where(value => !string.IsNullOrWhiteSpace(value))));
         output.Attributes.SetAttribute("aria-label", Label);
         output.Attributes.SetAttribute("title", Tooltip ?? Label);
         if (!string.IsNullOrWhiteSpace(Action)) output.Attributes.SetAttribute($"data-sigov-{Action}", string.Empty);
