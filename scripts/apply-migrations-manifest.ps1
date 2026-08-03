@@ -17,7 +17,8 @@ $preflightFile = Join-Path $root 'database/postgres/bootstrap/000_preflight_lega
 $postMigrationFile = Join-Path $root 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
 $preflightTargets = @(
     '20260608120000_plantao_pro_white_label_b2b_launch.sql',
-    '20260730180000_pos_rc_30_financeiro_empresarial_real.sql'
+    '20260730180000_pos_rc_30_financeiro_empresarial_real.sql',
+    '20260730090000_pos_rc_32_ordem_servico.sql'
 )
 function Write-MigrationLog([object]$entry) { ($entry | ConvertTo-Json -Compress -Depth 6) | Add-Content -Path $logFile -Encoding UTF8 }
 function Sanitize-Error([string]$message) { if (-not $message) { return '' }; return ($message -replace '(?i)(password|pwd)\s*=\s*[^;\s]+','$1=***' -replace 'postgres(ql)?://[^\s]+','postgres://***') }
