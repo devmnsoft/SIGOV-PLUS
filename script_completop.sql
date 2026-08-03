@@ -10725,7 +10725,7 @@ begin
                tipo_pessoa = case when tipo_pessoa in ('F','J') then tipo_pessoa else 'J' end,
                documento_hash = coalesce(
                    nullif(documento_hash, ''),
-                   encode(digest(coalesce(nullif(documento, ''), id::text), 'sha256'), 'hex')
+                   encode(sha256(convert_to(coalesce(nullif(documento, ''), id::text), 'UTF8')), 'hex')
                ),
                documento_mascarado = coalesce(nullif(documento_mascarado, ''), nullif(documento, ''), 'NÃO INFORMADO'),
                razao_social = coalesce(nullif(razao_social, ''), nullif(nome, ''), 'Fornecedor legado'),
