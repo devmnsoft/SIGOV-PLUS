@@ -70,15 +70,17 @@ limit 1;";
                 return View(model);
             }
 
+            var access = await LoadAccessAsync(connection, user.Id, cancellationToken).ConfigureAwait(false);
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Name, user.Nome),
                 new(ClaimTypes.Email, user.Email),
                 new("login", user.Login),
-                new("tenant_id", user.TenantId?.ToString() ?? string.Empty),
-                new(ClaimTypes.Role, "ADMINISTRADOR_GERAL")
+                new("tenant_id", user.TenantId?.ToString() ?? string.Empty)
             };
+            claims.AddRange(access.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+            claims.AddRange(access.Permissions.Select(permission => new Claim("permission", permission)));
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)), new AuthenticationProperties
             {
                 IsPersistent = false,
@@ -115,6 +117,41 @@ limit 1;";
 
     private long? CurrentUserId() => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
+    private static async Task<UserAccess> LoadAccessAsync(System.Data.IDbConnection connection, long userId, CancellationToken cancellationToken)
+    {
+        const string sql = @"
+select distinct access_value
+from (
+    select pn.codigo as access_value
+      from sigov.usuario u
+      join sigov.perfil_nivel pn on pn.codigo = upper(trim(u.tipo_usuario)) and pn.ativo
+     where u.id = @UserId
+    union
+    select pn.codigo
+      from sigov.usuario_grupo ug
+      join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and not gp.is_deleted
+      join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
+      join sigov.perfil_nivel pn on pn.codigo = upper(trim(pa.codigo_externo)) and pn.ativo
+     where ug.usuario_id = @UserId and not ug.is_deleted
+) roles
+where access_value is not null;
+
+select distinct p.chave
+  from sigov.usuario_grupo ug
+  join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and not gp.is_deleted
+  join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
+  join sigov.perfil_permissao pp on pp.perfil_acesso_id = pa.id
+  join sigov.permissao p on p.id = pp.permissao_id and p.ativo and not p.is_deleted
+ where ug.usuario_id = @UserId and not ug.is_deleted;";
+
+        using var result = await connection.QueryMultipleAsync(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var roles = (await result.ReadAsync<string>().ConfigureAwait(false)).Where(IsSafeClaimValue).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var permissions = (await result.ReadAsync<string>().ConfigureAwait(false)).Where(IsSafeClaimValue).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return new UserAccess(roles, permissions);
+    }
+
+    private static bool IsSafeClaimValue(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 150;
+
     private static async Task RegistrarAuditoriaAsync(System.Data.IDbConnection connection, string acao, long? tenantId, long? usuarioId, string login, string? ip, string correlationId, CancellationToken cancellationToken)
     {
         const string sql = @"insert into sigov.auditoria_evento (tenant_id, usuario_id, acao, entidade, entidade_id, ip, user_agent, depois, correlation_id)
@@ -124,4 +161,5 @@ values (@TenantId, @UsuarioId, @Acao, 'sigov.usuario', @EntidadeId, @Ip, null, j
     }
 
     private sealed record LoginUserRow(long Id, long? TenantId, string Nome, string Login, string Email, string SenhaHash, bool Ativo, bool Bloqueado);
+    private sealed record UserAccess(IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> Permissions);
 }
