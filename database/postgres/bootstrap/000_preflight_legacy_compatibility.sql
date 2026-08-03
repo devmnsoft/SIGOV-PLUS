@@ -219,6 +219,10 @@ begin
 
         alter table sigov.os_apontamento
             alter column idempotency_key set not null;
+
+        create unique index if not exists ux_os_apontamento_idempotency_compat
+            on sigov.os_apontamento(tenant_id, idempotency_key)
+            where not is_deleted;
     end if;
 
     if to_regclass('sigov.os_status_historico') is not null then
@@ -230,7 +234,3 @@ begin
             add column if not exists updated_by varchar(80) not null default 'migration';
     end if;
 end $$;
-
-create unique index if not exists ux_os_apontamento_idempotency_compat
-    on sigov.os_apontamento(tenant_id, idempotency_key)
-    where not is_deleted;
