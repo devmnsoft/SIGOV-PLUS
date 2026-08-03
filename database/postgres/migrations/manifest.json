@@ -505,6 +505,16 @@
       "checksum": "7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5"
     },
     {
+      "version": "20260730170000",
+      "file": "20260730170000_financeiro_empresarial_legacy_columns_compat.sql",
+      "description": "financeiro_empresarial_legacy_columns_compat",
+      "category": "compatibility",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e",
+      "postConditionSql": "select not exists (select 1 from (values ('financeiro_conta_receber','tenant_id'),('financeiro_conta_receber','parcela'),('financeiro_conta_receber','competencia'),('financeiro_conta_pagar','tenant_id'),('financeiro_conta_pagar','parcela'),('financeiro_conta_pagar','competencia'),('financeiro_movimento','tenant_id'),('financeiro_movimento','conta_bancaria_id'),('financeiro_movimento','data_movimento')) required(table_name,column_name) where not exists (select 1 from information_schema.columns c where c.table_schema='sigov' and c.table_name=required.table_name and c.column_name=required.column_name))"
+    },
+    {
       "version": "20260730180000",
       "file": "20260730180000_pos_rc_30_financeiro_empresarial_real.sql",
       "description": "pos_rc_30_financeiro_empresarial_real",

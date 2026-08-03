@@ -5,10 +5,22 @@ namespace Sigov.Web.Services.Visual;
 public sealed class IconRegistry : IIconRegistry
 {
     private static readonly IReadOnlyDictionary<string, IconDefinition> Icons = Build();
-    public IReadOnlyCollection<IconDefinition> All => Icons.Values;
+    private static readonly IReadOnlyCollection<IconDefinition> AllIcons = Icons.Values.ToArray();
+    private static readonly IconDefinition MissingIcon = new(string.Empty, string.Empty, string.Empty);
 
-    public bool TryGet(string name, out IconDefinition definition) =>
-        Icons.TryGetValue(name.Trim().ToLowerInvariant(), out definition!);
+    public IReadOnlyCollection<IconDefinition> All => AllIcons;
+
+    public bool TryGet(string name, out IconDefinition definition)
+    {
+        if (!string.IsNullOrWhiteSpace(name) && Icons.TryGetValue(name.Trim(), out var found))
+        {
+            definition = found;
+            return true;
+        }
+
+        definition = MissingIcon;
+        return false;
+    }
 
     private static IReadOnlyDictionary<string, IconDefinition> Build()
     {
