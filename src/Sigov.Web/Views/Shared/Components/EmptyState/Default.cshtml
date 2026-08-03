@@ -1,10 +1,24 @@
 @model Sigov.Web.Models.Ui.EmptyStateViewModel
-<div class="sigov-empty-state text-center p-5 border rounded-4 bg-white">
-  <div class="sigov-empty-icon mb-3" aria-hidden="true">◇</div>
+<div class="sigov-empty-state text-center" role="status">
+  <div class="sigov-empty-icon" aria-hidden="true">
+    <sigov-icon name="@Model.Icon" size="32" />
+  </div>
   <h2 class="h5">@Model.Title</h2>
-  <p class="text-muted mb-3">@Model.Message</p>
-  @if (!string.IsNullOrWhiteSpace(Model.ActionText) && !string.IsNullOrWhiteSpace(Model.ActionUrl))
-  {
-    <a class="btn btn-outline-primary" href="@Model.ActionUrl">@Model.ActionText</a>
-  }
+  <p class="sigov-empty-state__message">@Model.Message</p>
+  <div class="sigov-empty-state__actions">
+    @if (Model.CanAct && !string.IsNullOrWhiteSpace(Model.ActionText) && !string.IsNullOrWhiteSpace(Model.ActionUrl))
+    {
+      <a class="btn btn-primary" href="@Model.ActionUrl">
+        <sigov-icon name="plus" size="18" />
+        <span>@Model.ActionText</span>
+      </a>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.HelpUrl))
+    {
+      <a class="btn btn-link" href="@Model.HelpUrl">
+        <sigov-icon name="help" size="18" />
+        <span>Ver ajuda</span>
+      </a>
+    }
+  </div>
 </div>

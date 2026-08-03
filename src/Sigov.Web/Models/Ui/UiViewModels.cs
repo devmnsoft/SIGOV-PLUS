@@ -12,7 +12,14 @@ public sealed record PageHeaderViewModel(string Title, string Subtitle, IReadOnl
 
 public sealed record ModuleCardViewModel(string Code, string Name, string Description, string Status, string Icon, string Url);
 
-public sealed record EmptyStateViewModel(string Title, string Message, string Icon = "bi-inbox", string? ActionText = null, string? ActionUrl = null);
+public sealed record EmptyStateViewModel(
+    string Title,
+    string Message,
+    string Icon = "documents",
+    string? ActionText = null,
+    string? ActionUrl = null,
+    string? HelpUrl = null,
+    bool CanAct = true);
 
 public sealed record FormActionViewModel(string Text, string Type, string CssClass);
 
