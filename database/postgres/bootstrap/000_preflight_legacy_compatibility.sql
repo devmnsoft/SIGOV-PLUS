@@ -60,8 +60,6 @@ begin
             v_table
         );
 
-        -- Copiar total de colunas legadas conhecidas somente quando valor_original
-        -- ainda não possui um valor positivo.
         if exists (
             select 1 from information_schema.columns
              where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_total'
@@ -84,7 +82,6 @@ begin
             );
         end if;
 
-        -- Preservar estruturas antigas que separavam juros e multa.
         if exists (
             select 1 from information_schema.columns
              where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_juros'
@@ -103,7 +100,6 @@ begin
             );
         end if;
 
-        -- Garantir exatamente o domínio exigido por ck_fin_cr_valores/ck_fin_cp_valores.
         execute format(
             'update sigov.%I
                 set valor_desconto = greatest(coalesce(valor_desconto, 0), 0),
@@ -126,3 +122,115 @@ begin
         );
     end loop;
 end $$;
+
+-- As tabelas de Ordem de Serviço foram criadas inicialmente com um contrato menor.
+-- A migration pós-RC 32 usa CREATE TABLE IF NOT EXISTS e, em seguida, cria índices
+-- parciais sobre colunas novas. Este bloco promove as tabelas antigas para o contrato
+-- novo antes da criação dos índices, preservando os registros já existentes.
+do $$
+begin
+    if to_regclass('sigov.os_ordem_servico') is not null then
+        alter table sigov.os_ordem_servico
+            add column if not exists cliente_nome varchar(250),
+            add column if not exists proposta_id uuid,
+            add column if not exists tecnico_id uuid,
+            add column if not exists equipe_id uuid,
+            add column if not exists prioridade varchar(20) not null default 'NORMAL',
+            add column if not exists origem varchar(30) not null default 'MANUAL',
+            add column if not exists endereco text,
+            add column if not exists prazo_sla timestamptz,
+            add column if not exists agendada_inicio timestamptz,
+            add column if not exists agendada_fim timestamptz,
+            add column if not exists inicio_real timestamptz,
+            add column if not exists conclusao_em timestamptz,
+            add column if not exists custo_real numeric(18,2) not null default 0,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_ordem_servico
+           set cliente_nome = coalesce(nullif(cliente_nome, ''), 'Não informado'),
+               descricao = coalesce(descricao, ''),
+               prioridade = coalesce(nullif(prioridade, ''), 'NORMAL'),
+               origem = coalesce(nullif(origem, ''), 'MANUAL'),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false),
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration');
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'agendada_para'
+        ) then
+            update sigov.os_ordem_servico
+               set agendada_inicio = coalesce(agendada_inicio, agendada_para);
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'concluida_em'
+        ) then
+            update sigov.os_ordem_servico
+               set conclusao_em = coalesce(conclusao_em, concluida_em);
+        end if;
+
+        alter table sigov.os_ordem_servico
+            alter column cliente_nome set default 'Não informado',
+            alter column cliente_nome set not null,
+            alter column descricao set default '',
+            alter column descricao set not null;
+    end if;
+
+    if to_regclass('sigov.os_item') is not null then
+        alter table sigov.os_item
+            add column if not exists unidade varchar(20) not null default 'UN',
+            add column if not exists ordem integer not null default 1,
+            add column if not exists executado boolean not null default false,
+            add column if not exists justificativa text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+    end if;
+
+    if to_regclass('sigov.os_apontamento') is not null then
+        alter table sigov.os_apontamento
+            add column if not exists atividade text not null default 'Atividade',
+            add column if not exists intervalo_minutos integer not null default 0,
+            add column if not exists idempotency_key varchar(200),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_apontamento
+           set idempotency_key = coalesce(nullif(idempotency_key, ''), 'legacy-' || id::text),
+               atividade = coalesce(nullif(atividade, ''), 'Atividade'),
+               intervalo_minutos = greatest(coalesce(intervalo_minutos, 0), 0),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.os_apontamento
+            alter column idempotency_key set not null;
+    end if;
+
+    if to_regclass('sigov.os_status_historico') is not null then
+        alter table sigov.os_status_historico
+            add column if not exists observacao text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration';
+    end if;
+end $$;
+
+create unique index if not exists ux_os_apontamento_idempotency_compat
+    on sigov.os_apontamento(tenant_id, idempotency_key)
+    where not is_deleted;
