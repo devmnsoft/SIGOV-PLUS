@@ -13,10 +13,4 @@ create table if not exists sigov.os_devolucao_peca(id uuid primary key default g
 create table if not exists sigov.os_status_historico(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null,status_anterior varchar(30),status_novo varchar(30) not null,observacao text,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
 create table if not exists sigov.os_idempotencia(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,operacao varchar(50) not null,chave varchar(200) not null,recurso_id uuid not null,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,operacao,chave));
 alter table if exists sigov.enterprise_integracao_financeira add column if not exists conta_receber_core_id bigint,add column if not exists tenant_core_id bigint;
-do $$
-begin
-    if to_regclass('sigov.enterprise_integracao_financeira') is not null then
-        create index if not exists ix_enterprise_financeiro_core
-            on sigov.enterprise_integracao_financeira(tenant_core_id,conta_receber_core_id);
-    end if;
-end $$;
+create index if not exists ix_enterprise_financeiro_core on sigov.enterprise_integracao_financeira(tenant_core_id,conta_receber_core_id);
