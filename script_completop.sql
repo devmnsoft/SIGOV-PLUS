@@ -4,6 +4,7 @@
 -- Fonte: database/postgres/migrations/manifest.json
 -- Gerado de forma determinística
 -- Arquivo autônomo sem includes, comandos shell ou seeds demonstrativos.
+-- Inclui compatibilidade idempotente para contratos legados e migrations concatenadas.
 -- Checksum oficial: SHA-256 do conteúdo UTF-8 normalizado com LF.
 
 do $$
@@ -32,6 +33,11 @@ alter table sigov.schema_migrations
     add column if not exists success boolean not null default true,
     add column if not exists execution_ms bigint null;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 001_create_sigov_schema.sql
 -- CATEGORY: schema
@@ -59,6 +65,11 @@ alter table sigov.schema_migrations
     add column if not exists execution_ms bigint null;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('001', 'create_sigov_schema', 'db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 002_create_sigov_infrastructure.sql
@@ -131,6 +142,11 @@ create table if not exists sigov.fila_evento (
 );
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('002', 'create_sigov_infrastructure', '82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 003_create_sigov_core.sql
@@ -409,6 +425,11 @@ create table if not exists sigov.agenda_obrigacao (
 );
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('003', 'create_sigov_core', '915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 004_create_sigov_security_audit_lgpd.sql
@@ -835,6 +856,11 @@ create table if not exists sigov.dpo_historico (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('004', 'create_sigov_security_audit_lgpd', '5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 005_create_sigov_bi_workflow.sql
 -- CATEGORY: schema
@@ -843,6 +869,11 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 -- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('005', 'create_sigov_bi_workflow', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 006_create_sigov_financeiro_tributario.sql
@@ -853,6 +884,11 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('006', 'create_sigov_financeiro_tributario', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 007_create_sigov_compras_rh_educacao.sql
 -- CATEGORY: schema
@@ -862,6 +898,11 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('007', 'create_sigov_compras_rh_educacao', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 008_create_sigov_saude_social_saneamento.sql
 -- CATEGORY: schema
@@ -870,6 +911,11 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 -- Contexto mantido no código por bounded context; novas tabelas deste grupo devem ser criadas diretamente no schema sigov.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('008', 'create_sigov_saude_social_saneamento', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 009_create_sigov_suporte_integracao_geo.sql
@@ -1084,6 +1130,11 @@ create table if not exists sigov.geolocalizacao (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('009', 'create_sigov_suporte_integracao_geo', 'be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 010_create_sigov_indexes_constraints.sql
 -- CATEGORY: schema
@@ -1116,6 +1167,11 @@ create index if not exists idx_endereco_pessoa_id on sigov.endereco(pessoa_id);
 create index if not exists idx_contato_pessoa_id on sigov.contato(pessoa_id);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('010', 'create_sigov_indexes_constraints', 'ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 012_compat_move_legacy_schemas_to_sigov.sql
@@ -1153,6 +1209,11 @@ begin
 end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('012', 'compat_move_legacy_schemas_to_sigov', 'cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 013_sigov_foundation_refactor_fixups.sql
@@ -1260,6 +1321,11 @@ create index if not exists idx_permissao_modulo_recurso_acao on sigov.permissao 
 create index if not exists idx_controle_sequencial_chave on sigov.controle_sequencial (chave, ano);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('013', 'sigov_foundation_refactor_fixups', '83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 014_saas_tenants_planos_assinaturas.sql
@@ -1466,6 +1532,11 @@ on conflict (slug) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('014', 'saas_tenants_planos_assinaturas', 'b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 015_saas_tenant_id_operational_tables.sql
 -- CATEGORY: schema
@@ -1525,6 +1596,11 @@ create index if not exists idx_trilha_auditoria_tenant_created_at on sigov.trilh
 create index if not exists idx_solicitacao_titular_tenant_status on sigov.solicitacao_titular (tenant_id, status);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('015', 'saas_tenant_id_operational_tables', '0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 016_saas_rls_indexes_usage_operacao.sql
@@ -1690,6 +1766,11 @@ create index if not exists idx_tenant_assinatura_status on sigov.tenant_assinatu
 create index if not exists idx_tenant_modulo_tenant_modulo on sigov.tenant_modulo (tenant_id, modulo_saas_id);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('016', 'saas_rls_indexes_usage_operacao', 'b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 017_processos_digitais_protocolo_ged.sql
@@ -2109,6 +2190,11 @@ on conflict (modulo, chave) do update set recurso = excluded.recurso, acao = exc
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('017', 'processos_digitais_protocolo_ged', '591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 018_financeiro_siafic_base.sql
 -- CATEGORY: schema
@@ -2296,6 +2382,11 @@ where t.is_deleted=false on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('018', 'financeiro_siafic_base', '6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 019_core_pessoas_enderecos_operacional.sql
 -- CATEGORY: schema
@@ -2329,6 +2420,11 @@ values
 on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('019', 'core_pessoas_enderecos_operacional', 'b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 020_rh_completo.sql
@@ -2410,6 +2506,11 @@ values
 on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('020', 'rh_completo', '614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 021_educacao_base.sql
@@ -2978,6 +3079,11 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('021', 'educacao_base', '3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 022_saude_acs_base.sql
 -- CATEGORY: schema
@@ -3368,6 +3474,11 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('022', 'saude_acs_base', '4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 023_saneamento_base.sql
 -- CATEGORY: schema
@@ -3697,6 +3808,11 @@ on conflict (modulo, recurso, acao) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('023', 'saneamento_base', 'a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 024_assistencia_social_base.sql
 -- CATEGORY: schema
@@ -3757,6 +3873,26 @@ insert into sigov.permissao (modulo, recurso, acao, chave, descricao, ativo) val
 ('social','dashboard','visualizar','social.dashboard.visualizar','Visualizar dashboard social',true),('social','unidade','visualizar','social.unidade.visualizar','Visualizar unidades sociais',true),('social','unidade','criar','social.unidade.criar','Criar unidade social',true),('social','unidade','editar','social.unidade.editar','Editar unidade social',true),('social','unidade','excluir','social.unidade.excluir','Excluir unidade social',true),('social','familia','visualizar','social.familia.visualizar','Visualizar famílias',true),('social','familia','criar','social.familia.criar','Criar família',true),('social','familia','editar','social.familia.editar','Editar família',true),('social','familia','excluir','social.familia.excluir','Excluir família',true),('social','familia','visualizar_dados_completos','social.familia.visualizar_dados_completos','Visualizar dados completos de família',true),('social','pessoa','visualizar','social.pessoa.visualizar','Visualizar pessoas sociais',true),('social','pessoa','criar','social.pessoa.criar','Criar pessoa social',true),('social','pessoa','editar','social.pessoa.editar','Editar pessoa social',true),('social','pessoa','excluir','social.pessoa.excluir','Excluir pessoa social',true),('social','cadastro','criar','social.cadastro.criar','Criar cadastro social',true),('social','vulnerabilidade','criar','social.vulnerabilidade.criar','Registrar vulnerabilidade',true),('social','programa','visualizar','social.programa.visualizar','Visualizar programas',true),('social','programa','criar','social.programa.criar','Criar programa',true),('social','programa','editar','social.programa.editar','Editar programa',true),('social','programa','excluir','social.programa.excluir','Excluir programa',true),('social','beneficio','visualizar','social.beneficio.visualizar','Visualizar benefícios',true),('social','beneficio','criar','social.beneficio.criar','Criar benefício',true),('social','beneficio','editar','social.beneficio.editar','Editar benefício',true),('social','beneficio','conceder','social.beneficio.conceder','Conceder benefício',true),('social','beneficio','autorizar','social.beneficio.autorizar','Autorizar benefício',true),('social','beneficio','entregar','social.beneficio.entregar','Entregar benefício',true),('social','atendimento','visualizar','social.atendimento.visualizar','Visualizar atendimentos',true),('social','atendimento','criar','social.atendimento.criar','Criar atendimento',true),('social','atendimento','encaminhar','social.atendimento.encaminhar','Criar encaminhamento',true),('social','visita','visualizar','social.visita.visualizar','Visualizar visitas',true),('social','visita','criar','social.visita.criar','Criar visita',true),('social','parecer','visualizar','social.parecer.visualizar','Visualizar pareceres',true),('social','parecer','criar','social.parecer.criar','Criar parecer',true),('social','parecer','visualizar_sigiloso','social.parecer.visualizar_sigiloso','Visualizar parecer sigiloso',true),('social','acompanhamento','visualizar','social.acompanhamento.visualizar','Visualizar acompanhamento',true),('social','acompanhamento','criar','social.acompanhamento.criar','Criar acompanhamento',true),('social','acompanhamento','encerrar','social.acompanhamento.encerrar','Encerrar acompanhamento',true),('social','vigilancia','visualizar','social.vigilancia.visualizar','Visualizar vigilância',true),('social','vigilancia','criar','social.vigilancia.criar','Criar vigilância',true),('social','exportar','executar','social.exportar','Exportar dados sociais',true) on conflict (modulo, recurso, acao) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('024', 'assistencia_social_base', '4a05c6594b297f58185fd5c1cfa0b4fd93f4d725a56e4c4f2135d86e49096531', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 030_pre_025_integration_views.sql
+-- STAGE: BEFORE 025_integracoes_outbox_webhooks_base.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- A migration 025 altera tipos de colunas usadas pelas próprias views que ela cria.
+-- Na segunda execução, PostgreSQL impede ALTER TYPE enquanto essas views existem.
+-- Removê-las imediatamente antes é seguro porque a mesma migration as recria.
+
+drop view if exists sigov.vw_integracao_dashboard;
+drop view if exists sigov.vw_integracao_outbox_resumo;
+drop view if exists sigov.vw_integracao_webhooks_resumo;
+drop view if exists sigov.vw_integracao_remessas_resumo;
+drop view if exists sigov.vw_integracao_erros_recentes;
 
 -- ==================================================
 -- MIGRATION: 025_integracoes_outbox_webhooks_base.sql
@@ -3961,6 +4097,71 @@ where t.slug = 'municipio-demo'
 on conflict (tenant_id, codigo) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('025', 'integracoes_outbox_webhooks_base', 'f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 040_pre_026_feature_flags.sql
+-- STAGE: BEFORE 026_agro_fundacao_geo_dashboard.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- Migrations de domínio mais antigas gravam feature flags por modulo_codigo e
+-- feature_codigo. O contrato SaaS final exige feature_flag_def_id. Este preflight
+-- antecipa as colunas de compatibilidade e resolve a definição canônica antes das
+-- constraints, tanto na primeira quanto na segunda execução.
+
+-- A migration 026 cria uma versão fundacional da view. Migrations Agro posteriores
+-- acrescentam colunas. Na segunda passagem, CREATE OR REPLACE não pode remover essas
+-- colunas; a view é removida aqui e recriada imediatamente pela migration 026.
+drop view if exists sigov.vw_agro_dashboard;
+
+alter table sigov.tenant_feature_flag
+    add column if not exists modulo_codigo varchar(80),
+    add column if not exists feature_codigo varchar(120),
+    add column if not exists habilitada boolean not null default false,
+    add column if not exists parametros_json jsonb not null default '{}'::jsonb;
+
+create or replace function sigov.fn_tenant_feature_flag_resolver_definicao()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.feature_flag_def_id is null and new.feature_codigo is not null then
+        select f.id
+          into new.feature_flag_def_id
+          from sigov.feature_flag_def f
+         where f.codigo = new.feature_codigo
+           and f.ativo = true
+           and f.is_deleted = false
+         order by f.id
+         limit 1;
+    end if;
+
+    if new.feature_flag_def_id is not null then
+        select coalesce(new.modulo_codigo, f.modulo),
+               coalesce(new.feature_codigo, f.codigo)
+          into new.modulo_codigo, new.feature_codigo
+          from sigov.feature_flag_def f
+         where f.id = new.feature_flag_def_id;
+    end if;
+
+    if new.feature_flag_def_id is null then
+        raise exception 'Definição não encontrada para a feature flag %.', coalesce(new.feature_codigo, '<nula>')
+            using errcode = '23503';
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_tenant_feature_flag_resolver_definicao on sigov.tenant_feature_flag;
+create trigger trg_tenant_feature_flag_resolver_definicao
+before insert or update of feature_flag_def_id, feature_codigo, modulo_codigo
+on sigov.tenant_feature_flag
+for each row
+execute function sigov.fn_tenant_feature_flag_resolver_definicao();
 
 -- ==================================================
 -- MIGRATION: 026_agro_fundacao_geo_dashboard.sql
@@ -4187,6 +4388,11 @@ select k.tenant_id,
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('026', 'agro_fundacao_geo_dashboard', '00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260607090000_ui_commercial_finish.sql
 -- CATEGORY: schema
@@ -4276,6 +4482,11 @@ CREATE INDEX IF NOT EXISTS ix_onboarding_tarefa_tenant_jornada ON sigov.onboardi
 CREATE INDEX IF NOT EXISTS ix_onboarding_evento_tenant_jornada ON sigov.onboarding_evento (tenant_id, jornada_id, created_at);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260607090000', 'ui_commercial_finish', '5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260608090000_saas_parametrizacao_perfis_modulos.sql
@@ -4500,6 +4711,11 @@ create index if not exists idx_usuario_contexto_global_log_tenant on sigov.usuar
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608090000', 'saas_parametrizacao_perfis_modulos', '3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260608100000_agro_produtores_propriedades_producao.sql
 -- CATEGORY: schema
@@ -4561,6 +4777,11 @@ select k.tenant_id,k.entidade_id,coalesce(c.total_camadas,0)::bigint total_camad
 from chaves k left join camadas c on c.tenant_id=k.tenant_id and c.entidade_id is not distinct from k.entidade_id left join feicoes f on f.tenant_id=k.tenant_id and f.entidade_id is not distinct from k.entidade_id left join eventos e on e.tenant_id=k.tenant_id and e.entidade_id is not distinct from k.entidade_id left join produtores p on p.tenant_id=k.tenant_id and p.entidade_id is not distinct from k.entidade_id left join propriedades pr on pr.tenant_id=k.tenant_id and pr.entidade_id is not distinct from k.entidade_id left join talhoes t on t.tenant_id=k.tenant_id and t.entidade_id is not distinct from k.entidade_id left join culturas cu on cu.tenant_id=k.tenant_id and cu.entidade_id is not distinct from k.entidade_id left join safras s on s.tenant_id=k.tenant_id and s.entidade_id is not distinct from k.entidade_id left join producao pa on pa.tenant_id=k.tenant_id and pa.entidade_id is not distinct from k.entidade_id;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608100000', 'agro_produtores_propriedades_producao', '64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260608110000_agro_programas_beneficios_patrulha_mecanizada.sql
@@ -4664,6 +4885,252 @@ select k.tenant_id,k.entidade_id,coalesce(c.total_camadas,0)::bigint total_camad
 from chaves k left join camadas c on c.tenant_id=k.tenant_id and c.entidade_id is not distinct from k.entidade_id left join feicoes f on f.tenant_id=k.tenant_id and f.entidade_id is not distinct from k.entidade_id left join eventos e on e.tenant_id=k.tenant_id and e.entidade_id is not distinct from k.entidade_id left join produtores p on p.tenant_id=k.tenant_id and p.entidade_id is not distinct from k.entidade_id left join propriedades pr on pr.tenant_id=k.tenant_id and pr.entidade_id is not distinct from k.entidade_id left join talhoes t on t.tenant_id=k.tenant_id and t.entidade_id is not distinct from k.entidade_id left join culturas cu on cu.tenant_id=k.tenant_id and cu.entidade_id is not distinct from k.entidade_id left join safras sf on sf.tenant_id=k.tenant_id and sf.entidade_id is not distinct from k.entidade_id left join producao pa on pa.tenant_id=k.tenant_id and pa.entidade_id is not distinct from k.entidade_id left join programas pg on pg.tenant_id=k.tenant_id and pg.entidade_id is not distinct from k.entidade_id left join beneficios bn on bn.tenant_id=k.tenant_id and bn.entidade_id is not distinct from k.entidade_id left join concessoes co on co.tenant_id=k.tenant_id and co.entidade_id is not distinct from k.entidade_id left join insumos_mes im on im.tenant_id=k.tenant_id and im.entidade_id is not distinct from k.entidade_id left join maquinas m on m.tenant_id=k.tenant_id and m.entidade_id is not distinct from k.entidade_id left join servicos sv on sv.tenant_id=k.tenant_id and sv.entidade_id is not distinct from k.entidade_id left join conflitos cf on cf.tenant_id=k.tenant_id and cf.entidade_id is not distinct from k.entidade_id;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608110000', 'agro_programas_beneficios_patrulha_mecanizada', 'eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 000_preflight_legacy_compatibility.sql
+-- STAGE: BEFORE 20260608120000_plantao_pro_white_label_b2b_launch.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- Pré-voo idempotente para reparar estruturas legadas antes das migrations críticas.
+-- Não cria dados operacionais; garante somente as colunas e valores mínimos exigidos
+-- por migrations históricas que usam CREATE TABLE IF NOT EXISTS seguido de índices
+-- ou constraints sobre estruturas que já podem existir em formato antigo.
+
+create schema if not exists sigov;
+create schema if not exists plantaopro;
+
+-- As tabelas genéricas do schema plantaopro podem existir em formato legado.
+-- A migration 20260608120000 cria índices em todas estas colunas; portanto elas
+-- precisam existir antes de o script chegar àquele bloco.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select table_name
+          from information_schema.tables
+         where table_schema = 'plantaopro'
+           and table_type = 'BASE TABLE'
+    loop
+        execute format('alter table plantaopro.%I add column if not exists tenant_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists cliente_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists plano_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists parceiro_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists status varchar(60) not null default ''ATIVO''', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists codigo varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists nome varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dominio varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists subdominio varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists api_key_hash varchar(128) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dados jsonb not null default ''{}''::jsonb', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists reg_date timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists created_at timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists updated_at timestamptz null', r.table_name);
+    end loop;
+end $$;
+
+-- A migration financeira pós-RC cria constraints sobre os quatro campos abaixo.
+-- Em instalações legadas a tabela pode existir sem esses campos ou com registros que
+-- não atendem ao novo contrato. A normalização preserva os valores válidos e ajusta
+-- somente registros incompatíveis, antes de a constraint ser criada.
+do $$
+declare
+    v_table text;
+begin
+    foreach v_table in array array['financeiro_conta_receber', 'financeiro_conta_pagar']
+    loop
+        if to_regclass(format('sigov.%I', v_table)) is null then
+            continue;
+        end if;
+
+        execute format(
+            'alter table sigov.%I
+                add column if not exists valor_original numeric(14,2) not null default 0,
+                add column if not exists valor_desconto numeric(14,2) not null default 0,
+                add column if not exists valor_acrescimo numeric(14,2) not null default 0,
+                add column if not exists valor_aberto numeric(14,2) not null default 0',
+            v_table
+        );
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_total'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor_total, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor_total, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_juros'
+        ) and exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_multa'
+        ) then
+            execute format(
+                'update sigov.%I
+                    set valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0)
+                                         + greatest(coalesce(valor_juros, 0), 0)
+                                         + greatest(coalesce(valor_multa, 0), 0)
+                  where coalesce(valor_acrescimo, 0) = 0
+                    and (coalesce(valor_juros, 0) <> 0 or coalesce(valor_multa, 0) <> 0)',
+                v_table
+            );
+        end if;
+
+        execute format(
+            'update sigov.%I
+                set valor_desconto = greatest(coalesce(valor_desconto, 0), 0),
+                    valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0),
+                    valor_original = greatest(
+                        coalesce(valor_original, 0),
+                        greatest(coalesce(valor_aberto, 0), 0) - greatest(coalesce(valor_acrescimo, 0), 0),
+                        0.01
+                    )',
+            v_table
+        );
+
+        execute format(
+            'update sigov.%I
+                set valor_aberto = least(
+                    greatest(coalesce(valor_aberto, 0), 0),
+                    valor_original + valor_acrescimo
+                )',
+            v_table
+        );
+    end loop;
+end $$;
+
+-- As tabelas de Ordem de Serviço foram criadas inicialmente com um contrato menor.
+-- A migration pós-RC 32 usa CREATE TABLE IF NOT EXISTS e, em seguida, cria índices
+-- parciais sobre colunas novas. Este bloco promove as tabelas antigas para o contrato
+-- novo antes da criação dos índices, preservando os registros já existentes.
+do $$
+begin
+    if to_regclass('sigov.os_ordem_servico') is not null then
+        alter table sigov.os_ordem_servico
+            add column if not exists cliente_nome varchar(250),
+            add column if not exists proposta_id uuid,
+            add column if not exists tecnico_id uuid,
+            add column if not exists equipe_id uuid,
+            add column if not exists prioridade varchar(20) not null default 'NORMAL',
+            add column if not exists origem varchar(30) not null default 'MANUAL',
+            add column if not exists endereco text,
+            add column if not exists prazo_sla timestamptz,
+            add column if not exists agendada_inicio timestamptz,
+            add column if not exists agendada_fim timestamptz,
+            add column if not exists inicio_real timestamptz,
+            add column if not exists conclusao_em timestamptz,
+            add column if not exists custo_real numeric(18,2) not null default 0,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_ordem_servico
+           set cliente_nome = coalesce(nullif(cliente_nome, ''), 'Não informado'),
+               descricao = coalesce(descricao, ''),
+               prioridade = coalesce(nullif(prioridade, ''), 'NORMAL'),
+               origem = coalesce(nullif(origem, ''), 'MANUAL'),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false),
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration');
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'agendada_para'
+        ) then
+            update sigov.os_ordem_servico
+               set agendada_inicio = coalesce(agendada_inicio, agendada_para);
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'concluida_em'
+        ) then
+            update sigov.os_ordem_servico
+               set conclusao_em = coalesce(conclusao_em, concluida_em);
+        end if;
+
+        alter table sigov.os_ordem_servico
+            alter column cliente_nome set default 'Não informado',
+            alter column cliente_nome set not null,
+            alter column descricao set default '',
+            alter column descricao set not null;
+    end if;
+
+    if to_regclass('sigov.os_item') is not null then
+        alter table sigov.os_item
+            add column if not exists unidade varchar(20) not null default 'UN',
+            add column if not exists ordem integer not null default 1,
+            add column if not exists executado boolean not null default false,
+            add column if not exists justificativa text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+    end if;
+
+    if to_regclass('sigov.os_apontamento') is not null then
+        alter table sigov.os_apontamento
+            add column if not exists atividade text not null default 'Atividade',
+            add column if not exists intervalo_minutos integer not null default 0,
+            add column if not exists idempotency_key varchar(200),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_apontamento
+           set idempotency_key = coalesce(nullif(idempotency_key, ''), 'legacy-' || id::text),
+               atividade = coalesce(nullif(atividade, ''), 'Atividade'),
+               intervalo_minutos = greatest(coalesce(intervalo_minutos, 0), 0),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.os_apontamento
+            alter column idempotency_key set not null;
+
+        create unique index if not exists ux_os_apontamento_idempotency_compat
+            on sigov.os_apontamento(tenant_id, idempotency_key)
+            where not is_deleted;
+    end if;
+
+    if to_regclass('sigov.os_status_historico') is not null then
+        alter table sigov.os_status_historico
+            add column if not exists observacao text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration';
+    end if;
+end $$;
 
 -- ==================================================
 -- MIGRATION: 20260608120000_plantao_pro_white_label_b2b_launch.sql
@@ -5092,6 +5559,11 @@ END $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608120000', 'plantao_pro_white_label_b2b_launch', '935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260608120000_saas_comercial_white_label_planos.sql
 -- CATEGORY: schema
@@ -5403,6 +5875,11 @@ on conflict (codigo) do update set nome=excluded.nome, nivel_base=excluded.nivel
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608120001', 'saas_comercial_white_label_planos', '3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260608130000_agro_estradas_feiras_agroindustrias.sql
 -- CATEGORY: schema
@@ -5480,6 +5957,11 @@ select k.tenant_id,k.entidade_id,coalesce(base.total_camadas,0)::bigint total_ca
 -- AgroGeoFeicaoAtualizada. Payload mínimo: tenantId, entidadeId, exercicioId, origem, origemId, tipoEvento, correlationId.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608130000', 'agro_estradas_feiras_agroindustrias', 'c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260608140000_agro_relatorios_bi_transparencia.sql
@@ -5560,6 +6042,11 @@ insert into sigov.agro_dicionario_dados(tabela_nome,campo_nome,nome_amigavel,des
 on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608140000', 'agro_relatorios_bi_transparencia', '48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260609090000_pos_build_dashboard_saas.sql
@@ -5653,6 +6140,11 @@ left join sigov.usuario u on false
 where false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260609090000', 'pos_build_dashboard_saas', 'e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260609120000_pos_build_03_saas_implantacao_tributario.sql
@@ -5913,6 +6405,11 @@ on conflict (tenant_id,codigo) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260609120000', 'pos_build_03_saas_implantacao_tributario', '81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260610100000_pos_build_04_enterprise_modules.sql
 -- CATEGORY: schema
@@ -5981,6 +6478,11 @@ values
 on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=excluded.descricao, ativo=true;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610100000', 'pos_build_04_enterprise_modules', 'ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260610120000_pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro.sql
@@ -6420,6 +6922,11 @@ on conflict (plano_id, modulo_codigo) do update set incluso=true;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610120000', 'pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro', '884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260610150000_pos_build_06_industria_producao.sql
 -- CATEGORY: schema
@@ -6838,6 +7345,11 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610150000', 'pos_build_06_industria_producao', '2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260610180000_pos_build_07_financeiro_integrado.sql
 -- CATEGORY: schema
@@ -6915,6 +7427,11 @@ where pa.ativo=true and pa.is_deleted=false and coalesce(pa.codigo_externo, uppe
 and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coalesce(pa.tenant_id, t.id) and pp.perfil_acesso_id = pa.id and pp.permissao_id = p.id);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610180000', 'pos_build_07_financeiro_integrado', '7524a57b97313f65ca623dfbb1865d20588fbc55d23d69835e550c8837c291fe', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260610200000_pos_build_08_tributario_avancado_iptu_iss_dam.sql
@@ -7244,6 +7761,11 @@ where t.slug in ('plataforma-global','prefeitura-demo','tenant-demo')
 on conflict (tenant_id, codigo) do update set nome=excluded.nome, aliquota=excluded.aliquota, fundamento_legal=excluded.fundamento_legal, updated_at=now();
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610200000', 'pos_build_08_tributario_avancado_iptu_iss_dam', '3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260610220000_pos_build_09_ged_ocr_assinatura_automacao.sql
@@ -7645,6 +8167,11 @@ on conflict (codigo) do update set nome=excluded.nome, descricao=excluded.descri
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610220000', 'pos_build_09_ged_ocr_assinatura_automacao', 'f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260611110000_pos_build_11_ia_automacao_assistentes.sql
 -- CATEGORY: schema
@@ -8004,6 +8531,11 @@ on conflict (modulo, chave) do update set
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', '8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql
 -- CATEGORY: schema
@@ -8355,6 +8887,11 @@ on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611130000', 'pos_build_12_mobile_pwa_campo_offline_geo', '2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260706120000_consolidacao_modulos_transversais.sql
 -- CATEGORY: schema
@@ -8467,6 +9004,11 @@ COMMENT ON TABLE sigov.outbox_evento IS 'Outbox transacional para eventos operac
 COMMENT ON TABLE sigov.protocolo IS 'Protocolo operacional multi-tenant; não representa simulação quando persistido por fluxo homologado.';
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706120000', 'consolidacao_modulos_transversais', '5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql
@@ -8647,6 +9189,11 @@ select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_out
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706153000', 'pos_rc_protocolo_ged_workflow_api_outbox', 'a8b4347d56e0a9debcbe6ae15c254a5650e638c30454c0b6ada9fb062102ce39', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260709120000_enterprise_funcional_crud.sql
 -- CATEGORY: schema
@@ -8703,6 +9250,11 @@ create unique index if not exists enterprise_estoque_saldo_tenant_produto_uidx o
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260709120000', 'enterprise_funcional_crud', 'db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260713120000_pos_rc_11_enterprise_anexos_release.sql
 -- CATEGORY: schema
@@ -8738,6 +9290,11 @@ where not exists (
 );
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260713120000', 'pos_rc_11_enterprise_anexos_release', '50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260721120000_pos_rc_17_runtime_nucleo_operacional.sql
@@ -8883,6 +9440,11 @@ commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260721120000', 'pos_rc_17_runtime_nucleo_operacional', '0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260727120000_pos_rc_27b2_tarefa_canonica.sql
 -- CATEGORY: schema
@@ -8986,6 +9548,11 @@ end
 $migration$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260727120000', 'pos_rc_27b2_tarefa_canonica', '177f36a01775fbc78039e1f77555def37ed0e15442946530bd55f5bd9539c62d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260727160000_pos_rc_27b3_operacional_canonico.sql
@@ -9095,6 +9662,11 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260727160000', 'pos_rc_27b3_operacional_canonico', 'bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260730110000_pos_rc_36b_permissao_chave_canonica.sql
 -- CATEGORY: schema
@@ -9163,6 +9735,11 @@ create unique index if not exists permissao_chave_uidx
 drop table if exists pg_temp.permissao_chave_canonica;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730110000', 'pos_rc_36b_permissao_chave_canonica', '740ef5203f9c67ee5c1519cd8baa971638bea21dd2d4c3a9371ea117308731c3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260730120000_pos_rc_29_comercial_operacional.sql
@@ -9288,6 +9865,11 @@ select 'COMERCIAL', split_part(chave,'.',2), split_part(chave,'.',3), chave, des
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730120000', 'pos_rc_29_comercial_operacional', '7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260730170000_financeiro_empresarial_legacy_columns_compat.sql
 -- CATEGORY: compatibility
@@ -9347,6 +9929,252 @@ end
 $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730170000', 'financeiro_empresarial_legacy_columns_compat', '8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e', 'compatibility', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 000_preflight_legacy_compatibility.sql
+-- STAGE: BEFORE 20260730180000_pos_rc_30_financeiro_empresarial_real.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- Pré-voo idempotente para reparar estruturas legadas antes das migrations críticas.
+-- Não cria dados operacionais; garante somente as colunas e valores mínimos exigidos
+-- por migrations históricas que usam CREATE TABLE IF NOT EXISTS seguido de índices
+-- ou constraints sobre estruturas que já podem existir em formato antigo.
+
+create schema if not exists sigov;
+create schema if not exists plantaopro;
+
+-- As tabelas genéricas do schema plantaopro podem existir em formato legado.
+-- A migration 20260608120000 cria índices em todas estas colunas; portanto elas
+-- precisam existir antes de o script chegar àquele bloco.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select table_name
+          from information_schema.tables
+         where table_schema = 'plantaopro'
+           and table_type = 'BASE TABLE'
+    loop
+        execute format('alter table plantaopro.%I add column if not exists tenant_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists cliente_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists plano_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists parceiro_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists status varchar(60) not null default ''ATIVO''', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists codigo varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists nome varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dominio varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists subdominio varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists api_key_hash varchar(128) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dados jsonb not null default ''{}''::jsonb', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists reg_date timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists created_at timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists updated_at timestamptz null', r.table_name);
+    end loop;
+end $$;
+
+-- A migration financeira pós-RC cria constraints sobre os quatro campos abaixo.
+-- Em instalações legadas a tabela pode existir sem esses campos ou com registros que
+-- não atendem ao novo contrato. A normalização preserva os valores válidos e ajusta
+-- somente registros incompatíveis, antes de a constraint ser criada.
+do $$
+declare
+    v_table text;
+begin
+    foreach v_table in array array['financeiro_conta_receber', 'financeiro_conta_pagar']
+    loop
+        if to_regclass(format('sigov.%I', v_table)) is null then
+            continue;
+        end if;
+
+        execute format(
+            'alter table sigov.%I
+                add column if not exists valor_original numeric(14,2) not null default 0,
+                add column if not exists valor_desconto numeric(14,2) not null default 0,
+                add column if not exists valor_acrescimo numeric(14,2) not null default 0,
+                add column if not exists valor_aberto numeric(14,2) not null default 0',
+            v_table
+        );
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_total'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor_total, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor_total, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_juros'
+        ) and exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_multa'
+        ) then
+            execute format(
+                'update sigov.%I
+                    set valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0)
+                                         + greatest(coalesce(valor_juros, 0), 0)
+                                         + greatest(coalesce(valor_multa, 0), 0)
+                  where coalesce(valor_acrescimo, 0) = 0
+                    and (coalesce(valor_juros, 0) <> 0 or coalesce(valor_multa, 0) <> 0)',
+                v_table
+            );
+        end if;
+
+        execute format(
+            'update sigov.%I
+                set valor_desconto = greatest(coalesce(valor_desconto, 0), 0),
+                    valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0),
+                    valor_original = greatest(
+                        coalesce(valor_original, 0),
+                        greatest(coalesce(valor_aberto, 0), 0) - greatest(coalesce(valor_acrescimo, 0), 0),
+                        0.01
+                    )',
+            v_table
+        );
+
+        execute format(
+            'update sigov.%I
+                set valor_aberto = least(
+                    greatest(coalesce(valor_aberto, 0), 0),
+                    valor_original + valor_acrescimo
+                )',
+            v_table
+        );
+    end loop;
+end $$;
+
+-- As tabelas de Ordem de Serviço foram criadas inicialmente com um contrato menor.
+-- A migration pós-RC 32 usa CREATE TABLE IF NOT EXISTS e, em seguida, cria índices
+-- parciais sobre colunas novas. Este bloco promove as tabelas antigas para o contrato
+-- novo antes da criação dos índices, preservando os registros já existentes.
+do $$
+begin
+    if to_regclass('sigov.os_ordem_servico') is not null then
+        alter table sigov.os_ordem_servico
+            add column if not exists cliente_nome varchar(250),
+            add column if not exists proposta_id uuid,
+            add column if not exists tecnico_id uuid,
+            add column if not exists equipe_id uuid,
+            add column if not exists prioridade varchar(20) not null default 'NORMAL',
+            add column if not exists origem varchar(30) not null default 'MANUAL',
+            add column if not exists endereco text,
+            add column if not exists prazo_sla timestamptz,
+            add column if not exists agendada_inicio timestamptz,
+            add column if not exists agendada_fim timestamptz,
+            add column if not exists inicio_real timestamptz,
+            add column if not exists conclusao_em timestamptz,
+            add column if not exists custo_real numeric(18,2) not null default 0,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_ordem_servico
+           set cliente_nome = coalesce(nullif(cliente_nome, ''), 'Não informado'),
+               descricao = coalesce(descricao, ''),
+               prioridade = coalesce(nullif(prioridade, ''), 'NORMAL'),
+               origem = coalesce(nullif(origem, ''), 'MANUAL'),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false),
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration');
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'agendada_para'
+        ) then
+            update sigov.os_ordem_servico
+               set agendada_inicio = coalesce(agendada_inicio, agendada_para);
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'concluida_em'
+        ) then
+            update sigov.os_ordem_servico
+               set conclusao_em = coalesce(conclusao_em, concluida_em);
+        end if;
+
+        alter table sigov.os_ordem_servico
+            alter column cliente_nome set default 'Não informado',
+            alter column cliente_nome set not null,
+            alter column descricao set default '',
+            alter column descricao set not null;
+    end if;
+
+    if to_regclass('sigov.os_item') is not null then
+        alter table sigov.os_item
+            add column if not exists unidade varchar(20) not null default 'UN',
+            add column if not exists ordem integer not null default 1,
+            add column if not exists executado boolean not null default false,
+            add column if not exists justificativa text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+    end if;
+
+    if to_regclass('sigov.os_apontamento') is not null then
+        alter table sigov.os_apontamento
+            add column if not exists atividade text not null default 'Atividade',
+            add column if not exists intervalo_minutos integer not null default 0,
+            add column if not exists idempotency_key varchar(200),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_apontamento
+           set idempotency_key = coalesce(nullif(idempotency_key, ''), 'legacy-' || id::text),
+               atividade = coalesce(nullif(atividade, ''), 'Atividade'),
+               intervalo_minutos = greatest(coalesce(intervalo_minutos, 0), 0),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.os_apontamento
+            alter column idempotency_key set not null;
+
+        create unique index if not exists ux_os_apontamento_idempotency_compat
+            on sigov.os_apontamento(tenant_id, idempotency_key)
+            where not is_deleted;
+    end if;
+
+    if to_regclass('sigov.os_status_historico') is not null then
+        alter table sigov.os_status_historico
+            add column if not exists observacao text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration';
+    end if;
+end $$;
 
 -- ==================================================
 -- MIGRATION: 20260730180000_pos_rc_30_financeiro_empresarial_real.sql
@@ -9411,6 +10239,11 @@ on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730180000', 'pos_rc_30_financeiro_empresarial_real', '148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql
 -- CATEGORY: schema
@@ -9459,6 +10292,282 @@ create index if not exists ix_financeiro_regra_aprovacao_tenant_valor on sigov.e
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730210000', 'pos_rc_31_consolidacao_comercial_financeiro', '15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 000_preflight_legacy_compatibility.sql
+-- STAGE: BEFORE 20260730090000_pos_rc_32_ordem_servico.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- Pré-voo idempotente para reparar estruturas legadas antes das migrations críticas.
+-- Não cria dados operacionais; garante somente as colunas e valores mínimos exigidos
+-- por migrations históricas que usam CREATE TABLE IF NOT EXISTS seguido de índices
+-- ou constraints sobre estruturas que já podem existir em formato antigo.
+
+create schema if not exists sigov;
+create schema if not exists plantaopro;
+
+-- As tabelas genéricas do schema plantaopro podem existir em formato legado.
+-- A migration 20260608120000 cria índices em todas estas colunas; portanto elas
+-- precisam existir antes de o script chegar àquele bloco.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select table_name
+          from information_schema.tables
+         where table_schema = 'plantaopro'
+           and table_type = 'BASE TABLE'
+    loop
+        execute format('alter table plantaopro.%I add column if not exists tenant_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists cliente_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists plano_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists parceiro_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists status varchar(60) not null default ''ATIVO''', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists codigo varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists nome varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dominio varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists subdominio varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists api_key_hash varchar(128) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dados jsonb not null default ''{}''::jsonb', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists reg_date timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists created_at timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists updated_at timestamptz null', r.table_name);
+    end loop;
+end $$;
+
+-- A migration financeira pós-RC cria constraints sobre os quatro campos abaixo.
+-- Em instalações legadas a tabela pode existir sem esses campos ou com registros que
+-- não atendem ao novo contrato. A normalização preserva os valores válidos e ajusta
+-- somente registros incompatíveis, antes de a constraint ser criada.
+do $$
+declare
+    v_table text;
+begin
+    foreach v_table in array array['financeiro_conta_receber', 'financeiro_conta_pagar']
+    loop
+        if to_regclass(format('sigov.%I', v_table)) is null then
+            continue;
+        end if;
+
+        execute format(
+            'alter table sigov.%I
+                add column if not exists valor_original numeric(14,2) not null default 0,
+                add column if not exists valor_desconto numeric(14,2) not null default 0,
+                add column if not exists valor_acrescimo numeric(14,2) not null default 0,
+                add column if not exists valor_aberto numeric(14,2) not null default 0',
+            v_table
+        );
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_total'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor_total, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor_total, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_juros'
+        ) and exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_multa'
+        ) then
+            execute format(
+                'update sigov.%I
+                    set valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0)
+                                         + greatest(coalesce(valor_juros, 0), 0)
+                                         + greatest(coalesce(valor_multa, 0), 0)
+                  where coalesce(valor_acrescimo, 0) = 0
+                    and (coalesce(valor_juros, 0) <> 0 or coalesce(valor_multa, 0) <> 0)',
+                v_table
+            );
+        end if;
+
+        execute format(
+            'update sigov.%I
+                set valor_desconto = greatest(coalesce(valor_desconto, 0), 0),
+                    valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0),
+                    valor_original = greatest(
+                        coalesce(valor_original, 0),
+                        greatest(coalesce(valor_aberto, 0), 0) - greatest(coalesce(valor_acrescimo, 0), 0),
+                        0.01
+                    )',
+            v_table
+        );
+
+        execute format(
+            'update sigov.%I
+                set valor_aberto = least(
+                    greatest(coalesce(valor_aberto, 0), 0),
+                    valor_original + valor_acrescimo
+                )',
+            v_table
+        );
+    end loop;
+end $$;
+
+-- As tabelas de Ordem de Serviço foram criadas inicialmente com um contrato menor.
+-- A migration pós-RC 32 usa CREATE TABLE IF NOT EXISTS e, em seguida, cria índices
+-- parciais sobre colunas novas. Este bloco promove as tabelas antigas para o contrato
+-- novo antes da criação dos índices, preservando os registros já existentes.
+do $$
+begin
+    if to_regclass('sigov.os_ordem_servico') is not null then
+        alter table sigov.os_ordem_servico
+            add column if not exists cliente_nome varchar(250),
+            add column if not exists proposta_id uuid,
+            add column if not exists tecnico_id uuid,
+            add column if not exists equipe_id uuid,
+            add column if not exists prioridade varchar(20) not null default 'NORMAL',
+            add column if not exists origem varchar(30) not null default 'MANUAL',
+            add column if not exists endereco text,
+            add column if not exists prazo_sla timestamptz,
+            add column if not exists agendada_inicio timestamptz,
+            add column if not exists agendada_fim timestamptz,
+            add column if not exists inicio_real timestamptz,
+            add column if not exists conclusao_em timestamptz,
+            add column if not exists custo_real numeric(18,2) not null default 0,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_ordem_servico
+           set cliente_nome = coalesce(nullif(cliente_nome, ''), 'Não informado'),
+               descricao = coalesce(descricao, ''),
+               prioridade = coalesce(nullif(prioridade, ''), 'NORMAL'),
+               origem = coalesce(nullif(origem, ''), 'MANUAL'),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false),
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration');
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'agendada_para'
+        ) then
+            update sigov.os_ordem_servico
+               set agendada_inicio = coalesce(agendada_inicio, agendada_para);
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'concluida_em'
+        ) then
+            update sigov.os_ordem_servico
+               set conclusao_em = coalesce(conclusao_em, concluida_em);
+        end if;
+
+        alter table sigov.os_ordem_servico
+            alter column cliente_nome set default 'Não informado',
+            alter column cliente_nome set not null,
+            alter column descricao set default '',
+            alter column descricao set not null;
+    end if;
+
+    if to_regclass('sigov.os_item') is not null then
+        alter table sigov.os_item
+            add column if not exists unidade varchar(20) not null default 'UN',
+            add column if not exists ordem integer not null default 1,
+            add column if not exists executado boolean not null default false,
+            add column if not exists justificativa text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+    end if;
+
+    if to_regclass('sigov.os_apontamento') is not null then
+        alter table sigov.os_apontamento
+            add column if not exists atividade text not null default 'Atividade',
+            add column if not exists intervalo_minutos integer not null default 0,
+            add column if not exists idempotency_key varchar(200),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_apontamento
+           set idempotency_key = coalesce(nullif(idempotency_key, ''), 'legacy-' || id::text),
+               atividade = coalesce(nullif(atividade, ''), 'Atividade'),
+               intervalo_minutos = greatest(coalesce(intervalo_minutos, 0), 0),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.os_apontamento
+            alter column idempotency_key set not null;
+
+        create unique index if not exists ux_os_apontamento_idempotency_compat
+            on sigov.os_apontamento(tenant_id, idempotency_key)
+            where not is_deleted;
+    end if;
+
+    if to_regclass('sigov.os_status_historico') is not null then
+        alter table sigov.os_status_historico
+            add column if not exists observacao text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration';
+    end if;
+end $$;
+
+-- ==================================================
+-- COMPATIBILITY: 010_pre_rc32_optional_financial_bridge.sql
+-- STAGE: BEFORE 20260730090000_pos_rc_32_ordem_servico.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- A migration RC32 adiciona colunas condicionalmente, mas cria o índice de forma
+-- incondicional. A tabela é parte da ponte entre o Enterprise e o Financeiro Core;
+-- quando uma instalação anterior não a criou, o contrato mínimo precisa existir.
+
+create schema if not exists sigov;
+create extension if not exists pgcrypto;
+
+create table if not exists sigov.enterprise_integracao_financeira (
+    id uuid primary key default gen_random_uuid(),
+    tenant_id uuid,
+    origem_tipo varchar(80),
+    origem_id uuid,
+    conta_receber_core_id bigint,
+    tenant_core_id bigint,
+    status varchar(40) not null default 'PENDENTE',
+    payload_json jsonb not null default '{}'::jsonb,
+    erro text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+alter table sigov.enterprise_integracao_financeira
+    add column if not exists conta_receber_core_id bigint,
+    add column if not exists tenant_core_id bigint;
+
 -- ==================================================
 -- MIGRATION: 20260730090000_pos_rc_32_ordem_servico.sql
 -- CATEGORY: schema
@@ -9482,6 +10591,11 @@ alter table if exists sigov.enterprise_integracao_financeira add column if not e
 create index if not exists ix_enterprise_financeiro_core on sigov.enterprise_integracao_financeira(tenant_core_id,conta_receber_core_id);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730090000', 'pos_rc_32_ordem_servico', 'cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20260731120000_pos_rc_33_operacao_servicos_campo.sql
@@ -9526,6 +10640,153 @@ alter table sigov.os_ordem_servico add column if not exists adicionais numeric(1
  add column if not exists valor_cobrado numeric(18,2) not null default 0;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260731120000', 'pos_rc_33_operacao_servicos_campo', '56970917a32ca0a69809717b4d009f6ed7071c000c50fec56b44351ac1acdb04', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 020_pre_rc37b_compras_compatibility.sql
+-- STAGE: BEFORE 20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- Compatibilidade entre o módulo de compras básico do Pós-Build 04 e a jornada
+-- transacional completa introduzida no Pós-RC 37B.
+
+create schema if not exists sigov;
+create extension if not exists pgcrypto;
+
+-- Várias migrations recentes inserem permissões informando somente módulo, chave e
+-- descrição. Como recurso/ação possuem defaults genéricos, a segunda linha colide
+-- com a restrição única (módulo, recurso, ação). O trigger deriva os campos da chave
+-- antes da validação das constraints e mantém as duas representações consistentes.
+create or replace function sigov.fn_permissao_normalizar_recurso_acao()
+returns trigger
+language plpgsql
+as $$
+declare
+    v_pos integer;
+begin
+    if new.chave is null or btrim(new.chave) = '' then
+        return new;
+    end if;
+
+    if new.recurso is null
+       or btrim(new.recurso) = ''
+       or (new.recurso = 'geral' and coalesce(new.acao, 'visualizar') = 'visualizar') then
+        v_pos := length(new.chave) - strpos(reverse(new.chave), '.');
+        if v_pos > 0 then
+            new.recurso := left(new.chave, v_pos);
+            new.acao := substring(new.chave from v_pos + 2);
+        else
+            new.recurso := new.chave;
+            new.acao := coalesce(nullif(new.acao, ''), 'administrar');
+        end if;
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_permissao_normalizar_recurso_acao on sigov.permissao;
+create trigger trg_permissao_normalizar_recurso_acao
+before insert or update of chave, recurso, acao
+on sigov.permissao
+for each row
+execute function sigov.fn_permissao_normalizar_recurso_acao();
+
+do $$
+begin
+    if to_regclass('sigov.compras_fornecedor') is not null then
+        alter table sigov.compras_fornecedor
+            add column if not exists codigo varchar(30),
+            add column if not exists tipo_pessoa char(1) not null default 'J',
+            add column if not exists documento_hash char(64),
+            add column if not exists documento_mascarado varchar(30),
+            add column if not exists razao_social varchar(200),
+            add column if not exists nome_fantasia varchar(200),
+            add column if not exists categoria varchar(100),
+            add column if not exists porte varchar(30),
+            add column if not exists condicao_pagamento varchar(100),
+            add column if not exists prazo_medio integer not null default 0,
+            add column if not exists observacoes text,
+            add column if not exists score numeric(5,2) not null default 0,
+            add column if not exists status varchar(20) not null default 'RASCUNHO',
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists created_by varchar(100) not null default 'migration',
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists updated_by varchar(100) not null default 'migration',
+            add column if not exists correlation_id varchar(100),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false;
+
+        update sigov.compras_fornecedor
+           set codigo = coalesce(nullif(codigo, ''), 'LEGACY-' || upper(substr(replace(id::text, '-', ''), 1, 20))),
+               tipo_pessoa = case when tipo_pessoa in ('F','J') then tipo_pessoa else 'J' end,
+               documento_hash = coalesce(
+                   nullif(documento_hash, ''),
+                   encode(digest(coalesce(nullif(documento, ''), id::text), 'sha256'), 'hex')
+               ),
+               documento_mascarado = coalesce(nullif(documento_mascarado, ''), nullif(documento, ''), 'NÃO INFORMADO'),
+               razao_social = coalesce(nullif(razao_social, ''), nullif(nome, ''), 'Fornecedor legado'),
+               nome_fantasia = coalesce(nullif(nome_fantasia, ''), nullif(nome, '')),
+               prazo_medio = greatest(coalesce(prazo_medio, 0), 0),
+               score = least(greatest(coalesce(score, 0), 0), 100),
+               status = case
+                   when status in ('RASCUNHO','EM_ANALISE','ATIVO','SUSPENSO','BLOQUEADO','INATIVO') then status
+                   when coalesce(ativo, true) then 'ATIVO'
+                   else 'INATIVO'
+               end,
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration'),
+               correlation_id = coalesce(nullif(correlation_id, ''), 'legacy-' || id::text),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.compras_fornecedor
+            alter column codigo set not null,
+            alter column documento_hash set not null,
+            alter column documento_mascarado set not null,
+            alter column razao_social set not null,
+            alter column correlation_id set not null;
+
+        create unique index if not exists ux_compras_fornecedor_codigo_compat
+            on sigov.compras_fornecedor(tenant_id, codigo);
+        create unique index if not exists ux_compras_fornecedor_documento_compat
+            on sigov.compras_fornecedor(tenant_id, documento_hash);
+    end if;
+
+    -- O pedido básico permanece com os identificadores originais, mas recebe o
+    -- contrato mínimo esperado pelos serviços e repositórios do módulo completo.
+    if to_regclass('sigov.compras_pedido') is not null then
+        alter table sigov.compras_pedido
+            add column if not exists requisicao_id uuid,
+            add column if not exists cotacao_id uuid,
+            add column if not exists total numeric(18,2) not null default 0,
+            add column if not exists previsao date,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists created_by varchar(100) not null default 'migration',
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists updated_by varchar(100) not null default 'migration',
+            add column if not exists correlation_id varchar(100),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false;
+
+        update sigov.compras_pedido
+           set total = case
+                   when coalesce(total, 0) > 0 then total
+                   else greatest(coalesce(valor_total, 0), 0)
+               end,
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration'),
+               correlation_id = coalesce(nullif(correlation_id, ''), 'legacy-' || id::text),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.compras_pedido
+            alter column correlation_id set not null;
+    end if;
+end $$;
 
 -- ==================================================
 -- MIGRATION: 20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql
@@ -9643,6 +10904,154 @@ select 'COMPRAS_EMPRESARIAIS', chave, descricao, true from (values
 on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260802210000', 'pos_rc_37b_compras_empresariais_fullstack', 'd434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 850_post_migration_compatibility.sql
+-- STAGE: AFTER ALL MIGRATIONS
+-- ==================================================
+-- SIGOV+ RC38E
+-- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
+
+create extension if not exists pgcrypto;
+
+alter table sigov.usuario add column if not exists tenant_id bigint null;
+alter table sigov.usuario add column if not exists nome varchar(200) null;
+alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
+alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
+alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
+alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
+alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
+alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
+
+alter table sigov.entidade add column if not exists tenant_id bigint null;
+alter table sigov.exercicio add column if not exists tenant_id bigint null;
+alter table sigov.pessoa add column if not exists tenant_id bigint null;
+alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
+alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
+alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
+alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
+alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
+alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
+alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
+alter table sigov.politica_senha add column if not exists tenant_id bigint null;
+
+alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
+alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
+alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
+
+alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
+alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
+
+-- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
+-- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
+-- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
+-- seus checksums e sem criar vínculos fora do tenant correto.
+create or replace function sigov.fn_preencher_tenant_vinculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.tenant_id is not null then
+        return new;
+    end if;
+
+    case tg_table_name
+        when 'usuario_entidade' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select e.tenant_id into new.tenant_id
+                  from sigov.entidade e
+                 where e.id = new.entidade_id;
+            end if;
+
+        when 'usuario_exercicio' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select x.tenant_id into new.tenant_id
+                  from sigov.exercicio x
+                 where x.id = new.exercicio_id;
+            end if;
+
+        when 'usuario_grupo' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select g.tenant_id into new.tenant_id
+                  from sigov.grupo_acesso g
+                 where g.id = new.grupo_acesso_id;
+            end if;
+
+        when 'grupo_perfil' then
+            select g.tenant_id into new.tenant_id
+              from sigov.grupo_acesso g
+             where g.id = new.grupo_acesso_id;
+            if new.tenant_id is null then
+                select p.tenant_id into new.tenant_id
+                  from sigov.perfil_acesso p
+                 where p.id = new.perfil_acesso_id;
+            end if;
+
+        when 'perfil_permissao' then
+            select p.tenant_id into new.tenant_id
+              from sigov.perfil_acesso p
+             where p.id = new.perfil_acesso_id;
+    end case;
+
+    if new.tenant_id is null then
+        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
+            using errcode = '23502';
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
+create trigger trg_usuario_entidade_tenant
+before insert or update on sigov.usuario_entidade
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
+create trigger trg_usuario_exercicio_tenant
+before insert or update on sigov.usuario_exercicio
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
+create trigger trg_usuario_grupo_tenant
+before insert or update on sigov.usuario_grupo
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
+create trigger trg_grupo_perfil_tenant
+before insert or update on sigov.grupo_perfil
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
+create trigger trg_perfil_permissao_tenant
+before insert or update on sigov.perfil_permissao
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+create unique index if not exists ux_bootstrap_usuario_login_tenant
+    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_usuario_email_tenant
+    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_perfil_codigo_tenant
+    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
+create unique index if not exists ux_bootstrap_grupo_nome_tenant
+    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
 
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
