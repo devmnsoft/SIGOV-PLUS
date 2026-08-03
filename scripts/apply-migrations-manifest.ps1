@@ -5,7 +5,8 @@ param(
     [string]$User = $env:SIGOV_DB_USER,
     [string]$ManifestPath = "database/postgres/migrations/manifest.json",
     [switch]$ValidateOnly,
-    [string]$SslMode = $env:SIGOV_DB_SSLMODE
+    [string]$SslMode = $env:SIGOV_DB_SSLMODE,
+    [string]$PsqlPath = 'psql'
 )
 $ErrorActionPreference = 'Stop'
 if ($env:SIGOV_DB_PORT -and $PSBoundParameters.ContainsKey('Port') -eq $false) { $Port = [int]$env:SIGOV_DB_PORT }
@@ -29,7 +30,7 @@ function Invoke-SqlFile([string]$Path, [string]$Stage) {
     if (-not (Test-Path $Path)) { throw "Arquivo SQL de $Stage ausente: $Path" }
     $start = Get-Date; $result = 'success'; $errorMessage = ''
     try {
-        & psql -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -f $Path
+        & $PsqlPath -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -f $Path
         if ($LASTEXITCODE -ne 0) { throw "psql saiu com código $LASTEXITCODE" }
     }
     catch {
@@ -43,6 +44,7 @@ function Invoke-SqlFile([string]$Path, [string]$Stage) {
     }
 }
 if (-not (Test-Path $manifestFile)) { throw "Manifest não encontrado: $manifestFile" }
+if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) { throw "psql não encontrado em '$PsqlPath'." }
 $manifest = Get-Content $manifestFile -Raw | ConvertFrom-Json
 $seenVersions = @{}; $seenFiles = @{}
 foreach ($entry in $manifest.migrations) {
@@ -70,9 +72,8 @@ foreach ($entry in $manifest.migrations) {
     if ($entry.applyAutomatically -ne $true) { Write-Host "Ignorada: $($entry.file)"; continue }
     if (-not $canExecute) { Write-Host "Validada: $($entry.file)"; continue }
 
-    # As duas migrations abaixo pressupõem colunas que podem ter sido criadas em
-    # formato legado por migrations anteriores. O preflight é executado exatamente
-    # antes delas, quando as tabelas já existem, evitando custo em todas as etapas.
+    # Essas migrations pressupõem colunas que podem ter sido criadas em formato
+    # legado por versões anteriores. O preflight roda exatamente antes delas.
     if ($preflightTargets -contains [string]$entry.file) {
         Invoke-SqlFile -Path $preflightFile -Stage "PRE_FLIGHT_$($entry.version)"
     }
@@ -80,7 +81,7 @@ foreach ($entry in $manifest.migrations) {
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
     $start = Get-Date; $result = 'success'; $errorMessage = ''
     try {
-        & psql -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -f $file
+        & $PsqlPath -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -f $file
         if ($LASTEXITCODE -ne 0) { throw "psql saiu com código $LASTEXITCODE" }
     } catch { $result = 'failed'; $errorMessage = Sanitize-Error $_.Exception.Message; throw } finally {
         $end = Get-Date
