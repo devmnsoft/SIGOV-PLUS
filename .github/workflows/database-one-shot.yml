@@ -55,7 +55,7 @@ jobs:
               [ref]$errors
             ) | Out-Null
             foreach ($parseError in $errors) {
-              Write-Error "$path:$($parseError.Extent.StartLineNumber): $($parseError.Message)"
+              Write-Error "${path}:$($parseError.Extent.StartLineNumber): $($parseError.Message)"
               $hasErrors = $true
             }
           }
