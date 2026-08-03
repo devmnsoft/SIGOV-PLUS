@@ -1,6 +1,8 @@
 -- SIGOV+ RC38E
 -- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
 
+create extension if not exists pgcrypto;
+
 alter table sigov.usuario add column if not exists tenant_id bigint null;
 alter table sigov.usuario add column if not exists nome varchar(200) null;
 alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
