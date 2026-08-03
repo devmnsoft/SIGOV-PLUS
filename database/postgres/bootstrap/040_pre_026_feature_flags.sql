@@ -4,6 +4,11 @@
 -- antecipa as colunas de compatibilidade e resolve a definição canônica antes das
 -- constraints, tanto na primeira quanto na segunda execução.
 
+-- A migration 026 cria uma versão fundacional da view. Migrations Agro posteriores
+-- acrescentam colunas. Na segunda passagem, CREATE OR REPLACE não pode remover essas
+-- colunas; a view é removida aqui e recriada imediatamente pela migration 026.
+drop view if exists sigov.vw_agro_dashboard;
+
 alter table sigov.tenant_feature_flag
     add column if not exists modulo_codigo varchar(80),
     add column if not exists feature_codigo varchar(120),
