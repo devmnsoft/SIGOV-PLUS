@@ -1,0 +1,151 @@
+name: database-one-shot
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'database/postgres/**'
+      - 'scripts/install-sigov-database.ps1'
+      - 'scripts/apply-migrations-manifest.ps1'
+      - '.github/workflows/database-one-shot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  install-one-shot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: sigov
+          POSTGRES_PASSWORD: sigov_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sigov -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: sigov
+      PGPASSWORD: sigov_ci_password
+      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: SigovCiOneShot!2026
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $hasErrors = $false
+          foreach ($path in @('scripts/install-sigov-database.ps1', 'scripts/apply-migrations-manifest.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            foreach ($parseError in $errors) {
+              Write-Error "$path:$($parseError.Extent.StartLineNumber): $($parseError.Message)"
+              $hasErrors = $true
+            }
+          }
+          if ($hasErrors) { exit 1 }
+
+      - name: Install database in one command
+        shell: pwsh
+        run: |
+          ./scripts/install-sigov-database.ps1 `
+            -HostName $env:PGHOST `
+            -Port ([int]$env:PGPORT) `
+            -Database sigov_one_shot `
+            -MaintenanceDatabase postgres `
+            -User $env:PGUSER `
+            -Password $env:PGPASSWORD `
+            -TenantName 'SIGOV CI' `
+            -TenantSlug 'sigov-ci' `
+            -EntityName 'Entidade CI' `
+            -EntityCnpj '00000000000000' `
+            -ExerciseYear 2026 `
+            -Environment DEVELOPMENT `
+            -AdminLogin admin `
+            -AdminEmail 'admin@sigov.local' `
+            -AdminName 'Administrador CI' 2>&1 | Tee-Object -FilePath database-one-shot.log
+
+      - name: Validate runtime bootstrap and uniqueness
+        run: |
+          set -euo pipefail
+          export PGDATABASE=sigov_one_shot
+          psql -v ON_ERROR_STOP=1 -At <<'SQL' | tee -a database-one-shot.log
+          do $$
+          declare
+            v_tenant_id bigint;
+            v_usuario_id bigint;
+          begin
+            select id into strict v_tenant_id
+              from sigov.tenant
+             where slug = 'sigov-ci' and ativo and not is_deleted;
+
+            select id into strict v_usuario_id
+              from sigov.usuario
+             where tenant_id = v_tenant_id
+               and login = 'admin'
+               and ativo and not is_deleted
+               and senha_hash like 'SIGOV_PBKDF2_V1$%';
+
+            if (select count(*) from sigov.tenant where slug = 'sigov-ci') <> 1 then
+              raise exception 'Tenant duplicado após a segunda passagem.';
+            end if;
+
+            if (select count(*) from sigov.usuario where tenant_id = v_tenant_id and login = 'admin' and not is_deleted) <> 1 then
+              raise exception 'Administrador duplicado após a segunda passagem.';
+            end if;
+
+            if not exists (
+              select 1
+                from sigov.usuario_grupo ug
+                join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and not gp.is_deleted
+                join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and not pa.is_deleted
+               where ug.usuario_id = v_usuario_id
+                 and not ug.is_deleted
+                 and pa.codigo_externo = 'ADMINISTRADOR_GERAL'
+            ) then
+              raise exception 'Administrador sem perfil ADMINISTRADOR_GERAL.';
+            end if;
+
+            if not exists (select 1 from sigov.tenant_modulo_contratado where tenant_id = v_tenant_id and ativo) then
+              raise exception 'Tenant sem módulos contratados.';
+            end if;
+
+            if not exists (
+              select 1 from sigov.tenant_configuracao
+               where tenant_id = v_tenant_id
+                 and chave = 'sistema.bootstrap_concluido'
+                 and valor = 'true'::jsonb
+                 and ativo and not is_deleted
+            ) then
+              raise exception 'Parâmetro de conclusão do bootstrap ausente.';
+            end if;
+          end $$;
+          select 'DATABASE_ONE_SHOT_OK';
+          SQL
+
+      - name: Upload database evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-one-shot-evidence
+          path: |
+            database-one-shot.log
+            migration.log
+            artifacts/database/install-result.json
+          if-no-files-found: warn
