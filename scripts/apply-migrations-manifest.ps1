@@ -14,6 +14,10 @@ $manifestFile = Join-Path $root $ManifestPath
 $logFile = Join-Path $root 'migration.log'
 $preflightFile = Join-Path $root 'database/postgres/bootstrap/000_preflight_legacy_compatibility.sql'
 $postMigrationFile = Join-Path $root 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
+$preflightTargets = @(
+    '20260608120000_plantao_pro_white_label_b2b_launch.sql',
+    '20260730180000_pos_rc_30_financeiro_empresarial_real.sql'
+)
 function Write-MigrationLog([object]$entry) { ($entry | ConvertTo-Json -Compress -Depth 6) | Add-Content -Path $logFile -Encoding UTF8 }
 function Sanitize-Error([string]$message) { if (-not $message) { return '' }; return ($message -replace '(?i)(password|pwd)\s*=\s*[^;\s]+','$1=***' -replace 'postgres(ql)?://[^\s]+','postgres://***') }
 function Get-NormalizedSha256([string]$Path) {
@@ -66,10 +70,12 @@ foreach ($entry in $manifest.migrations) {
     if ($entry.applyAutomatically -ne $true) { Write-Host "Ignorada: $($entry.file)"; continue }
     if (-not $canExecute) { Write-Host "Validada: $($entry.file)"; continue }
 
-    # Reexecutar o preflight entre as migrations é intencional. Algumas versões
-    # antigas criam tabelas parciais; a versão seguinte presume novas colunas.
-    # Assim que uma tabela aparece, ela é normalizada antes da próxima migration.
-    Invoke-SqlFile -Path $preflightFile -Stage "PRE_FLIGHT_$($entry.version)"
+    # As duas migrations abaixo pressupõem colunas que podem ter sido criadas em
+    # formato legado por migrations anteriores. O preflight é executado exatamente
+    # antes delas, quando as tabelas já existem, evitando custo em todas as etapas.
+    if ($preflightTargets -contains [string]$entry.file) {
+        Invoke-SqlFile -Path $preflightFile -Stage "PRE_FLIGHT_$($entry.version)"
+    }
 
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
     $start = Get-Date; $result = 'success'; $errorMessage = ''
