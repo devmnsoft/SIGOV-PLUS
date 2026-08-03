@@ -20,6 +20,7 @@ param(
     [int]$ExerciseYear = (Get-Date).Year,
     [string]$PsqlPath = 'psql',
     [switch]$Recreate,
+    [switch]$ResetAdminPassword,
     [switch]$NoIdempotencyCheck,
     [switch]$KeepFailedDatabase
 )
@@ -32,6 +33,11 @@ function Assert-SafeIdentifier {
     if ($Value -notmatch '^[A-Za-z_][A-Za-z0-9_\-]{0,62}$') {
         throw "$Name inválido. Use somente letras, números, sublinhado e hífen, iniciando por letra ou sublinhado."
     }
+}
+
+function Assert-RequiredText {
+    param([AllowEmptyString()][string]$Value, [Parameter(Mandatory)][string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Value)) { throw "$Name é obrigatório." }
 }
 
 function ConvertTo-SqlLiteral {
@@ -83,7 +89,7 @@ function Invoke-Psql {
         [switch]$Capture
     )
 
-    $args = @(
+    $arguments = @(
         '-X',
         '--set', 'ON_ERROR_STOP=1',
         '--host', $HostName,
@@ -91,11 +97,11 @@ function Invoke-Psql {
         '--username', $User,
         '--dbname', $TargetDatabase
     )
-    if ($Capture) { $args += @('--tuples-only', '--no-align') }
-    if ($Command) { $args += @('--command', $Command) }
-    if ($File) { $args += @('--file', $File) }
+    if ($Capture) { $arguments += @('--tuples-only', '--no-align') }
+    if ($Command) { $arguments += @('--command', $Command) }
+    if ($File) { $arguments += @('--file', $File) }
 
-    $output = & $PsqlPath @args 2>&1
+    $output = & $PsqlPath @arguments 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "psql falhou no banco '$TargetDatabase' com código $LASTEXITCODE.`n$($output -join [Environment]::NewLine)"
     }
@@ -105,12 +111,19 @@ function Invoke-Psql {
 
 function Invoke-ManifestInstallation {
     param([Parameter(Mandatory)][string]$ScriptPath)
-    & $ScriptPath -HostName $HostName -Port $Port -Database $Database -User $User
+    & $ScriptPath -HostName $HostName -Port $Port -Database $Database -User $User -PsqlPath $PsqlPath
     if ($LASTEXITCODE -ne 0) { throw "O aplicador de migrations encerrou com código $LASTEXITCODE." }
 }
 
 Assert-SafeIdentifier -Value $Database -Name 'Database'
 Assert-SafeIdentifier -Value $MaintenanceDatabase -Name 'MaintenanceDatabase'
+Assert-RequiredText -Value $AdminLogin -Name 'AdminLogin'
+Assert-RequiredText -Value $AdminName -Name 'AdminName'
+Assert-RequiredText -Value $TenantName -Name 'TenantName'
+Assert-RequiredText -Value $TenantSlug -Name 'TenantSlug'
+Assert-RequiredText -Value $EntityName -Name 'EntityName'
+Assert-RequiredText -Value $EntityCnpj -Name 'EntityCnpj'
+if ($AdminEmail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') { throw 'AdminEmail inválido.' }
 if ($ExerciseYear -lt 1900 -or $ExerciseYear -gt 3000) { throw 'ExerciseYear fora do intervalo permitido.' }
 if ([string]::IsNullOrWhiteSpace($Password)) {
     throw 'Informe a senha do PostgreSQL em -Password ou na variável PGPASSWORD.'
@@ -130,6 +143,8 @@ $previousPgPassword = $env:PGPASSWORD
 $env:PGPASSWORD = $Password
 $createdNow = $false
 $generatedPassword = $false
+$credentialProvisioned = $false
+$resolvedBootstrap = $null
 
 try {
     $serverVersion = Invoke-Psql -TargetDatabase $MaintenanceDatabase -Command "select current_setting('server_version_num');" -Capture
@@ -153,30 +168,72 @@ try {
         $createdNow = $true
     }
 
-    if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-        $AdminPassword = New-RandomPassword
-        $generatedPassword = $true
-    }
-    if ($AdminPassword.Length -lt 12) {
-        throw 'A senha administrativa inicial deve possuir pelo menos 12 caracteres.'
+    Write-Host "Aplicando todas as migrations ordenadas no banco '$Database'..." -ForegroundColor Cyan
+    Invoke-ManifestInstallation -ScriptPath $manifestInstaller
+
+    $adminLoginLiteral = ConvertTo-SqlLiteral $AdminLogin
+    $adminEmailLiteral = ConvertTo-SqlLiteral $AdminEmail
+    $tenantSlugLiteral = ConvertTo-SqlLiteral $TenantSlug
+    $adminStateSql = @"
+select coalesce((
+    select jsonb_build_object(
+        'id', u.id,
+        'senhaHash', u.senha_hash,
+        'senhaDeveSerAlterada', coalesce(u.senha_deve_ser_alterada, false),
+        'deveAlterarSenha', coalesce(u.deve_alterar_senha, false)
+    )::text
+      from sigov.usuario u
+      join sigov.tenant t on t.id = u.tenant_id
+     where t.slug = '$tenantSlugLiteral'
+       and (lower(u.login) = lower('$adminLoginLiteral') or lower(u.email) = lower('$adminEmailLiteral'))
+       and u.is_deleted = false
+     order by u.id
+     limit 1
+), '');
+"@
+    $adminStateRaw = Invoke-Psql -TargetDatabase $Database -Command $adminStateSql -Capture
+    $adminState = $null
+    if (-not [string]::IsNullOrWhiteSpace($adminStateRaw)) {
+        $adminState = $adminStateRaw | ConvertFrom-Json
     }
 
-    $adminHash = New-SigovPasswordHash -PlainText $AdminPassword
-    $generatedDir = Join-Path $repoRoot 'artifacts/database'
-    New-Item -ItemType Directory -Force -Path $generatedDir | Out-Null
-    $resolvedBootstrap = Join-Path $generatedDir 'SIGOV_PLUS_BOOTSTRAP.generated.sql'
+    $existingHashCompatible = $false
+    if ($null -ne $adminState -and -not [string]::IsNullOrWhiteSpace([string]$adminState.senhaHash)) {
+        $existingHashCompatible = ([string]$adminState.senhaHash).StartsWith('SIGOV_PBKDF2_V1$', [StringComparison]::Ordinal)
+    }
+
+    if ($null -ne $adminState -and $existingHashCompatible -and -not $ResetAdminPassword) {
+        $adminHash = [string]$adminState.senhaHash
+        $adminMustChange = [bool]$adminState.senhaDeveSerAlterada -or [bool]$adminState.deveAlterarSenha
+        if (-not [string]::IsNullOrWhiteSpace($AdminPassword)) {
+            Write-Warning 'AdminPassword foi ignorada porque o administrador já possui hash válido. Use -ResetAdminPassword para redefini-la.'
+        }
+    }
+    else {
+        if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
+            $AdminPassword = New-RandomPassword
+            $generatedPassword = $true
+        }
+        if ($AdminPassword.Length -lt 12) {
+            throw 'A senha administrativa inicial deve possuir pelo menos 12 caracteres.'
+        }
+        $adminHash = New-SigovPasswordHash -PlainText $AdminPassword
+        $adminMustChange = $true
+        $credentialProvisioned = $true
+    }
+
     $bootstrap = (Get-Content $bootstrapTemplate -Raw).Replace("`r`n", "`n")
-
     $replacements = [ordered]@{
         '__SIGOV_TENANT_NAME__' = ConvertTo-SqlLiteral $TenantName
-        '__SIGOV_TENANT_SLUG__' = ConvertTo-SqlLiteral $TenantSlug
+        '__SIGOV_TENANT_SLUG__' = $tenantSlugLiteral
         '__SIGOV_TENANT_DOCUMENT__' = ConvertTo-SqlLiteral $TenantDocument
         '__SIGOV_ENTITY_NAME__' = ConvertTo-SqlLiteral $EntityName
         '__SIGOV_ENTITY_CNPJ__' = ConvertTo-SqlLiteral $EntityCnpj
         '__SIGOV_ADMIN_NAME__' = ConvertTo-SqlLiteral $AdminName
-        '__SIGOV_ADMIN_LOGIN__' = ConvertTo-SqlLiteral $AdminLogin
-        '__SIGOV_ADMIN_EMAIL__' = ConvertTo-SqlLiteral $AdminEmail
+        '__SIGOV_ADMIN_LOGIN__' = $adminLoginLiteral
+        '__SIGOV_ADMIN_EMAIL__' = $adminEmailLiteral
         '__SIGOV_ADMIN_PASSWORD_HASH__' = ConvertTo-SqlLiteral $adminHash
+        '__SIGOV_ADMIN_MUST_CHANGE__' = $adminMustChange.ToString().ToLowerInvariant()
         '__SIGOV_ENVIRONMENT__' = ConvertTo-SqlLiteral $Environment
         '__SIGOV_CURRENT_YEAR__' = $ExerciseYear.ToString([Globalization.CultureInfo]::InvariantCulture)
     }
@@ -186,10 +243,10 @@ try {
     if ($bootstrap -match '__SIGOV_[A-Z0-9_]+__') {
         throw 'O bootstrap gerado ainda contém placeholders não resolvidos.'
     }
+
+    $resolvedBootstrap = Join-Path ([IO.Path]::GetTempPath()) ("sigov-bootstrap-{0}.sql" -f [Guid]::NewGuid().ToString('N'))
     [IO.File]::WriteAllText($resolvedBootstrap, $bootstrap, [Text.UTF8Encoding]::new($false))
 
-    Write-Host "Aplicando todas as migrations ordenadas no banco '$Database'..." -ForegroundColor Cyan
-    Invoke-ManifestInstallation -ScriptPath $manifestInstaller
     Write-Host 'Criando tenant, entidade, exercício, parâmetros, módulos, permissões e usuário inicial...' -ForegroundColor Cyan
     Invoke-Psql -TargetDatabase $Database -File $resolvedBootstrap
 
@@ -199,16 +256,25 @@ try {
         Invoke-Psql -TargetDatabase $Database -File $resolvedBootstrap
     }
 
-    $adminLoginLiteral = ConvertTo-SqlLiteral $AdminLogin
-    $tenantSlugLiteral = ConvertTo-SqlLiteral $TenantSlug
     $validationSql = @"
 select case
     when to_regnamespace('sigov') is null then 'FAIL:schema_sigov'
     when to_regclass('sigov.usuario') is null then 'FAIL:tabela_usuario'
     when to_regclass('sigov.tenant') is null then 'FAIL:tabela_tenant'
     when not exists (select 1 from sigov.tenant where slug = '$tenantSlugLiteral' and ativo and not is_deleted) then 'FAIL:tenant_bootstrap'
-    when not exists (select 1 from sigov.usuario where lower(login) = lower('$adminLoginLiteral') and ativo and not is_deleted and senha_hash like 'SIGOV_PBKDF2_V1$%') then 'FAIL:usuario_admin'
+    when not exists (select 1 from sigov.entidade where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and ativo and not is_deleted) then 'FAIL:entidade_bootstrap'
+    when not exists (select 1 from sigov.exercicio where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and ano = $ExerciseYear and ativo and not is_deleted) then 'FAIL:exercicio_bootstrap'
+    when not exists (select 1 from sigov.usuario where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and lower(login) = lower('$adminLoginLiteral') and ativo and not is_deleted and senha_hash like 'SIGOV_PBKDF2_V1$%') then 'FAIL:usuario_admin'
     when not exists (select 1 from sigov.perfil_acesso where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and codigo_externo = 'ADMINISTRADOR_GERAL' and ativo and not is_deleted) then 'FAIL:perfil_admin'
+    when not exists (
+        select 1
+          from sigov.usuario u
+          join sigov.usuario_grupo ug on ug.usuario_id = u.id and not ug.is_deleted
+          join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and not gp.is_deleted
+          join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.codigo_externo = 'ADMINISTRADOR_GERAL' and not pa.is_deleted
+         where u.tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1)
+           and lower(u.login) = lower('$adminLoginLiteral')
+    ) then 'FAIL:vinculo_admin'
     when not exists (select 1 from sigov.tenant_modulo_contratado where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and ativo) then 'FAIL:modulos'
     when not exists (select 1 from sigov.tenant_configuracao where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and chave = 'sistema.bootstrap_concluido' and ativo and not is_deleted) then 'FAIL:parametros'
     else 'OK'
@@ -217,6 +283,20 @@ end;
     $validation = Invoke-Psql -TargetDatabase $Database -Command $validationSql -Capture
     if ($validation -ne 'OK') { throw "A validação final do bootstrap falhou: $validation" }
 
+    $resultDir = Join-Path $repoRoot 'artifacts/database'
+    New-Item -ItemType Directory -Force -Path $resultDir | Out-Null
+    $resultPath = Join-Path $resultDir 'install-result.json'
+    [ordered]@{
+        status = 'success'
+        database = $Database
+        tenantSlug = $TenantSlug
+        adminLogin = $AdminLogin
+        exerciseYear = $ExerciseYear
+        credentialProvisioned = $credentialProvisioned
+        idempotencyChecked = -not $NoIdempotencyCheck
+        completedAt = [DateTimeOffset]::Now.ToString('O')
+    } | ConvertTo-Json | Set-Content -Path $resultPath -Encoding UTF8
+
     Write-Host ''
     Write-Host 'Instalação SIGOV+ concluída com sucesso.' -ForegroundColor Green
     Write-Host "Banco: $Database"
@@ -224,14 +304,20 @@ end;
     Write-Host "Exercício: $ExerciseYear"
     Write-Host "Login inicial: $AdminLogin"
     Write-Host "E-mail inicial: $AdminEmail"
-    if ($generatedPassword) {
+    if ($credentialProvisioned -and $generatedPassword) {
         Write-Host "Senha temporária gerada: $AdminPassword" -ForegroundColor Yellow
         Write-Host 'Guarde esta senha agora. Ela não foi gravada em texto puro no banco ou no repositório.' -ForegroundColor Yellow
-    } else {
+    }
+    elseif ($credentialProvisioned) {
         Write-Host 'Senha temporária: valor informado ao instalador.'
     }
-    Write-Host 'A troca da senha é obrigatória no primeiro acesso.' -ForegroundColor Yellow
-    Write-Host "Bootstrap resolvido: $resolvedBootstrap"
+    else {
+        Write-Host 'A credencial administrativa existente foi preservada.'
+    }
+    if ($adminMustChange) {
+        Write-Host 'A troca da senha está marcada como obrigatória no próximo acesso.' -ForegroundColor Yellow
+    }
+    Write-Host "Relatório: $resultPath"
 }
 catch {
     if ($createdNow -and -not $KeepFailedDatabase) {
@@ -248,5 +334,8 @@ catch {
     throw
 }
 finally {
+    if ($resolvedBootstrap -and (Test-Path $resolvedBootstrap)) {
+        Remove-Item $resolvedBootstrap -Force -ErrorAction SilentlyContinue
+    }
     $env:PGPASSWORD = $previousPgPassword
 }
