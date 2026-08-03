@@ -14,6 +14,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $manifestFile = Join-Path $root $ManifestPath
 $logFile = Join-Path $root 'migration.log'
 $preflightFile = Join-Path $root 'database/postgres/bootstrap/000_preflight_legacy_compatibility.sql'
+$osFinancialBridgeFile = Join-Path $root 'database/postgres/bootstrap/010_pre_rc32_optional_financial_bridge.sql'
 $postMigrationFile = Join-Path $root 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
 $preflightTargets = @(
     '20260608120000_plantao_pro_white_label_b2b_launch.sql',
@@ -77,6 +78,12 @@ foreach ($entry in $manifest.migrations) {
     # legado por versões anteriores. O preflight roda exatamente antes delas.
     if ($preflightTargets -contains [string]$entry.file) {
         Invoke-SqlFile -Path $preflightFile -Stage "PRE_FLIGHT_$($entry.version)"
+    }
+
+    # A RC32 cria um índice incondicional sobre uma tabela de integração opcional.
+    # Garantir o contrato mínimo preserva a migration histórica e seu checksum.
+    if ([string]$entry.file -eq '20260730090000_pos_rc_32_ordem_servico.sql') {
+        Invoke-SqlFile -Path $osFinancialBridgeFile -Stage 'PRE_RC32_FINANCIAL_BRIDGE'
     }
 
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
