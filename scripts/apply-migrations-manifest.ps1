@@ -60,12 +60,17 @@ if ($canExecute) {
     else {
         $env:PGSSLMODE = $SslMode
     }
-    Invoke-SqlFile -Path $preflightFile -Stage 'PRE_FLIGHT'
 }
 
 foreach ($entry in $manifest.migrations) {
     if ($entry.applyAutomatically -ne $true) { Write-Host "Ignorada: $($entry.file)"; continue }
     if (-not $canExecute) { Write-Host "Validada: $($entry.file)"; continue }
+
+    # Reexecutar o preflight entre as migrations é intencional. Algumas versões
+    # antigas criam tabelas parciais; a versão seguinte presume novas colunas.
+    # Assim que uma tabela aparece, ela é normalizada antes da próxima migration.
+    Invoke-SqlFile -Path $preflightFile -Stage "PRE_FLIGHT_$($entry.version)"
+
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
     $start = Get-Date; $result = 'success'; $errorMessage = ''
     try {
