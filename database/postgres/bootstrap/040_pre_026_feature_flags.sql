@@ -1,7 +1,14 @@
 -- SIGOV+ RC38E
 -- Migrations de domínio mais antigas gravam feature flags por modulo_codigo e
--- feature_codigo. O contrato SaaS final exige feature_flag_def_id. Este trigger
--- resolve a definição canônica antes da validação NOT NULL/foreign key.
+-- feature_codigo. O contrato SaaS final exige feature_flag_def_id. Este preflight
+-- antecipa as colunas de compatibilidade e resolve a definição canônica antes das
+-- constraints, tanto na primeira quanto na segunda execução.
+
+alter table sigov.tenant_feature_flag
+    add column if not exists modulo_codigo varchar(80),
+    add column if not exists feature_codigo varchar(120),
+    add column if not exists habilitada boolean not null default false,
+    add column if not exists parametros_json jsonb not null default '{}'::jsonb;
 
 create or replace function sigov.fn_tenant_feature_flag_resolver_definicao()
 returns trigger
