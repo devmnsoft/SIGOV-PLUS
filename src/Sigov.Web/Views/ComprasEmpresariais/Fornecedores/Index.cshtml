@@ -1,0 +1,6 @@
+@model Sigov.Application.Common.PagedResult<Sigov.Application.ComprasEmpresariais.FornecedorResumo>
+@{ViewData["Title"]="Fornecedores";}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" asp-append-version="true" /><partial name="../Shared/_ComprasNav" />
+<header class="compras-header"><div><h1>Fornecedores 360</h1><p>Cadastro, documentos, risco e desempenho.</p></div><a class="btn btn-primary" href="/ComprasEmpresariais/Fornecedores/Novo">Novo fornecedor</a></header>
+<form class="filter-bar" method="get"><label>Busca<input class="form-control" name="busca" /></label><label>Status<select class="form-select" name="status"><option value="">Todos</option><option>ATIVO</option><option>EM_ANALISE</option><option>BLOQUEADO</option></select></label><button class="btn btn-outline-primary">Filtrar</button></form>
+<div class="table-responsive"><table class="table"><thead><tr><th>Código</th><th>Fornecedor</th><th>Documento</th><th>Status</th><th>Score</th></tr></thead><tbody>@foreach(var x in Model.Items){<tr><td><a href="/ComprasEmpresariais/Fornecedores/@x.Id">@x.Codigo</a></td><td>@x.RazaoSocial</td><td>@x.DocumentoMascarado</td><td><span class="status-badge">@x.Status</span></td><td>@x.Score</td></tr>}</tbody></table></div>

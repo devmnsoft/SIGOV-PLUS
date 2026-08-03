@@ -36,7 +36,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization(options =>
 {
-    string[] osPermissions = ["os.dashboard.visualizar", "os.ordens.visualizar", "os.ordens.agendar"];
+    string[] osPermissions = ["os.dashboard.visualizar", "os.ordens.visualizar", "os.ordens.agendar",
+        "compras_empresariais.dashboard.visualizar", "compras_empresariais.fornecedores.visualizar", "compras_empresariais.fornecedores.criar",
+        "compras_empresariais.requisicoes.visualizar", "compras_empresariais.requisicoes.criar", "compras_empresariais.aprovacoes.visualizar",
+        "compras_empresariais.cotacoes.visualizar", "compras_empresariais.pedidos.visualizar", "compras_empresariais.recebimentos.visualizar",
+        "compras_empresariais.faturas.visualizar", "compras_empresariais.devolucoes.visualizar", "compras_empresariais.avaliacoes.gerenciar",
+        "compras_empresariais.relatorios.visualizar", "compras_empresariais.configuracao.gerenciar"];
     foreach (var permission in osPermissions)
         options.AddPolicy(permission, policy => policy.RequireAssertion(context =>
             context.User.IsInRole("ADMIN_GERAL") || context.User.IsInRole("ADMIN_TENANT") ||

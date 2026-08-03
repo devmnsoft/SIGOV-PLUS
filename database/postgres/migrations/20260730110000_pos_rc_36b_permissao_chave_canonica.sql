@@ -9,7 +9,8 @@
 -- excluído e mais completo. Os vínculos de perfil são consolidados antes da
 -- remoção dos registros redundantes.
 
-create temporary table permissao_chave_canonica on commit drop as
+drop table if exists pg_temp.permissao_chave_canonica;
+create temporary table permissao_chave_canonica as
 select id as canonical_id, chave
 from (
     select
@@ -56,3 +57,5 @@ where duplicate.chave = canonical.chave
 
 create unique index if not exists permissao_chave_uidx
     on sigov.permissao (chave);
+
+drop table if exists pg_temp.permissao_chave_canonica;
