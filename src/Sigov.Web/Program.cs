@@ -15,6 +15,7 @@ using Sigov.Web.Services.Operational;
 using Sigov.Web.Services.Editais;
 using Sigov.Web;
 using Sigov.Web.Services.Visual;
+using Sigov.Application.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,18 +37,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization(options =>
 {
-    string[] osPermissions = ["os.dashboard.visualizar", "os.ordens.visualizar", "os.ordens.agendar",
-        "compras_empresariais.dashboard.visualizar", "compras_empresariais.fornecedores.visualizar", "compras_empresariais.fornecedores.criar",
-        "compras_empresariais.requisicoes.visualizar", "compras_empresariais.requisicoes.criar", "compras_empresariais.aprovacoes.visualizar",
-        "compras_empresariais.cotacoes.visualizar", "compras_empresariais.pedidos.visualizar", "compras_empresariais.recebimentos.visualizar",
-        "compras_empresariais.faturas.visualizar", "compras_empresariais.devolucoes.visualizar", "compras_empresariais.avaliacoes.gerenciar",
-        "compras_empresariais.relatorios.visualizar", "compras_empresariais.configuracao.gerenciar"];
-    foreach (var permission in osPermissions)
-        options.AddPolicy(permission, policy => policy.RequireAssertion(context =>
-            context.User.IsInRole("ADMIN_GERAL") || context.User.IsInRole("ADMIN_TENANT") ||
-            context.User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope")
-                .SelectMany(c => c.Value.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                .Contains(permission, StringComparer.OrdinalIgnoreCase))));
+    foreach (var (policyName, permission) in PermissionCatalog.Policies)
+        options.AddPolicy(policyName, policy => policy.RequireAssertion(context =>
+            PermissionCatalog.UserHasPermission(context.User, permission)));
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));
