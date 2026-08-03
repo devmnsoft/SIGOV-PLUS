@@ -9289,6 +9289,66 @@ select 'COMERCIAL', split_part(chave,'.',2), split_part(chave,'.',3), chave, des
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730120000', 'pos_rc_29_comercial_operacional', '7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
+-- MIGRATION: 20260730170000_financeiro_empresarial_legacy_columns_compat.sql
+-- CATEGORY: compatibility
+-- CHECKSUM_SHA256: 8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e
+-- ==================================================
+-- Compatibilidade aditiva para schemas financeiros criados por versões legadas.
+-- Deve preceder a migration 20260730180000, que cria índices sobre estas colunas.
+do $$
+declare
+    required_table text;
+begin
+    foreach required_table in array array[
+        'financeiro_conta_receber',
+        'financeiro_conta_pagar',
+        'financeiro_movimento'
+    ] loop
+        if not exists (
+            select 1
+              from information_schema.tables
+             where table_schema = 'sigov'
+               and table_name = required_table
+        ) then
+            raise exception 'Tabela obrigatória sigov.% não encontrada; aplique as migrations anteriores primeiro.', required_table;
+        end if;
+    end loop;
+
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_conta_receber' and column_name = 'tenant_id') then
+        alter table sigov.financeiro_conta_receber add column tenant_id bigint;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_conta_receber' and column_name = 'parcela') then
+        alter table sigov.financeiro_conta_receber add column parcela integer not null default 1;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_conta_receber' and column_name = 'competencia') then
+        alter table sigov.financeiro_conta_receber add column competencia date;
+    end if;
+
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_conta_pagar' and column_name = 'tenant_id') then
+        alter table sigov.financeiro_conta_pagar add column tenant_id bigint;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_conta_pagar' and column_name = 'parcela') then
+        alter table sigov.financeiro_conta_pagar add column parcela integer not null default 1;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_conta_pagar' and column_name = 'competencia') then
+        alter table sigov.financeiro_conta_pagar add column competencia date;
+    end if;
+
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_movimento' and column_name = 'tenant_id') then
+        alter table sigov.financeiro_movimento add column tenant_id bigint;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_movimento' and column_name = 'conta_bancaria_id') then
+        alter table sigov.financeiro_movimento add column conta_bancaria_id bigint;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'sigov' and table_name = 'financeiro_movimento' and column_name = 'data_movimento') then
+        alter table sigov.financeiro_movimento add column data_movimento timestamptz not null default now();
+    end if;
+end
+$$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730170000', 'financeiro_empresarial_legacy_columns_compat', '8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e', 'compatibility', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- ==================================================
 -- MIGRATION: 20260730180000_pos_rc_30_financeiro_empresarial_real.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: 148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042
@@ -9583,5 +9643,6 @@ select 'COMPRAS_EMPRESARIAIS', chave, descricao, true from (values
 on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260802210000', 'pos_rc_37b_compras_empresariais_fullstack', 'd434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
