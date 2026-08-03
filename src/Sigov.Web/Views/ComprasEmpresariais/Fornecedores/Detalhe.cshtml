@@ -1,0 +1,4 @@
+@model Sigov.Application.ComprasEmpresariais.FornecedorResumo
+@{ViewData["Title"]=Model.RazaoSocial;}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" asp-append-version="true" /><partial name="../Shared/_ComprasNav" />
+<header class="compras-header"><div><span class="status-badge">@Model.Status</span><h1>@Model.RazaoSocial</h1><p>@Model.DocumentoMascarado · Score @Model.Score</p></div></header><div class="tabs" role="tablist"><button role="tab">Resumo</button><button role="tab">Contatos</button><button role="tab">Endereços</button><button role="tab">Documentos</button><button role="tab">Dados bancários</button><button role="tab">Cotações</button><button role="tab">Pedidos</button><button role="tab">Avaliações</button><button role="tab">Timeline</button></div><section class="panel"><h2>Visão 360</h2><p>Código @Model.Codigo · versão @Model.Version</p></section>

@@ -2,6 +2,8 @@
   var path = Context.Request.Path.Value ?? string.Empty;
   Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
   Func<string[], string> opened = urls => urls.Any(url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase)) ? "open" : string.Empty;
+  var claims = User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope").SelectMany(c => c.Value.Split(new[]{' ',',',';'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+  var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || claims.Contains("compras_empresariais.dashboard.visualizar", StringComparer.OrdinalIgnoreCase);
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
@@ -25,8 +27,9 @@
       <a class="sigov-nav-link@(active("/Workflow"))" href="/Workflow">Fluxos de trabalho</a>
       <a class="sigov-nav-link@(active("/Assinaturas"))" href="/AssinaturasDigitais">Assinaturas</a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Siafic","/Planejamento","/Compras","/Contratos","/Patrimonio","/Obras","/Rh","/Saude","/Educacao"})><summary>Gestão</summary>
+    <details class="sigov-nav-group" @opened(new[]{"/Siafic","/Planejamento","/Compras","/ComprasEmpresariais","/Contratos","/Patrimonio","/Obras","/Rh","/Saude","/Educacao"})><summary>Gestão</summary>
       <a class="sigov-nav-link@(active("/Planejamento"))" href="/Planejamento">Planejamento</a><a class="sigov-nav-link@(active("/Compras"))" href="/Compras">Compras</a><a class="sigov-nav-link@(active("/Contratos"))" href="/Contratos">Contratos</a><a class="sigov-nav-link@(active("/Patrimonio"))" href="/Patrimonio">Patrimônio</a><a class="sigov-nav-link@(active("/Obras"))" href="/Obras">Obras</a>
+      @if (canSeeEnterprisePurchasing) { <a class="sigov-nav-link@(active("/ComprasEmpresariais"))" href="/ComprasEmpresariais">Compras Empresariais</a> }
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd","/Administracao"})><summary>Administração</summary>
       <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios">Usuários</a><a class="sigov-nav-link@(active("/Seguranca/Perfis"))" href="/Seguranca/Perfis">Perfis</a><a class="sigov-nav-link@(active("/Seguranca/Permissoes"))" href="/Seguranca/Permissoes">Permissões</a><a class="sigov-nav-link@(active("/Saas/Modulos"))" href="/Saas/Modulos">Módulos</a><a class="sigov-nav-link@(active("/TenantConfiguracao"))" href="/TenantConfiguracao">Identidade visual</a><a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas">Auditoria</a><a class="sigov-nav-link@(active("/Lgpd"))" href="/Lgpd/Dashboard">Privacidade</a>

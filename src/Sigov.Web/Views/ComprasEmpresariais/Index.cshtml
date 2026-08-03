@@ -1,0 +1,6 @@
+@model Sigov.Application.ComprasEmpresariais.ComprasDashboard
+@{ViewData["Title"]="Compras Empresariais";}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" asp-append-version="true" />
+<partial name="Shared/_ComprasNav" />
+<header class="compras-header"><div><span class="eyebrow">PROCURE-TO-PAY</span><h1>Compras Empresariais</h1><p>Controle operacional do pedido ao pagamento.</p></div><a class="btn btn-primary" href="/ComprasEmpresariais/Requisicoes/Nova">Nova requisição</a></header>
+<section class="kpi-grid" aria-label="Indicadores"><article><span>Total solicitado</span><strong>@Model.TotalSolicitado.ToString("C")</strong></article><article><span>Valor aprovado</span><strong>@Model.ValorAprovado.ToString("C")</strong></article><article><span>Aprovações pendentes</span><strong>@Model.AprovacoesPendentes</strong></article><article><span>Cotações abertas</span><strong>@Model.CotacoesAbertas</strong></article><article><span>Pedidos atrasados</span><strong>@Model.PedidosAtrasados</strong></article><article><span>Recebimentos pendentes</span><strong>@Model.RecebimentosPendentes</strong></article><article><span>Faturas bloqueadas</span><strong>@Model.FaturasBloqueadas</strong></article><article><span>Documentos vencendo</span><strong>@Model.DocumentosVencendo</strong></article></section>
