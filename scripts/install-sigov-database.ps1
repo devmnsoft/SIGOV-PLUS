@@ -91,21 +91,22 @@ function Invoke-Psql {
         '--username', $User,
         '--dbname', $TargetDatabase
     )
+    if ($Capture) { $args += @('--tuples-only', '--no-align') }
     if ($Command) { $args += @('--command', $Command) }
     if ($File) { $args += @('--file', $File) }
 
-    if ($Capture) {
-        $output = & $PsqlPath @args 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "psql falhou no banco '$TargetDatabase' com código $LASTEXITCODE.`n$($output -join [Environment]::NewLine)"
-        }
-        return ($output -join [Environment]::NewLine).Trim()
-    }
-
-    & $PsqlPath @args
+    $output = & $PsqlPath @args 2>&1
     if ($LASTEXITCODE -ne 0) {
-        throw "psql falhou no banco '$TargetDatabase' com código $LASTEXITCODE."
+        throw "psql falhou no banco '$TargetDatabase' com código $LASTEXITCODE.`n$($output -join [Environment]::NewLine)"
     }
+    if ($Capture) { return ($output -join [Environment]::NewLine).Trim() }
+    $output | ForEach-Object { Write-Host $_ }
+}
+
+function Invoke-ManifestInstallation {
+    param([Parameter(Mandatory)][string]$ScriptPath)
+    & $ScriptPath -HostName $HostName -Port $Port -Database $Database -User $User
+    if ($LASTEXITCODE -ne 0) { throw "O aplicador de migrations encerrou com código $LASTEXITCODE." }
 }
 
 Assert-SafeIdentifier -Value $Database -Name 'Database'
@@ -114,36 +115,30 @@ if ($ExerciseYear -lt 1900 -or $ExerciseYear -gt 3000) { throw 'ExerciseYear for
 if ([string]::IsNullOrWhiteSpace($Password)) {
     throw 'Informe a senha do PostgreSQL em -Password ou na variável PGPASSWORD.'
 }
-
-$psqlCommand = Get-Command $PsqlPath -ErrorAction SilentlyContinue
-if (-not $psqlCommand) {
+if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) {
     throw "psql não foi encontrado em '$PsqlPath'. Instale o cliente PostgreSQL 16+ ou informe -PsqlPath."
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$rootScript = Join-Path $repoRoot 'script_completop.sql'
-$preflightScript = Join-Path $repoRoot 'database/postgres/bootstrap/000_preflight_legacy_compatibility.sql'
-$postMigrationScript = Join-Path $repoRoot 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
-$bootstrapScript = Join-Path $repoRoot 'database/postgres/bootstrap/900_runtime_bootstrap.sql'
-
-foreach ($requiredFile in @($rootScript, $preflightScript, $postMigrationScript, $bootstrapScript)) {
+$manifestInstaller = Join-Path $repoRoot 'scripts/apply-migrations-manifest.ps1'
+$bootstrapTemplate = Join-Path $repoRoot 'database/postgres/bootstrap/900_runtime_bootstrap.sql'
+foreach ($requiredFile in @($manifestInstaller, $bootstrapTemplate)) {
     if (-not (Test-Path $requiredFile)) { throw "Arquivo obrigatório não encontrado: $requiredFile" }
 }
 
+$previousPgPassword = $env:PGPASSWORD
 $env:PGPASSWORD = $Password
 $createdNow = $false
 $generatedPassword = $false
 
 try {
     $serverVersion = Invoke-Psql -TargetDatabase $MaintenanceDatabase -Command "select current_setting('server_version_num');" -Capture
-    $versionNumber = [int](($serverVersion -split '\s+') | Where-Object { $_ -match '^\d+$' } | Select-Object -Last 1)
-    if ($versionNumber -lt 160000) {
-        throw "PostgreSQL 16 ou superior é obrigatório. server_version_num=$versionNumber"
+    if ([int]$serverVersion -lt 160000) {
+        throw "PostgreSQL 16 ou superior é obrigatório. server_version_num=$serverVersion"
     }
 
     $databaseLiteral = ConvertTo-SqlLiteral $Database
-    $existsOutput = Invoke-Psql -TargetDatabase $MaintenanceDatabase -Command "select case when exists(select 1 from pg_database where datname = '$databaseLiteral') then '1' else '0' end;" -Capture
-    $databaseExists = (($existsOutput -split '\s+') -contains '1')
+    $databaseExists = (Invoke-Psql -TargetDatabase $MaintenanceDatabase -Command "select case when exists(select 1 from pg_database where datname = '$databaseLiteral') then '1' else '0' end;" -Capture) -eq '1'
 
     if ($Recreate -and $databaseExists) {
         Write-Host "Encerrando conexões e recriando o banco '$Database'..." -ForegroundColor Yellow
@@ -169,19 +164,8 @@ try {
     $adminHash = New-SigovPasswordHash -PlainText $AdminPassword
     $generatedDir = Join-Path $repoRoot 'artifacts/database'
     New-Item -ItemType Directory -Force -Path $generatedDir | Out-Null
-    $generatedScript = Join-Path $generatedDir 'SIGOV_PLUS_ONE_SHOT.generated.sql'
-
-    $parts = @(
-        "-- SIGOV+ ONE-SHOT DATABASE INSTALLER`n-- Gerado em $([DateTimeOffset]::Now.ToString('O'))`n-- Banco alvo: $Database`n-- Não contém senha em texto puro.`n",
-        Get-Content $preflightScript -Raw,
-        "`n-- ===== SCRIPT CONSOLIDADO =====`n",
-        Get-Content $rootScript -Raw,
-        "`n-- ===== COMPATIBILIDADE PÓS-MIGRATION =====`n",
-        Get-Content $postMigrationScript -Raw,
-        "`n-- ===== BOOTSTRAP OPERACIONAL =====`n",
-        Get-Content $bootstrapScript -Raw
-    )
-    $oneShot = ($parts -join "`n").Replace("`r`n", "`n")
+    $resolvedBootstrap = Join-Path $generatedDir 'SIGOV_PLUS_BOOTSTRAP.generated.sql'
+    $bootstrap = (Get-Content $bootstrapTemplate -Raw).Replace("`r`n", "`n")
 
     $replacements = [ordered]@{
         '__SIGOV_TENANT_NAME__' = ConvertTo-SqlLiteral $TenantName
@@ -197,22 +181,22 @@ try {
         '__SIGOV_CURRENT_YEAR__' = $ExerciseYear.ToString([Globalization.CultureInfo]::InvariantCulture)
     }
     foreach ($entry in $replacements.GetEnumerator()) {
-        $oneShot = $oneShot.Replace([string]$entry.Key, [string]$entry.Value)
+        $bootstrap = $bootstrap.Replace([string]$entry.Key, [string]$entry.Value)
     }
-
-    if ($oneShot -match '__SIGOV_[A-Z0-9_]+__') {
-        throw 'O script gerado ainda contém placeholders de bootstrap não resolvidos.'
+    if ($bootstrap -match '__SIGOV_[A-Z0-9_]+__') {
+        throw 'O bootstrap gerado ainda contém placeholders não resolvidos.'
     }
+    [IO.File]::WriteAllText($resolvedBootstrap, $bootstrap, [Text.UTF8Encoding]::new($false))
 
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    [IO.File]::WriteAllText($generatedScript, $oneShot, $utf8NoBom)
-
-    Write-Host "Executando instalação completa no banco '$Database'..." -ForegroundColor Cyan
-    Invoke-Psql -TargetDatabase $Database -File $generatedScript
+    Write-Host "Aplicando todas as migrations ordenadas no banco '$Database'..." -ForegroundColor Cyan
+    Invoke-ManifestInstallation -ScriptPath $manifestInstaller
+    Write-Host 'Criando tenant, entidade, exercício, parâmetros, módulos, permissões e usuário inicial...' -ForegroundColor Cyan
+    Invoke-Psql -TargetDatabase $Database -File $resolvedBootstrap
 
     if (-not $NoIdempotencyCheck) {
         Write-Host 'Executando segunda passagem para validar idempotência...' -ForegroundColor Cyan
-        Invoke-Psql -TargetDatabase $Database -File $generatedScript
+        Invoke-ManifestInstallation -ScriptPath $manifestInstaller
+        Invoke-Psql -TargetDatabase $Database -File $resolvedBootstrap
     }
 
     $adminLoginLiteral = ConvertTo-SqlLiteral $AdminLogin
@@ -224,16 +208,14 @@ select case
     when to_regclass('sigov.tenant') is null then 'FAIL:tabela_tenant'
     when not exists (select 1 from sigov.tenant where slug = '$tenantSlugLiteral' and ativo and not is_deleted) then 'FAIL:tenant_bootstrap'
     when not exists (select 1 from sigov.usuario where lower(login) = lower('$adminLoginLiteral') and ativo and not is_deleted and senha_hash like 'SIGOV_PBKDF2_V1$%') then 'FAIL:usuario_admin'
-    when not exists (select 1 from sigov.perfil_acesso where codigo_externo = 'ADMINISTRADOR_GERAL' and ativo and not is_deleted) then 'FAIL:perfil_admin'
+    when not exists (select 1 from sigov.perfil_acesso where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and codigo_externo = 'ADMINISTRADOR_GERAL' and ativo and not is_deleted) then 'FAIL:perfil_admin'
     when not exists (select 1 from sigov.tenant_modulo_contratado where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and ativo) then 'FAIL:modulos'
     when not exists (select 1 from sigov.tenant_configuracao where tenant_id = (select id from sigov.tenant where slug = '$tenantSlugLiteral' limit 1) and chave = 'sistema.bootstrap_concluido' and ativo and not is_deleted) then 'FAIL:parametros'
     else 'OK'
 end;
 "@
     $validation = Invoke-Psql -TargetDatabase $Database -Command $validationSql -Capture
-    if (($validation -split '\s+') -notcontains 'OK') {
-        throw "A validação final do bootstrap falhou: $validation"
-    }
+    if ($validation -ne 'OK') { throw "A validação final do bootstrap falhou: $validation" }
 
     Write-Host ''
     Write-Host 'Instalação SIGOV+ concluída com sucesso.' -ForegroundColor Green
@@ -244,12 +226,12 @@ end;
     Write-Host "E-mail inicial: $AdminEmail"
     if ($generatedPassword) {
         Write-Host "Senha temporária gerada: $AdminPassword" -ForegroundColor Yellow
-        Write-Host 'Guarde esta senha agora. Ela não foi gravada em texto puro no script ou no banco.' -ForegroundColor Yellow
+        Write-Host 'Guarde esta senha agora. Ela não foi gravada em texto puro no banco ou no repositório.' -ForegroundColor Yellow
     } else {
         Write-Host 'Senha temporária: valor informado ao instalador.'
     }
     Write-Host 'A troca da senha é obrigatória no primeiro acesso.' -ForegroundColor Yellow
-    Write-Host "Script autônomo gerado: $generatedScript"
+    Write-Host "Bootstrap resolvido: $resolvedBootstrap"
 }
 catch {
     if ($createdNow -and -not $KeepFailedDatabase) {
@@ -266,5 +248,5 @@ catch {
     throw
 }
 finally {
-    $env:PGPASSWORD = $null
+    $env:PGPASSWORD = $previousPgPassword
 }
