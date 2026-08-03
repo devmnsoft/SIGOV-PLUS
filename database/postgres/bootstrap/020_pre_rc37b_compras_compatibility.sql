@@ -5,6 +5,44 @@
 create schema if not exists sigov;
 create extension if not exists pgcrypto;
 
+-- Várias migrations recentes inserem permissões informando somente módulo, chave e
+-- descrição. Como recurso/ação possuem defaults genéricos, a segunda linha colide
+-- com a restrição única (módulo, recurso, ação). O trigger deriva os campos da chave
+-- antes da validação das constraints e mantém as duas representações consistentes.
+create or replace function sigov.fn_permissao_normalizar_recurso_acao()
+returns trigger
+language plpgsql
+as $$
+declare
+    v_pos integer;
+begin
+    if new.chave is null or btrim(new.chave) = '' then
+        return new;
+    end if;
+
+    if new.recurso is null
+       or btrim(new.recurso) = ''
+       or (new.recurso = 'geral' and coalesce(new.acao, 'visualizar') = 'visualizar') then
+        v_pos := length(new.chave) - strpos(reverse(new.chave), '.');
+        if v_pos > 0 then
+            new.recurso := left(new.chave, v_pos);
+            new.acao := substring(new.chave from v_pos + 2);
+        else
+            new.recurso := new.chave;
+            new.acao := coalesce(nullif(new.acao, ''), 'administrar');
+        end if;
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_permissao_normalizar_recurso_acao on sigov.permissao;
+create trigger trg_permissao_normalizar_recurso_acao
+before insert or update of chave, recurso, acao
+on sigov.permissao
+for each row
+execute function sigov.fn_permissao_normalizar_recurso_acao();
+
 do $$
 begin
     if to_regclass('sigov.compras_fornecedor') is not null then
