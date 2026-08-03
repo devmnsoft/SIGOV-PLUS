@@ -15,6 +15,7 @@ $manifestFile = Join-Path $root $ManifestPath
 $logFile = Join-Path $root 'migration.log'
 $preflightFile = Join-Path $root 'database/postgres/bootstrap/000_preflight_legacy_compatibility.sql'
 $osFinancialBridgeFile = Join-Path $root 'database/postgres/bootstrap/010_pre_rc32_optional_financial_bridge.sql'
+$purchasesCompatibilityFile = Join-Path $root 'database/postgres/bootstrap/020_pre_rc37b_compras_compatibility.sql'
 $postMigrationFile = Join-Path $root 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
 $preflightTargets = @(
     '20260608120000_plantao_pro_white_label_b2b_launch.sql',
@@ -84,6 +85,12 @@ foreach ($entry in $manifest.migrations) {
     # Garantir o contrato mínimo preserva a migration histórica e seu checksum.
     if ([string]$entry.file -eq '20260730090000_pos_rc_32_ordem_servico.sql') {
         Invoke-SqlFile -Path $osFinancialBridgeFile -Stage 'PRE_RC32_FINANCIAL_BRIDGE'
+    }
+
+    # O módulo básico de compras criou fornecedor e pedido com contrato reduzido.
+    # A RC37B usa CREATE TABLE IF NOT EXISTS e presume o contrato full stack.
+    if ([string]$entry.file -eq '20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql') {
+        Invoke-SqlFile -Path $purchasesCompatibilityFile -Stage 'PRE_RC37B_PURCHASES_COMPATIBILITY'
     }
 
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
