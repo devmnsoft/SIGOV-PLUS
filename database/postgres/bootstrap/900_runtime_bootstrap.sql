@@ -14,7 +14,9 @@ declare
     v_grupo_id bigint;
     v_perfil_id bigint;
     v_plano_id bigint;
+    v_admin_criado boolean := false;
     v_ano integer := __SIGOV_CURRENT_YEAR__;
+    v_admin_deve_alterar boolean := __SIGOV_ADMIN_MUST_CHANGE__;
 begin
     insert into sigov.tenant (
         nome, nome_fantasia, documento, slug, status, timezone, locale, ambiente,
@@ -50,7 +52,10 @@ begin
         returning id into v_entidade_id;
     else
         update sigov.entidade
-           set nome = '__SIGOV_ENTITY_NAME__', ativo = true, is_deleted = false, updated_at = now()
+           set nome = '__SIGOV_ENTITY_NAME__',
+               ativo = true,
+               is_deleted = false,
+               updated_at = now()
          where id = v_entidade_id;
     end if;
 
@@ -112,22 +117,24 @@ begin
         values (
             v_tenant_id, v_entidade_id, v_exercicio_id, v_pessoa_id,
             '__SIGOV_ADMIN_NAME__', '__SIGOV_ADMIN_LOGIN__', '__SIGOV_ADMIN_EMAIL__',
-            '__SIGOV_ADMIN_PASSWORD_HASH__', 'ADMINISTRADOR_GERAL', true, true,
+            '__SIGOV_ADMIN_PASSWORD_HASH__', 'ADMINISTRADOR_GERAL', v_admin_deve_alterar, v_admin_deve_alterar,
             false, 0, true, false,
             'Senha temporária gerada pelo instalador. Alteração obrigatória no primeiro acesso.'
         )
         returning id into v_usuario_id;
+        v_admin_criado := true;
     else
         update sigov.usuario
            set entidade_id = v_entidade_id,
                exercicio_id = v_exercicio_id,
                pessoa_id = coalesce(pessoa_id, v_pessoa_id),
                nome = '__SIGOV_ADMIN_NAME__',
+               login = '__SIGOV_ADMIN_LOGIN__',
                email = '__SIGOV_ADMIN_EMAIL__',
                senha_hash = '__SIGOV_ADMIN_PASSWORD_HASH__',
                tipo_usuario = 'ADMINISTRADOR_GERAL',
-               senha_deve_ser_alterada = true,
-               deve_alterar_senha = true,
+               senha_deve_ser_alterada = v_admin_deve_alterar,
+               deve_alterar_senha = v_admin_deve_alterar,
                bloqueado = false,
                tentativas_invalidas = 0,
                bloqueado_ate = null,
@@ -159,6 +166,16 @@ begin
      order by id
      limit 1;
 
+    update sigov.perfil_acesso
+       set entidade_id = v_entidade_id,
+           exercicio_id = v_exercicio_id,
+           nome = 'Administrador Geral',
+           descricao = 'Acesso administrativo completo ao tenant criado pelo instalador.',
+           ativo = true,
+           is_deleted = false,
+           updated_at = now()
+     where id = v_perfil_id;
+
     insert into sigov.grupo_acesso (
         tenant_id, entidade_id, exercicio_id, nome, descricao, ativo, is_deleted
     )
@@ -178,6 +195,15 @@ begin
        and is_deleted = false
      order by id
      limit 1;
+
+    update sigov.grupo_acesso
+       set entidade_id = v_entidade_id,
+           exercicio_id = v_exercicio_id,
+           descricao = 'Grupo administrativo inicial do tenant.',
+           ativo = true,
+           is_deleted = false,
+           updated_at = now()
+     where id = v_grupo_id;
 
     insert into sigov.usuario_grupo (tenant_id, usuario_id, grupo_acesso_id, is_deleted)
     values (v_tenant_id, v_usuario_id, v_grupo_id, false)
@@ -211,13 +237,23 @@ begin
     select v_tenant_id, v_usuario_id, null, null, null, 'TENANT', true
     where not exists (
         select 1 from sigov.usuario_escopo_acesso
-         where tenant_id = v_tenant_id and usuario_id = v_usuario_id
-           and escopo = 'TENANT' and ativo = true
+         where tenant_id = v_tenant_id
+           and usuario_id = v_usuario_id
+           and escopo = 'TENANT'
+           and entidade_id is null
+           and exercicio_id is null
+           and modulo_codigo is null
+           and ativo = true
     );
 
     insert into sigov.plano_saas (codigo, nome, descricao, ativo, is_deleted)
     values ('COMPLETO', 'Plano Completo', 'Todos os módulos disponíveis para a instalação inicial.', true, false)
-    on conflict (codigo) do update set nome = excluded.nome, descricao = excluded.descricao, ativo = true, is_deleted = false
+    on conflict (codigo) do update set
+        nome = excluded.nome,
+        descricao = excluded.descricao,
+        ativo = true,
+        is_deleted = false,
+        updated_at = now()
     returning id into v_plano_id;
 
     insert into sigov.plano_modulo (plano_saas_id, modulo_saas_id, ativo, is_deleted)
@@ -282,7 +318,7 @@ begin
         (v_tenant_id, 'sistema.timezone', '"America/Sao_Paulo"'::jsonb, false, true, false),
         (v_tenant_id, 'sistema.moeda', '"BRL"'::jsonb, false, true, false),
         (v_tenant_id, 'sistema.bootstrap_concluido', 'true'::jsonb, false, true, false),
-        (v_tenant_id, 'seguranca.exigir_troca_senha_inicial', 'true'::jsonb, false, true, false)
+        (v_tenant_id, 'seguranca.exigir_troca_senha_inicial', to_jsonb(v_admin_deve_alterar), false, true, false)
     on conflict (tenant_id, chave) do update set
         valor = excluded.valor,
         secreto = excluded.secreto,
@@ -340,7 +376,7 @@ begin
     insert into sigov.auditoria_evento (
         tenant_id, usuario_id, acao, entidade, entidade_id, depois, correlation_id
     )
-    values (
+    select
         v_tenant_id, v_usuario_id, 'BOOTSTRAP_ONE_SHOT_CONCLUIDO', 'sigov.tenant',
         v_tenant_id::varchar,
         jsonb_build_object(
@@ -348,8 +384,15 @@ begin
             'entidadeId', v_entidade_id,
             'exercicioId', v_exercicio_id,
             'usuarioId', v_usuario_id,
+            'adminCriado', v_admin_criado,
             'versaoBootstrap', 'RC38E'
         ),
         gen_random_uuid()
+    where not exists (
+        select 1
+          from sigov.auditoria_evento ae
+         where ae.tenant_id = v_tenant_id
+           and ae.acao = 'BOOTSTRAP_ONE_SHOT_CONCLUIDO'
+           and ae.depois ->> 'versaoBootstrap' = 'RC38E'
     );
 end $$;
