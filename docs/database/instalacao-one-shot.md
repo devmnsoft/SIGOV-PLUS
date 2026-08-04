@@ -1,5 +1,7 @@
 # Instalação one-shot do banco SIGOV+
 
+> RC39 acrescenta diagnóstico final automático, reparo seguro e validações de runtime. Nenhuma senha é persistida pelos scripts; use `PGPASSWORD` e `SIGOV_BOOTSTRAP_ADMIN_PASSWORD` somente no ambiente do processo.
+
 O instalador canônico do banco é `scripts/install-sigov-database.ps1`.
 
 Ele executa, em uma única chamada:
@@ -145,3 +147,19 @@ Ao concluir, o instalador cria `artifacts/database/install-result.json` sem senh
 ## Observação sobre execução SQL isolada
 
 Um arquivo SQL comum, aberto em uma conexão já estabelecida, não consegue de maneira portátil criar outro banco e continuar automaticamente a execução dentro dele. Por isso, o instalador PowerShell é o ponto único de entrada: ele cria o banco, reconecta, aplica o schema e executa o bootstrap completo.
+## Fluxo recomendado (PostgreSQL 16+)
+
+```powershell
+$env:PGPASSWORD = Read-Host 'Senha PostgreSQL' -MaskInput
+$env:SIGOV_BOOTSTRAP_ADMIN_PASSWORD = Read-Host 'Senha inicial (12+ caracteres)' -MaskInput
+./scripts/install-sigov-database.ps1 -Database sigov -RunDiagnosticsBefore -RunDiagnosticsAfter
+./scripts/validate-sigov-runtime.ps1 -Database sigov
+```
+
+O instalador cria o banco físico quando necessário, aplica o manifest, executa o bootstrap e repete a aplicação para provar idempotência. A segunda execução reaproveita tenant e administrador e preserva todo hash `SIGOV_PBKDF2_V1` válido. Use `-ResetAdminPassword` somente para uma troca intencional.
+
+`script_completop.sql` é o baseline SQL autocontido e idempotente do **schema**. `install-sigov-database.ps1` é o orquestrador operacional: cria o banco, aplica o manifest completo, injeta o bootstrap sem armazenar segredo, diagnostica e produz `artifacts/database/install-result.json`.
+
+Mensagens `already exists, skipping` são esperadas em reexecuções idempotentes. Por padrão elas ficam fora do resumo; `-VerboseSql` mostra a saída SQL completa. Elas só indicam problema quando acompanhadas de `ERROR`, falha de pós-condição ou exit code não zero.
+
+Consulte [Diagnóstico e reparo](diagnostico-e-reparo.md) para bancos parciais, `-WhatIf`, reset administrativo e interpretação dos relatórios.

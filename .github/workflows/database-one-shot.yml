@@ -6,6 +6,9 @@ on:
     paths:
       - 'database/postgres/**'
       - 'scripts/install-sigov-database.ps1'
+      - 'scripts/diagnose-sigov-database.ps1'
+      - 'scripts/repair-sigov-database.ps1'
+      - 'scripts/validate-sigov-runtime.ps1'
       - 'scripts/apply-migrations-manifest.ps1'
       - '.github/workflows/database-one-shot.yml'
 
@@ -46,7 +49,7 @@ jobs:
         shell: pwsh
         run: |
           $hasErrors = $false
-          foreach ($path in @('scripts/install-sigov-database.ps1', 'scripts/apply-migrations-manifest.ps1')) {
+          foreach ($path in @('scripts/install-sigov-database.ps1', 'scripts/apply-migrations-manifest.ps1', 'scripts/diagnose-sigov-database.ps1', 'scripts/repair-sigov-database.ps1', 'scripts/validate-sigov-runtime.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
@@ -79,7 +82,25 @@ jobs:
             -Environment DEVELOPMENT `
             -AdminLogin admin `
             -AdminEmail 'admin@sigov.local' `
-            -AdminName 'Administrador CI' 2>&1 | Tee-Object -FilePath database-one-shot.log
+            -AdminName 'Administrador CI' `
+            -RunDiagnosticsAfter 2>&1 | Tee-Object -FilePath database-one-shot.log
+
+      - name: Diagnose, no-op repair and validate healthy runtime
+        shell: pwsh
+        run: |
+          ./scripts/diagnose-sigov-database.ps1 -HostName $env:PGHOST -Port ([int]$env:PGPORT) -Database sigov_one_shot -User $env:PGUSER
+          ./scripts/repair-sigov-database.ps1 -HostName $env:PGHOST -Port ([int]$env:PGPORT) -Database sigov_one_shot -User $env:PGUSER -WhatIf -Confirm:$false
+          ./scripts/validate-sigov-runtime.ps1 -HostName $env:PGHOST -Port ([int]$env:PGPORT) -Database sigov_one_shot -User $env:PGUSER
+
+      - name: Diagnose and recover a partial database
+        shell: pwsh
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -d postgres -c 'create database sigov_partial'
+          psql -X -v ON_ERROR_STOP=1 -d sigov_partial -c 'create schema sigov;'
+          & (Get-Process -Id $PID).Path -NoProfile -File ./scripts/diagnose-sigov-database.ps1 -HostName $env:PGHOST -Port $env:PGPORT -Database sigov_partial -User $env:PGUSER -OutputDirectory artifacts/database/diagnostics-partial
+          if ($LASTEXITCODE -eq 0) { throw 'O diagnóstico deveria identificar o banco parcial.' }
+          ./scripts/install-sigov-database.ps1 -HostName $env:PGHOST -Port ([int]$env:PGPORT) -Database sigov_partial -MaintenanceDatabase postgres -User $env:PGUSER -Password $env:PGPASSWORD -TenantSlug sigov-partial -TenantName 'SIGOV Partial CI' -EntityName 'Entidade Partial CI' -EntityCnpj 00000000000000 -ExerciseYear 2026 -AdminEmail partial@sigov.local -AdminName 'Admin Partial' -RunDiagnosticsAfter
+          ./scripts/validate-sigov-runtime.ps1 -HostName $env:PGHOST -Port ([int]$env:PGPORT) -Database sigov_partial -User $env:PGUSER -OutputDirectory artifacts/database/validation-partial
 
       - name: Validate runtime bootstrap and uniqueness
         run: |
@@ -148,4 +169,7 @@ jobs:
             database-one-shot.log
             migration.log
             artifacts/database/install-result.json
+            artifacts/database/**/*.json
+            artifacts/database/**/*.md
+            artifacts/database/**/*.log
           if-no-files-found: warn

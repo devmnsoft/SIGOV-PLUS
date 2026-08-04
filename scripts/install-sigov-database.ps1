@@ -22,7 +22,14 @@ param(
     [switch]$Recreate,
     [switch]$ResetAdminPassword,
     [switch]$NoIdempotencyCheck,
-    [switch]$KeepFailedDatabase
+    [switch]$KeepFailedDatabase,
+    [switch]$RunDiagnosticsBefore,
+    [switch]$RunDiagnosticsAfter = $true,
+    [switch]$RepairBeforeInstall,
+    [switch]$RepairAfterInstall,
+    [switch]$Quiet,
+    [switch]$VerboseSql,
+    [switch]$FailOnWarnings
 )
 
 $ErrorActionPreference = 'Stop'
@@ -101,12 +108,21 @@ function Invoke-Psql {
     if ($Command) { $arguments += @('--command', $Command) }
     if ($File) { $arguments += @('--file', $File) }
 
+    if (-not $VerboseSql) { $arguments += @('--set', 'VERBOSITY=terse') }
     $output = & $PsqlPath @arguments 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "psql falhou no banco '$TargetDatabase' com código $LASTEXITCODE.`n$($output -join [Environment]::NewLine)"
     }
     if ($Capture) { return ($output -join [Environment]::NewLine).Trim() }
-    $output | ForEach-Object { Write-Host $_ }
+    if (-not $Quiet) { $output | Where-Object { $VerboseSql -or $_ -notmatch 'already exists, skipping|já existe' } | ForEach-Object { Write-Host $_ } }
+}
+
+function Invoke-OperationalScript {
+    param([Parameter(Mandatory)][string]$Path, [string[]]$AdditionalArguments=@(), [int[]]$AcceptedExitCodes=@(0))
+    $pwsh = (Get-Process -Id $PID).Path
+    & $pwsh -NoProfile -File $Path -HostName $HostName -Port $Port -Database $Database -MaintenanceDatabase $MaintenanceDatabase -User $User -PsqlPath $PsqlPath @AdditionalArguments
+    if ($LASTEXITCODE -notin $AcceptedExitCodes) { throw "$(Split-Path $Path -Leaf) encerrou com código $LASTEXITCODE." }
+    return $LASTEXITCODE
 }
 
 function Invoke-ManifestInstallation {
@@ -135,7 +151,9 @@ if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $manifestInstaller = Join-Path $repoRoot 'scripts/apply-migrations-manifest.ps1'
 $bootstrapTemplate = Join-Path $repoRoot 'database/postgres/bootstrap/900_runtime_bootstrap.sql'
-foreach ($requiredFile in @($manifestInstaller, $bootstrapTemplate)) {
+$diagnosticScript = Join-Path $repoRoot 'scripts/diagnose-sigov-database.ps1'
+$repairScript = Join-Path $repoRoot 'scripts/repair-sigov-database.ps1'
+foreach ($requiredFile in @($manifestInstaller, $bootstrapTemplate, $diagnosticScript, $repairScript)) {
     if (-not (Test-Path $requiredFile)) { throw "Arquivo obrigatório não encontrado: $requiredFile" }
 }
 
@@ -154,6 +172,9 @@ try {
 
     $databaseLiteral = ConvertTo-SqlLiteral $Database
     $databaseExists = (Invoke-Psql -TargetDatabase $MaintenanceDatabase -Command "select case when exists(select 1 from pg_database where datname = '$databaseLiteral') then '1' else '0' end;" -Capture) -eq '1'
+
+    if ($RunDiagnosticsBefore -and $databaseExists) { Invoke-OperationalScript $diagnosticScript -AcceptedExitCodes @(0,1) | Out-Null }
+    if ($RepairBeforeInstall -and $databaseExists) { Invoke-OperationalScript $repairScript -AdditionalArguments @('-Apply','-Confirm:$false') | Out-Null }
 
     if ($Recreate -and $databaseExists) {
         Write-Host "Encerrando conexões e recriando o banco '$Database'..." -ForegroundColor Yellow
@@ -283,6 +304,13 @@ end;
     $validation = Invoke-Psql -TargetDatabase $Database -Command $validationSql -Capture
     if ($validation -ne 'OK') { throw "A validação final do bootstrap falhou: $validation" }
 
+    if ($RepairAfterInstall) { Invoke-OperationalScript $repairScript -AdditionalArguments @('-Apply','-Confirm:$false') | Out-Null }
+    $diagnosticExit = 0
+    if ($RunDiagnosticsAfter) { $diagnosticExit = Invoke-OperationalScript $diagnosticScript -AcceptedExitCodes @(0,1); if ($FailOnWarnings -and $diagnosticExit -ne 0) { throw 'Diagnóstico final encontrou avisos ou erros e -FailOnWarnings está ativo.' } }
+
+    $summaryRaw = Invoke-Psql -TargetDatabase $Database -Capture -Command "select jsonb_build_object('modules',(select count(*) from sigov.tenant_modulo_contratado where ativo),'permissions',(select count(*) from sigov.permissao where ativo and not is_deleted))::text;"
+    $summary = $summaryRaw | ConvertFrom-Json
+
     $resultDir = Join-Path $repoRoot 'artifacts/database'
     New-Item -ItemType Directory -Force -Path $resultDir | Out-Null
     $resultPath = Join-Path $resultDir 'install-result.json'
@@ -294,6 +322,12 @@ end;
         exerciseYear = $ExerciseYear
         credentialProvisioned = $credentialProvisioned
         idempotencyChecked = -not $NoIdempotencyCheck
+        databaseCreated = $createdNow
+        adminState = if ($credentialProvisioned) { if ($ResetAdminPassword) {'reset'} else {'created-or-upgraded'} } else {'preserved'}
+        tenantState = if ($createdNow) {'created'} else {'preserved'}
+        modules = [int]$summary.modules
+        permissions = [int]$summary.permissions
+        diagnostics = if ($RunDiagnosticsAfter) { if ($diagnosticExit -eq 0) {'healthy'} else {'attention'} } else {'not-run'}
         completedAt = [DateTimeOffset]::Now.ToString('O')
     } | ConvertTo-Json | Set-Content -Path $resultPath -Encoding UTF8
 
@@ -318,6 +352,7 @@ end;
         Write-Host 'A troca da senha está marcada como obrigatória no próximo acesso.' -ForegroundColor Yellow
     }
     Write-Host "Relatório: $resultPath"
+    Write-Host "Resumo: banco=$(if($createdNow){'criado'}else{'reaproveitado'}); admin=$(if($credentialProvisioned){'provisionado/resetado'}else{'preservado'}); tenant=$(if($createdNow){'criado'}else{'preservado'}); módulos=$($summary.modules); permissões=$($summary.permissions); status=SUCESSO"
 }
 catch {
     if ($createdNow -and -not $KeepFailedDatabase) {
@@ -331,6 +366,7 @@ catch {
             Write-Warning "Não foi possível remover o banco incompleto '$Database': $($_.Exception.Message)"
         }
     }
+    Write-Error "Instalação interrompida: $($_.Exception.Message)`nDiagnóstico recomendado: ./scripts/diagnose-sigov-database.ps1 -Database '$Database'`nReparo seguro: ./scripts/repair-sigov-database.ps1 -Database '$Database' -WhatIf`nLogs e relatórios: artifacts/database/"
     throw
 }
 finally {
