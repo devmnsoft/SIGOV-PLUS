@@ -8,6 +8,7 @@ param(
     [string]$SslMode = $env:SIGOV_DB_SSLMODE,
     [string]$PsqlPath = 'psql'
 )
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($env:SIGOV_DB_PORT -and $PSBoundParameters.ContainsKey('Port') -eq $false) { $Port = [int]$env:SIGOV_DB_PORT }
 $root = Split-Path -Parent $PSScriptRoot
@@ -110,6 +111,13 @@ foreach ($entry in $manifest.migrations) {
     try {
         & $PsqlPath -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -f $file
         if ($LASTEXITCODE -ne 0) { throw "psql saiu com código $LASTEXITCODE" }
+        $versionLiteral = ([string]$entry.version).Replace("'", "''")
+        $descriptionLiteral = ([string]$entry.description).Replace("'", "''")
+        $checksumLiteral = ([string]$entry.checksum).Replace("'", "''")
+        $categoryLiteral = ([string]$entry.category).Replace("'", "''")
+        $registrationSql = "insert into sigov.schema_migrations(version,description,checksum,category,source,success) values ('$versionLiteral','$descriptionLiteral','$checksumLiteral','$categoryLiteral','manifest',true) on conflict(version) do update set description=excluded.description, category=excluded.category, source='manifest', success=true where sigov.schema_migrations.checksum=excluded.checksum;"
+        & $PsqlPath -X -q -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -c $registrationSql
+        if ($LASTEXITCODE -ne 0) { throw "registro da migration saiu com código $LASTEXITCODE" }
     } catch { $result = 'failed'; $errorMessage = Sanitize-Error $_.Exception.Message; throw } finally {
         $end = Get-Date
         Write-MigrationLog ([ordered]@{ version=$entry.version; file=$entry.file; category=$entry.category; checksum=$entry.checksum; startedAt=$start.ToString('o'); finishedAt=$end.ToString('o'); durationMs=[int64]($end-$start).TotalMilliseconds; result=$result; error=$errorMessage })
