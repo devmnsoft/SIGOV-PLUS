@@ -1,0 +1,36 @@
+@model Sigov.Web.Models.Auth.ForgotPasswordViewModel
+@{ Layout = null; }
+<!doctype html>
+<html lang="pt-br" data-sigov-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recuperar senha - SIGOV PLUS</title>
+  <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="~/css/site.css" rel="stylesheet" />
+  <link href="~/css/sigov-login.css" rel="stylesheet" />
+</head>
+<body class="sigov-login-page">
+  <main class="sigov-login-shell sigov-login-shell--single">
+    <section class="sigov-login-form">
+      <span class="sigov-badge sigov-badge--info">Recuperação segura</span>
+      <h1 class="h2 fw-bold mt-3">Esqueci minha senha</h1>
+      <p class="text-muted">Informe seu login ou e-mail. Por segurança, a resposta é sempre genérica e auditável.</p>
+      @if (Model.Solicitado)
+      {
+        <div class="sigov-empty-state-premium" role="status"><sigov-icon name="success" size="34" /><strong>Solicitação registrada</strong><span>@Model.Mensagem</span><a class="sigov-btn sigov-btn--primary" href="/Auth/Login">Voltar ao login</a></div>
+      }
+      else
+      {
+        <form method="post" class="d-grid gap-3">
+          @Html.AntiForgeryToken()
+          <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+          <div><label asp-for="LoginOuEmail" class="form-label"></label><input asp-for="LoginOuEmail" class="form-control form-control-lg" autocomplete="username" autofocus /><span asp-validation-for="LoginOuEmail" class="text-danger small"></span></div>
+          <button class="sigov-btn sigov-btn--primary" type="submit">Solicitar instruções</button>
+          <a class="sigov-btn sigov-btn--ghost" href="/Auth/Login">Voltar</a>
+        </form>
+      }
+    </section>
+  </main>
+</body>
+</html>

@@ -13,5 +13,17 @@ public sealed class LoginViewModel
     [Display(Name = "Senha")]
     public string Senha { get; set; } = string.Empty;
 
+    public bool LembrarLogin { get; set; }
+
     public string? MensagemErro { get; set; }
+}
+
+public sealed class ForgotPasswordViewModel
+{
+    [Required(ErrorMessage = "Informe o login ou e-mail para recuperação.")]
+    [Display(Name = "Login ou e-mail")]
+    public string LoginOuEmail { get; set; } = string.Empty;
+
+    public bool Solicitado { get; set; }
+    public string? Mensagem { get; set; }
 }

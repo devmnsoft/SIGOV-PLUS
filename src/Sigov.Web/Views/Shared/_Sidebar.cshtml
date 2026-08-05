@@ -7,35 +7,44 @@
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
-  <div class="sigov-sidebar__header"><span class="sigov-sidebar__eyebrow">Área de trabalho</span><strong>Encontre o que precisa</strong></div>
-  <nav class="sigov-sidebar__nav">
-    <details class="sigov-nav-group" open><summary>Início</summary>
-      <a class="sigov-nav-link@(active("/MinhaCentral"))" href="/MinhaCentral">Minha Central</a>
-      <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard">Dashboard</a>
-      <a class="sigov-nav-link@(active("/Notificacoes"))" href="/Notificacoes">Notificações</a>
+  <div class="sigov-sidebar__header">
+    <span class="sigov-sidebar__eyebrow">Workspace</span><strong>Menu SIGOV+</strong>
+    <label class="visually-hidden" for="sigovMenuFilter">Filtrar menu</label>
+    <div class="sigov-sidebar__filter"><sigov-icon name="search" size="16" /><input id="sigovMenuFilter" type="search" placeholder="Filtrar menu" data-sigov-menu-filter /></div>
+  </div>
+  <nav class="sigov-sidebar__nav" data-sigov-menu>
+    <details class="sigov-nav-group" open><summary><sigov-icon name="home" size="16" />Início</summary>
+      <a class="sigov-nav-link@(active("/MinhaCentral"))" href="/MinhaCentral" data-favorite-key="Minha Central"><sigov-icon name="home" size="18"/><span>Minha Central</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Minha Central">★</button></a>
+      <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard" data-favorite-key="Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Dashboard">★</button></a>
+      <a class="sigov-nav-link@(active("/Notificacoes"))" href="/Notificacoes"><sigov-icon name="notifications" size="18"/><span>Notificações</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Tarefas","/Agenda","/Preferencias"})><summary>Meu trabalho</summary>
-      <a class="sigov-nav-link@(active("/Tarefas/Minhas"))" href="/Tarefas/Minhas">Minhas tarefas</a>
-      <a class="sigov-nav-link@(active("/Tarefas/Equipe"))" href="/Tarefas/Equipe">Tarefas da equipe</a>
-      <a class="sigov-nav-link@(active("/Agenda"))" href="/Agenda">Agenda e prazos</a>
-      <a class="sigov-nav-link@(active("/Preferencias/Recentes"))" href="/Preferencias/Recentes">Itens recentes</a>
-      <a class="sigov-nav-link@(active("/Preferencias/Favoritos"))" href="/Preferencias/Favoritos">Favoritos</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Protocolo","/Ged","/Workflow","/Assinaturas"})><summary><sigov-icon name="protocol" size="16" />Governo</summary>
+      <a class="sigov-nav-link@(active("/Protocolo"))" href="/Protocolo" data-favorite-key="Protocolo"><sigov-icon name="protocol" size="18"/><span>Protocolo</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Protocolo">★</button></a>
+      <a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard" data-favorite-key="GED/OCR"><sigov-icon name="documents" size="18"/><span>GED/OCR</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar GED">★</button></a>
+      <a class="sigov-nav-link@(active("/Tributario"))" href="/Tributario"><sigov-icon name="tax" size="18"/><span>Tributário</span></a>
+      <a class="sigov-nav-link@(active("/Saude"))" href="/Saude/Dashboard"><sigov-icon name="health" size="18"/><span>Saúde</span></a>
+      <a class="sigov-nav-link@(active("/Educacao"))" href="/Educacao/Dashboard"><sigov-icon name="education" size="18"/><span>Educação</span></a>
+      <a class="sigov-nav-link@(active("/Saneamento"))" href="/Saneamento/Dashboard"><sigov-icon name="water" size="18"/><span>Saneamento</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Protocolo","/Ged","/Workflow","/Assinaturas"})><summary>Processos e documentos</summary>
-      <a class="sigov-nav-link@(active("/Protocolo"))" href="/Protocolo">Protocolo</a>
-      <a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard">Documentos</a>
-      <a class="sigov-nav-link@(active("/Workflow"))" href="/Workflow">Fluxos de trabalho</a>
-      <a class="sigov-nav-link@(active("/Assinaturas"))" href="/AssinaturasDigitais">Assinaturas</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Operacao","/MobileCampo","/IA"})><summary><sigov-icon name="services" size="16" />Operação</summary>
+      <a class="sigov-nav-link@(active("/MobileCampo"))" href="/MobileCampo"><sigov-icon name="mobile" size="18"/><span>Mobile/Campo</span></a>
+      <a class="sigov-nav-link@(active("/IA"))" href="/IA"><sigov-icon name="ai" size="18"/><span>IA</span></a>
+      <a class="sigov-nav-link@(active("/Operacao/Health"))" href="/Operacao/Health"><sigov-icon name="active" size="18"/><span>Health</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Siafic","/Planejamento","/Compras","/ComprasEmpresariais","/Contratos","/Patrimonio","/Obras","/Rh","/Saude","/Educacao"})><summary>Gestão</summary>
-      <a class="sigov-nav-link@(active("/Planejamento"))" href="/Planejamento">Planejamento</a><a class="sigov-nav-link@(active("/Compras"))" href="/Compras">Compras</a><a class="sigov-nav-link@(active("/Contratos"))" href="/Contratos">Contratos</a><a class="sigov-nav-link@(active("/Patrimonio"))" href="/Patrimonio">Patrimônio</a><a class="sigov-nav-link@(active("/Obras"))" href="/Obras">Obras</a>
-      @if (canSeeEnterprisePurchasing) { <a class="sigov-nav-link@(active("/ComprasEmpresariais"))" href="/ComprasEmpresariais">Compras Empresariais</a> }
+    <details class="sigov-nav-group" @opened(new[]{"/ComprasEmpresariais","/Comercial","/Financeiro","/Industria"})><summary><sigov-icon name="commercial" size="16" />Empresas</summary>
+      @if (canSeeEnterprisePurchasing) { <a class="sigov-nav-link@(active("/ComprasEmpresariais"))" href="/ComprasEmpresariais"><sigov-icon name="cart" size="18"/><span>Compras Empresariais</span></a> }
+      <a class="sigov-nav-link@(active("/Financeiro"))" href="/Financeiro"><sigov-icon name="finance" size="18"/><span>Financeiro</span></a>
+      <a class="sigov-nav-link@(active("/Industria"))" href="/Industria"><sigov-icon name="industry" size="18"/><span>Indústria</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd","/Administracao"})><summary>Administração</summary>
-      <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios">Usuários</a><a class="sigov-nav-link@(active("/Seguranca/Perfis"))" href="/Seguranca/Perfis">Perfis</a><a class="sigov-nav-link@(active("/Seguranca/Permissoes"))" href="/Seguranca/Permissoes">Permissões</a><a class="sigov-nav-link@(active("/Saas/Modulos"))" href="/Saas/Modulos">Módulos</a><a class="sigov-nav-link@(active("/TenantConfiguracao"))" href="/TenantConfiguracao">Identidade visual</a><a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas">Auditoria</a><a class="sigov-nav-link@(active("/Lgpd"))" href="/Lgpd/Dashboard">Privacidade</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd"})><summary><sigov-icon name="settings" size="16" />Administração</summary>
+      <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios"><sigov-icon name="users" size="18"/><span>Usuários</span></a>
+      <a class="sigov-nav-link@(active("/Saas/Implantacao"))" href="/Saas/Implantacao"><sigov-icon name="sync" size="18"/><span>Implantação</span></a>
+      <a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas"><sigov-icon name="audit" size="18"/><span>Auditoria</span></a>
+      <a class="sigov-nav-link@(active("/Lgpd"))" href="/Lgpd/Dashboard"><sigov-icon name="shield" size="18"/><span>LGPD</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Ajuda","/Manual"})><summary>Ajuda</summary>
-      <a class="sigov-nav-link@(active("/Ajuda"))" href="/Ajuda">Central de Ajuda</a><a class="sigov-nav-link@(active("/Manual"))" href="/Manual">Manual</a><a class="sigov-nav-link@(active("/Modulos"))" href="/Modulos">Sobre o sistema</a>
+    <details class="sigov-nav-group" @opened(new[]{"/Ajuda","/Manual","/Modulos"})><summary><sigov-icon name="help" size="16" />Ajuda</summary>
+      <a class="sigov-nav-link@(active("/Ajuda"))" href="/Ajuda"><sigov-icon name="help" size="18"/><span>Central de Ajuda</span></a>
+      <a class="sigov-nav-link@(active("/Modulos"))" href="/Modulos"><sigov-icon name="dashboard" size="18"/><span>Catálogo</span></a>
     </details>
   </nav>
 </aside>

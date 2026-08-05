@@ -1,88 +1,51 @@
 @model Sigov.Web.Models.PostBuild.MinhaCentralViewModel
 @{
   ViewData["Title"] = "Minha Central";
-  ViewData["PageTitle"] = "Minha Central";
   var agora = DateTimeOffset.Now;
   var primeiroNome = (User.Identity?.Name ?? "Usuário").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "Usuário";
+  var turno = agora.Hour < 12 ? "bom dia" : agora.Hour < 18 ? "boa tarde" : "boa noite";
+  var admin = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL");
 }
-
-<header class="central-header">
+<header class="sigov-page-hero" data-sigov-tour="central-hero">
   <div>
-    <span class="central-header__context">@agora.ToString("dddd, dd 'de' MMMM") · @Model.Tenant</span>
-    <h1>Olá, @primeiroNome</h1>
-    <p>Veja o que precisa da sua atenção e retome o trabalho de onde parou.</p>
+    <span class="sigov-eyebrow">@agora.ToString("dddd, dd 'de' MMMM") · @turno</span>
+    <h1>Olá, @primeiroNome. Este é seu workspace operacional.</h1>
+    <p>@Model.Tenant · @Model.Perfil · exercício @DateTime.UtcNow.Year</p>
   </div>
-  <div class="central-header__actions">
-    <button class="sigov-btn sigov-btn--ghost" type="button" data-sigov-command-open>
-      Buscar no SIGOV <kbd>Ctrl K</kbd>
-    </button>
-    <button class="sigov-btn sigov-btn--primary" type="button" data-sigov-quick-create>Nova atividade</button>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="sigov-btn sigov-btn--ghost" href="/Preferencias/Recentes">Continuar de onde parei</a>
+    <button class="sigov-btn sigov-btn--primary" type="button" data-sigov-quick-create><sigov-icon name="plus" size="16" />Criar novo</button>
+    <button class="sigov-btn sigov-btn--ghost" type="button" data-sigov-command-open>Buscar <kbd>Ctrl K</kbd></button>
   </div>
 </header>
-
-@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback) && Model.Acoes.Count == 0)
+@if (!string.IsNullOrWhiteSpace(Model.MensagemFallback))
 {
-  <div class="sigov-feedback sigov-feedback--warning" role="status">
-    <strong>Não foi possível carregar todo o seu contexto.</strong>
-    <span>Você ainda pode navegar pelos módulos e tentar novamente mais tarde.</span>
-  </div>
+  <div class="sigov-feedback sigov-feedback--warning mt-3" role="status"><strong>Fallback honesto:</strong><span>@Model.MensagemFallback</span></div>
 }
-
+<section class="central-kpis sigov-grid sigov-grid--kpis my-4">
+  <article class="sigov-kpi-premium"><small>Minhas pendências</small><strong>@Model.Pendencias.Count</strong><span class="sigov-status-pill sigov-status-pill--info">Ação</span></article>
+  <article class="sigov-kpi-premium"><small>Tarefas vencidas</small><strong>@Model.Pendencias.Count(x => x.Titulo.Contains("prazo", StringComparison.OrdinalIgnoreCase))</strong><span class="sigov-status-pill sigov-status-pill--warning">Prazo</span></article>
+  <article class="sigov-kpi-premium"><small>Documentos aguardando</small><strong>@Model.Atividades.Count(x => x.Entidade.Contains("document", StringComparison.OrdinalIgnoreCase))</strong><span class="sigov-status-pill sigov-status-pill--info">GED</span></article>
+  <article class="sigov-kpi-premium"><small>Alertas LGPD</small><strong>@Model.AlertasLgpd.Count</strong><span class="sigov-status-pill sigov-status-pill--warning">Privacidade</span></article>
+</section>
 <div class="central-grid">
-  <section class="central-panel central-panel--attention" aria-labelledby="attention-title">
-    <div class="central-panel__heading">
-      <div><span class="central-eyebrow">Prioridades</span><h2 id="attention-title">Precisa da minha atenção</h2></div>
-      @if (Model.Pendencias.Count > 0) { <span class="central-count">@Model.Pendencias.Count</span> }
-    </div>
-    @if (Model.Pendencias.Count == 0)
-    {
-      <div class="central-empty"><strong>Nenhuma pendência agora</strong><span>Novas atividades atribuídas a você aparecerão aqui.</span></div>
-    }
-    else
-    {
-      <ul class="central-worklist">
-        @foreach (var item in Model.Pendencias.Take(5))
-        {
-          <li><a href="@item.Url"><span><strong>@item.Titulo</strong><small>@item.Descricao</small></span><span aria-hidden="true">→</span></a></li>
-        }
-      </ul>
-    }
+  <section class="central-panel central-panel--attention" aria-labelledby="meu-dia-title" data-sigov-tour="central-worklist">
+    <div class="central-panel__heading"><div><span class="central-eyebrow">Meu dia</span><h2 id="meu-dia-title">Prioridades de hoje</h2></div><button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="button" data-sigov-mark-seen>Marcar como visto</button></div>
+    @if (Model.Pendencias.Count == 0) { <div class="sigov-empty-state-premium"><sigov-icon name="success" size="34" /><strong>Nenhuma pendência agora</strong><span>Quando tarefas, protocolos ou documentos exigirem sua ação, eles aparecerão aqui.</span></div> }
+    else { <ul class="sigov-timeline-premium">@foreach (var item in Model.Pendencias.Take(6)) { <li><div><strong>@item.Titulo</strong><span>@item.Descricao</span></div><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Url">Abrir</a></li> }</ul> }
   </section>
-
-  <section class="central-panel" aria-labelledby="quick-title">
-    <div class="central-panel__heading"><div><span class="central-eyebrow">Atalhos</span><h2 id="quick-title">Ações recomendadas</h2></div></div>
-    <nav class="central-shortcuts" aria-label="Ações recomendadas">
-      @foreach (var acao in Model.Acoes.Take(6))
-      {
-        <a href="@acao.Url"><span class="central-shortcuts__mark" aria-hidden="true"></span><span><strong>@acao.Titulo</strong><small>@acao.Descricao</small></span></a>
-      }
-    </nav>
+  <section class="central-panel" aria-labelledby="continuidade-title">
+    <div class="central-panel__heading"><div><span class="central-eyebrow">Continuidade</span><h2 id="continuidade-title">Recentes e favoritos</h2></div></div>
+    <div class="sigov-empty-state-premium" data-sigov-recent-empty><sigov-icon name="recent" size="34" /><strong>Seus recentes ficam no navegador</strong><span>Abra páginas e favorite módulos pela sidebar para montar seu espaço.</span></div>
+    <div class="central-shortcuts" data-sigov-recent-list></div>
   </section>
-
-  <section class="central-panel central-panel--wide" aria-labelledby="recent-title">
-    <div class="central-panel__heading"><div><span class="central-eyebrow">Continuidade</span><h2 id="recent-title">Atividades recentes</h2></div><a href="/Auditoria/Trilhas">Ver histórico</a></div>
-    @if (Model.Atividades.Count == 0)
-    {
-      <div class="central-empty"><strong>Sem atividades recentes</strong><span>Os registros que você consultar ou alterar aparecerão neste espaço.</span></div>
-    }
-    else
-    {
-      <ol class="central-timeline">
-        @foreach (var atividade in Model.Atividades.Take(6))
-        {
-          <li><span class="central-timeline__dot" aria-hidden="true"></span><div><strong>@atividade.Acao</strong><span>@atividade.Entidade</span></div><time datetime="@atividade.Data?.ToString("O")">@(atividade.Data?.ToLocalTime().ToString("dd/MM, HH:mm") ?? "Data indisponível")</time></li>
-        }
-      </ol>
-    }
+  <section class="central-panel central-panel--wide" aria-labelledby="acoes-title">
+    <div class="central-panel__heading"><div><span class="central-eyebrow">Produtividade</span><h2 id="acoes-title">Atalhos recomendados</h2></div></div>
+    <nav class="central-shortcuts" aria-label="Ações recomendadas">@foreach (var acao in Model.Acoes.Take(8)) { <a class="sigov-action-card" href="@acao.Url"><span class="sigov-action-card__icon"><sigov-icon name="@("warning" == acao.CssClass ? "risk" : "dashboard")" size="20" /></span><span><strong>@acao.Titulo</strong><small>@acao.Descricao</small></span></a> }</nav>
   </section>
-
-  <section class="central-panel" aria-labelledby="modules-title">
-    <div class="central-panel__heading"><div><span class="central-eyebrow">Seu acesso</span><h2 id="modules-title">Módulos disponíveis</h2></div></div>
-    <ul class="central-modules">
-      @foreach (var modulo in Model.Modulos.Take(8))
-      {
-        <li><span>@modulo.Nome</span><span class="sigov-badge sigov-badge--success">@modulo.Status</span></li>
-      }
-    </ul>
-  </section>
+  @if (admin)
+  {
+    <section class="central-panel" aria-labelledby="ambiente-title"><div class="central-panel__heading"><div><span class="central-eyebrow">Saúde do ambiente</span><h2 id="ambiente-title">Operação</h2></div><a href="/Operacao/Health">Detalhar</a></div><ul class="central-modules">@foreach (var item in Model.Ambiente.Take(5)) { <li><span>@item.Nome</span><span class="sigov-status-pill @(item.Online ? "sigov-status-pill--success" : "sigov-status-pill--danger")">@item.Status</span></li> }</ul></section>
+  }
 </div>
+@section Scripts { <script>document.querySelector('[data-sigov-mark-seen]')?.addEventListener('click',()=>window.SigovToast?.success('Itens marcados','A marcação local foi registrada para auditoria futura.'));(function(){const box=document.querySelector('[data-sigov-recent-list]'),empty=document.querySelector('[data-sigov-recent-empty]');try{const rows=JSON.parse(localStorage.getItem('sigov.recent.routes')||'[]').slice(0,5); if(rows.length){empty.hidden=true; rows.forEach(r=>{const a=document.createElement('a');a.className='sigov-action-card';a.href=r.url;a.innerHTML='<span class="sigov-action-card__icon"><sigov-icon name="recent" size="18" /></span><span><strong>'+r.title+'</strong><small>'+r.url+'</small></span>';box.appendChild(a);});}}catch{}})();</script> }

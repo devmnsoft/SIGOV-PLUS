@@ -12,6 +12,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
         services.AddScoped<PostBuildSaasService>();
         services.AddScoped<MinhaCentralService>();
+        services.AddScoped<BuscaGlobalService>();
         services.AddScoped<OperationalDemoService>();
         services.AddScoped<IOperationalStatusService, OperationalStatusService>();
         services.AddScoped<OutboxSigovService>();
