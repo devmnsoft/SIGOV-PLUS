@@ -1,6 +1,6 @@
 @model Sigov.Web.Models.Auth.LoginViewModel
 @{ Layout = null; var returnUrl = ViewData["ReturnUrl"] as string; }
-<!doctype html><html lang="pt-br" data-sigov-theme="light"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Entrar no SIGOV PLUS</title><link rel="icon" href="~/img/sigov-favicon.svg" type="image/svg+xml"><link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/><link href="~/css/site.css" rel="stylesheet"/></head>
+<!doctype html><html lang="pt-br" data-sigov-theme="light"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Entrar no SIGOV PLUS</title><link rel="icon" href="~/img/sigov-favicon.svg" type="image/svg+xml"><link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/><link href="~/css/site.css" rel="stylesheet"/><link href="~/css/sigov-login.css" rel="stylesheet"/></head>
 <body class="sigov-login-page">
   <main class="sigov-login-shell" aria-label="Login SIGOV PLUS">
     <section class="sigov-login-benefits">
@@ -25,11 +25,11 @@
       <form method="post" asp-action="Login" asp-route-returnUrl="@returnUrl" id="loginForm" class="d-grid gap-3">
         @Html.AntiForgeryToken()<div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <div><label asp-for="Login" class="form-label">Login ou e-mail</label><input asp-for="Login" class="form-control form-control-lg" autocomplete="username" autofocus placeholder="admin@suaentidade.gov.br"/><span asp-validation-for="Login" class="text-danger small"></span></div>
-        <div><label asp-for="Senha" class="form-label">Senha</label><input asp-for="Senha" class="form-control form-control-lg" autocomplete="current-password" placeholder="Digite sua senha"/><span asp-validation-for="Senha" class="text-danger small"></span></div>
-        <button class="sigov-btn sigov-btn--primary w-100" type="submit" id="btnEntrar">Entrar com segurança</button>
-        <div class="d-flex justify-content-between gap-3 flex-wrap"><a href="#" aria-disabled="true">Esqueci minha senha</a><span class="text-muted small">Sessão protegida e auditável</span></div>
+        <div class="sigov-password-field"><label asp-for="Senha" class="form-label">Senha</label><input asp-for="Senha" class="form-control form-control-lg" autocomplete="current-password" placeholder="Digite sua senha"/><button class="sigov-icon-btn sigov-password-toggle" type="button" data-sigov-password-toggle aria-label="Mostrar senha"><sigov-icon name="view" size="18" /></button><span asp-validation-for="Senha" class="text-danger small"></span></div>
+        <label class="d-flex align-items-center gap-2"><input asp-for="LembrarLogin" class="form-check-input" /> Lembrar login neste dispositivo</label><button class="sigov-btn sigov-btn--primary w-100" type="submit" id="btnEntrar">Entrar com segurança</button>
+        <div class="d-flex justify-content-between gap-3 flex-wrap"><a href="/Auth/EsqueciMinhaSenha">Esqueci minha senha</a><span class="text-muted small">Sessão protegida e auditável</span></div>
       </form>
     </section>
   </main>
-  <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script><script src="~/js/sigov-ui.js"></script><script>document.getElementById('loginForm').addEventListener('submit',()=>SigovLoading.button(document.getElementById('btnEntrar'),true,'Entrando...'));</script>
+  <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script><script src="~/js/sigov-ui.js"></script><script src="~/js/sigov-login.js"></script>
 </body></html>

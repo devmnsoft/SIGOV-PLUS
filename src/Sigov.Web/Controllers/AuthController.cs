@@ -83,7 +83,7 @@ limit 1;";
             claims.AddRange(access.Permissions.Select(permission => new Claim("permission", permission)));
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)), new AuthenticationProperties
             {
-                IsPersistent = false,
+                IsPersistent = model.LembrarLogin,
                 AllowRefresh = true,
                 ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
             }).ConfigureAwait(false);
@@ -96,6 +96,38 @@ limit 1;";
             model.MensagemErro = "Não foi possível autenticar agora. Tente novamente ou verifique o ambiente local.";
             return View(model);
         }
+    }
+
+
+
+    [HttpGet]
+    public IActionResult EsqueciMinhaSenha()
+    {
+        return View(new ForgotPasswordViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EsqueciMinhaSenha(ForgotPasswordViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await _auditTrail.RegistrarAsync(null, null, "RECUPERACAO_SENHA_SOLICITADA", "sigov.usuario", null, null, new { canal = "web", informado = true }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Solicitação de recuperação de senha registrada. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao auditar recuperação de senha. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+        }
+
+        model.Solicitado = true;
+        model.Mensagem = "Se os dados informados corresponderem a uma conta ativa, as instruções serão enviadas pelo canal configurado pelo administrador.";
+        return View(model);
     }
 
     [HttpGet]

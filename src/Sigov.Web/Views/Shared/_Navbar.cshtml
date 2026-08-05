@@ -1,10 +1,17 @@
 @{
-  var usuarioNome = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
-  var perfil = User.Claims.FirstOrDefault(c => c.Type == "perfil" || c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))?.Value;
+  var usuarioNome = User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Visitante";
+  var perfil = User.Claims.FirstOrDefault(c => c.Type == "perfil" || c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))?.Value ?? User.Claims.FirstOrDefault(c => c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))?.Value ?? "Operador";
+  var tenant = User.FindFirst("tenant_nome")?.Value ?? User.FindFirst("tenant_id")?.Value ?? "Tenant atual";
+  var entidade = User.FindFirst("entidade_nome")?.Value ?? "Entidade padrão";
+  var exercicio = User.FindFirst("exercicio")?.Value ?? DateTime.UtcNow.Year.ToString(System.Globalization.CultureInfo.InvariantCulture);
+  var avatar = string.IsNullOrWhiteSpace(usuarioNome) ? "S" : usuarioNome[..1].ToUpperInvariant();
 }
-<nav class="sigov-topbar" aria-label="Barra superior">
+<nav class="sigov-topbar" aria-label="Barra superior premium">
   <div class="sigov-topbar__left">
-    <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu" title="Abrir menu">
+    <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu">
+      <sigov-icon name="menu" size="20" />
+    </button>
+    <button class="sigov-icon-btn d-none d-lg-inline-flex" type="button" data-sigov-sidebar-compact aria-label="Alternar menu compacto">
       <sigov-icon name="menu" size="20" />
     </button>
     <a class="sigov-brand" href="/MinhaCentral" aria-label="Ir para Minha Central">
@@ -12,20 +19,27 @@
       <span class="sigov-brand__text">SIGOV <strong>PLUS</strong></span>
     </a>
   </div>
-  <form class="sigov-global-search" method="get" action="/Busca" role="search">
-    <label class="visually-hidden" for="sigovGlobalSearch">Busca global</label>
-    <input id="sigovGlobalSearch" class="form-control" name="q" type="search" placeholder="Buscar tarefas, protocolos e documentos" autocomplete="off">
-    <button class="sigov-icon-btn" type="submit" aria-label="Pesquisar" title="Pesquisar"><sigov-icon name="search" size="20" /></button>
-  </form>
+  <button class="sigov-global-search sigov-global-search--button" type="button" data-sigov-command-open aria-label="Abrir busca global">
+    <sigov-icon name="search" size="18" />
+    <span>Buscar protocolo, documento, tarefa ou módulo</span>
+    <kbd>Ctrl K</kbd>
+  </button>
+  <div class="sigov-topbar__context" aria-label="Contexto do ambiente">
+    <span>@tenant</span><span>@entidade</span><span>@exercicio</span><span>@perfil</span>
+  </div>
   <div class="sigov-topbar__actions">
-    <button class="sigov-btn sigov-btn--primary sigov-btn--sm d-none d-sm-inline-flex" type="button" data-sigov-quick-create aria-haspopup="dialog">Novo</button>
-    <sigov-icon-button icon="command" label="Abrir paleta de comandos" tooltip="Paleta de comandos (Ctrl+K)" action="command-open" />
-    <a class="sigov-icon-btn" href="/Notificacoes" aria-label="Abrir notificações" title="Notificações"><sigov-icon name="notifications" size="20" /></a>
-    <a class="sigov-icon-btn d-none d-sm-inline-flex" href="/Ajuda" aria-label="Abrir ajuda" title="Ajuda"><sigov-icon name="help" size="20" /></a>
-    <sigov-icon-button icon="theme" label="Alternar tema" action="theme-toggle" />
-    @if (!string.IsNullOrWhiteSpace(usuarioNome)) {
-      <span class="sigov-user-chip" title="@perfil"><span class="sigov-avatar" aria-hidden="true">@usuarioNome[..1].ToUpperInvariant()</span><span><strong>@usuarioNome</strong>@if (!string.IsNullOrWhiteSpace(perfil)) { <small>@perfil</small> }</span></span>
-    }
-    <a class="sigov-btn sigov-btn--ghost sigov-btn--sm d-none d-md-inline-flex" href="/Auth/Logout">Sair</a>
+    <button class="sigov-btn sigov-btn--primary sigov-btn--sm" type="button" data-sigov-quick-create aria-haspopup="dialog"><sigov-icon name="plus" size="16" />Novo</button>
+    @await Html.PartialAsync("_NotificationDropdown")
+    <a class="sigov-icon-btn d-none d-sm-inline-flex" href="/Ajuda" aria-label="Abrir ajuda"><sigov-icon name="help" size="20" /></a>
+    <button class="sigov-icon-btn" type="button" data-sigov-theme-toggle aria-label="Alternar tema"><sigov-icon name="theme" size="20" /></button>
+    <div class="sigov-user-menu">
+      <button class="sigov-user-chip" type="button" data-sigov-user-menu aria-expanded="false"><span class="sigov-avatar" aria-hidden="true">@avatar</span><span><strong>@usuarioNome</strong><small>@perfil</small></span></button>
+      <div class="sigov-user-dropdown" data-sigov-user-dropdown hidden>
+        <a href="/Preferencias"><sigov-icon name="settings" size="16" />Preferências</a>
+        <a href="/Seguranca"><sigov-icon name="locked" size="16" />Segurança</a>
+        <a href="/MinhaCentral"><sigov-icon name="users" size="16" />Perfil</a>
+        <a href="/Auth/Logout"><sigov-icon name="back" size="16" />Sair</a>
+      </div>
+    </div>
   </div>
 </nav>

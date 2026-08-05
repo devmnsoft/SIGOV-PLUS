@@ -1,0 +1,35 @@
+@{
+  var isAdmin = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL");
+  var items = new[] {
+    new { Icon="protocol", Title="Novo protocolo", Description="Abrir atendimento protocolado com tramitação auditável.", Route="/Protocolo", Shortcut="N P", Admin=false },
+    new { Icon="documents", Title="Novo documento", Description="Enviar ou classificar documento no GED/OCR.", Route="/Ged/Upload", Shortcut="N D", Admin=false },
+    new { Icon="tasks", Title="Nova tarefa", Description="Criar uma pendência operacional para equipe ou usuário.", Route="/Tarefas/Minhas", Shortcut="N T", Admin=false },
+    new { Icon="contracts", Title="Novo contrato", Description="Cadastrar contrato e acompanhar prazos críticos.", Route="/Contratos", Shortcut="N C", Admin=false },
+    new { Icon="commercial", Title="Novo fornecedor", Description="Iniciar cadastro comercial com validações mínimas.", Route="/ComprasEmpresariais/Fornecedores", Shortcut="N F", Admin=false },
+    new { Icon="users", Title="Novo usuário", Description="Convidar operador com perfil e permissões.", Route="/Seguranca/Usuarios", Shortcut="N U", Admin=true },
+    new { Icon="help", Title="Novo chamado", Description="Registrar solicitação de suporte ou melhoria.", Route="/Ajuda", Shortcut="N S", Admin=false }
+  };
+}
+<div class="sigov-modal-backdrop" data-sigov-quick-create-close hidden></div>
+<section class="sigov-modal-premium sigov-quick-create" id="sigovQuickCreateModal" role="dialog" aria-modal="true" aria-labelledby="quickCreateTitle" hidden>
+  <header class="sigov-modal-premium__header">
+    <div>
+      <span class="sigov-eyebrow">Criação rápida</span>
+      <h2 id="quickCreateTitle">O que você quer iniciar?</h2>
+      <p>Atalhos seguros para fluxos frequentes do workspace SIGOV+.</p>
+    </div>
+    <button class="sigov-icon-btn" type="button" data-sigov-quick-create-close aria-label="Fechar criação rápida"><sigov-icon name="close" size="20" /></button>
+  </header>
+  <div class="sigov-quick-create__grid">
+    @foreach (var item in items)
+    {
+      var locked = item.Admin && !isAdmin;
+      <a class="sigov-action-card @(locked ? "is-disabled" : string.Empty)" href="@(locked ? "#" : item.Route)" data-sigov-quick-create-item data-title="@item.Title" aria-disabled="@(locked.ToString().ToLowerInvariant())">
+        <span class="sigov-action-card__icon"><sigov-icon name="@item.Icon" size="22" /></span>
+        <span><strong>@item.Title</strong><small>@item.Description</small></span>
+        <kbd>@item.Shortcut</kbd>
+        @if (locked) { <span class="sigov-status-pill sigov-status-pill--warning">Admin</span> }
+      </a>
+    }
+  </div>
+</section>
