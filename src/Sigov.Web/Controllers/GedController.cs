@@ -21,11 +21,15 @@ public sealed class GedController : Controller
     { _operationalDemo = operationalDemo; _connectionFactory = connectionFactory; _schema = schema; _permissions = permissions; _auditTrail = auditTrail; _logger = logger; }
 
     [HttpGet("/Ged")]
+    [HttpGet("/Ged/Dashboard")]
     [HttpGet("/Ged/Documentos")]
+    [HttpGet("/Ged/Pendentes")]
+    [HttpGet("/Ged/Lixeira")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     { if (!Can("ged.visualizar")) return Forbid(); return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "Documentos reais", q, cancellationToken)); }
 
     [HttpGet("/Ged/NovoDocumento")]
+    [HttpGet("/Ged/Novo")]
     public async Task<IActionResult> NovoDocumento(string? q = null, CancellationToken cancellationToken = default)
     { if (!Can("ged.upload")) return Forbid(); return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Ged", "NovoDocumento real", q, cancellationToken)); }
 

@@ -1,13 +1,13 @@
 @{
   var isAdmin = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL");
   var items = new[] {
-    new { Icon="protocol", Title="Novo protocolo", Description="Abrir atendimento protocolado com tramitação auditável.", Route="/Protocolo", Shortcut="N P", Admin=false },
-    new { Icon="documents", Title="Novo documento", Description="Enviar ou classificar documento no GED/OCR.", Route="/Ged/Upload", Shortcut="N D", Admin=false },
-    new { Icon="tasks", Title="Nova tarefa", Description="Criar uma pendência operacional para equipe ou usuário.", Route="/Tarefas/Minhas", Shortcut="N T", Admin=false },
-    new { Icon="contracts", Title="Novo contrato", Description="Cadastrar contrato e acompanhar prazos críticos.", Route="/Contratos", Shortcut="N C", Admin=false },
-    new { Icon="commercial", Title="Novo fornecedor", Description="Iniciar cadastro comercial com validações mínimas.", Route="/ComprasEmpresariais/Fornecedores", Shortcut="N F", Admin=false },
-    new { Icon="users", Title="Novo usuário", Description="Convidar operador com perfil e permissões.", Route="/Seguranca/Usuarios", Shortcut="N U", Admin=true },
-    new { Icon="help", Title="Novo chamado", Description="Registrar solicitação de suporte ou melhoria.", Route="/Ajuda", Shortcut="N S", Admin=false }
+    new { Icon="protocol", Title="Novo protocolo", Description="Abrir atendimento protocolado com tramitação auditável.", Key="protocolo", Shortcut="N P", Admin=false },
+    new { Icon="documents", Title="Novo documento", Description="Enviar ou classificar documento no GED/OCR.", Key="documento", Shortcut="N D", Admin=false },
+    new { Icon="tasks", Title="Nova tarefa", Description="Criar uma pendência operacional para equipe ou usuário.", Key="tarefa", Shortcut="N T", Admin=false },
+    new { Icon="contracts", Title="Novo contrato", Description="Cadastrar contrato e acompanhar prazos críticos.", Key="contrato", Shortcut="N C", Admin=false },
+    new { Icon="commercial", Title="Novo fornecedor", Description="Iniciar cadastro comercial com validações mínimas.", Key="fornecedor", Shortcut="N F", Admin=false },
+    new { Icon="users", Title="Novo usuário", Description="Convidar operador com perfil e permissões.", Key="usuario", Shortcut="N U", Admin=true },
+    new { Icon="help", Title="Novo chamado", Description="Registrar solicitação de suporte ou melhoria.", Key="chamado", Shortcut="N S", Admin=false }
   };
 }
 <div class="sigov-modal-backdrop" data-sigov-quick-create-close hidden></div>
@@ -24,7 +24,7 @@
     @foreach (var item in items)
     {
       var locked = item.Admin && !isAdmin;
-      <a class="sigov-action-card @(locked ? "is-disabled" : string.Empty)" href="@(locked ? "#" : item.Route)" data-sigov-quick-create-item data-title="@item.Title" aria-disabled="@(locked.ToString().ToLowerInvariant())">
+      <a class="sigov-action-card @(locked ? "is-disabled" : string.Empty)" href="@(locked ? "#" : $"/QuickCreate/Iniciar?tipo={item.Key}")" data-sigov-quick-create-item data-title="@item.Title" aria-disabled="@(locked.ToString().ToLowerInvariant())" title="@(locked ? "Disponível somente para administradores" : item.Description)">
         <span class="sigov-action-card__icon"><sigov-icon name="@item.Icon" size="22" /></span>
         <span><strong>@item.Title</strong><small>@item.Description</small></span>
         <kbd>@item.Shortcut</kbd>

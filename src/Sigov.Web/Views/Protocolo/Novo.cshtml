@@ -1,0 +1,29 @@
+@model Sigov.Web.Models.Protocolo.ProtocoloFormViewModel
+@{ ViewData["Title"] = "Novo protocolo"; }
+<div class="sigov-page-shell">
+  <header class="sigov-page-header">
+    <div><span class="sigov-eyebrow">Protocolo · abertura</span><h1>Novo protocolo</h1><p>Registre a demanda e encaminhe-a ao setor responsável. A criação e as movimentações ficam auditadas.</p></div>
+    <a class="sigov-btn sigov-btn--ghost" href="/Protocolo">Cancelar</a>
+  </header>
+  <form asp-action="NovoPost" asp-controller="Protocolo" method="post" class="sigov-form sigov-card" data-sigov-unsaved-form novalidate>
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+    <fieldset><legend>Identificação da demanda</legend>
+      <div class="row g-3">
+        <div class="col-12"><label asp-for="Assunto" class="form-label"></label><span aria-hidden="true"> *</span><input asp-for="Assunto" class="form-control" autofocus /><span asp-validation-for="Assunto" class="text-danger"></span></div>
+        <div class="col-md-7"><label asp-for="Interessado" class="form-label"></label><span aria-hidden="true"> *</span><input asp-for="Interessado" class="form-control" autocomplete="name" /><span asp-validation-for="Interessado" class="text-danger"></span></div>
+        <div class="col-md-5"><label asp-for="Documento" class="form-label"></label><input asp-for="Documento" class="form-control" inputmode="numeric" /><span asp-validation-for="Documento" class="text-danger"></span><small class="form-text">O documento é protegido e mascarado nas listagens.</small></div>
+      </div>
+    </fieldset>
+    <fieldset class="mt-4"><legend>Classificação e encaminhamento</legend>
+      <div class="row g-3">
+        <div class="col-md-4"><label asp-for="Categoria" class="form-label"></label><select asp-for="Categoria" class="form-select"><option>Solicitação</option><option>Requerimento</option><option>Denúncia</option><option>Ofício</option></select></div>
+        <div class="col-md-4"><label asp-for="Prioridade" class="form-label"></label><select asp-for="Prioridade" class="form-select"><option value="BAIXA">Baixa</option><option value="NORMAL">Normal</option><option value="ALTA">Alta</option><option value="URGENTE">Urgente</option></select></div>
+        <div class="col-md-4"><label asp-for="UnidadeDestino" class="form-label"></label><span aria-hidden="true"> *</span><input asp-for="UnidadeDestino" class="form-control" /><span asp-validation-for="UnidadeDestino" class="text-danger"></span></div>
+        <div class="col-12"><label asp-for="Observacao" class="form-label"></label><textarea asp-for="Observacao" class="form-control" rows="4"></textarea><span asp-validation-for="Observacao" class="text-danger"></span></div>
+      </div>
+    </fieldset>
+    <div class="sigov-form-actions mt-4"><a class="sigov-btn sigov-btn--ghost" href="/Protocolo">Cancelar</a><button class="sigov-btn sigov-btn--primary" type="submit" data-loading-text="Salvando…"><sigov-icon name="plus" size="16" />Criar protocolo</button></div>
+  </form>
+</div>
+

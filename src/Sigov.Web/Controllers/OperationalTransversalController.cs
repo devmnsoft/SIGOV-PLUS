@@ -24,6 +24,8 @@ public sealed class TarefasController : Controller
     [HttpGet("/Tarefas/Minhas")]
     [HttpGet("/Tarefas/Abertas")]
     [HttpGet("/Tarefas/Vencidas")]
+    [HttpGet("/Tarefas/Equipe")]
+    [HttpGet("/Tarefas/Detalhes/{id:long}")]
     [HttpGet("/Tarefas/{id:long}")]
     [HttpGet("/Tarefas/Nova")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
