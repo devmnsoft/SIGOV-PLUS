@@ -63,6 +63,61 @@ public sealed class PosRcWebOperationalService
         return true;
     }
 
+    public async Task<long?> CriarTarefaDoProtocoloAsync(long protocoloId, ProtocoloTarefaFormViewModel model, string correlationId, CancellationToken ct)
+    {
+        if (!await _schema.TableExistsAsync("sigov", "tarefa", ct).ConfigureAwait(false)
+            || !await _schema.TableExistsAsync("sigov", "tarefa_vinculo", ct).ConfigureAwait(false)) return null;
+        var tenantId = _tenantContextAccessor.Resolve().TenantId;
+        if (!tenantId.HasValue) return null;
+        await using var cn = _connectionFactory.CreateConnection();
+        await cn.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var protocoloExiste = await cn.ExecuteScalarAsync<bool>(new CommandDefinition(
+                "select exists(select 1 from sigov.protocolo where id=@ProtocoloId and tenant_id=@TenantId and coalesce(is_deleted,false)=false)",
+                new { ProtocoloId = protocoloId, TenantId = tenantId.Value }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (!protocoloExiste) { await tx.RollbackAsync(ct).ConfigureAwait(false); return null; }
+
+            const string insertTarefa = "insert into sigov.tarefa (tenant_id,titulo,descricao,status,prioridade,responsavel_id,prazo_em,origem,entidade,entidade_id,created_by,correlation_id) values (@TenantId,@Titulo,@Descricao,'ABERTA',@Prioridade,@ResponsavelId,@PrazoEm,'PROTOCOLO','protocolo',@ProtocoloId,1,@CorrelationId) returning id";
+            var tarefaId = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertTarefa, new { TenantId = tenantId.Value, Titulo = model.Titulo.Trim(), Descricao = model.Descricao?.Trim(), model.Prioridade, model.ResponsavelId, model.PrazoEm, ProtocoloId = protocoloId.ToString(), CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.tarefa_vinculo (tenant_id,tarefa_id,entidade,entidade_id,created_by,correlation_id) values (@TenantId,@TarefaId,'protocolo',@ProtocoloId,1,@CorrelationId)", new { TenantId = tenantId.Value, TarefaId = tarefaId, ProtocoloId = protocoloId.ToString(), CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (await _schema.TableExistsAsync("sigov", "notificacao", ct).ConfigureAwait(false))
+            {
+                var notificacaoId = await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.notificacao (tenant_id,tipo,titulo,mensagem,modulo,prioridade,origem,entidade,entidade_id,created_by,correlation_id) values (@TenantId,'TAREFA_CRIADA','Nova tarefa atribuída',@Mensagem,'Tarefas',@Prioridade,'PROTOCOLO','tarefa',@TarefaId,1,@CorrelationId) returning id", new { TenantId = tenantId.Value, Mensagem = $"A tarefa '{model.Titulo.Trim()}' foi vinculada ao protocolo {protocoloId}.", model.Prioridade, TarefaId = tarefaId.ToString(), CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (await _schema.TableExistsAsync("sigov", "notificacao_usuario", ct).ConfigureAwait(false))
+                    await cn.ExecuteAsync(new CommandDefinition("insert into sigov.notificacao_usuario (tenant_id,notificacao_id,usuario_id,tipo,titulo,lida,created_by,correlation_id) values (@TenantId,@NotificacaoId,@ResponsavelId,'TAREFA_CRIADA','Nova tarefa atribuída',false,1,@CorrelationId)", new { TenantId = tenantId.Value, NotificacaoId = notificacaoId, model.ResponsavelId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            }
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return tarefaId;
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            _logger.LogError(ex, "Falha ao criar tarefa vinculada ao protocolo {ProtocoloId}. CorrelationId {CorrelationId}", protocoloId, correlationId);
+            return null;
+        }
+    }
+
+    public async Task<bool> VincularDocumentoAsync(long protocoloId, long documentoId, string correlationId, CancellationToken ct)
+    {
+        if (!await _schema.TableExistsAsync("sigov", "protocolo_anexo", ct).ConfigureAwait(false)
+            || !await _schema.TableExistsAsync("sigov", "documento", ct).ConfigureAwait(false)) return false;
+        var tenantId = _tenantContextAccessor.Resolve().TenantId;
+        if (!tenantId.HasValue) return false;
+        try
+        {
+            await using var cn = _connectionFactory.CreateConnection();
+            const string sql = "insert into sigov.protocolo_anexo (tenant_id,protocolo_id,documento_id,created_by,correlation_id) select @TenantId,@ProtocoloId,@DocumentoId,1,@CorrelationId where exists (select 1 from sigov.protocolo p where p.id=@ProtocoloId and p.tenant_id=@TenantId and coalesce(p.is_deleted,false)=false) and exists (select 1 from sigov.documento d where d.id=@DocumentoId and d.tenant_id=@TenantId and coalesce(d.is_deleted,false)=false) and not exists (select 1 from sigov.protocolo_anexo a where a.tenant_id=@TenantId and a.protocolo_id=@ProtocoloId and a.documento_id=@DocumentoId and coalesce(a.is_deleted,false)=false)";
+            return await cn.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId.Value, ProtocoloId = protocoloId, DocumentoId = documentoId, CorrelationId = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid() }, cancellationToken: ct)).ConfigureAwait(false) == 1;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao vincular documento {DocumentoId} ao protocolo {ProtocoloId}. CorrelationId {CorrelationId}", documentoId, protocoloId, correlationId);
+            return false;
+        }
+    }
+
     private async Task<IReadOnlyList<DemoRecord>> QueryRecordsAsync(string table, string sql, string? q, CancellationToken ct)
     {
         try { using var cn = _connectionFactory.CreateConnection(); var rows = await cn.QueryAsync<Row>(new CommandDefinition(sql, new { TenantId = _tenantContextAccessor.Resolve().TenantId, Q = string.IsNullOrWhiteSpace(q) ? null : q, Like = $"%{q}%" }, cancellationToken: ct)).ConfigureAwait(false); return rows.Select(r => new DemoRecord(r.Id, r.Codigo, LgpdMaskingHelper.MaskName(r.Nome), r.Status, r.Responsavel, r.Atualizado_Em, LgpdMaskingHelper.MaskDocument(r.Documento))).ToArray(); }

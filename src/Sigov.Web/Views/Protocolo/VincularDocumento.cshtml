@@ -1,0 +1,17 @@
+@model Sigov.Web.Models.Protocolo.ProtocoloDocumentoFormViewModel
+@{ var protocoloId = (long)(ViewData["ProtocoloId"] ?? 0L); ViewData["Title"] = "Vincular documento GED"; }
+<div class="sigov-page-shell">
+  <header class="sigov-page-header">
+    <div><span class="sigov-eyebrow">Protocolo @protocoloId · GED</span><h1>Vincular documento existente</h1><p>O documento precisa pertencer ao mesmo tenant. O conteúdo sensível não é exibido nesta etapa.</p></div>
+    <a class="sigov-btn sigov-btn--ghost" href="/Protocolo/Detalhes/@protocoloId">Voltar ao protocolo</a>
+  </header>
+  <form method="post" action="/Protocolo/@protocoloId/VincularDocumento" class="sigov-card sigov-form">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <label asp-for="DocumentoId" class="form-label"></label>
+    <input asp-for="DocumentoId" class="form-control" inputmode="numeric" aria-describedby="documentoAjuda" autofocus />
+    <div id="documentoAjuda" class="form-text">Use o identificador exibido nos detalhes do documento GED.</div>
+    <span asp-validation-for="DocumentoId" class="text-danger"></span>
+    <div class="sigov-form-actions mt-4"><a class="sigov-btn sigov-btn--ghost" href="/Ged/Documentos">Localizar no GED</a><button class="sigov-btn sigov-btn--primary" type="submit" data-loading-text="Vinculando…"><sigov-icon name="link" size="16" />Vincular documento</button></div>
+  </form>
+</div>
