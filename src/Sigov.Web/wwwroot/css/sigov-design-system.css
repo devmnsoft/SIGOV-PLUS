@@ -1,0 +1,21 @@
+.design-system { display: grid; gap: 1.5rem; }
+.design-system__hero { background: radial-gradient(circle at 85% 10%, rgba(45, 212, 191, .32), transparent 30%), linear-gradient(135deg, #0f172a, #134e4a); color: #fff; border-radius: 1.75rem; padding: clamp(1.5rem, 4vw, 3rem); }
+.design-system__hero p { color: #ccfbf1; max-width: 48rem; }
+.design-system__nav { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
+.design-system__nav a { white-space: nowrap; color: var(--sigov-text-primary); background: var(--sigov-bg-surface); border: 1px solid var(--sigov-border-subtle); border-radius: 999px; padding: .55rem .85rem; text-decoration: none; }
+.design-system__section { scroll-margin-top: 5rem; }
+.design-system__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
+.design-system__surface { padding: 1.25rem; border: 1px solid var(--sigov-border-subtle); background: var(--sigov-bg-surface); border-radius: var(--sigov-radius-xl); box-shadow: var(--sigov-shadow-xs); }
+.design-system__swatch { min-height: 5rem; padding: 1rem; display: flex; align-items: end; color: #fff; border-radius: 1rem; font-weight: 700; }
+.design-system__swatch--primary { background: var(--sigov-primary); }
+.design-system__swatch--secondary { background: var(--sigov-secondary); }
+.design-system__skeleton-line { min-height: 2rem; }
+.design-system__actions { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; }
+.sigov-filter-field { flex: 1 1 12rem; }
+.sigov-filter-field .form-label { margin-bottom: .25rem; font-size: .8rem; font-weight: 700; }
+.sigov-filter-actions { display: flex; align-self: end; gap: .5rem; }
+.sigov-toolbar-search { width: min(100%, 22rem); }
+.sigov-density-compact .design-system__surface { padding: .75rem; }
+.sigov-density-compact .table > :not(caption) > * > * { padding: .4rem .55rem; }
+@media (max-width: 575.98px) { .design-system__hero { border-radius: 1.25rem; } .sigov-filter-actions, .sigov-filter-actions > * { width: 100%; } .sigov-data-toolbar > * { width: 100%; } .sigov-data-toolbar .ms-auto { margin-left: 0 !important; } }
+@media (prefers-reduced-motion: reduce) { .sigov-loading-skeleton::after, .sigov-skeleton-card::after { animation: none; } }

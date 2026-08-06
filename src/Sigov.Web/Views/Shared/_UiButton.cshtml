@@ -1,0 +1,20 @@
+@model Sigov.Web.Models.Ui.UiButtonViewModel
+@{
+    var allowedVariants = new[] { "primary", "secondary", "ghost", "danger" };
+    var variant = allowedVariants.Contains(Model.Variant, StringComparer.OrdinalIgnoreCase) ? Model.Variant.ToLowerInvariant() : "primary";
+    var css = $"sigov-btn sigov-btn--{variant}" + (Model.Disabled ? " disabled" : string.Empty);
+}
+@if (!string.IsNullOrWhiteSpace(Model.Url))
+{
+    <a class="@css" href="@(Model.Disabled ? null : Model.Url)" aria-disabled="@Model.Disabled.ToString().ToLowerInvariant()" tabindex="@(Model.Disabled ? "-1" : null)">
+        @if (!string.IsNullOrWhiteSpace(Model.Icon)) { <span aria-hidden="true">@Model.Icon</span> }
+        @Model.Text
+    </a>
+}
+else
+{
+    <button class="@css" type="@Model.Type" disabled="@Model.Disabled">
+        @if (!string.IsNullOrWhiteSpace(Model.Icon)) { <span aria-hidden="true">@Model.Icon</span> }
+        @Model.Text
+    </button>
+}

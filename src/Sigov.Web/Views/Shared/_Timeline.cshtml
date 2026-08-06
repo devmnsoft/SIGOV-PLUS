@@ -1,0 +1,10 @@
+@model Sigov.Web.Models.Ui.TimelineViewModel
+<ol class="sigov-timeline-premium" aria-label="@Model.AccessibleLabel">
+@foreach (var item in Model.Items)
+{
+    <li>
+        <div><strong>@item.Title</strong><p class="mb-0 text-muted">@item.Description</p></div>
+        <time class="text-muted small">@item.Timestamp</time>
+    </li>
+}
+</ol>
