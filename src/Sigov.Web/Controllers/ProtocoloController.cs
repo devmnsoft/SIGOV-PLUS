@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Services;
+using Sigov.Web.Models.Protocolo;
 
 namespace Sigov.Web.Controllers;
 
@@ -20,6 +21,8 @@ public sealed class ProtocoloController : Controller
     [HttpGet("/Protocolo")]
     [HttpGet("/Protocolo/Processos")]
     [HttpGet("/Protocolo/MinhasPendencias")]
+    [HttpGet("/Protocolo/Meus")]
+    [HttpGet("/Protocolo/Pendentes")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         if (!Can("protocolo.visualizar")) return Forbid();
@@ -30,14 +33,15 @@ public sealed class ProtocoloController : Controller
     public async Task<IActionResult> Novo(CancellationToken cancellationToken)
     {
         if (!Can("protocolo.criar")) return Forbid();
-        return View("~/Views/Operational/Module.cshtml", await _service.BuildProtocoloAsync("Novo protocolo real", null, cancellationToken));
+        return View(new ProtocoloFormViewModel());
     }
 
     [HttpPost("/Protocolo/Novo"), ValidateAntiForgeryToken]
-    public async Task<IActionResult> NovoPost(string? assunto, string? interessado, CancellationToken cancellationToken)
+    public async Task<IActionResult> NovoPost(ProtocoloFormViewModel model, CancellationToken cancellationToken)
     {
         if (!Can("protocolo.criar")) return Forbid();
-        var id = await _service.CriarProtocoloAsync(string.IsNullOrWhiteSpace(assunto) ? "Solicitação Web" : assunto, interessado, cancellationToken);
+        if (!ModelState.IsValid) return View("Novo", model);
+        var id = await _service.CriarProtocoloAsync(model, cancellationToken);
         await Audit("protocolo.criar", id?.ToString(), cancellationToken);
         if (id is null) { TempData["Warning"] = "Protocolo não foi salvo porque o schema real está indisponível; fallback honesto ativo."; return RedirectToAction(nameof(Index)); }
         return Redirect($"/Protocolo/Detalhes/{id}");

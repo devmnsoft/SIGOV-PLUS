@@ -2,6 +2,7 @@ using Dapper;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Helpers;
 using Sigov.Web.Models.Operational;
+using Sigov.Web.Models.Protocolo;
 
 namespace Sigov.Web.Services;
 
@@ -27,7 +28,7 @@ public sealed class PosRcWebOperationalService
         return Build("Protocolo", "Protocolo", screen, real, records, new[] { "protocolo", "protocolo_movimento", "workflow_instancia", "tarefa", "notificacao", "protocolo_anexo" });
     }
 
-    public async Task<long?> CriarProtocoloAsync(string assunto, string? interessado, CancellationToken ct)
+    public async Task<long?> CriarProtocoloAsync(ProtocoloFormViewModel model, CancellationToken ct)
     {
         if (!await _schema.TableExistsAsync("sigov", "protocolo", ct).ConfigureAwait(false)) return null;
         using var cn = _connectionFactory.CreateConnection();
@@ -39,7 +40,7 @@ public sealed class PosRcWebOperationalService
             var seq = await cn.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(max(id),0)+1 from sigov.protocolo where tenant_id=@TenantId and exercicio=@Exercicio", new { TenantId = tenantId.Value, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
             var numero = $"{exercicio}-{seq:000000}";
             const string insertProtocolo = "insert into sigov.protocolo (tenant_id, numero, status, assunto, dados_json, created_by, correlation_id, exercicio) values (@TenantId,@Numero,'ABERTO',@Assunto,cast(@Dados as jsonb),@UserId,@CorrelationId,@Exercicio) returning id";
-            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertProtocolo, new { TenantId = tenantId.Value, Numero = numero, Assunto = assunto, Dados = System.Text.Json.JsonSerializer.Serialize(new { interessado = LgpdMaskingHelper.MaskName(interessado), setorAtual = "Protocolo" }), UserId = userId, CorrelationId = correlationId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertProtocolo, new { TenantId = tenantId.Value, Numero = numero, Assunto = model.Assunto.Trim(), Dados = System.Text.Json.JsonSerializer.Serialize(new { interessado = LgpdMaskingHelper.MaskName(model.Interessado), interessadoDocumento = LgpdMaskingHelper.MaskDocument(model.Documento), categoria = model.Categoria, prioridade = model.Prioridade, setorAtual = model.UnidadeDestino, observacao = model.Observacao }), UserId = userId, CorrelationId = correlationId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
             await TryExecuteAsync(cn, tx, "insert into sigov.workflow_instancia (tenant_id, status, protocolo_id, created_by, correlation_id) values (@TenantId,'ATIVO',@Id,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
             await TryExecuteAsync(cn, tx, "insert into sigov.tarefa (tenant_id, status, protocolo_id, titulo, responsavel_id, created_by, correlation_id) values (@TenantId,'PENDENTE',@Id,'Triar protocolo',@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
             await TryExecuteAsync(cn, tx, "insert into sigov.notificacao (tenant_id, status, titulo, mensagem, usuario_id, created_by, correlation_id) values (@TenantId,'NAO_LIDA','Protocolo criado',@Msg,@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Msg = $"Protocolo {numero} criado", UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
