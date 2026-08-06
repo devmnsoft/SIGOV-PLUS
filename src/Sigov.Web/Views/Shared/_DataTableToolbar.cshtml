@@ -1,0 +1,13 @@
+@model Sigov.Web.Models.Ui.DataTableToolbarViewModel
+<div class="sigov-data-toolbar">
+    <div><strong>@Model.Title</strong></div>
+    @if (!string.IsNullOrWhiteSpace(Model.SearchPlaceholder))
+    {
+        <label class="visually-hidden" for="table-search">Buscar na tabela</label>
+        <input class="form-control sigov-toolbar-search" id="table-search" type="search" placeholder="@Model.SearchPlaceholder">
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.PrimaryActionText))
+    {
+        <a class="sigov-btn sigov-btn--primary ms-auto" href="@Model.PrimaryActionUrl">@Model.PrimaryActionText</a>
+    }
+</div>

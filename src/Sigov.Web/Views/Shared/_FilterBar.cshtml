@@ -1,0 +1,14 @@
+@model Sigov.Web.Models.Ui.FilterBarViewModel
+<form class="sigov-filter-bar" method="get" action="@Model.Action" role="search">
+@foreach (var field in Model.Fields)
+{
+    <div class="sigov-filter-field">
+        <label class="form-label" for="filter-@field.Name">@field.Label</label>
+        <input class="form-control" id="filter-@field.Name" name="@field.Name" type="@field.Type" placeholder="@field.Placeholder">
+    </div>
+}
+    <div class="sigov-filter-actions">
+        <button class="sigov-btn sigov-btn--primary" type="submit">@Model.SubmitText</button>
+        <a class="sigov-btn sigov-btn--ghost" href="@Model.ClearUrl">Limpar</a>
+    </div>
+</form>
