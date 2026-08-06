@@ -27,3 +27,30 @@ public sealed class ProtocoloFormViewModel
     [StringLength(2000)] public string? Observacao { get; set; }
 }
 
+public sealed class ProtocoloTarefaFormViewModel
+{
+    [Required, StringLength(220, MinimumLength = 5)]
+    public string Titulo { get; set; } = string.Empty;
+
+    [StringLength(2000)]
+    public string? Descricao { get; set; }
+
+    [Required]
+    [Display(Name = "Responsável")]
+    [Range(1, long.MaxValue, ErrorMessage = "Informe um responsável válido.")]
+    public long ResponsavelId { get; set; }
+
+    [Required]
+    public string Prioridade { get; set; } = "NORMAL";
+
+    [Display(Name = "Prazo")]
+    public DateTimeOffset? PrazoEm { get; set; }
+}
+
+public sealed class ProtocoloDocumentoFormViewModel
+{
+    [Required]
+    [Display(Name = "Documento GED")]
+    [Range(1, long.MaxValue, ErrorMessage = "Informe um documento válido.")]
+    public long DocumentoId { get; set; }
+}

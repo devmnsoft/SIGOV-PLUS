@@ -72,6 +72,46 @@ public sealed class ProtocoloController : Controller
         return Redirect($"/Protocolo/Detalhes/{id}");
     }
 
+    [HttpGet("/Protocolo/{id:long}/CriarTarefa")]
+    public IActionResult CriarTarefa(long id)
+    {
+        if (!Can("tarefa.criar")) return Forbid();
+        ViewData["ProtocoloId"] = id;
+        return View(new ProtocoloTarefaFormViewModel());
+    }
+
+    [HttpPost("/Protocolo/{id:long}/CriarTarefa"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> CriarTarefaPost(long id, ProtocoloTarefaFormViewModel model, CancellationToken cancellationToken)
+    {
+        if (!Can("tarefa.criar")) return Forbid();
+        if (!ModelState.IsValid) { ViewData["ProtocoloId"] = id; return View("CriarTarefa", model); }
+        var tarefaId = await _service.CriarTarefaDoProtocoloAsync(id, model, HttpContext.TraceIdentifier, cancellationToken);
+        if (tarefaId is null) { ModelState.AddModelError(string.Empty, "Não foi possível criar a tarefa. Verifique o protocolo e tente novamente."); ViewData["ProtocoloId"] = id; return View("CriarTarefa", model); }
+        await Audit("protocolo.tarefa.criar", id.ToString(), cancellationToken);
+        TempData["Info"] = "Tarefa criada, vinculada ao protocolo e notificação enviada ao responsável.";
+        return Redirect($"/Tarefas/Detalhes/{tarefaId}");
+    }
+
+    [HttpGet("/Protocolo/{id:long}/VincularDocumento")]
+    public IActionResult VincularDocumento(long id)
+    {
+        if (!Can("protocolo.anexar")) return Forbid();
+        ViewData["ProtocoloId"] = id;
+        return View(new ProtocoloDocumentoFormViewModel());
+    }
+
+    [HttpPost("/Protocolo/{id:long}/VincularDocumento"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> VincularDocumentoPost(long id, ProtocoloDocumentoFormViewModel model, CancellationToken cancellationToken)
+    {
+        if (!Can("protocolo.anexar")) return Forbid();
+        if (!ModelState.IsValid) { ViewData["ProtocoloId"] = id; return View("VincularDocumento", model); }
+        if (!await _service.VincularDocumentoAsync(id, model.DocumentoId, HttpContext.TraceIdentifier, cancellationToken))
+        { ModelState.AddModelError(string.Empty, "Protocolo ou documento não encontrado neste tenant."); ViewData["ProtocoloId"] = id; return View("VincularDocumento", model); }
+        await Audit("protocolo.documento.vincular", id.ToString(), cancellationToken);
+        TempData["Info"] = "Documento GED vinculado ao protocolo.";
+        return Redirect($"/Protocolo/Detalhes/{id}");
+    }
+
     [HttpPost("/Protocolo/{id:long}/Anexar"), ValidateAntiForgeryToken]
     public async Task<IActionResult> Anexar(long id, CancellationToken cancellationToken) { if (!Can("protocolo.anexar")) return Forbid(); await Audit("protocolo.anexar", id.ToString(), cancellationToken); return Redirect($"/Ged/NovoDocumento?protocolo_id={id}"); }
     [HttpPost("/Protocolo/{id:long}/Arquivar"), ValidateAntiForgeryToken]

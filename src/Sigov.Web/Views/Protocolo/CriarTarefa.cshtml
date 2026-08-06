@@ -1,0 +1,20 @@
+@model Sigov.Web.Models.Protocolo.ProtocoloTarefaFormViewModel
+@{ var protocoloId = (long)(ViewData["ProtocoloId"] ?? 0L); ViewData["Title"] = "Criar tarefa do protocolo"; }
+<div class="sigov-page-shell">
+  <header class="sigov-page-header">
+    <div><span class="sigov-eyebrow">Protocolo @protocoloId · produtividade</span><h1>Criar tarefa vinculada</h1><p>Defina responsável, prioridade e prazo. O vínculo e a notificação serão registrados no mesmo fluxo.</p></div>
+    <a class="sigov-btn sigov-btn--ghost" href="/Protocolo/Detalhes/@protocoloId">Voltar ao protocolo</a>
+  </header>
+  <form method="post" action="/Protocolo/@protocoloId/CriarTarefa" class="sigov-card sigov-form" data-sigov-unsaved-form>
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <div class="row g-3">
+      <div class="col-12"><label asp-for="Titulo" class="form-label"></label><input asp-for="Titulo" class="form-control" autofocus /><span asp-validation-for="Titulo" class="text-danger"></span></div>
+      <div class="col-12"><label asp-for="Descricao" class="form-label"></label><textarea asp-for="Descricao" class="form-control" rows="4"></textarea><span asp-validation-for="Descricao" class="text-danger"></span></div>
+      <div class="col-md-4"><label asp-for="ResponsavelId" class="form-label"></label><input asp-for="ResponsavelId" class="form-control" inputmode="numeric" /><span asp-validation-for="ResponsavelId" class="text-danger"></span></div>
+      <div class="col-md-4"><label asp-for="Prioridade" class="form-label"></label><select asp-for="Prioridade" class="form-select"><option value="BAIXA">Baixa</option><option value="NORMAL">Normal</option><option value="ALTA">Alta</option><option value="CRITICA">Crítica</option></select></div>
+      <div class="col-md-4"><label asp-for="PrazoEm" class="form-label"></label><input asp-for="PrazoEm" class="form-control" type="datetime-local" /><span asp-validation-for="PrazoEm" class="text-danger"></span></div>
+    </div>
+    <div class="sigov-form-actions mt-4"><a class="sigov-btn sigov-btn--ghost" href="/Protocolo/Detalhes/@protocoloId">Cancelar</a><button class="sigov-btn sigov-btn--primary" type="submit" data-loading-text="Criando…"><sigov-icon name="check" size="16" />Criar e notificar</button></div>
+  </form>
+</div>

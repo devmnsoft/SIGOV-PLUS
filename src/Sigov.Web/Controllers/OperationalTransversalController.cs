@@ -31,6 +31,9 @@ public sealed class TarefasController : Controller
     public async Task<IActionResult> Index(CancellationToken cancellationToken) =>
         View("~/Views/Operational/Hub.cshtml", await _service.GetAsync(cancellationToken).ConfigureAwait(false));
 
+    [HttpGet("/Tarefas/Kanban")]
+    public IActionResult Kanban() => Redirect("/Kanban/Tarefas");
+
     [HttpPost("/Tarefas/Nova")]
     [ValidateAntiForgeryToken]
     public Task<IActionResult> Nova(CancellationToken cancellationToken) => PostAsync("TAREFA_CRIAR", cancellationToken);
