@@ -1,0 +1,55 @@
+name: Runtime local smoke
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['scripts/**', 'src/Sigov.Api/**', 'src/Sigov.Infrastructure/**', '.env*.example', '.github/workflows/runtime-local-smoke.yml']
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-admin-secret
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 12
+    env:
+      PGPASSWORD: ci-admin-secret
+      SIGOV_DB_PASSWORD: ci-runtime-secret-A9!
+      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-secret-A9!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: Setup completo
+        shell: pwsh
+        run: ./scripts/setup-local-sigov.ps1 -Force -SkipBuild
+      - name: Build
+        run: dotnet build sigov.sln --configuration Release
+      - name: Iniciar e validar processos
+        shell: pwsh
+        run: |
+          ./scripts/start-local.ps1 -SkipBuild
+          Start-Sleep 15
+          ./scripts/status-local.ps1
+          ./scripts/check-runtime.ps1
+      - name: MigrationMode Disabled não executa runner
+        run: '! rg -i "aplicando migration" .local/logs'
+      - name: Artifacts não contêm secrets
+        shell: bash
+        run: |
+          ! rg -F "$SIGOV_DB_PASSWORD" artifacts .local/logs
+          ! rg -F "$SIGOV_BOOTSTRAP_ADMIN_PASSWORD" artifacts .local/logs
+      - if: always()
+        shell: pwsh
+        run: ./scripts/stop-local.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-local-smoke
+          path: |
+            artifacts/local-setup/*.json
+            artifacts/local-setup/*.md
+            .local/logs/*.log

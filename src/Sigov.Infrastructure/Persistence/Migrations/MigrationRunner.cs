@@ -3,6 +3,7 @@ using System.Text;
 using Dapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Persistence.Migrations;
@@ -156,9 +157,26 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
                 throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.");
             }
         }
+        catch (PostgresException ex)
+        {
+            var connection = _connectionFactory.CreateConnection();
+            var hint = ex.SqlState switch
+            {
+                PostgresErrorCodes.InvalidPassword => $"Senha do usuário PostgreSQL '{connection.UserName}' inválida. Execute ./scripts/provision-sigov-db-user.ps1 e confira ConnectionStrings__DefaultConnection e .env.local.",
+                PostgresErrorCodes.InvalidCatalogName => "Banco PostgreSQL não existe. Execute ./scripts/install-sigov-database.ps1.",
+                PostgresErrorCodes.InsufficientPrivilege => "Permissão insuficiente para o usuário runtime. Execute ./scripts/provision-sigov-db-user.ps1.",
+                PostgresErrorCodes.UndefinedTable => "Tabela obrigatória ausente. Execute diagnose-sigov-database.ps1 e validate-sigov-runtime.ps1.",
+                PostgresErrorCodes.UniqueViolation => "Duplicidade encontrada. Execute repair-sigov-database.ps1 e diagnose-sigov-database.ps1.",
+                _ => "Falha PostgreSQL durante a validação de migrations; consulte o SQLSTATE e o diagnóstico operacional."
+            };
+            _logger.LogError(ex, "{OperationalHint} SqlState={SqlState}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
+                hint, ex.SqlState, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao executar migrations no schema sigov. CorrelationId={CorrelationId}", Guid.Empty);
+            _logger.LogError(ex, "Erro ao executar migrations no schema sigov. CorrelationId={CorrelationId}",
+                System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
             throw;
         }
     }

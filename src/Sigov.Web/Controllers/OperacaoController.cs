@@ -35,7 +35,7 @@ public sealed class OperacaoController : Controller
     {
         try
         {
-            return View(new HealthVisualViewModel
+            return View("Health", new HealthVisualViewModel
             {
                 Itens = await _service.VerificarAmbienteAsync(cancellationToken).ConfigureAwait(false),
                 Ambiente = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
@@ -46,9 +46,17 @@ public sealed class OperacaoController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro tratado na tela visual de health.");
-            return View(new HealthVisualViewModel { Itens = _service.CriarAmbiente(false), MensagemFallback = "Falha ao consultar saúde completa do ambiente." });
+            return View("Health", new HealthVisualViewModel { Itens = _service.CriarAmbiente(false), MensagemFallback = "Falha ao consultar saúde completa do ambiente." });
         }
     }
+
+    [Authorize(Roles = "Admin,Administrador")]
+    [HttpGet("/Operacao/Runtime")]
+    public Task<IActionResult> Runtime(CancellationToken cancellationToken) => Health(cancellationToken);
+
+    [Authorize(Roles = "Admin,Administrador")]
+    [HttpGet("/Operacao/Diagnostico")]
+    public IActionResult Diagnostico() => View();
 }
 
 public sealed record OperacaoObservabilidadeViewModel(string Rota);

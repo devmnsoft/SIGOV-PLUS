@@ -1,0 +1,15 @@
+@{ ViewData["Title"] = "Diagnóstico operacional"; }
+<header class="sigov-page-header"><div><span class="sigov-badge sigov-badge--success">Operação segura</span><h1 class="h2 fw-bold mt-2">Assistente de diagnóstico</h1><p>Correções objetivas para falhas de runtime. Os comandos não contêm senhas.</p></div><button class="sigov-btn sigov-btn--primary" onclick="downloadReport()">Baixar relatório</button></header>
+<section class="sigov-grid sigov-grid--kpis" id="diagnostico">
+@foreach (var item in new[] {
+    ("28P01", "Senha runtime divergente", "API e workers não conectam.", "./scripts/provision-sigov-db-user.ps1 -Database sigov -AdminUser postgres -AppDbUser sigov"),
+    ("3D000", "Banco inexistente", "O runtime não inicia.", "./scripts/install-sigov-database.ps1 -Database sigov"),
+    ("42P01", "Schema ou tabela ausente", "Health ready fica crítico.", "./scripts/diagnose-sigov-database.ps1"),
+    ("42501", "Permissão insuficiente", "Consultas runtime falham.", "./scripts/provision-sigov-db-user.ps1 -Database sigov -AdminUser postgres -AppDbUser sigov"),
+    ("Worker", "Worker desabilitado", "Tarefas assíncronas ficam pausadas.", "# ajuste SIGOV_RUN_WORKER=true em .env.local"),
+    ("Storage", "Storage inacessível", "Uploads e previews falham.", "./scripts/status-local.ps1") }) {
+<article class="sigov-kpi-card"><div class="d-flex justify-content-between"><strong>@item.Item2</strong><span class="sigov-badge sigov-badge--warning">@item.Item1</span></div><p class="text-muted mt-3">@item.Item3</p><code class="d-block text-break">@item.Item4</code><button class="sigov-btn sigov-btn--ghost mt-3" data-command="@item.Item4" onclick="copyCommand(this)">Copiar comando</button></article>
+}
+</section>
+<div class="sigov-card p-4 mt-4"><h2 class="h5">Como corrigir com segurança</h2><p class="mb-0">Execute primeiro <code>status-local.ps1</code> e <code>check-runtime.ps1</code>. Compartilhe apenas os relatórios sanitizados e o correlation id; nunca compartilhe o arquivo <code>.env.local</code>.</p></div>
+@section Scripts { <script>async function copyCommand(b){await navigator.clipboard.writeText(b.dataset.command);b.textContent='Copiado';}function downloadReport(){const text=document.getElementById('diagnostico').innerText;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='diagnostico-sigov.txt';a.click();URL.revokeObjectURL(a.href);}</script> }
