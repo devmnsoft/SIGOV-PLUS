@@ -10911,6 +10911,67 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260807120000_rc46_operacao_integrada.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6
+-- ==================================================
+-- RC46: base transversal idempotente para workflows operacionais.
+create table if not exists sigov.timeline_evento (
+  id bigserial primary key,
+  tenant_id bigint not null,
+  entidade_id bigint null,
+  exercicio_id bigint null,
+  modulo varchar(40) not null,
+  entidade varchar(80) not null,
+  entidade_registro_id bigint not null,
+  acao varchar(80) not null,
+  descricao varchar(500) not null,
+  severidade varchar(20) not null default 'INFO',
+  usuario_id bigint null,
+  correlation_id uuid not null,
+  detalhes_json jsonb null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists ix_timeline_evento_escopo
+  on sigov.timeline_evento (tenant_id, entidade, entidade_registro_id, created_at desc);
+
+create unique index if not exists ux_protocolo_numero_exercicio
+  on sigov.protocolo (tenant_id, exercicio, numero)
+  where coalesce(is_deleted, false) = false;
+
+alter table sigov.protocolo add column if not exists entidade_id bigint null;
+alter table sigov.protocolo add column if not exists exercicio_id bigint null;
+alter table sigov.protocolo_movimento add column if not exists entidade_id bigint null;
+alter table sigov.protocolo_movimento add column if not exists exercicio_id bigint null;
+alter table sigov.protocolo_movimento add column if not exists destino varchar(160) null;
+
+create index if not exists ix_protocolo_escopo_status
+  on sigov.protocolo (tenant_id, entidade_id, exercicio_id, status, created_at desc);
+
+-- A função serializa a numeração por tenant/exercício sem depender de MAX(id).
+create or replace function sigov.proximo_numero_protocolo(p_tenant_id bigint, p_exercicio integer)
+returns varchar language plpgsql as $$
+declare v_sequencia bigint;
+begin
+  perform pg_advisory_xact_lock(p_tenant_id, p_exercicio);
+  select coalesce(max(split_part(numero, '/', 1)::bigint), 0) + 1
+    into v_sequencia
+    from sigov.protocolo
+   where tenant_id = p_tenant_id
+     and exercicio = p_exercicio
+     and numero ~ '^[0-9]+/[0-9]{4}$';
+  return lpad(v_sequencia::text, 6, '0') || '/' || p_exercicio::text;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260807120000', 'rc46_operacao_integrada', 'a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================

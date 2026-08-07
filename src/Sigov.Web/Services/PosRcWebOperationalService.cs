@@ -3,6 +3,7 @@ using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Helpers;
 using Sigov.Web.Models.Operational;
 using Sigov.Web.Models.Protocolo;
+using System.Security.Claims;
 
 namespace Sigov.Web.Services;
 
@@ -12,13 +13,15 @@ public sealed class PosRcWebOperationalService
     private readonly IDatabaseSchemaInspector _schema;
     private readonly ILogger<PosRcWebOperationalService> _logger;
     private readonly ITenantContextAccessor _tenantContextAccessor;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public PosRcWebOperationalService(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schema, ILogger<PosRcWebOperationalService> logger, ITenantContextAccessor tenantContextAccessor)
+    public PosRcWebOperationalService(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schema, ILogger<PosRcWebOperationalService> logger, ITenantContextAccessor tenantContextAccessor, IHttpContextAccessor httpContextAccessor)
     {
         _connectionFactory = connectionFactory;
         _schema = schema;
         _logger = logger;
         _tenantContextAccessor = tenantContextAccessor;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<OperationalModuleViewModel> BuildProtocoloAsync(string screen, string? q, CancellationToken ct)
@@ -36,11 +39,11 @@ public sealed class PosRcWebOperationalService
         using var tx = await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
-            var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return null; var userId = 1L; var correlationId = Guid.NewGuid(); var exercicio = DateTime.UtcNow.Year;
-            var seq = await cn.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(max(id),0)+1 from sigov.protocolo where tenant_id=@TenantId and exercicio=@Exercicio", new { TenantId = tenantId.Value, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
-            var numero = $"{exercicio}-{seq:000000}";
-            const string insertProtocolo = "insert into sigov.protocolo (tenant_id, numero, status, assunto, dados_json, created_by, correlation_id, exercicio) values (@TenantId,@Numero,'ABERTO',@Assunto,cast(@Dados as jsonb),@UserId,@CorrelationId,@Exercicio) returning id";
-            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertProtocolo, new { TenantId = tenantId.Value, Numero = numero, Assunto = model.Assunto.Trim(), Dados = System.Text.Json.JsonSerializer.Serialize(new { interessado = LgpdMaskingHelper.MaskName(model.Interessado), interessadoDocumento = LgpdMaskingHelper.MaskDocument(model.Documento), categoria = model.Categoria, prioridade = model.Prioridade, setorAtual = model.UnidadeDestino, observacao = model.Observacao }), UserId = userId, CorrelationId = correlationId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return null; var userId = CurrentUserId(); var correlationId = CurrentCorrelationId(); var exercicio = CurrentExercise();
+            var numero = await cn.ExecuteScalarAsync<string>(new CommandDefinition("select sigov.proximo_numero_protocolo(@TenantId,@Exercicio)", new { TenantId = tenantId.Value, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            const string insertProtocolo = "insert into sigov.protocolo (tenant_id, entidade_id, exercicio_id, numero, status, assunto, dados_json, created_by, correlation_id, exercicio) values (@TenantId,@EntidadeId,@ExercicioId,@Numero,'ABERTO',@Assunto,cast(@Dados as jsonb),@UserId,@CorrelationId,@Exercicio) returning id";
+            var id = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertProtocolo, new { TenantId = tenantId.Value, EntidadeId = CurrentClaim("entidade_id"), ExercicioId = CurrentClaim("exercicio_id"), Numero = numero, Assunto = model.Assunto.Trim(), Dados = System.Text.Json.JsonSerializer.Serialize(new { interessado = LgpdMaskingHelper.MaskName(model.Interessado), interessadoDocumento = LgpdMaskingHelper.MaskDocument(model.Documento), categoria = model.Categoria, prioridade = model.Prioridade, setorAtual = model.UnidadeDestino, observacao = model.Observacao, tags = model.Tags }), UserId = userId, CorrelationId = correlationId, Exercicio = exercicio }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            await RegistrarTimelineAsync(cn, tx, tenantId.Value, id, "CRIACAO", $"Protocolo {numero} criado.", userId, correlationId, ct).ConfigureAwait(false);
             await TryExecuteAsync(cn, tx, "insert into sigov.workflow_instancia (tenant_id, status, protocolo_id, created_by, correlation_id) values (@TenantId,'ATIVO',@Id,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
             await TryExecuteAsync(cn, tx, "insert into sigov.tarefa (tenant_id, status, protocolo_id, titulo, responsavel_id, created_by, correlation_id) values (@TenantId,'PENDENTE',@Id,'Triar protocolo',@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
             await TryExecuteAsync(cn, tx, "insert into sigov.notificacao (tenant_id, status, titulo, mensagem, usuario_id, created_by, correlation_id) values (@TenantId,'NAO_LIDA','Protocolo criado',@Msg,@UserId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Msg = $"Protocolo {numero} criado", UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
@@ -53,14 +56,32 @@ public sealed class PosRcWebOperationalService
     public async Task<bool> TramitarProtocoloAsync(long id, string? observacao, CancellationToken ct)
     {
         if (!await _schema.TableExistsAsync("sigov", "protocolo_movimento", ct).ConfigureAwait(false)) return false;
-        using var cn = _connectionFactory.CreateConnection(); var correlationId = Guid.NewGuid(); var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return false;
-        const string insertMovimento = "insert into sigov.protocolo_movimento (tenant_id, protocolo_id, status, observacao, created_by, correlation_id) values (@TenantId,@Id,'TRAMITADO',@Observacao,1,@CorrelationId)";
-        await cn.ExecuteAsync(new CommandDefinition(insertMovimento, new { TenantId = tenantId.Value, Id = id, Observacao = observacao, CorrelationId = correlationId }, cancellationToken: ct)).ConfigureAwait(false);
-        await TryExecuteAsync(cn, null, "update sigov.tarefa set status='CONCLUIDA', concluida_at=now() where protocolo_id=@Id and concluida_at is null", new { Id = id }, ct).ConfigureAwait(false);
-        await TryExecuteAsync(cn, null, "insert into sigov.tarefa (tenant_id,status,protocolo_id,titulo,created_by,correlation_id) values (@TenantId,'PENDENTE',@Id,'Analisar tramitação',1,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, CorrelationId = correlationId }, ct).ConfigureAwait(false);
-        await TryExecuteAsync(cn, null, "insert into sigov.notificacao (tenant_id,status,titulo,mensagem,created_by,correlation_id) values (@TenantId,'NAO_LIDA','Protocolo tramitado',@Msg,1,@CorrelationId)", new { TenantId = tenantId.Value, Msg = $"Protocolo {id} tramitado", CorrelationId = correlationId }, ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(observacao)) return false;
+        using var cn = _connectionFactory.CreateConnection(); var correlationId = CurrentCorrelationId(); var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return false; var userId = CurrentUserId();
+        const string insertMovimento = "insert into sigov.protocolo_movimento (tenant_id, protocolo_id, status, observacao, created_by, correlation_id) select @TenantId,@Id,'TRAMITADO',@Observacao,@UserId,@CorrelationId where exists(select 1 from sigov.protocolo where tenant_id=@TenantId and id=@Id and coalesce(is_deleted,false)=false)";
+        if (await cn.ExecuteAsync(new CommandDefinition(insertMovimento, new { TenantId = tenantId.Value, Id = id, Observacao = observacao.Trim(), UserId = userId, CorrelationId = correlationId }, cancellationToken: ct)).ConfigureAwait(false) != 1) return false;
+        await cn.ExecuteAsync(new CommandDefinition("update sigov.protocolo set status='EM_TRAMITACAO',updated_at=now(),updated_by=@UserId where tenant_id=@TenantId and id=@Id", new { TenantId=tenantId.Value, Id=id, UserId=userId }, cancellationToken:ct)).ConfigureAwait(false);
+        await RegistrarTimelineAsync(cn, null, tenantId.Value, id, "TRAMITACAO", observacao.Trim(), userId, correlationId, ct).ConfigureAwait(false);
+        await TryExecuteAsync(cn, null, "update sigov.tarefa set status='CONCLUIDA', concluida_at=now() where tenant_id=@TenantId and protocolo_id=@Id and concluida_at is null", new { TenantId = tenantId.Value, Id = id }, ct).ConfigureAwait(false);
+        await TryExecuteAsync(cn, null, "insert into sigov.tarefa (tenant_id,status,protocolo_id,titulo,created_by,correlation_id) values (@TenantId,'PENDENTE',@Id,'Analisar tramitação',@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Id = id, UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
+        await TryExecuteAsync(cn, null, "insert into sigov.notificacao (tenant_id,status,titulo,mensagem,created_by,correlation_id) values (@TenantId,'NAO_LIDA','Protocolo tramitado',@Msg,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, Msg = $"Protocolo {id} tramitado", UserId = userId, CorrelationId = correlationId }, ct).ConfigureAwait(false);
         await TryExecuteAsync(cn, null, "insert into sigov.outbox_evento (tenant_id, evento, payload, status, correlation_id, created_at) values (@TenantId,'protocolo.tramitado',cast(@Payload as jsonb),'PENDENTE',@CorrelationId,now())", new { TenantId = tenantId.Value, Payload = System.Text.Json.JsonSerializer.Serialize(new { id }), CorrelationId = correlationId }, ct).ConfigureAwait(false);
         return true;
+    }
+
+    public async Task<bool> AlterarStatusProtocoloAsync(long id, string status, string justificativa, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(justificativa) || status is not ("CONCLUIDO" or "ARQUIVADO")) return false;
+        var tenantId = _tenantContextAccessor.Resolve().TenantId; if (!tenantId.HasValue) return false;
+        try
+        {
+            await using var cn = _connectionFactory.CreateConnection(); var userId = CurrentUserId(); var correlationId = CurrentCorrelationId();
+            var changed = await cn.ExecuteAsync(new CommandDefinition("update sigov.protocolo set status=@Status,updated_at=now(),updated_by=@UserId where tenant_id=@TenantId and id=@Id and coalesce(is_deleted,false)=false and status not in ('ARQUIVADO')", new { Status=status, UserId=userId, TenantId=tenantId.Value, Id=id }, cancellationToken:ct)).ConfigureAwait(false);
+            if (changed == 0) return false;
+            await RegistrarTimelineAsync(cn, null, tenantId.Value, id, status == "CONCLUIDO" ? "CONCLUSAO" : "ARQUIVAMENTO", justificativa.Trim(), userId, correlationId, ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Falha ao alterar protocolo {ProtocoloId} para {Status}.", id, status); return false; }
     }
 
     public async Task<long?> CriarTarefaDoProtocoloAsync(long protocoloId, ProtocoloTarefaFormViewModel model, string correlationId, CancellationToken ct)
@@ -68,6 +89,7 @@ public sealed class PosRcWebOperationalService
         if (!await _schema.TableExistsAsync("sigov", "tarefa", ct).ConfigureAwait(false)
             || !await _schema.TableExistsAsync("sigov", "tarefa_vinculo", ct).ConfigureAwait(false)) return null;
         var tenantId = _tenantContextAccessor.Resolve().TenantId;
+        var userId = CurrentUserId();
         if (!tenantId.HasValue) return null;
         await using var cn = _connectionFactory.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
@@ -79,14 +101,14 @@ public sealed class PosRcWebOperationalService
                 new { ProtocoloId = protocoloId, TenantId = tenantId.Value }, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (!protocoloExiste) { await tx.RollbackAsync(ct).ConfigureAwait(false); return null; }
 
-            const string insertTarefa = "insert into sigov.tarefa (tenant_id,titulo,descricao,status,prioridade,responsavel_id,prazo_em,origem,entidade,entidade_id,created_by,correlation_id) values (@TenantId,@Titulo,@Descricao,'ABERTA',@Prioridade,@ResponsavelId,@PrazoEm,'PROTOCOLO','protocolo',@ProtocoloId,1,@CorrelationId) returning id";
-            var tarefaId = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertTarefa, new { TenantId = tenantId.Value, Titulo = model.Titulo.Trim(), Descricao = model.Descricao?.Trim(), model.Prioridade, model.ResponsavelId, model.PrazoEm, ProtocoloId = protocoloId.ToString(), CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
-            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.tarefa_vinculo (tenant_id,tarefa_id,entidade,entidade_id,created_by,correlation_id) values (@TenantId,@TarefaId,'protocolo',@ProtocoloId,1,@CorrelationId)", new { TenantId = tenantId.Value, TarefaId = tarefaId, ProtocoloId = protocoloId.ToString(), CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            const string insertTarefa = "insert into sigov.tarefa (tenant_id,titulo,descricao,status,prioridade,responsavel_id,prazo_em,origem,entidade,entidade_id,created_by,correlation_id) values (@TenantId,@Titulo,@Descricao,'ABERTA',@Prioridade,@ResponsavelId,@PrazoEm,'PROTOCOLO','protocolo',@ProtocoloId,@UserId,@CorrelationId) returning id";
+            var tarefaId = await cn.ExecuteScalarAsync<long>(new CommandDefinition(insertTarefa, new { TenantId = tenantId.Value, Titulo = model.Titulo.Trim(), Descricao = model.Descricao?.Trim(), model.Prioridade, model.ResponsavelId, model.PrazoEm, ProtocoloId = protocoloId.ToString(), UserId = userId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.tarefa_vinculo (tenant_id,tarefa_id,entidade,entidade_id,created_by,correlation_id) values (@TenantId,@TarefaId,'protocolo',@ProtocoloId,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, TarefaId = tarefaId, ProtocoloId = protocoloId.ToString(), UserId = userId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (await _schema.TableExistsAsync("sigov", "notificacao", ct).ConfigureAwait(false))
             {
-                var notificacaoId = await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.notificacao (tenant_id,tipo,titulo,mensagem,modulo,prioridade,origem,entidade,entidade_id,created_by,correlation_id) values (@TenantId,'TAREFA_CRIADA','Nova tarefa atribuída',@Mensagem,'Tarefas',@Prioridade,'PROTOCOLO','tarefa',@TarefaId,1,@CorrelationId) returning id", new { TenantId = tenantId.Value, Mensagem = $"A tarefa '{model.Titulo.Trim()}' foi vinculada ao protocolo {protocoloId}.", model.Prioridade, TarefaId = tarefaId.ToString(), CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                var notificacaoId = await cn.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.notificacao (tenant_id,tipo,titulo,mensagem,modulo,prioridade,origem,entidade,entidade_id,created_by,correlation_id) values (@TenantId,'TAREFA_CRIADA','Nova tarefa atribuída',@Mensagem,'Tarefas',@Prioridade,'PROTOCOLO','tarefa',@TarefaId,@UserId,@CorrelationId) returning id", new { TenantId = tenantId.Value, Mensagem = $"A tarefa '{model.Titulo.Trim()}' foi vinculada ao protocolo {protocoloId}.", model.Prioridade, TarefaId = tarefaId.ToString(), UserId = userId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
                 if (await _schema.TableExistsAsync("sigov", "notificacao_usuario", ct).ConfigureAwait(false))
-                    await cn.ExecuteAsync(new CommandDefinition("insert into sigov.notificacao_usuario (tenant_id,notificacao_id,usuario_id,tipo,titulo,lida,created_by,correlation_id) values (@TenantId,@NotificacaoId,@ResponsavelId,'TAREFA_CRIADA','Nova tarefa atribuída',false,1,@CorrelationId)", new { TenantId = tenantId.Value, NotificacaoId = notificacaoId, model.ResponsavelId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    await cn.ExecuteAsync(new CommandDefinition("insert into sigov.notificacao_usuario (tenant_id,notificacao_id,usuario_id,tipo,titulo,lida,created_by,correlation_id) values (@TenantId,@NotificacaoId,@ResponsavelId,'TAREFA_CRIADA','Nova tarefa atribuída',false,@UserId,@CorrelationId)", new { TenantId = tenantId.Value, NotificacaoId = notificacaoId, model.ResponsavelId, UserId = userId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
             }
             await tx.CommitAsync(ct).ConfigureAwait(false);
             return tarefaId;
@@ -104,12 +126,13 @@ public sealed class PosRcWebOperationalService
         if (!await _schema.TableExistsAsync("sigov", "protocolo_anexo", ct).ConfigureAwait(false)
             || !await _schema.TableExistsAsync("sigov", "documento", ct).ConfigureAwait(false)) return false;
         var tenantId = _tenantContextAccessor.Resolve().TenantId;
+        var userId = CurrentUserId();
         if (!tenantId.HasValue) return false;
         try
         {
             await using var cn = _connectionFactory.CreateConnection();
-            const string sql = "insert into sigov.protocolo_anexo (tenant_id,protocolo_id,documento_id,created_by,correlation_id) select @TenantId,@ProtocoloId,@DocumentoId,1,@CorrelationId where exists (select 1 from sigov.protocolo p where p.id=@ProtocoloId and p.tenant_id=@TenantId and coalesce(p.is_deleted,false)=false) and exists (select 1 from sigov.documento d where d.id=@DocumentoId and d.tenant_id=@TenantId and coalesce(d.is_deleted,false)=false) and not exists (select 1 from sigov.protocolo_anexo a where a.tenant_id=@TenantId and a.protocolo_id=@ProtocoloId and a.documento_id=@DocumentoId and coalesce(a.is_deleted,false)=false)";
-            return await cn.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId.Value, ProtocoloId = protocoloId, DocumentoId = documentoId, CorrelationId = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid() }, cancellationToken: ct)).ConfigureAwait(false) == 1;
+            const string sql = "insert into sigov.protocolo_anexo (tenant_id,protocolo_id,documento_id,created_by,correlation_id) select @TenantId,@ProtocoloId,@DocumentoId,@UserId,@CorrelationId where exists (select 1 from sigov.protocolo p where p.id=@ProtocoloId and p.tenant_id=@TenantId and coalesce(p.is_deleted,false)=false) and exists (select 1 from sigov.documento d where d.id=@DocumentoId and d.tenant_id=@TenantId and coalesce(d.is_deleted,false)=false) and not exists (select 1 from sigov.protocolo_anexo a where a.tenant_id=@TenantId and a.protocolo_id=@ProtocoloId and a.documento_id=@DocumentoId and coalesce(a.is_deleted,false)=false)";
+            return await cn.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId.Value, ProtocoloId = protocoloId, DocumentoId = documentoId, UserId = userId, CorrelationId = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid() }, cancellationToken: ct)).ConfigureAwait(false) == 1;
         }
         catch (Exception ex)
         {
@@ -135,5 +158,11 @@ public sealed class PosRcWebOperationalService
     };
 
     private static async Task TryExecuteAsync(System.Data.IDbConnection cn, System.Data.IDbTransaction? tx, string sql, object args, CancellationToken ct) { try { await cn.ExecuteAsync(new CommandDefinition(sql, args, tx, cancellationToken: ct)).ConfigureAwait(false); } catch { } }
+    private long? CurrentUserId() => long.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier), out var value) ? value : null;
+    private long? CurrentClaim(string name) => long.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue(name), out var value) ? value : null;
+    private int CurrentExercise() => int.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue("exercicio"), out var value) ? value : DateTime.UtcNow.Year;
+    private Guid CurrentCorrelationId() => Guid.TryParse(_httpContextAccessor.HttpContext?.TraceIdentifier, out var value) ? value : Guid.NewGuid();
+    private async Task RegistrarTimelineAsync(System.Data.IDbConnection cn, System.Data.IDbTransaction? tx, long tenantId, long id, string acao, string descricao, long? userId, Guid correlationId, CancellationToken ct) =>
+        await cn.ExecuteAsync(new CommandDefinition("insert into sigov.timeline_evento (tenant_id,entidade_id,exercicio_id,modulo,entidade,entidade_registro_id,acao,descricao,severidade,usuario_id,correlation_id) values (@TenantId,@EntidadeId,@ExercicioId,'PROTOCOLO','protocolo',@Id,@Acao,@Descricao,'INFO',@UserId,@CorrelationId)", new { TenantId=tenantId, EntidadeId=CurrentClaim("entidade_id"), ExercicioId=CurrentClaim("exercicio_id"), Id=id, Acao=acao, Descricao=descricao, UserId=userId, CorrelationId=correlationId }, tx, cancellationToken:ct)).ConfigureAwait(false);
     private sealed record Row(long Id, string Codigo, string Nome, string Status, string Responsavel, string Atualizado_Em, string Documento);
 }

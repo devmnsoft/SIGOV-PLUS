@@ -25,6 +25,7 @@ public sealed class ProtocoloFormViewModel
     public string UnidadeDestino { get; set; } = string.Empty;
 
     [StringLength(2000)] public string? Observacao { get; set; }
+    [StringLength(300)] public string? Tags { get; set; }
 }
 
 public sealed class ProtocoloTarefaFormViewModel

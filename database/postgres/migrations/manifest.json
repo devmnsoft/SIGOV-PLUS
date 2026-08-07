@@ -559,6 +559,16 @@
       "applyAutomatically": true,
       "checksum": "d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331",
       "postConditionSql": "select to_regclass('sigov.compras_fornecedor') is not null and to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_idempotencia') is not null"
+    },
+    {
+      "version": "20260807120000",
+      "file": "20260807120000_rc46_operacao_integrada.sql",
+      "description": "rc46_operacao_integrada",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6",
+      "postConditionSql": "select to_regclass('sigov.timeline_evento') is not null and to_regprocedure('sigov.proximo_numero_protocolo(bigint,integer)') is not null"
     }
   ]
 }
