@@ -21,9 +21,9 @@
         <div class="col-md-4"><label asp-for="Prioridade" class="form-label"></label><select asp-for="Prioridade" class="form-select"><option value="BAIXA">Baixa</option><option value="NORMAL">Normal</option><option value="ALTA">Alta</option><option value="URGENTE">Urgente</option></select></div>
         <div class="col-md-4"><label asp-for="UnidadeDestino" class="form-label"></label><span aria-hidden="true"> *</span><input asp-for="UnidadeDestino" class="form-control" /><span asp-validation-for="UnidadeDestino" class="text-danger"></span></div>
         <div class="col-12"><label asp-for="Observacao" class="form-label"></label><textarea asp-for="Observacao" class="form-control" rows="4"></textarea><span asp-validation-for="Observacao" class="text-danger"></span></div>
+        <div class="col-12"><label asp-for="Tags" class="form-label"></label><input asp-for="Tags" class="form-control" placeholder="Ex.: urgente, saúde, requerimento" /><span asp-validation-for="Tags" class="text-danger"></span></div>
       </div>
     </fieldset>
     <div class="sigov-form-actions mt-4"><a class="sigov-btn sigov-btn--ghost" href="/Protocolo">Cancelar</a><button class="sigov-btn sigov-btn--primary" type="submit" data-loading-text="Salvando…"><sigov-icon name="plus" size="16" />Criar protocolo</button></div>
   </form>
 </div>
-

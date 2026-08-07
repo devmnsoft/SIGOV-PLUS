@@ -66,9 +66,26 @@ public sealed class ProtocoloController : Controller
     public async Task<IActionResult> TramitarPost(long id, string? observacao, CancellationToken cancellationToken)
     {
         if (!Can("protocolo.tramitar")) return Forbid();
+        if (string.IsNullOrWhiteSpace(observacao)) { TempData["Warning"] = "A observação da tramitação é obrigatória."; return Redirect($"/Protocolo/Tramitar/{id}"); }
         var ok = await _service.TramitarProtocoloAsync(id, observacao, cancellationToken);
         await Audit("protocolo.tramitar", id.ToString(), cancellationToken);
         TempData[ok ? "Info" : "Warning"] = ok ? "Tramitação persistida em sigov.protocolo_movimento, tarefa, notificação e outbox." : "Tramitação não persistida porque o schema real está indisponível.";
+        return Redirect($"/Protocolo/Detalhes/{id}");
+    }
+
+    [HttpPost("/Protocolo/Concluir/{id:long}"), ValidateAntiForgeryToken]
+    public Task<IActionResult> Concluir(long id, string? justificativa, CancellationToken cancellationToken) => AlterarStatus(id, "CONCLUIDO", justificativa, "protocolo.concluir", cancellationToken);
+
+    [HttpPost("/Protocolo/Arquivar/{id:long}"), ValidateAntiForgeryToken]
+    public Task<IActionResult> Arquivar(long id, string? justificativa, CancellationToken cancellationToken) => AlterarStatus(id, "ARQUIVADO", justificativa, "protocolo.arquivar", cancellationToken);
+
+    private async Task<IActionResult> AlterarStatus(long id, string status, string? justificativa, string permission, CancellationToken ct)
+    {
+        if (!Can(permission)) return Forbid();
+        if (string.IsNullOrWhiteSpace(justificativa)) { TempData["Warning"] = "Informe uma justificativa para concluir ou arquivar."; return Redirect($"/Protocolo/Detalhes/{id}"); }
+        var ok = await _service.AlterarStatusProtocoloAsync(id, status, justificativa, ct);
+        if (ok) await Audit(permission, id.ToString(), ct);
+        TempData[ok ? "Info" : "Warning"] = ok ? $"Protocolo {status.ToLowerInvariant()} e evento registrado na timeline." : "Não foi possível alterar o protocolo neste tenant.";
         return Redirect($"/Protocolo/Detalhes/{id}");
     }
 
@@ -114,8 +131,6 @@ public sealed class ProtocoloController : Controller
 
     [HttpPost("/Protocolo/{id:long}/Anexar"), ValidateAntiForgeryToken]
     public async Task<IActionResult> Anexar(long id, CancellationToken cancellationToken) { if (!Can("protocolo.anexar")) return Forbid(); await Audit("protocolo.anexar", id.ToString(), cancellationToken); return Redirect($"/Ged/NovoDocumento?protocolo_id={id}"); }
-    [HttpPost("/Protocolo/{id:long}/Arquivar"), ValidateAntiForgeryToken]
-    public async Task<IActionResult> Arquivar(long id, CancellationToken cancellationToken) { if (!Can("protocolo.arquivar")) return Forbid(); await Audit("protocolo.arquivar", id.ToString(), cancellationToken); return Redirect($"/Protocolo/Detalhes/{id}"); }
     private bool Can(string permission) => User.Identity?.IsAuthenticated != true || _permissions.HasPermission(User, permission) || _permissions.HasPermission(User, "ADMIN_GERAL");
     private Task Audit(string acao, string? id, CancellationToken ct) => _auditTrail.RegistrarAsync(null, null, acao, "protocolo", id, null, new { acao, id }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct);
 }
