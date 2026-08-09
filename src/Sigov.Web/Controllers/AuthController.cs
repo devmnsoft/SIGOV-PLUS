@@ -17,14 +17,16 @@ public sealed class AuthController : Controller
     private readonly IAuthenticationRepository _authenticationRepository;
     private readonly IPasswordHashService _passwordHashService;
     private readonly IPasswordPolicyService _passwordPolicy;
+    private readonly ICurrentUser _currentUser;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuditTrailService _auditTrail;
 
-    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, IAuditTrailService auditTrail, ILogger<AuthController> logger)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, ILogger<AuthController> logger)
     {
         _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
         _passwordPolicy = passwordPolicy;
+        _currentUser = currentUser;
         _auditTrail = auditTrail;
         _logger = logger;
     }
@@ -80,6 +82,7 @@ public sealed class AuthController : Controller
                 new("login", user.Login),
                 new("tenant_id", user.TenantId?.ToString() ?? string.Empty)
             };
+            if (!string.IsNullOrWhiteSpace(user.TenantName)) claims.Add(new Claim("tenant_name", user.TenantName));
             if (user.DeveAlterarSenha) claims.Add(new Claim("password_change_required", "true"));
             claims.AddRange(access.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
             claims.AddRange(access.Permissions.Select(permission => new Claim("permission", permission)));
@@ -195,8 +198,8 @@ public sealed class AuthController : Controller
         var confirmacao = model.Confirmacao ?? string.Empty;
         ValidatePassword(novaSenha, confirmacao);
         if (!ModelState.IsValid) return View("AlterarSenha", model);
-        var id = CurrentUserId();
-        var tenantId = CurrentTenantId();
+        var id = _currentUser.UserId;
+        var tenantId = _currentUser.TenantId;
         if (id is null || tenantId is null) return Challenge();
         var currentHash = await _authenticationRepository.GetCurrentPasswordHashAsync(tenantId.Value, id.Value, ct).ConfigureAwait(false);
         if (string.IsNullOrEmpty(currentHash) || !_passwordHashService.VerifyPassword(senhaAtual, currentHash)) { ModelState.AddModelError(nameof(model.SenhaAtual), "Senha atual inválida."); return View("AlterarSenha", model); }
@@ -221,7 +224,7 @@ public sealed class AuthController : Controller
         var login = User.Identity?.Name ?? "anonimo";
         try
         {
-            await _auditTrail.RegistrarAsync(null, CurrentUserId(), "LOGOUT", "sigov.usuario", CurrentUserId()?.ToString(), null, new { login }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            await _auditTrail.RegistrarAsync(_currentUser.TenantId, _currentUser.UserId, "LOGOUT", "sigov.usuario", _currentUser.UserId?.ToString(), null, new { login }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Logout SIGOV para {Login}. CorrelationId={CorrelationId}", login, HttpContext.TraceIdentifier);
         }
         catch (Exception ex)
@@ -231,7 +234,4 @@ public sealed class AuthController : Controller
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
         return RedirectToAction(nameof(Login));
     }
-
-    private long? CurrentUserId() => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
-    private long? CurrentTenantId() => long.TryParse(User.FindFirstValue("tenant_id"), out var id) && id > 0 ? id : null;
 }

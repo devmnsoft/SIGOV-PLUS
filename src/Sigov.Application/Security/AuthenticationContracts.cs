@@ -6,6 +6,7 @@ public sealed record AuthenticationUser(
     string Nome,
     string Login,
     string Email,
+    string TenantName,
     string PasswordHash,
     bool Ativo,
     bool Bloqueado,

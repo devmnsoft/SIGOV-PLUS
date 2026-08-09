@@ -6,5 +6,5 @@
 <label asp-for="NovaSenha"></label><input asp-for="NovaSenha" autocomplete="new-password" data-new-password aria-describedby="password-rules" /><span asp-validation-for="NovaSenha"></span>
 <ul id="password-rules" class="password-rules" aria-live="polite"><li data-rule="length">12 ou mais caracteres</li><li data-rule="upper">Uma letra maiúscula</li><li data-rule="lower">Uma letra minúscula</li><li data-rule="number">Um número</li><li data-rule="special">Um caractere especial</li></ul>
 <label asp-for="Confirmacao"></label><input asp-for="Confirmacao" autocomplete="new-password" /><span asp-validation-for="Confirmacao"></span>
-<button class="btn btn-primary" type="submit">Redefinir senha</button></form></section></main>
+<button class="btn btn-primary" type="submit">Redefinir senha</button><span class="visually-hidden" aria-live="polite"></span></form></section></main>
 @section Scripts { <script src="~/js/sigov-password.js" asp-append-version="true"></script> }

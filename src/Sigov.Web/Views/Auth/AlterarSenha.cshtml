@@ -25,6 +25,7 @@
             <input asp-for="Confirmacao" autocomplete="new-password" />
             <span asp-validation-for="Confirmacao"></span>
             <button class="btn btn-primary" type="submit">Salvar nova senha</button>
+            <div class="mt-3" aria-live="polite">@TempData["Success"]</div>
         </form>
     </section>
 </main>
