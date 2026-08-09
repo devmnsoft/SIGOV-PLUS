@@ -444,6 +444,7 @@
     {
       "version": "20260721120000",
       "file": "20260721120000_pos_rc_17_runtime_nucleo_operacional.sql",
+      "legacyTransactionWrapper": true,
       "description": "pos_rc_17_runtime_nucleo_operacional",
       "category": "schema",
       "includeInBaseline": true,
@@ -583,12 +584,13 @@
     {
       "version": "20260809160000",
       "file": "20260809160000_rc49_workflow_platform.sql",
+      "legacyTransactionWrapper": true,
       "description": "rc49_workflow_platform",
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735",
-      "postConditionSql": "select to_regclass('sigov.workflow_definicao') is not null and to_regclass('sigov.workflow_evento') is not null"
+      "postConditionSql": "select to_regclass('sigov.workflow_definicao') is not null and to_regclass('sigov.workflow_versao') is not null and to_regclass('sigov.workflow_etapa') is not null and to_regclass('sigov.workflow_transicao') is not null and to_regclass('sigov.workflow_evento') is not null and to_regclass('sigov.ix_workflow_definicao_tenant_status') is not null and to_regclass('sigov.ix_workflow_etapa_tenant_workflow') is not null and to_regclass('sigov.ix_workflow_evento_tenant_instancia') is not null and not exists (select required.chave from (values ('WORKFLOW_CONSULTA'),('WORKFLOW_GERENCIAR'),('FORMULARIO_CONSULTA'),('FORMULARIO_GERENCIAR'),('PORTAL_CONFIGURAR'),('PORTAL_CONSULTAR_SOLICITACOES'),('SLA_CONSULTA'),('SLA_GERENCIAR'),('APROVACAO_CONSULTA'),('APROVACAO_DECIDIR'),('TEMPLATE_CONSULTA'),('TEMPLATE_GERENCIAR'),('ONBOARDING_CONSULTA'),('SHOWCASE_ACESSAR'),('RELATORIO_EXECUTIVO')) required(chave) where not exists (select 1 from sigov.permissao p where p.chave = required.chave)) and not exists (select p.chave from sigov.permissao p where p.chave in ('WORKFLOW_CONSULTA','WORKFLOW_GERENCIAR','FORMULARIO_CONSULTA','FORMULARIO_GERENCIAR','PORTAL_CONFIGURAR','PORTAL_CONSULTAR_SOLICITACOES','SLA_CONSULTA','SLA_GERENCIAR','APROVACAO_CONSULTA','APROVACAO_DECIDIR','TEMPLATE_CONSULTA','TEMPLATE_GERENCIAR','ONBOARDING_CONSULTA','SHOWCASE_ACESSAR','RELATORIO_EXECUTIVO') group by p.chave having count(*) > 1)"
     }
   ]
 }
