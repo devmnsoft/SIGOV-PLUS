@@ -25,6 +25,6 @@
     </div>
     <label class="sigov-toggle sigov-toggle--quiet"><input asp-for="SilenceNonCritical"/><span><strong>Silenciar notificações não críticas</strong><small>Os eventos continuam disponíveis na Central de Notificações.</small></span></label>
   </section>
-  <div class="sigov-form-actions"><a class="sigov-btn sigov-btn--ghost" href="/MinhaCentral">Cancelar</a><button class="sigov-btn sigov-btn--primary" type="submit" data-submit-label="Salvar preferências">Salvar preferências</button></div>
+  <div class="sigov-form-actions"><button class="sigov-btn sigov-btn--ghost" type="submit" formaction="/Perfil/Preferencias/Restaurar" formmethod="post">Restaurar padrão</button><a class="sigov-btn sigov-btn--ghost" href="/MinhaCentral">Cancelar</a><button class="sigov-btn sigov-btn--primary" type="submit" data-submit-label="Salvar preferências">Salvar preferências</button></div>
 </form>
 @section Scripts { <script src="~/js/sigov.preferences.js" asp-append-version="true"></script> }

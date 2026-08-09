@@ -2,6 +2,7 @@ using Sigov.Application.Ia;
 using Sigov.Infrastructure.Ia;
 using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Security;
 using Sigov.Infrastructure.Common;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Infrastructure.Persistence.Migrations;
@@ -127,7 +128,9 @@ public static class DependencyInjection
         services.AddScoped<EnterpriseDapperCrudService>();
         services.AddScoped<IEnterpriseModuleService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
         services.AddScoped<IEnterpriseCrudService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
-        services.AddScoped<UserPreferenceRepository>();
+        services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
+        services.AddScoped<IAuthenticationRepository, AuthenticationRepository>();
+        services.AddSingleton<IPasswordPolicyService, PasswordPolicyService>();
         services.AddScoped<OnboardingRepository>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
         services.AddSingleton<IReleaseInfoProvider, ReleaseInfoProvider>();

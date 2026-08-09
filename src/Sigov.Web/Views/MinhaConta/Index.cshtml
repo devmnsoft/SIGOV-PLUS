@@ -1,0 +1,16 @@
+@model Sigov.Web.Models.Account.MyAccountViewModel
+@{
+    ViewData["Title"] = "Minha Conta";
+}
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Minha Conta", "Consulte seu perfil e gerencie segurança, preferências e privacidade.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Minha Conta", "/Perfil", true) }))
+
+<div class="sigov-preferences" aria-label="Central da conta">
+  <section class="sigov-preference-card" aria-labelledby="account-profile-title">
+    <div class="sigov-preference-card__intro"><sigov-icon name="user" size="24"/><div><h2 id="account-profile-title">Perfil</h2><p>Dados administrativos são somente leitura e devem ser alterados por um responsável autorizado.</p></div></div>
+    <dl class="row mb-0"><dt class="col-sm-3">Nome</dt><dd class="col-sm-9">@Model.Nome</dd><dt class="col-sm-3">Login</dt><dd class="col-sm-9">@Model.Login</dd><dt class="col-sm-3">E-mail</dt><dd class="col-sm-9">@Model.Email</dd><dt class="col-sm-3">Organização</dt><dd class="col-sm-9">@Model.Organizacao</dd><dt class="col-sm-3">Perfis</dt><dd class="col-sm-9">@(Model.Perfis.Count == 0 ? "Não informado" : string.Join(", ", Model.Perfis))</dd></dl>
+  </section>
+  <section class="sigov-preference-card" aria-labelledby="account-security-title"><div class="sigov-preference-card__intro"><sigov-icon name="lock" size="24"/><div><h2 id="account-security-title">Segurança</h2><p>Altere sua senha informando a senha atual. A sessão será encerrada após a confirmação.</p></div></div><a class="sigov-btn sigov-btn--primary" href="/Auth/AlterarSenha">Alterar senha</a></section>
+  <section class="sigov-preference-card" aria-labelledby="account-preferences-title"><div class="sigov-preference-card__intro"><sigov-icon name="settings" size="24"/><div><h2 id="account-preferences-title">Preferências e notificações</h2><p>Gerencie aparência, navegação, acessibilidade e os avisos de Protocolo, GED, Tarefas e LGPD.</p></div></div><a class="sigov-btn sigov-btn--primary" href="/Perfil/Preferencias">Gerenciar preferências</a></section>
+  <section class="sigov-preference-card" aria-labelledby="account-activity-title"><div class="sigov-preference-card__intro"><sigov-icon name="audit" size="24"/><div><h2 id="account-activity-title">Sessão e atividade</h2><p>Esta sessão está @(Model.IsAuthenticated ? "autenticada" : "inativa"). Saia ao terminar, especialmente em dispositivos compartilhados.</p></div></div><a class="sigov-btn sigov-btn--ghost" href="/Auth/Logout">Encerrar sessão</a></section>
+  <section class="sigov-preference-card" aria-labelledby="account-privacy-title"><div class="sigov-preference-card__intro"><sigov-icon name="shield" size="24"/><div><h2 id="account-privacy-title">Privacidade</h2><p>Operações sensíveis são auditadas. Senhas, cookies e tokens de recuperação nunca são exibidos nesta área.</p></div></div></section>
+</div>

@@ -4,7 +4,6 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Ui;
-using Sigov.Infrastructure.Ui;
 using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
@@ -12,12 +11,13 @@ namespace Sigov.Web.Controllers;
 [Authorize]
 public sealed class PreferenciasController : Controller
 {
-    private const string PreferenceKey = "interface-rc47";
-    private readonly UserPreferenceRepository _repository;
+    private const string PreferenceKey = "ui.preferences";
+    private const string LegacyPreferenceKey = "interface-rc47";
+    private readonly IUserPreferenceRepository _repository;
     private readonly IAuditTrailService _audit;
     private readonly ILogger<PreferenciasController> _logger;
 
-    public PreferenciasController(UserPreferenceRepository repository, IAuditTrailService audit, ILogger<PreferenciasController> logger)
+    public PreferenciasController(IUserPreferenceRepository repository, IAuditTrailService audit, ILogger<PreferenciasController> logger)
     {
         _repository = repository;
         _audit = audit;
@@ -29,7 +29,7 @@ public sealed class PreferenciasController : Controller
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         if (!TryContext(out var tenantId, out var userId)) return Challenge();
-        var stored = await _repository.GetAsync(tenantId, userId, PreferenceKey, cancellationToken).ConfigureAwait(false);
+        var stored = await GetWithLegacyMigrationAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
         return View(Parse(stored?.ValueJson));
     }
 
@@ -59,9 +59,44 @@ public sealed class PreferenciasController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private bool TryContext(out long tenantId, out long userId) =>
-        long.TryParse(User.FindFirstValue("tenant_id"), out tenantId) && tenantId > 0 &&
-        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId) && userId > 0;
+    [HttpPost("/Perfil/Preferencias/Restaurar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RestoreDefaults(CancellationToken cancellationToken)
+    {
+        if (!TryContext(out var tenantId, out var userId)) return Unauthorized();
+        var defaults = new UserInterfacePreferences();
+        var json = JsonSerializer.Serialize(defaults, JsonOptions);
+        await _repository.UpsertAsync(new UserPreferenceUpdateRequest(tenantId, userId, PreferenceKey, json), cancellationToken).ConfigureAwait(false);
+        await _audit.RegistrarAsync(tenantId, userId, "PREFERENCIAS_INTERFACE_ATUALIZADAS", "sigov.usuario_preferencia", PreferenceKey,
+            null, new { restaurado = true }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(),
+            HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+        if (Request.Headers.Accept.Any(value => value?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true))
+            return Ok(new { success = true, restored = true, message = "Preferências restauradas e salvas." });
+        TempData["Success"] = "Preferências restauradas e salvas.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    private bool TryContext(out long tenantId, out long userId)
+    {
+        tenantId = 0;
+        userId = 0;
+        if (!long.TryParse(User.FindFirstValue("tenant_id"), out var parsedTenantId) || parsedTenantId <= 0)
+            return false;
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId) || parsedUserId <= 0)
+            return false;
+        tenantId = parsedTenantId;
+        userId = parsedUserId;
+        return true;
+    }
+
+    private async Task<UserPreferenceResponse?> GetWithLegacyMigrationAsync(long tenantId, long userId, CancellationToken cancellationToken)
+    {
+        var current = await _repository.GetAsync(tenantId, userId, PreferenceKey, cancellationToken).ConfigureAwait(false);
+        if (current is not null) return current;
+        var legacy = await _repository.GetAsync(tenantId, userId, LegacyPreferenceKey, cancellationToken).ConfigureAwait(false);
+        if (legacy is null) return null;
+        return await _repository.UpsertAsync(new UserPreferenceUpdateRequest(tenantId, userId, PreferenceKey, legacy.ValueJson), cancellationToken).ConfigureAwait(false);
+    }
 
     private static UserInterfacePreferences Parse(string? json)
     {
