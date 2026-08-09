@@ -1,10 +1,9 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Security;
 using Sigov.Web.Models.Auth;
@@ -20,18 +19,23 @@ public sealed class AuthController : Controller
     private readonly ICurrentUser _currentUser;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuditTrailService _auditTrail;
+    private readonly IPasswordRecoveryService _passwordRecoveryService;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, ILogger<AuthController> logger)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, ILogger<AuthController> logger)
     {
         _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
         _passwordPolicy = passwordPolicy;
         _currentUser = currentUser;
         _auditTrail = auditTrail;
+        _passwordRecoveryService = passwordRecoveryService;
+        _configuration = configuration;
         _logger = logger;
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult Login(string? returnUrl = null)
     {
         try
@@ -47,6 +51,8 @@ public sealed class AuthController : Controller
     }
 
     [HttpPost]
+    [AllowAnonymous]
+    [EnableRateLimiting("authentication")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
@@ -107,14 +113,17 @@ public sealed class AuthController : Controller
 
 
     [HttpGet("Auth/EsqueciSenha")]
-    [HttpGet]
+    [HttpGet("Auth/EsqueciMinhaSenha")]
+    [AllowAnonymous]
     public IActionResult EsqueciMinhaSenha()
     {
         return View(new ForgotPasswordViewModel());
     }
 
     [HttpPost("Auth/EsqueciSenha")]
-    [HttpPost]
+    [HttpPost("Auth/EsqueciMinhaSenha")]
+    [AllowAnonymous]
+    [EnableRateLimiting("password-recovery")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EsqueciMinhaSenha(ForgotPasswordViewModel model, CancellationToken cancellationToken)
     {
@@ -125,22 +134,23 @@ public sealed class AuthController : Controller
 
         try
         {
-            var loginOuEmail = model.LoginOuEmail ?? string.Empty;
-            var account = await _authenticationRepository.FindActiveAccountAsync(loginOuEmail, cancellationToken).ConfigureAwait(false);
-            if (account is not null)
-            {
-                var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
-                var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-                var correlationId = Guid.TryParse(HttpContext.TraceIdentifier, out var parsedCorrelationId) ? parsedCorrelationId : Guid.NewGuid();
-                await _authenticationRepository.StorePasswordResetTokenAsync(account, tokenHash, correlationId, cancellationToken).ConfigureAwait(false);
-                // O token somente deve ser entregue por um provedor transacional; nunca é incluído em logs ou na resposta.
-            }
+            var result = await _passwordRecoveryService.RequestAsync(model.LoginOuEmail ?? string.Empty, BuildPasswordResetUrl, cancellationToken).ConfigureAwait(false);
             await _auditTrail.RegistrarAsync(null, null, "RECUPERACAO_SENHA_SOLICITADA", "sigov.usuario", null, null, new { canal = "web", informado = true }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            if (result == PasswordRecoveryResult.Sent)
+                await _auditTrail.RegistrarAsync(null, null, "RECUPERACAO_SENHA_ENVIADA", "sigov.usuario", null, null, null, null, null, HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Solicitação de recuperação de senha registrada. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao auditar recuperação de senha. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+            _logger.LogError(ex, "Falha no processamento da recuperação de senha. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+            try
+            {
+                await _auditTrail.RegistrarAsync(null, null, "RECUPERACAO_SENHA_FALHA_ENVIO", "sigov.usuario", null, null, null, null, null, HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception auditException)
+            {
+                _logger.LogError(auditException, "Falha adicional ao auditar indisponibilidade da recuperação. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+            }
         }
 
         model.Solicitado = true;
@@ -170,9 +180,18 @@ public sealed class AuthController : Controller
     public Task<IActionResult> AlterarSenha(ChangePasswordViewModel model, CancellationToken ct) => AlterarSenhaCore(model, ct);
 
     [HttpGet("Auth/RedefinirSenha")]
-    public IActionResult RedefinirSenha(string token) => View(new ResetPasswordViewModel { Token = token ?? string.Empty });
+    [AllowAnonymous]
+    public IActionResult RedefinirSenha(string token)
+    {
+        var model = new ResetPasswordViewModel { Token = token ?? string.Empty };
+        if (!IsWellFormedToken(model.Token))
+            ModelState.AddModelError(string.Empty, "O link de redefinição é inválido ou expirou. Solicite uma nova recuperação de senha.");
+        return View(model);
+    }
 
     [HttpPost("Auth/RedefinirSenha")]
+    [AllowAnonymous]
+    [EnableRateLimiting("password-recovery")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RedefinirSenha(ResetPasswordViewModel model, CancellationToken ct)
     {
@@ -180,13 +199,13 @@ public sealed class AuthController : Controller
         var confirmacao = model.Confirmacao ?? string.Empty;
         var tokenValue = model.Token ?? string.Empty;
         ValidatePassword(novaSenha, confirmacao);
-        if (string.IsNullOrWhiteSpace(tokenValue))
-            ModelState.AddModelError(nameof(model.Token), "Token de recuperação inválido.");
+        if (!IsWellFormedToken(tokenValue))
+            ModelState.AddModelError(string.Empty, "O link de redefinição é inválido ou expirou. Solicite uma nova recuperação de senha.");
         if (!ModelState.IsValid) return View(model);
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(tokenValue)));
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(tokenValue)));
         var passwordHash = _passwordHashService.HashPassword(novaSenha);
         var changed = await _authenticationRepository.ConsumePasswordResetTokenAsync(hash, passwordHash, ct).ConfigureAwait(false);
-        if (changed is null) { ModelState.AddModelError(string.Empty, "Link inválido ou expirado."); return View(model); }
+        if (changed is null) { ModelState.AddModelError(string.Empty, "O link de redefinição é inválido ou expirou. Solicite uma nova recuperação de senha."); return View(model); }
         await _auditTrail.RegistrarAsync(changed.TenantId, changed.Id, "SENHA_REDEFINIDA", "sigov.usuario", changed.Id.ToString(), null, new { origem = "recuperacao" }, null, null, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
         return RedirectToAction(nameof(Login));
     }
@@ -218,7 +237,20 @@ public sealed class AuthController : Controller
             ModelState.AddModelError(error.Field, error.Message);
     }
 
-    [HttpGet("Auth/Logout")]
+    private string BuildPasswordResetUrl(string token)
+    {
+        var configuredBaseUrl = _configuration["PasswordRecovery:PublicBaseUrl"];
+        var relative = Url.Action(nameof(RedefinirSenha), "Auth", new { token })
+            ?? throw new InvalidOperationException("Não foi possível gerar a rota de redefinição de senha.");
+        if (!string.IsNullOrWhiteSpace(configuredBaseUrl)) return new Uri(new Uri(configuredBaseUrl.TrimEnd('/') + "/"), relative.TrimStart('/')).AbsoluteUri;
+        return $"{Request.Scheme}://{Request.Host}{Request.PathBase}{relative}";
+    }
+
+    private static bool IsWellFormedToken(string token) => token.Length == 43 && token.All(character => char.IsLetterOrDigit(character) || character is '-' or '_');
+
+    [Authorize]
+    [HttpPost("Auth/Logout")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         var login = User.Identity?.Name ?? "anonimo";

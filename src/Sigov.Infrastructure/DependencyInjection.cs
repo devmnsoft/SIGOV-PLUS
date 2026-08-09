@@ -130,6 +130,9 @@ public static class DependencyInjection
         services.AddScoped<IEnterpriseCrudService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IAuthenticationRepository, AuthenticationRepository>();
+        services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
+        services.AddOptions<PasswordRecoveryEmailOptions>().BindConfiguration(PasswordRecoveryEmailOptions.SectionName);
+        services.AddScoped<IPasswordRecoveryEmailSender, SmtpPasswordRecoveryEmailSender>();
         services.AddSingleton<IPasswordPolicyService, PasswordPolicyService>();
         services.AddScoped<OnboardingRepository>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
