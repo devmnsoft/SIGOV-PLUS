@@ -91,7 +91,22 @@ public static class PermissionCatalog
         Purchasing("devolucoes", "visualizar"),
         Purchasing("avaliacoes", "gerenciar"),
         Purchasing("relatorios", "visualizar"),
-        Purchasing("configuracao", "gerenciar", isAdministrative: true)
+        Purchasing("configuracao", "gerenciar", isAdministrative: true),
+        Permission("WORKFLOW_CONSULTA", "workflow", "workflow", "consultar"),
+        Permission("WORKFLOW_GERENCIAR", "workflow", "workflow", "gerenciar", isAdministrative: true),
+        Permission("FORMULARIO_CONSULTA", "formularios", "formulario", "consultar"),
+        Permission("FORMULARIO_GERENCIAR", "formularios", "formulario", "gerenciar", isAdministrative: true),
+        Permission("PORTAL_CONFIGURAR", "portal", "configuracao", "gerenciar", isAdministrative: true),
+        Permission("PORTAL_CONSULTAR_SOLICITACOES", "portal", "solicitacoes", "consultar"),
+        Permission("SLA_CONSULTA", "sla", "regras", "consultar"),
+        Permission("SLA_GERENCIAR", "sla", "regras", "gerenciar", isAdministrative: true),
+        Permission("APROVACAO_CONSULTA", "aprovacoes", "aprovacao", "consultar"),
+        Permission("APROVACAO_DECIDIR", "aprovacoes", "aprovacao", "decidir"),
+        Permission("TEMPLATE_CONSULTA", "templates", "template", "consultar"),
+        Permission("TEMPLATE_GERENCIAR", "templates", "template", "gerenciar", isAdministrative: true),
+        Permission("ONBOARDING_CONSULTA", "onboarding", "checklist", "consultar"),
+        Permission("SHOWCASE_ACESSAR", "showcase", "showcase", "acessar", isAdministrative: true),
+        Permission("RELATORIO_EXECUTIVO", "relatorios", "executivo", "consultar", isAdministrative: true)
     ];
 
     public static IEnumerable<(string Policy, PermissionDefinition Permission)> Policies =>
@@ -111,7 +126,7 @@ public static class PermissionCatalog
     }
 
     private static PermissionDefinition Purchasing(string resource, string action, string? alias = null, bool isAdministrative = false) =>
-        Permission($"{PurchasingModule}.{resource}.{action}", PurchasingModule, resource, action, alias, isAdministrative);
+        Permission($"{PurchasingModule}.{resource}.{action}", PurchasingModule, resource, action, alias, isAdministrative);,
 
     private static PermissionDefinition Permission(string code, string module, string resource, string action, string? alias = null, bool isAdministrative = false) =>
         new(code, module, resource, action, $"Permite {action} {resource}.", module, isAdministrative,

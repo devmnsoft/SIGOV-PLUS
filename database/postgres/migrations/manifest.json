@@ -579,6 +579,16 @@
       "applyAutomatically": true,
       "checksum": "77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821",
       "postConditionSql": "select to_regclass('sigov.senha_redefinicao_token') is not null"
+    },
+    {
+      "version": "20260809160000",
+      "file": "20260809160000_rc49_workflow_platform.sql",
+      "description": "rc49_workflow_platform",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735",
+      "postConditionSql": "select to_regclass('sigov.workflow_definicao') is not null and to_regclass('sigov.workflow_evento') is not null"
     }
   ]
 }
