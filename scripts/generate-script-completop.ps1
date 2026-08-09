@@ -5,7 +5,11 @@ $migrationsDir = Join-Path $root 'database/postgres/migrations'
 $bootstrapDir = Join-Path $root 'database/postgres/bootstrap'
 $manifestPath = Join-Path $migrationsDir 'manifest.json'
 $versionPath = Join-Path $root 'eng/version.json'
-$out = Join-Path $root 'script_completop.sql'
+$out = Join-Path $root 'database/postgres/script_completo.sql'
+$compatibilityOutputs = @(
+    (Join-Path $root 'database/script_completo.sql'),
+    (Join-Path $root 'script_completop.sql')
+)
 if (-not (Test-Path $manifestPath)) { throw "Manifest de migrations não encontrado: $manifestPath" }
 if (-not (Test-Path $versionPath)) { throw "Arquivo de versão não encontrado: $versionPath" }
 
@@ -157,18 +161,26 @@ foreach ($entry in $excluded) {
 
 $new = $sb.ToString().Replace("`r`n", "`n")
 if ($Verify) {
-    if (-not (Test-Path $out)) { throw 'script_completop.sql não existe. Execute o gerador sem -Verify.' }
+    if (-not (Test-Path $out)) { throw 'database/postgres/script_completo.sql não existe. Execute o gerador sem -Verify.' }
     $old = [System.IO.File]::ReadAllText($out).Replace("`r`n", "`n")
     if ($old -ne $new) {
         for ($i = 0; $i -lt [Math]::Min($old.Length, $new.Length); $i++) {
             if ($old[$i] -ne $new[$i]) { throw "script_completop.sql desatualizado. Primeira diferença no byte $i." }
         }
-        throw "script_completop.sql desatualizado. Tamanhos: atual=$($old.Length), gerado=$($new.Length)."
+        throw "database/postgres/script_completo.sql desatualizado. Tamanhos: atual=$($old.Length), gerado=$($new.Length)."
     }
-    Write-Host 'script_completop.sql está sincronizado.'
+    foreach ($compatibilityOutput in $compatibilityOutputs) {
+        if (-not (Test-Path $compatibilityOutput)) { throw "Artefato de compatibilidade ausente: $compatibilityOutput" }
+        $compatibilityText = [System.IO.File]::ReadAllText($compatibilityOutput).Replace("`r`n", "`n")
+        if ($compatibilityText -ne $new) { throw "Artefato de compatibilidade divergente: $compatibilityOutput" }
+    }
+    Write-Host 'Scripts completos estão sincronizados com as migrations.'
     exit 0
 }
 
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 [System.IO.File]::WriteAllText($out, $new, $utf8NoBom)
+foreach ($compatibilityOutput in $compatibilityOutputs) {
+    [System.IO.File]::WriteAllText($compatibilityOutput, $new, $utf8NoBom)
+}
 Write-Host "Gerado $out com $($included.Count) migrations incluídas, $($excluded.Count) excluídas e compatibilidade incorporada."

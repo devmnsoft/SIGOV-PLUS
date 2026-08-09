@@ -106,7 +106,17 @@ public static class PermissionCatalog
         Permission("TEMPLATE_GERENCIAR", "templates", "template", "gerenciar", isAdministrative: true),
         Permission("ONBOARDING_CONSULTA", "onboarding", "checklist", "consultar"),
         Permission("SHOWCASE_ACESSAR", "showcase", "showcase", "acessar", isAdministrative: true),
-        Permission("RELATORIO_EXECUTIVO", "relatorios", "executivo", "consultar", isAdministrative: true)
+        Permission("RELATORIO_EXECUTIVO", "relatorios", "executivo", "consultar", isAdministrative: true),
+        Permission("arrei.visualizar", "arrei", "solicitacoes", "visualizar"),
+        Permission("arrei.criar", "arrei", "solicitacoes", "criar"),
+        Permission("arrei.editar", "arrei", "solicitacoes", "editar"),
+        Permission("arrei.analisar", "arrei", "solicitacoes", "analisar"),
+        Permission("arrei.atribuir", "arrei", "solicitacoes", "atribuir"),
+        Permission("arrei.deferir", "arrei", "solicitacoes", "deferir"),
+        Permission("arrei.indeferir", "arrei", "solicitacoes", "indeferir"),
+        Permission("arrei.configurar", "arrei", "configuracao", "gerenciar", isAdministrative: true),
+        Permission("arrei.exportar", "arrei", "relatorios", "exportar"),
+        Permission("arrei.portal", "arrei", "portal", "acessar")
     ];
 
     public static IEnumerable<(string Policy, PermissionDefinition Permission)> Policies =>
@@ -126,7 +136,7 @@ public static class PermissionCatalog
     }
 
     private static PermissionDefinition Purchasing(string resource, string action, string? alias = null, bool isAdministrative = false) =>
-        Permission($"{PurchasingModule}.{resource}.{action}", PurchasingModule, resource, action, alias, isAdministrative);,
+        Permission($"{PurchasingModule}.{resource}.{action}", PurchasingModule, resource, action, alias, isAdministrative);
 
     private static PermissionDefinition Permission(string code, string module, string resource, string action, string? alias = null, bool isAdministrative = false) =>
         new(code, module, resource, action, $"Permite {action} {resource}.", module, isAdministrative,

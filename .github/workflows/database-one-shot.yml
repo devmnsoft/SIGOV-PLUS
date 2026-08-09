@@ -64,6 +64,17 @@ jobs:
           }
           if ($hasErrors) { exit 1 }
 
+      - name: Validate consolidated script collisions
+        run: |
+          chmod +x scripts/check-one-shot-object-collisions.sh
+          ./scripts/check-one-shot-object-collisions.sh database/postgres/script_completo.sql
+
+      - name: Execute canonical script on an empty database
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -d postgres -c 'create database sigov_canonical'
+          psql -X -v ON_ERROR_STOP=1 -d sigov_canonical -f database/postgres/script_completo.sql
+
       - name: Install database in one command
         shell: pwsh
         run: |
