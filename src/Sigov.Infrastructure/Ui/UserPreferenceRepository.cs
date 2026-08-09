@@ -26,7 +26,8 @@ public sealed class UserPreferenceRepository
 
         cancellationToken.ThrowIfCancellationRequested();
         using var connection = _context.CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<UserPreferenceResponse>(sql, new { TenantId = tenantId, UserId = userId, Key = key }).ConfigureAwait(false);
+        return await connection.QuerySingleOrDefaultAsync<UserPreferenceResponse>(new CommandDefinition(sql,
+            new { TenantId = tenantId, UserId = userId, Key = key }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     public async Task<UserPreferenceResponse> UpsertAsync(UserPreferenceUpdateRequest request, CancellationToken cancellationToken = default)
@@ -45,6 +46,7 @@ RETURNING tenant_id AS TenantId,
 
         cancellationToken.ThrowIfCancellationRequested();
         using var connection = _context.CreateConnection();
-        return await connection.QuerySingleAsync<UserPreferenceResponse>(sql, request).ConfigureAwait(false);
+        return await connection.QuerySingleAsync<UserPreferenceResponse>(new CommandDefinition(sql, request,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 }
