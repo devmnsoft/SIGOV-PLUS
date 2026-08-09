@@ -1,9 +1,9 @@
 using System.ComponentModel.DataAnnotations;
-using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Ui;
+using Sigov.Application.Abstractions;
 using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
@@ -16,12 +16,14 @@ public sealed class PreferenciasController : Controller
     private readonly IUserPreferenceRepository _repository;
     private readonly IAuditTrailService _audit;
     private readonly ILogger<PreferenciasController> _logger;
+    private readonly ICurrentUser _currentUser;
 
-    public PreferenciasController(IUserPreferenceRepository repository, IAuditTrailService audit, ILogger<PreferenciasController> logger)
+    public PreferenciasController(IUserPreferenceRepository repository, ICurrentUser currentUser, IAuditTrailService audit, ILogger<PreferenciasController> logger)
     {
         _repository = repository;
         _audit = audit;
         _logger = logger;
+        _currentUser = currentUser;
     }
 
     [HttpGet("/Perfil/Preferencias")]
@@ -80,12 +82,14 @@ public sealed class PreferenciasController : Controller
     {
         tenantId = 0;
         userId = 0;
-        if (!long.TryParse(User.FindFirstValue("tenant_id"), out var parsedTenantId) || parsedTenantId <= 0)
+        var resolvedTenantId = _currentUser.TenantId;
+        if (resolvedTenantId is null || resolvedTenantId <= 0)
             return false;
-        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId) || parsedUserId <= 0)
+        var resolvedUserId = _currentUser.UserId;
+        if (resolvedUserId is null || resolvedUserId <= 0)
             return false;
-        tenantId = parsedTenantId;
-        userId = parsedUserId;
+        tenantId = resolvedTenantId.Value;
+        userId = resolvedUserId.Value;
         return true;
     }
 

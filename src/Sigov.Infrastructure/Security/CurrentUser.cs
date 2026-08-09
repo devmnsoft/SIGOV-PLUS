@@ -27,6 +27,10 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
         }
     }
 
+    public long? UserId => UsuarioId;
+
+    public long? TenantId => PositiveLongClaim("tenant_id");
+
     public string? Nome
     {
         get
@@ -46,5 +50,34 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
         }
     }
 
+    public string? Login => ClaimValue("login");
+
+    public string? Email => ClaimValue(ClaimTypes.Email);
+
+    public string? TenantName => ClaimValue("tenant_name");
+
+    public IReadOnlyCollection<string> Roles => ClaimValues(ClaimTypes.Role);
+
+    public IReadOnlyCollection<string> Permissions => ClaimValues("permission");
+
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated == true;
+
+    private long? PositiveLongClaim(string claimType)
+    {
+        var value = ClaimValue(claimType);
+        return long.TryParse(value, out var id) && id > 0 ? id : null;
+    }
+
+    private string? ClaimValue(string claimType)
+    {
+        var value = Principal?.FindFirst(claimType)?.Value;
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private IReadOnlyCollection<string> ClaimValues(string claimType) => Principal?
+        .FindAll(claimType)
+        .Select(claim => claim.Value)
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray() ?? Array.Empty<string>();
 }

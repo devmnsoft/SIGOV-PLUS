@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Abstractions;
 using Sigov.Web.Models.Account;
 
 namespace Sigov.Web.Controllers;
@@ -8,17 +8,22 @@ namespace Sigov.Web.Controllers;
 [Authorize]
 public sealed class MinhaContaController : Controller
 {
+    private readonly ICurrentUser _currentUser;
+
+    public MinhaContaController(ICurrentUser currentUser) => _currentUser = currentUser;
+
     [HttpGet("/Perfil")]
     [HttpGet("/MinhaConta")]
     public IActionResult Index()
     {
         var model = new MyAccountViewModel(
-            User.FindFirstValue(ClaimTypes.Name) ?? "Não informado",
-            User.FindFirstValue("login") ?? "Não informado",
-            User.FindFirstValue(ClaimTypes.Email) ?? "Não informado",
-            User.FindFirstValue("tenant_name") ?? User.FindFirstValue("tenant_id") ?? "Não informado",
-            User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
-            User.Identity?.IsAuthenticated == true);
+            _currentUser.Nome ?? "Não informado",
+            _currentUser.Login ?? "Não informado",
+            _currentUser.Email ?? "Não informado",
+            _currentUser.TenantName ?? _currentUser.TenantId?.ToString() ?? "Não informado",
+            _currentUser.Roles,
+            _currentUser.Permissions,
+            _currentUser.IsAuthenticated);
         return View(model);
     }
 }

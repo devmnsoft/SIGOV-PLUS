@@ -9,6 +9,7 @@ public sealed class AuthenticationRepository(NpgsqlConnectionFactory connectionF
     public async Task<AuthenticationUser?> FindForLoginAsync(string loginOrEmail, CancellationToken cancellationToken)
     {
         const string sql = @"select u.id, u.tenant_id as TenantId, coalesce(u.nome, u.login) as Nome, u.login, coalesce(u.email, '') as Email,
+       coalesce(t.nome, '') as TenantName,
        u.senha_hash as PasswordHash, u.ativo, u.bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha
 from sigov.usuario u
 left join sigov.tenant t on t.id = u.tenant_id

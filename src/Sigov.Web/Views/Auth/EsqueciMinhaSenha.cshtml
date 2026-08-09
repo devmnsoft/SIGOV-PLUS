@@ -22,7 +22,7 @@
       }
       else
       {
-        <form method="post" class="d-grid gap-3">
+        <form method="post" class="d-grid gap-3" data-single-submit>
           @Html.AntiForgeryToken()
           <div asp-validation-summary="ModelOnly" class="text-danger"></div>
           <div><label asp-for="LoginOuEmail" class="form-label"></label><input asp-for="LoginOuEmail" class="form-control form-control-lg" autocomplete="username" autofocus /><span asp-validation-for="LoginOuEmail" class="text-danger small"></span></div>
@@ -32,5 +32,6 @@
       }
     </section>
   </main>
+  <script>document.querySelector('[data-single-submit]')?.addEventListener('submit', event => { if (!event.currentTarget.checkValidity()) return; const button = event.currentTarget.querySelector('button[type="submit"]'); if (button) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); button.textContent = 'Enviando…'; } });</script>
 </body>
 </html>
