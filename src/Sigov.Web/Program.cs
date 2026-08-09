@@ -33,6 +33,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LogoutPath = "/Auth/Logout";
         options.AccessDeniedPath = "/Auth/Login";
         options.Cookie.Name = "SIGOV.AUTH";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromHours(builder.Configuration.GetValue("Authentication:CookieHours", 8));
         options.SlidingExpiration = true;
     });
 builder.Services.AddAuthorization(options =>
@@ -135,6 +139,23 @@ app.Use(async (context, next) =>
     }
 });
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    var requiresPasswordChange = context.User.Identity?.IsAuthenticated == true
+        && context.User.HasClaim("password_change_required", "true");
+    var allowedPath = context.Request.Path.StartsWithSegments("/Auth/TrocarSenhaInicial")
+        || context.Request.Path.StartsWithSegments("/Auth/Logout")
+        || context.Request.Path.StartsWithSegments("/css")
+        || context.Request.Path.StartsWithSegments("/js")
+        || context.Request.Path.StartsWithSegments("/lib")
+        || context.Request.Path.StartsWithSegments("/img");
+    if (requiresPasswordChange && !allowedPath)
+    {
+        context.Response.Redirect("/Auth/TrocarSenhaInicial");
+        return;
+    }
+    await next().ConfigureAwait(false);
+});
 app.UseAuthorization();
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
 app.Run();

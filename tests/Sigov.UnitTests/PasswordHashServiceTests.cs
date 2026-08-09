@@ -17,4 +17,14 @@ public sealed class PasswordHashServiceTests
         service.VerifyPassword("SigovDevLocal!2026", hash).Should().BeTrue();
         service.VerifyPassword("senha-errada", hash).Should().BeFalse();
     }
+
+    [Theory]
+    [InlineData("senha-em-texto-puro")]
+    [InlineData("SIGOV_PBKDF2_V1$100000$base64-invalido$invalido")]
+    [InlineData("SIGOV_PBKDF2_V1$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")]
+    public void Deve_Rejeitar_Hash_Legado_Malformado_Sem_Lancar_Excecao(string hash)
+    {
+        var service = new PasswordHashService();
+        service.VerifyPassword("SenhaForte!2026", hash).Should().BeFalse();
+    }
 }
