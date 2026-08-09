@@ -2,12 +2,11 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
-using Dapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Abstractions;
-using Sigov.Infrastructure.Persistence.Dapper;
+using Sigov.Application.Security;
 using Sigov.Web.Models.Auth;
 using Sigov.Web.Services;
 
@@ -15,15 +14,17 @@ namespace Sigov.Web.Controllers;
 
 public sealed class AuthController : Controller
 {
-    private readonly NpgsqlConnectionFactory _connectionFactory;
+    private readonly IAuthenticationRepository _authenticationRepository;
     private readonly IPasswordHashService _passwordHashService;
+    private readonly IPasswordPolicyService _passwordPolicy;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuditTrailService _auditTrail;
 
-    public AuthController(NpgsqlConnectionFactory connectionFactory, IPasswordHashService passwordHashService, IAuditTrailService auditTrail, ILogger<AuthController> logger)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, IAuditTrailService auditTrail, ILogger<AuthController> logger)
     {
-        _connectionFactory = connectionFactory;
+        _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
+        _passwordPolicy = passwordPolicy;
         _auditTrail = auditTrail;
         _logger = logger;
     }
@@ -57,16 +58,10 @@ public sealed class AuthController : Controller
         var correlationId = HttpContext.TraceIdentifier;
         try
         {
-            const string sql = @"select u.id, u.tenant_id as TenantId, coalesce(u.nome, u.login) as Nome, u.login, u.email, u.senha_hash as SenhaHash,
-       u.ativo, u.bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha
-from sigov.usuario u
-left join sigov.tenant t on t.id = u.tenant_id
-where u.is_deleted = false and (u.tenant_id is null or (t.ativo and not t.is_deleted))
-  and (lower(u.login) = lower(@Login) or lower(u.email) = lower(@Login))
-limit 1;";
-            using var connection = _connectionFactory.CreateConnection();
-            var user = await connection.QuerySingleOrDefaultAsync<LoginUserRow>(new CommandDefinition(sql, new { model.Login }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-            var valid = user is not null && user.Ativo && !user.Bloqueado && _passwordHashService.VerifyPassword(model.Senha, user.SenhaHash);
+            var login = model.Login ?? string.Empty;
+            var senha = model.Senha ?? string.Empty;
+            var user = await _authenticationRepository.FindForLoginAsync(login, cancellationToken).ConfigureAwait(false);
+            var valid = user is not null && user.Ativo && !user.Bloqueado && _passwordHashService.VerifyPassword(senha, user.PasswordHash);
             await _auditTrail.RegistrarAsync(user?.TenantId, user?.Id, valid ? "LOGIN_SUCESSO" : "LOGIN_FALHA", "sigov.usuario", user?.Id.ToString(), null, new { login = model.Login }, ip, Request.Headers["User-Agent"].ToString(), correlationId, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Tentativa de login SIGOV: {Resultado}. CorrelationId={CorrelationId}", valid ? "sucesso" : "falha", correlationId);
 
@@ -76,7 +71,7 @@ limit 1;";
                 return View(model);
             }
 
-            var access = await LoadAccessAsync(connection, user.Id, cancellationToken).ConfigureAwait(false);
+            var access = await _authenticationRepository.GetAccessAsync(user.Id, cancellationToken).ConfigureAwait(false);
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -127,18 +122,14 @@ limit 1;";
 
         try
         {
-            const string findSql = @"select u.id, u.tenant_id as TenantId from sigov.usuario u left join sigov.tenant t on t.id=u.tenant_id
-where u.ativo and not u.bloqueado and not u.is_deleted and (u.tenant_id is null or (t.ativo and not t.is_deleted))
-and (lower(u.login)=lower(@Value) or lower(u.email)=lower(@Value)) limit 1;";
-            using var connection = _connectionFactory.CreateConnection();
-            var account = await connection.QuerySingleOrDefaultAsync<RecoveryUserRow>(new CommandDefinition(findSql, new { Value = model.LoginOuEmail }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var loginOuEmail = model.LoginOuEmail ?? string.Empty;
+            var account = await _authenticationRepository.FindActiveAccountAsync(loginOuEmail, cancellationToken).ConfigureAwait(false);
             if (account is not null)
             {
                 var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
                 var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-                const string saveSql = @"insert into sigov.senha_redefinicao_token(tenant_id, usuario_id, token_hash, expira_at, correlation_id)
-values(@TenantId,@UsuarioId,@TokenHash,now()+interval '30 minutes',@CorrelationId::uuid);";
-                await connection.ExecuteAsync(new CommandDefinition(saveSql, new { account.TenantId, UsuarioId = account.Id, TokenHash = tokenHash, CorrelationId = Guid.Parse(HttpContext.TraceIdentifier) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                var correlationId = Guid.TryParse(HttpContext.TraceIdentifier, out var parsedCorrelationId) ? parsedCorrelationId : Guid.NewGuid();
+                await _authenticationRepository.StorePasswordResetTokenAsync(account, tokenHash, correlationId, cancellationToken).ConfigureAwait(false);
                 // O token somente deve ser entregue por um provedor transacional; nunca é incluído em logs ou na resposta.
             }
             await _auditTrail.RegistrarAsync(null, null, "RECUPERACAO_SENHA_SOLICITADA", "sigov.usuario", null, null, new { canal = "web", informado = true }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
@@ -182,17 +173,16 @@ values(@TenantId,@UsuarioId,@TokenHash,now()+interval '30 minutes',@CorrelationI
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RedefinirSenha(ResetPasswordViewModel model, CancellationToken ct)
     {
-        ValidatePassword(model.NovaSenha ?? string.Empty, model.Confirmacao ?? string.Empty);
+        var novaSenha = model.NovaSenha ?? string.Empty;
+        var confirmacao = model.Confirmacao ?? string.Empty;
+        var tokenValue = model.Token ?? string.Empty;
+        ValidatePassword(novaSenha, confirmacao);
+        if (string.IsNullOrWhiteSpace(tokenValue))
+            ModelState.AddModelError(nameof(model.Token), "Token de recuperação inválido.");
         if (!ModelState.IsValid) return View(model);
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(model.Token)));
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"with valid_token as (
- update sigov.senha_redefinicao_token set usado_at=now()
- where id=(select id from sigov.senha_redefinicao_token where token_hash=@TokenHash and usado_at is null and expira_at>now() order by created_at desc limit 1)
- returning usuario_id)
-update sigov.usuario u set senha_hash=@PasswordHash, deve_alterar_senha=false, updated_at=now()
-from valid_token t where u.id=t.usuario_id returning u.id, u.tenant_id;";
-        var changed = await connection.QuerySingleOrDefaultAsync<RecoveryUserRow>(new CommandDefinition(sql, new { TokenHash = hash, PasswordHash = _passwordHashService.HashPassword(model.NovaSenha) }, cancellationToken: ct)).ConfigureAwait(false);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(tokenValue)));
+        var passwordHash = _passwordHashService.HashPassword(novaSenha);
+        var changed = await _authenticationRepository.ConsumePasswordResetTokenAsync(hash, passwordHash, ct).ConfigureAwait(false);
         if (changed is null) { ModelState.AddModelError(string.Empty, "Link inválido ou expirado."); return View(model); }
         await _auditTrail.RegistrarAsync(changed.TenantId, changed.Id, "SENHA_REDEFINIDA", "sigov.usuario", changed.Id.ToString(), null, new { origem = "recuperacao" }, null, null, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
         return RedirectToAction(nameof(Login));
@@ -200,16 +190,20 @@ from valid_token t where u.id=t.usuario_id returning u.id, u.tenant_id;";
 
     private async Task<IActionResult> AlterarSenhaCore(ChangePasswordViewModel model, CancellationToken ct)
     {
-        ValidatePassword(model.NovaSenha ?? string.Empty, model.Confirmacao ?? string.Empty);
+        var senhaAtual = model.SenhaAtual ?? string.Empty;
+        var novaSenha = model.NovaSenha ?? string.Empty;
+        var confirmacao = model.Confirmacao ?? string.Empty;
+        ValidatePassword(novaSenha, confirmacao);
         if (!ModelState.IsValid) return View("AlterarSenha", model);
         var id = CurrentUserId();
-        if (id is null) return Challenge();
-        using var connection = _connectionFactory.CreateConnection();
-        var currentHash = await connection.ExecuteScalarAsync<string>(new CommandDefinition("select senha_hash from sigov.usuario where id=@Id and ativo and not is_deleted", new { Id = id.Value }, cancellationToken: ct)).ConfigureAwait(false);
-        if (string.IsNullOrEmpty(currentHash) || !_passwordHashService.VerifyPassword(model.SenhaAtual, currentHash)) { ModelState.AddModelError(nameof(model.SenhaAtual), "Senha atual inválida."); return View("AlterarSenha", model); }
-        if (_passwordHashService.VerifyPassword(model.NovaSenha, currentHash)) { ModelState.AddModelError(nameof(model.NovaSenha), "A nova senha deve ser diferente da atual."); return View("AlterarSenha", model); }
-        await connection.ExecuteAsync(new CommandDefinition("update sigov.usuario set senha_hash=@Hash, deve_alterar_senha=false, updated_at=now() where id=@Id", new { Id = id.Value, Hash = _passwordHashService.HashPassword(model.NovaSenha) }, cancellationToken: ct)).ConfigureAwait(false);
-        await _auditTrail.RegistrarAsync(long.TryParse(User.FindFirstValue("tenant_id"), out var tenant) ? tenant : null, id, "SENHA_ALTERADA", "sigov.usuario", id.ToString(), null, new { origem = "usuario" }, null, null, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        var tenantId = CurrentTenantId();
+        if (id is null || tenantId is null) return Challenge();
+        var currentHash = await _authenticationRepository.GetCurrentPasswordHashAsync(tenantId.Value, id.Value, ct).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(currentHash) || !_passwordHashService.VerifyPassword(senhaAtual, currentHash)) { ModelState.AddModelError(nameof(model.SenhaAtual), "Senha atual inválida."); return View("AlterarSenha", model); }
+        if (_passwordHashService.VerifyPassword(novaSenha, currentHash)) { ModelState.AddModelError(nameof(model.NovaSenha), "A nova senha deve ser diferente da atual."); return View("AlterarSenha", model); }
+        var changed = await _authenticationRepository.ChangePasswordAsync(tenantId.Value, id.Value, _passwordHashService.HashPassword(novaSenha), ct).ConfigureAwait(false);
+        if (!changed) return NotFound();
+        await _auditTrail.RegistrarAsync(tenantId, id, "SENHA_ALTERADA", "sigov.usuario", id.ToString(), null, new { origem = "usuario" }, null, null, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
         TempData["Success"] = "Senha alterada. Entre novamente.";
         return RedirectToAction(nameof(Login));
@@ -217,9 +211,8 @@ from valid_token t where u.id=t.usuario_id returning u.id, u.tenant_id;";
 
     private void ValidatePassword(string password, string confirmation)
     {
-        if (password.Length < 12 || !password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit) || !password.Any(ch => !char.IsLetterOrDigit(ch)))
-            ModelState.AddModelError(nameof(ChangePasswordViewModel.NovaSenha), "Use no mínimo 12 caracteres, com maiúscula, minúscula, número e especial.");
-        if (!string.Equals(password, confirmation, StringComparison.Ordinal)) ModelState.AddModelError(nameof(ChangePasswordViewModel.Confirmacao), "A confirmação não confere.");
+        foreach (var error in _passwordPolicy.Validate(password, confirmation))
+            ModelState.AddModelError(error.Field, error.Message);
     }
 
     [HttpGet("Auth/Logout")]
@@ -240,51 +233,5 @@ from valid_token t where u.id=t.usuario_id returning u.id, u.tenant_id;";
     }
 
     private long? CurrentUserId() => long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
-
-    private static async Task<UserAccess> LoadAccessAsync(System.Data.IDbConnection connection, long userId, CancellationToken cancellationToken)
-    {
-        const string sql = @"
-select distinct access_value
-from (
-    select pn.codigo as access_value
-      from sigov.usuario u
-      join sigov.perfil_nivel pn on pn.codigo = upper(trim(u.tipo_usuario)) and pn.ativo
-     where u.id = @UserId
-    union
-    select pn.codigo
-      from sigov.usuario_grupo ug
-      join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and not gp.is_deleted
-      join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
-      join sigov.perfil_nivel pn on pn.codigo = upper(trim(pa.codigo_externo)) and pn.ativo
-     where ug.usuario_id = @UserId and not ug.is_deleted
-) roles
-where access_value is not null;
-
-select distinct p.chave
-  from sigov.usuario_grupo ug
-  join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and not gp.is_deleted
-  join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
-  join sigov.perfil_permissao pp on pp.perfil_acesso_id = pa.id
-  join sigov.permissao p on p.id = pp.permissao_id and p.ativo and not p.is_deleted
- where ug.usuario_id = @UserId and not ug.is_deleted;";
-
-        using var result = await connection.QueryMultipleAsync(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        var roles = (await result.ReadAsync<string>().ConfigureAwait(false)).Where(IsSafeClaimValue).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var permissions = (await result.ReadAsync<string>().ConfigureAwait(false)).Where(IsSafeClaimValue).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        return new UserAccess(roles, permissions);
-    }
-
-    private static bool IsSafeClaimValue(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 150;
-
-    private static async Task RegistrarAuditoriaAsync(System.Data.IDbConnection connection, string acao, long? tenantId, long? usuarioId, string login, string? ip, string correlationId, CancellationToken cancellationToken)
-    {
-        const string sql = @"insert into sigov.auditoria_evento (tenant_id, usuario_id, acao, entidade, entidade_id, ip, user_agent, depois, correlation_id)
-values (@TenantId, @UsuarioId, @Acao, 'sigov.usuario', @EntidadeId, @Ip, null, jsonb_build_object('login', @Login), @CorrelationId::uuid);";
-        var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
-        await connection.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId, UsuarioId = usuarioId, Acao = acao, EntidadeId = usuarioId?.ToString(), Ip = ip, Login = login, CorrelationId = correlation }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    private sealed record LoginUserRow(long Id, long? TenantId, string Nome, string Login, string Email, string SenhaHash, bool Ativo, bool Bloqueado, bool DeveAlterarSenha);
-    private sealed record RecoveryUserRow(long Id, long? TenantId);
-    private sealed record UserAccess(IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> Permissions);
+    private long? CurrentTenantId() => long.TryParse(User.FindFirstValue("tenant_id"), out var id) && id > 0 ? id : null;
 }

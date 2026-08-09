@@ -4,7 +4,7 @@ using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Ui;
 
-public sealed class UserPreferenceRepository
+public sealed class UserPreferenceRepository : IUserPreferenceRepository
 {
     private readonly DapperContext _context;
 

@@ -4,6 +4,12 @@ public sealed record UserPreferenceResponse(long? TenantId, long UserId, string 
 
 public sealed record UserPreferenceUpdateRequest(long? TenantId, long UserId, string Key, string ValueJson);
 
+public interface IUserPreferenceRepository
+{
+    Task<UserPreferenceResponse?> GetAsync(long? tenantId, long userId, string key, CancellationToken cancellationToken = default);
+    Task<UserPreferenceResponse> UpsertAsync(UserPreferenceUpdateRequest request, CancellationToken cancellationToken = default);
+}
+
 public interface IUserPreferenceService
 {
     UserPreferenceResponse Save(UserPreferenceUpdateRequest request);
