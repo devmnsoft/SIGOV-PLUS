@@ -7,6 +7,8 @@ using Sigov.Application.Executive;
 using Sigov.Application.Onboarding;
 using Sigov.Application.Ui;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Threading.RateLimiting;
 using Serilog.Context;
 using Sigov.Infrastructure;
 using Sigov.Web.Branding;
@@ -27,6 +29,20 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .WriteTo.Console());
 
 builder.Services.AddControllersWithViews();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("authentication", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("password-recovery", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(5), QueueLimit = 0 }));
+});
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -120,6 +136,7 @@ builder.Services.AddScoped<WorkflowRepository>();
 builder.Services.AddScoped<WorkflowValidationService>();
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -129,6 +146,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.Use(async (context, next) =>
 {
     var correlationId = context.Request.Headers.TryGetValue("X-Correlation-Id", out var header) && Guid.TryParse(header, out var parsed)

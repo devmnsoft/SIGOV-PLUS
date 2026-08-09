@@ -38,7 +38,7 @@
         <a href="/Preferencias"><sigov-icon name="settings" size="16" />Preferências</a>
         <a href="/Seguranca"><sigov-icon name="locked" size="16" />Segurança</a>
         <a href="/MinhaCentral"><sigov-icon name="users" size="16" />Perfil</a>
-        <a href="/Auth/Logout"><sigov-icon name="back" size="16" />Sair</a>
+        <form method="post" action="/Auth/Logout" class="d-inline">@Html.AntiForgeryToken()<button type="submit" class="btn btn-link p-0"><sigov-icon name="back" size="16" />Sair</button></form>
       </div>
     </div>
   </div>
