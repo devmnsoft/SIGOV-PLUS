@@ -1,5 +1,30 @@
-@model Sigov.Application.Ui.UserPreferenceResponse
+@model Sigov.Web.Controllers.UserInterfacePreferences
 @{ ViewData["Title"] = "Preferências"; }
-@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Preferências de usuário", "Tema, página inicial, filtros salvos, atalhos e densidade da interface.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Preferências", "/Preferencias", true) }))
-<form method="post" data-sigov-form="true" data-sigov-ajax="true" class="sigov-form-shell">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label class="form-label" for="tema">Tema</label><select id="tema" class="form-select" data-sigov-preference="tema"><option value="light">Claro</option><option value="dark">Escuro</option></select></div><div class="col-md-4"><label class="form-label" for="densidade">Densidade</label><select id="densidade" class="form-select" data-sigov-preference="densidade"><option>Confortável</option><option>Compacta</option></select></div><div class="col-md-4"><label class="form-label" for="paginaInicial">Página inicial</label><input id="paginaInicial" class="form-control" value="/Executivo" data-sigov-preference="pagina-inicial"></div></div><button class="btn btn-primary mt-4" type="submit">Salvar preferências</button></form>
-@section Scripts { <script src="~/js/sigov.preferences.js"></script> }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Preferências de usuário", "Personalize sua área de trabalho. As escolhas ficam vinculadas à sua conta e ao tenant atual.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Meu perfil", "/Perfil"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Preferências", "/Perfil/Preferencias", true) }))
+
+<form method="post" action="/Perfil/Preferencias" class="sigov-preferences" data-preferences-form>
+  @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+  <section class="sigov-preference-card" aria-labelledby="appearance-title">
+    <div class="sigov-preference-card__intro"><sigov-icon name="settings" size="24"/><div><h2 id="appearance-title">Aparência e navegação</h2><p>Ajuste o conforto visual sem alterar os dados ou permissões do sistema.</p></div></div>
+    <div class="row g-4">
+      <div class="col-md-6"><label asp-for="Theme" class="form-label">Tema</label><select asp-for="Theme" class="form-select" data-preview-preference="theme"><option value="light">Claro</option><option value="dark">Escuro</option><option value="auto">Automático (sistema)</option></select><span asp-validation-for="Theme" class="text-danger"></span></div>
+      <div class="col-md-6"><label asp-for="Density" class="form-label">Densidade</label><select asp-for="Density" class="form-select" data-preview-preference="density"><option value="comfortable">Confortável</option><option value="compact">Compacta</option></select><span asp-validation-for="Density" class="text-danger"></span></div>
+      <div class="col-md-6"><label asp-for="Sidebar" class="form-label">Barra lateral</label><select asp-for="Sidebar" class="form-select" data-preview-preference="sidebar"><option value="expanded">Expandida</option><option value="compact">Compacta</option></select><span asp-validation-for="Sidebar" class="text-danger"></span></div>
+      <div class="col-md-6"><label asp-for="HomePage" class="form-label">Página inicial</label><select asp-for="HomePage" class="form-select"><option value="/MinhaCentral">Minha Central</option><option value="/Dashboard">Dashboard</option><option value="/Tarefas">Tarefas</option><option value="/Protocolo">Protocolo</option></select><span asp-validation-for="HomePage" class="text-danger"></span></div>
+    </div>
+  </section>
+
+  <section class="sigov-preference-card" aria-labelledby="notifications-title">
+    <div class="sigov-preference-card__intro"><sigov-icon name="notifications" size="24"/><div><h2 id="notifications-title">Notificações</h2><p>Alertas críticos de segurança permanecem ativos para proteger a operação.</p></div></div>
+    <div class="sigov-toggle-grid">
+      <label class="sigov-toggle"><input asp-for="NotifyProtocol"/><span><strong>Protocolo</strong><small>Tramitações, prazos e comentários.</small></span></label>
+      <label class="sigov-toggle"><input asp-for="NotifyGed"/><span><strong>GED</strong><small>Revisões, documentos e temporalidade.</small></span></label>
+      <label class="sigov-toggle"><input asp-for="NotifyTasks"/><span><strong>Tarefas</strong><small>Atribuições e vencimentos.</small></span></label>
+      <label class="sigov-toggle"><input asp-for="NotifyLgpd"/><span><strong>LGPD</strong><small>Eventos sensíveis e solicitações.</small></span></label>
+    </div>
+    <label class="sigov-toggle sigov-toggle--quiet"><input asp-for="SilenceNonCritical"/><span><strong>Silenciar notificações não críticas</strong><small>Os eventos continuam disponíveis na Central de Notificações.</small></span></label>
+  </section>
+  <div class="sigov-form-actions"><a class="sigov-btn sigov-btn--ghost" href="/MinhaCentral">Cancelar</a><button class="sigov-btn sigov-btn--primary" type="submit" data-submit-label="Salvar preferências">Salvar preferências</button></div>
+</form>
+@section Scripts { <script src="~/js/sigov.preferences.js" asp-append-version="true"></script> }
