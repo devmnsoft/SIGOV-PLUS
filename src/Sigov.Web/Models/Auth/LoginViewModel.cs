@@ -27,3 +27,27 @@ public sealed class ForgotPasswordViewModel
     public bool Solicitado { get; set; }
     public string? Mensagem { get; set; }
 }
+
+public sealed class ChangePasswordViewModel
+{
+    [Required, DataType(DataType.Password), Display(Name = "Senha atual")]
+    public string SenhaAtual { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Password), Display(Name = "Nova senha")]
+    public string NovaSenha { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Password), Compare(nameof(NovaSenha), ErrorMessage = "A confirmação não confere."), Display(Name = "Confirme a nova senha")]
+    public string Confirmacao { get; set; } = string.Empty;
+}
+
+public sealed class ResetPasswordViewModel
+{
+    [Required]
+    public string Token { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Password), Display(Name = "Nova senha")]
+    public string NovaSenha { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Password), Compare(nameof(NovaSenha), ErrorMessage = "A confirmação não confere."), Display(Name = "Confirme a nova senha")]
+    public string Confirmacao { get; set; } = string.Empty;
+}

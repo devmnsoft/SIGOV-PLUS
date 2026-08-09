@@ -569,6 +569,16 @@
       "applyAutomatically": true,
       "checksum": "a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6",
       "postConditionSql": "select to_regclass('sigov.timeline_evento') is not null and to_regprocedure('sigov.proximo_numero_protocolo(bigint,integer)') is not null"
+    },
+    {
+      "version": "20260809120000",
+      "file": "20260809120000_rc48_authentication_hardening.sql",
+      "description": "rc48_authentication_hardening",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821",
+      "postConditionSql": "select to_regclass('sigov.senha_redefinicao_token') is not null"
     }
   ]
 }
