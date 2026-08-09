@@ -16,6 +16,7 @@ using Sigov.Web.Services.Editais;
 using Sigov.Web;
 using Sigov.Web.Services.Visual;
 using Sigov.Application.Security;
+using Sigov.Web.Services.Workflows;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,6 +116,8 @@ builder.Services.AddScoped<AceiteFormalService>();
 builder.Services.AddScoped<EditalPocService>();
 builder.Services.AddScoped<PosRcWebOperationalService>();
 builder.Services.AddScoped<QuickCreateService>();
+builder.Services.AddScoped<WorkflowRepository>();
+builder.Services.AddScoped<WorkflowValidationService>();
 
 var app = builder.Build();
 
