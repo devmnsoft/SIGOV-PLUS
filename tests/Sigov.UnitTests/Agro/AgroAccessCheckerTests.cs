@@ -59,6 +59,20 @@ public sealed class AgroAccessCheckerTests
     private sealed record UserFake(long? UsuarioId, bool IsAuthenticated) : ICurrentUser
     {
         public string? Nome => "Usuário Agro";
+
+        public long? UserId => throw new NotImplementedException();
+
+        public long? TenantId => throw new NotImplementedException();
+
+        public string? Login => throw new NotImplementedException();
+
+        public string? Email => throw new NotImplementedException();
+
+        public string? TenantName => throw new NotImplementedException();
+
+        public IReadOnlyCollection<string> Roles => throw new NotImplementedException();
+
+        public IReadOnlyCollection<string> Permissions => throw new NotImplementedException();
     }
 
     private sealed class ModuleCheckerFake : IModuleAccessChecker

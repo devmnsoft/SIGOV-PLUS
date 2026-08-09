@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Novo Perfil",
+    "Projects": [
+      {
+        "Path": "src\\Sigov.Api\\Sigov.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Sigov.Web\\Sigov.Web.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

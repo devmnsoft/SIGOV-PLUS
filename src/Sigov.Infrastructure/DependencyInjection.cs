@@ -86,6 +86,7 @@ using Sigov.Infrastructure.ComprasEmpresariais;
 
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Industria;
+using Sigov.Application.Ui;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
