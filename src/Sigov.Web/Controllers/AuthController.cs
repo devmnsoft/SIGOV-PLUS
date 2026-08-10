@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Npgsql;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Security;
 using Sigov.Web.Models.Auth;
@@ -21,8 +22,9 @@ public sealed class AuthController : Controller
     private readonly IAuditTrailService _auditTrail;
     private readonly IPasswordRecoveryService _passwordRecoveryService;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
-    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, ILogger<AuthController> logger)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger)
     {
         _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
@@ -31,6 +33,7 @@ public sealed class AuthController : Controller
         _auditTrail = auditTrail;
         _passwordRecoveryService = passwordRecoveryService;
         _configuration = configuration;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -38,16 +41,8 @@ public sealed class AuthController : Controller
     [AllowAnonymous]
     public IActionResult Login(string? returnUrl = null)
     {
-        try
-        {
-            ViewData["ReturnUrl"] = returnUrl;
-            return View(new LoginViewModel());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro tratado ao abrir login. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
-            return StatusCode(StatusCodes.Status500InternalServerError, "Não foi possível abrir o login.");
-        }
+        PrepareLoginView(returnUrl);
+        return View(new LoginViewModel());
     }
 
     [HttpPost]
@@ -56,7 +51,7 @@ public sealed class AuthController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        ViewData["ReturnUrl"] = returnUrl;
+        PrepareLoginView(returnUrl);
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -102,12 +97,35 @@ public sealed class AuthController : Controller
             if (user.DeveAlterarSenha) return RedirectToAction(nameof(TrocarSenhaInicial));
             return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) || !Url.IsLocalUrl(returnUrl) ? "/MinhaCentral" : returnUrl);
         }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.InvalidCatalogName)
+        {
+            _logger.LogError("Banco PostgreSQL configurado não existe. Execute ./scripts/setup-dev.ps1. CorrelationId={CorrelationId}", correlationId);
+            model.MensagemErro = _environment.IsDevelopment()
+                ? "Banco de dados local não encontrado. Execute o provisionamento do ambiente."
+                : "Não foi possível autenticar agora. Tente novamente mais tarde.";
+            return View(model);
+        }
+        catch (NpgsqlException ex)
+        {
+            _logger.LogError(ex, "Banco indisponível durante autenticação. Execute ./scripts/setup-dev.ps1 no ambiente local. CorrelationId={CorrelationId}", correlationId);
+            model.MensagemErro = _environment.IsDevelopment()
+                ? "Banco de dados local indisponível. Execute o provisionamento do ambiente."
+                : "Não foi possível autenticar agora. Tente novamente mais tarde.";
+            return View(model);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro tratado ao autenticar. CorrelationId={CorrelationId}", correlationId);
             model.MensagemErro = "Não foi possível autenticar agora. Tente novamente ou verifique o ambiente local.";
             return View(model);
         }
+    }
+
+    private void PrepareLoginView(string? returnUrl)
+    {
+        ViewData["ReturnUrl"] = returnUrl;
+        ViewData["ShowDevelopmentHelp"] = _environment.IsDevelopment();
+        ViewData["SwaggerUrl"] = _configuration["Sigov:SwaggerUrl"] ?? "https://localhost:7001/swagger";
     }
 
 

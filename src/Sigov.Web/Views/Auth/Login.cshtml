@@ -1,35 +1,93 @@
 @model Sigov.Web.Models.Auth.LoginViewModel
-@{ Layout = null; var returnUrl = ViewData["ReturnUrl"] as string; }
-<!doctype html><html lang="pt-br" data-sigov-theme="light"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Entrar no SIGOV PLUS</title><link rel="icon" href="~/img/sigov-favicon.svg" type="image/svg+xml"><link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/><link href="~/css/site.css" rel="stylesheet"/><link href="~/css/sigov-login.css" rel="stylesheet"/></head>
+@{
+    Layout = null;
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var showDevelopmentHelp = ViewData["ShowDevelopmentHelp"] as bool? == true;
+    var swaggerUrl = ViewData["SwaggerUrl"] as string;
+}
+<!doctype html>
+<html lang="pt-br" data-sigov-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#071a2d" />
+  <title>Entrar — SIGOV+</title>
+  <link rel="icon" href="~/img/sigov-favicon.svg" type="image/svg+xml" />
+  <link href="~/css/sigov-login.css" rel="stylesheet" asp-append-version="true" />
+</head>
 <body class="sigov-login-page">
-  <main class="sigov-login-shell" aria-label="Login SIGOV PLUS">
-    <section class="sigov-login-benefits">
-      <img class="sigov-login-logo" src="~/img/sigov-logo.svg" alt="SIGOV PLUS" />
-      <span class="sigov-badge sigov-badge--info">Ambiente seguro</span>
-      <h1 class="display-6 fw-bold mt-4">Gestão pública integrada, segura e multi-tenant</h1>
-      <p class="lead opacity-75">Uma plataforma SaaS modular para governo, empresas, auditoria, LGPD, implantação e operação monitorada.</p>
-      <div class="mt-4">
-        <div class="sigov-benefit">✓ Multi-tenant com contexto de entidade e exercício</div>
-        <div class="sigov-benefit">✓ Auditoria e LGPD para operações sensíveis</div>
-        <div class="sigov-benefit">✓ Implantação guiada com checklist executivo</div>
-        <div class="sigov-benefit">✓ Módulos integrados para governo e empresas</div>
-        <div class="sigov-benefit">✓ Health e monitoramento operacional</div>
+  <a class="login-skip-link" href="#login-panel">Ir para o formulário de acesso</a>
+  <main class="login-shell">
+    <section class="login-brand" aria-labelledby="brand-title">
+      <div>
+        <img class="login-logo" src="~/img/sigov-logo.svg" alt="SIGOV+" />
+        <span class="login-kicker"><span aria-hidden="true">●</span> Plataforma institucional segura</span>
+        <h1 id="brand-title">Gestão pública conectada a decisões melhores.</h1>
+        <p>Operação integrada, governança e transparência em uma experiência única para sua organização.</p>
       </div>
+      <ul class="login-trust" aria-label="Recursos de segurança">
+        <li><span aria-hidden="true">✓</span><span><strong>Contexto protegido</strong><small>Isolamento por organização e permissões.</small></span></li>
+        <li><span aria-hidden="true">✓</span><span><strong>Operações auditáveis</strong><small>Rastreabilidade com código de correlação.</small></span></li>
+        <li><span aria-hidden="true">✓</span><span><strong>Ecossistema integrado</strong><small>Módulos conectados em uma só central.</small></span></li>
+      </ul>
+      <p class="login-brand-footer">SIGOV+ <span>•</span> Governo digital com confiança</p>
     </section>
-    <section class="sigov-login-form">
-      <img class="sigov-login-logo d-lg-none" src="~/img/sigov-logo.svg" alt="SIGOV PLUS" />
-      <span class="sigov-badge sigov-badge--info">SIGOV SaaS</span>
-      <h2 class="h1 fw-bold mt-3 mb-2">Entrar no SIGOV PLUS</h2>
-      <p class="text-muted mb-4">Gestão pública integrada, segura e multi-tenant.</p>
-      @if (!string.IsNullOrWhiteSpace(Model.MensagemErro)) { <div class="alert alert-danger rounded-4" role="alert"><strong>Não foi possível entrar.</strong><br />@Model.MensagemErro</div> }
-      <form method="post" asp-action="Login" asp-route-returnUrl="@returnUrl" id="loginForm" class="d-grid gap-3">
-        @Html.AntiForgeryToken()<div asp-validation-summary="ModelOnly" class="text-danger"></div>
-        <div><label asp-for="Login" class="form-label">Login ou e-mail</label><input asp-for="Login" class="form-control form-control-lg" autocomplete="username" autofocus placeholder="admin@suaentidade.gov.br"/><span asp-validation-for="Login" class="text-danger small"></span></div>
-        <div class="sigov-password-field"><label asp-for="Senha" class="form-label">Senha</label><input asp-for="Senha" class="form-control form-control-lg" autocomplete="current-password" placeholder="Digite sua senha"/><button class="sigov-icon-btn sigov-password-toggle" type="button" data-sigov-password-toggle aria-label="Mostrar senha"><sigov-icon name="view" size="18" /></button><span asp-validation-for="Senha" class="text-danger small"></span></div>
-        <label class="d-flex align-items-center gap-2"><input asp-for="LembrarLogin" class="form-check-input" /> Lembrar login neste dispositivo</label><button class="sigov-btn sigov-btn--primary w-100" type="submit" id="btnEntrar">Entrar com segurança</button>
-        <div class="d-flex justify-content-between gap-3 flex-wrap"><a href="/Auth/EsqueciSenha">Esqueci minha senha</a><span class="text-muted small">Sessão protegida e auditável</span></div>
+
+    <section class="login-panel" id="login-panel" aria-labelledby="login-title">
+      <div class="login-mobile-brand"><img src="~/img/sigov-logo.svg" alt="SIGOV+" /></div>
+      <div class="login-heading">
+        <span class="login-eyebrow">Acesso à plataforma</span>
+        <h2 id="login-title">Bem-vindo de volta</h2>
+        <p>Informe suas credenciais para acessar sua central.</p>
+      </div>
+
+      @if (!string.IsNullOrWhiteSpace(Model.MensagemErro))
+      {
+        <div class="login-alert" role="alert" aria-live="assertive">
+          <span class="login-alert__icon" aria-hidden="true">!</span>
+          <span><strong>Não foi possível entrar</strong>@Model.MensagemErro</span>
+        </div>
+      }
+
+      <form method="post" asp-action="Login" asp-route-returnUrl="@returnUrl" id="loginForm" novalidate>
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="login-validation-summary" role="alert"></div>
+
+        <div class="login-field">
+          <label asp-for="Login">Login ou e-mail <span aria-hidden="true">*</span></label>
+          <div class="login-input-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" /></svg>
+            <input asp-for="Login" autocomplete="username" autofocus placeholder="Ex.: admin" aria-describedby="Login-error" />
+          </div>
+          <span asp-validation-for="Login" id="Login-error" class="login-field-error"></span>
+        </div>
+
+        <div class="login-field">
+          <div class="login-label-row"><label asp-for="Senha">Senha <span aria-hidden="true">*</span></label><a href="/Auth/EsqueciSenha">Esqueci minha senha</a></div>
+          <div class="login-input-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input asp-for="Senha" autocomplete="current-password" placeholder="Digite sua senha" aria-describedby="Senha-error" />
+            <button class="login-password-toggle" type="button" data-sigov-password-toggle aria-label="Mostrar senha" aria-pressed="false"><span aria-hidden="true">Mostrar</span></button>
+          </div>
+          <span asp-validation-for="Senha" id="Senha-error" class="login-field-error"></span>
+        </div>
+
+        <label class="login-check"><input asp-for="LembrarLogin" /><span aria-hidden="true"></span>Manter meu acesso neste dispositivo</label>
+        <button class="login-submit" type="submit" id="btnEntrar"><span data-button-label>Entrar com segurança</span><span aria-hidden="true">→</span></button>
       </form>
+
+      @if (showDevelopmentHelp && !string.IsNullOrWhiteSpace(swaggerUrl))
+      {
+        <aside class="login-dev-card" aria-label="Atalho do ambiente de desenvolvimento">
+          <span aria-hidden="true">⌘</span><span><strong>Ambiente de desenvolvimento</strong><a href="@swaggerUrl" target="_blank" rel="noopener">Swagger da API: @swaggerUrl</a></span>
+        </aside>
+      }
+      <p class="login-security"><span aria-hidden="true">◆</span> Conexão protegida. Acessos e operações críticas são auditados.</p>
     </section>
   </main>
-  <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script><script src="~/js/sigov-ui.js"></script><script src="~/js/sigov-login.js"></script>
-</body></html>
+  <script src="~/lib/jquery/jquery.min.js"></script>
+  <script src="~/lib/jquery-validation/jquery.validate.min.js"></script>
+  <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+  <script src="~/js/sigov-login.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -138,10 +138,9 @@ builder.Services.AddScoped<WorkflowValidationService>();
 var app = builder.Build();
 app.UseForwardedHeaders();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-}
+// A página de erro sanitizada também é usada em Development: detalhes técnicos ficam
+// exclusivamente no log estruturado e são relacionados por TraceIdentifier.
+app.UseExceptionHandler("/Home/Error");
 
 app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
 app.UseStaticFiles();

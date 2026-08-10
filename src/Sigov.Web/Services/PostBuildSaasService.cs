@@ -467,15 +467,16 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         }
     }
 
-    private static async Task AuditarSaasAsync(System.Data.IDbConnection connection, string acao, string entidade, long id, object payload, CancellationToken cancellationToken)
+    private async Task AuditarSaasAsync(System.Data.IDbConnection connection, string acao, string entidade, long id, object payload, CancellationToken cancellationToken)
     {
         try
         {
             var json = System.Text.Json.JsonSerializer.Serialize(payload);
             await connection.ExecuteAsync(new CommandDefinition("insert into sigov.auditoria_evento (acao, entidade, entidade_id, depois, created_at) values (@Acao, @Entidade, @Id, @Depois::jsonb, now());", new { Acao = acao, Entidade = entidade, Id = id.ToString(System.Globalization.CultureInfo.InvariantCulture), Depois = json }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Auditoria SaaS não persistida. Acao={Acao}; Entidade={Entidade}; EntidadeId={EntidadeId}", acao, entidade, id);
         }
     }
 

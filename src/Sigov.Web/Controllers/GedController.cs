@@ -72,5 +72,15 @@ public sealed class GedController : Controller
     { if (!Can(download ? "ged.download" : "ged.visualizar")) return Forbid(); await Audit(download ? "ged.download" : "ged.visualizar", id.ToString(), ct); TempData["Warning"] = "Arquivo protegido: o path físico nunca é exposto; stream real depende do registro GED."; return Redirect($"/Ged/Detalhes/{id}"); }
     private bool Can(string permission) => User.Identity?.IsAuthenticated != true || _permissions.HasPermission(User, permission) || _permissions.HasPermission(User, "ADMIN_GERAL");
     private Task Audit(string acao, string? id, CancellationToken ct) => _auditTrail.RegistrarAsync(null, null, acao, "documento", id, null, new { acao, id }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct);
-    private static async Task TryExecuteAsync(System.Data.IDbConnection cn, string sql, object args, CancellationToken ct) { try { await cn.ExecuteAsync(new CommandDefinition(sql, args, cancellationToken: ct)); } catch { } }
+    private async Task TryExecuteAsync(System.Data.IDbConnection cn, string sql, object args, CancellationToken ct)
+    {
+        try
+        {
+            await cn.ExecuteAsync(new CommandDefinition(sql, args, cancellationToken: ct));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Persistência complementar do GED indisponível. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+        }
+    }
 }

@@ -82,7 +82,7 @@ select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash, ak.
         finally
         {
             watch.Stop();
-            await SafeLogAsync(db, tenantId, apiKeyId, context, correlation, started, watch.ElapsedMilliseconds).ConfigureAwait(false);
+            await SafeLogAsync(db, tenantId, apiKeyId, context, correlation, started, watch.ElapsedMilliseconds, _logger).ConfigureAwait(false);
         }
     }
 
@@ -108,7 +108,7 @@ select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash, ak.
         var right = Encoding.UTF8.GetBytes(b ?? string.Empty);
         return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
     }
-    private static async Task SafeLogAsync(DapperContext db, long? tenantId, long? apiKeyId, HttpContext context, string correlation, DateTimeOffset started, long elapsedMs)
+    private static async Task SafeLogAsync(DapperContext db, long? tenantId, long? apiKeyId, HttpContext context, string correlation, DateTimeOffset started, long elapsedMs, ILogger logger)
     {
         try
         {
@@ -116,7 +116,10 @@ select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash, ak.
             await cn.ExecuteAsync(new CommandDefinition(@"insert into sigov.api_requisicao_log (tenant_id, api_key_id, endpoint, method, status_code, correlation_id, ip, user_agent, started_at, elapsed_ms)
 values (@TenantId, @ApiKeyId, @Endpoint, @Method, @StatusCode, cast(@CorrelationId as uuid), @Ip, @UserAgent, @StartedAt, @ElapsedMs);", new { TenantId = tenantId, ApiKeyId = apiKeyId, Endpoint = context.Request.Path.Value, Method = context.Request.Method, StatusCode = context.Response.StatusCode, CorrelationId = Guid.TryParse(correlation, out var g) ? g : Guid.NewGuid(), Ip = context.Connection.RemoteIpAddress?.ToString(), UserAgent = context.Request.Headers.UserAgent.ToString(), StartedAt = started, ElapsedMs = elapsedMs }, cancellationToken: context.RequestAborted)).ConfigureAwait(false);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Falha ao persistir auditoria da API. TenantId={TenantId}; ApiKeyId={ApiKeyId}; CorrelationId={CorrelationId}", tenantId, apiKeyId, correlation);
+        }
     }
     private sealed record ApiKeyRow(long Id, long TenantId, string ApiKeyHash, string Status, string[] Scopes);
 }

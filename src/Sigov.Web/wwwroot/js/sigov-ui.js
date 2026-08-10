@@ -62,6 +62,8 @@
     warning: (message, title) => showToast('warning', message, title),
     info: (message, title) => showToast('info', message, title)
   };
+  // API pública estável para views e módulos; SigovNotify permanece como alias legado.
+  window.SigovToast = window.SigovNotify;
   window.SigovConfirm = { show: (options) => new Promise((resolve) => {
     const opts = options || {}, modalEl = document.getElementById('sigovConfirmModal');
     if (!modalEl || !window.bootstrap) { resolve(false); return; }
@@ -76,6 +78,7 @@
     const onHidden = () => done(false);
     ok.addEventListener('click', onOk, { once: true }); modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true }); modal.show();
   }) };
+  window.SigovConfirm.open = window.SigovConfirm.show;
 
   window.SigovHelp = { show: (title, html) => {
     let el = document.getElementById('sigovHelpModal');
@@ -88,6 +91,7 @@
     el.querySelector('#sigovHelpBody').innerHTML = html || '<p>Use esta tela seguindo as orientações exibidas.</p>';
     if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(el).show();
   } };
+  window.SigovModal = { details: (title, html) => window.SigovHelp.show(title, html) };
   window.SigovLoading = { button: (button, isLoading, text) => {
     if (!button) return;
     if (isLoading) { button.dataset.originalText = button.innerHTML; button.disabled = true; button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${text || 'Processando...'}`; }
