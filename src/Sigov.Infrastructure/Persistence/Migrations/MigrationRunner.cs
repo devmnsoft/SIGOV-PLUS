@@ -51,6 +51,7 @@ public sealed class MigrationRunner
         string? activeVersion = null;
         string? activeMigrationFile = null;
         string? activeCompatibilityFile = null;
+        var activeStage = "History";
         if (string.Equals(migrationMode, "Disabled", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("MigrationRunner desabilitado; nenhuma conexão será aberta.");
@@ -76,6 +77,7 @@ public sealed class MigrationRunner
             await AcquireMigrationLockAsync(connection, cancellationToken).ConfigureAwait(false);
             try
             {
+                activeStage = "History";
                 await EnsureMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
 
                 var manifest = LoadManifestFiles();
@@ -85,6 +87,7 @@ public sealed class MigrationRunner
                 {
                     activeVersion = migration.Version;
                     activeMigrationFile = Path.GetFileName(migration.FilePath);
+                    activeStage = "History";
                     var file = migration.FilePath;
                     var version = migration.Version;
                     var description = migration.Description;
@@ -125,6 +128,7 @@ public sealed class MigrationRunner
                                 continue;
                             }
 
+                            activeStage = "PostCondition";
                             var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
                                 migration.PostConditionSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
                             if (!postConditionPassed)
@@ -140,6 +144,7 @@ public sealed class MigrationRunner
                         }
                         else if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
                         {
+                            activeStage = "PostCondition";
                             var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
                                 migration.PostConditionSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
                             if (!postConditionPassed)
@@ -158,7 +163,7 @@ public sealed class MigrationRunner
                         continue;
                     }
 
-                    await ApplyMigrationAsync(connection, migration, executionSql, checksum, file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
+                    await ApplyMigrationAsync(connection, migration, executionSql, checksum, (stage, file) => { activeStage = stage; activeCompatibilityFile = file; }, cancellationToken).ConfigureAwait(false);
                     activeCompatibilityFile = null;
                     validation.Applied.Add(version);
                 }
@@ -191,8 +196,8 @@ public sealed class MigrationRunner
                 PostgresErrorCodes.UniqueViolation => "Duplicidade encontrada. Execute repair-sigov-database.ps1 e diagnose-sigov-database.ps1.",
                 _ => "Falha PostgreSQL durante a validação de migrations; consulte o SQLSTATE e o diagnóstico operacional."
             };
-            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; File={MigrationFile}; CompatibilityFile={CompatibilityFile}; Relation={Relation}; SqlState={SqlState}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
-                hint, activeVersion, activeMigrationFile, activeCompatibilityFile, ex.TableName, ex.SqlState, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; MigrationFile={MigrationFile}; Stage={Stage}; CompatibilityFile={CompatibilityFile}; SqlState={SqlState}; ColumnName={ColumnName}; TableName={TableName}; SchemaName={SchemaName}; ConstraintName={ConstraintName}; RoutineName={RoutineName}; Detail={Detail}; Hint={Hint}; Position={Position}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
+                hint, activeVersion, activeMigrationFile, activeStage, activeCompatibilityFile, ex.SqlState, ex.ColumnName, ex.TableName, ex.SchemaName, ex.ConstraintName, ex.RoutineName, ex.Detail, ex.Hint, ex.Position, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
             throw;
         }
         catch (Exception ex)
@@ -227,7 +232,7 @@ public sealed class MigrationRunner
         }
     }
 
-    private async Task ApplyMigrationAsync(NpgsqlConnection connection, ManifestMigration migration, string executionSql, string checksum, Action<string?> setActiveCompatibility, CancellationToken cancellationToken)
+    private async Task ApplyMigrationAsync(NpgsqlConnection connection, ManifestMigration migration, string executionSql, string checksum, Action<string, string?> setActiveStage, CancellationToken cancellationToken)
     {
         var correlationId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
         var stopwatch = Stopwatch.StartNew();
@@ -240,17 +245,18 @@ public sealed class MigrationRunner
         {
             foreach (var compatibility in migration.CompatibilityBefore)
             {
-                setActiveCompatibility(compatibility.File);
+                setActiveStage("CompatibilityBefore", compatibility.File);
                 _logger.LogInformation("Compatibility PRE: {CompatibilityFile}; Migration={Version}; Status=Started; CorrelationId={CorrelationId}", compatibility.File, migration.Version, correlationId);
                 var compatibilitySql = await File.ReadAllTextAsync(compatibility.FilePath, cancellationToken).ConfigureAwait(false);
                 await connection.ExecuteAsync(new CommandDefinition(compatibilitySql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 _logger.LogInformation("Compatibility applied: {CompatibilityFile}; Migration={Version}; CorrelationId={CorrelationId}", compatibility.File, migration.Version, correlationId);
             }
-            setActiveCompatibility(null);
+            setActiveStage("Migration", null);
             await connection.ExecuteAsync(new CommandDefinition(executionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             _logger.LogInformation("Migration applied: {Version}; File={MigrationFile}; CorrelationId={CorrelationId}", migration.Version, Path.GetFileName(migration.FilePath), correlationId);
             if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
             {
+                setActiveStage("PostCondition", null);
                 var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
                     migration.PostConditionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 if (!postConditionPassed)
@@ -260,6 +266,7 @@ public sealed class MigrationRunner
             }
 
             var executionMs = stopwatch.ElapsedMilliseconds;
+            setActiveStage("History", null);
             await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.schema_migrations (version, description, checksum, category, source, success, execution_ms)
 values (@Version, @Description, @Checksum, @Category, 'manifest', true, @ExecutionMs);
 ", new { migration.Version, migration.Description, Checksum = checksum, migration.Category, ExecutionMs = executionMs }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
