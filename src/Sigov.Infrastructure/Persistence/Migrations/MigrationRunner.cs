@@ -48,6 +48,9 @@ public sealed class MigrationRunner
 
     public async Task RunAsync(string migrationMode, CancellationToken cancellationToken = default)
     {
+        string? activeVersion = null;
+        string? activeMigrationFile = null;
+        string? activeCompatibilityFile = null;
         if (string.Equals(migrationMode, "Disabled", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("MigrationRunner desabilitado; nenhuma conexão será aberta.");
@@ -75,11 +78,13 @@ public sealed class MigrationRunner
             {
                 await EnsureMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
 
-                var migrations = LoadManifestFiles();
+                var manifest = LoadManifestFiles();
                 var validateOnly = string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase);
                 var validation = new MigrationValidationResult();
-                foreach (var migration in migrations)
+                foreach (var migration in manifest.Migrations)
                 {
+                    activeVersion = migration.Version;
+                    activeMigrationFile = Path.GetFileName(migration.FilePath);
                     var file = migration.FilePath;
                     var version = migration.Version;
                     var description = migration.Description;
@@ -153,13 +158,20 @@ public sealed class MigrationRunner
                         continue;
                     }
 
-                    await ApplyMigrationAsync(connection, migration, executionSql, checksum, cancellationToken).ConfigureAwait(false);
+                    await ApplyMigrationAsync(connection, migration, executionSql, checksum, file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
+                    activeCompatibilityFile = null;
                     validation.Applied.Add(version);
                 }
 
                 if (!validation.IsValid)
                 {
                     throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.");
+                }
+
+                if (!validateOnly && validation.Applied.Count > 0 && manifest.CompatibilityAfterAll.Count > 0)
+                {
+                    await ApplyCompatibilityAfterAllAsync(connection, manifest.CompatibilityAfterAll, file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
+                    activeCompatibilityFile = null;
                 }
             }
             finally
@@ -179,8 +191,8 @@ public sealed class MigrationRunner
                 PostgresErrorCodes.UniqueViolation => "Duplicidade encontrada. Execute repair-sigov-database.ps1 e diagnose-sigov-database.ps1.",
                 _ => "Falha PostgreSQL durante a validação de migrations; consulte o SQLSTATE e o diagnóstico operacional."
             };
-            _logger.LogError(ex, "{OperationalHint} SqlState={SqlState}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
-                hint, ex.SqlState, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; File={MigrationFile}; CompatibilityFile={CompatibilityFile}; Relation={Relation}; SqlState={SqlState}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
+                hint, activeVersion, activeMigrationFile, activeCompatibilityFile, ex.TableName, ex.SqlState, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
             throw;
         }
         catch (Exception ex)
@@ -215,7 +227,7 @@ public sealed class MigrationRunner
         }
     }
 
-    private async Task ApplyMigrationAsync(NpgsqlConnection connection, ManifestMigration migration, string executionSql, string checksum, CancellationToken cancellationToken)
+    private async Task ApplyMigrationAsync(NpgsqlConnection connection, ManifestMigration migration, string executionSql, string checksum, Action<string?> setActiveCompatibility, CancellationToken cancellationToken)
     {
         var correlationId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
         var stopwatch = Stopwatch.StartNew();
@@ -226,7 +238,17 @@ public sealed class MigrationRunner
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            foreach (var compatibility in migration.CompatibilityBefore)
+            {
+                setActiveCompatibility(compatibility.File);
+                _logger.LogInformation("Compatibility PRE: {CompatibilityFile}; Migration={Version}; Status=Started; CorrelationId={CorrelationId}", compatibility.File, migration.Version, correlationId);
+                var compatibilitySql = await File.ReadAllTextAsync(compatibility.FilePath, cancellationToken).ConfigureAwait(false);
+                await connection.ExecuteAsync(new CommandDefinition(compatibilitySql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                _logger.LogInformation("Compatibility applied: {CompatibilityFile}; Migration={Version}; CorrelationId={CorrelationId}", compatibility.File, migration.Version, correlationId);
+            }
+            setActiveCompatibility(null);
             await connection.ExecuteAsync(new CommandDefinition(executionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            _logger.LogInformation("Migration applied: {Version}; File={MigrationFile}; CorrelationId={CorrelationId}", migration.Version, Path.GetFileName(migration.FilePath), correlationId);
             if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
             {
                 var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
@@ -242,6 +264,7 @@ public sealed class MigrationRunner
 values (@Version, @Description, @Checksum, @Category, 'manifest', true, @ExecutionMs);
 ", new { migration.Version, migration.Description, Checksum = checksum, migration.Category, ExecutionMs = executionMs }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("History committed: {Version}; File={MigrationFile}; CorrelationId={CorrelationId}", migration.Version, Path.GetFileName(migration.FilePath), correlationId);
             _logger.LogInformation("Migration {Version} aplicada em {ExecutionMs}ms. Category={Category}; Status=Applied; CorrelationId={CorrelationId}",
                 migration.Version, stopwatch.ElapsedMilliseconds, migration.Category, correlationId);
         }
@@ -258,6 +281,27 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
             var sqlState = (ex as PostgresException)?.SqlState;
             _logger.LogError(ex, "Migration {Version} falhou após {ExecutionMs}ms. Category={Category}; Status=Failed; SqlState={SqlState}; CorrelationId={CorrelationId}",
                 migration.Version, stopwatch.ElapsedMilliseconds, migration.Category, sqlState, correlationId);
+            throw;
+        }
+    }
+
+    private async Task ApplyCompatibilityAfterAllAsync(NpgsqlConnection connection, IReadOnlyList<CompatibilityScript> scripts, Action<string?> setActiveCompatibility, CancellationToken cancellationToken)
+    {
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            foreach (var script in scripts)
+            {
+                setActiveCompatibility(script.File);
+                var sql = await File.ReadAllTextAsync(script.FilePath, cancellationToken).ConfigureAwait(false);
+                await connection.ExecuteAsync(new CommandDefinition(sql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                _logger.LogInformation("Compatibility AFTER ALL applied: {CompatibilityFile}", script.File);
+            }
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
             throw;
         }
     }
@@ -298,7 +342,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         }
     }
 
-    private IReadOnlyList<ManifestMigration> LoadManifestFiles()
+    private ManifestDefinition LoadManifestFiles()
     {
         if (!File.Exists(_manifestPath))
         {
@@ -307,6 +351,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
 
         using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(_manifestPath));
         var basePath = Path.GetDirectoryName(_manifestPath) ?? string.Empty;
+        var bootstrapPath = Path.GetFullPath(Path.Combine(basePath, "..", "bootstrap"));
         var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<ManifestMigration>();
@@ -342,10 +387,47 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
                     throw new FileNotFoundException("Migration automática ausente no manifest.", filePath);
                 }
 
-                result.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums, postConditionSql, legacyTransactionWrapper));
+                var compatibilityBefore = ReadCompatibilityScripts(item, "compatibilityBefore", bootstrapPath);
+                result.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums, postConditionSql, legacyTransactionWrapper, compatibilityBefore));
             }
         }
 
+        var afterAll = ReadCompatibilityScripts(document.RootElement, "compatibilityAfterAll", bootstrapPath);
+        return new ManifestDefinition(result, afterAll);
+    }
+
+    private static IReadOnlyList<CompatibilityScript> ReadCompatibilityScripts(System.Text.Json.JsonElement owner, string propertyName, string bootstrapPath)
+    {
+        if (!owner.TryGetProperty(propertyName, out var scripts) || scripts.ValueKind != System.Text.Json.JsonValueKind.Array)
+        {
+            return Array.Empty<CompatibilityScript>();
+        }
+
+        var result = new List<CompatibilityScript>();
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var bootstrapPrefix = bootstrapPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var item in scripts.EnumerateArray())
+        {
+            var file = item.GetProperty("file").GetString() ?? string.Empty;
+            var expectedChecksum = item.GetProperty("checksum").GetString() ?? string.Empty;
+            if (Path.IsPathRooted(file) || file.IndexOfAny(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) >= 0 || !files.Add(file))
+            {
+                throw new InvalidOperationException($"Arquivo de compatibilidade inválido ou duplicado: {file}.");
+            }
+
+            var filePath = Path.GetFullPath(Path.Combine(bootstrapPath, file));
+            if (!filePath.StartsWith(bootstrapPrefix, StringComparison.OrdinalIgnoreCase) || !File.Exists(filePath))
+            {
+                throw new FileNotFoundException("Arquivo de compatibilidade ausente ou fora de database/postgres/bootstrap.", filePath);
+            }
+
+            var actualChecksum = Checksum(File.ReadAllText(filePath));
+            if (!string.Equals(expectedChecksum, actualChecksum, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Checksum divergente para compatibilidade {file}. Manifest={expectedChecksum}; Arquivo={actualChecksum}.");
+            }
+            result.Add(new CompatibilityScript(file, filePath, expectedChecksum));
+        }
         return result;
     }
 
@@ -357,7 +439,11 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         string Checksum,
         IReadOnlyList<string> KnownChecksums,
         string? PostConditionSql,
-        bool LegacyTransactionWrapper);
+        bool LegacyTransactionWrapper,
+        IReadOnlyList<CompatibilityScript> CompatibilityBefore);
+
+    private sealed record CompatibilityScript(string File, string FilePath, string Checksum);
+    private sealed record ManifestDefinition(IReadOnlyList<ManifestMigration> Migrations, IReadOnlyList<CompatibilityScript> CompatibilityAfterAll);
 
     private static string ResolveMigrationsPath(string? configuredPath)
     {

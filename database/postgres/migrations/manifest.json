@@ -223,7 +223,13 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c"
+      "checksum": "f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c",
+      "compatibilityBefore": [
+        {
+          "file": "030_pre_025_integration_views.sql",
+          "checksum": "953ae911bfbc8ea0540f6bab8e5a3dd76c2e274740599595d07fd56d9df10798"
+        }
+      ]
     },
     {
       "version": "026",
@@ -232,7 +238,13 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc"
+      "checksum": "00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc",
+      "compatibilityBefore": [
+        {
+          "file": "040_pre_026_feature_flags.sql",
+          "checksum": "4fe8d0543a17d63dc3608dc822585e392c50731ebfe0f3810944d5fda70f6a80"
+        }
+      ]
     },
     {
       "version": "20260607090000",
@@ -277,7 +289,13 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1"
+      "checksum": "935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1",
+      "compatibilityBefore": [
+        {
+          "file": "000_preflight_legacy_compatibility.sql",
+          "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+        }
+      ]
     },
     {
       "version": "20260608120001",
@@ -522,7 +540,13 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042"
+      "checksum": "148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042",
+      "compatibilityBefore": [
+        {
+          "file": "000_preflight_legacy_compatibility.sql",
+          "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+        }
+      ]
     },
     {
       "version": "20260730210000",
@@ -540,7 +564,18 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c"
+      "checksum": "cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c",
+      "compatibilityBefore": [
+        {
+          "file": "000_preflight_legacy_compatibility.sql",
+          "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+        },
+        {
+          "file": "010_pre_rc32_optional_financial_bridge.sql",
+          "checksum": "f80b241d263f146f8db2dfe5f2b8b6e7012b715dba6cce1eaac7e5cd18a56120"
+        }
+      ],
+      "postConditionSql": "select to_regclass('sigov.enterprise_integracao_financeira') is not null\nand to_regclass('sigov.ix_enterprise_financeiro_core') is not null\nand not exists (\n    select 1\n    from (values\n        ('id', 'uuid'), ('tenant_id', 'uuid'), ('origem_tipo', 'character varying'),\n        ('origem_id', 'uuid'), ('conta_receber_core_id', 'bigint'), ('tenant_core_id', 'bigint'),\n        ('status', 'character varying'), ('payload_json', 'jsonb'), ('erro', 'text'),\n        ('created_at', 'timestamp with time zone'), ('updated_at', 'timestamp with time zone')\n    ) expected(column_name, data_type)\n    left join information_schema.columns actual\n      on actual.table_schema = 'sigov'\n     and actual.table_name = 'enterprise_integracao_financeira'\n     and actual.column_name = expected.column_name\n    where actual.column_name is null or actual.data_type <> expected.data_type\n)"
     },
     {
       "version": "20260731120000",
@@ -559,7 +594,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331",
-      "postConditionSql": "select to_regclass('sigov.compras_fornecedor') is not null and to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_idempotencia') is not null"
+      "postConditionSql": "select to_regclass('sigov.compras_fornecedor') is not null and to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_idempotencia') is not null",
+      "compatibilityBefore": [
+        {
+          "file": "020_pre_rc37b_compras_compatibility.sql",
+          "checksum": "409b83dfb5bf3f91bdd718fe55cc50dd0f6140e318b7fc0e15d26721d246eb4a"
+        }
+      ]
     },
     {
       "version": "20260807120000",
@@ -591,6 +632,12 @@
       "applyAutomatically": true,
       "checksum": "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735",
       "postConditionSql": "select to_regclass('sigov.workflow_definicao') is not null and to_regclass('sigov.workflow_versao') is not null and to_regclass('sigov.workflow_etapa') is not null and to_regclass('sigov.workflow_transicao') is not null and to_regclass('sigov.workflow_evento') is not null and to_regclass('sigov.ix_workflow_definicao_tenant_status') is not null and to_regclass('sigov.ix_workflow_etapa_tenant_workflow') is not null and to_regclass('sigov.ix_workflow_evento_tenant_instancia') is not null and not exists (select required.chave from (values ('WORKFLOW_CONSULTA'),('WORKFLOW_GERENCIAR'),('FORMULARIO_CONSULTA'),('FORMULARIO_GERENCIAR'),('PORTAL_CONFIGURAR'),('PORTAL_CONSULTAR_SOLICITACOES'),('SLA_CONSULTA'),('SLA_GERENCIAR'),('APROVACAO_CONSULTA'),('APROVACAO_DECIDIR'),('TEMPLATE_CONSULTA'),('TEMPLATE_GERENCIAR'),('ONBOARDING_CONSULTA'),('SHOWCASE_ACESSAR'),('RELATORIO_EXECUTIVO')) required(chave) where not exists (select 1 from sigov.permissao p where p.chave = required.chave)) and not exists (select p.chave from sigov.permissao p where p.chave in ('WORKFLOW_CONSULTA','WORKFLOW_GERENCIAR','FORMULARIO_CONSULTA','FORMULARIO_GERENCIAR','PORTAL_CONFIGURAR','PORTAL_CONSULTAR_SOLICITACOES','SLA_CONSULTA','SLA_GERENCIAR','APROVACAO_CONSULTA','APROVACAO_DECIDIR','TEMPLATE_CONSULTA','TEMPLATE_GERENCIAR','ONBOARDING_CONSULTA','SHOWCASE_ACESSAR','RELATORIO_EXECUTIVO') group by p.chave having count(*) > 1)"
+    }
+  ],
+  "compatibilityAfterAll": [
+    {
+      "file": "850_post_migration_compatibility.sql",
+      "checksum": "7b2ff1df01618683e50b3a125ace6392ea657fe1bb4c7c18a7acc014c17fd196"
     }
   ]
 }

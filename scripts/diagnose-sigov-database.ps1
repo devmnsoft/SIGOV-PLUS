@@ -68,6 +68,14 @@ try {
             if (-not $registered.ContainsKey([string]$m.version)) { Add-Check "migration.$($m.version)" 'ERROR' "Migration $($m.version) não registrada." }
             else { $known = if ($m.PSObject.Properties.Name -contains 'knownChecksums') { @($m.knownChecksums) } else { @() }; $allowed=@([string]$m.checksum)+$known; if ($registered[[string]$m.version] -notin $allowed) { Add-Check "migration.$($m.version).checksum" 'ERROR' "Checksum registrado diverge do manifest." } }
         }
+        $rc32Version = '20260730090000'
+        $bridgeExists = (Invoke-Psql $Database "select to_regclass('$schema.enterprise_integracao_financeira') is not null") -eq 't'
+        $bridgeIndexExists = (Invoke-Psql $Database "select to_regclass('$schema.ix_enterprise_financeiro_core') is not null") -eq 't'
+        Add-Check 'rc32.enterprise-financial-bridge' $(if ($bridgeExists) { 'OK' } else { 'ERROR' }) $(if ($bridgeExists) { 'enterprise_integracao_financeira: EXISTS' } else { 'enterprise_integracao_financeira: MISSING' })
+        Add-Check 'rc32.enterprise-financial-index' $(if ($bridgeIndexExists) { 'OK' } else { 'ERROR' }) $(if ($bridgeIndexExists) { 'ix_enterprise_financeiro_core: EXISTS' } else { 'ix_enterprise_financeiro_core: MISSING' })
+        $rc32Applied = $registered.ContainsKey($rc32Version)
+        $rc32State = if ($rc32Applied -and $bridgeExists -and $bridgeIndexExists) { 'APPLIED' } elseif (-not $rc32Applied) { 'PENDING' } else { 'INCONSISTENT' }
+        Add-Check 'rc32.state' $(if ($rc32State -eq 'APPLIED') { 'OK' } elseif ($rc32State -eq 'PENDING') { 'ERROR' } else { 'CRITICAL' }) "RC32: $rc32State"
     }
 } catch { Add-Check 'connection' 'CRITICAL' "Falha de conexão/diagnóstico: $($_.Exception.Message)" }
 

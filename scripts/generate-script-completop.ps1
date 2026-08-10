@@ -28,43 +28,20 @@ foreach ($entry in $manifest.migrations) {
     if ($entry.includeInBaseline -eq $true) { $included += $entry } else { $excluded += $entry }
 }
 
-# Arquivos de compatibilidade são incorporados antes das migrations históricas que
-# pressupõem contratos já evoluídos. Eles não substituem migrations nem alteram seus
-# checksums; tornam o baseline consolidado executável em banco vazio e idempotente.
-$compatibilityBefore = @{
-    '025_integracoes_outbox_webhooks_base.sql' = @(
-        '030_pre_025_integration_views.sql'
-    )
-    '026_agro_fundacao_geo_dashboard.sql' = @(
-        '040_pre_026_feature_flags.sql'
-    )
-    '20260608120000_plantao_pro_white_label_b2b_launch.sql' = @(
-        '000_preflight_legacy_compatibility.sql'
-    )
-    '20260730180000_pos_rc_30_financeiro_empresarial_real.sql' = @(
-        '000_preflight_legacy_compatibility.sql'
-    )
-    '20260730090000_pos_rc_32_ordem_servico.sql' = @(
-        '000_preflight_legacy_compatibility.sql',
-        '010_pre_rc32_optional_financial_bridge.sql'
-    )
-    '20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql' = @(
-        '020_pre_rc37b_compras_compatibility.sql'
-    )
-}
-$compatibilityAfterAll = @(
-    '850_post_migration_compatibility.sql'
-)
-
 function Get-NormalizedText([string]$Path) {
     if (-not (Test-Path $Path)) { throw "Arquivo ausente: $Path" }
     $bytes = [System.IO.File]::ReadAllBytes($Path)
     return [System.Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")
 }
 
-function Add-CompatibilityFile([System.Text.StringBuilder]$Builder, [string]$FileName, [string]$Stage) {
-    $path = Join-Path $bootstrapDir $FileName
+function Add-CompatibilityFile([System.Text.StringBuilder]$Builder, [object]$Compatibility, [string]$Stage) {
+    $fileName = [string]$Compatibility.file
+    if ([IO.Path]::IsPathRooted($fileName) -or $fileName -ne [IO.Path]::GetFileName($fileName)) { throw "Path de compatibilidade inválido: $fileName" }
+    $path = Join-Path $bootstrapDir $fileName
     $normalized = Get-NormalizedText $path
+    $shaBytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($normalized))
+    $sha = [System.BitConverter]::ToString($shaBytes).Replace('-', '').ToLowerInvariant()
+    if ($sha -ne [string]$Compatibility.checksum) { throw "Checksum divergente na compatibilidade $fileName" }
     [void]$Builder.AppendLine('-- ==================================================')
     [void]$Builder.AppendLine("-- COMPATIBILITY: $FileName")
     [void]$Builder.AppendLine("-- STAGE: $Stage")
@@ -131,10 +108,8 @@ foreach ($entry in $included) {
 
     Add-TemporaryHelperReset -Builder $sb
 
-    if ($compatibilityBefore.ContainsKey([string]$entry.file)) {
-        foreach ($compatibilityFile in $compatibilityBefore[[string]$entry.file]) {
-            Add-CompatibilityFile -Builder $sb -FileName $compatibilityFile -Stage "BEFORE $($entry.file)"
-        }
+    foreach ($compatibility in @($entry.compatibilityBefore)) {
+        Add-CompatibilityFile -Builder $sb -Compatibility $compatibility -Stage "BEFORE $($entry.file)"
     }
 
     $description = [string]$entry.description -replace "'", "''"
@@ -151,8 +126,8 @@ foreach ($entry in $included) {
 }
 
 Add-TemporaryHelperReset -Builder $sb
-foreach ($compatibilityFile in $compatibilityAfterAll) {
-    Add-CompatibilityFile -Builder $sb -FileName $compatibilityFile -Stage 'AFTER ALL MIGRATIONS'
+foreach ($compatibility in @($manifest.compatibilityAfterAll)) {
+    Add-CompatibilityFile -Builder $sb -Compatibility $compatibility -Stage 'AFTER ALL MIGRATIONS'
 }
 
 foreach ($entry in $excluded) {
