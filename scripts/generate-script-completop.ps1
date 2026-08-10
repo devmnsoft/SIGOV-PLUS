@@ -31,7 +31,7 @@ foreach ($entry in $manifest.migrations) {
 function Get-NormalizedText([string]$Path) {
     if (-not (Test-Path $Path)) { throw "Arquivo ausente: $Path" }
     $bytes = [System.IO.File]::ReadAllBytes($Path)
-    return [System.Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")
+    return [System.Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF).Replace("`r`n", "`n").Replace("`r", "`n")
 }
 
 function Add-CompatibilityFile([System.Text.StringBuilder]$Builder, [object]$Compatibility, [string]$Stage) {

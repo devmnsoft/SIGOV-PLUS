@@ -18,7 +18,7 @@ $bootstrapDir = [IO.Path]::GetFullPath((Join-Path $root 'database/postgres/boots
 function Write-MigrationLog([object]$entry) { ($entry | ConvertTo-Json -Compress -Depth 6) | Add-Content -Path $logFile -Encoding UTF8 }
 function Sanitize-Error([string]$message) { if (-not $message) { return '' }; return ($message -replace '(?i)(password|pwd)\s*=\s*[^;\s]+','$1=***' -replace 'postgres(ql)?://[^\s]+','postgres://***') }
 function Get-NormalizedSha256([string]$Path) {
-    $content = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8).Replace("`r`n", "`n")
+    $content = [System.IO.File]::ReadAllText($Path, [System.Text.UTF8Encoding]::new($false)).TrimStart([char]0xFEFF).Replace("`r`n", "`n").Replace("`r", "`n")
     $shaBytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($content))
     return [System.BitConverter]::ToString($shaBytes).Replace('-', '').ToLowerInvariant()
 }
