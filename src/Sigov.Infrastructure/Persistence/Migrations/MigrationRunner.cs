@@ -196,8 +196,8 @@ public sealed class MigrationRunner
                 PostgresErrorCodes.UniqueViolation => "Duplicidade encontrada. Execute repair-sigov-database.ps1 e diagnose-sigov-database.ps1.",
                 _ => "Falha PostgreSQL durante a validação de migrations; consulte o SQLSTATE e o diagnóstico operacional."
             };
-            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; MigrationFile={MigrationFile}; Stage={Stage}; CompatibilityFile={CompatibilityFile}; SqlState={SqlState}; ColumnName={ColumnName}; TableName={TableName}; SchemaName={SchemaName}; ConstraintName={ConstraintName}; RoutineName={RoutineName}; Detail={Detail}; Hint={Hint}; Position={Position}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
-                hint, activeVersion, activeMigrationFile, activeStage, activeCompatibilityFile, ex.SqlState, ex.ColumnName, ex.TableName, ex.SchemaName, ex.ConstraintName, ex.RoutineName, ex.Detail, ex.Hint, ex.Position, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; MigrationFile={MigrationFile}; Stage={Stage}; CompatibilityFile={CompatibilityFile}; SqlState={SqlState}; ColumnName={ColumnName}; TableName={TableName}; SchemaName={SchemaName}; ConstraintName={ConstraintName}; Routine={Routine}; Detail={Detail}; Hint={Hint}; Position={Position}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
+                hint, activeVersion, activeMigrationFile, activeStage, activeCompatibilityFile, ex.SqlState, ex.ColumnName, ex.TableName, ex.SchemaName, ex.ConstraintName, ex.Routine, ex.Detail, ex.Hint, ex.Position, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
             throw;
         }
         catch (Exception ex)

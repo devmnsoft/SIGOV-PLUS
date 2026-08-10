@@ -24,7 +24,10 @@ $actions=[Collections.Generic.List[object]]::new(); $status='success'; $mode=if(
 try{
     if($Apply -and $WhatIfPreference){throw 'Use -Apply ou -WhatIf, não ambos.'}
     if(-not $Apply -and -not $WhatIfPreference){$WhatIfPreference=$true; $mode='WHAT_IF'}
+    $workflowCompat=Join-Path $root 'database/postgres/bootstrap/060_pre_rc49_workflow_compatibility.sql'
     $compat=Join-Path $root 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
+    $actions.Add([ordered]@{action='workflow-rc49-compatibility';safe=$true;applied=$false;detail='Normalização aditiva do contrato legado de workflow antes da RC49.'})
+    if($Apply -and $PSCmdlet.ShouldProcess($Database,'Normalizar contrato legado de workflow')){Invoke-Psql '' $workflowCompat|Out-Null;$actions[$actions.Count-1].applied=$true}
     $actions.Add([ordered]@{action='legacy-compatibility';safe=$true;applied=$false;detail='Colunas e índices idempotentes de compatibilidade.'})
     if($Apply -and $PSCmdlet.ShouldProcess($Database,'Aplicar compatibilidade e índices seguros')){Invoke-Psql '' $compat|Out-Null;$actions[$actions.Count-1].applied=$true}
     $sql=@"
