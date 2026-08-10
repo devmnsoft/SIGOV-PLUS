@@ -14,17 +14,7 @@ if ($env:SIGOV_DB_PORT -and $PSBoundParameters.ContainsKey('Port') -eq $false) {
 $root = Split-Path -Parent $PSScriptRoot
 $manifestFile = Join-Path $root $ManifestPath
 $logFile = Join-Path $root 'migration.log'
-$preflightFile = Join-Path $root 'database/postgres/bootstrap/000_preflight_legacy_compatibility.sql'
-$osFinancialBridgeFile = Join-Path $root 'database/postgres/bootstrap/010_pre_rc32_optional_financial_bridge.sql'
-$purchasesCompatibilityFile = Join-Path $root 'database/postgres/bootstrap/020_pre_rc37b_compras_compatibility.sql'
-$integrationViewsFile = Join-Path $root 'database/postgres/bootstrap/030_pre_025_integration_views.sql'
-$featureFlagCompatibilityFile = Join-Path $root 'database/postgres/bootstrap/040_pre_026_feature_flags.sql'
-$postMigrationFile = Join-Path $root 'database/postgres/bootstrap/850_post_migration_compatibility.sql'
-$preflightTargets = @(
-    '20260608120000_plantao_pro_white_label_b2b_launch.sql',
-    '20260730180000_pos_rc_30_financeiro_empresarial_real.sql',
-    '20260730090000_pos_rc_32_ordem_servico.sql'
-)
+$bootstrapDir = [IO.Path]::GetFullPath((Join-Path $root 'database/postgres/bootstrap'))
 function Write-MigrationLog([object]$entry) { ($entry | ConvertTo-Json -Compress -Depth 6) | Add-Content -Path $logFile -Encoding UTF8 }
 function Sanitize-Error([string]$message) { if (-not $message) { return '' }; return ($message -replace '(?i)(password|pwd)\s*=\s*[^;\s]+','$1=***' -replace 'postgres(ql)?://[^\s]+','postgres://***') }
 function Get-NormalizedSha256([string]$Path) {
@@ -49,6 +39,15 @@ function Invoke-SqlFile([string]$Path, [string]$Stage) {
         Write-MigrationLog ([ordered]@{ version=$Stage; file=[IO.Path]::GetFileName($Path); category='compatibility'; checksum=(Get-NormalizedSha256 $Path); startedAt=$start.ToString('o'); finishedAt=$end.ToString('o'); durationMs=[int64]($end-$start).TotalMilliseconds; result=$result; error=$errorMessage })
     }
 }
+function Resolve-Compatibility([object]$compatibility) {
+    $name = [string]$compatibility.file
+    if ([IO.Path]::IsPathRooted($name) -or $name -ne [IO.Path]::GetFileName($name)) { throw "Path de compatibilidade inválido: $name" }
+    $path = [IO.Path]::GetFullPath((Join-Path $bootstrapDir $name))
+    if (-not $path.StartsWith($bootstrapDir + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw "Compatibilidade fora do bootstrap: $name" }
+    if (-not (Test-Path $path)) { throw "Compatibilidade ausente: $name" }
+    if ((Get-NormalizedSha256 $path) -ne [string]$compatibility.checksum) { throw "Checksum divergente na compatibilidade: $name" }
+    return $path
+}
 if (-not (Test-Path $manifestFile)) { throw "Manifest não encontrado: $manifestFile" }
 if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) { throw "psql não encontrado em '$PsqlPath'." }
 $manifest = Get-Content $manifestFile -Raw | ConvertFrom-Json
@@ -62,7 +61,14 @@ foreach ($entry in $manifest.migrations) {
     if (-not (Test-Path $file)) { throw "Migration ausente: $($entry.file)" }
     $actual = Get-NormalizedSha256 $file
     if ($actual -ne $entry.checksum) { throw "Checksum divergente: $($entry.file)" }
+    $seenCompatibility = @{}
+    foreach ($compatibility in @($entry.compatibilityBefore)) {
+        if ($seenCompatibility.ContainsKey([string]$compatibility.file)) { throw "Compatibilidade duplicada em $($entry.file): $($compatibility.file)" }
+        $seenCompatibility[[string]$compatibility.file] = $true
+        $null = Resolve-Compatibility $compatibility
+    }
 }
+foreach ($compatibility in @($manifest.compatibilityAfterAll)) { $null = Resolve-Compatibility $compatibility }
 
 $canExecute = -not $ValidateOnly -and $HostName -and $Database -and $User
 if ($canExecute) {
@@ -78,46 +84,24 @@ foreach ($entry in $manifest.migrations) {
     if ($entry.applyAutomatically -ne $true) { Write-Host "Ignorada: $($entry.file)"; continue }
     if (-not $canExecute) { Write-Host "Validada: $($entry.file)"; continue }
 
-    # Essas migrations pressupõem colunas que podem ter sido criadas em formato
-    # legado por versões anteriores. O preflight roda exatamente antes delas.
-    if ($preflightTargets -contains [string]$entry.file) {
-        Invoke-SqlFile -Path $preflightFile -Stage "PRE_FLIGHT_$($entry.version)"
-    }
-
-    # A migration 025 altera tipos usados pelas views que ela própria recria.
-    if ([string]$entry.file -eq '025_integracoes_outbox_webhooks_base.sql') {
-        Invoke-SqlFile -Path $integrationViewsFile -Stage 'PRE_025_INTEGRATION_VIEWS'
-    }
-
-    # A migration Agro referencia a definição canônica pelo código da feature.
-    if ([string]$entry.file -eq '026_agro_fundacao_geo_dashboard.sql') {
-        Invoke-SqlFile -Path $featureFlagCompatibilityFile -Stage 'PRE_026_FEATURE_FLAGS'
-    }
-
-    # A RC32 cria um índice incondicional sobre uma tabela de integração opcional.
-    # Garantir o contrato mínimo preserva a migration histórica e seu checksum.
-    if ([string]$entry.file -eq '20260730090000_pos_rc_32_ordem_servico.sql') {
-        Invoke-SqlFile -Path $osFinancialBridgeFile -Stage 'PRE_RC32_FINANCIAL_BRIDGE'
-    }
-
-    # O módulo básico de compras criou fornecedor e pedido com contrato reduzido.
-    # A RC37B usa CREATE TABLE IF NOT EXISTS e presume o contrato full stack.
-    if ([string]$entry.file -eq '20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql') {
-        Invoke-SqlFile -Path $purchasesCompatibilityFile -Stage 'PRE_RC37B_PURCHASES_COMPATIBILITY'
-    }
-
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
     $start = Get-Date; $result = 'success'; $errorMessage = ''
     try {
-        & $PsqlPath -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -f $file
-        if ($LASTEXITCODE -ne 0) { throw "psql saiu com código $LASTEXITCODE" }
         $versionLiteral = ([string]$entry.version).Replace("'", "''")
         $descriptionLiteral = ([string]$entry.description).Replace("'", "''")
         $checksumLiteral = ([string]$entry.checksum).Replace("'", "''")
         $categoryLiteral = ([string]$entry.category).Replace("'", "''")
         $registrationSql = "insert into sigov.schema_migrations(version,description,checksum,category,source,success) values ('$versionLiteral','$descriptionLiteral','$checksumLiteral','$categoryLiteral','manifest',true) on conflict(version) do update set description=excluded.description, category=excluded.category, source='manifest', success=true where sigov.schema_migrations.checksum=excluded.checksum;"
-        & $PsqlPath -X -q -h $HostName -p $Port -U $User -d $Database -v ON_ERROR_STOP=1 -c $registrationSql
-        if ($LASTEXITCODE -ne 0) { throw "registro da migration saiu com código $LASTEXITCODE" }
+        $psqlArgs = @('-X', '-q', '-1', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1')
+        foreach ($compatibility in @($entry.compatibilityBefore)) { $psqlArgs += @('-f', (Resolve-Compatibility $compatibility)) }
+        $psqlArgs += @('-f', $file)
+        if ($entry.postConditionSql) {
+            $condition = [string]$entry.postConditionSql
+            $psqlArgs += @('-c', "do `$`$ begin if not ($condition) then raise exception 'postConditionSql reprovada para $versionLiteral'; end if; end `$`$;")
+        }
+        $psqlArgs += @('-c', $registrationSql)
+        & $PsqlPath @psqlArgs
+        if ($LASTEXITCODE -ne 0) { throw "migration transacional saiu com código $LASTEXITCODE" }
     } catch { $result = 'failed'; $errorMessage = Sanitize-Error $_.Exception.Message; throw } finally {
         $end = Get-Date
         Write-MigrationLog ([ordered]@{ version=$entry.version; file=$entry.file; category=$entry.category; checksum=$entry.checksum; startedAt=$start.ToString('o'); finishedAt=$end.ToString('o'); durationMs=[int64]($end-$start).TotalMilliseconds; result=$result; error=$errorMessage })
@@ -125,5 +109,7 @@ foreach ($entry in $manifest.migrations) {
 }
 
 if ($canExecute) {
-    Invoke-SqlFile -Path $postMigrationFile -Stage 'POST_MIGRATION_COMPATIBILITY'
+    foreach ($compatibility in @($manifest.compatibilityAfterAll)) {
+        Invoke-SqlFile -Path (Resolve-Compatibility $compatibility) -Stage 'POST_MIGRATION_COMPATIBILITY'
+    }
 }
