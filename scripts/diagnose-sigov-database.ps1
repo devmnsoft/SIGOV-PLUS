@@ -54,6 +54,24 @@ try {
         foreach ($pair in $requiredColumns) { $t=$pair[0]; $c=$pair[1]; Test-Scalar "column.$t.$c" "select exists(select 1 from information_schema.columns where table_schema='$schema' and table_name='$t' and column_name='$c')" "Coluna obrigatória $SchemaName.$t.$c ausente." }
         Test-Scalar 'index.tenant.slug' "select exists(select 1 from pg_indexes where schemaname='$schema' and tablename='tenant' and indexdef ilike '%unique%' and indexdef ilike '%(slug)%')" 'Índice único de tenant.slug ausente.'
         Test-Scalar 'index.permission.key' "select exists(select 1 from pg_indexes where schemaname='$schema' and tablename='permissao' and indexdef ilike '%unique%' and (indexdef ilike '%(chave)%' or indexdef ilike '%recurso%acao%'))" 'Índice único de permissão ausente.'
+        # Contratos Financeiro/SIAFIC: diagnóstico somente leitura, com classificação operacional explícita.
+        $financeiroContracts = @(
+            @('orcamento_despesa','exercicio_id','bigint'), @('orcamento_receita','exercicio_id','bigint'),
+            @('empenho','exercicio_id','bigint'), @('liquidacao','exercicio_id','bigint'), @('pagamento','exercicio_id','bigint'),
+            @('fonte_recurso','tenant_id','bigint'), @('unidade_orcamentaria','tenant_id','bigint')
+        )
+        foreach ($contract in $financeiroContracts) {
+            $table=$contract[0]; $column=$contract[1]; $type=$contract[2]
+            $tableExists=(Invoke-Psql $Database "select to_regclass('$schema.$table') is not null") -eq 't'
+            if (-not $tableExists) { Add-Check "financeiro.$table" 'MISSING_TABLE' "$SchemaName.$table ausente."; continue }
+            $actualType=Invoke-Psql $Database "select coalesce(max(data_type),'') from information_schema.columns where table_schema='$schema' and table_name='$table' and column_name='$column'"
+            if (-not $actualType) { Add-Check "financeiro.$table.$column" 'MISSING_COLUMN' "$SchemaName.$table.$column ausente." }
+            elseif ($actualType -ne $type) { Add-Check "financeiro.$table.$column" 'TYPE_MISMATCH' "Esperado $type; encontrado $actualType." }
+            else { Add-Check "financeiro.$table.$column" 'OK' "Contrato $SchemaName.$table.$column ($type) válido." }
+        }
+        Test-Scalar 'financeiro.protocolo.exercicio' "select exists(select 1 from information_schema.columns where table_schema='$schema' and table_name='protocolo' and column_name='exercicio' and data_type='integer' and is_nullable='NO')" 'MISSING_COLUMN/TYPE_MISMATCH: sigov.protocolo.exercicio deve ser integer NOT NULL.'
+        Test-Scalar 'financeiro.protocolo.exercicio.index' "select to_regclass('$schema.ux_protocolo_numero_exercicio') is not null" 'INDEX_MISSING: ux_protocolo_numero_exercicio ausente.'
+        Test-Scalar 'views.valid' "select not exists(select 1 from pg_views v where v.schemaname='$schema' and pg_get_viewdef(format('%I.%I',v.schemaname,v.viewname)::regclass,true) is null)" 'VIEW_INVALID: view sem definição válida.'
         Test-Scalar 'data.tenant.duplicate' "select not exists(select slug from $SchemaName.tenant where not is_deleted group by slug having count(*)>1)" 'Tenants ativos duplicados por slug.' 'CRITICAL'
         Test-Scalar 'data.admin.duplicate' "select not exists(select tenant_id,lower(login) from $SchemaName.usuario where not is_deleted and tipo_usuario='ADMINISTRADOR_GERAL' group by tenant_id,lower(login) having count(*)>1)" 'Administradores duplicados.' 'CRITICAL'
         Test-Scalar 'data.admin.hash' "select not exists(select 1 from $SchemaName.usuario where not is_deleted and tipo_usuario='ADMINISTRADOR_GERAL' and coalesce(senha_hash,'') not like 'SIGOV_PBKDF2_V1$%')" 'Administrador com hash legado/incompatível.' 'ERROR'
@@ -79,8 +97,8 @@ try {
     }
 } catch { Add-Check 'connection' 'CRITICAL' "Falha de conexão/diagnóstico: $($_.Exception.Message)" }
 
-$counts=@{}; foreach($s in @('OK','WARNING','ERROR','CRITICAL')){$counts[$s]=@($checks|Where-Object severity -eq $s).Count}
-$exitCode = if($counts.CRITICAL -gt 0){2}elseif(($counts.WARNING+$counts.ERROR)-gt 0){1}else{0}
+$counts=@{}; foreach($s in @('OK','WARNING','ERROR','CRITICAL','MISSING_TABLE','MISSING_COLUMN','TYPE_MISMATCH','INDEX_MISSING','VIEW_INVALID','HISTORY_INCONSISTENT')){$counts[$s]=@($checks|Where-Object severity -eq $s).Count}
+$exitCode = if($counts.CRITICAL -gt 0){2}elseif(($counts.WARNING+$counts.ERROR+$counts.MISSING_TABLE+$counts.MISSING_COLUMN+$counts.TYPE_MISMATCH+$counts.INDEX_MISSING+$counts.VIEW_INVALID+$counts.HISTORY_INCONSISTENT)-gt 0){1}else{0}
 $result=[ordered]@{ tool='diagnose-sigov-database'; generatedAt=[DateTimeOffset]::UtcNow.ToString('o'); database=$Database; schema=$SchemaName; status=if($exitCode-eq 0){'HEALTHY'}elseif($exitCode-eq 1){'ATTENTION'}else{'CRITICAL'}; exitCode=$exitCode; counts=$counts; checks=$checks }
 $result|ConvertTo-Json -Depth 8|Set-Content (Join-Path $outputPath 'diagnostic-result.json') -Encoding utf8
 $md=@("# Diagnóstico SIGOV+","","**Banco:** ``$Database``  ","**Status:** $($result.status)  ","**Gerado:** $($result.generatedAt)","","| Severidade | Código | Mensagem |","|---|---|---|")

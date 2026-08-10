@@ -10954,6 +10954,33 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 050_pre_rc46_protocolo_exercicio.sql
+-- STAGE: BEFORE 20260807120000_rc46_operacao_integrada.sql
+-- ==================================================
+-- RC49.8: converge o contrato legado de protocolo antes dos índices/funções da RC46.
+-- "exercicio" é o ano fiscal do número do protocolo (integer), não a FK exercicio_id.
+do $$
+begin
+    if to_regclass('sigov.protocolo') is null then
+        raise exception 'Contrato obrigatório ausente: sigov.protocolo';
+    end if;
+end $$;
+
+alter table sigov.protocolo
+    add column if not exists exercicio integer;
+
+update sigov.protocolo
+   set exercicio = coalesce(
+       case when numero ~ '/[0-9]{4}$' then right(numero, 4)::integer end,
+       extract(year from created_at)::integer,
+       extract(year from current_date)::integer)
+ where exercicio is null;
+
+alter table sigov.protocolo
+    alter column exercicio set default extract(year from current_date)::integer,
+    alter column exercicio set not null;
+
+-- ==================================================
 -- MIGRATION: 20260807120000_rc46_operacao_integrada.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6
@@ -11008,6 +11035,36 @@ begin
 end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260807120000', 'rc46_operacao_integrada', 'a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260809120000_rc48_authentication_hardening.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821
+-- ==================================================
+-- RC48: autenticação administrativa. Idempotente e sem credenciais ou dados demonstrativos.
+alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
+alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
+
+create table if not exists sigov.senha_redefinicao_token (
+    id bigint generated always as identity primary key,
+    tenant_id bigint null references sigov.tenant(id),
+    usuario_id bigint not null references sigov.usuario(id),
+    token_hash varchar(64) not null,
+    expira_at timestamptz not null,
+    usado_at timestamptz null,
+    created_at timestamptz not null default now(),
+    correlation_id uuid not null
+);
+create unique index if not exists ux_senha_redefinicao_token_hash on sigov.senha_redefinicao_token(token_hash);
+create index if not exists ix_senha_redefinicao_token_usuario on sigov.senha_redefinicao_token(tenant_id, usuario_id, created_at desc);
+revoke all on sigov.senha_redefinicao_token from public;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260809120000', 'rc48_authentication_hardening', '77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -11304,31 +11361,6 @@ create unique index if not exists ux_bootstrap_perfil_codigo_tenant
     on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
 create unique index if not exists ux_bootstrap_grupo_nome_tenant
     on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
-
--- ==================================================
--- MIGRATION: 20260809120000_rc48_authentication_hardening.sql
--- CATEGORY: schema
--- CHECKSUM_SHA256: 77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821
--- ==================================================
--- RC48: autenticação administrativa. Idempotente e sem credenciais ou dados demonstrativos.
-alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
-alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
-
-create table if not exists sigov.senha_redefinicao_token (
-    id bigint generated always as identity primary key,
-    tenant_id bigint null references sigov.tenant(id),
-    usuario_id bigint not null references sigov.usuario(id),
-    token_hash varchar(64) not null,
-    expira_at timestamptz not null,
-    usado_at timestamptz null,
-    created_at timestamptz not null default now(),
-    correlation_id uuid not null
-);
-create unique index if not exists ux_senha_redefinicao_token_hash on sigov.senha_redefinicao_token(token_hash);
-create index if not exists ix_senha_redefinicao_token_usuario on sigov.senha_redefinicao_token(tenant_id, usuario_id, created_at desc);
-revoke all on sigov.senha_redefinicao_token from public;
-
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260809120000', 'rc48_authentication_hardening', '77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]

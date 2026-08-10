@@ -610,7 +610,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6",
-      "postConditionSql": "select to_regclass('sigov.timeline_evento') is not null and to_regprocedure('sigov.proximo_numero_protocolo(bigint,integer)') is not null"
+      "postConditionSql": "select to_regclass('sigov.timeline_evento') is not null and to_regprocedure('sigov.proximo_numero_protocolo(bigint,integer)') is not null and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='protocolo' and column_name='exercicio' and data_type='integer' and is_nullable='NO') and to_regclass('sigov.ux_protocolo_numero_exercicio') is not null",
+      "compatibilityBefore": [
+        {
+          "file": "050_pre_rc46_protocolo_exercicio.sql",
+          "checksum": "e2341691809e7f306b14c8cc758ba75bff15ef6071477d303c97a25fefd87df2"
+        }
+      ]
     },
     {
       "version": "20260809120000",
