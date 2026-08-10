@@ -157,7 +157,17 @@ public sealed class PosRcWebOperationalService
         NextSteps = new[] { "Validar permissões finas antes de actions críticas.", "Auditar criação, tramitação, acesso e exportação." }
     };
 
-    private static async Task TryExecuteAsync(System.Data.IDbConnection cn, System.Data.IDbTransaction? tx, string sql, object args, CancellationToken ct) { try { await cn.ExecuteAsync(new CommandDefinition(sql, args, tx, cancellationToken: ct)).ConfigureAwait(false); } catch { } }
+    private async Task TryExecuteAsync(System.Data.IDbConnection cn, System.Data.IDbTransaction? tx, string sql, object args, CancellationToken ct)
+    {
+        try
+        {
+            await cn.ExecuteAsync(new CommandDefinition(sql, args, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Etapa complementar não persistida. CorrelationId={CorrelationId}", CurrentCorrelationId());
+        }
+    }
     private long? CurrentUserId() => long.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier), out var value) ? value : null;
     private long? CurrentClaim(string name) => long.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue(name), out var value) ? value : null;
     private int CurrentExercise() => int.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue("exercicio"), out var value) ? value : DateTime.UtcNow.Year;
