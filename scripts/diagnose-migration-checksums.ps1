@@ -76,13 +76,14 @@ $report = foreach ($entry in $manifest.migrations) {
     [pscustomobject][ordered]@{
         version=$version; file=[string]$entry.file; description=[string]$entry.description
         manifestChecksum=[string]$entry.checksum; fileChecksum=$fileChecksum; databaseChecksum=$databaseChecksum
-        status=$status; knownHistorical=$known; hasPostCondition=$hasPostCondition; postConditionPassed=$postConditionPassed; reason=$reason
+        knownChecksums=@($entry.knownChecksums); postConditionSql=[string]$entry.postConditionSql
+        status=$status; knownHistorical=$known; hasPostCondition=$hasPostCondition; postConditionPassed=$postConditionPassed; probableCause=$reason
     }
 }
 
 foreach ($version in $history.Keys) {
     if (-not $manifestVersions.ContainsKey($version)) {
-        $report += [pscustomobject][ordered]@{ version=$version; file=$null; description=$null; manifestChecksum=$null; fileChecksum=$null; databaseChecksum=$history[$version].checksum; status='DATABASE_HISTORY_INCONSISTENT'; knownHistorical=$false; hasPostCondition=$false; postConditionPassed=$null; reason='Versão existe no banco, mas não no manifest.' }
+        $report += [pscustomobject][ordered]@{ version=$version; file=$null; description=$null; manifestChecksum=$null; fileChecksum=$null; databaseChecksum=$history[$version].checksum; knownChecksums=@(); postConditionSql=$null; status='DATABASE_HISTORY_INCONSISTENT'; knownHistorical=$false; hasPostCondition=$false; postConditionPassed=$null; probableCause='Versão existe no banco, mas não no manifest.' }
     }
 }
 

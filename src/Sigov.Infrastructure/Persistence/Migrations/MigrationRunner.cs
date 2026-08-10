@@ -511,14 +511,28 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         string? databaseChecksum,
         bool knownHistorical,
         bool? postConditionPassed,
-        string probableCause) => $"""Checksum mismatch:
-Version={migration.Version}
-File={Path.GetFileName(migration.FilePath)}
-Description={migration.Description}
-Manifest={migration.Checksum}
-FileActual={fileChecksum}
-DatabaseStored={databaseChecksum ?? "not-applied"}
-KnownHistorical={knownHistorical}
-PostCondition={(string.IsNullOrWhiteSpace(migration.PostConditionSql) ? "missing" : postConditionPassed is null ? "not-evaluated" : postConditionPassed.Value ? "passed" : "failed")}
-ProbableCause={probableCause}""";
+        string probableCause)
+    {
+        var postCondition = string.IsNullOrWhiteSpace(migration.PostConditionSql)
+            ? "missing"
+            : postConditionPassed is null
+                ? "not-evaluated"
+                : postConditionPassed.Value
+                    ? "passed"
+                    : "failed";
+
+        return string.Join(Environment.NewLine, new[]
+        {
+            "Checksum mismatch:",
+            $"Version={migration.Version}",
+            $"File={Path.GetFileName(migration.FilePath)}",
+            $"Description={migration.Description}",
+            $"Manifest={migration.Checksum}",
+            $"FileActual={fileChecksum}",
+            $"DatabaseStored={databaseChecksum ?? "not-applied"}",
+            $"KnownHistorical={knownHistorical}",
+            $"PostCondition={postCondition}",
+            $"ProbableCause={probableCause}"
+        });
+    }
 }

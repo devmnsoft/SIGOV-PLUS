@@ -24,14 +24,14 @@ public sealed class WorkflowRepository
 
     public async Task<IReadOnlyList<WorkflowSummary>> ListAsync(long tenantId, CancellationToken ct)
     {
-        const string sql = """select d.id, d.nome, d.modulo, d.status, coalesce(max(v.numero),0) as versao, d.updated_at as atualizadoEm from sigov.workflow_definicao d left join sigov.workflow_versao v on v.workflow_definicao_id=d.id and v.tenant_id=d.tenant_id where d.tenant_id=@TenantId and not d.is_deleted group by d.id,d.nome,d.modulo,d.status,d.updated_at order by d.updated_at desc""";
+        const string sql = "select d.id, d.nome, d.modulo, d.status, coalesce(max(v.numero),0) as versao, d.updated_at as atualizadoEm from sigov.workflow_definicao d left join sigov.workflow_versao v on v.workflow_definicao_id=d.id and v.tenant_id=d.tenant_id where d.tenant_id=@TenantId and not d.is_deleted group by d.id,d.nome,d.modulo,d.status,d.updated_at order by d.updated_at desc";
         using var connection = _factory.CreateConnection();
         return (await connection.QueryAsync<WorkflowSummary>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: ct))).AsList();
     }
 
     public async Task<long> CreateAsync(long tenantId, long? userId, CreateWorkflowInput input, CancellationToken ct)
     {
-        const string sql = """insert into sigov.workflow_definicao(tenant_id,nome,descricao,modulo,status,created_by,updated_by) values(@TenantId,@Nome,@Descricao,@Modulo,'RASCUNHO',@UserId,@UserId) returning id""";
+        const string sql = "insert into sigov.workflow_definicao(tenant_id,nome,descricao,modulo,status,created_by,updated_by) values(@TenantId,@Nome,@Descricao,@Modulo,'RASCUNHO',@UserId,@UserId) returning id";
         using var connection = _factory.CreateConnection();
         return await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { TenantId = tenantId, UserId = userId, Nome = input.Nome.Trim(), input.Descricao, input.Modulo }, cancellationToken: ct));
     }

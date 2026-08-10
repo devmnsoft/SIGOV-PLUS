@@ -49,6 +49,6 @@ public sealed class SmtpPasswordRecoveryEmailSender(IOptions<PasswordRecoveryEma
     {
         var safeName = WebUtility.HtmlEncode(name);
         var safeUrl = WebUtility.HtmlEncode(resetUrl);
-        return $"""<!doctype html><html lang="pt-BR"><body style="font-family:Arial,sans-serif;color:#172033"><h1 style="font-size:22px">Redefinição de senha</h1><p>Olá, {safeName}.</p><p>Recebemos uma solicitação para redefinir sua senha no SIGOV+.</p><p><a href="{safeUrl}" style="display:inline-block;padding:12px 20px;background:#155eef;color:#fff;text-decoration:none;border-radius:6px">Redefinir senha</a></p><p>Este link é pessoal, pode ser usado uma única vez e expira em {(int)validity.TotalMinutes} minutos.</p><p>Se você não fez esta solicitação, ignore esta mensagem. Não compartilhe este link.</p></body></html>""";
+        return $"<!doctype html><html lang=\"pt-BR\"><body style=\"font-family:Arial,sans-serif;color:#172033\"><h1 style=\"font-size:22px\">Redefinição de senha</h1><p>Olá, {safeName}.</p><p>Recebemos uma solicitação para redefinir sua senha no SIGOV+.</p><p><a href=\"{safeUrl}\" style=\"display:inline-block;padding:12px 20px;background:#155eef;color:#fff;text-decoration:none;border-radius:6px\">Redefinir senha</a></p><p>Este link é pessoal, pode ser usado uma única vez e expira em {(int)validity.TotalMinutes} minutos.</p><p>Se você não fez esta solicitação, ignore esta mensagem. Não compartilhe este link.</p></body></html>";
     }
 }
