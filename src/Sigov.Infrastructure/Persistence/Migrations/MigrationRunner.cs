@@ -16,6 +16,7 @@ public sealed class MigrationValidationResult
     public List<string> Excluded { get; } = new();
     public List<string> ChecksumMismatch { get; } = new();
     public List<string> Failed { get; } = new();
+    public List<string> ChecksumReports { get; } = new();
     public bool IsValid => Pending.Count == 0 && ChecksumMismatch.Count == 0 && Failed.Count == 0;
 }
 
@@ -95,36 +96,44 @@ public sealed class MigrationRunner
                     var expectedChecksum = migration.Checksum;
                     var rawSql = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
                     var checksum = Checksum(rawSql);
+                    var storedChecksum = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                        "select checksum from sigov.schema_migrations where version = @Version;",
+                        new { Version = version }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                    var alreadyApplied = storedChecksum is not null;
                     if (!string.Equals(expectedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
                     {
                         validation.ChecksumMismatch.Add(version);
-                        _logger.LogError("Checksum divergente no manifest para migration sigov {Version}. Manifest={ExpectedChecksum}; Arquivo={Checksum}", version, expectedChecksum, checksum);
+                        var report = FormatChecksumReport(migration, checksum, storedChecksum, false, null,
+                            "MANIFEST_OUTDATED: o checksum do arquivo normalizado difere do manifest; verifique alteração de conteúdo, encoding ou fim de linha.");
+                        validation.ChecksumReports.Add(report);
+                        _logger.LogError("{ChecksumReport}", report);
                         continue;
                     }
 
                     var executionSql = MigrationSqlPolicy.PrepareForExecution(version, rawSql, migration.LegacyTransactionWrapper);
 
-                    var alreadyApplied = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-                        "select exists (select 1 from sigov.schema_migrations where version = @Version);",
-                        new { Version = version }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-
                     if (alreadyApplied)
                     {
-                        var storedChecksum = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("select checksum from sigov.schema_migrations where version = @Version;", new { Version = version }, cancellationToken: cancellationToken)).ConfigureAwait(false);
                         if (!string.Equals(storedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
                         {
                             var isKnownHistoricalChecksum = migration.KnownChecksums.Contains(storedChecksum ?? string.Empty, StringComparer.OrdinalIgnoreCase);
                             if (!isKnownHistoricalChecksum)
                             {
                                 validation.ChecksumMismatch.Add(version);
-                                _logger.LogError("Checksum desconhecido para migration sigov {Version}. Banco={StoredChecksum}; Arquivo={Checksum}", version, storedChecksum, checksum);
+                                var report = FormatChecksumReport(migration, checksum, storedChecksum, false, null,
+                                    "DATABASE_HISTORY_INCONSISTENT: checksum armazenado não corresponde ao atual nem consta em knownChecksums.");
+                                validation.ChecksumReports.Add(report);
+                                _logger.LogError("{ChecksumReport}", report);
                                 continue;
                             }
 
                             if (string.IsNullOrWhiteSpace(migration.PostConditionSql))
                             {
                                 validation.ChecksumMismatch.Add(version);
-                                _logger.LogError("Migration sigov {Version} declarou checksum histórico sem postConditionSql.", version);
+                                var report = FormatChecksumReport(migration, checksum, storedChecksum, true, null,
+                                    "POSTCONDITION_MISSING: checksum histórico conhecido exige postConditionSql forte.");
+                                validation.ChecksumReports.Add(report);
+                                _logger.LogError("{ChecksumReport}", report);
                                 continue;
                             }
 
@@ -134,7 +143,10 @@ public sealed class MigrationRunner
                             if (!postConditionPassed)
                             {
                                 validation.Failed.Add(version);
-                                _logger.LogError("Pós-condição reprovada para checksum histórico da migration sigov {Version}. Banco={StoredChecksum}", version, storedChecksum);
+                                var report = FormatChecksumReport(migration, checksum, storedChecksum, true, false,
+                                    "POSTCONDITION_FAILED: o estado atual do banco não comprova a migration histórica.");
+                                validation.ChecksumReports.Add(report);
+                                _logger.LogError("{ChecksumReport}", report);
                                 continue;
                             }
 
@@ -170,7 +182,10 @@ public sealed class MigrationRunner
 
                 if (!validation.IsValid)
                 {
-                    throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.");
+                    var details = validation.ChecksumReports.Count == 0
+                        ? string.Empty
+                        : Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, validation.ChecksumReports);
+                    throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.{details}");
                 }
 
                 if (!validateOnly && validation.Applied.Count > 0 && manifest.CompatibilityAfterAll.Count > 0)
@@ -485,7 +500,25 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
 
     private static string Checksum(string value)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        var normalized = value.TrimStart('\uFEFF').Replace("\r\n", "\n").Replace("\r", "\n");
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         return Convert.ToHexString(bytes);
     }
+
+    private static string FormatChecksumReport(
+        ManifestMigration migration,
+        string fileChecksum,
+        string? databaseChecksum,
+        bool knownHistorical,
+        bool? postConditionPassed,
+        string probableCause) => $"""Checksum mismatch:
+Version={migration.Version}
+File={Path.GetFileName(migration.FilePath)}
+Description={migration.Description}
+Manifest={migration.Checksum}
+FileActual={fileChecksum}
+DatabaseStored={databaseChecksum ?? "not-applied"}
+KnownHistorical={knownHistorical}
+PostCondition={(string.IsNullOrWhiteSpace(migration.PostConditionSql) ? "missing" : postConditionPassed is null ? "not-evaluated" : postConditionPassed.Value ? "passed" : "failed")}
+ProbableCause={probableCause}""";
 }
