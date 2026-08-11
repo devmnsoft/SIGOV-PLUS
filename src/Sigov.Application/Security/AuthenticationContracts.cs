@@ -10,7 +10,11 @@ public sealed record AuthenticationUser(
     string PasswordHash,
     bool Ativo,
     bool Bloqueado,
-    bool DeveAlterarSenha);
+    bool DeveAlterarSenha,
+    bool IsDeleted,
+    bool TenantAtivo,
+    bool TenantIsDeleted,
+    int MatchingUsers);
 
 public sealed record AuthenticationAccess(
     IReadOnlyCollection<string> Roles,

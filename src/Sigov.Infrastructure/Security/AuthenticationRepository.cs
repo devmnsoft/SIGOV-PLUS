@@ -10,11 +10,14 @@ public sealed class AuthenticationRepository(NpgsqlConnectionFactory connectionF
     {
         const string sql = @"select u.id, u.tenant_id as TenantId, coalesce(u.nome, u.login) as Nome, u.login, coalesce(u.email, '') as Email,
        coalesce(t.nome, '') as TenantName,
-       u.senha_hash as PasswordHash, u.ativo, u.bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha
+       u.senha_hash as PasswordHash, u.ativo, u.bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha,
+       u.is_deleted as IsDeleted, coalesce(t.ativo, true) as TenantAtivo,
+       coalesce(t.is_deleted, false) as TenantIsDeleted, count(*) over()::integer as MatchingUsers
 from sigov.usuario u
 left join sigov.tenant t on t.id = u.tenant_id
-where u.is_deleted = false and (u.tenant_id is null or (t.ativo and not t.is_deleted))
-  and (lower(u.login) = lower(@Value) or lower(u.email) = lower(@Value))
+where lower(u.login) = lower(@Value) or lower(u.email) = lower(@Value)
+order by u.ativo desc, u.bloqueado asc, coalesce(t.ativo, true) desc,
+         u.is_deleted asc, coalesce(t.is_deleted, false) asc, u.id desc
 limit 1;";
         using var connection = connectionFactory.CreateConnection();
         return await connection.QuerySingleOrDefaultAsync<AuthenticationUser>(new CommandDefinition(sql, new { Value = loginOrEmail }, cancellationToken: cancellationToken)).ConfigureAwait(false);
