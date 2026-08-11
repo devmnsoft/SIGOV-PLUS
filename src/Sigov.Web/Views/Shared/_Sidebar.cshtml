@@ -18,13 +18,23 @@
       <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard" data-favorite-key="Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Dashboard">★</button></a>
       <a class="sigov-nav-link@(active("/Notificacoes"))" href="/Notificacoes"><sigov-icon name="notifications" size="18"/><span>Notificações</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Protocolo","/Ged","/Workflow","/Assinaturas"})><summary><sigov-icon name="protocol" size="16" />Governo</summary>
+    <details class="sigov-nav-group" @opened(new[]{"/Financeiro","/Tributario","/Compras","/Contratos"})><summary><sigov-icon name="finance" size="16" />Financeiro / SIAFIC</summary>
+      <a class="sigov-nav-link@(active("/Financeiro"))" href="/Financeiro/Dashboard" data-favorite-key="Financeiro"><sigov-icon name="finance" size="18"/><span>Financeiro</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Financeiro">★</button></a>
+      <a class="sigov-nav-link@(active("/Tributario"))" href="/Tributario/Dashboard" data-favorite-key="Tributário"><sigov-icon name="tax" size="18"/><span>Tributário</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Tributário">★</button></a>
+      <a class="sigov-nav-link@(active("/Compras"))" href="/Compras/Dashboard"><sigov-icon name="cart" size="18"/><span>Compras</span></a>
+      <a class="sigov-nav-link@(active("/Contratos"))" href="/Contratos/Dashboard"><sigov-icon name="documents" size="18"/><span>Contratos</span></a>
+    </details>
+    <details class="sigov-nav-group" @opened(new[]{"/Rh","/Educacao","/Saude","/Saneamento","/Social","/Agro"})><summary><sigov-icon name="services" size="16" />Serviços públicos</summary>
+      <a class="sigov-nav-link@(active("/Rh"))" href="/Rh/Dashboard"><sigov-icon name="users" size="18"/><span>Recursos Humanos</span></a>
+      <a class="sigov-nav-link@(active("/Educacao"))" href="/Educacao/Dashboard"><sigov-icon name="education" size="18"/><span>Educação</span></a>
+      <a class="sigov-nav-link@(active("/Saude"))" href="/Saude/Dashboard"><sigov-icon name="health" size="18"/><span>Saúde</span></a>
+      <a class="sigov-nav-link@(active("/Saneamento"))" href="/Saneamento/Dashboard"><sigov-icon name="water" size="18"/><span>Saneamento</span></a>
+      <a class="sigov-nav-link@(active("/Social"))" href="/Social/Dashboard"><sigov-icon name="users" size="18"/><span>Assistência Social</span></a>
+      <a class="sigov-nav-link@(active("/Agro"))" href="/Agro/Dashboard"><sigov-icon name="industry" size="18"/><span>Agro</span></a>
+    </details>
+    <details class="sigov-nav-group" @opened(new[]{"/Protocolo","/Ged","/Workflow","/Assinaturas"})><summary><sigov-icon name="protocol" size="16" />Administração</summary>
       <a class="sigov-nav-link@(active("/Protocolo"))" href="/Protocolo" data-favorite-key="Protocolo"><sigov-icon name="protocol" size="18"/><span>Protocolo</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Protocolo">★</button></a>
       <a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard" data-favorite-key="GED/OCR"><sigov-icon name="documents" size="18"/><span>GED/OCR</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar GED">★</button></a>
-      <a class="sigov-nav-link@(active("/Tributario"))" href="/Tributario"><sigov-icon name="tax" size="18"/><span>Tributário</span></a>
-      <a class="sigov-nav-link@(active("/Saude"))" href="/Saude/Dashboard"><sigov-icon name="health" size="18"/><span>Saúde</span></a>
-      <a class="sigov-nav-link@(active("/Educacao"))" href="/Educacao/Dashboard"><sigov-icon name="education" size="18"/><span>Educação</span></a>
-      <a class="sigov-nav-link@(active("/Saneamento"))" href="/Saneamento/Dashboard"><sigov-icon name="water" size="18"/><span>Saneamento</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Operacao","/MobileCampo","/IA"})><summary><sigov-icon name="services" size="16" />Operação</summary>
       <a class="sigov-nav-link@(active("/MobileCampo"))" href="/MobileCampo"><sigov-icon name="mobile" size="18"/><span>Mobile/Campo</span></a>
@@ -33,7 +43,9 @@
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/ComprasEmpresariais","/Comercial","/Financeiro","/Industria"})><summary><sigov-icon name="commercial" size="16" />Empresas</summary>
       @if (canSeeEnterprisePurchasing) { <a class="sigov-nav-link@(active("/ComprasEmpresariais"))" href="/ComprasEmpresariais"><sigov-icon name="cart" size="18"/><span>Compras Empresariais</span></a> }
-      <a class="sigov-nav-link@(active("/Financeiro"))" href="/Financeiro"><sigov-icon name="finance" size="18"/><span>Financeiro</span></a>
+      <a class="sigov-nav-link@(active("/Comercial"))" href="/Comercial/Dashboard"><sigov-icon name="commercial" size="18"/><span>Comercial</span></a>
+      <a class="sigov-nav-link@(active("/OrdemServico"))" href="/OrdemServico/Dashboard"><sigov-icon name="services" size="18"/><span>Ordens de Serviço</span></a>
+      <a class="sigov-nav-link@(active("/Estoque"))" href="/Estoque/Dashboard"><sigov-icon name="cart" size="18"/><span>Estoque</span></a>
       <a class="sigov-nav-link@(active("/Industria"))" href="/Industria"><sigov-icon name="industry" size="18"/><span>Indústria</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd"})><summary><sigov-icon name="settings" size="16" />Administração</summary>
