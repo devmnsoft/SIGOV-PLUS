@@ -72,7 +72,8 @@ function New-RandomPassword {
 function New-SigovPasswordHash {
     param([Parameter(Mandatory)][string]$PlainText)
     $iterations = 210000
-    $salt = [byte[]]::new(24)
+    # Deve permanecer compatível com PasswordHashService (salt de 16 bytes).
+    $salt = [byte[]]::new(16)
     [System.Security.Cryptography.RandomNumberGenerator]::Fill($salt)
     $derive = [System.Security.Cryptography.Rfc2898DeriveBytes]::new(
         $PlainText,
