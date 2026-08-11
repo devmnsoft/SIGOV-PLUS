@@ -23,7 +23,7 @@ body{margin:0;background:#071a2d;color:#e9f2fa;font:15px system-ui}.shell{max-wi
 <dt>Usuário</dt><dd>ativo=@Model.Admin.Ativo; bloqueado=@Model.Admin.Bloqueado; excluído=@Model.Admin.IsDeleted; alterar senha=@Model.Admin.DeveAlterarSenha</dd>
 <dt>Tipo</dt><dd>@Model.Admin.TipoUsuario</dd><dt>Hash</dt><dd>existe=@Model.Admin.HashExists; formato=@Model.Admin.HashFormatValid; prefixo=@Model.Admin.HashPrefix</dd></dl></section> }
 @if (!string.IsNullOrWhiteSpace(Model.Error)) { <p class="danger">Erro sanitizado: @Model.Error</p> }
-<section class="actions"><form method="post" action="/Dev/Auth/ResetAdmin">@Html.AntiForgeryToken()<button type="submit">Resetar admin local</button></form>
+<section class="actions"><form method="post" action="/Dev/Auth/ResetAdmin">@Html.AntiForgeryToken()<button type="submit">Reparar acessos administrativos locais</button></form>
 <form method="post" action="/Dev/Auth/TestLogin">@Html.AntiForgeryToken()<button class="secondary" type="submit">Testar login admin</button></form><a class="button secondary" href="/Auth/Login">Ir para login</a></section>
 <section class="help"><h2>Como acessar</h2><p>Login: <strong>admin</strong><br/>Senha: <strong>SigovDevLocal!2026</strong></p><p class="muted">O teste não cria cookie. Após obter OK, use a tela de login para validar o cookie SIGOV.AUTH e /MinhaCentral.</p></section>
 </main></body></html>

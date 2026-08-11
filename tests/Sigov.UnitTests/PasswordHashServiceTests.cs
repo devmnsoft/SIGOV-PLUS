@@ -19,6 +19,14 @@ public sealed class PasswordHashServiceTests
     }
 
     [Theory]
+    [InlineData("SigovDevLocal!2026", "SIGOV_PBKDF2_V1$210000$U0lHT1ZfREVWX1NBTFQhIQ==$kKnj2QPLDyk92OudwUguJk6BJV8qHTDJTvWv+v9JLxQ=")]
+    [InlineData("SigovSuperAdmin!2026", "SIGOV_PBKDF2_V1$210000$U0lHT1ZfU1VQRVJfU0FMVA==$55mXRMqQ4e9CW6f4f2qCvH/Ony2irtPRb4S7SjfeqFI=")]
+    public void Deve_Validar_Hashes_Fixos_Do_Guard_Development(string password, string hash)
+    {
+        new PasswordHashService().VerifyPassword(password, hash).Should().BeTrue();
+    }
+
+    [Theory]
     [InlineData("senha-em-texto-puro")]
     [InlineData("SIGOV_PBKDF2_V1$100000$base64-invalido$invalido")]
     [InlineData("SIGOV_PBKDF2_V1$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")]

@@ -84,68 +84,30 @@ order by u.is_deleted, u.ativo desc, u.bloqueado, u.id;";
 
     public async Task<DevelopmentAuthReport> ResetAdminAsync(string correlationId, string? ip, string? userAgent, CancellationToken ct)
     {
-        var hash = _passwords.HashPassword(AdminPassword);
+        var guardPath = Path.GetFullPath(Path.Combine(_environment.ContentRootPath, "..", "..",
+            "database", "postgres", "seeds", "development", "999_super_admin_access_guard.sql"));
+        if (!File.Exists(guardPath)) throw new FileNotFoundException("Guard administrativo Development não encontrado.", guardPath);
+
+        var guardSql = await File.ReadAllTextAsync(guardPath, ct);
         using var connection = _connections.CreateConnection();
         await connection.OpenAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
-        const string sql = @"select pg_advisory_xact_lock(hashtext('SIGOV_DEV_ADMIN_RESET'));
-insert into sigov.tenant(nome,nome_fantasia,slug,status,ambiente,ativo,is_deleted)
-select 'SIGOV Local','SIGOV Local','sigov-local','ATIVO','DEVELOPMENT',true,false
-where not exists(select 1 from sigov.tenant where slug='sigov-local');
-update sigov.tenant set ativo=true,is_deleted=false,status='ATIVO',updated_at=now() where slug='sigov-local';
-insert into sigov.entidade(tenant_id,nome,cnpj,ativo,is_deleted)
-select t.id,'Entidade Local','00000000000000',true,false from sigov.tenant t where t.slug='sigov-local'
-and not exists(select 1 from sigov.entidade e where e.tenant_id=t.id and e.cnpj='00000000000000');
-insert into sigov.exercicio(tenant_id,entidade_id,ano,data_inicio,data_fim,ativo,is_deleted)
-select t.id,e.id,extract(year from current_date)::int,make_date(extract(year from current_date)::int,1,1),make_date(extract(year from current_date)::int,12,31),true,false
-from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.cnpj='00000000000000' where t.slug='sigov-local' on conflict(entidade_id,ano) do nothing;
-insert into sigov.pessoa(tenant_id,entidade_id,exercicio_id,tipo_pessoa,nome,documento,ativo,is_deleted)
-select t.id,e.id,x.id,'F','Administrador Geral','admin@sigov.local',true,false from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.cnpj='00000000000000' join sigov.exercicio x on x.entidade_id=e.id and x.ano=extract(year from current_date)::int
-where t.slug='sigov-local' and not exists(select 1 from sigov.pessoa p where p.tenant_id=t.id and p.documento='admin@sigov.local');
-with canonical as (select u.id from sigov.usuario u where lower(u.login)='admin' or lower(u.email)='admin@sigov.local' order by u.is_deleted,u.id limit 1), ctx as
-(select t.id tenant_id,e.id entidade_id,x.id exercicio_id,p.id pessoa_id from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.cnpj='00000000000000' join sigov.exercicio x on x.entidade_id=e.id and x.ano=extract(year from current_date)::int join sigov.pessoa p on p.tenant_id=t.id and p.documento='admin@sigov.local' where t.slug='sigov-local')
-insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,pessoa_id,nome,login,email,senha_hash,tipo_usuario,senha_deve_ser_alterada,deve_alterar_senha,bloqueado,tentativas_invalidas,ativo,is_deleted)
-select tenant_id,entidade_id,exercicio_id,pessoa_id,'Administrador Geral','admin','admin@sigov.local',@Hash,'ADMINISTRADOR_GERAL',false,false,false,0,true,false from ctx where not exists(select 1 from canonical);
-with chosen as (select id from sigov.usuario where lower(login)='admin' or lower(email)='admin@sigov.local' order by is_deleted,id limit 1), ctx as
-(select t.id tenant_id,e.id entidade_id,x.id exercicio_id,p.id pessoa_id from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.cnpj='00000000000000' join sigov.exercicio x on x.entidade_id=e.id and x.ano=extract(year from current_date)::int join sigov.pessoa p on p.tenant_id=t.id and p.documento='admin@sigov.local' where t.slug='sigov-local')
-update sigov.usuario u set tenant_id=c.tenant_id,entidade_id=c.entidade_id,exercicio_id=c.exercicio_id,pessoa_id=c.pessoa_id,nome='Administrador Geral',login='admin',email='admin@sigov.local',senha_hash=@Hash,tipo_usuario='ADMINISTRADOR_GERAL',senha_deve_ser_alterada=false,deve_alterar_senha=false,bloqueado=false,tentativas_invalidas=0,bloqueado_ate=null,ativo=true,is_deleted=false,updated_at=now() from chosen,ctx c where u.id=chosen.id;
-with chosen as (select id from sigov.usuario where lower(login)='admin' or lower(email)='admin@sigov.local' order by is_deleted,id limit 1)
-update sigov.usuario u set login='admin_duplicado_'||u.id,email='admin_duplicado_'||u.id||'@invalid.local',is_deleted=true,ativo=false,updated_at=now() from chosen where u.id<>chosen.id and (lower(u.login)='admin' or lower(u.email)='admin@sigov.local');
-insert into sigov.grupo_acesso(tenant_id,entidade_id,exercicio_id,nome,descricao,ativo,is_deleted) select t.id,e.id,x.id,'Administradores','Administração local Development',true,false from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.cnpj='00000000000000' join sigov.exercicio x on x.entidade_id=e.id and x.ano=extract(year from current_date)::int where t.slug='sigov-local' and not exists(select 1 from sigov.grupo_acesso g where g.tenant_id=t.id and g.nome='Administradores');
-insert into sigov.perfil_acesso(tenant_id,entidade_id,exercicio_id,nome,codigo_externo,ativo,is_deleted) select t.id,e.id,x.id,'Administrador Geral','ADMINISTRADOR_GERAL',true,false from sigov.tenant t join sigov.entidade e on e.tenant_id=t.id and e.cnpj='00000000000000' join sigov.exercicio x on x.entidade_id=e.id and x.ano=extract(year from current_date)::int where t.slug='sigov-local' and not exists(select 1 from sigov.perfil_acesso p where p.tenant_id=t.id and p.codigo_externo='ADMINISTRADOR_GERAL');
-update sigov.grupo_acesso set ativo=true,is_deleted=false where nome='Administradores' and tenant_id=(select id from sigov.tenant where slug='sigov-local');
-update sigov.perfil_acesso set ativo=true,is_deleted=false where codigo_externo='ADMINISTRADOR_GERAL' and tenant_id=(select id from sigov.tenant where slug='sigov-local');
-insert into sigov.grupo_perfil(grupo_acesso_id,perfil_acesso_id,is_deleted) select g.id,p.id,false from sigov.grupo_acesso g join sigov.perfil_acesso p on p.tenant_id=g.tenant_id and p.codigo_externo='ADMINISTRADOR_GERAL' where g.nome='Administradores' and g.tenant_id=(select id from sigov.tenant where slug='sigov-local') on conflict(grupo_acesso_id,perfil_acesso_id) do update set is_deleted=false;
-insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id) select p.id,m.id from sigov.perfil_acesso p cross join sigov.permissao m where p.codigo_externo='ADMINISTRADOR_GERAL' and p.tenant_id=(select id from sigov.tenant where slug='sigov-local') and m.ativo and not m.is_deleted on conflict do nothing;
-insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,is_deleted) select u.id,g.id,false from sigov.usuario u join sigov.grupo_acesso g on g.tenant_id=u.tenant_id and g.nome='Administradores' where u.login='admin' and not u.is_deleted on conflict(usuario_id,grupo_acesso_id) do update set is_deleted=false;
-insert into sigov.usuario_entidade(usuario_id,entidade_id,ativo) select id,entidade_id,true from sigov.usuario where login='admin' and not is_deleted on conflict(usuario_id,entidade_id) do update set ativo=true;
-insert into sigov.usuario_exercicio(usuario_id,exercicio_id,ativo) select id,exercicio_id,true from sigov.usuario where login='admin' and not is_deleted on conflict(usuario_id,exercicio_id) do update set ativo=true;";
-        var before = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.usuario where lower(login)='admin' or lower(email)='admin@sigov.local'", transaction: transaction, cancellationToken: ct));
-        await connection.ExecuteAsync(new CommandDefinition(sql, new { Hash = hash }, transaction, cancellationToken: ct));
-        var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select id from sigov.usuario where login='admin' and not is_deleted order by id limit 1", transaction: transaction, cancellationToken: ct));
+        await connection.ExecuteAsync(new CommandDefinition("set local sigov.environment = 'DEVELOPMENT';\n" + guardSql,
+            transaction: transaction, cancellationToken: ct));
+        var adminId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select id from sigov.usuario where login='admin' and not is_deleted order by id desc limit 1",
+            transaction: transaction, cancellationToken: ct));
         const string auditSql = @"insert into sigov.auditoria_evento
     (tenant_id, usuario_id, acao, entidade, entidade_id, depois, ip, user_agent, correlation_id, created_at)
-select
-    tenant_id,
-    id,
-    'DEV_ADMIN_RESET',
-    'sigov.usuario',
-    id::text,
-    jsonb_build_object('resetPerformed', true),
-    @Ip,
-    @UserAgent,
-    cast(@CorrelationId as uuid),
-    now()
-from sigov.usuario
-where id = @Id;";
-        await connection.ExecuteAsync(new CommandDefinition(
-            auditSql,
-            new { Id = id, Ip = ip, UserAgent = userAgent, CorrelationId = correlationId },
-            transaction,
-            cancellationToken: ct));
+select tenant_id,id,'DEV_ADMIN_ACCESS_GUARD','sigov.usuario',id::text,
+       jsonb_build_object('resetPerformed', true),@Ip,@UserAgent,cast(@CorrelationId as uuid),now()
+from sigov.usuario where id=@Id;";
+        await connection.ExecuteAsync(new CommandDefinition(auditSql,
+            new { Id = adminId, Ip = ip, UserAgent = userAgent, CorrelationId = correlationId },
+            transaction, cancellationToken: ct));
         await transaction.CommitAsync(ct);
-        _logger.LogWarning("DEV_ADMIN_RESET concluído. UserId={UserId}; DuplicatesHandled={DuplicatesHandled}; CorrelationId={CorrelationId}", id, Math.Max(0, before - 1), correlationId);
-        return await DiagnoseAsync(true, Math.Max(0, before - 1), ct);
+        _logger.LogWarning("DEV_ADMIN_ACCESS_GUARD concluído. UserId={UserId}; CorrelationId={CorrelationId}", adminId, correlationId);
+        return await DiagnoseAsync(true, cancellationToken: ct);
     }
 
     private static string Reason(int count, AdminRow? u, AuthenticationUser? selected, bool format, bool match, AuthenticationAccess access)

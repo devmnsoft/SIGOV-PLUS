@@ -80,11 +80,12 @@ public sealed class AuthController : Controller
                 var reason = user switch
                 {
                     null => "LOGIN_NOT_FOUND",
+                    { IsDeleted: true } => "USER_DELETED",
                     { Ativo: false } => "USER_INACTIVE",
                     { Bloqueado: true } => "USER_BLOCKED",
-                    { IsDeleted: true } => "USER_INACTIVE",
+                    { TenantIsDeleted: true } => "TENANT_DELETED",
                     { TenantAtivo: false } => "TENANT_INACTIVE",
-                    { TenantIsDeleted: true } => "TENANT_INACTIVE",
+                    _ when string.IsNullOrWhiteSpace(user.PasswordHash) => "PASSWORD_HASH_MISSING",
                     _ when !hashHasValidFormat => "PASSWORD_HASH_INVALID_FORMAT",
                     _ when !passwordMatches => "PASSWORD_MISMATCH",
                     _ when access.Roles.Count == 0 => "NO_PROFILE",

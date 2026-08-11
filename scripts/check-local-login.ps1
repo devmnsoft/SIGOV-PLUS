@@ -58,7 +58,8 @@ select coalesce(json_agg(row_to_json(q)), '[]'::json)::text from (
  (u.entidade_id is not null or exists(select 1 from sigov.usuario_entidade ue where ue.usuario_id=u.id and ue.ativo)) possui_entidade,
  (u.exercicio_id is not null or exists(select 1 from sigov.usuario_exercicio ux where ux.usuario_id=u.id and ux.ativo)) possui_exercicio
  from sigov.usuario u left join sigov.tenant t on t.id=u.tenant_id
- where lower(u.login)=lower('$escaped') or lower(coalesce(u.email,''))=lower('$escaped') order by u.id desc
+ where lower(u.login)=lower('$escaped') or lower(coalesce(u.email,''))=lower('$escaped')
+ order by u.is_deleted, u.ativo desc, u.bloqueado, coalesce(t.ativo,true) desc, coalesce(t.is_deleted,false), u.id desc
 ) q;
 "@
     $raw = & $PsqlPath -X -v ON_ERROR_STOP=1 -h $HostName -p $Port -U $User -d $Database -Atqc $sql
