@@ -55,6 +55,20 @@ URLs locais:
 O projeto `Sigov.Web` não hospeda Swagger. Na página de login, Development mostra um
 atalho explícito para o Swagger de `Sigov.Api`.
 
+## Fallback sem PowerShell ou psql
+
+Quando `pwsh` ou `psql` não estiverem disponíveis, o próprio Web usa sua connection
+string efetiva e os serviços reais de hash e autenticação. Inicie o Web, abra
+<https://localhost:7000/Dev/Auth>, clique em **Resetar admin local** e confirme que o
+teste retorna `OK`. Depois entre em <https://localhost:7000/Auth/Login> com `admin` /
+`SigovDevLocal!2026` e valide a abertura de `/MinhaCentral`.
+
+`/Dev/Auth` retorna 404 fora de Development. Em acesso que não seja loopback, configure
+`Sigov:DevBootstrapToken` ou `SIGOV_DEV_BOOTSTRAP_TOKEN` e envie o valor em
+`X-Sigov-Dev-Token`. O diagnóstico e o relatório em
+`artifacts/local-setup/dev-auth-report.json` nunca contêm senha, hash completo ou
+connection string integral.
+
 ## Diagnóstico de banco
 
 O erro PostgreSQL `3D000` significa que o banco indicado por

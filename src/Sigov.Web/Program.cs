@@ -20,6 +20,7 @@ using Sigov.Web.Services.Visual;
 using Sigov.Application.Security;
 using Sigov.Web.Services.Workflows;
 using Sigov.Infrastructure.Diagnostics;
+using Sigov.Web.Services.Development;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +83,7 @@ builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogServi
 builder.Services.AddInfrastructure();
 builder.Services.AddSigovWebOperationalServices();
 builder.Services.AddScoped<SegurancaAdminService>();
+builder.Services.AddScoped<DevelopmentAuthDiagnosticService>();
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
 builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
