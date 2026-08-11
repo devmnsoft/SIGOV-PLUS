@@ -20,6 +20,8 @@ public sealed class RhController : Controller
     public IActionResult EventosFolha() => RedirectToAction(nameof(FolhaEventos));
     public IActionResult FolhaLancamentos() => View(new RhRegistroViewModel("folha-lancamentos", "Lançamentos da Folha"));
     public IActionResult LancamentosFolha() => RedirectToAction(nameof(FolhaLancamentos));
+    [Route("/RH/Ponto")]
+    [Route("/RH/Pontos")]
     public IActionResult Pontos() => View(new RhRegistroViewModel("pontos", "Ponto e Frequência"));
     public IActionResult Ferias() => View(new RhRegistroViewModel("ferias", "Férias"));
     public IActionResult Afastamentos() => View(new RhRegistroViewModel("afastamentos", "Afastamentos"));

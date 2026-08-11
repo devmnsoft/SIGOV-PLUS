@@ -26,6 +26,8 @@ public sealed class FinanceiroController : Controller
     public IActionResult Acoes() => View(new AcaoFormViewModel());
     public IActionResult NaturezasDespesa() => View(new NaturezaDespesaFormViewModel());
     public IActionResult NaturezasReceita() => View(new NaturezaReceitaFormViewModel());
+    [Route("/Financeiro/Orcamento")]
+    public IActionResult Orcamento() => View(nameof(OrcamentoDespesa), new OrcamentoDespesaFormViewModel());
     public IActionResult OrcamentoDespesa() => View(new OrcamentoDespesaFormViewModel());
     public IActionResult OrcamentoReceita() => View(new OrcamentoReceitaFormViewModel());
     public IActionResult Empenhos() => View();
