@@ -1,0 +1,29 @@
+@model Sigov.Web.Services.Development.DevelopmentAuthReport
+@{ Layout = null; var ok = Model.FinalReason == "OK"; }
+<!doctype html>
+<html lang="pt-br"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/>
+<title>Diagnóstico local — SIGOV+</title>
+<style>
+body{margin:0;background:#071a2d;color:#e9f2fa;font:15px system-ui}.shell{max-width:1050px;margin:auto;padding:42px 22px}h1{margin:.2rem 0;font-size:2rem}.muted{color:#9bb0c3}.badge{display:inline-block;padding:6px 11px;border-radius:20px;background:@(ok ? "#0d7653" : "#9d432d");font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:25px 0}.card,.target,.actions,.help{background:#102b43;border:1px solid #294962;border-radius:14px;padding:18px}.card strong{display:block;font-size:1.5rem;margin-top:7px}.target code{display:block;margin:6px 0;color:#bce2ff}.actions{display:flex;gap:12px;flex-wrap:wrap}button,a.button{border:0;border-radius:9px;padding:12px 18px;background:#20a978;color:white;font-weight:700;cursor:pointer;text-decoration:none}.secondary{background:#28618e!important}.message{padding:13px;background:#214765;border-radius:10px;margin-top:18px}.danger{color:#ffb39f}dl{display:grid;grid-template-columns:220px 1fr;gap:8px}dt{color:#9bb0c3}dd{margin:0}
+</style></head><body><main class="shell">
+<p class="muted">SIGOV+ • ferramenta exclusiva de Development</p><h1>Diagnóstico local de autenticação</h1>
+<p><span class="badge">@Model.FinalReason</span> <span class="muted">Verificado em @Model.CheckedAt.ToString("u")</span></p>
+@if (TempData["DevAuthMessage"] is string message) { <p class="message">@message</p> }
+<section class="target"><h2>Conexão efetiva (sanitizada)</h2>
+<code>Host=@Model.ConnectionTarget.Host; Port=@Model.ConnectionTarget.Port; Database=@Model.ConnectionTarget.Database</code>
+<code>Username=@Model.ConnectionTarget.Username; SearchPath=@(Model.ConnectionTarget.SearchPath ?? "(padrão)")</code>
+<code>ApplicationName=@(Model.ConnectionTarget.ApplicationName ?? "(não definido)"); Environment=@Model.Environment; Password=&lt;redacted&gt;</code></section>
+<section class="grid">
+<div class="card">Admins encontrados<strong>@Model.AdminUserCount</strong></div><div class="card">Admin canônico<strong>@(Model.CanonicalAdminId?.ToString() ?? "—")</strong></div>
+<div class="card">Senha confere<strong>@(Model.PasswordMatches ? "Sim" : "Não")</strong></div><div class="card">Roles / permissões<strong>@Model.RolesCount / @Model.PermissionsCount</strong></div>
+<div class="card">Grupo / perfil<strong>@(Model.HasGroup ? "Sim" : "Não") / @(Model.HasProfile ? "Sim" : "Não")</strong></div><div class="card">Entidade / exercício<strong>@(Model.HasEntity ? "Sim" : "Não") / @(Model.HasExercise ? "Sim" : "Não")</strong></div>
+</section>
+@if (Model.Admin is not null) { <section class="target"><h2>Estado do admin</h2><dl>
+<dt>Login / e-mail</dt><dd>@Model.Admin.Login / @Model.Admin.Email</dd><dt>Tenant</dt><dd>@Model.Admin.TenantId (ativo=@Model.Admin.TenantAtivo; excluído=@Model.Admin.TenantIsDeleted)</dd>
+<dt>Usuário</dt><dd>ativo=@Model.Admin.Ativo; bloqueado=@Model.Admin.Bloqueado; excluído=@Model.Admin.IsDeleted; alterar senha=@Model.Admin.DeveAlterarSenha</dd>
+<dt>Tipo</dt><dd>@Model.Admin.TipoUsuario</dd><dt>Hash</dt><dd>existe=@Model.Admin.HashExists; formato=@Model.Admin.HashFormatValid; prefixo=@Model.Admin.HashPrefix</dd></dl></section> }
+@if (!string.IsNullOrWhiteSpace(Model.Error)) { <p class="danger">Erro sanitizado: @Model.Error</p> }
+<section class="actions"><form method="post" action="/Dev/Auth/ResetAdmin">@Html.AntiForgeryToken()<button type="submit">Resetar admin local</button></form>
+<form method="post" action="/Dev/Auth/TestLogin">@Html.AntiForgeryToken()<button class="secondary" type="submit">Testar login admin</button></form><a class="button secondary" href="/Auth/Login">Ir para login</a></section>
+<section class="help"><h2>Como acessar</h2><p>Login: <strong>admin</strong><br/>Senha: <strong>SigovDevLocal!2026</strong></p><p class="muted">O teste não cria cookie. Após obter OK, use a tela de login para validar o cookie SIGOV.AUTH e /MinhaCentral.</p></section>
+</main></body></html>

@@ -53,6 +53,8 @@ public sealed class AuthController : Controller
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
         PrepareLoginView(returnUrl);
+        if (_environment.IsDevelopment())
+            _logger.LogInformation("Model binding de login Development. PasswordProvided={PasswordProvided}; PasswordLength={PasswordLength}; CorrelationId={CorrelationId}", !string.IsNullOrEmpty(model.Senha), model.Senha?.Length ?? 0, HttpContext.TraceIdentifier);
         if (!ModelState.IsValid)
         {
             return View(model);
