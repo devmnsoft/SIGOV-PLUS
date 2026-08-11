@@ -97,6 +97,25 @@
     if (isLoading) { button.dataset.originalText = button.innerHTML; button.disabled = true; button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${text || 'Processando...'}`; }
     else { button.disabled = false; if (button.dataset.originalText) button.innerHTML = button.dataset.originalText; }
   } };
+  window.SigovAlert = { inline: (container, message, variant) => {
+    const target = typeof container === 'string' ? document.querySelector(container) : container;
+    if (!target) return null;
+    const alert = document.createElement('div');
+    alert.className = `sigov-alert sigov-alert--${variant || 'info'}`;
+    alert.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+    alert.textContent = message || '';
+    target.replaceChildren(alert);
+    return alert;
+  } };
+  window.SigovEmptyState = { render: (container, options) => {
+    const target = typeof container === 'string' ? document.querySelector(container) : container;
+    if (!target) return null;
+    const opts = options || {}, empty = document.createElement('section');
+    empty.className = 'sigov-empty-state'; empty.setAttribute('role', 'status');
+    const title = document.createElement('h2'); title.textContent = opts.title || 'Nenhum resultado encontrado';
+    const message = document.createElement('p'); message.textContent = opts.message || 'Ajuste os filtros ou cadastre um novo item.';
+    empty.append(title, message); target.replaceChildren(empty); return empty;
+  } };
 
   function shouldUseServiceWorker() {
     var host = window.location.hostname;
@@ -153,6 +172,10 @@
         image.src = image.dataset.sigovImageFallback;
       });
     });
+    if (window.bootstrap) {
+      scope.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => bootstrap.Tooltip.getOrCreateInstance(el));
+      scope.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => bootstrap.Popover.getOrCreateInstance(el));
+    }
   }
 
   document.addEventListener('click', handleAction);
@@ -164,7 +187,7 @@
 
 (function(){
   'use strict';
-  const store={get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+  const store={get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{ return d; }},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{ /* Persistência local indisponível; a interface continua funcional. */ }}};
   const sidebar=document.getElementById('sigovSidebar');
   if(sidebar){
     if(store.get('sigov.sidebar.compact',false)) sidebar.classList.add('is-compact');

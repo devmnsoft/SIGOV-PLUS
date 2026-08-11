@@ -3,7 +3,7 @@ param(
     [string]$PostgresPassword = $(if ($env:PGPASSWORD) { $env:PGPASSWORD } else { '123456' }),
     [string]$Database = 'sigov',
     [string]$DatabaseUser = 'sigov',
-    [string]$DatabasePassword = 'change_me',
+    [string]$DatabasePassword = $env:SIGOV_DB_PASSWORD,
     [switch]$SkipBuild,
     [switch]$Start
 )
@@ -16,6 +16,12 @@ if ($env:ASPNETCORE_ENVIRONMENT -and $env:ASPNETCORE_ENVIRONMENT -ne 'Developmen
 }
 
 $adminPassword = 'SigovDevLocal!2026'
+$databasePasswordWasGenerated = [string]::IsNullOrWhiteSpace($DatabasePassword)
+if ($databasePasswordWasGenerated) {
+    $bytes = [byte[]]::new(30)
+    [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $DatabasePassword = [Convert]::ToBase64String($bytes).Replace('+', 'A').Replace('/', 'B').TrimEnd('=') + '!a9'
+}
 Write-Host 'Preparando o ambiente local SIGOV+ (banco, migrations e seed Development)...' -ForegroundColor Cyan
 
 & "$PSScriptRoot/setup-local-sigov.ps1" `
@@ -26,6 +32,8 @@ Write-Host 'Preparando o ambiente local SIGOV+ (banco, migrations e seed Develop
     -AdminLogin 'admin' `
     -AdminEmail 'admin@sigov.local' `
     -AdminPasswordApp $adminPassword `
+    -WebUrl 'https://localhost:7000' `
+    -ApiUrl 'https://localhost:7001' `
     -ResetAdminPassword `
     -SkipBuild:$SkipBuild `
     -StartAfterSetup:$Start `
@@ -40,3 +48,6 @@ Write-Host 'Swagger: https://localhost:7001/swagger'
 Write-Host 'Login:   admin'
 Write-Host 'Senha:   SigovDevLocal!2026'
 Write-Host 'A credencial acima é exclusiva do ambiente local e não é usada em Production.' -ForegroundColor Yellow
+if ($databasePasswordWasGenerated) {
+    Write-Host 'A senha do usuário de banco foi gerada aleatoriamente e persistida somente no .env.local ignorado pelo Git.' -ForegroundColor Yellow
+}
