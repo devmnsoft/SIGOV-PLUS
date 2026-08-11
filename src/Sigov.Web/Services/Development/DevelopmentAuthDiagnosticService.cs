@@ -123,8 +123,26 @@ insert into sigov.usuario_exercicio(usuario_id,exercicio_id,ativo) select id,exe
         var before = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.usuario where lower(login)='admin' or lower(email)='admin@sigov.local'", transaction: transaction, cancellationToken: ct));
         await connection.ExecuteAsync(new CommandDefinition(sql, new { Hash = hash }, transaction, cancellationToken: ct));
         var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select id from sigov.usuario where login='admin' and not is_deleted order by id limit 1", transaction: transaction, cancellationToken: ct));
-        await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.auditoria_evento(tenant_id,usuario_id,acao,entidade,entidade_id,depois,ip,user_agent,correlation_id,created_at)
-select tenant_id,id,'DEV_ADMIN_RESET','sigov.usuario',id::text,'{\"resetPerformed\":true}'::jsonb,@Ip,@UserAgent,@CorrelationId::uuid,now() from sigov.usuario where id=@Id", new { Id = id, Ip = ip, UserAgent = userAgent, CorrelationId = correlationId }, transaction, cancellationToken: ct));
+        const string auditSql = @"insert into sigov.auditoria_evento
+    (tenant_id, usuario_id, acao, entidade, entidade_id, depois, ip, user_agent, correlation_id, created_at)
+select
+    tenant_id,
+    id,
+    'DEV_ADMIN_RESET',
+    'sigov.usuario',
+    id::text,
+    jsonb_build_object('resetPerformed', true),
+    @Ip,
+    @UserAgent,
+    cast(@CorrelationId as uuid),
+    now()
+from sigov.usuario
+where id = @Id;";
+        await connection.ExecuteAsync(new CommandDefinition(
+            auditSql,
+            new { Id = id, Ip = ip, UserAgent = userAgent, CorrelationId = correlationId },
+            transaction,
+            cancellationToken: ct));
         await transaction.CommitAsync(ct);
         _logger.LogWarning("DEV_ADMIN_RESET concluído. UserId={UserId}; DuplicatesHandled={DuplicatesHandled}; CorrelationId={CorrelationId}", id, Math.Max(0, before - 1), correlationId);
         return await DiagnoseAsync(true, Math.Max(0, before - 1), ct);
