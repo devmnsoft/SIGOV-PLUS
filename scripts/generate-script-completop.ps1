@@ -1,4 +1,4 @@
-param([switch]$Verify)
+param([switch]$Verify, [switch]$IncludeDevelopmentSeed)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $migrationsDir = Join-Path $root 'database/postgres/migrations'
@@ -6,6 +6,8 @@ $bootstrapDir = Join-Path $root 'database/postgres/bootstrap'
 $manifestPath = Join-Path $migrationsDir 'manifest.json'
 $versionPath = Join-Path $root 'eng/version.json'
 $out = Join-Path $root 'database/postgres/script_completo.sql'
+$devOut = Join-Path $root 'database/postgres/script_completo_dev.sql'
+$developmentSeed = Join-Path $root 'database/postgres/seeds/development/999_super_admin_access_guard.sql'
 $compatibilityOutputs = @(
     (Join-Path $root 'database/script_completo.sql'),
     (Join-Path $root 'script_completop.sql')
@@ -135,6 +137,11 @@ foreach ($entry in $excluded) {
 }
 
 $new = $sb.ToString().Replace("`r`n", "`n")
+$devNew = $null
+if ($IncludeDevelopmentSeed) {
+    $seedText = Get-NormalizedText $developmentSeed
+    $devNew = $new + "`n-- DEVELOPMENT ONLY: acesso administrativo local`n" + $seedText.Trim() + "`n"
+}
 if ($Verify) {
     if (-not (Test-Path $out)) { throw 'database/postgres/script_completo.sql não existe. Execute o gerador sem -Verify.' }
     $old = [System.IO.File]::ReadAllText($out).Replace("`r`n", "`n")
@@ -149,6 +156,11 @@ if ($Verify) {
         $compatibilityText = [System.IO.File]::ReadAllText($compatibilityOutput).Replace("`r`n", "`n")
         if ($compatibilityText -ne $new) { throw "Artefato de compatibilidade divergente: $compatibilityOutput" }
     }
+    if ($IncludeDevelopmentSeed) {
+        if (-not (Test-Path $devOut)) { throw 'database/postgres/script_completo_dev.sql não existe.' }
+        $oldDev = [IO.File]::ReadAllText($devOut).Replace("`r`n", "`n")
+        if ($oldDev -ne $devNew) { throw 'script_completo_dev.sql desatualizado.' }
+    }
     Write-Host 'Scripts completos estão sincronizados com as migrations.'
     exit 0
 }
@@ -158,4 +170,6 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 foreach ($compatibilityOutput in $compatibilityOutputs) {
     [System.IO.File]::WriteAllText($compatibilityOutput, $new, $utf8NoBom)
 }
+if ($IncludeDevelopmentSeed) { [System.IO.File]::WriteAllText($devOut, $devNew, $utf8NoBom) }
+if ($IncludeDevelopmentSeed) { Write-Host "Gerado $devOut (estrutura + seed Development)." }
 Write-Host "Gerado $out com $($included.Count) migrations incluídas, $($excluded.Count) excluídas e compatibilidade incorporada."

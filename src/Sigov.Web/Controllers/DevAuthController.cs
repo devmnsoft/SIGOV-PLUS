@@ -38,7 +38,7 @@ public sealed class DevAuthController : Controller
         if (!CanAccess()) return NotFound();
         var report = await _diagnostics.ResetAdminAsync(HttpContext.TraceIdentifier,
             HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), ct);
-        TempData["DevAuthMessage"] = report.FinalReason == "OK" ? "Admin local resetado e validado com sucesso." : $"Reset concluído; diagnóstico: {report.FinalReason}.";
+        TempData["DevAuthMessage"] = report.FinalReason == "OK" ? "Acessos administrativos locais reparados e validados com sucesso." : $"Reset concluído; diagnóstico: {report.FinalReason}.";
         return RedirectToAction(nameof(Index));
     }
 

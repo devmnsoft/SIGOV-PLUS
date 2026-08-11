@@ -16,8 +16,8 @@ public sealed class AuthenticationRepository(NpgsqlConnectionFactory connectionF
 from sigov.usuario u
 left join sigov.tenant t on t.id = u.tenant_id
 where lower(u.login) = lower(@Value) or lower(u.email) = lower(@Value)
-order by u.ativo desc, u.bloqueado asc, coalesce(t.ativo, true) desc,
-         u.is_deleted asc, coalesce(t.is_deleted, false) asc, u.id desc
+order by u.is_deleted asc, u.ativo desc, u.bloqueado asc, coalesce(t.ativo, true) desc,
+         coalesce(t.is_deleted, false) asc, u.id desc
 limit 1;";
         using var connection = connectionFactory.CreateConnection();
         return await connection.QuerySingleOrDefaultAsync<AuthenticationUser>(new CommandDefinition(sql, new { Value = loginOrEmail }, cancellationToken: cancellationToken)).ConfigureAwait(false);

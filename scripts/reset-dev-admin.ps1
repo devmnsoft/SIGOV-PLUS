@@ -15,13 +15,15 @@ if ([string]::IsNullOrWhiteSpace($env:SIGOV_DB_PASSWORD)) { throw 'Defina SIGOV_
 $previousPassword = $env:PGPASSWORD
 try {
     $env:PGPASSWORD = $PostgresPassword
-    & "$PSScriptRoot/install-sigov-database.ps1" -HostName $HostName -Port $Port -Database $Database -User $PostgresUser `
-        -Password $PostgresPassword -AdminLogin admin -AdminEmail admin@sigov.local -AdminPassword 'SigovDevLocal!2026' `
-        -Environment DEVELOPMENT -ResetAdminPassword -PsqlPath $PsqlPath -Quiet
-    if ($LASTEXITCODE -ne 0) { throw "Reset administrativo falhou com código $LASTEXITCODE." }
+    & $PsqlPath -X -v ON_ERROR_STOP=1 -h $HostName -p $Port -U $PostgresUser -d $Database `
+        -c "set sigov.environment = 'DEVELOPMENT'" `
+        -f (Join-Path $PSScriptRoot '../database/postgres/seeds/development/999_super_admin_access_guard.sql')
+    if ($LASTEXITCODE -ne 0) { throw "Guard administrativo falhou com código $LASTEXITCODE." }
     $env:PGPASSWORD = $previousPassword
     & "$PSScriptRoot/check-local-login.ps1" -HostName $HostName -Port $Port -Database $Database -User $User -Login admin -Password 'SigovDevLocal!2026' -PsqlPath $PsqlPath
-    if ($LASTEXITCODE -ne 0) { throw "Validação do login falhou com código $LASTEXITCODE." }
+    if ($LASTEXITCODE -ne 0) { throw "Validação do admin falhou com código $LASTEXITCODE." }
+    & "$PSScriptRoot/check-local-login.ps1" -HostName $HostName -Port $Port -Database $Database -User $User -Login superadmin -Password 'SigovSuperAdmin!2026' -PsqlPath $PsqlPath
+    if ($LASTEXITCODE -ne 0) { throw "Validação do superadmin falhou com código $LASTEXITCODE." }
 }
 finally { $env:PGPASSWORD = $previousPassword }
 Write-Host 'Login: admin'

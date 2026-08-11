@@ -45,6 +45,17 @@ Write-Host 'Preparando o ambiente local SIGOV+ (banco, migrations e seed Develop
 
 if ($LASTEXITCODE -ne 0) { throw "Provisionamento local falhou com código $LASTEXITCODE." }
 
+# O guard canônico roda sempre depois das migrations; não replica sua lógica em PowerShell.
+$previousGuardPassword = $env:PGPASSWORD
+try {
+    $env:PGPASSWORD = $PostgresPassword
+    & psql -X -v ON_ERROR_STOP=1 -h $HostName -p $Port -U postgres -d $Database `
+        -c "set sigov.environment = 'DEVELOPMENT'" `
+        -f (Join-Path $PSScriptRoot '../database/postgres/seeds/development/999_super_admin_access_guard.sql')
+    if ($LASTEXITCODE -ne 0) { throw "Guard administrativo Development falhou com código $LASTEXITCODE." }
+}
+finally { $env:PGPASSWORD = $previousGuardPassword }
+
 # Não aceite sucesso apenas porque migrations/seed terminaram: confirme o catálogo na
 # instância administrativa e uma conexão real usando exatamente a credencial da aplicação.
 $previousPgPassword = $env:PGPASSWORD
@@ -69,7 +80,9 @@ $previousSigovDbPassword = $env:SIGOV_DB_PASSWORD
 try {
     $env:SIGOV_DB_PASSWORD = $DatabasePassword
     & "$PSScriptRoot/check-local-login.ps1" -HostName $HostName -Port $Port -Database $Database -User $DatabaseUser -Login admin -Password $adminPassword
-    if ($LASTEXITCODE -ne 0) { throw "check-local-login.ps1 falhou com código $LASTEXITCODE." }
+    if ($LASTEXITCODE -ne 0) { throw "check-local-login.ps1 falhou para admin com código $LASTEXITCODE." }
+    & "$PSScriptRoot/check-local-login.ps1" -HostName $HostName -Port $Port -Database $Database -User $DatabaseUser -Login superadmin -Password 'SigovSuperAdmin!2026'
+    if ($LASTEXITCODE -ne 0) { throw "check-local-login.ps1 falhou para superadmin com código $LASTEXITCODE." }
 }
 finally { $env:SIGOV_DB_PASSWORD = $previousSigovDbPassword }
 
