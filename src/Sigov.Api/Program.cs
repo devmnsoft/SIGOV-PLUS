@@ -16,6 +16,7 @@ using Sigov.Api.Filters;
 using Sigov.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Sigov.Application.Security;
+using Sigov.Infrastructure.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +81,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddInfrastructure();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    var databaseTarget = SafeConnectionStringDiagnostics.Read(app.Configuration, app.Environment);
+    SafeConnectionStringDiagnostics.LogTarget(app.Logger, databaseTarget, "sigov.api");
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();

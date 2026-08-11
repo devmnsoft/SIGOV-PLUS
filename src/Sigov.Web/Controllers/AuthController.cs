@@ -9,6 +9,7 @@ using Sigov.Application.Abstractions;
 using Sigov.Application.Security;
 using Sigov.Web.Models.Auth;
 using Sigov.Web.Services;
+using Sigov.Infrastructure.Diagnostics;
 
 namespace Sigov.Web.Controllers;
 
@@ -99,9 +100,10 @@ public sealed class AuthController : Controller
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.InvalidCatalogName)
         {
-            _logger.LogError("Banco PostgreSQL configurado não existe. Execute ./scripts/setup-dev.ps1. CorrelationId={CorrelationId}", correlationId);
+            var target = SafeConnectionStringDiagnostics.Read(_configuration, _environment);
+            _logger.LogError("O Web está tentando conectar em Host={Host} Port={Port} Database={Database} User={Username}. O banco não existe nessa instância. Environment={Environment}; CorrelationId={CorrelationId}", target.Host, target.Port, target.Database, target.Username, target.Environment, correlationId);
             model.MensagemErro = _environment.IsDevelopment()
-                ? "Banco de dados local não encontrado. Execute o provisionamento do ambiente."
+                ? $"Banco local não encontrado em {target.Endpoint}. Execute: pwsh ./scripts/setup-dev.ps1 ou verifique: pwsh ./scripts/check-local-db.ps1"
                 : "Não foi possível autenticar agora. Tente novamente mais tarde.";
             return View(model);
         }

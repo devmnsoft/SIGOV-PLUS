@@ -1,5 +1,7 @@
 [CmdletBinding()]
 param(
+    [string]$HostName = 'localhost',
+    [int]$Port = 5432,
     [string]$PostgresPassword = $(if ($env:PGPASSWORD) { $env:PGPASSWORD } else { '123456' }),
     [string]$Database = 'sigov',
     [string]$DatabaseUser = 'sigov',
@@ -25,6 +27,8 @@ if ($databasePasswordWasGenerated) {
 Write-Host 'Preparando o ambiente local SIGOV+ (banco, migrations e seed Development)...' -ForegroundColor Cyan
 
 & "$PSScriptRoot/setup-local-sigov.ps1" `
+    -HostName $HostName `
+    -Port $Port `
     -Database $Database `
     -AdminPassword $PostgresPassword `
     -AppDbUser $DatabaseUser `
@@ -40,6 +44,26 @@ Write-Host 'Preparando o ambiente local SIGOV+ (banco, migrations e seed Develop
     -Force
 
 if ($LASTEXITCODE -ne 0) { throw "Provisionamento local falhou com código $LASTEXITCODE." }
+
+# Não aceite sucesso apenas porque migrations/seed terminaram: confirme o catálogo na
+# instância administrativa e uma conexão real usando exatamente a credencial da aplicação.
+$previousPgPassword = $env:PGPASSWORD
+try {
+    $env:PGPASSWORD = $PostgresPassword
+    $databaseExists = & psql -X -v ON_ERROR_STOP=1 -h $HostName -p $Port -U postgres -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname = '$($Database.Replace("'", "''"))';" 2>&1
+    if ($LASTEXITCODE -ne 0 -or ($databaseExists -join '').Trim() -ne '1') {
+        throw "O banco '$Database' não existe em ${HostName}:$Port após o provisionamento."
+    }
+    $env:PGPASSWORD = $DatabasePassword
+    $currentDatabase = & psql -X -v ON_ERROR_STOP=1 -h $HostName -p $Port -U $DatabaseUser -d $Database -Atqc 'select current_database();' 2>&1
+    if ($LASTEXITCODE -ne 0 -or ($currentDatabase -join '').Trim() -ne $Database) {
+        throw "O usuário '$DatabaseUser' não conseguiu validar o banco '$Database' em ${HostName}:$Port."
+    }
+}
+finally { $env:PGPASSWORD = $previousPgPassword }
+
+& "$PSScriptRoot/check-local-db.ps1" -HostName $HostName -Port $Port -Database $Database -User $DatabaseUser -Password $DatabasePassword -MaintenancePassword $PostgresPassword
+if ($LASTEXITCODE -ne 0) { throw "check-local-db.ps1 falhou com código $LASTEXITCODE." }
 
 Write-Host ''
 Write-Host 'Ambiente Development provisionado.' -ForegroundColor Green

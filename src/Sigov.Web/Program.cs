@@ -19,6 +19,7 @@ using Sigov.Web;
 using Sigov.Web.Services.Visual;
 using Sigov.Application.Security;
 using Sigov.Web.Services.Workflows;
+using Sigov.Infrastructure.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -136,6 +137,11 @@ builder.Services.AddScoped<WorkflowRepository>();
 builder.Services.AddScoped<WorkflowValidationService>();
 
 var app = builder.Build();
+if (app.Environment.IsDevelopment())
+{
+    var databaseTarget = SafeConnectionStringDiagnostics.Read(app.Configuration, app.Environment);
+    SafeConnectionStringDiagnostics.LogTarget(app.Logger, databaseTarget, "sigov.web");
+}
 app.UseForwardedHeaders();
 
 // A página de erro sanitizada também é usada em Development: detalhes técnicos ficam
