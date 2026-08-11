@@ -240,7 +240,10 @@ select coalesce((
             throw 'A senha administrativa inicial deve possuir pelo menos 12 caracteres.'
         }
         $adminHash = New-SigovPasswordHash -PlainText $AdminPassword
-        $adminMustChange = $true
+        # O reset explícito de Development é uma credencial operacional conhecida e
+        # deve permitir o redirecionamento direto para MinhaCentral. Nos demais casos,
+        # a senha inicial continua temporária e exige troca.
+        $adminMustChange = -not ($ResetAdminPassword -and $Environment -eq 'DEVELOPMENT')
         $credentialProvisioned = $true
     }
 

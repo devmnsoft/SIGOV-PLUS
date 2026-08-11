@@ -65,6 +65,14 @@ finally { $env:PGPASSWORD = $previousPgPassword }
 & "$PSScriptRoot/check-local-db.ps1" -HostName $HostName -Port $Port -Database $Database -User $DatabaseUser -Password $DatabasePassword -MaintenancePassword $PostgresPassword
 if ($LASTEXITCODE -ne 0) { throw "check-local-db.ps1 falhou com código $LASTEXITCODE." }
 
+$previousSigovDbPassword = $env:SIGOV_DB_PASSWORD
+try {
+    $env:SIGOV_DB_PASSWORD = $DatabasePassword
+    & "$PSScriptRoot/check-local-login.ps1" -HostName $HostName -Port $Port -Database $Database -User $DatabaseUser -Login admin -Password $adminPassword
+    if ($LASTEXITCODE -ne 0) { throw "check-local-login.ps1 falhou com código $LASTEXITCODE." }
+}
+finally { $env:SIGOV_DB_PASSWORD = $previousSigovDbPassword }
+
 Write-Host ''
 Write-Host 'Ambiente Development provisionado.' -ForegroundColor Green
 Write-Host 'Web:     https://localhost:7000/Auth/Login'

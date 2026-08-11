@@ -65,7 +65,35 @@ public sealed class AuthController : Controller
             var login = model.Login ?? string.Empty;
             var senha = model.Senha ?? string.Empty;
             var user = await _authenticationRepository.FindForLoginAsync(login, cancellationToken).ConfigureAwait(false);
-            var valid = user is not null && user.Ativo && !user.Bloqueado && _passwordHashService.VerifyPassword(senha, user.PasswordHash);
+            var hashHasValidFormat = user is not null && IsSupportedPasswordHash(user.PasswordHash);
+            var passwordMatches = hashHasValidFormat && _passwordHashService.VerifyPassword(senha, user!.PasswordHash);
+            var access = user is not null && passwordMatches
+                ? await _authenticationRepository.GetAccessAsync(user.Id, cancellationToken).ConfigureAwait(false)
+                : new AuthenticationAccess(Array.Empty<string>(), Array.Empty<string>());
+            var valid = user is not null && user.Ativo && !user.Bloqueado && !user.IsDeleted &&
+                        user.TenantAtivo && !user.TenantIsDeleted && passwordMatches &&
+                        access.Roles.Count > 0 && access.Permissions.Count > 0;
+            if (_environment.IsDevelopment() && !valid)
+            {
+                var reason = user switch
+                {
+                    null => "LOGIN_NOT_FOUND",
+                    { Ativo: false } => "USER_INACTIVE",
+                    { Bloqueado: true } => "USER_BLOCKED",
+                    { IsDeleted: true } => "USER_INACTIVE",
+                    { TenantAtivo: false } => "TENANT_INACTIVE",
+                    { TenantIsDeleted: true } => "TENANT_INACTIVE",
+                    _ when !hashHasValidFormat => "PASSWORD_HASH_INVALID_FORMAT",
+                    _ when !passwordMatches => "PASSWORD_MISMATCH",
+                    _ when access.Roles.Count == 0 => "NO_PROFILE",
+                    _ => "NO_PERMISSIONS"
+                };
+                _logger.LogWarning("Falha de login Development. Reason={Reason}; Login={Login}; UserId={UserId}; TenantId={TenantId}; MatchingUsers={MatchingUsers}; CorrelationId={CorrelationId}", reason, login, user?.Id, user?.TenantId, user?.MatchingUsers ?? 0, correlationId);
+            }
+            else if (_environment.IsDevelopment() && user is { MatchingUsers: > 1 })
+            {
+                _logger.LogWarning("Login duplicado resolvido deterministicamente. Reason=DUPLICATE_LOGIN; Login={Login}; UserId={UserId}; TenantId={TenantId}; MatchingUsers={MatchingUsers}; CorrelationId={CorrelationId}", login, user.Id, user.TenantId, user.MatchingUsers, correlationId);
+            }
             await _auditTrail.RegistrarAsync(user?.TenantId, user?.Id, valid ? "LOGIN_SUCESSO" : "LOGIN_FALHA", "sigov.usuario", user?.Id.ToString(), null, new { login = model.Login }, ip, Request.Headers["User-Agent"].ToString(), correlationId, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Tentativa de login SIGOV: {Resultado}. CorrelationId={CorrelationId}", valid ? "sucesso" : "falha", correlationId);
 
@@ -75,7 +103,6 @@ public sealed class AuthController : Controller
                 return View(model);
             }
 
-            var access = await _authenticationRepository.GetAccessAsync(user.Id, cancellationToken).ConfigureAwait(false);
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -121,6 +148,14 @@ public sealed class AuthController : Controller
             model.MensagemErro = "Não foi possível autenticar agora. Tente novamente ou verifique o ambiente local.";
             return View(model);
         }
+    }
+
+    private static bool IsSupportedPasswordHash(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var parts = value.Split('$');
+        return parts.Length == 4 && parts[0] == "SIGOV_PBKDF2_V1" &&
+               int.TryParse(parts[1], out var iterations) && iterations is >= 100000 and <= 1000000;
     }
 
     private void PrepareLoginView(string? returnUrl)
