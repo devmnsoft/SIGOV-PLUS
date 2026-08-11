@@ -15,6 +15,7 @@ public sealed class ContratosController : Controller
     [Route("/Contratos/Listar")]
     [Route("/Contratos/Novo")]
     [Route("/Contratos/Vencimentos")]
+    [Route("/Contratos/Vigencias")]
     [Route("/Contratos/Aditivos")]
     [Route("/Contratos/Fiscais")]
     [Route("/Contratos/Medicoes")]
