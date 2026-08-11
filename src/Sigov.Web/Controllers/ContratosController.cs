@@ -11,6 +11,7 @@ public sealed class ContratosController : Controller
     private readonly ILogger<ContratosController> _logger;
     public ContratosController(ContratosOperationalService demo, IAuditTrailService auditTrail, ILogger<ContratosController> logger) { _demo = demo; _auditTrail = auditTrail; _logger = logger; }
     [Route("/Contratos")]
+    [Route("/Contratos/Dashboard")]
     [Route("/Contratos/Listar")]
     [Route("/Contratos/Novo")]
     [Route("/Contratos/Vencimentos")]

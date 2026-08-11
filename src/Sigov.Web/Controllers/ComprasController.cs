@@ -14,6 +14,7 @@ public sealed class ComprasController : Controller
     public ComprasController(ComprasService service, IAuditTrailService auditTrail, ILogger<ComprasController> logger) { _service = service; _auditTrail = auditTrail; _logger = logger; }
 
     [HttpGet, Route("/Compras")]
+    [Route("/Compras/Dashboard")]
     [Route("/Compras/Solicitacoes")]
     [Route("/Compras/Solicitacoes/Nova")]
     [Route("/Compras/Fornecedores")]

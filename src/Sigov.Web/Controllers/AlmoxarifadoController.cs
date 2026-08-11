@@ -14,6 +14,7 @@ public sealed class AlmoxarifadoController : Controller
     public AlmoxarifadoController(AlmoxarifadoService service, IAuditTrailService auditTrail, ILogger<AlmoxarifadoController> logger) { _service = service; _auditTrail = auditTrail; _logger = logger; }
 
     [HttpGet, Route("/Almoxarifado")]
+    [Route("/Estoque/Dashboard")]
     [Route("/Almoxarifado/Produtos")]
     [Route("/Almoxarifado/Entradas")]
     [Route("/Almoxarifado/Saidas")]
