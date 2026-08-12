@@ -22,6 +22,31 @@ public sealed record SafeDatabaseTarget(
 
 public static class SafeConnectionStringDiagnostics
 {
+    public static SafeDatabaseTarget ValidateDevelopmentTarget(
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        string applicationName)
+    {
+        var target = Read(configuration, environment);
+        if (!environment.IsDevelopment()) return target;
+
+        var expectedApplicationName = $"sigov.{applicationName.ToLowerInvariant()}";
+        var invalidDatabase = string.Equals(target.Database, "postgres", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(target.Database, "sigov", StringComparison.OrdinalIgnoreCase);
+        var invalidApplication = !string.Equals(target.ApplicationName, expectedApplicationName, StringComparison.OrdinalIgnoreCase);
+        if (invalidDatabase || invalidApplication)
+        {
+            var detail = invalidDatabase
+                ? $"Database={target.Database}"
+                : $"ApplicationName={target.ApplicationName ?? "<não configurado>"}";
+            throw new InvalidOperationException(
+                $"Configuração inválida: Sigov.{applicationName} está apontando para {detail}. " +
+                $"Use Database=sigov e Application Name={expectedApplicationName} em appsettings.Development.json.");
+        }
+
+        return target;
+    }
+
     public static SafeDatabaseTarget Read(IConfiguration configuration, IHostEnvironment environment)
     {
         var raw = configuration.GetConnectionString("DefaultConnection")
