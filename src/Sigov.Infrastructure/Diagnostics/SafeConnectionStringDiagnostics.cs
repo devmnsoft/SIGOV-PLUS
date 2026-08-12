@@ -28,17 +28,21 @@ public static class SafeConnectionStringDiagnostics
             ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection não configurada.");
         var connection = new NpgsqlConnectionStringBuilder(raw);
         var source = ResolveSource(configuration);
+        var host = string.IsNullOrWhiteSpace(connection.Host) ? "localhost" : connection.Host;
+        var database = connection.Database ?? string.Empty;
+        var username = connection.Username ?? string.Empty;
+        var aspNetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? environment.EnvironmentName;
 
         return new SafeDatabaseTarget(
-            connection.Host,
+            host,
             connection.Port,
-            connection.Database ?? string.Empty,
-            connection.Username ?? string.Empty,
+            database,
+            username,
             connection.SearchPath,
             connection.ApplicationName,
             environment.EnvironmentName,
             environment.ContentRootPath,
-            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? environment.EnvironmentName,
+            aspNetEnvironment,
             source);
     }
 

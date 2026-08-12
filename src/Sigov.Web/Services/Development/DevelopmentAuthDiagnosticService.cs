@@ -38,7 +38,10 @@ public sealed class DevelopmentAuthDiagnosticService
         _configuration = configuration; _environment = environment; _logger = logger;
     }
 
-    public async Task<DevelopmentAuthReport> DiagnoseAsync(bool resetPerformed = false, int duplicatesHandled = 0, CancellationToken ct = default)
+    public async Task<DevelopmentAuthReport> DiagnoseAsync(
+        bool resetPerformed = false,
+        int duplicatesHandled = 0,
+        CancellationToken cancellationToken = default)
     {
         var target = SafeConnectionStringDiagnostics.Read(_configuration, _environment);
         try
@@ -55,10 +58,10 @@ public sealed class DevelopmentAuthDiagnosticService
 from sigov.usuario u left join sigov.tenant t on t.id=u.tenant_id
 where lower(u.login)='admin' or lower(u.email)='admin@sigov.local'
 order by u.is_deleted, u.ativo desc, u.bloqueado, u.id;";
-            var rows = (await connection.QueryAsync<AdminRow>(new CommandDefinition(sql, cancellationToken: ct))).ToArray();
+            var rows = (await connection.QueryAsync<AdminRow>(new CommandDefinition(sql, cancellationToken: cancellationToken))).ToArray();
             var row = rows.FirstOrDefault();
-            var repositoryUser = await _authentication.FindForLoginAsync("admin", ct);
-            var access = repositoryUser is null ? new AuthenticationAccess(Array.Empty<string>(), Array.Empty<string>()) : await _authentication.GetAccessAsync(repositoryUser.Id, ct);
+            var repositoryUser = await _authentication.FindForLoginAsync("admin", cancellationToken);
+            var access = repositoryUser is null ? new AuthenticationAccess(Array.Empty<string>(), Array.Empty<string>()) : await _authentication.GetAccessAsync(repositoryUser.Id, cancellationToken);
             var validFormat = IsValidHash(row?.PasswordHash);
             var matches = validFormat && _passwords.VerifyPassword(AdminPassword, row!.PasswordHash);
             var reason = Reason(rows.Length, row, repositoryUser, validFormat, matches, access);
@@ -69,7 +72,7 @@ order by u.is_deleted, u.ativo desc, u.bloqueado, u.id;";
                 row?.Id, duplicatesHandled, matches, access.Roles.Count, access.Permissions.Count, row?.HasGroup == true,
                 row?.HasProfile == true, row?.HasEntity == true, row?.HasExercise == true, reason, resetPerformed,
                 reason == "OK" ? "OK (cookie não criado pelo teste)" : reason, admin);
-            await WriteReportAsync(report, ct);
+            await WriteReportAsync(report, cancellationToken);
             return report;
         }
         catch (Exception ex)
@@ -77,7 +80,7 @@ order by u.is_deleted, u.ativo desc, u.bloqueado, u.id;";
             _logger.LogError(ex, "Falha no diagnóstico interno de autenticação. CorrelationId={CorrelationId}", System.Diagnostics.Activity.Current?.Id);
             var report = new DevelopmentAuthReport(DateTimeOffset.UtcNow, _environment.EnvironmentName, target, 0, null, 0,
                 false, 0, 0, false, false, false, false, "DATABASE_ERROR", resetPerformed, "DATABASE_ERROR", Error: "Consulte o log pelo CorrelationId.");
-            await WriteReportAsync(report, ct);
+            await WriteReportAsync(report, cancellationToken);
             return report;
         }
     }
