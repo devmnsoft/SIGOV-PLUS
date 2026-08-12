@@ -143,6 +143,7 @@ if (app.Environment.IsDevelopment())
 {
     var databaseTarget = SafeConnectionStringDiagnostics.ValidateDevelopmentTarget(app.Configuration, app.Environment, "Web");
     SafeConnectionStringDiagnostics.LogTarget(app.Logger, databaseTarget, "sigov.web");
+    await app.Services.GetRequiredService<SigovDevelopmentSchemaGuard>().ValidateAsync().ConfigureAwait(false);
 }
 app.UseForwardedHeaders();
 

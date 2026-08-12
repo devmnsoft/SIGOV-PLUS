@@ -140,7 +140,13 @@ $new = $sb.ToString().Replace("`r`n", "`n")
 $devNew = $null
 if ($IncludeDevelopmentSeed) {
     $seedText = Get-NormalizedText $developmentSeed
-    $devNew = $new + "`n-- DEVELOPMENT ONLY: acesso administrativo local`n" + $seedText.Trim() + "`n"
+    $developmentPrelude = @"
+-- DEVELOPMENT ONLY: acesso administrativo local
+create schema if not exists sigov;
+set search_path to sigov, public;
+set sigov.environment = 'DEVELOPMENT';
+"@
+    $devNew = $new + "`n" + $developmentPrelude.Trim() + "`n" + $seedText.Trim() + "`n"
 }
 if ($Verify) {
     if (-not (Test-Path $out)) { throw 'database/postgres/script_completo.sql não existe. Execute o gerador sem -Verify.' }

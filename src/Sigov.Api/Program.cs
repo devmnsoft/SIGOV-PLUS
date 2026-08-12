@@ -86,6 +86,7 @@ if (app.Environment.IsDevelopment())
 {
     var databaseTarget = SafeConnectionStringDiagnostics.ValidateDevelopmentTarget(app.Configuration, app.Environment, "Api");
     SafeConnectionStringDiagnostics.LogTarget(app.Logger, databaseTarget, "sigov.api");
+    await app.Services.GetRequiredService<SigovDevelopmentSchemaGuard>().ValidateAsync().ConfigureAwait(false);
 }
 
 app.UseMiddleware<CorrelationIdMiddleware>();

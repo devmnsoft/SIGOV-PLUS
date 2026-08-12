@@ -3,9 +3,10 @@ param(
     [string]$HostName = 'localhost',
     [int]$Port = 5432,
     [string]$PostgresPassword = $(if ($env:PGPASSWORD) { $env:PGPASSWORD } else { '123456' }),
-    [string]$Database = 'sigov',
-    [string]$DatabaseUser = 'sigov',
-    [string]$DatabasePassword = $env:SIGOV_DB_PASSWORD,
+    [string]$Database = 'postgres',
+    [string]$Schema = 'sigov',
+    [string]$DatabaseUser = 'postgres',
+    [string]$DatabasePassword = $(if ($env:SIGOV_DB_PASSWORD) { $env:SIGOV_DB_PASSWORD } else { '123456' }),
     [switch]$SkipBuild,
     [switch]$Start
 )
