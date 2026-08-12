@@ -24,7 +24,12 @@ public sealed class SaneamentoController : Controller
     public IActionResult Ligacoes(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Ligacoes", q));
     public IActionResult UnidadesConsumidoras() => View(new UnidadeConsumidoraFormViewModel());
     public IActionResult UnidadeConsumidoraDetalhe(long id) { ViewData["UnidadeConsumidoraId"] = id; return View(); }
+    [HttpGet("/Saneamento/Hidrometros")]
     public IActionResult Hidrometros() => View(new HidrometroFormViewModel());
+    [HttpGet("/Saneamento/Hidrometros/Novo")]
+    public IActionResult HidrometroNovo() => View("Hidrometros", new HidrometroFormViewModel());
+    [HttpGet("/Saneamento/Hidrometros/{id:long}")]
+    public IActionResult HidrometroDetalhe(long id) { ViewData["HidrometroId"] = id; return View("Hidrometros", new HidrometroFormViewModel()); }
     [Route("/Saneamento/Leituras")]
     public IActionResult Leituras(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Leituras", q));
     [Route("/Saneamento/Faturas")]

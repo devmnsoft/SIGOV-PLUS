@@ -51,7 +51,8 @@ public sealed class TributarioController : Controller
     public IActionResult DamBoletos() => View();
     public IActionResult PixPagamentos() => View();
     public IActionResult Certidoes() => View(new CertidaoFormViewModel());
-    public async Task<IActionResult> DividaAtiva(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "DividaAtiva", null, cancellationToken));
+    [HttpGet("/Tributario/DividaAtiva")]
+    public IActionResult DividaAtiva() => View(new DividaAtivaFormViewModel());
     public IActionResult Carnes() => View(new CarneFormViewModel());
     public IActionResult CarneDetalhe(long id) => View(id);
 

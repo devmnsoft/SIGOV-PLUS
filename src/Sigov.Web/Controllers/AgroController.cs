@@ -15,12 +15,15 @@ public sealed class AgroController : Controller
     public IActionResult Culturas() => View();
     public IActionResult Safras() => View();
     public IActionResult Producao() => View();
+    [HttpGet("/Agro/Programas")]
     public IActionResult Programas() => View();
     public IActionResult Beneficios() => View();
     public IActionResult ConcessoesBeneficios() => View();
     public IActionResult Insumos() => View();
     public IActionResult DistribuicaoInsumos() => View();
     public IActionResult PatrulhaMecanizada() => View();
+    [HttpGet("/Agro/Patrulha")]
+    public IActionResult Patrulha() => View("PatrulhaMecanizada");
     public IActionResult Maquinas() => View();
     public IActionResult MaquinaDetalhe(long id) { ViewData["MaquinaId"] = id; return View(); }
     public IActionResult Implementos() => View();
