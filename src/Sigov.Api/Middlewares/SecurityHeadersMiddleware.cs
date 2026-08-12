@@ -16,7 +16,12 @@ public sealed class SecurityHeadersMiddleware
         context.Response.Headers["X-Content-Type-Options"] = "nosniff";
         context.Response.Headers["X-Frame-Options"] = "DENY";
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
-        context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
+        // Swagger UI uses an inline bootstrap script and inline styles in its generated
+        // index. Keep the strict policy for the API and relax only those two directives
+        // for Swagger; otherwise the browser renders a blank page while swagger.json is healthy.
+        context.Response.Headers["Content-Security-Policy"] = context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase)
+            ? "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+            : "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'";
         context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
 
         if (_environment.IsProduction() && context.Request.IsHttps)

@@ -84,7 +84,7 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    var databaseTarget = SafeConnectionStringDiagnostics.Read(app.Configuration, app.Environment);
+    var databaseTarget = SafeConnectionStringDiagnostics.ValidateDevelopmentTarget(app.Configuration, app.Environment, "Api");
     SafeConnectionStringDiagnostics.LogTarget(app.Logger, databaseTarget, "sigov.api");
 }
 
