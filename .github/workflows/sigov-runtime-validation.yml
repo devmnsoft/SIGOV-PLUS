@@ -1,0 +1,122 @@
+name: SIGOV runtime validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main, work]
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: ci-postgres-local-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      PGPASSWORD: ci-postgres-local-only
+      SIGOV_DB_PASSWORD: ci-sigov-local-A9!
+      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-local-A9!
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=ci-sigov-local-A9!
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET from global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Verify PowerShell, psql and prerequisites
+        shell: bash
+        run: |
+          pwsh -NoLogo -Command '$PSVersionTable.PSVersion'
+          psql --version
+          touch .env.local
+          # PostgreSQL is intentionally listening as a job service, therefore
+          # PORT_IN_USE:5432 is the single accepted diagnostic in CI.
+          set +e
+          prereq_output="$(pwsh -NoLogo -File ./scripts/check-prerequisites.ps1 2>&1)"; prereq_status=$?
+          set -e
+          printf '%s\n' "$prereq_output"
+          test "$prereq_status" -eq 1
+          printf '%s\n' "$prereq_output" | grep -q 'port:5432.*PORT_IN_USE'
+          ! printf '%s\n' "$prereq_output" | grep -E 'MISSING_TOOL|INVALID_VERSION|MISSING_ENV'
+
+      - name: Restore, build and test
+        shell: bash
+        run: |
+          dotnet restore sigov.sln --locked-mode
+          dotnet build sigov.sln --configuration Release --no-restore --nologo -warnaserror
+          dotnet test sigov.sln --configuration Release --no-build --nologo
+
+      - name: Generate structural and Development scripts
+        shell: pwsh
+        run: |
+          ./scripts/generate-script-completop.ps1
+          Copy-Item database/postgres/script_completo.sql "$env:RUNNER_TEMP/script_completo.sql"
+          ./scripts/generate-script-completop.ps1 -IncludeDevelopmentSeed
+          Copy-Item database/postgres/script_completo_dev.sql "$env:RUNNER_TEMP/script_completo_dev.sql"
+
+      - name: Execute generated scripts on clean databases
+        shell: bash
+        run: |
+          createdb -h localhost -U postgres sigov_structural
+          psql -X -h localhost -U postgres -d sigov_structural -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/script_completo.sql"
+          createdb -h localhost -U postgres sigov_development
+          psql -X -h localhost -U postgres -d sigov_development -v ON_ERROR_STOP=1 -c "set sigov.environment = 'DEVELOPMENT'" -f "$RUNNER_TEMP/script_completo_dev.sql"
+
+      - name: Provision canonical Development database
+        shell: pwsh
+        run: ./scripts/setup-dev.ps1 -PostgresPassword $env:PGPASSWORD -SkipBuild
+
+      - name: Verify local admin and superadmin
+        shell: pwsh
+        run: |
+          ./scripts/check-local-login.ps1 -Login admin -Password 'SigovDevLocal!2026'
+          ./scripts/check-local-login.ps1 -Login superadmin -Password 'SigovSuperAdmin!2026'
+
+      - name: Startup smoke API and Web
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/sigov-logs"
+          dotnet run --no-build -c Release --project src/Sigov.Api --urls https://localhost:7001 >"$RUNNER_TEMP/sigov-logs/api.log" 2>&1 & echo $! > "$RUNNER_TEMP/api.pid"
+          dotnet run --no-build -c Release --project src/Sigov.Web --urls https://localhost:7000 >"$RUNNER_TEMP/sigov-logs/web.log" 2>&1 & echo $! > "$RUNNER_TEMP/web.pid"
+          for attempt in {1..30}; do curl --fail --silent --insecure https://localhost:7001/swagger/index.html >/dev/null && break; sleep 2; done
+          curl --fail --silent --insecure https://localhost:7001/swagger/index.html >/dev/null
+          curl --fail --silent --insecure https://localhost:7000/Auth/Login >/dev/null
+          curl --fail --silent --insecure https://localhost:7000/Dev/Auth >/dev/null
+
+      - name: Ensure logs do not disclose CI secrets
+        if: always()
+        shell: bash
+        run: |
+          ! rg -F "$PGPASSWORD" "$RUNNER_TEMP/sigov-logs" || exit 1
+          ! rg -F "$SIGOV_DB_PASSWORD" "$RUNNER_TEMP/sigov-logs" || exit 1
+          ! rg -F "$SIGOV_BOOTSTRAP_ADMIN_PASSWORD" "$RUNNER_TEMP/sigov-logs" || exit 1
+
+      - name: Stop smoke processes
+        if: always()
+        shell: bash
+        run: |
+          test ! -f "$RUNNER_TEMP/api.pid" || kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true
+          test ! -f "$RUNNER_TEMP/web.pid" || kill "$(cat "$RUNNER_TEMP/web.pid")" 2>/dev/null || true
+
+      - name: Upload smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigov-runtime-logs
+          path: ${{ runner.temp }}/sigov-logs/*.log
