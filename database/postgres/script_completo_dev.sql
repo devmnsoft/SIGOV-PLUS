@@ -11532,6 +11532,9 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
 
 -- DEVELOPMENT ONLY: acesso administrativo local
+create schema if not exists sigov;
+set search_path to sigov, public;
+set sigov.environment = 'DEVELOPMENT';
 -- SIGOV+ RC50.10 - guarda canônica de acesso administrativo local.
 -- EXCLUSIVO PARA DEVELOPMENT. Idempotente, sem senha em texto puro e sem remoção física.
 do $guard$

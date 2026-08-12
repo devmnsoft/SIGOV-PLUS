@@ -4,8 +4,9 @@ param(
     [string]$Password = 'SigovDevLocal!2026',
     [string]$HostName = 'localhost',
     [int]$Port = 5432,
-    [string]$Database = 'sigov',
-    [string]$User = 'sigov',
+    [string]$Database = 'postgres',
+    [string]$Schema = 'sigov',
+    [string]$User = 'postgres',
     [string]$PsqlPath = 'psql'
 )
 
@@ -42,10 +43,10 @@ function Test-SigovPasswordHashFormat {
     catch { return $false }
 }
 
-if ([string]::IsNullOrWhiteSpace($env:SIGOV_DB_PASSWORD)) { throw 'Defina SIGOV_DB_PASSWORD para consultar o banco local.' }
+$databasePassword = if ($env:SIGOV_DB_PASSWORD) { $env:SIGOV_DB_PASSWORD } else { '123456' }
 $previousPassword = $env:PGPASSWORD
 try {
-    $env:PGPASSWORD = $env:SIGOV_DB_PASSWORD
+    $env:PGPASSWORD = $databasePassword
     $escaped = $Login.Replace("'", "''")
     $sql = @"
 select coalesce(json_agg(row_to_json(q)), '[]'::json)::text from (

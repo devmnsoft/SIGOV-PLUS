@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Security;
 using Sigov.Infrastructure.Common;
+using Sigov.Infrastructure.Diagnostics;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Infrastructure.Persistence.Migrations;
 using Sigov.Infrastructure.Persistence.Repositories;
@@ -94,6 +95,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddSingleton<NpgsqlConnectionFactory>();
+        services.AddSingleton<SigovDevelopmentSchemaGuard>();
         services.AddScoped<DapperContext>();
         services.AddScoped<IWhiteLabelB2BLaunchService, WhiteLabelB2BLaunchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

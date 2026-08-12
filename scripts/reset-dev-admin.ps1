@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$HostName = 'localhost', [int]$Port = 5432, [string]$Database = 'sigov',
-    [string]$User = 'sigov', [string]$PostgresUser = 'postgres',
+    [string]$HostName = 'localhost', [int]$Port = 5432, [string]$Database = 'postgres',
+    [string]$Schema = 'sigov',
+    [string]$User = 'postgres', [string]$PostgresUser = 'postgres',
     [string]$PostgresPassword = $(if ($env:PGPASSWORD) { $env:PGPASSWORD } else { '123456' }),
     [string]$PsqlPath = 'psql'
 )
@@ -10,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 if ($env:ASPNETCORE_ENVIRONMENT -and $env:ASPNETCORE_ENVIRONMENT -ne 'Development') {
     throw 'reset-dev-admin.ps1 é bloqueado fora de Development.'
 }
-if ([string]::IsNullOrWhiteSpace($env:SIGOV_DB_PASSWORD)) { throw 'Defina SIGOV_DB_PASSWORD com a senha do usuário de banco local.' }
+if ([string]::IsNullOrWhiteSpace($env:SIGOV_DB_PASSWORD)) { $env:SIGOV_DB_PASSWORD = '123456' }
 
 $previousPassword = $env:PGPASSWORD
 try {
