@@ -224,11 +224,6 @@ public sealed class EnterpriseModulesController : ControllerBase
     [HttpGet("api/compras/pedidos")]
     [HttpGet("api/comercial/tabelas-preco")]
     [HttpGet("api/comercial/comissoes")]
-    [HttpGet("api/comercio/clientes")]
-    [HttpGet("api/comercio/produtos")]
-    [HttpGet("api/comercio/orcamentos")]
-    [HttpGet("api/comercio/pedidos")]
-    [HttpGet("api/comercio/tabelas-preco")]
     public ActionResult<ApiResponse<IReadOnlyList<EnterpriseListItem>>> List()
     {
         try
@@ -272,16 +267,6 @@ public sealed class EnterpriseModulesController : ControllerBase
     [HttpPut("api/comercial/tabelas-preco")]
     [HttpPost("api/comercial/comissoes")]
     [HttpPut("api/comercial/comissoes")]
-    [HttpPost("api/comercio/clientes")]
-    [HttpPut("api/comercio/clientes")]
-    [HttpPost("api/comercio/produtos")]
-    [HttpPut("api/comercio/produtos")]
-    [HttpPost("api/comercio/orcamentos")]
-    [HttpPut("api/comercio/orcamentos")]
-    [HttpPost("api/comercio/pedidos")]
-    [HttpPut("api/comercio/pedidos")]
-    [HttpPost("api/comercio/tabelas-preco")]
-    [HttpPut("api/comercio/tabelas-preco")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> Upsert([FromBody] EnterpriseMutationRequest request)
     {
         try
@@ -386,10 +371,6 @@ public sealed class EnterpriseModulesController : ControllerBase
     [HttpGet("api/estoque/produtos/export-csv")]
     [HttpGet("api/compras/fornecedores/export-csv")]
     [HttpGet("api/industrial/ativos/export-csv")]
-    [HttpGet("api/comercio/clientes/export-csv")]
-    [HttpGet("api/comercio/produtos/export-csv")]
-    [HttpGet("api/comercio/orcamentos/export-csv")]
-    [HttpGet("api/comercio/pedidos/export-csv")]
     public IActionResult ExportCsv()
     {
         var rows = _service.List(Area().Replace("/export-csv", string.Empty, StringComparison.OrdinalIgnoreCase), ResolveTenantId());
