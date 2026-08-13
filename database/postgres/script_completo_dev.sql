@@ -11544,6 +11544,7 @@ declare
     v_login text;
     v_email text;
     v_nome text;
+    v_documento text;
     v_hash text;
     v_user_id bigint;
     v_pessoa_id bigint;
@@ -11603,11 +11604,19 @@ begin
 
     foreach v_login in array array['admin','superadmin'] loop
         if v_login='admin' then
-            v_email := 'admin@sigov.local'; v_nome := 'Administrador Geral';
+            v_email := 'admin@sigov.local';
+            v_nome := 'Administrador Geral';
+            v_documento := '00000000000001';
             v_hash := 'SIGOV_PBKDF2_V1$210000$U0lHT1ZfREVWX1NBTFQhIQ==$kKnj2QPLDyk92OudwUguJk6BJV8qHTDJTvWv+v9JLxQ=';
         else
-            v_email := 'superadmin@sigov.local'; v_nome := 'Super Administrador';
+            v_email := 'superadmin@sigov.local';
+            v_nome := 'Super Administrador';
+            v_documento := '00000000000002';
             v_hash := 'SIGOV_PBKDF2_V1$210000$U0lHT1ZfU1VQRVJfU0FMVA==$55mXRMqQ4e9CW6f4f2qCvH/Ony2irtPRb4S7SjfeqFI=';
+        end if;
+
+        if length(v_documento) > 20 then
+            raise exception 'Documento Development do usuário % excede 20 caracteres', v_login;
         end if;
 
         select id into v_user_id from sigov.usuario
@@ -11620,13 +11629,13 @@ begin
         where id is distinct from v_user_id and (lower(login)=v_login or lower(email)=v_email);
 
         select id into v_pessoa_id from sigov.pessoa
-        where tenant_id=v_tenant_id and documento=v_email order by is_deleted,ativo desc,id desc limit 1;
+        where tenant_id=v_tenant_id and documento=v_documento order by is_deleted,ativo desc,id desc limit 1;
         if v_pessoa_id is null then
             insert into sigov.pessoa(tenant_id,entidade_id,exercicio_id,tipo_pessoa,nome,documento,ativo,is_deleted)
-            values(v_tenant_id,v_entidade_id,v_exercicio_id,'F',v_nome,v_email,true,false) returning id into v_pessoa_id;
+            values(v_tenant_id,v_entidade_id,v_exercicio_id,'F',v_nome,v_documento,true,false) returning id into v_pessoa_id;
         else
             update sigov.pessoa set entidade_id=v_entidade_id,exercicio_id=v_exercicio_id,nome=v_nome,
-                ativo=true,is_deleted=false,updated_at=now() where id=v_pessoa_id;
+                documento=v_documento,ativo=true,is_deleted=false,updated_at=now() where id=v_pessoa_id;
         end if;
 
         if v_user_id is null then
