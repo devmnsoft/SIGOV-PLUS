@@ -12,7 +12,7 @@ import sys
 root = pathlib.Path(sys.argv[1])
 routes = {}
 
-for source in sorted(root.glob("*.cs")):
+for source in sorted(root.rglob("*.cs")):
     controller_route = ""
     pending_route = None
     pending_http = []
