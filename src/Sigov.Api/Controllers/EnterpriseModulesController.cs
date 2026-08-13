@@ -186,14 +186,14 @@ public sealed class EnterpriseModulesController : ControllerBase
 
 
 
-    [HttpGet("api/{segment}/{area}/export-csv")]
+    [HttpGet("api/enterprise-legacy/{segment}/{area}/export-csv")]
     public async Task<IActionResult> LegacyExport(string segment, string area, CancellationToken cancellationToken)
     {
         var csv = await _crud.ExportCsvAsync($"{segment}/{area}", ResolveTenantId(), cancellationToken);
         return File(csv, "text/csv", $"enterprise-{segment}-{area}-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.csv");
     }
 
-    [HttpPut("api/{segment}/{area}/{id:guid}")]
+    [HttpPut("api/enterprise-legacy/{segment}/{area}/{id:guid}")]
     public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> LegacyUpdate(string segment, string area, Guid id, [FromBody] EnterpriseMutationRequest request, CancellationToken cancellationToken)
     {
         if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
@@ -201,7 +201,7 @@ public sealed class EnterpriseModulesController : ControllerBase
         return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
-    [HttpDelete("api/{segment}/{area}/{id:guid}")]
+    [HttpDelete("api/enterprise-legacy/{segment}/{area}/{id:guid}")]
     public async Task<ActionResult<ApiResponse<EnterpriseActionResult>>> LegacyDelete(string segment, string area, Guid id, CancellationToken cancellationToken)
     {
         if (_crud is null) return NotFound(ApiResponse<EnterpriseActionResult>.Fail("CRUD Enterprise indisponível.", CorrelationId()));
@@ -209,21 +209,21 @@ public sealed class EnterpriseModulesController : ControllerBase
         return result.Status == "NOT_FOUND" ? NotFound(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
-    [HttpGet("api/comercial/clientes")]
-    [HttpGet("api/comercial/leads")]
-    [HttpGet("api/comercial/oportunidades")]
-    [HttpGet("api/comercial/propostas")]
-    [HttpGet("api/comercial/pedidos")]
-    [HttpGet("api/industrial/ativos")]
-    [HttpGet("api/industrial/planos-manutencao")]
-    [HttpGet("api/industrial/medidores")]
-    [HttpGet("api/industrial/paradas")]
-    [HttpGet("api/estoque/produtos")]
-    [HttpGet("api/estoque/almoxarifados")]
-    [HttpGet("api/compras/fornecedores")]
-    [HttpGet("api/compras/pedidos")]
-    [HttpGet("api/comercial/tabelas-preco")]
-    [HttpGet("api/comercial/comissoes")]
+    [HttpGet("api/enterprise-legacy/comercial/clientes")]
+    [HttpGet("api/enterprise-legacy/comercial/leads")]
+    [HttpGet("api/enterprise-legacy/comercial/oportunidades")]
+    [HttpGet("api/enterprise-legacy/comercial/propostas")]
+    [HttpGet("api/enterprise-legacy/comercial/pedidos")]
+    [HttpGet("api/enterprise-legacy/industrial/ativos")]
+    [HttpGet("api/enterprise-legacy/industrial/planos-manutencao")]
+    [HttpGet("api/enterprise-legacy/industrial/medidores")]
+    [HttpGet("api/enterprise-legacy/industrial/paradas")]
+    [HttpGet("api/enterprise-legacy/estoque/produtos")]
+    [HttpGet("api/enterprise-legacy/estoque/almoxarifados")]
+    [HttpGet("api/enterprise-legacy/compras/fornecedores")]
+    [HttpGet("api/enterprise-legacy/compras/pedidos")]
+    [HttpGet("api/enterprise-legacy/comercial/tabelas-preco")]
+    [HttpGet("api/enterprise-legacy/comercial/comissoes")]
     public ActionResult<ApiResponse<IReadOnlyList<EnterpriseListItem>>> List()
     {
         try
@@ -238,35 +238,35 @@ public sealed class EnterpriseModulesController : ControllerBase
         }
     }
 
-    [HttpPost("api/comercial/clientes")]
-    [HttpPut("api/comercial/clientes")]
-    [HttpPost("api/comercial/leads")]
-    [HttpPut("api/comercial/leads")]
-    [HttpPost("api/comercial/oportunidades")]
-    [HttpPut("api/comercial/oportunidades")]
-    [HttpPost("api/comercial/propostas")]
-    [HttpPut("api/comercial/propostas")]
-    [HttpPost("api/comercial/pedidos")]
-    [HttpPut("api/comercial/pedidos")]
-    [HttpPost("api/industrial/ativos")]
-    [HttpPut("api/industrial/ativos")]
-    [HttpPost("api/industrial/planos-manutencao")]
-    [HttpPut("api/industrial/planos-manutencao")]
-    [HttpPost("api/industrial/medidores")]
-    [HttpPost("api/industrial/paradas")]
-    [HttpPost("api/estoque/produtos")]
-    [HttpPut("api/estoque/produtos")]
-    [HttpPost("api/estoque/almoxarifados")]
-    [HttpPut("api/estoque/almoxarifados")]
-    [HttpPost("api/estoque/requisicoes")]
-    [HttpPost("api/compras/fornecedores")]
-    [HttpPut("api/compras/fornecedores")]
-    [HttpPost("api/compras/pedidos")]
-    [HttpPut("api/compras/pedidos")]
-    [HttpPost("api/comercial/tabelas-preco")]
-    [HttpPut("api/comercial/tabelas-preco")]
-    [HttpPost("api/comercial/comissoes")]
-    [HttpPut("api/comercial/comissoes")]
+    [HttpPost("api/enterprise-legacy/comercial/clientes")]
+    [HttpPut("api/enterprise-legacy/comercial/clientes")]
+    [HttpPost("api/enterprise-legacy/comercial/leads")]
+    [HttpPut("api/enterprise-legacy/comercial/leads")]
+    [HttpPost("api/enterprise-legacy/comercial/oportunidades")]
+    [HttpPut("api/enterprise-legacy/comercial/oportunidades")]
+    [HttpPost("api/enterprise-legacy/comercial/propostas")]
+    [HttpPut("api/enterprise-legacy/comercial/propostas")]
+    [HttpPost("api/enterprise-legacy/comercial/pedidos")]
+    [HttpPut("api/enterprise-legacy/comercial/pedidos")]
+    [HttpPost("api/enterprise-legacy/industrial/ativos")]
+    [HttpPut("api/enterprise-legacy/industrial/ativos")]
+    [HttpPost("api/enterprise-legacy/industrial/planos-manutencao")]
+    [HttpPut("api/enterprise-legacy/industrial/planos-manutencao")]
+    [HttpPost("api/enterprise-legacy/industrial/medidores")]
+    [HttpPost("api/enterprise-legacy/industrial/paradas")]
+    [HttpPost("api/enterprise-legacy/estoque/produtos")]
+    [HttpPut("api/enterprise-legacy/estoque/produtos")]
+    [HttpPost("api/enterprise-legacy/estoque/almoxarifados")]
+    [HttpPut("api/enterprise-legacy/estoque/almoxarifados")]
+    [HttpPost("api/enterprise-legacy/estoque/requisicoes")]
+    [HttpPost("api/enterprise-legacy/compras/fornecedores")]
+    [HttpPut("api/enterprise-legacy/compras/fornecedores")]
+    [HttpPost("api/enterprise-legacy/compras/pedidos")]
+    [HttpPut("api/enterprise-legacy/compras/pedidos")]
+    [HttpPost("api/enterprise-legacy/comercial/tabelas-preco")]
+    [HttpPut("api/enterprise-legacy/comercial/tabelas-preco")]
+    [HttpPost("api/enterprise-legacy/comercial/comissoes")]
+    [HttpPut("api/enterprise-legacy/comercial/comissoes")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> Upsert([FromBody] EnterpriseMutationRequest request)
     {
         try
@@ -285,22 +285,22 @@ public sealed class EnterpriseModulesController : ControllerBase
         }
     }
 
-    [HttpPost("api/comercial/propostas/{id:guid}/aprovar")]
+    [HttpPost("api/enterprise-legacy/comercial/propostas/{id:guid}/aprovar")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> ApproveProposal(Guid id) => Execute(id, _service.ApproveProposal);
 
-    [HttpPost("api/comercial/propostas/{id:guid}/reprovar")]
+    [HttpPost("api/enterprise-legacy/comercial/propostas/{id:guid}/reprovar")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> RejectProposal(Guid id) => Execute(id, _service.RejectProposal);
 
-    [HttpPost("api/comercial/propostas/{id:guid}/gerar-pedido")]
+    [HttpPost("api/enterprise-legacy/comercial/propostas/{id:guid}/gerar-pedido")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> GenerateOrder(Guid id) => Execute(id, _service.GenerateOrderFromProposal);
 
-    [HttpPost("api/comercial/pedidos/{id:guid}/confirmar")]
+    [HttpPost("api/enterprise-legacy/comercial/pedidos/{id:guid}/confirmar")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> ConfirmOrder(Guid id) => Execute(id, _service.ConfirmCommercialOrder);
 
-    [HttpPost("api/comercial/pedidos/{id:guid}/cancelar")]
+    [HttpPost("api/enterprise-legacy/comercial/pedidos/{id:guid}/cancelar")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> CancelOrder(Guid id) => Execute(id, _service.CancelCommercialOrder);
 
-    [HttpPost("api/comercial/pedidos/{id:guid}/gerar-os")]
+    [HttpPost("api/enterprise-legacy/comercial/pedidos/{id:guid}/gerar-os")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> GenerateServiceOrder(Guid id) => Execute(id, _service.GenerateServiceOrderFromOrder);
 
     [HttpGet("api/os/ordens")]
@@ -339,38 +339,38 @@ public sealed class EnterpriseModulesController : ControllerBase
         return result.Status == "SALDO_INSUFICIENTE" ? Conflict(ApiResponse<EnterpriseActionResult>.Fail(result.Message, CorrelationId())) : Ok(ApiResponse<EnterpriseActionResult>.Ok(result, correlationId: CorrelationId()));
     }
 
-    [HttpPost("api/industrial/planos-manutencao/{id:guid}/gerar-os")]
+    [HttpPost("api/enterprise-legacy/industrial/planos-manutencao/{id:guid}/gerar-os")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> GeneratePreventive(Guid id) => Execute(id, _service.GeneratePreventiveServiceOrder);
 
-    [HttpPost("api/industrial/medidores/{id:guid}/leituras")]
+    [HttpPost("api/enterprise-legacy/industrial/medidores/{id:guid}/leituras")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> AddReading(Guid id, [FromBody] EnterpriseMutationRequest request) => Ok(ApiResponse<EnterpriseActionResult>.Ok(_service.AddMeterReading(id, ResolveTenantId(), request.Valor.GetValueOrDefault(), CorrelationId()), correlationId: CorrelationId()));
 
-    [HttpGet("api/estoque/saldos")]
+    [HttpGet("api/enterprise-legacy/estoque/saldos")]
     public ActionResult<ApiResponse<IReadOnlyList<EstoqueSaldo>>> Stock() => Ok(ApiResponse<IReadOnlyList<EstoqueSaldo>>.Ok(_service.GetStock(ResolveTenantId()), correlationId: CorrelationId()));
 
-    [HttpPost("api/estoque/movimentos/entrada")]
+    [HttpPost("api/enterprise-legacy/estoque/movimentos/entrada")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> StockIn([FromBody] EnterpriseMutationRequest request) => StockMove(request, "ENTRADA");
 
-    [HttpPost("api/estoque/movimentos/saida")]
+    [HttpPost("api/enterprise-legacy/estoque/movimentos/saida")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> StockOut([FromBody] EnterpriseMutationRequest request) => StockMove(request, "SAIDA");
 
-    [HttpPost("api/estoque/movimentos/ajuste")]
+    [HttpPost("api/enterprise-legacy/estoque/movimentos/ajuste")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> StockAdjust([FromBody] EnterpriseMutationRequest request) => StockMove(request, "AJUSTE");
 
-    [HttpPost("api/estoque/requisicoes/{id:guid}/aprovar")]
+    [HttpPost("api/enterprise-legacy/estoque/requisicoes/{id:guid}/aprovar")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> ApproveRequisition(Guid id) => Execute(id, (itemId, tenantId, correlationId) => new EnterpriseActionResult(itemId, tenantId, "APROVADA", $"Requisição aprovada. CorrelationId={correlationId}"));
 
-    [HttpPost("api/estoque/requisicoes/{id:guid}/baixar")]
+    [HttpPost("api/enterprise-legacy/estoque/requisicoes/{id:guid}/baixar")]
     public ActionResult<ApiResponse<EnterpriseActionResult>> CloseRequisition(Guid id) => Execute(id, (itemId, tenantId, correlationId) => new EnterpriseActionResult(itemId, tenantId, "BAIXADA", $"Requisição baixada. CorrelationId={correlationId}"));
 
 
-    [HttpGet("api/comercial/clientes/export-csv")]
-    [HttpGet("api/comercial/propostas/export-csv")]
-    [HttpGet("api/comercial/pedidos/export-csv")]
+    [HttpGet("api/enterprise-legacy/comercial/clientes/export-csv")]
+    [HttpGet("api/enterprise-legacy/comercial/propostas/export-csv")]
+    [HttpGet("api/enterprise-legacy/comercial/pedidos/export-csv")]
     [HttpGet("api/os/ordens/export-csv")]
-    [HttpGet("api/estoque/produtos/export-csv")]
-    [HttpGet("api/compras/fornecedores/export-csv")]
-    [HttpGet("api/industrial/ativos/export-csv")]
+    [HttpGet("api/enterprise-legacy/estoque/produtos/export-csv")]
+    [HttpGet("api/enterprise-legacy/compras/fornecedores/export-csv")]
+    [HttpGet("api/enterprise-legacy/industrial/ativos/export-csv")]
     public IActionResult ExportCsv()
     {
         var rows = _service.List(Area().Replace("/export-csv", string.Empty, StringComparison.OrdinalIgnoreCase), ResolveTenantId());
