@@ -31,18 +31,16 @@ public static class SafeConnectionStringDiagnostics
         if (!environment.IsDevelopment()) return target;
 
         var expectedApplicationName = $"sigov.{applicationName.ToLowerInvariant()}";
-        var invalidDatabase = string.Equals(target.Database, "postgres", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(target.Database, "postgres", StringComparison.OrdinalIgnoreCase);
-        var invalidApplication = !string.Equals(target.ApplicationName, expectedApplicationName, StringComparison.OrdinalIgnoreCase);
-        if (invalidDatabase || invalidApplication)
-        {
-            var detail = invalidDatabase
-                ? $"Database={target.Database}"
-                : $"ApplicationName={target.ApplicationName ?? "<não configurado>"}";
-            throw new InvalidOperationException(
-                $"Configuração inválida: Sigov.{applicationName} está apontando para {detail}. " +
-                $"Use Database=sigov e Application Name={expectedApplicationName} em appsettings.Development.json.");
-        }
+        if (string.IsNullOrWhiteSpace(target.Host))
+            throw new InvalidOperationException("Configuração inválida: Host não está definido.");
+        if (string.IsNullOrWhiteSpace(target.Database))
+            throw new InvalidOperationException("Configuração inválida: Database não está definido.");
+        if (string.IsNullOrWhiteSpace(target.Username))
+            throw new InvalidOperationException("Configuração inválida: Username não está definido.");
+        if (!ContainsSchema(target.SearchPath, "sigov"))
+            throw new InvalidOperationException("Configuração inválida: o schema sigov não está definido no Search Path. Use Search Path=sigov.");
+        if (!string.Equals(target.ApplicationName, expectedApplicationName, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Configuração inválida: Application Name do Sigov.{applicationName} deve ser {expectedApplicationName}.");
 
         return target;
     }
@@ -53,7 +51,7 @@ public static class SafeConnectionStringDiagnostics
             ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection não configurada.");
         var connection = new NpgsqlConnectionStringBuilder(raw);
         var source = ResolveSource(configuration);
-        var host = string.IsNullOrWhiteSpace(connection.Host) ? "localhost" : connection.Host;
+        var host = connection.Host ?? string.Empty;
         var database = connection.Database ?? string.Empty;
         var username = connection.Username ?? string.Empty;
         var aspNetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? environment.EnvironmentName;
@@ -70,6 +68,11 @@ public static class SafeConnectionStringDiagnostics
             aspNetEnvironment,
             source);
     }
+
+    private static bool ContainsSchema(string? searchPath, string schema) =>
+        !string.IsNullOrWhiteSpace(searchPath) && searchPath.Split(',')
+            .Select(item => item.Trim().Trim('"'))
+            .Any(item => string.Equals(item, schema, StringComparison.OrdinalIgnoreCase));
 
     public static void LogTarget(ILogger logger, SafeDatabaseTarget target, string application)
     {
