@@ -1,42 +1,55 @@
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Educacao;
 using Sigov.Web.Models.Educacao;
-
-using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
 
+/// <summary>
+/// Entradas MVC do módulo Educação. As telas consomem exclusivamente os serviços/API
+/// persistentes de Educação; recursos ainda em implantação possuem views próprias e
+/// nunca recorrem ao catálogo demonstrativo operacional.
+/// </summary>
 public sealed class EducacaoController : Controller
 {
-    private readonly OperationalDemoService _operationalDemo;
-    private readonly ILogger<EducacaoController> _operationalLogger;
+    private readonly IAlunoService _alunos;
 
-    public EducacaoController(OperationalDemoService operationalDemo, ILogger<EducacaoController> operationalLogger)
-    {
-        _operationalDemo = operationalDemo;
-        _operationalLogger = operationalLogger;
-    }
+    public EducacaoController(IAlunoService alunos) => _alunos = alunos;
 
-    public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Dashboard"));
-    [Route("/Educacao/Escolas")]
-    public IActionResult Escolas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Escolas", q));
+    [HttpGet("/Educacao")]
+    [HttpGet("/Educacao/Dashboard")]
+    public IActionResult Dashboard() => View(new EducacaoDashboardViewModel());
+
+    [HttpGet("/Educacao/Escolas")]
+    public IActionResult Escolas() => View(new EscolaFormViewModel());
+
     public IActionResult EscolaDetalhe(long id) { ViewData["EscolaId"] = id; return View(new EscolaFormViewModel()); }
     public IActionResult AnosLetivos() => View(new AnoLetivoFormViewModel());
     public IActionResult Cursos() => View(new CursoFormViewModel());
     public IActionResult Series() => View(new SerieAnoFormViewModel());
-    [Route("/Educacao/Turmas")]
-    public IActionResult Turmas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Turmas", q));
+
+    [HttpGet("/Educacao/Turmas")]
+    public IActionResult Turmas() => View(new TurmaFormViewModel());
+
     public IActionResult TurmaDetalhe(long id) { ViewData["TurmaId"] = id; return View(); }
-    [Route("/Educacao/Alunos")]
-    public IActionResult Alunos(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Alunos", q));
+
+    [HttpGet("/Educacao/Alunos")]
+    public IActionResult Alunos() => View(new AlunoFormViewModel());
+
     public IActionResult AlunoCriar() => View(new AlunoFormViewModel());
     public IActionResult AlunoEditar(long id) { ViewData["AlunoId"] = id; return View(new AlunoFormViewModel()); }
     public IActionResult AlunoDetalhe(long id) { ViewData["AlunoId"] = id; return View(); }
-    [Route("/Educacao/Matriculas")]
-    public IActionResult Matriculas(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Matriculas", q));
+
+    [HttpGet("/Educacao/Matriculas")]
+    public IActionResult Matriculas() => View(new MatriculaFormViewModel());
+
     public IActionResult MatriculaDetalhe(long id) { ViewData["MatriculaId"] = id; return View(new MatriculaFormViewModel()); }
     public IActionResult Professores() => View(new ProfessorFormViewModel());
     public IActionResult ProfessorDetalhe(long id) { ViewData["ProfessorId"] = id; return View(new ProfessorFormViewModel()); }
+
+    [HttpGet("/Educacao/Frequencia")]
+    [HttpGet("/Educacao/Frequencias")]
     public IActionResult Frequencias() => View(new FrequenciaFormViewModel());
+
     public IActionResult Avaliacoes() => View(new AvaliacaoFormViewModel());
     public IActionResult Notas() => View(new NotaFormViewModel());
     public IActionResult PreMatriculas() => View(new PreMatriculaFormViewModel());
@@ -44,54 +57,49 @@ public sealed class EducacaoController : Controller
     public IActionResult Educacenso() => View();
     public IActionResult Portal() => View();
 
-
-    [Route("/Educacao")]
-    public IActionResult Index(string? q = null)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Dashboard", q));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Educacao/Index");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Em implantação"));
-        }
-    }
-
-    [Route("/Educacao/Frequencia")]
-    public IActionResult Frequencia(string? q = null)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Frequencia", q));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Educacao/Frequencia");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Em implantação"));
-        }
-    }
-
-    [Route("/Educacao/Alunos/Novo")]
+    [HttpGet("/Educacao/Alunos/Novo")]
     public IActionResult AlunoNovo() => View("AlunoCriar", new AlunoFormViewModel());
 
     [HttpPost("/Educacao/Alunos/Novo")]
     [ValidateAntiForgeryToken]
-    public IActionResult AlunoNovoPost(AlunoFormViewModel model)
+    public async Task<IActionResult> AlunoNovoPost(AlunoFormViewModel model, CancellationToken ct)
     {
-        TempData["Warning"] = "Cadastro real de aluno depende da tabela sigov.educacao_aluno; nenhum salvamento foi simulado.";
-        return RedirectToAction(nameof(Alunos));
+        if (!ModelState.IsValid) return View("AlunoCriar", model);
+
+        var result = await _alunos.CriarAsync(new AlunoCreateRequest(
+            model.PessoaId,
+            model.CodigoAluno,
+            model.Nis,
+            model.CartaoSus,
+            model.NecessidadeEspecial,
+            null,
+            model.Situacao), ct).ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, result.Error ?? "Não foi possível cadastrar o aluno.");
+            return View("AlunoCriar", model);
+        }
+
+        TempData["Success"] = "Aluno cadastrado com persistência e auditoria.";
+        return RedirectToAction(nameof(AlunoDetalhe), new { id = result.Value });
     }
 
-    [Route("/Educacao/Alunos/{id:long}")]
+    [HttpGet("/Educacao/Alunos/{id:long}")]
     public IActionResult AlunoDetalheRota(long id) => AlunoDetalhe(id);
 
-    [Route("/Educacao/Boletins")] public IActionResult Boletins(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Boletins", q));
-    [Route("/Educacao/Transporte")] public IActionResult Transporte(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Transporte", q));
-    [Route("/Educacao/Merenda")] public IActionResult Merenda(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Merenda", q));
-    [Route("/Educacao/Biblioteca")] public IActionResult Biblioteca(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Biblioteca", q));
-    [Route("/Educacao/Relatorios")] public IActionResult Relatorios(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Educacao", "Relatorios", q));
+    [HttpGet("/Educacao/Boletins")]
+    public IActionResult Boletins() => View();
+
+    [HttpGet("/Educacao/Transporte")]
+    public IActionResult Transporte() => View("RecursoOperacional", new EducacaoRecursoViewModel("Transporte escolar", "Rotas e alunos atendidos", "/api/educacao/transporte/rotas"));
+
+    [HttpGet("/Educacao/Merenda")]
+    public IActionResult Merenda() => View("RecursoOperacional", new EducacaoRecursoViewModel("Merenda escolar", "Cardápios e planejamento de consumo", "/api/educacao/merenda/cardapios"));
+
+    [HttpGet("/Educacao/Biblioteca")]
+    public IActionResult Biblioteca() => View("RecursoOperacional", new EducacaoRecursoViewModel("Biblioteca", "Acervo, empréstimos e pendências", "/api/educacao/biblioteca/itens"));
+
+    [HttpGet("/Educacao/Relatorios")]
+    public IActionResult Relatorios() => View("RecursoOperacional", new EducacaoRecursoViewModel("Relatórios educacionais", "Exportações com escopo do tenant", "/api/educacao/export/alunos.csv"));
 }

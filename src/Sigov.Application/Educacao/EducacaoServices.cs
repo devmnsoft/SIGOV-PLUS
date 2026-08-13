@@ -6,7 +6,7 @@ using Sigov.Domain.Common;
 
 namespace Sigov.Application.Educacao;
 
-public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoService, ITurmaService, IAlunoService, IMatriculaService, IProfessorService, IFrequenciaService, IAvaliacaoService, IPreMatriculaService, IEducacensoService, IEducacaoDashboardService, IEducacaoExportacaoService
+public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoService, ITurmaService, IAlunoService, IMatriculaService, IProfessorService, IFrequenciaService, IAvaliacaoService, IBoletimService, IPreMatriculaService, IEducacensoService, IEducacaoDashboardService, IEducacaoExportacaoService
 {
     private readonly IEducacaoRepository _repo;
     private readonly ICurrentTenant _tenant;
@@ -167,6 +167,15 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     Task<Result<PagedResult<AvaliacaoResponse>>> IAvaliacaoService.ListarAsync(TurmaFiltro filtro, CancellationToken ct) => ListarAsync<AvaliacaoResponse>("avaliacao", "avaliacao", filtro, ct);
     Task<Result<long>> IAvaliacaoService.CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct) => request.ValorMaximo <= 0m ? Task.FromResult(Fail<long>("Valor máximo da avaliação deve ser positivo.")) : CriarAsync("avaliacao", "criar", request, ct);
     Task<Result<long>> IAvaliacaoService.RegistrarNotaAsync(long avaliacaoId, NotaCreateRequest request, CancellationToken ct) => request.Valor < 0m ? Task.FromResult(Fail<long>("Nota não pode ser negativa.")) : CriarAsync("nota", "criar", new { AvaliacaoId = avaliacaoId, request.AlunoId, request.Valor, request.Observacao }, ct);
+
+    async Task<Result<BoletimResponse>> IBoletimService.ObterAsync(long alunoId, CancellationToken ct)
+    {
+        if (alunoId <= 0) return Fail<BoletimResponse>("Aluno inválido.");
+        var guard = await GuardAsync("boletim", "visualizar", ct).ConfigureAwait(false);
+        if (guard.IsFailure) return Fail<BoletimResponse>(guard.Error ?? "Operação bloqueada.");
+        await RegistrarAcessoPessoalAsync("boletim", "CONSULTAR", ct).ConfigureAwait(false);
+        return Result<BoletimResponse>.Success(await _repo.ObterBoletimAsync(TenantId, EntidadeId, alunoId, ct).ConfigureAwait(false));
+    }
 
     Task<Result<PagedResult<PreMatriculaResponse>>> IPreMatriculaService.ListarAsync(PreMatriculaFiltro filtro, CancellationToken ct) => ListarAsync<PreMatriculaResponse>("pre_matricula_inscricao", "pre_matricula", filtro, ct);
     Task<Result<long>> IPreMatriculaService.CriarAsync(PreMatriculaCreateRequest request, CancellationToken ct) => CriarAsync("pre_matricula_inscricao", "criar", request, ct);

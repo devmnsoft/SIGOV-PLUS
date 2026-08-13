@@ -16,3 +16,4 @@ public sealed class AvaliacaoFormViewModel { public long TurmaId { get; set; } p
 public sealed class NotaFormViewModel { public long AlunoId { get; set; } public decimal Valor { get; set; } public string? Observacao { get; set; } }
 public sealed class PreMatriculaFormViewModel { public long AlunoPessoaId { get; set; } public long? ResponsavelPessoaId { get; set; } public long? EscolaPreferencialId { get; set; } public int AnoLetivo { get; set; } = DateTime.Today.Year; public string EtapaEnsino { get; set; } = "ENSINO_FUNDAMENTAL"; public string? Protocolo { get; set; } public string Status { get; set; } = "RECEBIDA"; public decimal? Pontuacao { get; set; } public string? Observacao { get; set; } }
 public sealed class EducacaoDashboardViewModel { public string Titulo { get; set; } = "Dashboard Educação"; }
+public sealed record EducacaoRecursoViewModel(string Titulo, string Descricao, string Endpoint);
