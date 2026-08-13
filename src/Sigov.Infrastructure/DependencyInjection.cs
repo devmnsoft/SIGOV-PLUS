@@ -2,6 +2,7 @@ using Sigov.Application.Ia;
 using Sigov.Infrastructure.Ia;
 using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Common;
 using Sigov.Application.Security;
 using Sigov.Infrastructure.Common;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -293,6 +294,7 @@ public static class DependencyInjection
         services.AddScoped<IFinanceiroDashboardService, FinanceiroDashboardService>();
         services.AddScoped<IFinanceiroExportacaoService, FinanceiroExportacaoService>();
         services.AddScoped<IRhRepository, RhRepository>();
+        services.AddScoped<IOperationalImportStore, OperationalImportStore>();
         services.AddScoped<IRhService, RhService>();
         services.AddScoped<IRhTypedService, RhTypedService>();
         services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();

@@ -1,0 +1,8 @@
+@{ var recurso = Convert.ToString(ViewData["Recurso"]) ?? "alunos"; ViewData["Title"] = $"Importar {recurso}"; }
+<div class="sigov-ops-hero"><div><span class="sigov-eyebrow">Import wizard</span><h1>Importar @recurso</h1><p>Use CSV separado por ponto e vírgula. O preview nunca altera a base.</p></div><span class="sigov-risk-badge">Etapa 1 de 2</span></div>
+<section class="sigov-import-wizard" data-import-module="educacao" data-import-resource="@recurso">
+ <label class="sigov-dropzone"><strong>Selecione o CSV</strong><span>O conteúdo é validado localmente e enviado por conexão segura.</span><input type="file" accept=".csv,text/csv" data-import-file /></label>
+ <div class="sigov-bulk-toolbar"><button class="btn btn-outline-primary" data-import-preview disabled>Gerar preview</button><button class="btn btn-primary" data-import-confirm disabled>Confirmar linhas válidas</button></div>
+ <div class="sigov-validation-summary" data-import-summary hidden></div><div class="table-responsive"><table class="table sigov-preview-table"><thead data-import-head></thead><tbody data-import-body><tr><td class="text-muted">Nenhum arquivo analisado.</td></tr></tbody></table></div>
+</section>
+@section Scripts { <script src="~/js/modules/operational-import.js"></script> }

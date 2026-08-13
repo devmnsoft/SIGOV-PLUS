@@ -1,0 +1,7 @@
+@{ ViewData["Title"] = "Importações da Educação"; }
+<div class="sigov-ops-hero"><div><span class="sigov-eyebrow">Educação · qualidade cadastral</span><h1>Central de importações</h1><p>Valide arquivos antes de persistir. Linhas inconsistentes são isoladas e dados pessoais permanecem protegidos.</p></div><span class="sigov-risk-badge is-safe">LGPD ativa</span></div>
+<div class="sigov-operation-grid">
+@foreach (var item in new[]{("Alunos","alunos","pessoas"),("Matrículas","matriculas","journal-check"),("Frequências","frequencias","calendar-check"),("Notas","notas","chart-line")}) {
+ <a class="sigov-operation-card" href="/Educacao/Importacoes/@item.Item2"><span class="sigov-card-icon"><i class="bi bi-@item.Item3"></i></span><strong>@item.Item1</strong><small>Preview, validação por linha e confirmação auditada</small><span>Iniciar importação →</span></a>
+}
+</div>

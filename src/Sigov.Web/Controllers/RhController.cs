@@ -5,6 +5,8 @@ namespace Sigov.Web.Controllers;
 
 public sealed class RhController : Controller
 {
+    public IActionResult Importacoes() => View();
+    public IActionResult Pendencias() => View();
     public IActionResult Dashboard() => View();
     public IActionResult Servidores() => View(new RhRegistroViewModel("servidores", "Servidores"));
     public IActionResult ServidorCriar() => View(new RhRegistroViewModel("servidores", "Novo Servidor"));
@@ -31,4 +33,7 @@ public sealed class RhController : Controller
     public IActionResult PortalContracheques() => View("Portal");
     public IActionResult PortalFerias() => View("Portal");
     public IActionResult PortalAfastamentos() => View("Portal");
+    public IActionResult PortalPonto() => View("Portal");
+    public IActionResult PortalSolicitacoes() => View("Portal");
+    public IActionResult PortalDadosCadastrais() => View("Portal");
 }
