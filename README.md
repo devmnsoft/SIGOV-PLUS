@@ -4,6 +4,18 @@
 
 A execução local principal do Pós-RC 19 usa PostgreSQL instalado diretamente e processos .NET iniciados por `scripts/start-local.ps1` ou `scripts/start-local.sh`. O script `scripts/start-dev.ps1` delega para o fluxo local sem Docker.
 
+## Build principal do runtime
+
+O build usado no desenvolvimento do produto é isolado da infraestrutura de testes e inclui somente API, Web, Worker, Application, Domain e Infrastructure:
+
+```bash
+dotnet clean sigov.runtime.slnf
+dotnet restore sigov.runtime.slnf --locked-mode
+dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror
+```
+
+Os projetos em `tests/` permanecem na solução completa para uma etapa e um pipeline próprios; eles não fazem parte do build principal. Consulte [`docs/testing-roadmap.md`](docs/testing-roadmap.md).
+
 ## Configuração do PostgreSQL
 
 Copie `.env.local.example` para `.env.local`, ajuste host, porta, database, usuário e senha locais e exporte a connection string via `ConnectionStrings__DefaultConnection`.
