@@ -147,7 +147,7 @@ public sealed class RhRepository : BaseRepository, IRhRepository
     {
         if (!exercicioId.HasValue) return true;
         using var cn = _context.CreateConnection();
-        const string sql = "select exists (select 1 from sigov.exercicio where id=@ExercicioId and is_deleted=false and ativo=true);";
+        const string sql = "select exists (select 1 from sigov.exercicio where tenant_id=@TenantId and id=@ExercicioId and is_deleted=false and ativo=true);";
         return await cn.ExecuteScalarAsync<bool>(Command(sql, new { TenantId = tenantId, ExercicioId = exercicioId.Value }, ct)).ConfigureAwait(false);
     }
 
@@ -166,7 +166,9 @@ public sealed class RhRepository : BaseRepository, IRhRepository
 
     private async Task RegistrarEventoAsync(System.Data.IDbConnection cn, long tenantId, string recurso, string operacao, long registroId, Dictionary<string, object?> dados, long? usuarioId, CancellationToken ct)
     {
-        var payload = JsonSerializer.Serialize(new { tipo = $"rh.{recurso}.{operacao.ToLowerInvariant()}", recurso, operacao, registroId, publicado = false, dados }, JsonOptions);
+        var dadosAuditaveis = new Dictionary<string, object?>(dados, StringComparer.OrdinalIgnoreCase);
+        MaskDadosPessoais(dadosAuditaveis);
+        var payload = JsonSerializer.Serialize(new { tipo = $"rh.{recurso}.{operacao.ToLowerInvariant()}", recurso, operacao, registroId, publicado = false, dados = dadosAuditaveis }, JsonOptions);
         await cn.ExecuteAsync(Command("insert into sigov.rh_evento (tenant_id, dados, created_by) values (@TenantId, cast(@Dados as jsonb), @UsuarioId);", new { TenantId = tenantId, Dados = payload, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
     }
 
