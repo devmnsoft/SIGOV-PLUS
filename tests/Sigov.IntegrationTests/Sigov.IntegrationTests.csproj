@@ -3,15 +3,16 @@
     <AssemblyName>Sigov.IntegrationTests</AssemblyName>
     <RootNamespace>Sigov.IntegrationTests</RootNamespace>
     <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
+    <EnableSigovIntegrationTests Condition="'$(EnableSigovIntegrationTests)' == ''">false</EnableSigovIntegrationTests>
+    <IsTestProject Condition="'$(EnableSigovIntegrationTests)' == 'true'">true</IsTestProject>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(EnableSigovIntegrationTests)' == 'true'">
     <ProjectReference Include="..\Sigov.Testing\Sigov.Testing.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Domain\Sigov.Domain.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Infrastructure\Sigov.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Sigov.Web\Sigov.Web.csproj" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(EnableSigovIntegrationTests)' == 'true'">
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -21,5 +22,9 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(EnableSigovIntegrationTests)' != 'true'">
+    <Compile Remove="**\*.cs" />
+    <None Include="**\*.cs" />
   </ItemGroup>
 </Project>
