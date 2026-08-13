@@ -11,7 +11,7 @@ public sealed class WorkflowRepository : IWorkflowRepository
 
     public async Task<IReadOnlyList<WorkflowTarefaDto>> ListarTarefasAsync(long tenantId, long? responsavelId, string? modulo, string? status, CancellationToken ct)
     {
-        const string sql = """
+        const string sql = @"
             select t.id, t.instancia_id as InstanciaId, i.modulo, i.tipo_fluxo as TipoFluxo,
                    i.referencia_tipo as ReferenciaTipo, i.referencia_id as ReferenciaId,
                    t.status, t.etapa_atual as EtapaAtual, t.responsavel_id as ResponsavelId,
@@ -24,7 +24,7 @@ public sealed class WorkflowRepository : IWorkflowRepository
                and (@Modulo is null or i.modulo=@Modulo)
                and (@Status is null or t.status=@Status)
              order by case t.prioridade when 'URGENTE' then 0 when 'ALTA' then 1 else 2 end, t.prazo nulls last, t.created_at desc;
-            """;
+            ";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<WorkflowTarefaDto>(new CommandDefinition(sql,
             new { TenantId=tenantId, ResponsavelId=responsavelId, Modulo=Normalize(modulo), Status=Normalize(status) }, cancellationToken:ct)).ConfigureAwait(false);
@@ -33,9 +33,9 @@ public sealed class WorkflowRepository : IWorkflowRepository
 
     public async Task<IReadOnlyList<WorkflowHistoricoDto>> ListarHistoricoAsync(long tenantId, long instanciaId, CancellationToken ct)
     {
-        const string sql = """select id, decisao, etapa_anterior as EtapaAnterior, etapa_nova as EtapaNova,
+        const string sql = @"select id, decisao, etapa_anterior as EtapaAnterior, etapa_nova as EtapaNova,
             justificativa, usuario_id as UsuarioId, created_at as CreatedAt, correlation_id as CorrelationId
-            from sigov.workflow_historico where tenant_id=@TenantId and instancia_id=@InstanciaId and is_deleted=false order by created_at, id;""";
+            from sigov.workflow_historico where tenant_id=@TenantId and instancia_id=@InstanciaId and is_deleted=false order by created_at, id;";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<WorkflowHistoricoDto>(new CommandDefinition(sql, new {TenantId=tenantId, InstanciaId=instanciaId}, cancellationToken:ct)).ConfigureAwait(false);
         return rows.AsList();
@@ -43,7 +43,7 @@ public sealed class WorkflowRepository : IWorkflowRepository
 
     public async Task<bool> DecidirAsync(long tenantId, long instanciaId, long? usuarioId, string decisao, string? justificativa, long? responsavelId, string? grupoResponsavel, string correlationId, CancellationToken ct)
     {
-        const string sql = """
+        const string sql = @"
             with atual as (
               select id, etapa_atual from sigov.workflow_instancia
                where id=@InstanciaId and tenant_id=@TenantId and is_deleted=false and status not in ('APROVADO','REPROVADO','CANCELADO') for update
@@ -68,7 +68,7 @@ public sealed class WorkflowRepository : IWorkflowRepository
             select @TenantId,id,@Decisao,@Justificativa,etapa_atual,etapa_nova,@UsuarioId,@CorrelationId,
                    jsonb_build_object('usuario_id',@UsuarioId,'decisao',@Decisao,'correlation_id',@CorrelationId)
               from alterada returning id;
-            """;
+            ";
         using var connection = _context.CreateConnection();
         return await connection.ExecuteScalarAsync<long?>(new CommandDefinition(sql,
             new {TenantId=tenantId, InstanciaId=instanciaId, UsuarioId=usuarioId, Decisao=decisao.ToUpperInvariant(), Justificativa=justificativa,
