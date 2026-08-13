@@ -32,7 +32,7 @@ public static class SafeConnectionStringDiagnostics
 
         var expectedApplicationName = $"sigov.{applicationName.ToLowerInvariant()}";
         var invalidDatabase = string.Equals(target.Database, "postgres", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(target.Database, "sigov", StringComparison.OrdinalIgnoreCase);
+            || !string.Equals(target.Database, "postgres", StringComparison.OrdinalIgnoreCase);
         var invalidApplication = !string.Equals(target.ApplicationName, expectedApplicationName, StringComparison.OrdinalIgnoreCase);
         if (invalidDatabase || invalidApplication)
         {
