@@ -54,6 +54,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "SIGOV PLUS API", Version = "v1" });
+    options.CustomSchemaIds(SwaggerSchemaId);
+    options.CustomOperationIds(api =>
+    {
+        var controller = api.ActionDescriptor.RouteValues.TryGetValue("controller", out var c) ? c : "Sigov";
+        var action = api.ActionDescriptor.RouteValues.TryGetValue("action", out var a) ? a : api.HttpMethod;
+        return $"{controller}_{action}_{api.HttpMethod}".Replace("-", "_", StringComparison.Ordinal);
+    });
     options.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.RouteValues["controller"] ?? "SIGOV" });
     options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
@@ -139,6 +146,40 @@ if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInPro
 app.MapControllers();
 
 app.Run();
+
+static string SwaggerSchemaId(Type type)
+{
+    static string Sanitize(string value)
+    {
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var ch in value)
+        {
+            builder.Append(char.IsLetterOrDigit(ch) ? ch : '_');
+        }
+
+        return builder.ToString().Trim('_');
+    }
+
+    if (type.IsGenericType)
+    {
+        var genericName = type.Name;
+        var tickIndex = genericName.IndexOf('`', StringComparison.Ordinal);
+        if (tickIndex > 0)
+        {
+            genericName = genericName[..tickIndex];
+        }
+
+        var genericArguments = string.Join("_", type.GetGenericArguments().Select(SwaggerSchemaId));
+        return Sanitize($"{type.Namespace}_{genericName}_{genericArguments}");
+    }
+
+    if (type.IsArray)
+    {
+        return Sanitize($"{SwaggerSchemaId(type.GetElementType()!)}_Array");
+    }
+
+    return Sanitize(type.FullName ?? type.Name);
+}
 
 public partial class Program
 {
