@@ -505,6 +505,26 @@
       "checksum": "bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8"
     },
     {
+      "version": "20260730090000",
+      "file": "20260730090000_pos_rc_32_ordem_servico.sql",
+      "description": "pos_rc_32_ordem_servico",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c",
+      "compatibilityBefore": [
+        {
+          "file": "000_preflight_legacy_compatibility.sql",
+          "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+        },
+        {
+          "file": "010_pre_rc32_optional_financial_bridge.sql",
+          "checksum": "f80b241d263f146f8db2dfe5f2b8b6e7012b715dba6cce1eaac7e5cd18a56120"
+        }
+      ],
+      "postConditionSql": "select to_regclass('sigov.enterprise_integracao_financeira') is not null\nand to_regclass('sigov.ix_enterprise_financeiro_core') is not null\nand not exists (\n    select 1\n    from (values\n        ('id', 'uuid'), ('tenant_id', 'uuid'), ('origem_tipo', 'character varying'),\n        ('origem_id', 'uuid'), ('conta_receber_core_id', 'bigint'), ('tenant_core_id', 'bigint'),\n        ('status', 'character varying'), ('payload_json', 'jsonb'), ('erro', 'text'),\n        ('created_at', 'timestamp with time zone'), ('updated_at', 'timestamp with time zone')\n    ) expected(column_name, data_type)\n    left join information_schema.columns actual\n      on actual.table_schema = 'sigov'\n     and actual.table_name = 'enterprise_integracao_financeira'\n     and actual.column_name = expected.column_name\n    where actual.column_name is null or actual.data_type <> expected.data_type\n)"
+    },
+    {
       "version": "20260730110000",
       "file": "20260730110000_pos_rc_36b_permissao_chave_canonica.sql",
       "description": "pos_rc_36b_permissao_chave_canonica",
@@ -556,26 +576,6 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf"
-    },
-    {
-      "version": "20260730090000",
-      "file": "20260730090000_pos_rc_32_ordem_servico.sql",
-      "description": "pos_rc_32_ordem_servico",
-      "category": "schema",
-      "includeInBaseline": true,
-      "applyAutomatically": true,
-      "checksum": "cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c",
-      "compatibilityBefore": [
-        {
-          "file": "000_preflight_legacy_compatibility.sql",
-          "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
-        },
-        {
-          "file": "010_pre_rc32_optional_financial_bridge.sql",
-          "checksum": "f80b241d263f146f8db2dfe5f2b8b6e7012b715dba6cce1eaac7e5cd18a56120"
-        }
-      ],
-      "postConditionSql": "select to_regclass('sigov.enterprise_integracao_financeira') is not null\nand to_regclass('sigov.ix_enterprise_financeiro_core') is not null\nand not exists (\n    select 1\n    from (values\n        ('id', 'uuid'), ('tenant_id', 'uuid'), ('origem_tipo', 'character varying'),\n        ('origem_id', 'uuid'), ('conta_receber_core_id', 'bigint'), ('tenant_core_id', 'bigint'),\n        ('status', 'character varying'), ('payload_json', 'jsonb'), ('erro', 'text'),\n        ('created_at', 'timestamp with time zone'), ('updated_at', 'timestamp with time zone')\n    ) expected(column_name, data_type)\n    left join information_schema.columns actual\n      on actual.table_schema = 'sigov'\n     and actual.table_name = 'enterprise_integracao_financeira'\n     and actual.column_name = expected.column_name\n    where actual.column_name is null or actual.data_type <> expected.data_type\n)"
     },
     {
       "version": "20260731120000",
@@ -654,6 +654,36 @@
       "applyAutomatically": true,
       "checksum": "e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1",
       "postConditionSql": "select to_regclass('sigov.rh_jornada') is not null and to_regclass('sigov.rh_portal_solicitacao') is not null"
+    },
+    {
+      "version": "20260813230000",
+      "file": "20260813230000_rc50_34_educacao_secretaria_bloco3_core.sql",
+      "description": "20260813230000_rc50_34_educacao_secretaria_bloco3_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5",
+      "postConditionSql": "select to_regclass('sigov.educacao_documento_escolar') is not null"
+    },
+    {
+      "version": "20260813231000",
+      "file": "20260813231000_rc50_34_educacao_diario_classe_bloco3_core.sql",
+      "description": "20260813231000_rc50_34_educacao_diario_classe_bloco3_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5",
+      "postConditionSql": "select to_regclass('sigov.educacao_diario_classe') is not null"
+    },
+    {
+      "version": "20260813232000",
+      "file": "20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core.sql",
+      "description": "20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f",
+      "postConditionSql": "select to_regclass('sigov.educacao_portal_vinculo') is not null"
     }
   ],
   "compatibilityAfterAll": [

@@ -60,6 +60,9 @@ public sealed class EducacaoController : Controller
     public IActionResult Educacenso() => View();
     public IActionResult Portal() => View();
 
+    [HttpGet("/Educacao/{pagina:regex(^(Secretaria|DocumentosEscolares|DeclaracaoMatricula|DeclaracaoFrequencia|FichaCadastralAluno|HistoricoEscolar|SolicitacoesEscolares|PendenciasDocumentais|Transferencias|Ocorrencias|AtendimentoResponsavel|DiarioClasse|DiarioClasseDetalhe|DiarioAulas|DiarioFrequencia|DiarioConteudo|DiarioPendencias|PortalResponsavel|PortalAluno|PortalBoletim|PortalFrequencia|PortalOcorrencias|PortalSolicitacoes|PortalComunicados|PortalAdminVinculos|PortalAdminSolicitacoes)$)}")]
+    public IActionResult Bloco3(string pagina) => View(pagina);
+
     [HttpGet("/Educacao/Alunos/Novo")]
     public IActionResult AlunoNovo() => View("AlunoCriar", new AlunoFormViewModel());
 
