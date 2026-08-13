@@ -55,6 +55,8 @@ public interface IEducacaoBloco3Repository
     Task AlterarStatusAsync(long tenantId, string recurso, long id, string status, string justificativa, long usuarioId, string correlationId, CancellationToken ct);
     Task<bool> MatriculaValidaAsync(long tenantId, long alunoId, long matriculaId, CancellationToken ct);
     Task<bool> UsuarioVinculadoAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct);
+    Task<string?> ObterStatusAsync(long tenantId, string recurso, long id, CancellationToken ct);
+    Task<bool> DiarioProntoParaFechamentoAsync(long tenantId, long diarioId, CancellationToken ct);
 }
 
 public interface IEducacaoSecretariaRepository : IEducacaoBloco3Repository { }

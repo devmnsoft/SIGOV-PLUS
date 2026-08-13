@@ -67,6 +67,7 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
     private static string Insercao(string r) => r switch
     {
         "documento" => "insert into sigov.educacao_documento_escolar(tenant_id,entidade_id,exercicio_id,aluno_id,matricula_id,tipo,status,titulo,html_emitido,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@AlunoId,@MatriculaId,'DECLARACAO_MATRICULA','EMITIDO',@Titulo,'<!doctype html><html><body><h1>'||@Titulo||'</h1></body></html>',cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
+        "documento-frequencia" => "insert into sigov.educacao_documento_escolar(tenant_id,entidade_id,exercicio_id,aluno_id,matricula_id,tipo,status,titulo,descricao,html_emitido,dados,auditoria,correlation_id,created_by) select @TenantId,@EntidadeId,@ExercicioId,@AlunoId,@MatriculaId,'DECLARACAO_FREQUENCIA','EMITIDO',@Titulo,format('Período de %s a %s: %s aulas, %s presenças.',@Inicio,@Fim,count(f.id),count(f.id) filter (where f.presente)),format('<!doctype html><html><body><h1>%s</h1><p>Período de %s a %s</p><p>Frequência: %s%%</p></body></html>',@Titulo,@Inicio,@Fim,coalesce(round(100.0*count(f.id) filter (where f.presente)/nullif(count(f.id),0),2),0)),cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId,'fonte','diario_frequencia'),@CorrelationId,@UsuarioId from sigov.matricula m left join sigov.diario_frequencia f on f.tenant_id=m.tenant_id and f.aluno_id=m.aluno_id and f.data_aula between @Inicio and @Fim and f.is_deleted=false where m.tenant_id=@TenantId and m.id=@MatriculaId and m.aluno_id=@AlunoId group by m.id returning id",
         "solicitacao" => "insert into sigov.educacao_solicitacao_escolar(tenant_id,entidade_id,exercicio_id,aluno_id,responsavel_id,tipo,descricao,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@AlunoId,@ResponsavelId,@Tipo,@Descricao,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
         "pendencia" => "insert into sigov.educacao_pendencia_documental(tenant_id,entidade_id,aluno_id,matricula_id,tipo,descricao,data_vencimento,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@AlunoId,@MatriculaId,@Tipo,@Descricao,@DataVencimento,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
         "transferencia" => "insert into sigov.educacao_transferencia(tenant_id,entidade_id,exercicio_id,aluno_id,matricula_id,escola_destino_id,turma_destino_id,justificativa_externa,descricao,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@AlunoId,@MatriculaId,@EscolaDestinoId,@TurmaDestinoId,@JustificativaExterna,coalesce(@JustificativaExterna,'Transferência interna'),cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
@@ -86,6 +87,7 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
     private static Def Definicao(string r) => r switch
     {
         "documento" => new("educacao_documento_escolar","x.id as \"Id\",x.aluno_id as \"AlunoId\",x.matricula_id as \"MatriculaId\",x.tipo as \"Tipo\",x.status as \"Status\",x.titulo as \"Titulo\",x.created_at as \"CreatedAt\"",true,true,true,false),
+        "documento-frequencia" => new("educacao_documento_escolar","x.id as \"Id\",x.aluno_id as \"AlunoId\",x.matricula_id as \"MatriculaId\",x.tipo as \"Tipo\",x.status as \"Status\",x.titulo as \"Titulo\",x.created_at as \"CreatedAt\"",true,true,true,false),
         "solicitacao" => new("educacao_solicitacao_escolar","x.id as \"Id\",x.aluno_id as \"AlunoId\",x.tipo as \"Tipo\",x.status as \"Status\",x.descricao as \"Descricao\",x.created_at as \"CreatedAt\"",true,true,true,true),
         "pendencia" => new("educacao_pendencia_documental","x.id as \"Id\",x.aluno_id as \"AlunoId\",x.tipo as \"Tipo\",x.status as \"Status\",x.data_vencimento as \"DataVencimento\",(x.status='PENDENTE' and x.data_vencimento<now()) as \"Vencida\"",true,true,true,false),
         "transferencia" => new("educacao_transferencia","x.id as \"Id\",x.aluno_id as \"AlunoId\",x.matricula_id as \"MatriculaId\",x.status as \"Status\",x.descricao as \"Descricao\",x.created_at as \"CreatedAt\"",true,true,true,false),
@@ -99,4 +101,28 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         _ => throw new ArgumentOutOfRangeException(nameof(r), "Recurso de consulta inválido.")
     };
     private sealed record Def(string Tabela,string Colunas,bool TemAluno,bool TemStatus,bool TemTipo,bool ProtegidoPorVinculo);
+
+    public async Task<string?> ObterStatusAsync(long tenantId, string recurso, long id, CancellationToken ct)
+    {
+        var tabela = Definicao(recurso).Tabela;
+        using var connection = _context.CreateConnection();
+        return await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            $"select status from sigov.{tabela} where tenant_id=@TenantId and id=@Id and is_deleted=false",
+            new { TenantId = tenantId, Id = id }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    public async Task<bool> DiarioProntoParaFechamentoAsync(long tenantId, long diarioId, CancellationToken ct)
+    {
+        const string sql = @"select exists (
+ select 1 from sigov.educacao_diario_aula a
+ where a.tenant_id=@TenantId and a.diario_id=@DiarioId and a.is_deleted=false
+) and not exists (
+ select 1 from sigov.educacao_diario_aula a
+ where a.tenant_id=@TenantId and a.diario_id=@DiarioId and a.is_deleted=false
+ and (not exists (select 1 from sigov.educacao_diario_conteudo c where c.tenant_id=a.tenant_id and c.aula_id=a.id and c.is_deleted=false)
+   or not exists (select 1 from sigov.educacao_diario_frequencia f where f.tenant_id=a.tenant_id and f.aula_id=a.id and f.is_deleted=false))
+)";
+        using var connection = _context.CreateConnection();
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(sql, new { TenantId = tenantId, DiarioId = diarioId }, cancellationToken: ct)).ConfigureAwait(false);
+    }
 }
