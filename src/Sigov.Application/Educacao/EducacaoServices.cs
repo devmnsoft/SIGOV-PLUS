@@ -154,6 +154,14 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     Task<Result<PagedResult<MatriculaResponse>>> IMatriculaService.ListarAsync(MatriculaFiltro filtro, CancellationToken ct) => ListarAsync<MatriculaResponse>("matricula", "matricula", filtro, ct);
     Task<Result<MatriculaResponse>> IMatriculaService.ObterAsync(long id, CancellationToken ct) => ObterAsync<MatriculaResponse>("matricula", "matricula", id, ct);
     Task<Result<long>> IMatriculaService.CriarAsync(MatriculaCreateRequest request, CancellationToken ct) => request.AlunoId <= 0 || request.EscolaId <= 0 || request.AnoLetivoId <= 0 || request.TurmaId <= 0 ? Task.FromResult(Fail<long>("Matrícula exige aluno, escola, ano letivo e turma.")) : CriarAsync("matricula", "criar", request, ct);
+    async Task<Result> IMatriculaService.ConfirmarAsync(long id, EducacaoConfirmarMatriculaRequest request, CancellationToken ct)
+    {
+        var matricula = await ObterAsync<MatriculaResponse>("matricula", "matricula", id, ct).ConfigureAwait(false);
+        if (matricula.IsFailure || matricula.Value is null) return Fail(matricula.Error ?? "Matrícula não encontrada.");
+        if (matricula.Value.Status.Equals("CANCELADA", StringComparison.OrdinalIgnoreCase)) return Fail("Matrícula cancelada não pode ser confirmada.");
+        if (matricula.Value.Status.Equals("CONFIRMADA", StringComparison.OrdinalIgnoreCase)) return Result.Success();
+        return await AtualizarAsync("matricula", "confirmar", id, new { Status = "CONFIRMADA", request.Observacao }, ct).ConfigureAwait(false);
+    }
     Task<Result> IMatriculaService.CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct) => AtualizarAsync("matricula", "cancelar", id, new { Status = "CANCELADA", request.Motivo }, ct);
     Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct) => AtualizarAsync("matricula", "transferir", id, new { Status = "TRANSFERIDA", request.NovaTurmaId, request.Motivo }, ct);
 
