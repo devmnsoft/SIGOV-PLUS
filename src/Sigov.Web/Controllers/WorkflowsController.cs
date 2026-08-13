@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Models.Workflows;
 using Sigov.Web.Services;
 using Sigov.Web.Services.Workflows;
+using Sigov.Application.Workflows;
 
 namespace Sigov.Web.Controllers;
 
@@ -15,9 +16,13 @@ public sealed class WorkflowsController : Controller
     private readonly WorkflowValidationService _validation;
     private readonly ITenantContextAccessor _tenant;
     private readonly IAuditTrailService _audit;
-    public WorkflowsController(WorkflowRepository repository, WorkflowValidationService validation, ITenantContextAccessor tenant, IAuditTrailService audit) => (_repository,_validation,_tenant,_audit)=(repository,validation,tenant,audit);
+    private readonly IWorkflowOperacionalService _operacional;
+    public WorkflowsController(WorkflowRepository repository, WorkflowValidationService validation, ITenantContextAccessor tenant, IAuditTrailService audit, IWorkflowOperacionalService operacional) => (_repository,_validation,_tenant,_audit,_operacional)=(repository,validation,tenant,audit,operacional);
 
     [HttpGet("")] public async Task<IActionResult> Index(CancellationToken ct) => View(await _repository.ListAsync(TenantId(),ct));
+    [HttpGet("MinhasTarefas")] public async Task<IActionResult> MinhasTarefas(CancellationToken ct) => View(await _operacional.ListarTarefasAsync(TenantId(),UserId()??-1,null,"PENDENTE",ct));
+    [HttpGet("Detalhe/{id:long}")] public async Task<IActionResult> Detalhe(long id,CancellationToken ct)
+    { var history=await _operacional.ListarHistoricoAsync(TenantId(),id,ct); return history.Count==0?NotFound():View(history); }
     [HttpGet("Novo"), Authorize(Policy="WORKFLOW_GERENCIAR")] public IActionResult Novo() => View(new CreateWorkflowInput());
     [HttpPost("Novo"), ValidateAntiForgeryToken, Authorize(Policy="WORKFLOW_GERENCIAR")]
     public async Task<IActionResult> Novo(CreateWorkflowInput input,CancellationToken ct)
