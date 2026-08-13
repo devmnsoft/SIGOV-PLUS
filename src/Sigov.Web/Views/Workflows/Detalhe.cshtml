@@ -1,0 +1,5 @@
+@model IReadOnlyList<Sigov.Application.Workflows.WorkflowHistoricoDto>
+@{ ViewData["Title"]="Histórico do workflow"; }
+<main class="sigov-workspace"><header class="sigov-page-header"><div><span class="sigov-eyebrow">AUDITORIA</span><h1>Histórico do workflow</h1><p>Linha do tempo imutável das decisões e justificativas.</p></div></header>
+ <ol class="workflow-timeline">@foreach(var item in Model){<li><span class="workflow-timeline__dot"></span><div><strong>@item.Decisao</strong><time>@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time><p>@item.EtapaAnterior → @item.EtapaNova</p>@if(!string.IsNullOrWhiteSpace(item.Justificativa)){<blockquote>@item.Justificativa</blockquote>}<small>Correlação: @item.CorrelationId</small></div></li>}</ol>
+</main>

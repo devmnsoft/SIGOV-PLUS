@@ -27,6 +27,8 @@ using Sigov.Application.Rh;
 using Sigov.Infrastructure.Rh;
 using Sigov.Application.Educacao;
 using Sigov.Infrastructure.Educacao;
+using Sigov.Application.Workflows;
+using Sigov.Infrastructure.Workflows;
 using Sigov.Application.Saude;
 using Sigov.Infrastructure.Saude;
 using Sigov.Application.Saneamento;
@@ -329,6 +331,8 @@ public static class DependencyInjection
         services.AddScoped<IEducacensoService, EducacaoService>();
         services.AddScoped<IEducacaoDashboardService, EducacaoService>();
         services.AddScoped<IEducacaoExportacaoService, EducacaoService>();
+        services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+        services.AddScoped<IWorkflowOperacionalService, WorkflowOperacionalService>();
         services.AddScoped<SaudeRepository>();
         services.AddScoped<ISaudeCrudRepository, SaudeRepository>();
         services.AddScoped<IUnidadeSaudeRepository, SaudeRepository>();
