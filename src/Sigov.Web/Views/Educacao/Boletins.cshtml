@@ -1,0 +1,13 @@
+@{ ViewData["Title"] = "Boletins"; }
+<nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Educacao">Educação</a></li><li class="breadcrumb-item active">Boletins</li></ol></nav>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div><span class="badge text-bg-primary mb-2"><i class="bi bi-shield-lock"></i> LGPD</span><h1 class="h3 mb-1">Boletins escolares</h1><p class="text-muted mb-0">Consulta consolidada de avaliações e notas persistidas.</p></div>
+  <button class="btn btn-primary" type="button" id="consultar-boletim"><i class="bi bi-search"></i> Consultar</button>
+</div>
+<div id="educacao-toast" class="alert d-none" role="alert"></div>
+<div class="card shadow-sm"><div class="card-body">
+  <label class="form-label" for="aluno-boletim">Identificador do aluno</label>
+  <div class="input-group mb-4"><input class="form-control" id="aluno-boletim" type="number" min="1" inputmode="numeric" placeholder="Informe o código interno"><button class="btn btn-outline-primary" id="buscar-boletim" type="button">Carregar</button></div>
+  <div id="boletim-resultado" class="table-responsive"><div class="text-center text-muted py-5"><i class="bi bi-journal-text fs-1 d-block mb-2"></i>Informe um aluno para consultar seu boletim real.</div></div>
+</div></div>
+@section Scripts { <script src="~/js/modules/educacao.boletins.js"></script> }

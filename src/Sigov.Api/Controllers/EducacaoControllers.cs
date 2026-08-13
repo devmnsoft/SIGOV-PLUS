@@ -117,5 +117,14 @@ public sealed class EducacensoController : EducacaoApiControllerBase { private r
 [Route("api/educacao/dashboard")]
 public sealed class EducacaoDashboardController : EducacaoApiControllerBase { private readonly IEducacaoDashboardService _service; public EducacaoDashboardController(IEducacaoDashboardService service)=>_service=service; [HttpGet] public async Task<ActionResult<ApiResponse<EducacaoDashboardResponse>>> Obter(CancellationToken ct)=>FromResult(await _service.ObterAsync(ct).ConfigureAwait(false)); }
 
+[Route("api/educacao/boletins")]
+public sealed class BoletinsController : EducacaoApiControllerBase
+{
+    private readonly IBoletimService _service;
+    public BoletinsController(IBoletimService service) => _service = service;
+    [HttpGet("{alunoId:long}")]
+    public async Task<ActionResult<ApiResponse<BoletimResponse>>> Obter(long alunoId, CancellationToken ct) => FromResult(await _service.ObterAsync(alunoId, ct).ConfigureAwait(false));
+}
+
 [Route("api/educacao/export")]
 public sealed class EducacaoExportacaoController : EducacaoApiControllerBase { private readonly IEducacaoExportacaoService _service; public EducacaoExportacaoController(IEducacaoExportacaoService service)=>_service=service; [HttpGet("{recurso}.{formato}")] public async Task<IActionResult> Exportar(string recurso,string formato,CancellationToken ct){var r=await _service.ExportarAsync(recurso,formato,ct).ConfigureAwait(false); if(r.IsFailure)return BadRequest(ApiResponse<object>.Fail(r.Error??"Falha na exportação.")); return File(r.Value??Array.Empty<byte>(), formato.Equals("json",StringComparison.OrdinalIgnoreCase)?"application/json":"text/csv", $"{recurso}.{formato}");} }

@@ -322,6 +322,7 @@ public static class DependencyInjection
         services.AddScoped<IProfessorService, EducacaoService>();
         services.AddScoped<IFrequenciaService, EducacaoService>();
         services.AddScoped<IAvaliacaoService, EducacaoService>();
+        services.AddScoped<IBoletimService, EducacaoService>();
         services.AddScoped<IPreMatriculaService, EducacaoService>();
         services.AddScoped<IEducacensoService, EducacaoService>();
         services.AddScoped<IEducacaoDashboardService, EducacaoService>();

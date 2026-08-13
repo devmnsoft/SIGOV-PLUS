@@ -118,13 +118,43 @@ public sealed class EducacaoRepository : BaseRepository, IEscolaRepository, IAno
     public async Task<byte[]> ExportarAsync(long tenantId, long entidadeId, string recurso, string formato, CancellationToken ct)
     {
         var table = recurso switch { "alunos" => "aluno", "matriculas" => "matricula", "turmas" => "turma", "frequencias" => "diario_frequencia", "notas" => "nota", _ => "aluno" };
-        var sql = $"select row_to_json(x) from (select * from sigov.{table} where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false order by id desc limit 1000) x";
+        var projection = table switch
+        {
+            "aluno" => "id,codigo_aluno,necessidade_especial,situacao,created_at",
+            "matricula" => "id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,created_at",
+            "turma" => "id,escola_id,ano_letivo_id,codigo,nome,turno,capacidade,vagas_ocupadas,status",
+            "diario_frequencia" => "id,turma_id,aluno_id,data_aula,componente_curricular,presente,created_at",
+            "nota" => "id,avaliacao_id,aluno_id,valor,observacao,created_at",
+            _ => throw new InvalidOperationException("Exportação educacional não mapeada.")
+        };
+        var sql = $"select row_to_json(x) from (select {projection} from sigov.{table} where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false order by id desc limit 1000) x";
         using var connection = _context.CreateConnection();
         var rows = (await connection.QueryAsync<string>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId }, ct)).ConfigureAwait(false)).AsList();
         if (formato.Equals("json", StringComparison.OrdinalIgnoreCase)) return Encoding.UTF8.GetBytes("[" + string.Join(',', rows) + "]");
         var csv = new StringBuilder("dados\n");
         foreach (var row in rows) csv.Append('"').Append(row.Replace("\"", "\"\"", StringComparison.Ordinal)).AppendLine("\"");
         return Encoding.UTF8.GetBytes(csv.ToString());
+    }
+
+    public async Task<BoletimResponse> ObterBoletimAsync(long tenantId, long entidadeId, long alunoId, CancellationToken ct)
+    {
+        const string sql = @"select a.componente_curricular as ComponenteCurricular,
+       a.titulo as Avaliacao, a.data_avaliacao as DataAvaliacao,
+       a.valor_maximo as ValorMaximo, n.valor as Nota,
+       case when n.valor is null then 'PENDENTE'
+            when n.valor >= (a.valor_maximo * 0.6) then 'APROVADO'
+            else 'RECUPERACAO' end as Situacao
+from sigov.avaliacao a
+join sigov.matricula m on m.tenant_id=a.tenant_id and m.entidade_id=a.entidade_id
+ and m.turma_id=a.turma_id and m.aluno_id=@AlunoId and m.is_deleted=false
+left join sigov.nota n on n.tenant_id=a.tenant_id and n.entidade_id=a.entidade_id
+ and n.avaliacao_id=a.id and n.aluno_id=@AlunoId and n.is_deleted=false
+where a.tenant_id=@TenantId and a.entidade_id=@EntidadeId and a.is_deleted=false
+order by a.data_avaliacao desc, a.id desc;";
+        using var connection = _context.CreateConnection();
+        var itens = (await connection.QueryAsync<BoletimItemResponse>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId, AlunoId = alunoId }, ct)).ConfigureAwait(false)).AsList();
+        var notas = itens.Where(x => x.Nota.HasValue).Select(x => x.Nota!.Value).ToArray();
+        return new BoletimResponse(alunoId, notas.Length == 0 ? 0m : decimal.Round(notas.Average(), 2), itens);
     }
 
     public Task<string> ProximoAsync(string prefixo, int ano, CancellationToken ct)
