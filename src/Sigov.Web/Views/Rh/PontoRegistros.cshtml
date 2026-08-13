@@ -1,0 +1,10 @@
+@{ ViewData["Title"] = "Registros de ponto"; }
+<section class="rh-b2-shell" data-endpoint="/api/rh/ponto/registros">
+ <header class="rh-b2-hero"><span class="lgpd-badge">LGPD • acesso auditado</span><h1>Registros de ponto</h1><p>Batidas manuais, importadas e ajustadas</p></header>
+ <div class="rh-b2-kpis"><article class="rh-b2-card"><small>Registros</small><strong data-kpi>—</strong><span>no filtro atual</span></article><article class="rh-b2-card"><small>Status</small><strong>Ativo</strong><span>fluxo operacional</span></article><article class="rh-b2-card"><small>Auditoria</small><strong>100%</strong><span>correlation ID</span></article></div>
+ <div class="filter-bar"><input type="search" placeholder="Buscar servidor ou matrícula" aria-label="Busca"><select aria-label="Status"><option>Todos os status</option><option>Pendente</option><option>Aprovado</option></select><input type="date" aria-label="Data inicial"><button class="btn btn-primary" type="button">Aplicar filtros</button></div>
+ <div class="responsive-data-table"><table><thead><tr><th>Referência</th><th>Servidor</th><th>Período</th><th>Status</th><th>Ações</th></tr></thead><tbody data-grid><tr><td colspan="5"><div class="loading-skeleton" aria-label="Carregando"></div></td></tr></tbody></table></div>
+</section>
+<script>
+(()=>{const root=document.currentScript.previousElementSibling,body=root.querySelector('[data-grid]');fetch(root.dataset.endpoint,{headers:{'X-Correlation-Id':crypto.randomUUID()}}).then(r=>r.ok?r.json():Promise.reject()).then(x=>{const items=x.data?.items??x.items??[];root.querySelector('[data-kpi]').textContent=items.length;body.innerHTML=items.length?items.map(i=>`<tr><td>#${i.id}</td><td>Dados protegidos</td><td>—</td><td><span class="status-chip">${i.dados?.status??'ATIVO'}</span></td><td><button class="btn btn-sm btn-outline-primary">Detalhes</button></td></tr>`).join(''):'<tr><td colspan="5"><div class="empty-state">Nenhum registro encontrado para este filtro.</div></td></tr>'}).catch(()=>body.innerHTML='<tr><td colspan="5"><div class="empty-state">Não foi possível carregar. Confirme seu vínculo e tente novamente.</div></td></tr>')})();
+</script>

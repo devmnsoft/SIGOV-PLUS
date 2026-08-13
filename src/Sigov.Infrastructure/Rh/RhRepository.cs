@@ -18,7 +18,13 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         ["servidores"] = "sigov.servidor", ["cargos"] = "sigov.cargo", ["lotacoes"] = "sigov.lotacao", ["vinculos"] = "sigov.vinculo",
         ["folhas"] = "sigov.folha", ["folha-eventos"] = "sigov.folha_evento", ["folha-lancamentos"] = "sigov.folha_lancamento",
         ["pontos"] = "sigov.ponto", ["ferias"] = "sigov.ferias", ["afastamentos"] = "sigov.afastamento", ["saude-ocupacional"] = "sigov.saude_ocupacional",
-        ["esocial"] = "sigov.esocial", ["portal-usuarios"] = "sigov.portal_usuario", ["portal-acessos"] = "sigov.portal_acesso", ["eventos"] = "sigov.rh_evento"
+        ["esocial"] = "sigov.esocial", ["portal-usuarios"] = "sigov.portal_usuario", ["portal-acessos"] = "sigov.portal_acesso", ["eventos"] = "sigov.rh_evento",
+        ["ponto-jornadas"] = "sigov.rh_jornada", ["ponto-escalas"] = "sigov.rh_escala", ["ponto-registros"] = "sigov.rh_ponto_registro",
+        ["ponto-justificativas"] = "sigov.rh_ponto_justificativa", ["ponto-apuracoes"] = "sigov.rh_ponto_apuracao", ["ponto-homologacoes"] = "sigov.rh_ponto_homologacao",
+        ["ponto-integracoes-folha"] = "sigov.rh_ponto_integracao_folha", ["ferias-periodos"] = "sigov.rh_ferias_periodo_aquisitivo",
+        ["ferias-programacoes"] = "sigov.rh_ferias_programacao", ["ferias-historicos"] = "sigov.rh_ferias_historico", ["afastamento-tipos"] = "sigov.rh_afastamento_tipo",
+        ["afastamento-historicos"] = "sigov.rh_afastamento_historico", ["portal-solicitacoes"] = "sigov.rh_portal_solicitacao",
+        ["portal-atualizacoes"] = "sigov.rh_portal_atualizacao_cadastral", ["portal-mensagens"] = "sigov.rh_portal_mensagem"
     };
 
     public RhRepository(DapperContext context) => _context = context;

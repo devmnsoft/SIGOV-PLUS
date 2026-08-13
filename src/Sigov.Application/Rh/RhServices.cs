@@ -13,7 +13,9 @@ public sealed class RhService : IRhService
     private static readonly HashSet<string> Recursos = new(StringComparer.OrdinalIgnoreCase)
     {
         "servidores", "cargos", "lotacoes", "vinculos", "folhas", "folha-eventos", "folha-lancamentos",
-        "pontos", "ferias", "afastamentos", "saude-ocupacional", "esocial", "portal-usuarios", "portal-acessos", "eventos"
+        "pontos", "ferias", "afastamentos", "saude-ocupacional", "esocial", "portal-usuarios", "portal-acessos", "eventos",
+        "ponto-jornadas", "ponto-escalas", "ponto-registros", "ponto-justificativas", "ponto-apuracoes", "ponto-homologacoes", "ponto-integracoes-folha",
+        "ferias-periodos", "ferias-programacoes", "ferias-historicos", "afastamento-tipos", "afastamento-historicos", "portal-solicitacoes", "portal-atualizacoes", "portal-mensagens"
     };
 
     // Regras estruturais do RH: todo CRUD continua flexível em JSONB, mas o backend é a autoridade final
