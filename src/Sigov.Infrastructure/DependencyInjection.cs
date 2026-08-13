@@ -27,6 +27,8 @@ using Sigov.Application.Rh;
 using Sigov.Infrastructure.Rh;
 using Sigov.Application.Educacao;
 using Sigov.Infrastructure.Educacao;
+using Sigov.Application.Parameters;
+using Sigov.Infrastructure.Parameters;
 using Sigov.Application.Workflows;
 using Sigov.Infrastructure.Workflows;
 using Sigov.Application.Saude;
@@ -300,6 +302,8 @@ public static class DependencyInjection
         services.AddScoped<IRhService, RhService>();
         services.AddScoped<IRhTypedService, RhTypedService>();
         services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();
+        services.AddScoped<IModuleParameterRepository, ModuleParameterRepository>();
+        services.AddScoped<IModuleParameterService, ModuleParameterService>();
         services.AddScoped<EducacaoRepository>();
         services.AddScoped<IEducacaoRepository, EducacaoRepository>();
         services.AddScoped<IEscolaRepository, EducacaoRepository>();
