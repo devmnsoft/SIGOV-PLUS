@@ -88,6 +88,8 @@ using Sigov.Application.OrdemServico;
 using Sigov.Infrastructure.OrdemServico;
 using Sigov.Application.ComprasEmpresariais;
 using Sigov.Infrastructure.ComprasEmpresariais;
+using Sigov.Application.ExecutiveOperations;
+using Sigov.Infrastructure.ExecutiveOperations;
 
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Industria;
@@ -115,6 +117,8 @@ public static class DependencyInjection
         services.AddScoped<IFornecedorApplicationService, FornecedorApplicationService>();
         services.AddScoped<IRequisicaoCompraApplicationService, RequisicaoCompraApplicationService>();
         services.AddScoped<IComprasDashboardApplicationService, ComprasDashboardApplicationService>();
+        services.AddScoped<IExecutiveOperationsRepository, ExecutiveOperationsRepository>();
+        services.AddScoped<IGovernancaOperacionalService, GovernancaOperacionalService>();
         services.AddSingleton<IDocumentTemplateRenderer, SafeDocumentTemplateRenderer>();
         services.AddScoped<ITarefaRepository, TarefaRepository>();
         services.AddScoped<ITarefaHistoricoRepository, TarefaHistoricoRepository>();
