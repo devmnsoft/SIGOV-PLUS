@@ -92,13 +92,13 @@ public sealed class EducacaoController : Controller
     public IActionResult Boletins() => View();
 
     [HttpGet("/Educacao/Transporte")]
-    public IActionResult Transporte() => View("RecursoOperacional", new EducacaoRecursoViewModel("Transporte escolar", "Rotas e alunos atendidos", "/api/educacao/transporte/rotas"));
+    public IActionResult Transporte() => View();
 
     [HttpGet("/Educacao/Merenda")]
-    public IActionResult Merenda() => View("RecursoOperacional", new EducacaoRecursoViewModel("Merenda escolar", "Cardápios e planejamento de consumo", "/api/educacao/merenda/cardapios"));
+    public IActionResult Merenda() => View();
 
     [HttpGet("/Educacao/Biblioteca")]
-    public IActionResult Biblioteca() => View("RecursoOperacional", new EducacaoRecursoViewModel("Biblioteca", "Acervo, empréstimos e pendências", "/api/educacao/biblioteca/itens"));
+    public IActionResult Biblioteca() => View();
 
     [HttpGet("/Educacao/Relatorios")]
     public IActionResult Relatorios() => View("RecursoOperacional", new EducacaoRecursoViewModel("Relatórios educacionais", "Exportações com escopo do tenant", "/api/educacao/export/alunos.csv"));
