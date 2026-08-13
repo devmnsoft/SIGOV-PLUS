@@ -1,0 +1,13 @@
+{
+  "solution": {
+    "path": "sigov.sln",
+    "projects": [
+      "src\\Sigov.Api\\Sigov.Api.csproj",
+      "src\\Sigov.Application\\Sigov.Application.csproj",
+      "src\\Sigov.Domain\\Sigov.Domain.csproj",
+      "src\\Sigov.Infrastructure\\Sigov.Infrastructure.csproj",
+      "src\\Sigov.Web\\Sigov.Web.csproj",
+      "src\\Sigov.Worker\\Sigov.Worker.csproj"
+    ]
+  }
+}

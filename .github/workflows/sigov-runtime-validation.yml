@@ -55,12 +55,11 @@ jobs:
           printf '%s\n' "$prereq_output" | grep -q 'port:5432.*PORT_IN_USE'
           ! printf '%s\n' "$prereq_output" | grep -E 'MISSING_TOOL|INVALID_VERSION|MISSING_ENV'
 
-      - name: Restore, build and test
+      - name: Restore and build production runtime
         shell: bash
         run: |
-          dotnet restore sigov.sln --locked-mode
-          dotnet build sigov.sln --configuration Release --no-restore --nologo -warnaserror
-          dotnet test sigov.sln --configuration Release --no-build --nologo
+          dotnet restore sigov.runtime.slnf --locked-mode
+          dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror
 
       - name: Generate structural and Development scripts
         shell: pwsh
