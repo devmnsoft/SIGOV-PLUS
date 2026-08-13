@@ -1,0 +1,9 @@
+@{ ViewData["Title"] = "Atendimento ao responsável"; }
+<section class="edu-b3" data-endpoint="/api/educacao/secretaria/dashboard">
+ <header class="edu-b3__hero"><div><span class="lgpd-badge">LGPD • acesso auditado</span><h1>Atendimento ao responsável</h1><p>Operação educacional persistente, isolada por tenant e protegida por permissões.</p></div><button class="btn btn-primary" data-reload>Atualizar</button></header>
+ <div class="edu-b3__kpis"><article><strong data-total>—</strong><span>Registros</span></article><article><strong>100%</strong><span>Rastreabilidade</span></article><article><strong>Ativo</strong><span>Fluxo operacional</span></article></div>
+ <div class="filter-bar"><label>Busca<input type="search" data-filter placeholder="Filtrar registros"></label><label>Status<select><option>Todos</option><option>Aberto</option><option>Pendente</option><option>Concluído</option></select></label></div>
+ <div class="responsive-data-table"><div class="loading-skeleton" data-loading>Consultando dados reais…</div><table hidden><thead><tr><th>Identificador</th><th>Tipo / título</th><th>Status</th><th>Atualização</th></tr></thead><tbody></tbody></table><div class="empty-state" hidden><strong>Nenhum registro disponível</strong><p>Quando houver dados autorizados, eles aparecerão aqui. Nenhum dado de terceiros é exibido.</p></div></div>
+ <div class="audit-timeline"><span></span><div><strong>Trilha de auditoria habilitada</strong><small>Alterações registram usuário, tenant e correlation id.</small></div></div>
+</section>
+<script src="~/js/educacao-bloco3.js" asp-append-version="true"></script>
