@@ -644,6 +644,16 @@
           "checksum": "c9e3e89cca8aa059dbb7d36ec4c01f025bb72580d3f8ce5a90c1fda94a5b8349"
         }
       ]
+    },
+    {
+      "version": "20260813223000",
+      "file": "20260813223000_rc50_32_bloco2_rh_core.sql",
+      "description": "rc50_32_bloco2_rh_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1",
+      "postConditionSql": "select to_regclass('sigov.rh_jornada') is not null and to_regclass('sigov.rh_portal_solicitacao') is not null"
     }
   ],
   "compatibilityAfterAll": [
