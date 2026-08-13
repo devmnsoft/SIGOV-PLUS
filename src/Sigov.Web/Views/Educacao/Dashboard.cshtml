@@ -1,25 +1,11 @@
 @model Sigov.Web.Models.Educacao.EducacaoDashboardViewModel
 @{ ViewData["Title"] = "Dashboard Educação"; }
-@{
-    ViewData["Title"] = ViewData["Title"] ?? "Educação";
-}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <h1 class="h3">@ViewData["Title"]</h1>
-    <p class="text-muted mb-0">Módulo Educação Base com dados paginados, LGPD, auditoria e tenant_id.</p>
-  </div>
-  <div class="btn-group">
-    <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
-    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.csv">CSV</a>
-    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.json">JSON</a>
-  </div>
+<section class="education-hero" aria-labelledby="education-title"><div><span class="education-eyebrow">Gestão educacional · visão operacional</span><h1 id="education-title">Educação em tempo real</h1><p>Acompanhe capacidade, matrículas, frequência e pendências com dados persistidos e isolados por tenant.</p></div><div class="education-hero__actions"><a class="btn btn-light" href="/Educacao/Relatorios">Relatórios</a><a class="btn btn-outline-light" href="/api/educacao/export/alunos.csv">Exportar CSV</a></div></section>
+<form class="education-filters" id="education-filters" aria-label="Filtros do dashboard"><label>Ano letivo <select class="form-select" name="anoLetivo"><option value="">Todos</option><option selected>@DateTime.Today.Year</option></select></label><label>Escola <select class="form-select" name="escolaId"><option value="">Todas as escolas</option></select></label><label>Série <select class="form-select" name="serie"><option value="">Todas as séries</option></select></label><label>Turno <select class="form-select" name="turno"><option value="">Todos</option><option>MATUTINO</option><option>VESPERTINO</option><option>NOTURNO</option></select></label><button class="btn btn-primary" type="submit">Aplicar filtros</button></form>
+<div id="education-loading" class="education-kpis" aria-label="Carregando indicadores">@for (var i = 0; i < 8; i++) { <div class="education-skeleton"></div> }</div>
+<div id="education-content" class="d-none">
+ <div class="education-kpis"><article class="education-kpi"><span>Escolas</span><strong data-field="totalEscolas">0</strong><small>unidades monitoradas</small></article><article class="education-kpi"><span>Alunos ativos</span><strong data-field="totalAlunosAtivos">0</strong><small>cadastros ativos</small></article><article class="education-kpi"><span>Matrículas ativas</span><strong data-field="totalMatriculasAtivas">0</strong><small>no ano letivo</small></article><article class="education-kpi"><span>Turmas abertas</span><strong data-field="totalTurmasAbertas">0</strong><small>em operação</small></article><article class="education-kpi education-kpi--accent"><span>Frequência média</span><strong><span data-field="frequenciaMediaMes">0</span>%</strong><small>mês corrente</small></article><article class="education-kpi"><span>Pré-matrículas</span><strong data-field="preMatriculasPendentes">0</strong><small>aguardando análise</small></article><article class="education-kpi"><span>Avaliações abertas</span><strong data-field="avaliacoesAbertas">0</strong><small>com lançamentos</small></article><article class="education-kpi"><span>Ocupação</span><strong id="education-occupancy">0%</strong><small><span data-field="vagasOcupadas">0</span> de <span data-field="vagasTotais">0</span> vagas</small></article></div>
+ <div class="education-grid"><section class="central-panel central-panel--wide"><div class="central-panel__heading"><div><span class="central-eyebrow">Capacidade</span><h2>Ocupação da rede</h2></div><span class="status-chip">Atualização online</span></div><div class="education-capacity"><div class="sigov-css-bar"><span id="education-capacity-bar"></span></div><p id="education-capacity-copy">Nenhuma vaga ocupada no recorte atual.</p></div></section><aside class="central-panel central-panel--attention"><div class="central-panel__heading"><div><span class="central-eyebrow">Atenção</span><h2>Alertas operacionais</h2></div></div><ul id="educacao-alertas" class="education-alerts"></ul><div id="education-empty" class="central-empty d-none"><strong>Nenhum alerta no período</strong><span>A rede está sem pendências operacionais.</span></div></aside><section class="central-panel"><div class="central-panel__heading"><div><span class="central-eyebrow">Atalhos</span><h2>Rotinas diárias</h2></div></div><nav class="central-shortcuts"><a href="/Educacao/Frequencias"><span class="central-shortcuts__mark"></span><div><strong>Realizar chamada</strong><small>Frequência diária por turma</small></div></a><a href="/Educacao/Notas"><span class="central-shortcuts__mark"></span><div><strong>Lançar notas</strong><small>Avaliações e grade</small></div></a><a href="/Educacao/Matriculas"><span class="central-shortcuts__mark"></span><div><strong>Gerir matrículas</strong><small>Confirmações e transferências</small></div></a></nav></section></div>
 </div>
-<div id="educacao-toast" class="alert d-none" role="alert"></div>
-<div class="row g-3" id="educacao-dashboard-cards">
-  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Escolas</div><div class="display-6" data-field="totalEscolas">0</div></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Alunos ativos</div><div class="display-6" data-field="totalAlunosAtivos">0</div></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Matrículas</div><div class="display-6" data-field="totalMatriculasAtivas">0</div></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Turmas abertas</div><div class="display-6" data-field="totalTurmasAbertas">0</div></div></div></div>
-</div>
-<div class="card mt-3"><div class="card-body"><h2 class="h5">Alertas</h2><ul id="educacao-alertas" class="mb-0"></ul></div></div>
-@section Scripts { <script src="~/js/modules/educacao.dashboard.js"></script> }
+<div id="education-error" class="sigov-feedback sigov-feedback--danger d-none" role="alert">Não foi possível carregar os indicadores. Tente novamente.</div>
+@section Scripts { <script src="~/js/modules/educacao.dashboard.js" asp-append-version="true"></script> }
