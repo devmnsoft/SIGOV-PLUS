@@ -1,0 +1,20 @@
+@model Sigov.Application.ExecutiveOperations.GovernanceSummary
+@{ ViewData["Title"] = ViewData["Title"] ?? "Governança Operacional"; var assistant=ViewData["AssistantKey"] as string; }
+<link rel="stylesheet" href="~/css/sigov-executive.css" asp-append-version="true" />
+<main class="exec-shell">
+  @Html.AntiForgeryToken()
+  <header class="exec-hero"><div><span class="exec-eyebrow">SIGOV+ · OPERAÇÃO EXECUTIVA</span><h1>@ViewData["Title"]</h1><p>@ViewData["Description"]</p></div><span class="lgpd-pill">🔒 LGPD · acesso auditado</span></header>
+  @if (assistant is not null) {
+    <section class="assistant-card" data-assistant="@assistant"><div class="step-track"><b>1</b><i></i><b>2</b><i></i><b>3</b><i></i><b>4</b></div><h2>Etapa <span data-step-label>1</span> de 4</h2><p>Revise as informações desta etapa. Dados somente serão concluídos após validação.</p><textarea data-assistant-payload aria-label="Dados da etapa">{}</textarea><div class="assistant-actions"><button class="btn-secondary" data-previous disabled>Anterior</button><button class="btn-primary" data-next>Próximo</button></div><p class="save-state" role="status"></p></section>
+  }
+  <section class="kpi-grid">
+    <article class="kpi-card critical"><span>Riscos críticos</span><strong>@Model.CriticalRisks</strong><small>Exigem tratamento prioritário</small></article>
+    <article class="kpi-card"><span>Notificações não lidas</span><strong>@Model.UnreadNotifications</strong><small>Somente do usuário conectado</small></article>
+    @foreach(var metric in Model.Indicators.Take(6)){<article class="kpi-card"><span>@metric.Module</span><strong>@metric.Value</strong><small>@metric.Label</small></article>}
+  </section>
+  <section class="smart-panel"><div class="panel-head"><div><h2>Pendências operacionais</h2><p>Ordenação estável por data e criticidade.</p></div><div class="filter-row"><select aria-label="Módulo"><option>Todos os módulos</option><option>Educação</option><option>RH</option><option>Folha</option></select><select aria-label="Severidade"><option>Todas as severidades</option><option>Crítica</option><option>Atenção</option></select></div></div>
+    @if(Model.Pendencies.Count==0){<div class="exec-empty"><span>✓</span><h3>Nenhuma pendência no filtro atual</h3><p>O painel será atualizado a partir dos registros persistidos.</p></div>}
+    else {<div class="exec-table-wrap"><table class="exec-table"><thead><tr><th>Módulo</th><th>Pendência</th><th>Severidade</th><th>Status</th><th>Registro</th></tr></thead><tbody>@foreach(var item in Model.Pendencies){<tr><td>@item.Module</td><td><b>@item.Title</b><small>@item.Type</small></td><td><span class="status-chip @item.Severity.ToLowerInvariant()">@item.Severity</span></td><td>@item.Status</td><td>@if(item.Url is not null){<a href="@item.Url">Abrir →</a>}else{<span>Protegido</span>}</td></tr>}</tbody></table></div>}
+  </section>
+</main>
+<script src="~/js/sigov-executive.js" asp-append-version="true"></script>
