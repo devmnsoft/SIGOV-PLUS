@@ -11,6 +11,9 @@ namespace Sigov.Web.Controllers;
 /// </summary>
 public sealed class EducacaoController : Controller
 {
+    public IActionResult Importacoes() => View();
+    [Route("/Educacao/Importacoes/{recurso}")]
+    public IActionResult Importacao(string recurso) { ViewData["Recurso"] = recurso; return View("Importacao"); }
     private readonly IAlunoService _alunos;
 
     public EducacaoController(IAlunoService alunos) => _alunos = alunos;

@@ -1,0 +1,3 @@
+@{ ViewData["Title"] = "Importações de RH"; }
+<div class="sigov-ops-hero"><div><span class="sigov-eyebrow">RH · saneamento cadastral</span><h1>Importações operacionais</h1><p>Pré-validação, persistência seletiva, relatório auditável e mascaramento de CPF.</p></div><span class="sigov-risk-badge is-safe">Dados protegidos</span></div>
+<div class="sigov-operation-grid">@foreach(var r in new[]{"servidores","vinculos","lancamentos","ponto"}){<a class="sigov-operation-card" href="#" data-rh-import="@r"><strong>@r</strong><small>Importar somente linhas válidas</small><span>Preparar arquivo →</span></a>}</div>
