@@ -684,6 +684,36 @@
       "applyAutomatically": true,
       "checksum": "48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f",
       "postConditionSql": "select to_regclass('sigov.educacao_portal_vinculo') is not null"
+    },
+    {
+      "version": "20260814120000",
+      "file": "20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql",
+      "description": "20260814120000_rc50_36_financeiro_siafic_bloco5_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "21525439b3ddeafd72d2d53029f3d2cd16272d7648387eff2de4c3c04fa506a3",
+      "postConditionSql": "select to_regclass('sigov.financeiro_dotacao') is not null and to_regclass('sigov.financeiro_empenho') is not null"
+    },
+    {
+      "version": "20260814121000",
+      "file": "20260814121000_rc50_36_tributario_divida_ativa_bloco5_core.sql",
+      "description": "20260814121000_rc50_36_tributario_divida_ativa_bloco5_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "e6fedc558977d0dfae5751afbfc1bd2585de7e03aa91037618dd394b97504e85",
+      "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_divida_ativa') is not null"
+    },
+    {
+      "version": "20260814122000",
+      "file": "20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql",
+      "description": "20260814122000_rc50_36_relatorios_executivos_bloco5_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b4c74ede176a48826069e0ece3d9b8ddd301f453083d86eb5f5ee8a443cc6ec2",
+      "postConditionSql": "select to_regclass('sigov.relatorio_executivo_config') is not null"
     }
   ],
   "compatibilityAfterAll": [

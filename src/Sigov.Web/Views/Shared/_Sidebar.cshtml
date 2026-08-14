@@ -52,11 +52,25 @@
       <a class="sigov-nav-link@(active("/RH/PortalAdminSolicitacoes"))" href="/RH/PortalAdminSolicitacoes"><sigov-icon name="shield" size="18"/><span>Administração do Portal</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Financeiro","/Tributario","/Compras","/Contratos"})><summary><sigov-icon name="finance" size="16" />Financeiro / SIAFIC</summary>
-      <a class="sigov-nav-link@(active("/Financeiro"))" href="/Financeiro/Dashboard" data-favorite-key="Financeiro"><sigov-icon name="finance" size="18"/><span>Financeiro</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Financeiro">★</button></a>
-      <a class="sigov-nav-link@(active("/Tributario"))" href="/Tributario/Dashboard" data-favorite-key="Tributário"><sigov-icon name="tax" size="18"/><span>Tributário</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Tributário">★</button></a>
+      <a class="sigov-nav-link@(active("/Financeiro/Dashboard"))" href="/Financeiro/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard Financeiro</span></a>
+      <a class="sigov-nav-link@(active("/Financeiro/OrcamentoDespesa"))" href="/Financeiro/OrcamentoDespesa"><sigov-icon name="finance" size="18"/><span>Dotações e saldos</span></a>
+      <a class="sigov-nav-link@(active("/Financeiro/Empenhos"))" href="/Financeiro/Empenhos"><sigov-icon name="documents" size="18"/><span>Empenhos</span></a>
+      <a class="sigov-nav-link@(active("/Financeiro/Liquidacoes"))" href="/Financeiro/Liquidacoes"><sigov-icon name="workflow" size="18"/><span>Liquidações</span></a>
+      <a class="sigov-nav-link@(active("/Financeiro/Pagamentos"))" href="/Financeiro/Pagamentos"><sigov-icon name="finance" size="18"/><span>Pagamentos</span></a>
+      <a class="sigov-nav-link@(active("/Tributario/Dashboard"))" href="/Tributario/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard Tributário</span></a>
+      <a class="sigov-nav-link@(active("/Tributario/Contribuintes"))" href="/Tributario/Contribuintes"><sigov-icon name="users" size="18"/><span>Contribuintes</span></a>
+      <a class="sigov-nav-link@(active("/Tributario/Lancamentos"))" href="/Tributario/Lancamentos"><sigov-icon name="tax" size="18"/><span>Lançamentos</span></a>
+      <a class="sigov-nav-link@(active("/Tributario/Parcelamentos"))" href="/Tributario/Parcelamentos"><sigov-icon name="finance" size="18"/><span>Parcelamentos</span></a>
       <a class="sigov-nav-link@(active("/Tributario/DividaAtiva"))" href="/Tributario/DividaAtiva"><sigov-icon name="documents" size="18"/><span>Dívida Ativa</span></a>
       <a class="sigov-nav-link@(active("/Compras"))" href="/Compras/Dashboard"><sigov-icon name="cart" size="18"/><span>Compras</span></a>
       <a class="sigov-nav-link@(active("/Contratos"))" href="/Contratos/Dashboard"><sigov-icon name="documents" size="18"/><span>Contratos</span></a>
+    </details>
+    <details class="sigov-nav-group" @opened(new[]{"/RelatoriosExecutivos"})><summary><sigov-icon name="dashboard" size="16" />Relatórios Executivos</summary>
+      <a class="sigov-nav-link@(active("/RelatoriosExecutivos/Dashboard"))" href="/RelatoriosExecutivos/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard Executivo</span></a>
+      <a class="sigov-nav-link@(active("/RelatoriosExecutivos/Financeiro"))" href="/RelatoriosExecutivos/Financeiro"><sigov-icon name="finance" size="18"/><span>Financeiro</span></a>
+      <a class="sigov-nav-link@(active("/RelatoriosExecutivos/Tributario"))" href="/RelatoriosExecutivos/Tributario"><sigov-icon name="tax" size="18"/><span>Tributário</span></a>
+      <a class="sigov-nav-link@(active("/RelatoriosExecutivos/RhFolha"))" href="/RelatoriosExecutivos/RhFolha"><sigov-icon name="users" size="18"/><span>RH / Folha agregado</span></a>
+      <a class="sigov-nav-link@(active("/RelatoriosExecutivos/Educacao"))" href="/RelatoriosExecutivos/Educacao"><sigov-icon name="education" size="18"/><span>Educação agregada</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Rh","/Educacao","/Saude","/Saneamento","/Social","/AssistenciaSocial","/Agro"})><summary><sigov-icon name="services" size="16" />Serviços públicos</summary>
       <a class="sigov-nav-link@(active("/Rh"))" href="/Rh/Dashboard"><sigov-icon name="users" size="18"/><span>Recursos Humanos</span></a>
