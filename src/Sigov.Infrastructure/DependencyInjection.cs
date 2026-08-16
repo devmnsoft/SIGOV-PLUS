@@ -98,6 +98,8 @@ using Sigov.Infrastructure.ExecutiveOperations;
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Industria;
 using Sigov.Application.Ui;
+using Sigov.Application.Bloco6;
+using Sigov.Infrastructure.Bloco6;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
@@ -105,6 +107,27 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddSingleton<NpgsqlConnectionFactory>();
+        services.AddScoped<IComprasRepository, ComprasRepository>();
+        services.AddScoped<IContratosRepository, ContratosRepository>();
+        services.AddScoped<IAlmoxarifadoRepository, AlmoxarifadoRepository>();
+        services.AddScoped<IPatrimonioRepository, PatrimonioRepository>();
+        services.AddScoped<ComprasService>();
+        services.AddScoped<IComprasService>(p => p.GetRequiredService<ComprasService>());
+        services.AddScoped<IComprasSolicitacaoService>(p => p.GetRequiredService<ComprasService>());
+        services.AddScoped<IComprasOrdemCompraService>(p => p.GetRequiredService<ComprasService>());
+        services.AddScoped<IComprasDashboardService, ComprasDashboardService>();
+        services.AddSingleton<IFornecedorService, FornecedorService>();
+        services.AddScoped<ContratosService>();
+        services.AddScoped<IContratosService>(p => p.GetRequiredService<ContratosService>());
+        services.AddScoped<IContratoMedicaoService>(p => p.GetRequiredService<ContratosService>());
+        services.AddScoped<IContratosDashboardService, ContratosDashboardService>();
+        services.AddScoped<AlmoxarifadoService>();
+        services.AddScoped<IAlmoxarifadoService>(p => p.GetRequiredService<AlmoxarifadoService>());
+        services.AddScoped<IAlmoxarifadoEstoqueService>(p => p.GetRequiredService<AlmoxarifadoService>());
+        services.AddScoped<IAlmoxarifadoMovimentoService>(p => p.GetRequiredService<AlmoxarifadoService>());
+        services.AddScoped<PatrimonioService>();
+        services.AddScoped<IPatrimonioService>(p => p.GetRequiredService<PatrimonioService>());
+        services.AddScoped<IPatrimonioMovimentoService>(p => p.GetRequiredService<PatrimonioService>());
         services.AddScoped<DapperContext>();
         services.AddScoped<IWhiteLabelB2BLaunchService, WhiteLabelB2BLaunchService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

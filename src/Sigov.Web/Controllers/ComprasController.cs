@@ -20,6 +20,10 @@ public sealed class ComprasController : Controller
     [Route("/Compras/Fornecedores")]
     [Route("/Compras/Itens")]
     [Route("/Compras/Relatorios")]
+    [Route("/Compras/Cotacoes")]
+    [Route("/Compras/MapaComparativo")]
+    [Route("/Compras/Processos")]
+    [Route("/Compras/OrdensCompra")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
