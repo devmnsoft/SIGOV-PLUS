@@ -20,6 +20,11 @@ public sealed class AlmoxarifadoController : Controller
     [Route("/Almoxarifado/Saidas")]
     [Route("/Almoxarifado/Movimentos")]
     [Route("/Almoxarifado/Inventario")]
+    [Route("/Almoxarifado/Dashboard")]
+    [Route("/Almoxarifado/Itens")]
+    [Route("/Almoxarifado/Estoque")]
+    [Route("/Almoxarifado/Inventarios")]
+    [Route("/Almoxarifado/Relatorios")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";

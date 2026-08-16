@@ -21,6 +21,7 @@ public sealed class PatrimonioController : Controller
     [Route("/Patrimonio/Localizacoes")]
     [Route("/Patrimonio/Responsaveis")]
     [Route("/Patrimonio/Inventario")]
+    [Route("/Patrimonio/Inventarios")]
     [Route("/Patrimonio/Depreciacao")]
     [Route("/Patrimonio/Relatorios")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)

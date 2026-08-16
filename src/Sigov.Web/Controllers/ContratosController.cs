@@ -4,6 +4,8 @@ using Sigov.Web.Services.Operational;
 
 namespace Sigov.Web.Controllers;
 
+
+[Microsoft.AspNetCore.Authorization.Authorize]
 public sealed class ContratosController : Controller
 {
     private readonly ContratosOperationalService _demo;
@@ -19,6 +21,9 @@ public sealed class ContratosController : Controller
     [Route("/Contratos/Aditivos")]
     [Route("/Contratos/Fiscais")]
     [Route("/Contratos/Medicoes")]
+    [Route("/Contratos/Apostilamentos")]
+    [Route("/Contratos/Alertas")]
+    [Route("/Contratos/Relatorios")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Contratos", RouteData.Values["action"]?.ToString() ?? "Dashboard", q, cancellationToken));
     [Route("/Contratos/Detalhes/{id:long}")]
     public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _demo.BuildAsync("Contratos", $"Detalhes #{id}", null, cancellationToken));
