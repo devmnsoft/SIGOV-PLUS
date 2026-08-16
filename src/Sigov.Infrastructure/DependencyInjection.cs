@@ -20,6 +20,9 @@ using Sigov.Application.Processos;
 using Sigov.Infrastructure.Processos;
 using Sigov.Application.Financeiro;
 using Sigov.Application.Core;
+using Sigov.Application.Frotas;
+using Sigov.Application.Obras;
+using Sigov.Infrastructure.Frotas;
 using Sigov.Infrastructure.Financeiro;
 using Sigov.Application.FinanceiroEmpresarial;
 using Sigov.Infrastructure.FinanceiroEmpresarial;
@@ -589,6 +592,11 @@ public static class DependencyInjection
         services.AddScoped<ISocialVigilanciaService, SocialService>();
         services.AddScoped<ISocialDashboardService, SocialService>();
         services.AddScoped<ISocialExportacaoService, SocialService>();
+        services.AddScoped<FrotasObrasRepository>();
+        services.AddScoped<IFrotasRepository, FrotasObrasRepository>();
+        services.AddScoped<IObrasRepository, FrotasObrasRepository>();
+        services.AddScoped<IFrotasService, FrotasService>();
+        services.AddScoped<IObrasService, ObrasService>();
         return services;
     }
 }
