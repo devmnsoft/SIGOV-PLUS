@@ -190,6 +190,8 @@ public static class DependencyInjection
         services.AddScoped<IHealthCheck, DatabaseHealthCheck>();
         services.AddScoped<IHealthCheck, OutboxHealthCheck>();
         services.AddScoped<IHealthCheck, StorageHealthCheck>();
+        services.AddScoped<IDatabaseObjectInspector, DatabaseObjectInspector>();
+        services.AddScoped<ProjectStatusProvider>();
 
         services.AddScoped<IApiCredentialRepository, ApiCredentialRepository>();
         services.AddScoped<IIntegracaoSistemaRepository, IntegracaoSistemaRepository>();
