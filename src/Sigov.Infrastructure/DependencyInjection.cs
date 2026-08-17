@@ -107,12 +107,24 @@ using Sigov.Infrastructure.Industria;
 using Sigov.Application.Ui;
 using Sigov.Application.Bloco6;
 using Sigov.Infrastructure.Bloco6;
+using Sigov.Application.Tributario.TributarioAvancado;
+using Sigov.Infrastructure.Tributario;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
+        services.AddScoped<TributarioAvancadoRepository>();
+        services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<IPortalContribuinteRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<ITributarioFiscalizacaoRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<ITributarioNfseRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<ITributarioCarnesBoletosService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<ITributarioCarneArquivoService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<IPortalContribuinteService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<ITributarioFiscalizacaoService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        services.AddScoped<ITributarioNfseService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddSingleton<NpgsqlConnectionFactory>();
         services.AddScoped<IComprasRepository, ComprasRepository>();
         services.AddScoped<IContratosRepository, ContratosRepository>();
