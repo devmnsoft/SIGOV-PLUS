@@ -59,6 +59,10 @@ create table if not exists sigov.assistencia_unidade (
     constraint ck_assistencia_unidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_unidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_unidade_tenant_ativo on sigov.assistencia_unidade(tenant_id, is_deleted);
 create index if not exists ix_assistencia_unidade_status_data on sigov.assistencia_unidade(tenant_id, status, data_referencia);
 
@@ -120,6 +124,10 @@ create table if not exists sigov.assistencia_pessoa (
     constraint ck_assistencia_pessoa_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_pessoa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_pessoa
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_pessoa_tenant_ativo on sigov.assistencia_pessoa(tenant_id, is_deleted);
 create index if not exists ix_assistencia_pessoa_status_data on sigov.assistencia_pessoa(tenant_id, status, data_referencia);
 
@@ -181,6 +189,10 @@ create table if not exists sigov.assistencia_familia (
     constraint ck_assistencia_familia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_familia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_familia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_familia_tenant_ativo on sigov.assistencia_familia(tenant_id, is_deleted);
 create index if not exists ix_assistencia_familia_status_data on sigov.assistencia_familia(tenant_id, status, data_referencia);
 
@@ -242,6 +254,10 @@ create table if not exists sigov.assistencia_familia_membro (
     constraint ck_assistencia_familia_membro_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_familia_membro_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_familia_membro
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_familia_membro_tenant_ativo on sigov.assistencia_familia_membro(tenant_id, is_deleted);
 create index if not exists ix_assistencia_familia_membro_status_data on sigov.assistencia_familia_membro(tenant_id, status, data_referencia);
 
@@ -303,6 +319,10 @@ create table if not exists sigov.assistencia_atendimento (
     constraint ck_assistencia_atendimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_atendimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_atendimento_tenant_ativo on sigov.assistencia_atendimento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_atendimento_status_data on sigov.assistencia_atendimento(tenant_id, status, data_referencia);
 
@@ -364,6 +384,10 @@ create table if not exists sigov.assistencia_beneficio (
     constraint ck_assistencia_beneficio_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_beneficio_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_beneficio
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_beneficio_tenant_ativo on sigov.assistencia_beneficio(tenant_id, is_deleted);
 create index if not exists ix_assistencia_beneficio_status_data on sigov.assistencia_beneficio(tenant_id, status, data_referencia);
 
@@ -425,6 +449,10 @@ create table if not exists sigov.assistencia_beneficio_concessao (
     constraint ck_assistencia_beneficio_concessao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_beneficio_concessao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_beneficio_concessao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_beneficio_concessao_tenant_ativo on sigov.assistencia_beneficio_concessao(tenant_id, is_deleted);
 create index if not exists ix_assistencia_beneficio_concessao_status_data on sigov.assistencia_beneficio_concessao(tenant_id, status, data_referencia);
 
@@ -486,6 +514,10 @@ create table if not exists sigov.assistencia_vulnerabilidade (
     constraint ck_assistencia_vulnerabilidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_vulnerabilidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_vulnerabilidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_vulnerabilidade_tenant_ativo on sigov.assistencia_vulnerabilidade(tenant_id, is_deleted);
 create index if not exists ix_assistencia_vulnerabilidade_status_data on sigov.assistencia_vulnerabilidade(tenant_id, status, data_referencia);
 
@@ -547,6 +579,10 @@ create table if not exists sigov.assistencia_visita_domiciliar (
     constraint ck_assistencia_visita_domiciliar_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_visita_domiciliar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_visita_domiciliar
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_visita_domiciliar_tenant_ativo on sigov.assistencia_visita_domiciliar(tenant_id, is_deleted);
 create index if not exists ix_assistencia_visita_domiciliar_status_data on sigov.assistencia_visita_domiciliar(tenant_id, status, data_referencia);
 
@@ -608,6 +644,10 @@ create table if not exists sigov.assistencia_encaminhamento (
     constraint ck_assistencia_encaminhamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_encaminhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_encaminhamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_encaminhamento_tenant_ativo on sigov.assistencia_encaminhamento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_encaminhamento_status_data on sigov.assistencia_encaminhamento(tenant_id, status, data_referencia);
 
@@ -669,6 +709,10 @@ create table if not exists sigov.assistencia_acompanhamento_familiar (
     constraint ck_assistencia_acompanhamento_familiar_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_acompanhamento_familiar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_acompanhamento_familiar
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_acompanhamento_familiar_tenant_ativo on sigov.assistencia_acompanhamento_familiar(tenant_id, is_deleted);
 create index if not exists ix_assistencia_acompanhamento_familiar_status_data on sigov.assistencia_acompanhamento_familiar(tenant_id, status, data_referencia);
 
@@ -730,6 +774,10 @@ create table if not exists sigov.assistencia_plano_acompanhamento (
     constraint ck_assistencia_plano_acompanhamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_plano_acompanhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_plano_acompanhamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_plano_acompanhamento_tenant_ativo on sigov.assistencia_plano_acompanhamento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_plano_acompanhamento_status_data on sigov.assistencia_plano_acompanhamento(tenant_id, status, data_referencia);
 
@@ -791,6 +839,10 @@ create table if not exists sigov.assistencia_cras_creas (
     constraint ck_assistencia_cras_creas_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_cras_creas_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_cras_creas
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_cras_creas_tenant_ativo on sigov.assistencia_cras_creas(tenant_id, is_deleted);
 create index if not exists ix_assistencia_cras_creas_status_data on sigov.assistencia_cras_creas(tenant_id, status, data_referencia);
 
@@ -852,6 +904,10 @@ create table if not exists sigov.assistencia_evento (
     constraint ck_assistencia_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_evento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_evento_tenant_ativo on sigov.assistencia_evento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_evento_status_data on sigov.assistencia_evento(tenant_id, status, data_referencia);
 

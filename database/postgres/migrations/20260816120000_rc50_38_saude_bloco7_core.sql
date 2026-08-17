@@ -59,6 +59,10 @@ create table if not exists sigov.saude_unidade (
     constraint ck_saude_unidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_unidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_unidade_tenant_ativo on sigov.saude_unidade(tenant_id, is_deleted);
 create index if not exists ix_saude_unidade_status_data on sigov.saude_unidade(tenant_id, status, data_referencia);
 
@@ -120,6 +124,10 @@ create table if not exists sigov.saude_paciente (
     constraint ck_saude_paciente_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_paciente_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_paciente
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_paciente_tenant_ativo on sigov.saude_paciente(tenant_id, is_deleted);
 create index if not exists ix_saude_paciente_status_data on sigov.saude_paciente(tenant_id, status, data_referencia);
 
@@ -181,6 +189,10 @@ create table if not exists sigov.saude_profissional (
     constraint ck_saude_profissional_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_profissional_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_profissional
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_profissional_tenant_ativo on sigov.saude_profissional(tenant_id, is_deleted);
 create index if not exists ix_saude_profissional_status_data on sigov.saude_profissional(tenant_id, status, data_referencia);
 
@@ -242,6 +254,10 @@ create table if not exists sigov.saude_especialidade (
     constraint ck_saude_especialidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_especialidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_especialidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_especialidade_tenant_ativo on sigov.saude_especialidade(tenant_id, is_deleted);
 create index if not exists ix_saude_especialidade_status_data on sigov.saude_especialidade(tenant_id, status, data_referencia);
 
@@ -303,6 +319,10 @@ create table if not exists sigov.saude_agenda (
     constraint ck_saude_agenda_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_agenda_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_agenda
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_agenda_tenant_ativo on sigov.saude_agenda(tenant_id, is_deleted);
 create index if not exists ix_saude_agenda_status_data on sigov.saude_agenda(tenant_id, status, data_referencia);
 
@@ -364,6 +384,10 @@ create table if not exists sigov.saude_agendamento (
     constraint ck_saude_agendamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_agendamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_agendamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_agendamento_tenant_ativo on sigov.saude_agendamento(tenant_id, is_deleted);
 create index if not exists ix_saude_agendamento_status_data on sigov.saude_agendamento(tenant_id, status, data_referencia);
 
@@ -425,6 +449,10 @@ create table if not exists sigov.saude_atendimento (
     constraint ck_saude_atendimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_atendimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_atendimento_tenant_ativo on sigov.saude_atendimento(tenant_id, is_deleted);
 create index if not exists ix_saude_atendimento_status_data on sigov.saude_atendimento(tenant_id, status, data_referencia);
 
@@ -486,6 +514,10 @@ create table if not exists sigov.saude_prontuario_resumo (
     constraint ck_saude_prontuario_resumo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_prontuario_resumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_prontuario_resumo
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_prontuario_resumo_tenant_ativo on sigov.saude_prontuario_resumo(tenant_id, is_deleted);
 create index if not exists ix_saude_prontuario_resumo_status_data on sigov.saude_prontuario_resumo(tenant_id, status, data_referencia);
 
@@ -547,6 +579,10 @@ create table if not exists sigov.saude_procedimento (
     constraint ck_saude_procedimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_procedimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_procedimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_procedimento_tenant_ativo on sigov.saude_procedimento(tenant_id, is_deleted);
 create index if not exists ix_saude_procedimento_status_data on sigov.saude_procedimento(tenant_id, status, data_referencia);
 
@@ -608,6 +644,10 @@ create table if not exists sigov.saude_prescricao (
     constraint ck_saude_prescricao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_prescricao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_prescricao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_prescricao_tenant_ativo on sigov.saude_prescricao(tenant_id, is_deleted);
 create index if not exists ix_saude_prescricao_status_data on sigov.saude_prescricao(tenant_id, status, data_referencia);
 
@@ -669,6 +709,10 @@ create table if not exists sigov.saude_vacinacao (
     constraint ck_saude_vacinacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_vacinacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_vacinacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_vacinacao_tenant_ativo on sigov.saude_vacinacao(tenant_id, is_deleted);
 create index if not exists ix_saude_vacinacao_status_data on sigov.saude_vacinacao(tenant_id, status, data_referencia);
 
@@ -730,6 +774,10 @@ create table if not exists sigov.saude_vacina (
     constraint ck_saude_vacina_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_vacina_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_vacina
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_vacina_tenant_ativo on sigov.saude_vacina(tenant_id, is_deleted);
 create index if not exists ix_saude_vacina_status_data on sigov.saude_vacina(tenant_id, status, data_referencia);
 
@@ -791,6 +839,10 @@ create table if not exists sigov.saude_acs_area (
     constraint ck_saude_acs_area_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_acs_area_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_acs_area
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_acs_area_tenant_ativo on sigov.saude_acs_area(tenant_id, is_deleted);
 create index if not exists ix_saude_acs_area_status_data on sigov.saude_acs_area(tenant_id, status, data_referencia);
 
@@ -852,6 +904,10 @@ create table if not exists sigov.saude_acs_microarea (
     constraint ck_saude_acs_microarea_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_acs_microarea_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_acs_microarea
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_acs_microarea_tenant_ativo on sigov.saude_acs_microarea(tenant_id, is_deleted);
 create index if not exists ix_saude_acs_microarea_status_data on sigov.saude_acs_microarea(tenant_id, status, data_referencia);
 
@@ -913,6 +969,10 @@ create table if not exists sigov.saude_acs_visita (
     constraint ck_saude_acs_visita_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_acs_visita_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_acs_visita
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_acs_visita_tenant_ativo on sigov.saude_acs_visita(tenant_id, is_deleted);
 create index if not exists ix_saude_acs_visita_status_data on sigov.saude_acs_visita(tenant_id, status, data_referencia);
 
@@ -974,6 +1034,10 @@ create table if not exists sigov.saude_farmacia_item (
     constraint ck_saude_farmacia_item_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_farmacia_item_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_farmacia_item
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_farmacia_item_tenant_ativo on sigov.saude_farmacia_item(tenant_id, is_deleted);
 create index if not exists ix_saude_farmacia_item_status_data on sigov.saude_farmacia_item(tenant_id, status, data_referencia);
 
@@ -1035,6 +1099,10 @@ create table if not exists sigov.saude_farmacia_movimento (
     constraint ck_saude_farmacia_movimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_farmacia_movimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_farmacia_movimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_farmacia_movimento_tenant_ativo on sigov.saude_farmacia_movimento(tenant_id, is_deleted);
 create index if not exists ix_saude_farmacia_movimento_status_data on sigov.saude_farmacia_movimento(tenant_id, status, data_referencia);
 
@@ -1096,6 +1164,10 @@ create table if not exists sigov.saude_vigilancia_notificacao (
     constraint ck_saude_vigilancia_notificacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_vigilancia_notificacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_vigilancia_notificacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_vigilancia_notificacao_tenant_ativo on sigov.saude_vigilancia_notificacao(tenant_id, is_deleted);
 create index if not exists ix_saude_vigilancia_notificacao_status_data on sigov.saude_vigilancia_notificacao(tenant_id, status, data_referencia);
 
@@ -1157,6 +1229,10 @@ create table if not exists sigov.saude_regulacao_solicitacao (
     constraint ck_saude_regulacao_solicitacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_regulacao_solicitacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_regulacao_solicitacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_regulacao_solicitacao_tenant_ativo on sigov.saude_regulacao_solicitacao(tenant_id, is_deleted);
 create index if not exists ix_saude_regulacao_solicitacao_status_data on sigov.saude_regulacao_solicitacao(tenant_id, status, data_referencia);
 
@@ -1218,6 +1294,10 @@ create table if not exists sigov.saude_evento (
     constraint ck_saude_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_evento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_evento_tenant_ativo on sigov.saude_evento(tenant_id, is_deleted);
 create index if not exists ix_saude_evento_status_data on sigov.saude_evento(tenant_id, status, data_referencia);
 

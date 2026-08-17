@@ -59,6 +59,10 @@ create table if not exists sigov.frota_veiculo (
     constraint ck_frota_veiculo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_veiculo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_veiculo
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_veiculo_tenant_ativo on sigov.frota_veiculo(tenant_id, is_deleted);
 create index if not exists ix_frota_veiculo_status_data on sigov.frota_veiculo(tenant_id, status, data_referencia);
 
@@ -120,6 +124,10 @@ create table if not exists sigov.frota_motorista (
     constraint ck_frota_motorista_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_motorista_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_motorista
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_motorista_tenant_ativo on sigov.frota_motorista(tenant_id, is_deleted);
 create index if not exists ix_frota_motorista_status_data on sigov.frota_motorista(tenant_id, status, data_referencia);
 
@@ -181,6 +189,10 @@ create table if not exists sigov.frota_abastecimento (
     constraint ck_frota_abastecimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_abastecimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_abastecimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_abastecimento_tenant_ativo on sigov.frota_abastecimento(tenant_id, is_deleted);
 create index if not exists ix_frota_abastecimento_status_data on sigov.frota_abastecimento(tenant_id, status, data_referencia);
 
@@ -242,6 +254,10 @@ create table if not exists sigov.frota_manutencao (
     constraint ck_frota_manutencao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_manutencao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_manutencao_tenant_ativo on sigov.frota_manutencao(tenant_id, is_deleted);
 create index if not exists ix_frota_manutencao_status_data on sigov.frota_manutencao(tenant_id, status, data_referencia);
 
@@ -303,6 +319,10 @@ create table if not exists sigov.frota_viagem (
     constraint ck_frota_viagem_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_viagem_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_viagem
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_viagem_tenant_ativo on sigov.frota_viagem(tenant_id, is_deleted);
 create index if not exists ix_frota_viagem_status_data on sigov.frota_viagem(tenant_id, status, data_referencia);
 
@@ -364,6 +384,10 @@ create table if not exists sigov.frota_ocorrencia (
     constraint ck_frota_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_ocorrencia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_ocorrencia_tenant_ativo on sigov.frota_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_frota_ocorrencia_status_data on sigov.frota_ocorrencia(tenant_id, status, data_referencia);
 
@@ -425,6 +449,10 @@ create table if not exists sigov.frota_equipamento (
     constraint ck_frota_equipamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_equipamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_equipamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_equipamento_tenant_ativo on sigov.frota_equipamento(tenant_id, is_deleted);
 create index if not exists ix_frota_equipamento_status_data on sigov.frota_equipamento(tenant_id, status, data_referencia);
 
@@ -486,6 +514,10 @@ create table if not exists sigov.obra (
     constraint ck_obra_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_tenant_ativo on sigov.obra(tenant_id, is_deleted);
 create index if not exists ix_obra_status_data on sigov.obra(tenant_id, status, data_referencia);
 
@@ -547,6 +579,10 @@ create table if not exists sigov.obra_etapa (
     constraint ck_obra_etapa_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_etapa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_etapa
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_etapa_tenant_ativo on sigov.obra_etapa(tenant_id, is_deleted);
 create index if not exists ix_obra_etapa_status_data on sigov.obra_etapa(tenant_id, status, data_referencia);
 
@@ -608,6 +644,10 @@ create table if not exists sigov.obra_medicao (
     constraint ck_obra_medicao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_medicao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_medicao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_medicao_tenant_ativo on sigov.obra_medicao(tenant_id, is_deleted);
 create index if not exists ix_obra_medicao_status_data on sigov.obra_medicao(tenant_id, status, data_referencia);
 
@@ -669,6 +709,10 @@ create table if not exists sigov.obra_fiscalizacao (
     constraint ck_obra_fiscalizacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_fiscalizacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_fiscalizacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_fiscalizacao_tenant_ativo on sigov.obra_fiscalizacao(tenant_id, is_deleted);
 create index if not exists ix_obra_fiscalizacao_status_data on sigov.obra_fiscalizacao(tenant_id, status, data_referencia);
 
@@ -730,6 +774,10 @@ create table if not exists sigov.obra_diario (
     constraint ck_obra_diario_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_diario_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_diario
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_diario_tenant_ativo on sigov.obra_diario(tenant_id, is_deleted);
 create index if not exists ix_obra_diario_status_data on sigov.obra_diario(tenant_id, status, data_referencia);
 
@@ -791,6 +839,10 @@ create table if not exists sigov.obra_ocorrencia (
     constraint ck_obra_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_ocorrencia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_ocorrencia_tenant_ativo on sigov.obra_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_obra_ocorrencia_status_data on sigov.obra_ocorrencia(tenant_id, status, data_referencia);
 
@@ -852,6 +904,10 @@ create table if not exists sigov.obra_integracao_contrato (
     constraint ck_obra_integracao_contrato_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_integracao_contrato_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_integracao_contrato
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_integracao_contrato_tenant_ativo on sigov.obra_integracao_contrato(tenant_id, is_deleted);
 create index if not exists ix_obra_integracao_contrato_status_data on sigov.obra_integracao_contrato(tenant_id, status, data_referencia);
 
@@ -913,6 +969,10 @@ create table if not exists sigov.obra_evento (
     constraint ck_obra_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_evento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_evento_tenant_ativo on sigov.obra_evento(tenant_id, is_deleted);
 create index if not exists ix_obra_evento_status_data on sigov.obra_evento(tenant_id, status, data_referencia);
 
