@@ -96,6 +96,8 @@ using Sigov.Infrastructure.OrdemServico;
 using Sigov.Application.ComprasEmpresariais;
 using Sigov.Infrastructure.ComprasEmpresariais;
 using Sigov.Application.ExecutiveOperations;
+using Sigov.Application.Bloco8;
+using Sigov.Infrastructure.Bloco8;
 using Sigov.Infrastructure.ExecutiveOperations;
 
 using Sigov.Application.Industria;
@@ -303,7 +305,7 @@ public static class DependencyInjection
         services.AddScoped<IProcessoDigitalService, ProcessoDigitalService>();
         services.AddScoped<IProtocoloAtendimentoService, ProtocoloAtendimentoService>();
         services.AddScoped<IOuvidoriaService, OuvidoriaService>();
-        services.AddScoped<IDiarioOficialService, DiarioOficialService>();
+        services.AddScoped<Sigov.Application.Processos.IDiarioOficialService, DiarioOficialService>();
         services.AddScoped<IPlanoContasRepository, PlanoContasRepository>();
         services.AddScoped<IFonteRecursoRepository, FonteRecursoRepository>();
         services.AddScoped<IProgramaRepository, ProgramaRepository>();
@@ -597,6 +599,36 @@ public static class DependencyInjection
         services.AddScoped<IObrasRepository, FrotasObrasRepository>();
         services.AddScoped<IFrotasService, FrotasService>();
         services.AddScoped<IObrasService, ObrasService>();
-        return services;
+                services.AddScoped<Bloco8Repository>();
+        services.AddScoped<IBloco8Repository, Bloco8Repository>();
+        services.AddScoped<IProcessosDigitaisRepository, Bloco8Repository>();
+        services.AddScoped<IGedRepository, Bloco8Repository>();
+        services.AddScoped<IAssinaturaRepository, Bloco8Repository>();
+        services.AddScoped<ILegislativoRepository, Bloco8Repository>();
+        services.AddScoped<ITransparenciaRepository, Bloco8Repository>();
+        services.AddScoped<IDiarioOficialRepository, Bloco8Repository>();
+        services.AddScoped<Bloco8Service>();
+        services.AddScoped<IProcessosDigitaisService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IProtocoloDigitalService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IProcessoNumeroService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IProcessoMovimentacaoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IProcessoRelatorioService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IGedService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IGedDocumentoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IGedArquivoFisicoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IGedValidacaoPublicaService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IAssinaturaService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ILegislativoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ILegislativoProposicaoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ILegislativoSessaoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ILegislativoVotacaoService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ILegislativoNormaService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ILegislativoRelatorioService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<ITransparenciaService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<Sigov.Application.Bloco8.IDiarioOficialService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IEsicService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IOuvidoriaService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<IAtendimentoDigitalService>(sp => sp.GetRequiredService<Bloco8Service>());
+return services;
     }
 }
