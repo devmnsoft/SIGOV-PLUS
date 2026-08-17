@@ -754,6 +754,46 @@
       "applyAutomatically": true,
       "checksum": "15c3e2d96d8c6917fada4a4d22356c70123b416b9c1b7c1aebf7f89f5175cc88",
       "postConditionSql": "select to_regclass('sigov.frota_veiculo') is not null and to_regclass('sigov.obra_medicao') is not null"
+    },
+    {
+      "version": "20260817120000",
+      "file": "20260817120000_rc50_42_processos_digitais_core.sql",
+      "description": "20260817120000_rc50_42_processos_digitais_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "0e9e2f92a8fe6d24d572578414194631b6086d5cc68a6293538ffafa07332853",
+      "postConditionSql": "select to_regclass('sigov.processo_digital') is not null and to_regclass('sigov.protocolo_externo') is not null"
+    },
+    {
+      "version": "20260817121000",
+      "file": "20260817121000_rc50_42_ged_assinaturas_core.sql",
+      "description": "20260817121000_rc50_42_ged_assinaturas_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "f01c2ff0a7ad334082bc3f24eb9752a4122f58b984b102373d4315a72c43101b",
+      "postConditionSql": "select to_regclass('sigov.ged_documento') is not null and to_regclass('sigov.assinatura_documento') is not null"
+    },
+    {
+      "version": "20260817122000",
+      "file": "20260817122000_rc50_42_legislativo_camara_core.sql",
+      "description": "20260817122000_rc50_42_legislativo_camara_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "71bb8284719919e8cc3b4d1e0396cdb95d8969a65b400d112b6797cca322f80a",
+      "postConditionSql": "select to_regclass('sigov.legislativo_proposicao') is not null and to_regclass('sigov.legislativo_sessao') is not null"
+    },
+    {
+      "version": "20260817123000",
+      "file": "20260817123000_rc50_42_transparencia_atendimento_core.sql",
+      "description": "20260817123000_rc50_42_transparencia_atendimento_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9",
+      "postConditionSql": "select to_regclass('sigov.diario_oficial_edicao') is not null and to_regclass('sigov.esic_pedido') is not null"
     }
   ],
   "compatibilityAfterAll": [
