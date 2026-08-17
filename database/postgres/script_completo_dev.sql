@@ -9668,6 +9668,349 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 000_preflight_legacy_compatibility.sql
+-- STAGE: BEFORE 20260730090000_pos_rc_32_ordem_servico.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- Pré-voo idempotente para reparar estruturas legadas antes das migrations críticas.
+-- Não cria dados operacionais; garante somente as colunas e valores mínimos exigidos
+-- por migrations históricas que usam CREATE TABLE IF NOT EXISTS seguido de índices
+-- ou constraints sobre estruturas que já podem existir em formato antigo.
+
+create schema if not exists sigov;
+create schema if not exists plantaopro;
+
+-- As tabelas genéricas do schema plantaopro podem existir em formato legado.
+-- A migration 20260608120000 cria índices em todas estas colunas; portanto elas
+-- precisam existir antes de o script chegar àquele bloco.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select table_name
+          from information_schema.tables
+         where table_schema = 'plantaopro'
+           and table_type = 'BASE TABLE'
+    loop
+        execute format('alter table plantaopro.%I add column if not exists tenant_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists cliente_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists plano_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists parceiro_id bigint null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists status varchar(60) not null default ''ATIVO''', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists codigo varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists nome varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dominio varchar(250) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists subdominio varchar(120) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists api_key_hash varchar(128) null', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists dados jsonb not null default ''{}''::jsonb', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists reg_date timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists created_at timestamptz not null default now()', r.table_name);
+        execute format('alter table plantaopro.%I add column if not exists updated_at timestamptz null', r.table_name);
+    end loop;
+end $$;
+
+-- A migration financeira pós-RC cria constraints sobre os quatro campos abaixo.
+-- Em instalações legadas a tabela pode existir sem esses campos ou com registros que
+-- não atendem ao novo contrato. A normalização preserva os valores válidos e ajusta
+-- somente registros incompatíveis, antes de a constraint ser criada.
+do $$
+declare
+    v_table text;
+begin
+    foreach v_table in array array['financeiro_conta_receber', 'financeiro_conta_pagar']
+    loop
+        if to_regclass(format('sigov.%I', v_table)) is null then
+            continue;
+        end if;
+
+        execute format(
+            'alter table sigov.%I
+                add column if not exists valor_original numeric(14,2) not null default 0,
+                add column if not exists valor_desconto numeric(14,2) not null default 0,
+                add column if not exists valor_acrescimo numeric(14,2) not null default 0,
+                add column if not exists valor_aberto numeric(14,2) not null default 0',
+            v_table
+        );
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_total'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor_total, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor_total, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor'
+        ) then
+            execute format(
+                'update sigov.%I set valor_original = greatest(coalesce(valor, 0), 0)
+                  where coalesce(valor_original, 0) <= 0 and coalesce(valor, 0) > 0',
+                v_table
+            );
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_juros'
+        ) and exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_multa'
+        ) then
+            execute format(
+                'update sigov.%I
+                    set valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0)
+                                         + greatest(coalesce(valor_juros, 0), 0)
+                                         + greatest(coalesce(valor_multa, 0), 0)
+                  where coalesce(valor_acrescimo, 0) = 0
+                    and (coalesce(valor_juros, 0) <> 0 or coalesce(valor_multa, 0) <> 0)',
+                v_table
+            );
+        end if;
+
+        execute format(
+            'update sigov.%I
+                set valor_desconto = greatest(coalesce(valor_desconto, 0), 0),
+                    valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0),
+                    valor_original = greatest(
+                        coalesce(valor_original, 0),
+                        greatest(coalesce(valor_aberto, 0), 0) - greatest(coalesce(valor_acrescimo, 0), 0),
+                        0.01
+                    )',
+            v_table
+        );
+
+        execute format(
+            'update sigov.%I
+                set valor_aberto = least(
+                    greatest(coalesce(valor_aberto, 0), 0),
+                    valor_original + valor_acrescimo
+                )',
+            v_table
+        );
+    end loop;
+end $$;
+
+-- As tabelas de Ordem de Serviço foram criadas inicialmente com um contrato menor.
+-- A migration pós-RC 32 usa CREATE TABLE IF NOT EXISTS e, em seguida, cria índices
+-- parciais sobre colunas novas. Este bloco promove as tabelas antigas para o contrato
+-- novo antes da criação dos índices, preservando os registros já existentes.
+do $$
+begin
+    if to_regclass('sigov.os_ordem_servico') is not null then
+        alter table sigov.os_ordem_servico
+            add column if not exists cliente_nome varchar(250),
+            add column if not exists proposta_id uuid,
+            add column if not exists tecnico_id uuid,
+            add column if not exists equipe_id uuid,
+            add column if not exists prioridade varchar(20) not null default 'NORMAL',
+            add column if not exists origem varchar(30) not null default 'MANUAL',
+            add column if not exists endereco text,
+            add column if not exists prazo_sla timestamptz,
+            add column if not exists agendada_inicio timestamptz,
+            add column if not exists agendada_fim timestamptz,
+            add column if not exists inicio_real timestamptz,
+            add column if not exists conclusao_em timestamptz,
+            add column if not exists custo_real numeric(18,2) not null default 0,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_ordem_servico
+           set cliente_nome = coalesce(nullif(cliente_nome, ''), 'Não informado'),
+               descricao = coalesce(descricao, ''),
+               prioridade = coalesce(nullif(prioridade, ''), 'NORMAL'),
+               origem = coalesce(nullif(origem, ''), 'MANUAL'),
+               version = greatest(coalesce(version, 1), 1),
+               is_deleted = coalesce(is_deleted, false),
+               created_by = coalesce(nullif(created_by, ''), 'migration'),
+               updated_by = coalesce(nullif(updated_by, ''), 'migration');
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'agendada_para'
+        ) then
+            update sigov.os_ordem_servico
+               set agendada_inicio = coalesce(agendada_inicio, agendada_para);
+        end if;
+
+        if exists (
+            select 1 from information_schema.columns
+             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'concluida_em'
+        ) then
+            update sigov.os_ordem_servico
+               set conclusao_em = coalesce(conclusao_em, concluida_em);
+        end if;
+
+        alter table sigov.os_ordem_servico
+            alter column cliente_nome set default 'Não informado',
+            alter column cliente_nome set not null,
+            alter column descricao set default '',
+            alter column descricao set not null;
+    end if;
+
+    if to_regclass('sigov.os_item') is not null then
+        alter table sigov.os_item
+            add column if not exists unidade varchar(20) not null default 'UN',
+            add column if not exists ordem integer not null default 1,
+            add column if not exists executado boolean not null default false,
+            add column if not exists justificativa text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+    end if;
+
+    if to_regclass('sigov.os_apontamento') is not null then
+        alter table sigov.os_apontamento
+            add column if not exists atividade text not null default 'Atividade',
+            add column if not exists intervalo_minutos integer not null default 0,
+            add column if not exists idempotency_key varchar(200),
+            add column if not exists version bigint not null default 1,
+            add column if not exists is_deleted boolean not null default false,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration',
+            add column if not exists correlation_id varchar(120);
+
+        update sigov.os_apontamento
+           set idempotency_key = coalesce(nullif(idempotency_key, ''), 'legacy-' || id::text),
+               atividade = coalesce(nullif(atividade, ''), 'Atividade'),
+               intervalo_minutos = greatest(coalesce(intervalo_minutos, 0), 0),
+               is_deleted = coalesce(is_deleted, false);
+
+        alter table sigov.os_apontamento
+            alter column idempotency_key set not null;
+
+        create unique index if not exists ux_os_apontamento_idempotency_compat
+            on sigov.os_apontamento(tenant_id, idempotency_key)
+            where not is_deleted;
+    end if;
+
+    if to_regclass('sigov.os_status_historico') is not null then
+        alter table sigov.os_status_historico
+            add column if not exists observacao text,
+            add column if not exists version bigint not null default 1,
+            add column if not exists updated_at timestamptz not null default now(),
+            add column if not exists created_by varchar(80) not null default 'migration',
+            add column if not exists updated_by varchar(80) not null default 'migration';
+    end if;
+end $$;
+
+-- ==================================================
+-- COMPATIBILITY: 010_pre_rc32_optional_financial_bridge.sql
+-- STAGE: BEFORE 20260730090000_pos_rc_32_ordem_servico.sql
+-- ==================================================
+-- SIGOV+ RC38E
+-- A migration RC32 adiciona colunas condicionalmente, mas cria o índice de forma
+-- incondicional. A tabela é parte da ponte entre o Enterprise e o Financeiro Core;
+-- quando uma instalação anterior não a criou, o contrato mínimo precisa existir.
+
+create schema if not exists sigov;
+create extension if not exists pgcrypto;
+
+create table if not exists sigov.enterprise_integracao_financeira (
+    id uuid primary key default gen_random_uuid(),
+    tenant_id uuid,
+    origem_tipo varchar(80),
+    origem_id uuid,
+    conta_receber_core_id bigint,
+    tenant_core_id bigint,
+    status varchar(40) not null default 'PENDENTE',
+    payload_json jsonb not null default '{}'::jsonb,
+    erro text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+alter table sigov.enterprise_integracao_financeira
+    add column if not exists id uuid default gen_random_uuid(),
+    add column if not exists tenant_id uuid,
+    add column if not exists origem_tipo varchar(80),
+    add column if not exists origem_id uuid,
+    add column if not exists conta_receber_core_id bigint,
+    add column if not exists tenant_core_id bigint,
+    add column if not exists status varchar(40) default 'PENDENTE',
+    add column if not exists payload_json jsonb default '{}'::jsonb,
+    add column if not exists erro text,
+    add column if not exists created_at timestamptz default now(),
+    add column if not exists updated_at timestamptz default now();
+
+-- Falhar cedo caso uma instalação legada possua colunas homônimas com tipos
+-- incompatíveis. Alterar tipos automaticamente poderia corromper a ponte UUID -> bigint.
+do $$
+declare
+    invalid_column text;
+begin
+    select expected.column_name
+      into invalid_column
+      from (values
+        ('id', 'uuid'),
+        ('tenant_id', 'uuid'),
+        ('origem_tipo', 'character varying'),
+        ('origem_id', 'uuid'),
+        ('conta_receber_core_id', 'bigint'),
+        ('tenant_core_id', 'bigint'),
+        ('status', 'character varying'),
+        ('payload_json', 'jsonb'),
+        ('erro', 'text'),
+        ('created_at', 'timestamp with time zone'),
+        ('updated_at', 'timestamp with time zone')
+      ) expected(column_name, data_type)
+      join information_schema.columns actual
+        on actual.table_schema = 'sigov'
+       and actual.table_name = 'enterprise_integracao_financeira'
+       and actual.column_name = expected.column_name
+     where actual.data_type <> expected.data_type
+     limit 1;
+
+    if invalid_column is not null then
+        raise exception 'Contrato legado incompatível em sigov.enterprise_integracao_financeira.%', invalid_column;
+    end if;
+end
+$$;
+
+-- ==================================================
+-- MIGRATION: 20260730090000_pos_rc_32_ordem_servico.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c
+-- ==================================================
+-- Pós-RC 32: estrutura aditiva da operação de campo.
+create table if not exists sigov.os_numeracao(tenant_id uuid not null,ano int not null,ultimo_numero bigint not null,updated_at timestamptz not null default now(),primary key(tenant_id,ano));
+create table if not exists sigov.os_ordem_servico(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,numero varchar(40) not null,cliente_id uuid not null,cliente_nome varchar(250) not null,pedido_id uuid,proposta_id uuid,tecnico_id uuid,equipe_id uuid,status varchar(30) not null,prioridade varchar(20) not null,origem varchar(30) not null,descricao text not null,endereco text,prazo_sla timestamptz,agendada_inicio timestamptz,agendada_fim timestamptz,inicio_real timestamptz,conclusao_em timestamptz,custo_real numeric(18,2) not null default 0,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,numero),unique(tenant_id,pedido_id));
+create index if not exists ix_os_operacao on sigov.os_ordem_servico(tenant_id,status,prioridade,agendada_inicio) where not is_deleted;
+create table if not exists sigov.os_item(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),descricao text not null,quantidade numeric(18,4) not null check(quantidade>0),unidade varchar(20) not null,ordem int not null,executado boolean not null default false,justificativa text,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
+create table if not exists sigov.os_agendamento(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),tecnico_id uuid,equipe_id uuid,inicio timestamptz not null,fim timestamptz not null,janela varchar(100),observacao text,conflito_autorizado boolean not null default false,justificativa_conflito text,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),check(fim>inicio));
+create index if not exists ix_os_agenda_tecnico on sigov.os_agendamento(tenant_id,tecnico_id,inicio,fim) where not is_deleted;
+create table if not exists sigov.os_checklist_instancia(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),titulo text not null,tipo varchar(30) not null,ordem int not null,obrigatorio boolean not null default false,bloqueia_conclusao boolean not null default false,respondido boolean not null default false,resposta text,observacao_resposta text,evidencia_id uuid,respondido_em timestamptz,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
+create table if not exists sigov.os_apontamento(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),tecnico_id uuid not null,atividade text not null,inicio timestamptz not null,fim timestamptz,intervalo_minutos int not null default 0,observacao text,idempotency_key varchar(200) not null,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,idempotency_key),check(fim is null or fim>=inicio),check(intervalo_minutos>=0));
+create unique index if not exists ux_os_cronometro_aberto on sigov.os_apontamento(tenant_id,tecnico_id) where fim is null and not is_deleted;
+create table if not exists sigov.os_consumo_peca(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),produto_id uuid not null,almoxarifado_id uuid not null,quantidade numeric(18,4) not null,custo_unitario numeric(18,4) not null,quantidade_devolvida numeric(18,4) not null default 0,idempotency_key varchar(200) not null,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,idempotency_key),check(quantidade>0));
+create table if not exists sigov.os_devolucao_peca(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null,consumo_id uuid not null references sigov.os_consumo_peca(id),produto_id uuid not null,almoxarifado_id uuid not null,quantidade numeric(18,4) not null,motivo text not null,idempotency_key varchar(200) not null,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,idempotency_key),check(quantidade>0));
+create table if not exists sigov.os_status_historico(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null,status_anterior varchar(30),status_novo varchar(30) not null,observacao text,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
+create table if not exists sigov.os_idempotencia(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,operacao varchar(50) not null,chave varchar(200) not null,recurso_id uuid not null,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,operacao,chave));
+alter table if exists sigov.enterprise_integracao_financeira add column if not exists conta_receber_core_id bigint,add column if not exists tenant_core_id bigint;
+create index if not exists ix_enterprise_financeiro_core on sigov.enterprise_integracao_financeira(tenant_core_id,conta_receber_core_id);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730090000', 'pos_rc_32_ordem_servico', 'cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- MIGRATION: 20260730110000_pos_rc_36b_permissao_chave_canonica.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: 740ef5203f9c67ee5c1519cd8baa971638bea21dd2d4c3a9371ea117308731c3
@@ -10291,349 +10634,6 @@ create table if not exists sigov.enterprise_financeiro_regra_aprovacao (
 create index if not exists ix_financeiro_regra_aprovacao_tenant_valor on sigov.enterprise_financeiro_regra_aprovacao(tenant_id,valor_minimo,valor_maximo) where ativo and not is_deleted;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730210000', 'pos_rc_31_consolidacao_comercial_financeiro', '15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
-
--- Reset de helpers temporários entre migrations concatenadas.
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
-drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
-
--- ==================================================
--- COMPATIBILITY: 000_preflight_legacy_compatibility.sql
--- STAGE: BEFORE 20260730090000_pos_rc_32_ordem_servico.sql
--- ==================================================
--- SIGOV+ RC38E
--- Pré-voo idempotente para reparar estruturas legadas antes das migrations críticas.
--- Não cria dados operacionais; garante somente as colunas e valores mínimos exigidos
--- por migrations históricas que usam CREATE TABLE IF NOT EXISTS seguido de índices
--- ou constraints sobre estruturas que já podem existir em formato antigo.
-
-create schema if not exists sigov;
-create schema if not exists plantaopro;
-
--- As tabelas genéricas do schema plantaopro podem existir em formato legado.
--- A migration 20260608120000 cria índices em todas estas colunas; portanto elas
--- precisam existir antes de o script chegar àquele bloco.
-do $$
-declare
-    r record;
-begin
-    for r in
-        select table_name
-          from information_schema.tables
-         where table_schema = 'plantaopro'
-           and table_type = 'BASE TABLE'
-    loop
-        execute format('alter table plantaopro.%I add column if not exists tenant_id bigint null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists cliente_id bigint null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists plano_id bigint null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists parceiro_id bigint null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists status varchar(60) not null default ''ATIVO''', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists codigo varchar(120) null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists nome varchar(250) null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists dominio varchar(250) null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists subdominio varchar(120) null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists api_key_hash varchar(128) null', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists dados jsonb not null default ''{}''::jsonb', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists reg_date timestamptz not null default now()', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists created_at timestamptz not null default now()', r.table_name);
-        execute format('alter table plantaopro.%I add column if not exists updated_at timestamptz null', r.table_name);
-    end loop;
-end $$;
-
--- A migration financeira pós-RC cria constraints sobre os quatro campos abaixo.
--- Em instalações legadas a tabela pode existir sem esses campos ou com registros que
--- não atendem ao novo contrato. A normalização preserva os valores válidos e ajusta
--- somente registros incompatíveis, antes de a constraint ser criada.
-do $$
-declare
-    v_table text;
-begin
-    foreach v_table in array array['financeiro_conta_receber', 'financeiro_conta_pagar']
-    loop
-        if to_regclass(format('sigov.%I', v_table)) is null then
-            continue;
-        end if;
-
-        execute format(
-            'alter table sigov.%I
-                add column if not exists valor_original numeric(14,2) not null default 0,
-                add column if not exists valor_desconto numeric(14,2) not null default 0,
-                add column if not exists valor_acrescimo numeric(14,2) not null default 0,
-                add column if not exists valor_aberto numeric(14,2) not null default 0',
-            v_table
-        );
-
-        if exists (
-            select 1 from information_schema.columns
-             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_total'
-        ) then
-            execute format(
-                'update sigov.%I set valor_original = greatest(coalesce(valor_total, 0), 0)
-                  where coalesce(valor_original, 0) <= 0 and coalesce(valor_total, 0) > 0',
-                v_table
-            );
-        end if;
-
-        if exists (
-            select 1 from information_schema.columns
-             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor'
-        ) then
-            execute format(
-                'update sigov.%I set valor_original = greatest(coalesce(valor, 0), 0)
-                  where coalesce(valor_original, 0) <= 0 and coalesce(valor, 0) > 0',
-                v_table
-            );
-        end if;
-
-        if exists (
-            select 1 from information_schema.columns
-             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_juros'
-        ) and exists (
-            select 1 from information_schema.columns
-             where table_schema = 'sigov' and table_name = v_table and column_name = 'valor_multa'
-        ) then
-            execute format(
-                'update sigov.%I
-                    set valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0)
-                                         + greatest(coalesce(valor_juros, 0), 0)
-                                         + greatest(coalesce(valor_multa, 0), 0)
-                  where coalesce(valor_acrescimo, 0) = 0
-                    and (coalesce(valor_juros, 0) <> 0 or coalesce(valor_multa, 0) <> 0)',
-                v_table
-            );
-        end if;
-
-        execute format(
-            'update sigov.%I
-                set valor_desconto = greatest(coalesce(valor_desconto, 0), 0),
-                    valor_acrescimo = greatest(coalesce(valor_acrescimo, 0), 0),
-                    valor_original = greatest(
-                        coalesce(valor_original, 0),
-                        greatest(coalesce(valor_aberto, 0), 0) - greatest(coalesce(valor_acrescimo, 0), 0),
-                        0.01
-                    )',
-            v_table
-        );
-
-        execute format(
-            'update sigov.%I
-                set valor_aberto = least(
-                    greatest(coalesce(valor_aberto, 0), 0),
-                    valor_original + valor_acrescimo
-                )',
-            v_table
-        );
-    end loop;
-end $$;
-
--- As tabelas de Ordem de Serviço foram criadas inicialmente com um contrato menor.
--- A migration pós-RC 32 usa CREATE TABLE IF NOT EXISTS e, em seguida, cria índices
--- parciais sobre colunas novas. Este bloco promove as tabelas antigas para o contrato
--- novo antes da criação dos índices, preservando os registros já existentes.
-do $$
-begin
-    if to_regclass('sigov.os_ordem_servico') is not null then
-        alter table sigov.os_ordem_servico
-            add column if not exists cliente_nome varchar(250),
-            add column if not exists proposta_id uuid,
-            add column if not exists tecnico_id uuid,
-            add column if not exists equipe_id uuid,
-            add column if not exists prioridade varchar(20) not null default 'NORMAL',
-            add column if not exists origem varchar(30) not null default 'MANUAL',
-            add column if not exists endereco text,
-            add column if not exists prazo_sla timestamptz,
-            add column if not exists agendada_inicio timestamptz,
-            add column if not exists agendada_fim timestamptz,
-            add column if not exists inicio_real timestamptz,
-            add column if not exists conclusao_em timestamptz,
-            add column if not exists custo_real numeric(18,2) not null default 0,
-            add column if not exists version bigint not null default 1,
-            add column if not exists is_deleted boolean not null default false,
-            add column if not exists created_by varchar(80) not null default 'migration',
-            add column if not exists updated_by varchar(80) not null default 'migration',
-            add column if not exists correlation_id varchar(120);
-
-        update sigov.os_ordem_servico
-           set cliente_nome = coalesce(nullif(cliente_nome, ''), 'Não informado'),
-               descricao = coalesce(descricao, ''),
-               prioridade = coalesce(nullif(prioridade, ''), 'NORMAL'),
-               origem = coalesce(nullif(origem, ''), 'MANUAL'),
-               version = greatest(coalesce(version, 1), 1),
-               is_deleted = coalesce(is_deleted, false),
-               created_by = coalesce(nullif(created_by, ''), 'migration'),
-               updated_by = coalesce(nullif(updated_by, ''), 'migration');
-
-        if exists (
-            select 1 from information_schema.columns
-             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'agendada_para'
-        ) then
-            update sigov.os_ordem_servico
-               set agendada_inicio = coalesce(agendada_inicio, agendada_para);
-        end if;
-
-        if exists (
-            select 1 from information_schema.columns
-             where table_schema = 'sigov' and table_name = 'os_ordem_servico' and column_name = 'concluida_em'
-        ) then
-            update sigov.os_ordem_servico
-               set conclusao_em = coalesce(conclusao_em, concluida_em);
-        end if;
-
-        alter table sigov.os_ordem_servico
-            alter column cliente_nome set default 'Não informado',
-            alter column cliente_nome set not null,
-            alter column descricao set default '',
-            alter column descricao set not null;
-    end if;
-
-    if to_regclass('sigov.os_item') is not null then
-        alter table sigov.os_item
-            add column if not exists unidade varchar(20) not null default 'UN',
-            add column if not exists ordem integer not null default 1,
-            add column if not exists executado boolean not null default false,
-            add column if not exists justificativa text,
-            add column if not exists version bigint not null default 1,
-            add column if not exists is_deleted boolean not null default false,
-            add column if not exists created_at timestamptz not null default now(),
-            add column if not exists updated_at timestamptz not null default now(),
-            add column if not exists created_by varchar(80) not null default 'migration',
-            add column if not exists updated_by varchar(80) not null default 'migration',
-            add column if not exists correlation_id varchar(120);
-    end if;
-
-    if to_regclass('sigov.os_apontamento') is not null then
-        alter table sigov.os_apontamento
-            add column if not exists atividade text not null default 'Atividade',
-            add column if not exists intervalo_minutos integer not null default 0,
-            add column if not exists idempotency_key varchar(200),
-            add column if not exists version bigint not null default 1,
-            add column if not exists is_deleted boolean not null default false,
-            add column if not exists created_at timestamptz not null default now(),
-            add column if not exists updated_at timestamptz not null default now(),
-            add column if not exists created_by varchar(80) not null default 'migration',
-            add column if not exists updated_by varchar(80) not null default 'migration',
-            add column if not exists correlation_id varchar(120);
-
-        update sigov.os_apontamento
-           set idempotency_key = coalesce(nullif(idempotency_key, ''), 'legacy-' || id::text),
-               atividade = coalesce(nullif(atividade, ''), 'Atividade'),
-               intervalo_minutos = greatest(coalesce(intervalo_minutos, 0), 0),
-               is_deleted = coalesce(is_deleted, false);
-
-        alter table sigov.os_apontamento
-            alter column idempotency_key set not null;
-
-        create unique index if not exists ux_os_apontamento_idempotency_compat
-            on sigov.os_apontamento(tenant_id, idempotency_key)
-            where not is_deleted;
-    end if;
-
-    if to_regclass('sigov.os_status_historico') is not null then
-        alter table sigov.os_status_historico
-            add column if not exists observacao text,
-            add column if not exists version bigint not null default 1,
-            add column if not exists updated_at timestamptz not null default now(),
-            add column if not exists created_by varchar(80) not null default 'migration',
-            add column if not exists updated_by varchar(80) not null default 'migration';
-    end if;
-end $$;
-
--- ==================================================
--- COMPATIBILITY: 010_pre_rc32_optional_financial_bridge.sql
--- STAGE: BEFORE 20260730090000_pos_rc_32_ordem_servico.sql
--- ==================================================
--- SIGOV+ RC38E
--- A migration RC32 adiciona colunas condicionalmente, mas cria o índice de forma
--- incondicional. A tabela é parte da ponte entre o Enterprise e o Financeiro Core;
--- quando uma instalação anterior não a criou, o contrato mínimo precisa existir.
-
-create schema if not exists sigov;
-create extension if not exists pgcrypto;
-
-create table if not exists sigov.enterprise_integracao_financeira (
-    id uuid primary key default gen_random_uuid(),
-    tenant_id uuid,
-    origem_tipo varchar(80),
-    origem_id uuid,
-    conta_receber_core_id bigint,
-    tenant_core_id bigint,
-    status varchar(40) not null default 'PENDENTE',
-    payload_json jsonb not null default '{}'::jsonb,
-    erro text,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-);
-
-alter table sigov.enterprise_integracao_financeira
-    add column if not exists id uuid default gen_random_uuid(),
-    add column if not exists tenant_id uuid,
-    add column if not exists origem_tipo varchar(80),
-    add column if not exists origem_id uuid,
-    add column if not exists conta_receber_core_id bigint,
-    add column if not exists tenant_core_id bigint,
-    add column if not exists status varchar(40) default 'PENDENTE',
-    add column if not exists payload_json jsonb default '{}'::jsonb,
-    add column if not exists erro text,
-    add column if not exists created_at timestamptz default now(),
-    add column if not exists updated_at timestamptz default now();
-
--- Falhar cedo caso uma instalação legada possua colunas homônimas com tipos
--- incompatíveis. Alterar tipos automaticamente poderia corromper a ponte UUID -> bigint.
-do $$
-declare
-    invalid_column text;
-begin
-    select expected.column_name
-      into invalid_column
-      from (values
-        ('id', 'uuid'),
-        ('tenant_id', 'uuid'),
-        ('origem_tipo', 'character varying'),
-        ('origem_id', 'uuid'),
-        ('conta_receber_core_id', 'bigint'),
-        ('tenant_core_id', 'bigint'),
-        ('status', 'character varying'),
-        ('payload_json', 'jsonb'),
-        ('erro', 'text'),
-        ('created_at', 'timestamp with time zone'),
-        ('updated_at', 'timestamp with time zone')
-      ) expected(column_name, data_type)
-      join information_schema.columns actual
-        on actual.table_schema = 'sigov'
-       and actual.table_name = 'enterprise_integracao_financeira'
-       and actual.column_name = expected.column_name
-     where actual.data_type <> expected.data_type
-     limit 1;
-
-    if invalid_column is not null then
-        raise exception 'Contrato legado incompatível em sigov.enterprise_integracao_financeira.%', invalid_column;
-    end if;
-end
-$$;
-
--- ==================================================
--- MIGRATION: 20260730090000_pos_rc_32_ordem_servico.sql
--- CATEGORY: schema
--- CHECKSUM_SHA256: cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c
--- ==================================================
--- Pós-RC 32: estrutura aditiva da operação de campo.
-create table if not exists sigov.os_numeracao(tenant_id uuid not null,ano int not null,ultimo_numero bigint not null,updated_at timestamptz not null default now(),primary key(tenant_id,ano));
-create table if not exists sigov.os_ordem_servico(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,numero varchar(40) not null,cliente_id uuid not null,cliente_nome varchar(250) not null,pedido_id uuid,proposta_id uuid,tecnico_id uuid,equipe_id uuid,status varchar(30) not null,prioridade varchar(20) not null,origem varchar(30) not null,descricao text not null,endereco text,prazo_sla timestamptz,agendada_inicio timestamptz,agendada_fim timestamptz,inicio_real timestamptz,conclusao_em timestamptz,custo_real numeric(18,2) not null default 0,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,numero),unique(tenant_id,pedido_id));
-create index if not exists ix_os_operacao on sigov.os_ordem_servico(tenant_id,status,prioridade,agendada_inicio) where not is_deleted;
-create table if not exists sigov.os_item(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),descricao text not null,quantidade numeric(18,4) not null check(quantidade>0),unidade varchar(20) not null,ordem int not null,executado boolean not null default false,justificativa text,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
-create table if not exists sigov.os_agendamento(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),tecnico_id uuid,equipe_id uuid,inicio timestamptz not null,fim timestamptz not null,janela varchar(100),observacao text,conflito_autorizado boolean not null default false,justificativa_conflito text,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),check(fim>inicio));
-create index if not exists ix_os_agenda_tecnico on sigov.os_agendamento(tenant_id,tecnico_id,inicio,fim) where not is_deleted;
-create table if not exists sigov.os_checklist_instancia(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),titulo text not null,tipo varchar(30) not null,ordem int not null,obrigatorio boolean not null default false,bloqueia_conclusao boolean not null default false,respondido boolean not null default false,resposta text,observacao_resposta text,evidencia_id uuid,respondido_em timestamptz,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
-create table if not exists sigov.os_apontamento(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),tecnico_id uuid not null,atividade text not null,inicio timestamptz not null,fim timestamptz,intervalo_minutos int not null default 0,observacao text,idempotency_key varchar(200) not null,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,idempotency_key),check(fim is null or fim>=inicio),check(intervalo_minutos>=0));
-create unique index if not exists ux_os_cronometro_aberto on sigov.os_apontamento(tenant_id,tecnico_id) where fim is null and not is_deleted;
-create table if not exists sigov.os_consumo_peca(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null references sigov.os_ordem_servico(id),produto_id uuid not null,almoxarifado_id uuid not null,quantidade numeric(18,4) not null,custo_unitario numeric(18,4) not null,quantidade_devolvida numeric(18,4) not null default 0,idempotency_key varchar(200) not null,version bigint not null default 1,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,idempotency_key),check(quantidade>0));
-create table if not exists sigov.os_devolucao_peca(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null,consumo_id uuid not null references sigov.os_consumo_peca(id),produto_id uuid not null,almoxarifado_id uuid not null,quantidade numeric(18,4) not null,motivo text not null,idempotency_key varchar(200) not null,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,idempotency_key),check(quantidade>0));
-create table if not exists sigov.os_status_historico(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,ordem_servico_id uuid not null,status_anterior varchar(30),status_novo varchar(30) not null,observacao text,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120));
-create table if not exists sigov.os_idempotencia(id uuid primary key default gen_random_uuid(),tenant_id uuid not null,operacao varchar(50) not null,chave varchar(200) not null,recurso_id uuid not null,version bigint not null default 1,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by varchar(80) not null,updated_by varchar(80) not null,correlation_id varchar(120),unique(tenant_id,operacao,chave));
-alter table if exists sigov.enterprise_integracao_financeira add column if not exists conta_receber_core_id bigint,add column if not exists tenant_core_id bigint;
-create index if not exists ix_enterprise_financeiro_core on sigov.enterprise_integracao_financeira(tenant_core_id,conta_receber_core_id);
-
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730090000', 'pos_rc_32_ordem_servico', 'cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -11291,6 +11291,3881 @@ end $$;
 commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260809160000', 'rc49_workflow_platform', 'be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260813223000_rc50_32_bloco2_rh_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1
+-- ==================================================
+-- RC50.32 - Ponto, Ferias/Afastamentos e Portal do Servidor (idempotente)
+create schema if not exists sigov;
+
+create or replace function sigov.rc50_32_create_rh_table(p_table text) returns void language plpgsql as $$
+begin
+ execute format('create table if not exists sigov.%I (
+  id bigint generated by default as identity primary key,
+  tenant_id bigint not null, entidade_id bigint null, exercicio_id bigint null, servidor_id bigint null,
+  usuario_id bigint null, competencia date null, periodo_inicio date null, periodo_fim date null,
+  data_referencia date null, tipo varchar(60) null, status varchar(40) not null default ''RASCUNHO'',
+  motivo text null, justificativa text null, descricao text null, resposta text null,
+  ativo boolean not null default true, is_deleted boolean not null default false,
+  created_at timestamptz not null default now(), updated_at timestamptz null, deleted_at timestamptz null,
+  created_by bigint null, updated_by bigint null, deleted_by bigint null,
+  auditoria jsonb not null default ''{}''::jsonb, dados jsonb not null default ''{}''::jsonb,
+  correlation_id uuid null,
+  constraint %I check (periodo_fim is null or periodo_inicio is null or periodo_fim >= periodo_inicio)
+ )', p_table, 'ck_' || p_table || '_periodo');
+ execute format('create index if not exists %I on sigov.%I (tenant_id)', 'ix_'||p_table||'_tenant', p_table);
+ execute format('create index if not exists %I on sigov.%I (tenant_id,is_deleted)', 'ix_'||p_table||'_tenant_deleted', p_table);
+ execute format('create index if not exists %I on sigov.%I (servidor_id)', 'ix_'||p_table||'_servidor', p_table);
+ execute format('create index if not exists %I on sigov.%I (status)', 'ix_'||p_table||'_status', p_table);
+end $$;
+
+select sigov.rc50_32_create_rh_table(t) from unnest(array[
+ 'rh_jornada','rh_escala','rh_escala_servidor','rh_ponto_registro','rh_ponto_justificativa',
+ 'rh_ponto_apuracao','rh_ponto_apuracao_item','rh_ponto_homologacao','rh_ponto_integracao_folha','rh_ponto_evento',
+ 'rh_ferias_periodo_aquisitivo','rh_ferias_programacao','rh_ferias_solicitacao','rh_ferias_historico',
+ 'rh_afastamento_tipo','rh_afastamento','rh_afastamento_historico','rh_afastamento_impacto_folha','rh_afastamento_impacto_ponto',
+ 'rh_portal_usuario','rh_portal_acesso','rh_portal_solicitacao','rh_portal_solicitacao_historico',
+ 'rh_portal_atualizacao_cadastral','rh_portal_comprovante','rh_portal_mensagem','rh_evento_integracao_folha'
+]) t;
+
+drop function sigov.rc50_32_create_rh_table(text);
+
+create unique index if not exists ux_rh_ponto_registro_batida on sigov.rh_ponto_registro(tenant_id,servidor_id,(dados->>'dataHora'),(dados->>'tipo')) where is_deleted=false;
+create unique index if not exists ux_rh_ponto_integracao_origem on sigov.rh_ponto_integracao_folha(tenant_id,(dados->>'apuracaoId'),(dados->>'evento')) where is_deleted=false;
+create unique index if not exists ux_rh_evento_integracao_origem on sigov.rh_evento_integracao_folha(tenant_id,(dados->>'origemModulo'),(dados->>'origemTipo'),(dados->>'origemId'),(dados->>'eventoId')) where is_deleted=false;
+create index if not exists ix_rh_ponto_registro_data on sigov.rh_ponto_registro(data_referencia);
+create index if not exists ix_rh_ponto_apuracao_competencia on sigov.rh_ponto_apuracao(competencia);
+
+-- compatibilidade: tabelas legadas permanecem intactas; as novas origens mantêm o id legado no JSON dados.
+comment on table sigov.rh_ponto_registro is 'RC50.32: batidas reais, isoladas por tenant; compatível com sigov.ponto via dados.legacyId';
+comment on table sigov.rh_ferias_programacao is 'RC50.32: workflow de férias; compatível com sigov.ferias via dados.legacyId';
+comment on table sigov.rh_afastamento is 'RC50.32: afastamentos com dados médicos somente em detalhe autorizado';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813223000', 'rc50_32_bloco2_rh_core', 'e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260813230000_rc50_34_educacao_secretaria_bloco3_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5
+-- ==================================================
+create schema if not exists sigov;
+
+create table if not exists sigov.educacao_documento_modelo (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, tipo varchar(60) not null, titulo varchar(180) not null,
+ html_modelo text not null, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_documento_escolar (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, escola_id bigint, aluno_id bigint not null, matricula_id bigint not null,
+ tipo varchar(60) not null, status varchar(30) not null default 'EMITIDO', titulo varchar(180) not null, descricao text, html_emitido text, dados jsonb not null default '{}'::jsonb,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true, is_deleted boolean not null default false,
+ created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_solicitacao_escolar (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, escola_id bigint, aluno_id bigint not null, matricula_id bigint, responsavel_id bigint,
+ tipo varchar(60) not null, status varchar(30) not null default 'ABERTA' check (status in ('ABERTA','EM_ANALISE','DEFERIDA','INDEFERIDA','CONCLUIDA','CANCELADA')),
+ titulo varchar(180), descricao text not null, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_solicitacao_historico (
+ id bigserial primary key, tenant_id bigint not null, solicitacao_id bigint not null references sigov.educacao_solicitacao_escolar(id), status varchar(30) not null, justificativa text not null,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), created_at timestamptz not null default now(), created_by bigint);
+create table if not exists sigov.educacao_ocorrencia_escolar (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, escola_id bigint, aluno_id bigint not null, matricula_id bigint, tipo varchar(60) not null,
+ status varchar(30) not null default 'REGISTRADA', titulo varchar(180), descricao text not null, data_ocorrencia timestamptz not null, visivel_portal boolean not null default false,
+ sensivel boolean not null default false, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_atendimento_responsavel (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, escola_id bigint, aluno_id bigint, responsavel_id bigint not null, tipo varchar(60) not null, status varchar(30) not null default 'ABERTO',
+ titulo varchar(180), descricao text not null, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_transferencia (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, escola_id bigint, aluno_id bigint not null, matricula_id bigint not null, escola_destino_id bigint,
+ turma_destino_id bigint, justificativa_externa text, tipo varchar(60) not null default 'TRANSFERENCIA', status varchar(30) not null default 'SOLICITADA' check(status in ('SOLICITADA','EM_ANALISE','APROVADA','REPROVADA','CONCLUIDA','CANCELADA')),
+ titulo varchar(180), descricao text not null, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_pendencia_documental (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, escola_id bigint, aluno_id bigint not null, matricula_id bigint, tipo varchar(60) not null, status varchar(30) not null default 'PENDENTE',
+ titulo varchar(180), descricao text not null, data_vencimento timestamptz, resolvido_at timestamptz, resolvido_by bigint, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb,
+ correlation_id varchar(80), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz,
+ created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_historico_escolar (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, escola_id bigint, aluno_id bigint not null, matricula_id bigint, status varchar(30) not null default 'ABERTO', dados jsonb not null default '{}'::jsonb,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz,
+ deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_historico_escolar_item (
+ id bigserial primary key, tenant_id bigint not null, historico_id bigint not null references sigov.educacao_historico_escolar(id), componente_curricular varchar(160) not null, nota numeric(7,2), frequencia numeric(7,2),
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(), created_by bigint);
+create table if not exists sigov.educacao_secretaria_evento (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, tipo varchar(80) not null, agregado varchar(80) not null, agregado_id bigint not null, dados jsonb not null default '{}'::jsonb,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), created_at timestamptz not null default now(), created_by bigint);
+
+do $$ declare t text; begin foreach t in array array['educacao_documento_escolar','educacao_solicitacao_escolar','educacao_ocorrencia_escolar','educacao_transferencia','educacao_pendencia_documental'] loop
+ execute format('create index if not exists ix_%s_tenant_deleted on sigov.%I(tenant_id,is_deleted)', t, t);
+ execute format('create index if not exists ix_%s_aluno on sigov.%I(tenant_id,aluno_id)', t, t);
+ execute format('create index if not exists ix_%s_status on sigov.%I(tenant_id,status)', t, t);
+ execute format('create index if not exists ix_%s_created on sigov.%I(tenant_id,created_at desc)', t, t);
+end loop; end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813230000', '20260813230000_rc50_34_educacao_secretaria_bloco3_core', '717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260813231000_rc50_34_educacao_diario_classe_bloco3_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5
+-- ==================================================
+create table if not exists sigov.educacao_diario_classe (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint, escola_id bigint not null, turma_id bigint not null, disciplina_id bigint not null, professor_id bigint not null, ano_letivo_id bigint not null,
+ periodo varchar(40) not null, status varchar(30) not null default 'RASCUNHO' check(status in ('RASCUNHO','ABERTO','PENDENTE','FECHADO','REABERTO','CANCELADO')), dados jsonb not null default '{}'::jsonb,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz,
+ deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create unique index if not exists ux_educacao_diario_contexto on sigov.educacao_diario_classe(tenant_id,turma_id,disciplina_id,professor_id,periodo) where is_deleted=false;
+create table if not exists sigov.educacao_diario_aula (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), data_aula date not null, carga_horaria numeric(6,2) not null check(carga_horaria>0), observacoes text,
+ status varchar(30) not null default 'ABERTA', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
+create table if not exists sigov.educacao_diario_conteudo (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), aula_id bigint not null references sigov.educacao_diario_aula(id), conteudo text not null check(length(trim(conteudo))>0),
+ observacoes text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_diario_frequencia (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), aula_id bigint not null references sigov.educacao_diario_aula(id), aluno_id bigint not null,
+ status varchar(30) not null check(status in ('PRESENTE','FALTA','JUSTIFICADA','ABONADA')), justificativa text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb,
+ correlation_id varchar(80), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create unique index if not exists ux_diario_frequencia_aula_aluno on sigov.educacao_diario_frequencia(tenant_id,aula_id,aluno_id) where is_deleted=false;
+create table if not exists sigov.educacao_diario_avaliacao (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), aula_id bigint, titulo varchar(180) not null, valor_maximo numeric(7,2) not null, peso numeric(7,2) not null default 1,
+ status varchar(30) not null default 'ABERTA', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_diario_reposicao (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), aula_id bigint not null, data_reposicao date not null, justificativa text not null,
+ status varchar(30) not null default 'PROGRAMADA', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_diario_fechamento (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), periodo varchar(40) not null, status varchar(30) not null, justificativa text,
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), created_at timestamptz not null default now(), created_by bigint);
+create table if not exists sigov.educacao_diario_pendencia (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), tipo varchar(60) not null, descricao text not null, status varchar(30) not null default 'PENDENTE',
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_diario_historico (
+ id bigserial primary key, tenant_id bigint not null, diario_id bigint not null references sigov.educacao_diario_classe(id), status varchar(30) not null, justificativa text not null,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), created_at timestamptz not null default now(), created_by bigint);
+create index if not exists ix_diario_tenant_status on sigov.educacao_diario_classe(tenant_id,status) where is_deleted=false;
+create index if not exists ix_diario_aula_data on sigov.educacao_diario_aula(tenant_id,data_aula) where is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813231000', '20260813231000_rc50_34_educacao_diario_classe_bloco3_core', '52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f
+-- ==================================================
+create table if not exists sigov.educacao_portal_usuario (
+ id bigserial primary key, tenant_id bigint not null, usuario_id bigint not null, tipo varchar(30) not null, status varchar(30) not null default 'ATIVO', dados jsonb not null default '{}'::jsonb,
+ auditoria jsonb not null default '{}'::jsonb, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create unique index if not exists ux_portal_usuario on sigov.educacao_portal_usuario(tenant_id,usuario_id) where is_deleted=false;
+create table if not exists sigov.educacao_portal_vinculo (
+ id bigserial primary key, tenant_id bigint not null, usuario_id bigint not null, aluno_id bigint not null, responsavel_id bigint, tipo varchar(30) not null default 'RESPONSAVEL', status varchar(30) not null default 'ATIVO',
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create unique index if not exists ux_portal_vinculo on sigov.educacao_portal_vinculo(tenant_id,usuario_id,aluno_id) where is_deleted=false;
+create table if not exists sigov.educacao_portal_acesso (
+ id bigserial primary key, tenant_id bigint not null, usuario_id bigint not null, aluno_id bigint, tipo varchar(60) not null, dados jsonb not null default '{}'::jsonb,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), created_at timestamptz not null default now());
+create table if not exists sigov.educacao_portal_solicitacao (
+ id bigserial primary key, tenant_id bigint not null, usuario_id bigint not null, aluno_id bigint not null, responsavel_id bigint, tipo varchar(40) not null check(tipo in ('DECLARACAO','TRANSFERENCIA','ATUALIZACAO_CADASTRAL','JUSTIFICATIVA_FALTA','REUNIAO','OUTROS')),
+ status varchar(30) not null default 'ABERTA' check(status in ('ABERTA','EM_ANALISE','RESPONDIDA','CONCLUIDA','CANCELADA')), titulo varchar(180), descricao text not null, resposta text,
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_portal_solicitacao_historico (
+ id bigserial primary key, tenant_id bigint not null, solicitacao_id bigint not null references sigov.educacao_portal_solicitacao(id), status varchar(30) not null, descricao text not null,
+ auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(80), created_at timestamptz not null default now(), created_by bigint);
+create table if not exists sigov.educacao_comunicado (
+ id bigserial primary key, tenant_id bigint not null, escola_id bigint, turma_id bigint, tipo varchar(40) not null default 'GERAL', status varchar(30) not null default 'PUBLICADO', titulo varchar(180) not null, mensagem text not null,
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_comunicado_destinatario (
+ id bigserial primary key, tenant_id bigint not null, comunicado_id bigint not null references sigov.educacao_comunicado(id), usuario_id bigint, aluno_id bigint, lido_at timestamptz,
+ dados jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(), created_by bigint);
+create table if not exists sigov.educacao_portal_mensagem (
+ id bigserial primary key, tenant_id bigint not null, usuario_id bigint not null, aluno_id bigint, tipo varchar(40) not null default 'INFORMATIVA', status varchar(30) not null default 'NAO_LIDA', titulo varchar(180) not null, mensagem text not null,
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create table if not exists sigov.educacao_portal_preferencia (
+ id bigserial primary key, tenant_id bigint not null, usuario_id bigint not null, tipo varchar(60) not null, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint);
+create index if not exists ix_portal_solicitacao_usuario on sigov.educacao_portal_solicitacao(tenant_id,usuario_id,status) where is_deleted=false;
+create index if not exists ix_portal_mensagem_usuario on sigov.educacao_portal_mensagem(tenant_id,usuario_id,status) where is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813232000', '20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core', '48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 21525439b3ddeafd72d2d53029f3d2cd16272d7648387eff2de4c3c04fa506a3
+-- ==================================================
+-- RC50.36: núcleo financeiro/SIAFIC preparatório. Não representa homologação oficial.
+create schema if not exists sigov;
+
+create table if not exists sigov.financeiro_exercicio (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(20) not null,
+ nome varchar(160) not null, ano integer not null, status varchar(24) not null default 'RASCUNHO', data_abertura date,
+ data_encerramento date, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb,
+ correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false,
+ created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz,
+ created_by bigint, updated_by bigint, deleted_by bigint, unique(tenant_id, entidade_id, ano)
+);
+
+do $$
+declare t text;
+begin
+ foreach t in array array['financeiro_unidade_orcamentaria','financeiro_programa','financeiro_acao','financeiro_fonte_recurso','financeiro_natureza_despesa','financeiro_elemento_despesa','financeiro_centro_custo'] loop
+  execute format('create table if not exists sigov.%I (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint references sigov.financeiro_exercicio(id), codigo varchar(60) not null, nome varchar(180) not null, descricao text, status varchar(24) not null default ''ABERTO'', dados jsonb not null default ''{}''::jsonb, auditoria jsonb not null default ''{}''::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, unique(tenant_id, entidade_id, exercicio_id, codigo))', t);
+ end loop;
+end $$;
+
+create table if not exists sigov.financeiro_dotacao (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null references sigov.financeiro_exercicio(id), codigo varchar(60) not null,
+ unidade_orcamentaria_id bigint references sigov.financeiro_unidade_orcamentaria(id), programa_id bigint references sigov.financeiro_programa(id), acao_id bigint references sigov.financeiro_acao(id),
+ fonte_recurso_id bigint not null references sigov.financeiro_fonte_recurso(id), natureza_despesa_id bigint not null references sigov.financeiro_natureza_despesa(id), centro_custo_id bigint references sigov.financeiro_centro_custo(id),
+ valor_previsto numeric(18,2) not null check(valor_previsto>=0), valor_atualizado numeric(18,2) not null check(valor_atualizado>=0), valor_empenhado numeric(18,2) not null default 0,
+ valor_liquidado numeric(18,2) not null default 0, valor_pago numeric(18,2) not null default 0, saldo numeric(18,2) generated always as (valor_atualizado-valor_empenhado) stored,
+ status varchar(24) not null default 'ABERTO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint,
+ unique(tenant_id, entidade_id, exercicio_id, codigo), check(valor_liquidado<=valor_empenhado), check(valor_pago<=valor_liquidado)
+);
+
+create table if not exists sigov.financeiro_empenho (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null references sigov.financeiro_exercicio(id), dotacao_id bigint not null references sigov.financeiro_dotacao(id),
+ codigo varchar(60) not null, credor_id bigint, credor_nome varchar(180) not null, descricao text not null, competencia date, valor numeric(18,2) not null check(valor>0), valor_liquidado numeric(18,2) not null default 0,
+ valor_pago numeric(18,2) not null default 0, status varchar(24) not null default 'RASCUNHO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100),
+ ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint,
+ unique(tenant_id, entidade_id, exercicio_id, codigo), check(valor_liquidado<=valor), check(valor_pago<=valor_liquidado)
+);
+
+create table if not exists sigov.financeiro_empenho_item (id bigserial primary key, tenant_id bigint not null, empenho_id bigint not null references sigov.financeiro_empenho(id), descricao text not null, quantidade numeric(18,4) not null check(quantidade>0), valor_unitario numeric(18,4) not null check(valor_unitario>0), dados jsonb not null default '{}'::jsonb, is_deleted boolean not null default false, created_at timestamptz not null default now());
+create table if not exists sigov.financeiro_liquidacao (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null references sigov.financeiro_exercicio(id), empenho_id bigint not null references sigov.financeiro_empenho(id), codigo varchar(60) not null, descricao text not null, competencia date, valor numeric(18,2) not null check(valor>0), status varchar(24) not null default 'RASCUNHO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, unique(tenant_id,entidade_id,exercicio_id,codigo));
+create table if not exists sigov.financeiro_pagamento (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null references sigov.financeiro_exercicio(id), liquidacao_id bigint not null references sigov.financeiro_liquidacao(id), conta_bancaria_id bigint, codigo varchar(60) not null, descricao text not null, competencia date, data_pagamento date, valor numeric(18,2) not null check(valor>0), status varchar(24) not null default 'RASCUNHO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, unique(tenant_id,entidade_id,exercicio_id,codigo));
+
+do $$ declare t text; begin foreach t in array array['financeiro_movimento_orcamentario','financeiro_receita','financeiro_conta_bancaria','financeiro_conciliacao','financeiro_integracao_interna','financeiro_evento'] loop execute format('create table if not exists sigov.%I (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint, codigo varchar(80), descricao text, competencia date, valor numeric(18,2) not null default 0, status varchar(24) not null default ''PENDENTE'', dados jsonb not null default ''{}''::jsonb, auditoria jsonb not null default ''{}''::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint)',t); end loop; end $$;
+create unique index if not exists ux_fin_integracao_origem on sigov.financeiro_integracao_interna(tenant_id,(dados->>'origem'),(dados->>'origem_id')) where is_deleted=false;
+create index if not exists ix_fin_dotacao_tenant_status on sigov.financeiro_dotacao(tenant_id,status) where is_deleted=false;
+create index if not exists ix_fin_empenho_exercicio on sigov.financeiro_empenho(tenant_id,exercicio_id,created_at) where is_deleted=false;
+create index if not exists ix_fin_pagamento_competencia on sigov.financeiro_pagamento(tenant_id,competencia,status) where is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260814120000', '20260814120000_rc50_36_financeiro_siafic_bloco5_core', '21525439b3ddeafd72d2d53029f3d2cd16272d7648387eff2de4c3c04fa506a3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260814121000_rc50_36_tributario_divida_ativa_bloco5_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 36b821f45a5b9d78212c9d287d889628ff7ae7a92a9d47c0bde7920b171c1cf6
+-- ==================================================
+-- RC50.36: arrecadação e dívida ativa preparatória, sem integração externa automática.
+create schema if not exists sigov;
+create or replace function sigov.rc50_36_ensure_common_columns(p_table regclass)
+returns void
+language plpgsql
+as $$
+begin
+    execute format('alter table %s add column if not exists is_deleted boolean', p_table);
+    execute format('update %s set is_deleted=false where is_deleted is null', p_table);
+    execute format('alter table %s alter column is_deleted set default false', p_table);
+    execute format('alter table %s alter column is_deleted set not null', p_table);
+    execute format('alter table %s add column if not exists ativo boolean', p_table);
+    execute format('update %s set ativo=true where ativo is null', p_table);
+    execute format('alter table %s alter column ativo set default true', p_table);
+    execute format('alter table %s add column if not exists dados jsonb', p_table);
+    execute format('update %s set dados=''{}''::jsonb where dados is null', p_table);
+    execute format('alter table %s alter column dados set default ''{}''::jsonb', p_table);
+    execute format('alter table %s add column if not exists auditoria jsonb', p_table);
+    execute format('update %s set auditoria=''{}''::jsonb where auditoria is null', p_table);
+    execute format('alter table %s alter column auditoria set default ''{}''::jsonb', p_table);
+    execute format('alter table %s add column if not exists correlation_id varchar(100)', p_table);
+    execute format('alter table %s add column if not exists created_at timestamptz', p_table);
+    execute format('update %s set created_at=now() where created_at is null', p_table);
+    execute format('alter table %s alter column created_at set default now()', p_table);
+    execute format('alter table %s add column if not exists updated_at timestamptz', p_table);
+    execute format('alter table %s add column if not exists deleted_at timestamptz', p_table);
+    execute format('alter table %s add column if not exists created_by bigint', p_table);
+    execute format('alter table %s add column if not exists updated_by bigint', p_table);
+    execute format('alter table %s add column if not exists deleted_by bigint', p_table);
+end $$;
+create table if not exists sigov.tributario_contribuinte (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, nome varchar(180) not null,
+ documento varchar(20), inscricao varchar(60), tipo varchar(20) not null default 'PESSOA', status varchar(24) not null default 'ABERTO',
+ dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint
+);
+
+do $$ declare t text; begin foreach t in array array['tributario_cadastro_imobiliario','tributario_cadastro_economico','tributario_tributo'] loop execute format('create table if not exists sigov.%I (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, contribuinte_id bigint references sigov.tributario_contribuinte(id), inscricao varchar(60), codigo varchar(60), descricao text, status varchar(24) not null default ''ABERTO'', dados jsonb not null default ''{}''::jsonb, auditoria jsonb not null default ''{}''::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint)',t); end loop; end $$;
+
+create table if not exists sigov.tributario_lancamento (
+ id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint, contribuinte_id bigint not null references sigov.tributario_contribuinte(id), tributo_id bigint not null references sigov.tributario_tributo(id),
+ codigo varchar(60) not null, descricao text, competencia date not null, data_vencimento date not null, valor_original numeric(18,2) not null check(valor_original>0), valor_multa numeric(18,2) not null default 0,
+ valor_juros numeric(18,2) not null default 0, valor_correcao numeric(18,2) not null default 0, valor_total numeric(18,2) not null check(valor_total>0), saldo numeric(18,2) not null check(saldo>=0),
+ status varchar(24) not null default 'RASCUNHO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true,
+ is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint,
+ unique(tenant_id,entidade_id,codigo)
+);
+create table if not exists sigov.tributario_lancamento_item (id bigserial primary key, tenant_id bigint not null, lancamento_id bigint not null references sigov.tributario_lancamento(id), descricao text not null, valor numeric(18,2) not null check(valor>0), dados jsonb not null default '{}'::jsonb, is_deleted boolean not null default false, created_at timestamptz not null default now());
+create table if not exists sigov.tributario_guia (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, lancamento_id bigint not null references sigov.tributario_lancamento(id), contribuinte_id bigint not null references sigov.tributario_contribuinte(id), codigo varchar(80) not null, data_vencimento date not null, valor_total numeric(18,2) not null check(valor_total>0), saldo numeric(18,2) not null check(saldo>=0), status varchar(24) not null default 'EM_ABERTO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, unique(tenant_id,codigo));
+create table if not exists sigov.tributario_pagamento (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, guia_id bigint not null references sigov.tributario_guia(id), valor numeric(18,2) not null check(valor>0), data_pagamento date not null, status varchar(24) not null default 'PAGO', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), is_deleted boolean not null default false, created_at timestamptz not null default now(), created_by bigint);
+create table if not exists sigov.tributario_divida_ativa (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, contribuinte_id bigint not null references sigov.tributario_contribuinte(id), lancamento_id bigint not null references sigov.tributario_lancamento(id), inscricao varchar(80) not null, data_inscricao date not null, data_prescricao_alerta date, valor_total numeric(18,2) not null, saldo numeric(18,2) not null, status varchar(24) not null default 'INSCRITO_DIVIDA', dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, unique(tenant_id,lancamento_id), unique(tenant_id,inscricao));
+do $$ declare t text; begin foreach t in array array['tributario_parcelamento','tributario_parcelamento_parcela','tributario_divida_movimento','tributario_cobranca','tributario_baixa','tributario_suspensao','tributario_evento'] loop execute format('create table if not exists sigov.%I (id bigserial primary key, tenant_id bigint not null, entidade_id bigint not null, contribuinte_id bigint, divida_ativa_id bigint, codigo varchar(80), descricao text, competencia date, data_vencimento date, valor_original numeric(18,2) not null default 0, valor_total numeric(18,2) not null default 0, saldo numeric(18,2) not null default 0, status varchar(24) not null default ''EM_ABERTO'', dados jsonb not null default ''{}''::jsonb, auditoria jsonb not null default ''{}''::jsonb, correlation_id varchar(100), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint)',t); end loop; end $$;
+
+do $$
+declare
+    tabela regclass;
+begin
+    foreach tabela in array array[
+        'sigov.tributario_contribuinte'::regclass,
+        'sigov.tributario_cadastro_imobiliario'::regclass,
+        'sigov.tributario_cadastro_economico'::regclass,
+        'sigov.tributario_tributo'::regclass,
+        'sigov.tributario_lancamento'::regclass,
+        'sigov.tributario_lancamento_item'::regclass,
+        'sigov.tributario_guia'::regclass,
+        'sigov.tributario_pagamento'::regclass,
+        'sigov.tributario_divida_ativa'::regclass,
+        'sigov.tributario_parcelamento'::regclass,
+        'sigov.tributario_parcelamento_parcela'::regclass,
+        'sigov.tributario_divida_movimento'::regclass,
+        'sigov.tributario_cobranca'::regclass,
+        'sigov.tributario_baixa'::regclass,
+        'sigov.tributario_suspensao'::regclass,
+        'sigov.tributario_evento'::regclass
+    ]
+    loop
+        perform sigov.rc50_36_ensure_common_columns(tabela);
+    end loop;
+end $$;
+
+alter table sigov.tributario_contribuinte add column if not exists documento varchar(20);
+alter table sigov.tributario_contribuinte add column if not exists tenant_id bigint;
+
+do $$
+begin
+    if exists (
+        select 1
+          from information_schema.columns
+         where table_schema='sigov'
+           and table_name='tributario_contribuinte'
+           and column_name='tenant_id'
+           and is_nullable='YES'
+    ) and exists (
+        select 1 from sigov.tributario_contribuinte where tenant_id is null
+    ) then
+        raise exception 'RC50.36: sigov.tributario_contribuinte possui registros sem tenant_id. Corrija o tenant antes de criar índices multi-tenant.';
+    end if;
+end $$;
+
+create unique index if not exists ux_tri_contribuinte_documento on sigov.tributario_contribuinte(tenant_id,documento) where documento is not null and is_deleted=false;
+create index if not exists ix_tri_lancamento_tenant_status on sigov.tributario_lancamento(tenant_id,status,data_vencimento) where is_deleted=false;
+create index if not exists ix_tri_guia_contribuinte on sigov.tributario_guia(tenant_id,contribuinte_id,status) where is_deleted=false;
+create index if not exists ix_tri_divida_prescricao on sigov.tributario_divida_ativa(tenant_id,data_prescricao_alerta,status) where is_deleted=false;
+
+drop function if exists sigov.rc50_36_ensure_common_columns(regclass);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260814121000', '20260814121000_rc50_36_tributario_divida_ativa_bloco5_core', '36b821f45a5b9d78212c9d287d889628ff7ae7a92a9d47c0bde7920b171c1cf6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: b4c74ede176a48826069e0ece3d9b8ddd301f453083d86eb5f5ee8a443cc6ec2
+-- ==================================================
+-- RC50.36: configuração e trilha dos relatórios executivos; agregações permanecem consultas sob demanda.
+create schema if not exists sigov;
+do $$ declare t text; begin foreach t in array array['relatorio_executivo_config','relatorio_executivo_execucao','relatorio_executivo_widget','relatorio_executivo_filtro_salvo','relatorio_executivo_evento'] loop execute format('create table if not exists sigov.%I (id bigserial primary key, tenant_id bigint not null, modulo varchar(50) not null, nome varchar(160) not null, descricao text, tipo varchar(40) not null, filtros jsonb not null default ''{}''::jsonb, configuracao jsonb not null default ''{}''::jsonb, resultado_resumo jsonb not null default ''{}''::jsonb, status varchar(24) not null default ''ATIVO'', auditoria jsonb not null default ''{}''::jsonb, correlation_id varchar(100), is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, created_by bigint, updated_by bigint)',t); end loop; end $$;
+create index if not exists ix_rel_exec_config_tenant_modulo on sigov.relatorio_executivo_config(tenant_id,modulo) where is_deleted=false;
+create index if not exists ix_rel_exec_execucao_status on sigov.relatorio_executivo_execucao(tenant_id,status,created_at) where is_deleted=false;
+create index if not exists ix_rel_exec_filtro_usuario on sigov.relatorio_executivo_filtro_salvo(tenant_id,created_by,modulo) where is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260814122000', '20260814122000_rc50_36_relatorios_executivos_bloco5_core', 'b4c74ede176a48826069e0ece3d9b8ddd301f453083d86eb5f5ee8a443cc6ec2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260816120000_rc50_38_saude_bloco7_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 48e19e7276702969beb4c6524c88d01f57fc39bed45f23bcd5b8aee84b8a57ba
+-- ==================================================
+-- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
+create schema if not exists sigov;
+
+create table if not exists sigov.saude_unidade (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_unidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_unidade_tenant_ativo on sigov.saude_unidade(tenant_id, is_deleted);
+create index if not exists ix_saude_unidade_status_data on sigov.saude_unidade(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_paciente (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_paciente_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_paciente_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_paciente_tenant_ativo on sigov.saude_paciente(tenant_id, is_deleted);
+create index if not exists ix_saude_paciente_status_data on sigov.saude_paciente(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_profissional (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_profissional_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_profissional_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_profissional_tenant_ativo on sigov.saude_profissional(tenant_id, is_deleted);
+create index if not exists ix_saude_profissional_status_data on sigov.saude_profissional(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_especialidade (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_especialidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_especialidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_especialidade_tenant_ativo on sigov.saude_especialidade(tenant_id, is_deleted);
+create index if not exists ix_saude_especialidade_status_data on sigov.saude_especialidade(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_agenda (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_agenda_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_agenda_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_agenda_tenant_ativo on sigov.saude_agenda(tenant_id, is_deleted);
+create index if not exists ix_saude_agenda_status_data on sigov.saude_agenda(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_agendamento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_agendamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_agendamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_agendamento_tenant_ativo on sigov.saude_agendamento(tenant_id, is_deleted);
+create index if not exists ix_saude_agendamento_status_data on sigov.saude_agendamento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_atendimento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_atendimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_atendimento_tenant_ativo on sigov.saude_atendimento(tenant_id, is_deleted);
+create index if not exists ix_saude_atendimento_status_data on sigov.saude_atendimento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_prontuario_resumo (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_prontuario_resumo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_prontuario_resumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_prontuario_resumo_tenant_ativo on sigov.saude_prontuario_resumo(tenant_id, is_deleted);
+create index if not exists ix_saude_prontuario_resumo_status_data on sigov.saude_prontuario_resumo(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_procedimento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_procedimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_procedimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_procedimento_tenant_ativo on sigov.saude_procedimento(tenant_id, is_deleted);
+create index if not exists ix_saude_procedimento_status_data on sigov.saude_procedimento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_prescricao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_prescricao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_prescricao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_prescricao_tenant_ativo on sigov.saude_prescricao(tenant_id, is_deleted);
+create index if not exists ix_saude_prescricao_status_data on sigov.saude_prescricao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_vacinacao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_vacinacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_vacinacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_vacinacao_tenant_ativo on sigov.saude_vacinacao(tenant_id, is_deleted);
+create index if not exists ix_saude_vacinacao_status_data on sigov.saude_vacinacao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_vacina (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_vacina_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_vacina_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_vacina_tenant_ativo on sigov.saude_vacina(tenant_id, is_deleted);
+create index if not exists ix_saude_vacina_status_data on sigov.saude_vacina(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_acs_area (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_acs_area_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_acs_area_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_acs_area_tenant_ativo on sigov.saude_acs_area(tenant_id, is_deleted);
+create index if not exists ix_saude_acs_area_status_data on sigov.saude_acs_area(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_acs_microarea (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_acs_microarea_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_acs_microarea_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_acs_microarea_tenant_ativo on sigov.saude_acs_microarea(tenant_id, is_deleted);
+create index if not exists ix_saude_acs_microarea_status_data on sigov.saude_acs_microarea(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_acs_visita (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_acs_visita_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_acs_visita_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_acs_visita_tenant_ativo on sigov.saude_acs_visita(tenant_id, is_deleted);
+create index if not exists ix_saude_acs_visita_status_data on sigov.saude_acs_visita(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_farmacia_item (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_farmacia_item_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_farmacia_item_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_farmacia_item_tenant_ativo on sigov.saude_farmacia_item(tenant_id, is_deleted);
+create index if not exists ix_saude_farmacia_item_status_data on sigov.saude_farmacia_item(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_farmacia_movimento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_farmacia_movimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_farmacia_movimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_farmacia_movimento_tenant_ativo on sigov.saude_farmacia_movimento(tenant_id, is_deleted);
+create index if not exists ix_saude_farmacia_movimento_status_data on sigov.saude_farmacia_movimento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_vigilancia_notificacao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_vigilancia_notificacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_vigilancia_notificacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_vigilancia_notificacao_tenant_ativo on sigov.saude_vigilancia_notificacao(tenant_id, is_deleted);
+create index if not exists ix_saude_vigilancia_notificacao_status_data on sigov.saude_vigilancia_notificacao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_regulacao_solicitacao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_regulacao_solicitacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_regulacao_solicitacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_regulacao_solicitacao_tenant_ativo on sigov.saude_regulacao_solicitacao(tenant_id, is_deleted);
+create index if not exists ix_saude_regulacao_solicitacao_status_data on sigov.saude_regulacao_solicitacao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saude_evento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saude_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saude_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saude_evento_tenant_ativo on sigov.saude_evento(tenant_id, is_deleted);
+create index if not exists ix_saude_evento_status_data on sigov.saude_evento(tenant_id, status, data_referencia);
+
+create unique index if not exists ux_saude_paciente_cpf on sigov.saude_paciente(tenant_id, cpf_normalizado) where cpf_normalizado is not null and not is_deleted;
+create unique index if not exists ux_saude_paciente_cns on sigov.saude_paciente(tenant_id, cns) where cns is not null and not is_deleted;
+create index if not exists ix_saude_agenda_profissional on sigov.saude_agenda(tenant_id, profissional_id, data_inicio, data_fim) where not is_deleted;
+create unique index if not exists ux_saude_vacinacao_dose_dia on sigov.saude_vacinacao(tenant_id,paciente_id,nome,tipo,(data_referencia::date)) where justificativa is null and not is_deleted;
+
+-- A integração é somente interna e preparatória; não representa homologação externa.
+insert into sigov.integracao_interna_evento
+    (tenant_id, origem_modulo, destino_modulo, tipo_evento, status, referencia_tipo, referencia_id, payload, correlation_id, created_at)
+select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
+       'MIGRATION', 0, jsonb_build_object('preparatoria', true), gen_random_uuid(), now()
+where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
+  and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', '48e19e7276702969beb4c6524c88d01f57fc39bed45f23bcd5b8aee84b8a57ba', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260816121000_rc50_38_assistencia_social_bloco7_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 11554b5c64f555ad885fb78d588ddd27ce343f53147e6f3654f499946809faeb
+-- ==================================================
+-- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
+create schema if not exists sigov;
+
+create table if not exists sigov.assistencia_unidade (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_unidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_unidade_tenant_ativo on sigov.assistencia_unidade(tenant_id, is_deleted);
+create index if not exists ix_assistencia_unidade_status_data on sigov.assistencia_unidade(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_pessoa (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_pessoa_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_pessoa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_pessoa_tenant_ativo on sigov.assistencia_pessoa(tenant_id, is_deleted);
+create index if not exists ix_assistencia_pessoa_status_data on sigov.assistencia_pessoa(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_familia (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_familia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_familia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_familia_tenant_ativo on sigov.assistencia_familia(tenant_id, is_deleted);
+create index if not exists ix_assistencia_familia_status_data on sigov.assistencia_familia(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_familia_membro (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_familia_membro_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_familia_membro_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_familia_membro_tenant_ativo on sigov.assistencia_familia_membro(tenant_id, is_deleted);
+create index if not exists ix_assistencia_familia_membro_status_data on sigov.assistencia_familia_membro(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_atendimento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_atendimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_atendimento_tenant_ativo on sigov.assistencia_atendimento(tenant_id, is_deleted);
+create index if not exists ix_assistencia_atendimento_status_data on sigov.assistencia_atendimento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_beneficio (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_beneficio_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_beneficio_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_beneficio_tenant_ativo on sigov.assistencia_beneficio(tenant_id, is_deleted);
+create index if not exists ix_assistencia_beneficio_status_data on sigov.assistencia_beneficio(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_beneficio_concessao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_beneficio_concessao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_beneficio_concessao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_beneficio_concessao_tenant_ativo on sigov.assistencia_beneficio_concessao(tenant_id, is_deleted);
+create index if not exists ix_assistencia_beneficio_concessao_status_data on sigov.assistencia_beneficio_concessao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_vulnerabilidade (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_vulnerabilidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_vulnerabilidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_vulnerabilidade_tenant_ativo on sigov.assistencia_vulnerabilidade(tenant_id, is_deleted);
+create index if not exists ix_assistencia_vulnerabilidade_status_data on sigov.assistencia_vulnerabilidade(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_visita_domiciliar (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_visita_domiciliar_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_visita_domiciliar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_visita_domiciliar_tenant_ativo on sigov.assistencia_visita_domiciliar(tenant_id, is_deleted);
+create index if not exists ix_assistencia_visita_domiciliar_status_data on sigov.assistencia_visita_domiciliar(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_encaminhamento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_encaminhamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_encaminhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_encaminhamento_tenant_ativo on sigov.assistencia_encaminhamento(tenant_id, is_deleted);
+create index if not exists ix_assistencia_encaminhamento_status_data on sigov.assistencia_encaminhamento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_acompanhamento_familiar (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_acompanhamento_familiar_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_acompanhamento_familiar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_acompanhamento_familiar_tenant_ativo on sigov.assistencia_acompanhamento_familiar(tenant_id, is_deleted);
+create index if not exists ix_assistencia_acompanhamento_familiar_status_data on sigov.assistencia_acompanhamento_familiar(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_plano_acompanhamento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_plano_acompanhamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_plano_acompanhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_plano_acompanhamento_tenant_ativo on sigov.assistencia_plano_acompanhamento(tenant_id, is_deleted);
+create index if not exists ix_assistencia_plano_acompanhamento_status_data on sigov.assistencia_plano_acompanhamento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_cras_creas (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_cras_creas_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_cras_creas_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_cras_creas_tenant_ativo on sigov.assistencia_cras_creas(tenant_id, is_deleted);
+create index if not exists ix_assistencia_cras_creas_status_data on sigov.assistencia_cras_creas(tenant_id, status, data_referencia);
+
+create table if not exists sigov.assistencia_evento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_assistencia_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_assistencia_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_assistencia_evento_tenant_ativo on sigov.assistencia_evento(tenant_id, is_deleted);
+create index if not exists ix_assistencia_evento_status_data on sigov.assistencia_evento(tenant_id, status, data_referencia);
+
+create unique index if not exists ux_assistencia_pessoa_cpf on sigov.assistencia_pessoa(tenant_id,cpf_normalizado) where cpf_normalizado is not null and not is_deleted;
+
+-- A integração é somente interna e preparatória; não representa homologação externa.
+insert into sigov.integracao_interna_evento
+    (tenant_id, origem_modulo, destino_modulo, tipo_evento, status, referencia_tipo, referencia_id, payload, correlation_id, created_at)
+select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
+       'MIGRATION', 0, jsonb_build_object('preparatoria', true), gen_random_uuid(), now()
+where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
+  and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816121000', '20260816121000_rc50_38_assistencia_social_bloco7_core', '11554b5c64f555ad885fb78d588ddd27ce343f53147e6f3654f499946809faeb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260816122000_rc50_38_saneamento_bloco7_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 7f037ca7e96bb4bfbe8defa2d68ca6b1b032b45f66e3465eaf765c4397e1c3fa
+-- ==================================================
+-- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
+create schema if not exists sigov;
+
+create table if not exists sigov.saneamento_consumo (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saneamento_consumo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saneamento_consumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saneamento_consumo_tenant_ativo on sigov.saneamento_consumo(tenant_id, is_deleted);
+create index if not exists ix_saneamento_consumo_status_data on sigov.saneamento_consumo(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saneamento_pagamento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saneamento_pagamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saneamento_pagamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saneamento_pagamento_tenant_ativo on sigov.saneamento_pagamento(tenant_id, is_deleted);
+create index if not exists ix_saneamento_pagamento_status_data on sigov.saneamento_pagamento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saneamento_manutencao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saneamento_manutencao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saneamento_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saneamento_manutencao_tenant_ativo on sigov.saneamento_manutencao(tenant_id, is_deleted);
+create index if not exists ix_saneamento_manutencao_status_data on sigov.saneamento_manutencao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saneamento_inadimplencia (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saneamento_inadimplencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saneamento_inadimplencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saneamento_inadimplencia_tenant_ativo on sigov.saneamento_inadimplencia(tenant_id, is_deleted);
+create index if not exists ix_saneamento_inadimplencia_status_data on sigov.saneamento_inadimplencia(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saneamento_ocorrencia (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saneamento_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saneamento_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saneamento_ocorrencia_tenant_ativo on sigov.saneamento_ocorrencia(tenant_id, is_deleted);
+create index if not exists ix_saneamento_ocorrencia_status_data on sigov.saneamento_ocorrencia(tenant_id, status, data_referencia);
+
+create table if not exists sigov.saneamento_rota_leitura (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_saneamento_rota_leitura_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_saneamento_rota_leitura_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_saneamento_rota_leitura_tenant_ativo on sigov.saneamento_rota_leitura(tenant_id, is_deleted);
+create index if not exists ix_saneamento_rota_leitura_status_data on sigov.saneamento_rota_leitura(tenant_id, status, data_referencia);
+
+
+-- A integração é somente interna e preparatória; não representa homologação externa.
+insert into sigov.integracao_interna_evento
+    (tenant_id, origem_modulo, destino_modulo, tipo_evento, status, referencia_tipo, referencia_id, payload, correlation_id, created_at)
+select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
+       'MIGRATION', 0, jsonb_build_object('preparatoria', true), gen_random_uuid(), now()
+where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
+  and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816122000', '20260816122000_rc50_38_saneamento_bloco7_core', '7f037ca7e96bb4bfbe8defa2d68ca6b1b032b45f66e3465eaf765c4397e1c3fa', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260816123000_rc50_38_frotas_obras_bloco7_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 15c3e2d96d8c6917fada4a4d22356c70123b416b9c1b7c1aebf7f89f5175cc88
+-- ==================================================
+-- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
+create schema if not exists sigov;
+
+create table if not exists sigov.frota_veiculo (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_veiculo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_veiculo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_veiculo_tenant_ativo on sigov.frota_veiculo(tenant_id, is_deleted);
+create index if not exists ix_frota_veiculo_status_data on sigov.frota_veiculo(tenant_id, status, data_referencia);
+
+create table if not exists sigov.frota_motorista (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_motorista_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_motorista_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_motorista_tenant_ativo on sigov.frota_motorista(tenant_id, is_deleted);
+create index if not exists ix_frota_motorista_status_data on sigov.frota_motorista(tenant_id, status, data_referencia);
+
+create table if not exists sigov.frota_abastecimento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_abastecimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_abastecimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_abastecimento_tenant_ativo on sigov.frota_abastecimento(tenant_id, is_deleted);
+create index if not exists ix_frota_abastecimento_status_data on sigov.frota_abastecimento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.frota_manutencao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_manutencao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_manutencao_tenant_ativo on sigov.frota_manutencao(tenant_id, is_deleted);
+create index if not exists ix_frota_manutencao_status_data on sigov.frota_manutencao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.frota_viagem (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_viagem_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_viagem_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_viagem_tenant_ativo on sigov.frota_viagem(tenant_id, is_deleted);
+create index if not exists ix_frota_viagem_status_data on sigov.frota_viagem(tenant_id, status, data_referencia);
+
+create table if not exists sigov.frota_ocorrencia (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_ocorrencia_tenant_ativo on sigov.frota_ocorrencia(tenant_id, is_deleted);
+create index if not exists ix_frota_ocorrencia_status_data on sigov.frota_ocorrencia(tenant_id, status, data_referencia);
+
+create table if not exists sigov.frota_equipamento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_frota_equipamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_frota_equipamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_frota_equipamento_tenant_ativo on sigov.frota_equipamento(tenant_id, is_deleted);
+create index if not exists ix_frota_equipamento_status_data on sigov.frota_equipamento(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_tenant_ativo on sigov.obra(tenant_id, is_deleted);
+create index if not exists ix_obra_status_data on sigov.obra(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_etapa (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_etapa_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_etapa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_etapa_tenant_ativo on sigov.obra_etapa(tenant_id, is_deleted);
+create index if not exists ix_obra_etapa_status_data on sigov.obra_etapa(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_medicao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_medicao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_medicao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_medicao_tenant_ativo on sigov.obra_medicao(tenant_id, is_deleted);
+create index if not exists ix_obra_medicao_status_data on sigov.obra_medicao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_fiscalizacao (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_fiscalizacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_fiscalizacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_fiscalizacao_tenant_ativo on sigov.obra_fiscalizacao(tenant_id, is_deleted);
+create index if not exists ix_obra_fiscalizacao_status_data on sigov.obra_fiscalizacao(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_diario (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_diario_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_diario_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_diario_tenant_ativo on sigov.obra_diario(tenant_id, is_deleted);
+create index if not exists ix_obra_diario_status_data on sigov.obra_diario(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_ocorrencia (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_ocorrencia_tenant_ativo on sigov.obra_ocorrencia(tenant_id, is_deleted);
+create index if not exists ix_obra_ocorrencia_status_data on sigov.obra_ocorrencia(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_integracao_contrato (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_integracao_contrato_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_integracao_contrato_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_integracao_contrato_tenant_ativo on sigov.obra_integracao_contrato(tenant_id, is_deleted);
+create index if not exists ix_obra_integracao_contrato_status_data on sigov.obra_integracao_contrato(tenant_id, status, data_referencia);
+
+create table if not exists sigov.obra_evento (
+    id bigint generated by default as identity primary key,
+    tenant_id bigint not null,
+    entidade_id bigint not null,
+    exercicio_id bigint,
+    unidade_id bigint,
+    paciente_id bigint,
+    profissional_id bigint,
+    pessoa_id bigint,
+    familia_id bigint,
+    consumidor_id bigint,
+    ligacao_id bigint,
+    hidrometro_id bigint,
+    veiculo_id bigint,
+    motorista_id bigint,
+    obra_id bigint,
+    contrato_id bigint,
+    patrimonio_id bigint,
+    codigo varchar(80),
+    nome varchar(250),
+    descricao text,
+    documento varchar(30),
+    cpf_normalizado varchar(11),
+    cns varchar(20),
+    nis varchar(20),
+    placa varchar(10),
+    inscricao varchar(80),
+    endereco text,
+    data_nascimento date,
+    sexo varchar(30),
+    tipo varchar(80),
+    status varchar(40) not null default 'ATIVO',
+    prioridade varchar(30),
+    competencia varchar(7),
+    data_referencia timestamptz,
+    data_inicio timestamptz,
+    data_fim timestamptz,
+    leitura_anterior numeric(16,3),
+    leitura_atual numeric(16,3),
+    consumo numeric(16,3),
+    quantidade numeric(16,3),
+    valor numeric(18,2),
+    saldo numeric(16,3),
+    justificativa text,
+    dados jsonb not null default '{}'::jsonb,
+    auditoria jsonb not null default '{}'::jsonb,
+    correlation_id uuid not null default gen_random_uuid(),
+    ativo boolean not null default true,
+    is_deleted boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    deleted_at timestamptz,
+    created_by bigint,
+    updated_by bigint,
+    deleted_by bigint,
+    constraint ck_obra_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
+    constraint ck_obra_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
+);
+create index if not exists ix_obra_evento_tenant_ativo on sigov.obra_evento(tenant_id, is_deleted);
+create index if not exists ix_obra_evento_status_data on sigov.obra_evento(tenant_id, status, data_referencia);
+
+create unique index if not exists ux_frota_veiculo_placa on sigov.frota_veiculo(tenant_id,placa) where placa is not null and not is_deleted;
+create unique index if not exists ux_obra_codigo on sigov.obra(tenant_id,codigo) where codigo is not null and not is_deleted;
+
+-- A integração é somente interna e preparatória; não representa homologação externa.
+insert into sigov.integracao_interna_evento
+    (tenant_id, origem_modulo, destino_modulo, tipo_evento, status, referencia_tipo, referencia_id, payload, correlation_id, created_at)
+select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
+       'MIGRATION', 0, jsonb_build_object('preparatoria', true), gen_random_uuid(), now()
+where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
+  and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816123000', '20260816123000_rc50_38_frotas_obras_bloco7_core', '15c3e2d96d8c6917fada4a4d22356c70123b416b9c1b7c1aebf7f89f5175cc88', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
