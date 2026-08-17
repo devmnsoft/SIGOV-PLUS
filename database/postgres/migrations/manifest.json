@@ -702,7 +702,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "e6fedc558977d0dfae5751afbfc1bd2585de7e03aa91037618dd394b97504e85",
+      "checksum": "36b821f45a5b9d78212c9d287d889628ff7ae7a92a9d47c0bde7920b171c1cf6",
       "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_divida_ativa') is not null"
     },
     {
