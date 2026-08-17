@@ -834,6 +834,46 @@
       "applyAutomatically": true,
       "checksum": "61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9",
       "postConditionSql": "select to_regclass('sigov.emp_industrial_ativo') is not null"
+    },
+    {
+      "version": "20260817140000",
+      "file": "20260817140000_rc50_45_processos_digitais_core.sql",
+      "description": "20260817140000_rc50_45_processos_digitais_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "aec28f0c3cd4778778acf04fadf7035247b3d3d5fbc7926c409f3c548bbf595c",
+      "postConditionSql": "select to_regclass('sigov.processo_digital') is not null and to_regclass('sigov.processo_numero_sequencial') is not null"
+    },
+    {
+      "version": "20260817141000",
+      "file": "20260817141000_rc50_45_ged_assinaturas_core.sql",
+      "description": "20260817141000_rc50_45_ged_assinaturas_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "a613ad05f8cb8bc9f2304ac5d875d3aa1ce5a9caee769382bdb20554a973d38b",
+      "postConditionSql": "select to_regclass('sigov.ged_documento') is not null and to_regclass('sigov.assinatura_evidencia') is not null"
+    },
+    {
+      "version": "20260817142000",
+      "file": "20260817142000_rc50_45_legislativo_camara_core.sql",
+      "description": "20260817142000_rc50_45_legislativo_camara_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "595a5a64c98ab84c4397d08c2326264573bf903c2aeaa55735614f7872abdd95",
+      "postConditionSql": "select to_regclass('sigov.legislativo_proposicao') is not null and to_regclass('sigov.legislativo_votacao') is not null"
+    },
+    {
+      "version": "20260817143000",
+      "file": "20260817143000_rc50_45_transparencia_atendimento_core.sql",
+      "description": "20260817143000_rc50_45_transparencia_atendimento_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74",
+      "postConditionSql": "select to_regclass('sigov.diario_oficial_publicacao') is not null and to_regclass('sigov.atendimento_digital_chamado') is not null"
     }
   ],
   "compatibilityAfterAll": [
