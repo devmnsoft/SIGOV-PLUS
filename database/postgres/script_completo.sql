@@ -11717,7 +11717,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816120000_rc50_38_saude_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 48e19e7276702969beb4c6524c88d01f57fc39bed45f23bcd5b8aee84b8a57ba
+-- CHECKSUM_SHA256: 6cc8f9b2b4cc04a983fc2d122e86695da25497583992bd83875213ac71419204
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -11780,6 +11780,10 @@ create table if not exists sigov.saude_unidade (
     constraint ck_saude_unidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_unidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_unidade_tenant_ativo on sigov.saude_unidade(tenant_id, is_deleted);
 create index if not exists ix_saude_unidade_status_data on sigov.saude_unidade(tenant_id, status, data_referencia);
 
@@ -11841,6 +11845,10 @@ create table if not exists sigov.saude_paciente (
     constraint ck_saude_paciente_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_paciente_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_paciente
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_paciente_tenant_ativo on sigov.saude_paciente(tenant_id, is_deleted);
 create index if not exists ix_saude_paciente_status_data on sigov.saude_paciente(tenant_id, status, data_referencia);
 
@@ -11902,6 +11910,10 @@ create table if not exists sigov.saude_profissional (
     constraint ck_saude_profissional_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_profissional_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_profissional
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_profissional_tenant_ativo on sigov.saude_profissional(tenant_id, is_deleted);
 create index if not exists ix_saude_profissional_status_data on sigov.saude_profissional(tenant_id, status, data_referencia);
 
@@ -11963,6 +11975,10 @@ create table if not exists sigov.saude_especialidade (
     constraint ck_saude_especialidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_especialidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_especialidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_especialidade_tenant_ativo on sigov.saude_especialidade(tenant_id, is_deleted);
 create index if not exists ix_saude_especialidade_status_data on sigov.saude_especialidade(tenant_id, status, data_referencia);
 
@@ -12024,6 +12040,10 @@ create table if not exists sigov.saude_agenda (
     constraint ck_saude_agenda_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_agenda_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_agenda
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_agenda_tenant_ativo on sigov.saude_agenda(tenant_id, is_deleted);
 create index if not exists ix_saude_agenda_status_data on sigov.saude_agenda(tenant_id, status, data_referencia);
 
@@ -12085,6 +12105,10 @@ create table if not exists sigov.saude_agendamento (
     constraint ck_saude_agendamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_agendamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_agendamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_agendamento_tenant_ativo on sigov.saude_agendamento(tenant_id, is_deleted);
 create index if not exists ix_saude_agendamento_status_data on sigov.saude_agendamento(tenant_id, status, data_referencia);
 
@@ -12146,6 +12170,10 @@ create table if not exists sigov.saude_atendimento (
     constraint ck_saude_atendimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_atendimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_atendimento_tenant_ativo on sigov.saude_atendimento(tenant_id, is_deleted);
 create index if not exists ix_saude_atendimento_status_data on sigov.saude_atendimento(tenant_id, status, data_referencia);
 
@@ -12207,6 +12235,10 @@ create table if not exists sigov.saude_prontuario_resumo (
     constraint ck_saude_prontuario_resumo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_prontuario_resumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_prontuario_resumo
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_prontuario_resumo_tenant_ativo on sigov.saude_prontuario_resumo(tenant_id, is_deleted);
 create index if not exists ix_saude_prontuario_resumo_status_data on sigov.saude_prontuario_resumo(tenant_id, status, data_referencia);
 
@@ -12268,6 +12300,10 @@ create table if not exists sigov.saude_procedimento (
     constraint ck_saude_procedimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_procedimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_procedimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_procedimento_tenant_ativo on sigov.saude_procedimento(tenant_id, is_deleted);
 create index if not exists ix_saude_procedimento_status_data on sigov.saude_procedimento(tenant_id, status, data_referencia);
 
@@ -12329,6 +12365,10 @@ create table if not exists sigov.saude_prescricao (
     constraint ck_saude_prescricao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_prescricao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_prescricao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_prescricao_tenant_ativo on sigov.saude_prescricao(tenant_id, is_deleted);
 create index if not exists ix_saude_prescricao_status_data on sigov.saude_prescricao(tenant_id, status, data_referencia);
 
@@ -12390,6 +12430,10 @@ create table if not exists sigov.saude_vacinacao (
     constraint ck_saude_vacinacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_vacinacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_vacinacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_vacinacao_tenant_ativo on sigov.saude_vacinacao(tenant_id, is_deleted);
 create index if not exists ix_saude_vacinacao_status_data on sigov.saude_vacinacao(tenant_id, status, data_referencia);
 
@@ -12451,6 +12495,10 @@ create table if not exists sigov.saude_vacina (
     constraint ck_saude_vacina_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_vacina_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_vacina
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_vacina_tenant_ativo on sigov.saude_vacina(tenant_id, is_deleted);
 create index if not exists ix_saude_vacina_status_data on sigov.saude_vacina(tenant_id, status, data_referencia);
 
@@ -12512,6 +12560,10 @@ create table if not exists sigov.saude_acs_area (
     constraint ck_saude_acs_area_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_acs_area_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_acs_area
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_acs_area_tenant_ativo on sigov.saude_acs_area(tenant_id, is_deleted);
 create index if not exists ix_saude_acs_area_status_data on sigov.saude_acs_area(tenant_id, status, data_referencia);
 
@@ -12573,6 +12625,10 @@ create table if not exists sigov.saude_acs_microarea (
     constraint ck_saude_acs_microarea_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_acs_microarea_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_acs_microarea
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_acs_microarea_tenant_ativo on sigov.saude_acs_microarea(tenant_id, is_deleted);
 create index if not exists ix_saude_acs_microarea_status_data on sigov.saude_acs_microarea(tenant_id, status, data_referencia);
 
@@ -12634,6 +12690,10 @@ create table if not exists sigov.saude_acs_visita (
     constraint ck_saude_acs_visita_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_acs_visita_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_acs_visita
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_acs_visita_tenant_ativo on sigov.saude_acs_visita(tenant_id, is_deleted);
 create index if not exists ix_saude_acs_visita_status_data on sigov.saude_acs_visita(tenant_id, status, data_referencia);
 
@@ -12695,6 +12755,10 @@ create table if not exists sigov.saude_farmacia_item (
     constraint ck_saude_farmacia_item_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_farmacia_item_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_farmacia_item
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_farmacia_item_tenant_ativo on sigov.saude_farmacia_item(tenant_id, is_deleted);
 create index if not exists ix_saude_farmacia_item_status_data on sigov.saude_farmacia_item(tenant_id, status, data_referencia);
 
@@ -12756,6 +12820,10 @@ create table if not exists sigov.saude_farmacia_movimento (
     constraint ck_saude_farmacia_movimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_farmacia_movimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_farmacia_movimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_farmacia_movimento_tenant_ativo on sigov.saude_farmacia_movimento(tenant_id, is_deleted);
 create index if not exists ix_saude_farmacia_movimento_status_data on sigov.saude_farmacia_movimento(tenant_id, status, data_referencia);
 
@@ -12817,6 +12885,10 @@ create table if not exists sigov.saude_vigilancia_notificacao (
     constraint ck_saude_vigilancia_notificacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_vigilancia_notificacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_vigilancia_notificacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_vigilancia_notificacao_tenant_ativo on sigov.saude_vigilancia_notificacao(tenant_id, is_deleted);
 create index if not exists ix_saude_vigilancia_notificacao_status_data on sigov.saude_vigilancia_notificacao(tenant_id, status, data_referencia);
 
@@ -12878,6 +12950,10 @@ create table if not exists sigov.saude_regulacao_solicitacao (
     constraint ck_saude_regulacao_solicitacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_regulacao_solicitacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_regulacao_solicitacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_regulacao_solicitacao_tenant_ativo on sigov.saude_regulacao_solicitacao(tenant_id, is_deleted);
 create index if not exists ix_saude_regulacao_solicitacao_status_data on sigov.saude_regulacao_solicitacao(tenant_id, status, data_referencia);
 
@@ -12939,6 +13015,10 @@ create table if not exists sigov.saude_evento (
     constraint ck_saude_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saude_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saude_evento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saude_evento_tenant_ativo on sigov.saude_evento(tenant_id, is_deleted);
 create index if not exists ix_saude_evento_status_data on sigov.saude_evento(tenant_id, status, data_referencia);
 
@@ -12955,7 +13035,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', '48e19e7276702969beb4c6524c88d01f57fc39bed45f23bcd5b8aee84b8a57ba', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', '6cc8f9b2b4cc04a983fc2d122e86695da25497583992bd83875213ac71419204', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -12965,7 +13045,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816121000_rc50_38_assistencia_social_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 11554b5c64f555ad885fb78d588ddd27ce343f53147e6f3654f499946809faeb
+-- CHECKSUM_SHA256: c6e371c0418454db38c04dfdd602b4ce52f0002edfb54d0aef6a1ce3e26935a4
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -13028,6 +13108,10 @@ create table if not exists sigov.assistencia_unidade (
     constraint ck_assistencia_unidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_unidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_unidade_tenant_ativo on sigov.assistencia_unidade(tenant_id, is_deleted);
 create index if not exists ix_assistencia_unidade_status_data on sigov.assistencia_unidade(tenant_id, status, data_referencia);
 
@@ -13089,6 +13173,10 @@ create table if not exists sigov.assistencia_pessoa (
     constraint ck_assistencia_pessoa_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_pessoa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_pessoa
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_pessoa_tenant_ativo on sigov.assistencia_pessoa(tenant_id, is_deleted);
 create index if not exists ix_assistencia_pessoa_status_data on sigov.assistencia_pessoa(tenant_id, status, data_referencia);
 
@@ -13150,6 +13238,10 @@ create table if not exists sigov.assistencia_familia (
     constraint ck_assistencia_familia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_familia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_familia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_familia_tenant_ativo on sigov.assistencia_familia(tenant_id, is_deleted);
 create index if not exists ix_assistencia_familia_status_data on sigov.assistencia_familia(tenant_id, status, data_referencia);
 
@@ -13211,6 +13303,10 @@ create table if not exists sigov.assistencia_familia_membro (
     constraint ck_assistencia_familia_membro_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_familia_membro_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_familia_membro
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_familia_membro_tenant_ativo on sigov.assistencia_familia_membro(tenant_id, is_deleted);
 create index if not exists ix_assistencia_familia_membro_status_data on sigov.assistencia_familia_membro(tenant_id, status, data_referencia);
 
@@ -13272,6 +13368,10 @@ create table if not exists sigov.assistencia_atendimento (
     constraint ck_assistencia_atendimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_atendimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_atendimento_tenant_ativo on sigov.assistencia_atendimento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_atendimento_status_data on sigov.assistencia_atendimento(tenant_id, status, data_referencia);
 
@@ -13333,6 +13433,10 @@ create table if not exists sigov.assistencia_beneficio (
     constraint ck_assistencia_beneficio_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_beneficio_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_beneficio
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_beneficio_tenant_ativo on sigov.assistencia_beneficio(tenant_id, is_deleted);
 create index if not exists ix_assistencia_beneficio_status_data on sigov.assistencia_beneficio(tenant_id, status, data_referencia);
 
@@ -13394,6 +13498,10 @@ create table if not exists sigov.assistencia_beneficio_concessao (
     constraint ck_assistencia_beneficio_concessao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_beneficio_concessao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_beneficio_concessao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_beneficio_concessao_tenant_ativo on sigov.assistencia_beneficio_concessao(tenant_id, is_deleted);
 create index if not exists ix_assistencia_beneficio_concessao_status_data on sigov.assistencia_beneficio_concessao(tenant_id, status, data_referencia);
 
@@ -13455,6 +13563,10 @@ create table if not exists sigov.assistencia_vulnerabilidade (
     constraint ck_assistencia_vulnerabilidade_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_vulnerabilidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_vulnerabilidade
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_vulnerabilidade_tenant_ativo on sigov.assistencia_vulnerabilidade(tenant_id, is_deleted);
 create index if not exists ix_assistencia_vulnerabilidade_status_data on sigov.assistencia_vulnerabilidade(tenant_id, status, data_referencia);
 
@@ -13516,6 +13628,10 @@ create table if not exists sigov.assistencia_visita_domiciliar (
     constraint ck_assistencia_visita_domiciliar_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_visita_domiciliar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_visita_domiciliar
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_visita_domiciliar_tenant_ativo on sigov.assistencia_visita_domiciliar(tenant_id, is_deleted);
 create index if not exists ix_assistencia_visita_domiciliar_status_data on sigov.assistencia_visita_domiciliar(tenant_id, status, data_referencia);
 
@@ -13577,6 +13693,10 @@ create table if not exists sigov.assistencia_encaminhamento (
     constraint ck_assistencia_encaminhamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_encaminhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_encaminhamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_encaminhamento_tenant_ativo on sigov.assistencia_encaminhamento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_encaminhamento_status_data on sigov.assistencia_encaminhamento(tenant_id, status, data_referencia);
 
@@ -13638,6 +13758,10 @@ create table if not exists sigov.assistencia_acompanhamento_familiar (
     constraint ck_assistencia_acompanhamento_familiar_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_acompanhamento_familiar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_acompanhamento_familiar
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_acompanhamento_familiar_tenant_ativo on sigov.assistencia_acompanhamento_familiar(tenant_id, is_deleted);
 create index if not exists ix_assistencia_acompanhamento_familiar_status_data on sigov.assistencia_acompanhamento_familiar(tenant_id, status, data_referencia);
 
@@ -13699,6 +13823,10 @@ create table if not exists sigov.assistencia_plano_acompanhamento (
     constraint ck_assistencia_plano_acompanhamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_plano_acompanhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_plano_acompanhamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_plano_acompanhamento_tenant_ativo on sigov.assistencia_plano_acompanhamento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_plano_acompanhamento_status_data on sigov.assistencia_plano_acompanhamento(tenant_id, status, data_referencia);
 
@@ -13760,6 +13888,10 @@ create table if not exists sigov.assistencia_cras_creas (
     constraint ck_assistencia_cras_creas_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_cras_creas_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_cras_creas
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_cras_creas_tenant_ativo on sigov.assistencia_cras_creas(tenant_id, is_deleted);
 create index if not exists ix_assistencia_cras_creas_status_data on sigov.assistencia_cras_creas(tenant_id, status, data_referencia);
 
@@ -13821,6 +13953,10 @@ create table if not exists sigov.assistencia_evento (
     constraint ck_assistencia_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_assistencia_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.assistencia_evento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_evento_tenant_ativo on sigov.assistencia_evento(tenant_id, is_deleted);
 create index if not exists ix_assistencia_evento_status_data on sigov.assistencia_evento(tenant_id, status, data_referencia);
 
@@ -13834,7 +13970,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816121000', '20260816121000_rc50_38_assistencia_social_bloco7_core', '11554b5c64f555ad885fb78d588ddd27ce343f53147e6f3654f499946809faeb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816121000', '20260816121000_rc50_38_assistencia_social_bloco7_core', 'c6e371c0418454db38c04dfdd602b4ce52f0002edfb54d0aef6a1ce3e26935a4', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -13844,7 +13980,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816122000_rc50_38_saneamento_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 7f037ca7e96bb4bfbe8defa2d68ca6b1b032b45f66e3465eaf765c4397e1c3fa
+-- CHECKSUM_SHA256: 11284b2a2ebe536e12c6f8a781ee87c03eaa5b0c1f6249952abf25d6eed3fa24
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -13907,6 +14043,10 @@ create table if not exists sigov.saneamento_consumo (
     constraint ck_saneamento_consumo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saneamento_consumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saneamento_consumo
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_consumo_tenant_ativo on sigov.saneamento_consumo(tenant_id, is_deleted);
 create index if not exists ix_saneamento_consumo_status_data on sigov.saneamento_consumo(tenant_id, status, data_referencia);
 
@@ -13968,6 +14108,10 @@ create table if not exists sigov.saneamento_pagamento (
     constraint ck_saneamento_pagamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saneamento_pagamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saneamento_pagamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_pagamento_tenant_ativo on sigov.saneamento_pagamento(tenant_id, is_deleted);
 create index if not exists ix_saneamento_pagamento_status_data on sigov.saneamento_pagamento(tenant_id, status, data_referencia);
 
@@ -14029,6 +14173,10 @@ create table if not exists sigov.saneamento_manutencao (
     constraint ck_saneamento_manutencao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saneamento_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saneamento_manutencao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_manutencao_tenant_ativo on sigov.saneamento_manutencao(tenant_id, is_deleted);
 create index if not exists ix_saneamento_manutencao_status_data on sigov.saneamento_manutencao(tenant_id, status, data_referencia);
 
@@ -14090,6 +14238,10 @@ create table if not exists sigov.saneamento_inadimplencia (
     constraint ck_saneamento_inadimplencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saneamento_inadimplencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saneamento_inadimplencia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_inadimplencia_tenant_ativo on sigov.saneamento_inadimplencia(tenant_id, is_deleted);
 create index if not exists ix_saneamento_inadimplencia_status_data on sigov.saneamento_inadimplencia(tenant_id, status, data_referencia);
 
@@ -14151,6 +14303,10 @@ create table if not exists sigov.saneamento_ocorrencia (
     constraint ck_saneamento_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saneamento_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saneamento_ocorrencia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_ocorrencia_tenant_ativo on sigov.saneamento_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_saneamento_ocorrencia_status_data on sigov.saneamento_ocorrencia(tenant_id, status, data_referencia);
 
@@ -14212,6 +14368,10 @@ create table if not exists sigov.saneamento_rota_leitura (
     constraint ck_saneamento_rota_leitura_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_saneamento_rota_leitura_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.saneamento_rota_leitura
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_rota_leitura_tenant_ativo on sigov.saneamento_rota_leitura(tenant_id, is_deleted);
 create index if not exists ix_saneamento_rota_leitura_status_data on sigov.saneamento_rota_leitura(tenant_id, status, data_referencia);
 
@@ -14224,7 +14384,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816122000', '20260816122000_rc50_38_saneamento_bloco7_core', '7f037ca7e96bb4bfbe8defa2d68ca6b1b032b45f66e3465eaf765c4397e1c3fa', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816122000', '20260816122000_rc50_38_saneamento_bloco7_core', '11284b2a2ebe536e12c6f8a781ee87c03eaa5b0c1f6249952abf25d6eed3fa24', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -14234,7 +14394,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816123000_rc50_38_frotas_obras_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 15c3e2d96d8c6917fada4a4d22356c70123b416b9c1b7c1aebf7f89f5175cc88
+-- CHECKSUM_SHA256: 7637f5cec36286636faaf87645f64008065d6855a3725b028fcc7c2bfd754bff
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -14297,6 +14457,10 @@ create table if not exists sigov.frota_veiculo (
     constraint ck_frota_veiculo_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_veiculo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_veiculo
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_veiculo_tenant_ativo on sigov.frota_veiculo(tenant_id, is_deleted);
 create index if not exists ix_frota_veiculo_status_data on sigov.frota_veiculo(tenant_id, status, data_referencia);
 
@@ -14358,6 +14522,10 @@ create table if not exists sigov.frota_motorista (
     constraint ck_frota_motorista_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_motorista_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_motorista
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_motorista_tenant_ativo on sigov.frota_motorista(tenant_id, is_deleted);
 create index if not exists ix_frota_motorista_status_data on sigov.frota_motorista(tenant_id, status, data_referencia);
 
@@ -14419,6 +14587,10 @@ create table if not exists sigov.frota_abastecimento (
     constraint ck_frota_abastecimento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_abastecimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_abastecimento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_abastecimento_tenant_ativo on sigov.frota_abastecimento(tenant_id, is_deleted);
 create index if not exists ix_frota_abastecimento_status_data on sigov.frota_abastecimento(tenant_id, status, data_referencia);
 
@@ -14480,6 +14652,10 @@ create table if not exists sigov.frota_manutencao (
     constraint ck_frota_manutencao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_manutencao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_manutencao_tenant_ativo on sigov.frota_manutencao(tenant_id, is_deleted);
 create index if not exists ix_frota_manutencao_status_data on sigov.frota_manutencao(tenant_id, status, data_referencia);
 
@@ -14541,6 +14717,10 @@ create table if not exists sigov.frota_viagem (
     constraint ck_frota_viagem_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_viagem_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_viagem
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_viagem_tenant_ativo on sigov.frota_viagem(tenant_id, is_deleted);
 create index if not exists ix_frota_viagem_status_data on sigov.frota_viagem(tenant_id, status, data_referencia);
 
@@ -14602,6 +14782,10 @@ create table if not exists sigov.frota_ocorrencia (
     constraint ck_frota_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_ocorrencia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_ocorrencia_tenant_ativo on sigov.frota_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_frota_ocorrencia_status_data on sigov.frota_ocorrencia(tenant_id, status, data_referencia);
 
@@ -14663,6 +14847,10 @@ create table if not exists sigov.frota_equipamento (
     constraint ck_frota_equipamento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_frota_equipamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.frota_equipamento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_frota_equipamento_tenant_ativo on sigov.frota_equipamento(tenant_id, is_deleted);
 create index if not exists ix_frota_equipamento_status_data on sigov.frota_equipamento(tenant_id, status, data_referencia);
 
@@ -14724,6 +14912,10 @@ create table if not exists sigov.obra (
     constraint ck_obra_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_tenant_ativo on sigov.obra(tenant_id, is_deleted);
 create index if not exists ix_obra_status_data on sigov.obra(tenant_id, status, data_referencia);
 
@@ -14785,6 +14977,10 @@ create table if not exists sigov.obra_etapa (
     constraint ck_obra_etapa_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_etapa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_etapa
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_etapa_tenant_ativo on sigov.obra_etapa(tenant_id, is_deleted);
 create index if not exists ix_obra_etapa_status_data on sigov.obra_etapa(tenant_id, status, data_referencia);
 
@@ -14846,6 +15042,10 @@ create table if not exists sigov.obra_medicao (
     constraint ck_obra_medicao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_medicao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_medicao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_medicao_tenant_ativo on sigov.obra_medicao(tenant_id, is_deleted);
 create index if not exists ix_obra_medicao_status_data on sigov.obra_medicao(tenant_id, status, data_referencia);
 
@@ -14907,6 +15107,10 @@ create table if not exists sigov.obra_fiscalizacao (
     constraint ck_obra_fiscalizacao_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_fiscalizacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_fiscalizacao
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_fiscalizacao_tenant_ativo on sigov.obra_fiscalizacao(tenant_id, is_deleted);
 create index if not exists ix_obra_fiscalizacao_status_data on sigov.obra_fiscalizacao(tenant_id, status, data_referencia);
 
@@ -14968,6 +15172,10 @@ create table if not exists sigov.obra_diario (
     constraint ck_obra_diario_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_diario_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_diario
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_diario_tenant_ativo on sigov.obra_diario(tenant_id, is_deleted);
 create index if not exists ix_obra_diario_status_data on sigov.obra_diario(tenant_id, status, data_referencia);
 
@@ -15029,6 +15237,10 @@ create table if not exists sigov.obra_ocorrencia (
     constraint ck_obra_ocorrencia_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_ocorrencia
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_ocorrencia_tenant_ativo on sigov.obra_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_obra_ocorrencia_status_data on sigov.obra_ocorrencia(tenant_id, status, data_referencia);
 
@@ -15090,6 +15302,10 @@ create table if not exists sigov.obra_integracao_contrato (
     constraint ck_obra_integracao_contrato_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_integracao_contrato_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_integracao_contrato
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_integracao_contrato_tenant_ativo on sigov.obra_integracao_contrato(tenant_id, is_deleted);
 create index if not exists ix_obra_integracao_contrato_status_data on sigov.obra_integracao_contrato(tenant_id, status, data_referencia);
 
@@ -15151,6 +15367,10 @@ create table if not exists sigov.obra_evento (
     constraint ck_obra_evento_periodo check (data_fim is null or data_inicio is null or data_fim > data_inicio),
     constraint ck_obra_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
+alter table sigov.obra_evento
+    add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists ativo boolean not null default true,
+    add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_obra_evento_tenant_ativo on sigov.obra_evento(tenant_id, is_deleted);
 create index if not exists ix_obra_evento_status_data on sigov.obra_evento(tenant_id, status, data_referencia);
 
@@ -15165,7 +15385,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816123000', '20260816123000_rc50_38_frotas_obras_bloco7_core', '15c3e2d96d8c6917fada4a4d22356c70123b416b9c1b7c1aebf7f89f5175cc88', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816123000', '20260816123000_rc50_38_frotas_obras_bloco7_core', '7637f5cec36286636faaf87645f64008065d6855a3725b028fcc7c2bfd754bff', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
