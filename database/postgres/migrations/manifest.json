@@ -794,6 +794,46 @@
       "applyAutomatically": true,
       "checksum": "3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9",
       "postConditionSql": "select to_regclass('sigov.diario_oficial_edicao') is not null and to_regclass('sigov.esic_pedido') is not null"
+    },
+    {
+      "version": "20260817130000",
+      "file": "20260817130000_rc50_43_empresarial_comercial_core.sql",
+      "description": "20260817130000_rc50_43_empresarial_comercial_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83",
+      "postConditionSql": "select to_regclass('sigov.emp_comercial_cliente') is not null"
+    },
+    {
+      "version": "20260817131000",
+      "file": "20260817131000_rc50_43_empresarial_ordem_servico_core.sql",
+      "description": "20260817131000_rc50_43_empresarial_ordem_servico_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08",
+      "postConditionSql": "select to_regclass('sigov.emp_os_ordem') is not null"
+    },
+    {
+      "version": "20260817132000",
+      "file": "20260817132000_rc50_43_empresarial_estoque_core.sql",
+      "description": "20260817132000_rc50_43_empresarial_estoque_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d",
+      "postConditionSql": "select to_regclass('sigov.emp_estoque_produto') is not null"
+    },
+    {
+      "version": "20260817133000",
+      "file": "20260817133000_rc50_43_empresarial_industrial_core.sql",
+      "description": "20260817133000_rc50_43_empresarial_industrial_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9",
+      "postConditionSql": "select to_regclass('sigov.emp_industrial_ativo') is not null"
     }
   ],
   "compatibilityAfterAll": [

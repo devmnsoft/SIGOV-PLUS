@@ -98,6 +98,8 @@ using Sigov.Infrastructure.ComprasEmpresariais;
 using Sigov.Application.ExecutiveOperations;
 using Sigov.Application.Bloco8;
 using Sigov.Infrastructure.Bloco8;
+using Sigov.Application.Empresarial;
+using Sigov.Infrastructure.Empresarial;
 using Sigov.Infrastructure.ExecutiveOperations;
 
 using Sigov.Application.Industria;
@@ -631,6 +633,19 @@ public static class DependencyInjection
         services.AddScoped<IEsicService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<IOuvidoriaService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<IAtendimentoDigitalService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<EmpresarialRepository>();
+        services.AddScoped<IEmpresarialRepository>(sp => sp.GetRequiredService<EmpresarialRepository>());
+        services.AddScoped<IEmpresarialComercialRepository>(sp => sp.GetRequiredService<EmpresarialRepository>());
+        services.AddScoped<IEmpresarialOrdemServicoRepository>(sp => sp.GetRequiredService<EmpresarialRepository>());
+        services.AddScoped<IEmpresarialEstoqueRepository>(sp => sp.GetRequiredService<EmpresarialRepository>());
+        services.AddScoped<IEmpresarialIndustrialRepository>(sp => sp.GetRequiredService<EmpresarialRepository>());
+        services.AddScoped<EmpresarialService>();
+        services.AddScoped<IEmpresarialComercialService>(sp => sp.GetRequiredService<EmpresarialService>());
+        services.AddScoped<IEmpresarialComercialDashboardService>(sp => sp.GetRequiredService<EmpresarialService>());
+        services.AddScoped<IEmpresarialClienteService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialLeadService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialPropostaService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialPedidoService>(sp => sp.GetRequiredService<EmpresarialService>());
+        services.AddScoped<IEmpresarialOrdemServicoService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialOrdemServicoDashboardService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialOrdemServicoSlaService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialOrdemServicoChecklistService>(sp => sp.GetRequiredService<EmpresarialService>());
+        services.AddScoped<IEmpresarialEstoqueService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialEstoqueDashboardService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialProdutoService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialMovimentoEstoqueService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialCompraService>(sp => sp.GetRequiredService<EmpresarialService>());
+        services.AddScoped<IEmpresarialIndustrialService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialIndustrialDashboardService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialAtivoIndustrialService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialPlanoManutencaoService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialProducaoService>(sp => sp.GetRequiredService<EmpresarialService>());
 return services;
     }
 }
