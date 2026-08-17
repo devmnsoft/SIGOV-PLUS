@@ -1,0 +1,20 @@
+@model Sigov.Application.Health.ProjectStatusResponse
+@{ ViewData["Title"] = "Status do projeto"; }
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div><span class="badge text-bg-primary mb-2">RC50.44</span><h1 class="h2 mb-1">Status do projeto</h1><p class="text-muted mb-0">Visão operacional sem credenciais ou dados pessoais.</p></div>
+        <small class="text-muted">Atualizado em @Model.GeneratedAt.ToLocalTime().ToString("g")</small>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Banco</span><strong class="d-block">@Model.DatabaseStatus</strong></div></div></div>
+        <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Swagger</span><strong class="d-block">@Model.SwaggerStatus</strong></div></div></div>
+        <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Migrations</span><strong class="d-block">@(Model.AppliedMigrations?.ToString() ?? "—") / @Model.ManifestMigrations</strong></div></div></div>
+        <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Build</span><strong class="d-block">@Model.BuildStatus</strong></div></div></div>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Módulos com núcleo implementado</div><ul class="list-group list-group-flush">@foreach (var item in Model.ImplementedModules) { <li class="list-group-item d-flex justify-content-between"><span>@item.Name</span><span class="badge text-bg-success">@item.Status</span></li> }</ul></div></div>
+        <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Módulos pendentes</div><ul class="list-group list-group-flush">@foreach (var item in Model.PendingModules) { <li class="list-group-item d-flex justify-content-between"><span>@item.Name</span><span class="badge text-bg-warning">@item.Status</span></li> }</ul></div></div>
+        <div class="col-lg-7"><div class="card h-100"><div class="card-header fw-semibold">Priorização</div><div class="card-body">@foreach (var group in Model.PendingByPriority) { <h2 class="h6">@group.Key</h2><ul>@foreach (var item in group.Value) { <li>@item</li> } @if (group.Value.Count == 0) { <li class="text-muted">Nenhuma pendência confirmada.</li> }</ul> }</div></div></div>
+        <div class="col-lg-5"><div class="card h-100"><div class="card-header fw-semibold">Próximos prompts</div><ol class="list-group list-group-numbered list-group-flush">@foreach (var prompt in Model.SuggestedPrompts) { <li class="list-group-item">@prompt</li> }</ol></div></div>
+    </div>
+</div>
