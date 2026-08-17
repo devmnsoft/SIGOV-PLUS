@@ -874,6 +874,46 @@
       "applyAutomatically": true,
       "checksum": "8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74",
       "postConditionSql": "select to_regclass('sigov.diario_oficial_publicacao') is not null and to_regclass('sigov.atendimento_digital_chamado') is not null"
+    },
+    {
+      "version": "20260817150000",
+      "file": "20260817150000_rc50_47_tributario_carnes_boletos_core.sql",
+      "description": "20260817150000_rc50_47_tributario_carnes_boletos_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41",
+      "postConditionSql": "select to_regclass('sigov.tributario_carne_emissao') is not null"
+    },
+    {
+      "version": "20260817151000",
+      "file": "20260817151000_rc50_47_tributario_portal_contribuinte_core.sql",
+      "description": "20260817151000_rc50_47_tributario_portal_contribuinte_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c",
+      "postConditionSql": "select to_regclass('sigov.portal_contribuinte_protocolo') is not null"
+    },
+    {
+      "version": "20260817152000",
+      "file": "20260817152000_rc50_47_tributario_fiscalizacao_issqn_core.sql",
+      "description": "20260817152000_rc50_47_tributario_fiscalizacao_issqn_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc",
+      "postConditionSql": "select to_regclass('sigov.tributario_fiscalizacao_ordem') is not null"
+    },
+    {
+      "version": "20260817153000",
+      "file": "20260817153000_rc50_47_tributario_nfse_desif_core.sql",
+      "description": "20260817153000_rc50_47_tributario_nfse_desif_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23",
+      "postConditionSql": "select to_regclass('sigov.tributario_nfse_nota') is not null"
     }
   ],
   "compatibilityAfterAll": [

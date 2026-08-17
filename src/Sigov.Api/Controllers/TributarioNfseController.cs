@@ -1,0 +1,21 @@
+using Microsoft.AspNetCore.Mvc; using Sigov.Api.Contracts; using Sigov.Application.Abstractions; using Sigov.Application.Common; using Sigov.Application.Tributario.TributarioAvancado;
+namespace Sigov.Api.Controllers;
+[ApiController,Route("api/tributario")]
+public sealed class TributarioNfseController:TributarioAvancadoControllerBase { readonly ITributarioNfseService _s; public TributarioNfseController(ITributarioNfseService s,ICurrentTenant t,ICurrentUser u):base(t,u)=>_s=s;
+[HttpGet("nfse/dashboard")]public Task<ActionResult<ApiResponse<TributarioDashboardDto>>>Dashboard(CancellationToken ct)=>Dash("tributario_nfse_nota",ct);
+[HttpGet("nfse/configuracao")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Configuracao(CancellationToken ct)=>Lista("tributario_nfse_configuracao",ct);
+[HttpPut("nfse/configuracao")]public Task<ActionResult<ApiResponse<long>>>Configuracao(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_nfse_configuracao",r,ct);
+[HttpGet("nfse/notas")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Notas(CancellationToken ct)=>Lista("tributario_nfse_nota",ct);
+[HttpPost("nfse/notas")]public Task<ActionResult<ApiResponse<long>>>Nota(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_nfse_nota",r with{Status="RASCUNHO"},ct);
+[HttpGet("nfse/notas/{id:long}")]public async Task<ActionResult<ApiResponse<TributarioRegistroDto?>>>Nota(long id,CancellationToken ct)=>Resposta(await _s.ObterAsync(TenantId(),"tributario_nfse_nota",id,ct));
+[HttpPost("nfse/notas/{id:long}/emitir")]public Task<ActionResult<ApiResponse<bool>>>Emitir(long id,CancellationToken ct)=>Status("tributario_nfse_nota",id,"EMITIDA",null,ct);
+[HttpPost("nfse/notas/{id:long}/cancelar")]public Task<ActionResult<ApiResponse<bool>>>Cancelar(long id,TributarioNfseCancelarRequest r,CancellationToken ct)=>Status("tributario_nfse_nota",id,"CANCELADA",r.Justificativa,ct);
+[HttpPost("nfse/notas/{id:long}/substituir")]public Task<ActionResult<ApiResponse<bool>>>Substituir(long id,CancellationToken ct)=>Status("tributario_nfse_nota",id,"SUBSTITUIDA","Substituição preparatória registrada",ct);
+[HttpGet("nfse/validar/{codigo}")]public async Task<ActionResult<ApiResponse<TributarioRegistroDto?>>>Validar(string codigo,CancellationToken ct)=>Resposta(await _s.ObterAsync(TenantId(),"tributario_nfse_nota",long.TryParse(codigo,out var id)?id:0,ct));
+[HttpGet("livro-eletronico")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Livro(CancellationToken ct)=>Lista("tributario_livro_eletronico",ct);
+[HttpPost("livro-eletronico/gerar")]public Task<ActionResult<ApiResponse<long>>>Livro(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_livro_eletronico",r with{Status="PREPARATORIO"},ct);
+[HttpGet("desif/declaracoes")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Desif(CancellationToken ct)=>Lista("tributario_desif_declaracao",ct);
+[HttpPost("desif/declaracoes")]public Task<ActionResult<ApiResponse<long>>>Desif(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_desif_declaracao",r with{Status="RASCUNHO"},ct);
+[HttpGet("desif/declaracoes/{id:long}")]public async Task<ActionResult<ApiResponse<TributarioRegistroDto?>>>Desif(long id,CancellationToken ct)=>Resposta(await _s.ObterAsync(TenantId(),"tributario_desif_declaracao",id,ct));
+[HttpPost("desif/declaracoes/{id:long}/validar")]public Task<ActionResult<ApiResponse<bool>>>ValidarDesif(long id,CancellationToken ct)=>Status("tributario_desif_declaracao",id,"VALIDADO",null,ct);
+async Task<ActionResult<ApiResponse<TributarioDashboardDto>>>Dash(string t,CancellationToken ct)=>Resposta(await _s.DashboardAsync(TenantId(),t,ct));async Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Lista(string t,CancellationToken ct)=>Resposta(await _s.ListarAsync(TenantId(),t,1,100,ct));async Task<ActionResult<ApiResponse<long>>>Criar(string t,TributarioOperacaoRequest r,CancellationToken ct)=>Resposta(await _s.CriarAsync(Contexto(),t,r,ct));async Task<ActionResult<ApiResponse<bool>>>Status(string t,long id,string s,string? j,CancellationToken ct)=>Resposta(await _s.AlterarStatusAsync(Contexto(),t,id,s,j,ct));}
