@@ -1,5 +1,11 @@
 # Roadmap próxima sprint
 
+## Gate RC50.41 e próximo Bloco 8
+
+O próximo bloco passa a ser **Bloco 8 — Processos Digitais, Legislativo, GED, Assinaturas, Transparência e Atendimento**. Seu escopo consolidado, requisitos transversais, limites e critérios de aceite estão em [`bloco-8-processos-digitais-legislativo-transparencia.md`](bloco-8-processos-digitais-legislativo-transparencia.md).
+
+Não iniciar sua implementação antes de concluir o RC50.41 com migrations aplicadas no PostgreSQL, build de runtime aprovado, Swagger acessível, login de `admin` e `superadmin` funcional e rotas principais do Bloco 7 validadas. Até a aprovação desse gate, manter o Bloco 8 exclusivamente em planejamento e modelagem conceitual.
+
 1. Executar schema report em PostgreSQL homologado e anexar resultado.
 2. Criar migrations idempotentes não destrutivas para tabelas administrativas ausentes.
 3. Ativar CRUD real por módulo somente após regras oficiais.
