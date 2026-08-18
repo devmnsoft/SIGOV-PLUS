@@ -9,9 +9,28 @@ namespace Sigov.Api.Controllers;
 [Authorize]
 public abstract class TributarioAvancadoControllerBase : ControllerBase
 {
-    protected readonly ICurrentTenant Tenant; protected readonly ICurrentUser User;
-    protected TributarioAvancadoControllerBase(ICurrentTenant tenant, ICurrentUser user) { Tenant=tenant; User=user; }
+    protected readonly ICurrentTenant Tenant;
+    protected readonly ICurrentUser CurrentUser;
+
+    protected TributarioAvancadoControllerBase(ICurrentTenant tenant, ICurrentUser currentUser)
+    {
+        Tenant = tenant;
+        CurrentUser = currentUser;
+    }
+
     protected long TenantId() => Tenant.TenantId ?? throw new InvalidOperationException("Tenant autenticado é obrigatório.");
-    protected TributarioAvancadoContext Contexto() => new(TenantId(),Tenant.EntidadeId,Tenant.ExercicioId,User.UsuarioId,HttpContext.TraceIdentifier);
-    protected ActionResult<ApiResponse<T>> Resposta<T>(T value) => Ok(ApiResponse<T>.Ok(value,correlationId:HttpContext.TraceIdentifier));
+
+    protected string GetAuditUserName() =>
+        HttpContext?.User?.Identity?.Name
+        ?? HttpContext?.User?.FindFirst("name")?.Value
+        ?? HttpContext?.User?.FindFirst("sub")?.Value
+        ?? "system";
+
+    protected string GetCorrelationId() => HttpContext?.TraceIdentifier ?? Guid.NewGuid().ToString("N");
+
+    protected TributarioAvancadoContext Contexto() =>
+        new(TenantId(), Tenant.EntidadeId, Tenant.ExercicioId, CurrentUser.UsuarioId, GetCorrelationId());
+
+    protected ActionResult<ApiResponse<T>> Resposta<T>(T value) =>
+        Ok(ApiResponse<T>.Ok(value, correlationId: GetCorrelationId()));
 }
