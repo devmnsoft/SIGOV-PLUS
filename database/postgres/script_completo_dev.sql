@@ -17829,7 +17829,6 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: 50ed25704f7a746d5f7e49ad217e313da9431fd98af35f72e7b6e28525d1339a
 -- ==================================================
-begin;
 -- SIGOV+ RC50.50 — Saneamento Avançado. Idempotente; Database=postgres, schema=sigov.
 create schema if not exists sigov;
 
@@ -18267,7 +18266,6 @@ create index if not exists ix_saneamento_comercial_evento_tenant_status on sigov
 
 create unique index if not exists ux_saneamento_hidrometro_ligacao_ativo on sigov.saneamento_hidrometro(tenant_id,ligacao_id) where is_deleted=false and ativo=true and ligacao_id is not null;
 create unique index if not exists ux_saneamento_atendimento_numero on sigov.saneamento_atendimento(tenant_id,numero) where is_deleted=false and numero is not null;
-commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818140000', '20260818140000_rc50_50_saneamento_comercial_atendimento_core', '50ed25704f7a746d5f7e49ad217e313da9431fd98af35f72e7b6e28525d1339a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
@@ -18281,7 +18279,6 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: 792e1423928b022612fd777925f5016d97882fd09986650f8ab9e12f44d9a7bd
 -- ==================================================
-begin;
 -- SIGOV+ RC50.50 — Saneamento Avançado. Idempotente; Database=postgres, schema=sigov.
 create schema if not exists sigov;
 
@@ -18752,7 +18749,6 @@ alter table sigov.saneamento_faturamento_evento
  add column if not exists ativo boolean not null default true,
  add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_faturamento_evento_tenant_status on sigov.saneamento_faturamento_evento(tenant_id,status,data_referencia) where is_deleted=false;
-commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818141000', '20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core', '792e1423928b022612fd777925f5016d97882fd09986650f8ab9e12f44d9a7bd', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
@@ -18766,7 +18762,6 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: b03968468dc02a4a1fbf2c39fe4c6a01c89951250bc80edac201393b36b867e3
 -- ==================================================
-begin;
 -- SIGOV+ RC50.50 — Saneamento Avançado. Idempotente; Database=postgres, schema=sigov.
 create schema if not exists sigov;
 
@@ -19165,7 +19160,6 @@ alter table sigov.saneamento_operacao_evento
  add column if not exists ativo boolean not null default true,
  add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_operacao_evento_tenant_status on sigov.saneamento_operacao_evento(tenant_id,status,data_referencia) where is_deleted=false;
-commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818142000', '20260818142000_rc50_50_saneamento_operacao_campo_core', 'b03968468dc02a4a1fbf2c39fe4c6a01c89951250bc80edac201393b36b867e3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
@@ -19179,7 +19173,6 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330
 -- ==================================================
-begin;
 -- SIGOV+ RC50.50 — Saneamento Avançado. Idempotente; Database=postgres, schema=sigov.
 create schema if not exists sigov;
 
@@ -19582,9 +19575,123 @@ create index if not exists ix_saneamento_gis_qualidade_evento_tenant_status on s
 do $$ begin
  alter table sigov.saneamento_ponto_gis add constraint ck_saneamento_ponto_gis_coordenadas check ((latitude is null and longitude is null) or (latitude between -90 and 90 and longitude between -180 and 180));
 exception when duplicate_object then null; end $$;
-commit;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818143000', '20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core', 'a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63
+-- ==================================================
+-- RC50.51: governanca transversal. Estruturas incrementais, sem descarte destrutivo.
+set search_path to sigov;
+
+create table if not exists sigov.seguranca_recurso (
+    id bigint generated always as identity primary key, tenant_id bigint null,
+    modulo varchar(80) not null, codigo varchar(120) not null, nome varchar(180) not null,
+    entidade varchar(120) null, ativo boolean not null default true,
+    created_at timestamptz not null default now(), updated_at timestamptz null,
+    unique nulls not distinct (tenant_id, modulo, codigo)
+);
+create table if not exists sigov.seguranca_permissao_granular (
+    id bigint generated always as identity primary key, tenant_id bigint null,
+    recurso_id bigint not null references sigov.seguranca_recurso(id), acao varchar(40) not null,
+    escopo varchar(40) not null default 'TENANT', entidade_id bigint null, ativo boolean not null default true,
+    created_at timestamptz not null default now(), updated_at timestamptz null,
+    unique nulls not distinct (tenant_id, recurso_id, acao, escopo, entidade_id)
+);
+create table if not exists sigov.seguranca_perfil_permissao (
+    id bigint generated always as identity primary key, tenant_id bigint not null,
+    perfil_id bigint not null, permissao_id bigint not null references sigov.seguranca_permissao_granular(id),
+    concedida boolean not null default true, created_by bigint null, created_at timestamptz not null default now(),
+    unique (tenant_id, perfil_id, permissao_id)
+);
+create table if not exists sigov.seguranca_usuario_permissao (
+    id bigint generated always as identity primary key, tenant_id bigint not null,
+    usuario_id bigint not null, permissao_id bigint not null references sigov.seguranca_permissao_granular(id),
+    concedida boolean not null, motivo varchar(500) null, expira_em timestamptz null,
+    created_by bigint null, created_at timestamptz not null default now(),
+    unique (tenant_id, usuario_id, permissao_id)
+);
+create table if not exists sigov.seguranca_restricao_acesso (
+    id bigint generated always as identity primary key, tenant_id bigint not null,
+    usuario_id bigint null, perfil_id bigint null, modulo varchar(80) not null,
+    recurso varchar(120) null, entidade_id bigint null, tipo varchar(40) not null,
+    motivo varchar(500) not null, ativo boolean not null default true,
+    created_by bigint null, created_at timestamptz not null default now()
+);
+create table if not exists sigov.seguranca_evento (
+    id bigint generated always as identity primary key, tenant_id bigint null, usuario_id bigint null,
+    modulo varchar(80) not null, recurso varchar(120) not null, acao varchar(40) not null,
+    permitido boolean not null, entidade_id bigint null, motivo varchar(500) null,
+    ip inet null, user_agent varchar(500) null, correlation_id varchar(100) not null,
+    created_at timestamptz not null default now()
+);
+
+create table if not exists sigov.lgpd_consentimento_governanca (
+    id bigint generated always as identity primary key, tenant_id bigint not null, titular_id bigint not null,
+    finalidade varchar(250) not null, base_legal varchar(120) not null, canal varchar(60) not null,
+    concedido_em timestamptz not null, revogado_em timestamptz null, evidencia jsonb not null default '{}'::jsonb,
+    correlation_id varchar(100) not null, created_at timestamptz not null default now()
+);
+create table if not exists sigov.lgpd_incidente (
+    id bigint generated always as identity primary key, tenant_id bigint not null,
+    severidade varchar(20) not null check (severidade in ('BAIXA','MEDIA','ALTA','CRITICA')),
+    descoberto_em timestamptz not null, descricao text not null, status varchar(30) not null default 'ABERTO',
+    dados_afetados jsonb not null default '[]'::jsonb, plano_acao text null, encerrado_em timestamptz null,
+    created_by bigint null, correlation_id varchar(100) not null, created_at timestamptz not null default now()
+);
+create table if not exists sigov.lgpd_retencao_politica (
+    id bigint generated always as identity primary key, tenant_id bigint not null, recurso varchar(120) not null,
+    base_legal varchar(120) not null, prazo_dias integer not null check (prazo_dias > 0),
+    destino varchar(30) not null check (destino in ('REVISAR','ANONIMIZAR','DESCARTAR_PREPARATORIO')),
+    ativo boolean not null default true, approved_by bigint null, created_at timestamptz not null default now(),
+    unique (tenant_id, recurso)
+);
+create table if not exists sigov.lgpd_acesso_dado_pessoal (
+    id bigint generated always as identity primary key, tenant_id bigint not null, usuario_id bigint null,
+    titular_id bigint null, modulo varchar(80) not null, recurso varchar(120) not null,
+    finalidade varchar(250) not null, base_legal varchar(120) null, operacao varchar(30) not null,
+    campos jsonb not null default '[]'::jsonb, exportacao boolean not null default false,
+    ip inet null, user_agent varchar(500) null, correlation_id varchar(100) not null,
+    created_at timestamptz not null default now()
+);
+
+create table if not exists sigov.auditoria_evento_operacional (
+    id bigint generated always as identity primary key, tenant_id bigint null, usuario_id bigint null,
+    modulo varchar(80) not null, recurso varchar(120) not null, acao varchar(40) not null,
+    entidade varchar(120) null, entidade_id varchar(100) null, dados_antes jsonb null, dados_depois jsonb null,
+    severidade varchar(20) not null default 'INFO', ip inet null, user_agent varchar(500) null,
+    correlation_id varchar(100) not null, created_at timestamptz not null default now()
+);
+create table if not exists sigov.auditoria_exportacao (
+    id bigint generated always as identity primary key, tenant_id bigint not null, usuario_id bigint null,
+    modulo varchar(80) not null, recurso varchar(120) not null, finalidade varchar(250) not null,
+    formato varchar(20) not null, quantidade_registros integer not null default 0,
+    campos_mascarados boolean not null default true, correlation_id varchar(100) not null,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists ix_seguranca_evento_tenant_data on sigov.seguranca_evento (tenant_id, created_at desc);
+create index if not exists ix_lgpd_incidente_tenant_status on sigov.lgpd_incidente (tenant_id, status, descoberto_em desc);
+create index if not exists ix_lgpd_acesso_tenant_data on sigov.lgpd_acesso_dado_pessoal (tenant_id, created_at desc);
+create index if not exists ix_auditoria_evento_tenant_data on sigov.auditoria_evento_operacional (tenant_id, created_at desc);
+
+insert into sigov.seguranca_recurso(modulo,codigo,nome)
+values ('GOVERNANCA','SEGURANCA','Segurança e permissões'),('GOVERNANCA','LGPD','Governança LGPD'),
+       ('GOVERNANCA','AUDITORIA','Auditoria operacional'),('GOVERNANCA','OBSERVABILIDADE','Observabilidade')
+on conflict do nothing;
+insert into sigov.seguranca_permissao_granular(recurso_id,acao)
+select r.id, a.acao from sigov.seguranca_recurso r
+cross join (values ('visualizar'),('criar'),('alterar'),('excluir'),('aprovar'),('exportar'),('administrar')) a(acao)
+where r.modulo='GOVERNANCA' on conflict do nothing;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818150000', '20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core', '493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

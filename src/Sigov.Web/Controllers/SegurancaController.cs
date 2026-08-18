@@ -12,6 +12,10 @@ public sealed class SegurancaController : Controller
     private readonly ILogger<SegurancaController> _logger;
     public SegurancaController(SegurancaAdminService service, ILogger<SegurancaController> logger){ _service=service; _logger=logger; }
 
+    public IActionResult Dashboard() => View("Permissoes", new PerfilPermissoesViewModel { MensagemFallback = "Governança de acesso por módulo, recurso, ação, tenant e entidade." });
+    public IActionResult Restricoes() => View("Permissoes", new PerfilPermissoesViewModel { MensagemFallback = "Restrições explícitas prevalecem sobre concessões e são auditadas." });
+    public IActionResult Auditoria() => RedirectToAction("FalhasAcesso", "Auditoria");
+
     [HttpGet]
     public async Task<IActionResult> Usuarios([FromQuery] UsuarioFiltroViewModel filtro, CancellationToken ct)
     { var usuarios=await _service.ListarUsuariosAsync(filtro,ct).ConfigureAwait(false); return View(new UsuariosAdminViewModel{Filtro=filtro,Usuarios=usuarios,MensagemFallback=usuarios.Any()?string.Empty:"Nenhum usuário retornado ou tabela indisponível; nenhum dado foi simulado."}); }

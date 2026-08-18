@@ -1,0 +1,16 @@
+@model Sigov.Application.Health.ProjectStatusResponse
+@{ ViewData["Title"] = "Observabilidade"; }
+<main class="governance-dashboard" aria-labelledby="page-title">
+  <header class="governance-hero">
+    <div><span class="governance-eyebrow">Governança operacional</span><h1 id="page-title">Observabilidade do SIGOV+</h1><p>Diagnóstico seguro de banco, migrations, módulos e prioridades, sem expor credenciais ou dados pessoais.</p></div>
+    <span class="status-chip @(Model.DatabaseStatus == "Conectado" ? "is-ok" : "is-warning")">@Model.DatabaseStatus</span>
+  </header>
+  <section class="governance-kpis" aria-label="Indicadores">
+    <article class="health-status-card"><small>Migrations no manifest</small><strong>@Model.ManifestMigrations</strong></article>
+    <article class="migration-status-card"><small>Aplicadas</small><strong>@(Model.AppliedMigrations?.ToString() ?? "—")</strong></article>
+    <article class="validator-status-card"><small>Pendentes</small><strong>@(Model.PendingMigrations?.ToString() ?? "—")</strong></article>
+    <article class="module-status-card"><small>Módulos aferidos</small><strong>@(Model.ImplementedModules.Count + Model.PendingModules.Count)</strong></article>
+  </section>
+  <section class="governance-panel"><h2>Módulos</h2><div class="responsive-data-table"><table><thead><tr><th>Módulo</th><th>Status</th></tr></thead><tbody>@foreach (var item in Model.ImplementedModules.Concat(Model.PendingModules)) { <tr><td>@item.Name</td><td><span class="status-chip">@item.Status</span></td></tr> }</tbody></table></div></section>
+  <section class="governance-panel"><h2>Matriz operacional</h2>@foreach (var priority in Model.PendingByPriority) { <article class="@(priority.Key == "P0" ? "p0-alert-card" : "p1-warning-card")"><strong>@priority.Key</strong><span>@(priority.Value.Count == 0 ? "Nenhuma pendência detectada nesta leitura." : string.Join(" · ", priority.Value))</span></article> }</section>
+</main>
