@@ -16,7 +16,7 @@ public sealed class SaudeController : Controller
         _operationalLogger = operationalLogger;
     }
 
-    public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Dashboard"));
+    public IActionResult Dashboard() { ViewData["Modulo"] = "Saúde"; ViewData["Pagina"] = "Dashboard"; return View("~/Views/Saude/Avancada/Painel.cshtml"); }
     [Route("/Saude/Unidades")]
     public IActionResult Unidades(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saude", "Unidades", q));
     public IActionResult Profissionais() => View(new ProfissionalSaudeFormViewModel());

@@ -954,6 +954,46 @@
       "applyAutomatically": true,
       "checksum": "c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad",
       "postConditionSql": "select to_regclass('sigov.educacao_educacenso_lote') is not null"
+    },
+    {
+      "version": "20260818130000",
+      "file": "20260818130000_rc50_49_saude_acs_offline_georreferencia_core.sql",
+      "description": "20260818130000_rc50_49_saude_acs_offline_georreferencia_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a",
+      "postConditionSql": "select to_regclass('sigov.saude_acs_dispositivo') is not null"
+    },
+    {
+      "version": "20260818131000",
+      "file": "20260818131000_rc50_49_saude_cadastros_visitas_core.sql",
+      "description": "20260818131000_rc50_49_saude_cadastros_visitas_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623",
+      "postConditionSql": "select to_regclass('sigov.saude_domicilio') is not null"
+    },
+    {
+      "version": "20260818132000",
+      "file": "20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core.sql",
+      "description": "20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa",
+      "postConditionSql": "select to_regclass('sigov.saude_vacina_calendario') is not null"
+    },
+    {
+      "version": "20260818133000",
+      "file": "20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core.sql",
+      "description": "20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a",
+      "postConditionSql": "select to_regclass('sigov.saude_retaguarda_indicador') is not null"
     }
   ],
   "compatibilityAfterAll": [
