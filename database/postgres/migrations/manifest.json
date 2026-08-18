@@ -1034,6 +1034,16 @@
       "applyAutomatically": true,
       "checksum": "a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330",
       "postConditionSql": "select to_regclass('sigov.saneamento_ponto_gis') is not null"
+    },
+    {
+      "version": "20260818150000",
+      "file": "20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core.sql",
+      "description": "20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63",
+      "postConditionSql": "select to_regclass('sigov.seguranca_permissao_granular') is not null and to_regclass('sigov.lgpd_incidente') is not null and to_regclass('sigov.auditoria_evento_operacional') is not null"
     }
   ],
   "compatibilityAfterAll": [

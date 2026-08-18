@@ -48,7 +48,7 @@ public sealed class ProjectStatusProvider
         {
             ["P0"] = errors.Count == 0 ? Array.Empty<string>() : new[] { "Validar conectividade e migrations no ambiente real" },
             ["P1"] = new[] { "Fechar fluxos demonstráveis dos blocos 8 e 9" },
-            ["P2"] = new[] { "Completar relatórios, exportações, LGPD e auditoria" }
+            ["P2"] = new[] { "Homologar relatórios CSV e políticas de retenção com responsáveis LGPD" }
         };
 
         return new ProjectStatusResponse(DateTimeOffset.UtcNow, databaseStatus,
@@ -69,7 +69,8 @@ public sealed class ProjectStatusProvider
             (Name: "RC50.38 · Frotas/Obras", Tables: new[] { "frota_veiculo", "obra", "obra_medicao" }),
             (Name: "Educação avançada", Tables: new[] { "educacao_transporte_rota", "educacao_merenda_produto", "educacao_biblioteca_acervo", "educacao_indicador" }),
             (Name: "Saúde avançada", Tables: new[] { "saude_acs_lote_offline", "saude_visita_domiciliar", "saude_vacinacao_evento", "saude_farmacia_estoque", "saude_regulacao_fila" }),
-            (Name: "Tributário avançado", Tables: new[] { "tributario_carne_producao", "portal_contribuinte_acesso", "tributario_fiscalizacao_ordem", "tributario_nfse_nota" })
+            (Name: "Tributário avançado", Tables: new[] { "tributario_carne_producao", "portal_contribuinte_acesso", "tributario_fiscalizacao_ordem", "tributario_nfse_nota" }),
+            (Name: "RC50.51 · Governança e segurança", Tables: new[] { "seguranca_recurso", "seguranca_permissao_granular", "lgpd_incidente", "auditoria_evento_operacional" })
         };
         var statuses = new List<ProjectModuleStatus>(modules.Length);
         foreach (var module in modules)
