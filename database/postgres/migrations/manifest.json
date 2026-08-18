@@ -914,6 +914,46 @@
       "applyAutomatically": true,
       "checksum": "2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23",
       "postConditionSql": "select to_regclass('sigov.tributario_nfse_nota') is not null"
+    },
+    {
+      "version": "20260818120000",
+      "file": "20260818120000_rc50_48_educacao_transporte_escolar_core.sql",
+      "description": "20260818120000_rc50_48_educacao_transporte_escolar_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c",
+      "postConditionSql": "select to_regclass('sigov.educacao_transporte_rota') is not null"
+    },
+    {
+      "version": "20260818121000",
+      "file": "20260818121000_rc50_48_educacao_merenda_cardapio_core.sql",
+      "description": "20260818121000_rc50_48_educacao_merenda_cardapio_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7",
+      "postConditionSql": "select to_regclass('sigov.educacao_merenda_produto') is not null"
+    },
+    {
+      "version": "20260818122000",
+      "file": "20260818122000_rc50_48_educacao_biblioteca_digital_core.sql",
+      "description": "20260818122000_rc50_48_educacao_biblioteca_digital_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3",
+      "postConditionSql": "select to_regclass('sigov.educacao_biblioteca_acervo') is not null"
+    },
+    {
+      "version": "20260818123000",
+      "file": "20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core.sql",
+      "description": "20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad",
+      "postConditionSql": "select to_regclass('sigov.educacao_educacenso_lote') is not null"
     }
   ],
   "compatibilityAfterAll": [
