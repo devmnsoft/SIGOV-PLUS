@@ -1,0 +1,61 @@
+using Sigov.Application.Common;
+namespace Sigov.Application.Educacao.Avancada;
+public sealed record EducacaoAvancadaContext(long TenantId,long? EntidadeId,long? ExercicioId,long? UsuarioId,string CorrelationId);
+public sealed record EducacaoAvancadaFiltro(long? EscolaId=null,int? AnoLetivo=null,string? Status=null,int Pagina=1,int Tamanho=30);
+public sealed record EducacaoAvancadaRegistroDto(long Id,string? Codigo,string? Nome,string Status,string? Tipo,string? Descricao,decimal? Quantidade,decimal? Valor,DateTimeOffset CreatedAt);
+public sealed record EducacaoAvancadaOperacaoRequest(long? EscolaId,long? AlunoId,long? ReferenciaId,string? Codigo,string? Nome,string? Tipo,string Status,string? Descricao,string? Justificativa,string? Turno,decimal? Quantidade,decimal? Valor,int? AnoLetivo,IReadOnlyDictionary<string,object?>? Dados);
+public sealed record EducacaoAvancadaDashboardDto(long Total,long Ativos,long Pendentes,long Alertas,IReadOnlyCollection<EducacaoAvancadaRegistroDto> Recentes);
+public sealed record EducacaoTransporteDashboardDto(long RotasAtivas,long AlunosTransportados,long ViagensMes,long Alertas);
+public sealed record EducacaoTransporteRotaDto(long Id,string Nome,string Turno,string Status,long? EscolaId);
+public sealed record EducacaoTransporteCriarRotaRequest(string Nome,string Turno,string Status,long? EscolaId,string? Regiao);
+public sealed record EducacaoTransporteRotaPontoDto(long Id,long RotaId,int Ordem,string Descricao);
+public sealed record EducacaoTransporteVeiculoDto(long Id,string Codigo,string Status);
+public sealed record EducacaoTransporteMotoristaDto(long Id,string Nome,string Status);
+public sealed record EducacaoTransporteAlunoDto(long Id,long AlunoId,long RotaId,string Turno,string Status);
+public sealed record EducacaoTransporteVincularAlunoRequest(long AlunoId,string Turno);
+public sealed record EducacaoTransporteViagemDto(long Id,long RotaId,string Turno,string Status);
+public sealed record EducacaoTransporteCriarViagemRequest(long RotaId,long VeiculoId,long MotoristaId,DateOnly Data,string Turno);
+public sealed record EducacaoTransporteFrequenciaDto(long Id,long AlunoId,bool Presente);
+public sealed record EducacaoTransporteOcorrenciaDto(long Id,string Tipo,string Descricao);
+public sealed record EducacaoTransporteCustoDto(long Id,decimal Valor,string Tipo);
+public sealed record EducacaoMerendaDashboardDto(long Produtos,long EstoqueCritico,long CardapiosPublicados,long Requisicoes);
+public sealed record EducacaoMerendaProdutoDto(long Id,string Nome,string Unidade,string Categoria,string Status);
+public sealed record EducacaoMerendaCriarProdutoRequest(string Nome,string Unidade,string Categoria,decimal SaldoMinimo);
+public sealed record EducacaoMerendaFornecedorDto(long Id,string Nome,string DocumentoMascarado);
+public sealed record EducacaoMerendaEstoqueDto(long ProdutoId,decimal Saldo,decimal SaldoMinimo);
+public sealed record EducacaoMerendaMovimentoDto(long Id,string Tipo,decimal Quantidade);
+public sealed record EducacaoMerendaCriarMovimentoRequest(long ProdutoId,string Tipo,decimal Quantidade,string? Justificativa);
+public sealed record EducacaoMerendaCardapioDto(long Id,long EscolaId,string Status,DateOnly Inicio,DateOnly Fim);
+public sealed record EducacaoMerendaCriarCardapioRequest(long EscolaId,DateOnly Inicio,DateOnly Fim,IReadOnlyCollection<long> Produtos);
+public sealed record EducacaoMerendaDistribuicaoDto(long Id,long EscolaId,string Status);
+public sealed record EducacaoMerendaRequisicaoDto(long Id,long EscolaId,string Status);
+public sealed record EducacaoMerendaConsumoDto(long Id,long EscolaId,decimal Quantidade);
+public sealed record EducacaoBibliotecaDashboardDto(long Titulos,long Disponiveis,long EmprestimosAtivos,long Atrasos);
+public sealed record EducacaoBibliotecaAcervoDto(long Id,string Titulo,string Tipo,string Status);
+public sealed record EducacaoBibliotecaCriarAcervoRequest(string Titulo,string Tipo);
+public sealed record EducacaoBibliotecaExemplarDto(long Id,long AcervoId,string Codigo,string Status);
+public sealed record EducacaoBibliotecaEmprestimoDto(long Id,long ExemplarId,long? AlunoId,long? ServidorId,string Status);
+public sealed record EducacaoBibliotecaCriarEmprestimoRequest(long ExemplarId,long? AlunoId,long? ServidorId,DateOnly Prazo);
+public sealed record EducacaoBibliotecaDevolverRequest(string? Observacao);
+public sealed record EducacaoBibliotecaReservaDto(long Id,long ExemplarId,string Status);
+public sealed record EducacaoBibliotecaOcorrenciaDto(long Id,string Motivo);
+public sealed record EducacaoBibliotecaDigitalReferenciaDto(long Id,long AcervoId,long? GedDocumentoId);
+public sealed record EducacaoIndicadoresDashboardDto(decimal ReceitasFundeb,decimal AplicacoesFundeb,decimal CustoPorAluno,long Inconsistencias);
+public sealed record EducacaoFundebParametroDto(long Id,string Codigo,decimal Valor);
+public sealed record EducacaoFundebReceitaDto(long Id,DateOnly Competencia,string Fonte,decimal Valor);
+public sealed record EducacaoFundebAplicacaoDto(long Id,long CentroCustoId,decimal Valor);
+public sealed record EducacaoCustoCentroDto(long Id,string Nome,string Status);
+public sealed record EducacaoCustoLancamentoDto(long Id,long CentroCustoId,decimal Valor);
+public sealed record EducacaoCustoRateioDto(long Id,string Criterio,decimal Valor);
+public sealed record EducacaoIndicadorDto(long Id,string Codigo,string Nome);
+public sealed record EducacaoIndicadorValorDto(long Id,long IndicadorId,int Ano,decimal Valor);
+public sealed record EducacaoProjecaoMatriculaDto(long Id,long EscolaId,int Ano,int Quantidade);
+public sealed record EducacaoEducacensoLoteDto(long Id,int Ano,string Status);
+public sealed record EducacaoEducacensoInconsistenciaDto(long Id,string Gravidade,string Origem,string Recomendacao);
+public sealed record EducacaoAvaliacaoMagisterioDto(long Id,string Nome,string Status);
+public sealed record EducacaoAvaliacaoResultadoDto(long Id,long AvaliacaoId,decimal Resultado);
+public interface IEducacaoAvancadaRepository { Task<PagedResult<EducacaoAvancadaRegistroDto>> ListarAsync(long tenantId,string recurso,EducacaoAvancadaFiltro filtro,CancellationToken ct); Task<long> CriarAsync(EducacaoAvancadaContext contexto,string recurso,EducacaoAvancadaOperacaoRequest request,CancellationToken ct); Task<bool> AlterarStatusAsync(EducacaoAvancadaContext contexto,string recurso,long id,string status,string? justificativa,CancellationToken ct); Task<EducacaoAvancadaDashboardDto> DashboardAsync(long tenantId,string recurso,CancellationToken ct); Task<byte[]> ExportarCsvAsync(long tenantId,string recurso,CancellationToken ct); }
+public interface IEducacaoTransporteEscolarRepository:IEducacaoAvancadaRepository{} public interface IEducacaoTransporteEscolarService:IEducacaoAvancadaRepository{} public interface IEducacaoTransporteDashboardService:IEducacaoTransporteEscolarService{} public interface IEducacaoTransporteRelatorioService:IEducacaoTransporteEscolarService{}
+public interface IEducacaoMerendaRepository:IEducacaoAvancadaRepository{} public interface IEducacaoMerendaService:IEducacaoAvancadaRepository{} public interface IEducacaoMerendaEstoqueService:IEducacaoMerendaService{} public interface IEducacaoMerendaCardapioService:IEducacaoMerendaService{} public interface IEducacaoMerendaRelatorioService:IEducacaoMerendaService{}
+public interface IEducacaoBibliotecaRepository:IEducacaoAvancadaRepository{} public interface IEducacaoBibliotecaService:IEducacaoAvancadaRepository{} public interface IEducacaoBibliotecaEmprestimoService:IEducacaoBibliotecaService{} public interface IEducacaoBibliotecaRelatorioService:IEducacaoBibliotecaService{}
+public interface IEducacaoIndicadoresRepository:IEducacaoAvancadaRepository{} public interface IEducacaoIndicadoresService:IEducacaoAvancadaRepository{} public interface IEducacaoFundebService:IEducacaoIndicadoresService{} public interface IEducacaoCustosService:IEducacaoIndicadoresService{} public interface IEducacaoEducacensoService:IEducacaoIndicadoresService{} public interface IEducacaoAvaliacaoMagisterioService:IEducacaoIndicadoresService{}

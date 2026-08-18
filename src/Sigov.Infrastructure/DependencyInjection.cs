@@ -32,6 +32,8 @@ using Sigov.Application.Educacao;
 using Sigov.Infrastructure.Educacao;
 using Sigov.Application.Educacao.Bloco3;
 using Sigov.Infrastructure.Educacao.Bloco3;
+using Sigov.Application.Educacao.Avancada;
+using Sigov.Infrastructure.Educacao.Avancada;
 using Sigov.Application.Relatorios;
 using Sigov.Infrastructure.Relatorios;
 using Sigov.Application.Parameters;
@@ -658,6 +660,11 @@ public static class DependencyInjection
         services.AddScoped<IEmpresarialOrdemServicoService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialOrdemServicoDashboardService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialOrdemServicoSlaService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialOrdemServicoChecklistService>(sp => sp.GetRequiredService<EmpresarialService>());
         services.AddScoped<IEmpresarialEstoqueService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialEstoqueDashboardService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialProdutoService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialMovimentoEstoqueService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialCompraService>(sp => sp.GetRequiredService<EmpresarialService>());
         services.AddScoped<IEmpresarialIndustrialService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialIndustrialDashboardService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialAtivoIndustrialService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialPlanoManutencaoService>(sp => sp.GetRequiredService<EmpresarialService>()); services.AddScoped<IEmpresarialProducaoService>(sp => sp.GetRequiredService<EmpresarialService>());
+        services.AddScoped<EducacaoAvancadaRepository>();
+        services.AddScoped<IEducacaoTransporteEscolarRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoTransporteEscolarService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoTransporteDashboardService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoTransporteRelatorioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
+        services.AddScoped<IEducacaoMerendaRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaEstoqueService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaCardapioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaRelatorioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
+        services.AddScoped<IEducacaoBibliotecaRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaEmprestimoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaRelatorioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
+        services.AddScoped<IEducacaoIndicadoresRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoIndicadoresService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoFundebService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoCustosService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoEducacensoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoAvaliacaoMagisterioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
 return services;
     }
 }
