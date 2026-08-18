@@ -16,7 +16,13 @@ public sealed class SaneamentoController : Controller
         _operationalLogger = operationalLogger;
     }
 
-    public IActionResult Dashboard() => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Dashboard"));
+    public IActionResult Dashboard()
+    {
+        ViewData["Titulo"] = "Dashboard";
+        ViewData["Modulo"] = "comercial";
+        ViewData["Recurso"] = "dashboard";
+        return View("~/Views/Saneamento/Avancado.cshtml");
+    }
     [Route("/Saneamento/Consumidores")]
     public IActionResult Consumidores(string? q = null) => View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Consumidores", q));
     public IActionResult ConsumidorDetalhe(long id) { ViewData["ConsumidorId"] = id; return View(); }
@@ -48,16 +54,7 @@ public sealed class SaneamentoController : Controller
     [Route("/Saneamento")]
     public IActionResult Index(string? q = null)
     {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Dashboard", q));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Saneamento/Index");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", _operationalDemo.Build("Saneamento", "Em implantação"));
-        }
+        return Dashboard();
     }
 
     [Route("/Saneamento/Gis")]
