@@ -2,7 +2,7 @@
 @{ ViewData["Title"] = "Status do projeto"; }
 <div class="container-fluid py-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <div><span class="badge text-bg-primary mb-2">RC50.49</span><h1 class="h2 mb-1">Status do projeto</h1><p class="text-muted mb-0">Visão operacional sem credenciais ou dados pessoais.</p></div>
+        <div><span class="badge text-bg-primary mb-2">RC50.49-B</span><h1 class="h2 mb-1">Status do projeto</h1><p class="text-muted mb-0">Visão operacional sem credenciais ou dados pessoais.</p></div>
         <small class="text-muted">Atualizado em @Model.GeneratedAt.ToLocalTime().ToString("g")</small>
     </div>
     <div class="row g-3 mb-4">
@@ -12,8 +12,9 @@
         <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Build</span><strong class="d-block">@Model.BuildStatus</strong></div></div></div>
     </div>
     <div class="row g-3 mb-4">
-        <div class="col-lg-6"><div class="alert alert-primary h-100 mb-0" role="status"><strong>Educação Avançada RC50.48</strong><div class="small mt-1">Tabelas: transporte, merenda, biblioteca e indicadores · rotas: /api/educacao/transporte, /merenda, /biblioteca e /indicadores · migrations RC50.48 no manifesto.</div><a class="btn btn-sm btn-primary mt-2" href="/Educacao/Indicadores/Dashboard">Abrir painel</a></div></div>
-        <div class="col-lg-6"><div class="alert alert-success h-100 mb-0" role="status"><strong>Saúde Avançada RC50.49</strong><div class="small mt-1">Tabelas: ACS offline, visitas, vacinação, farmácia e regulação · rotas: /api/saude/acs-offline, /acs-campo, /operacao e /retaguarda · 4 migrations RC50.49 no manifesto.</div><a class="btn btn-sm btn-success mt-2" href="/Saude/Retaguarda/Dashboard">Abrir painel</a></div></div>
+        <div class="col-lg-4"><div class="alert alert-primary h-100 mb-0" role="status"><strong>Educação Avançada</strong><div class="small mt-1">Controller base corrigido · rotas: /api/educacao/transporte, /merenda, /biblioteca e /indicadores · tabelas verificadas com segurança abaixo.</div><a class="btn btn-sm btn-primary mt-2" href="/Educacao/Indicadores/Dashboard">Abrir painel</a></div></div>
+        <div class="col-lg-4"><div class="alert alert-success h-100 mb-0" role="status"><strong>Saúde Avançada</strong><div class="small mt-1">Controller base corrigido · rotas: /api/saude/acs-offline, /acs-campo, /operacao e /retaguarda · tabelas verificadas com segurança abaixo.</div><a class="btn btn-sm btn-success mt-2" href="/Saude/Retaguarda/Dashboard">Abrir painel</a></div></div>
+        <div class="col-lg-4"><div class="alert alert-warning h-100 mb-0" role="status"><strong>Tributário Avançado</strong><div class="small mt-1">Controller base corrigido · rotas: /api/tributario/carnes-boletos, /portal-contribuinte, /fiscalizacao e /nfse · tabelas verificadas com segurança abaixo.</div><a class="btn btn-sm btn-warning mt-2" href="/Tributario/CarnesBoletos/Dashboard">Abrir painel</a></div></div>
     </div>
     <div class="row g-4">
         <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Módulos com núcleo implementado</div><ul class="list-group list-group-flush">@foreach (var item in Model.ImplementedModules) { <li class="list-group-item d-flex justify-content-between"><span>@item.Name</span><span class="badge text-bg-success">@item.Status</span></li> }</ul></div></div>

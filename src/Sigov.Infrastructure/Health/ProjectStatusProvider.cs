@@ -36,7 +36,7 @@ public sealed class ProjectStatusProvider
             .Select(name => new ProjectModuleStatus(name, "Núcleo implementado"))
             .Concat(advancedModules.Where(module => module.Status == "Aplicado"))
             .ToArray();
-        var pending = new[] { "Bloco 8 digital", "Bloco 9 empresarial", "Tributário avançado", "Saneamento avançado" }
+        var pending = new[] { "Bloco 8 digital", "Bloco 9 empresarial", "Saneamento avançado" }
             .Select(name => new ProjectModuleStatus(name, "Parcial"))
             .Concat(advancedModules.Where(module => module.Status != "Aplicado"))
             .ToArray();
@@ -51,7 +51,7 @@ public sealed class ProjectStatusProvider
             _configuration.GetValue("Sigov:Security:SwaggerEnabledInProduction", false) ? "Habilitado por configuração" : "Disponível em Development",
             "Não aferido em runtime; consultar pipeline/artefato de build", manifestCount, applied,
             applied.HasValue ? Math.Max(0, manifestCount - applied.Value) : null, implemented, pending, errors, priorities,
-            new[] { "Validar RC50.48 — Educação Avançada em runtime", "Validar RC50.49 — Saúde Avançada em runtime", "Fechar relatórios e auditoria dos blocos 8 e 9" });
+            new[] { "Validar módulos avançados em runtime", "Confirmar Swagger e autenticação no ambiente integrado", "Fechar relatórios e auditoria dos blocos 8 e 9" });
     }
 
     private async Task<IReadOnlyCollection<ProjectModuleStatus>> InspectAdvancedModulesAsync(CancellationToken cancellationToken)
@@ -59,7 +59,8 @@ public sealed class ProjectStatusProvider
         var modules = new[]
         {
             (Name: "Educação avançada", Tables: new[] { "educacao_transporte_rota", "educacao_merenda_produto", "educacao_biblioteca_acervo", "educacao_indicador" }),
-            (Name: "Saúde avançada", Tables: new[] { "saude_acs_lote_offline", "saude_visita_domiciliar", "saude_vacinacao_evento", "saude_farmacia_estoque", "saude_regulacao_fila" })
+            (Name: "Saúde avançada", Tables: new[] { "saude_acs_lote_offline", "saude_visita_domiciliar", "saude_vacinacao_evento", "saude_farmacia_estoque", "saude_regulacao_fila" }),
+            (Name: "Tributário avançado", Tables: new[] { "tributario_carne_producao", "portal_contribuinte_acesso", "tributario_fiscalizacao_ordem", "tributario_nfse_nota" })
         };
         var statuses = new List<ProjectModuleStatus>(modules.Length);
         foreach (var module in modules)
