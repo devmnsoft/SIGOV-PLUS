@@ -31,6 +31,24 @@ public sealed class DatabaseObjectInspector : IDatabaseObjectInspector
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    public async Task<MigrationDiagnostic?> GetLatestMigrationAsync(bool success, CancellationToken cancellationToken = default)
+    {
+        if (!await TableExistsAsync("sigov", "schema_migrations", cancellationToken).ConfigureAwait(false)) return null;
+        await using var connection = _connectionFactory.CreateConnection();
+        const string sql = "select version as Version, description || '.sql' as File, source as Stage, null::text as SqlState, null::text as CorrelationId from sigov.schema_migrations where success=@Success order by applied_at desc, id desc limit 1;";
+        return await connection.QuerySingleOrDefaultAsync<MigrationDiagnostic>(new CommandDefinition(sql, new { Success = success }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task<bool> ColumnExistsAsync(string schema, string table, string column, CancellationToken cancellationToken = default)
+    {
+        ValidateIdentifier(schema, nameof(schema));
+        ValidateIdentifier(table, nameof(table));
+        ValidateIdentifier(column, nameof(column));
+        await using var connection = _connectionFactory.CreateConnection();
+        const string sql = "select exists(select 1 from information_schema.columns where table_schema=@Schema and table_name=@Table and column_name=@Column);";
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(sql, new { Schema = schema, Table = table, Column = column }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
     private static void ValidateIdentifier(string value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Any(character => !char.IsLetterOrDigit(character) && character != '_'))
