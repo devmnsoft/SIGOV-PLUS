@@ -315,12 +315,12 @@ public static class DependencyInjection
         services.AddScoped<IProcessoParecerRepository, ProcessoParecerRepository>();
         services.AddScoped<IProtocoloAtendimentoRepository, ProtocoloAtendimentoRepository>();
         services.AddScoped<IOuvidoriaRepository, OuvidoriaRepository>();
-        services.AddScoped<IDiarioOficialRepository, DiarioOficialRepository>();
+        services.AddScoped<Sigov.Application.Processos.IDiarioOficialRepository, DiarioOficialRepository>();
         services.AddScoped<IProcessoSequencialService, ProcessoSequencialRepository>();
         services.AddScoped<ITipoProcessoService, TipoProcessoService>();
         services.AddScoped<IProcessoDigitalService, ProcessoDigitalService>();
         services.AddScoped<IProtocoloAtendimentoService, ProtocoloAtendimentoService>();
-        services.AddScoped<IOuvidoriaService, OuvidoriaService>();
+        services.AddScoped<Sigov.Application.Processos.IOuvidoriaService, OuvidoriaService>();
         services.AddScoped<Sigov.Application.Processos.IDiarioOficialService, DiarioOficialService>();
         services.AddScoped<IPlanoContasRepository, PlanoContasRepository>();
         services.AddScoped<IFonteRecursoRepository, FonteRecursoRepository>();
@@ -622,7 +622,7 @@ public static class DependencyInjection
         services.AddScoped<IAssinaturaRepository, Bloco8Repository>();
         services.AddScoped<ILegislativoRepository, Bloco8Repository>();
         services.AddScoped<ITransparenciaRepository, Bloco8Repository>();
-        services.AddScoped<IDiarioOficialRepository, Bloco8Repository>();
+        services.AddScoped<Sigov.Application.Bloco8.IDiarioOficialRepository, Bloco8Repository>();
         services.AddScoped<Bloco8Service>();
         services.AddScoped<IProcessosDigitaisService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<IProtocoloDigitalService>(sp => sp.GetRequiredService<Bloco8Service>());
@@ -643,7 +643,7 @@ public static class DependencyInjection
         services.AddScoped<ITransparenciaService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<Sigov.Application.Bloco8.IDiarioOficialService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<IEsicService>(sp => sp.GetRequiredService<Bloco8Service>());
-        services.AddScoped<IOuvidoriaService>(sp => sp.GetRequiredService<Bloco8Service>());
+        services.AddScoped<Sigov.Application.Bloco8.IOuvidoriaService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<IAtendimentoDigitalService>(sp => sp.GetRequiredService<Bloco8Service>());
         services.AddScoped<EmpresarialRepository>();
         services.AddScoped<IEmpresarialRepository>(sp => sp.GetRequiredService<EmpresarialRepository>());
