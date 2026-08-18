@@ -63,6 +63,10 @@ public sealed class ProjectStatusProvider
     {
         var modules = new[]
         {
+            (Name: "RC50.38 · Saúde", Tables: new[] { "saude_paciente", "saude_atendimento" }),
+            (Name: "RC50.38 · Assistência Social", Tables: new[] { "assistencia_pessoa", "assistencia_atendimento" }),
+            (Name: "RC50.38 · Saneamento", Tables: new[] { "saneamento_consumo", "saneamento_manutencao" }),
+            (Name: "RC50.38 · Frotas/Obras", Tables: new[] { "frota_veiculo", "obra", "obra_medicao" }),
             (Name: "Educação avançada", Tables: new[] { "educacao_transporte_rota", "educacao_merenda_produto", "educacao_biblioteca_acervo", "educacao_indicador" }),
             (Name: "Saúde avançada", Tables: new[] { "saude_acs_lote_offline", "saude_visita_domiciliar", "saude_vacinacao_evento", "saude_farmacia_estoque", "saude_regulacao_fila" }),
             (Name: "Tributário avançado", Tables: new[] { "tributario_carne_producao", "portal_contribuinte_acesso", "tributario_fiscalizacao_ordem", "tributario_nfse_nota" })
@@ -102,11 +106,21 @@ public sealed class ProjectStatusProvider
 
     private static bool HasIndexColumnWarning()
     {
-        var migration = FindRepositoryFile("database", "postgres", "migrations", "20260816120000_rc50_38_saude_bloco7_core.sql");
-        if (migration is null) return false;
-        var sql = File.ReadAllText(migration);
-        return sql.Contains("data_referencia", StringComparison.OrdinalIgnoreCase)
-            && !sql.Contains("add column if not exists data_referencia", StringComparison.OrdinalIgnoreCase);
+        var files = new[]
+        {
+            "20260816120000_rc50_38_saude_bloco7_core.sql",
+            "20260816121000_rc50_38_assistencia_social_bloco7_core.sql",
+            "20260816122000_rc50_38_saneamento_bloco7_core.sql",
+            "20260816123000_rc50_38_frotas_obras_bloco7_core.sql"
+        };
+        return files.Any(file =>
+        {
+            var migration = FindRepositoryFile("database", "postgres", "migrations", file);
+            if (migration is null) return false;
+            var sql = File.ReadAllText(migration);
+            return sql.Contains("data_referencia", StringComparison.OrdinalIgnoreCase)
+                && !sql.Contains("add column if not exists data_referencia", StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     private static string? FindRepositoryFile(params string[] parts)
