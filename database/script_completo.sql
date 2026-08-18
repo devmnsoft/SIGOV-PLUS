@@ -11717,7 +11717,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816120000_rc50_38_saude_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: ea3bbd7710e2961570846ba8850f5fce5258f02954f0117fb21afc46ee6d71b0
+-- CHECKSUM_SHA256: efcab93f125e29bf8845cc10a905d745d8f7652d4a48f86e382069103f5b4a4a
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -12432,6 +12432,7 @@ create table if not exists sigov.saude_vacinacao (
     prioridade varchar(30),
     competencia varchar(7),
     data_referencia timestamptz,
+    data_referencia_dia date,
     data_inicio timestamptz,
     data_fim timestamptz,
     leitura_anterior numeric(16,3),
@@ -12462,9 +12463,35 @@ alter table sigov.saude_vacinacao
     add column if not exists tipo varchar(80),
     add column if not exists justificativa text,
     add column if not exists data_referencia timestamptz,
+    add column if not exists data_referencia_dia date,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+
+-- Materializa o dia em UTC fora do índice. O cast de timestamptz não é IMMUTABLE
+-- porque depende do fuso da sessão e, por isso, não pode compor a chave do índice.
+update sigov.saude_vacinacao
+set data_referencia_dia = (data_referencia at time zone 'UTC')::date
+where data_referencia_dia is null
+  and data_referencia is not null;
+
+create or replace function sigov.saude_vacinacao_materializar_dia()
+returns trigger
+language plpgsql
+as $function$
+begin
+    new.data_referencia_dia := case
+        when new.data_referencia is null then null
+        else (new.data_referencia at time zone 'UTC')::date
+    end;
+    return new;
+end
+$function$;
+
+drop trigger if exists trg_saude_vacinacao_materializar_dia on sigov.saude_vacinacao;
+create trigger trg_saude_vacinacao_materializar_dia
+before insert or update of data_referencia on sigov.saude_vacinacao
+for each row execute function sigov.saude_vacinacao_materializar_dia();
 create index if not exists ix_saude_vacinacao_tenant_ativo on sigov.saude_vacinacao(tenant_id, is_deleted);
 create index if not exists ix_saude_vacinacao_status_data on sigov.saude_vacinacao(tenant_id, status, data_referencia);
 
@@ -13074,7 +13101,7 @@ create index if not exists ix_saude_evento_status_data on sigov.saude_evento(ten
 create unique index if not exists ux_saude_paciente_cpf on sigov.saude_paciente(tenant_id, cpf_normalizado) where cpf_normalizado is not null and not is_deleted;
 create unique index if not exists ux_saude_paciente_cns on sigov.saude_paciente(tenant_id, cns) where cns is not null and not is_deleted;
 create index if not exists ix_saude_agenda_profissional on sigov.saude_agenda(tenant_id, profissional_id, data_inicio, data_fim) where not is_deleted;
-create unique index if not exists ux_saude_vacinacao_dose_dia on sigov.saude_vacinacao(tenant_id,paciente_id,nome,tipo,(data_referencia::date)) where justificativa is null and not is_deleted;
+create unique index if not exists ux_saude_vacinacao_dose_dia on sigov.saude_vacinacao(tenant_id,paciente_id,nome,tipo,data_referencia_dia) where justificativa is null and not is_deleted;
 
 -- A integração é somente interna e preparatória; não representa homologação externa.
 insert into sigov.integracao_interna_evento
@@ -13083,7 +13110,8 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
        'MIGRATION', 0, jsonb_build_object('preparatoria', true), gen_random_uuid(), now()
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', 'ea3bbd7710e2961570846ba8850f5fce5258f02954f0117fb21afc46ee6d71b0', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', 'efcab93f125e29bf8845cc10a905d745d8f7652d4a48f86e382069103f5b4a4a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
