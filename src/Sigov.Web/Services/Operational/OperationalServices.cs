@@ -1,4 +1,5 @@
 using Dapper;
+using Sigov.Application.Health;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Helpers;
 using Sigov.Web.Models.Operational;
@@ -17,24 +18,45 @@ public abstract class OperationalModuleDataServiceBase : IOperationalModuleDataS
     private readonly IAuditTrailService _auditTrail;
     private readonly OperationalDemoService _fallback;
     private readonly ILogger _logger;
+    private readonly IDatabaseObjectInspector? _objectInspector;
 
-    protected OperationalModuleDataServiceBase(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schemaInspector, IAuditTrailService auditTrail, OperationalDemoService fallback, ILogger logger)
+    protected OperationalModuleDataServiceBase(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schemaInspector, IAuditTrailService auditTrail, OperationalDemoService fallback, ILogger logger, IDatabaseObjectInspector? objectInspector = null)
     {
         _connectionFactory = connectionFactory;
         _schemaInspector = schemaInspector;
         _auditTrail = auditTrail;
         _fallback = fallback;
         _logger = logger;
+        _objectInspector = objectInspector;
     }
 
     protected abstract string ModuleKey { get; }
     protected abstract IReadOnlyList<string> CandidateTables { get; }
     protected virtual string EntityName => ModuleKey.ToLowerInvariant();
+    protected virtual IReadOnlyDictionary<string, IReadOnlyList<string>> RequiredColumns => new Dictionary<string, IReadOnlyList<string>>();
 
     public async Task<OperationalModuleViewModel> BuildAsync(string module, string screen, string? q, CancellationToken cancellationToken)
     {
         try
         {
+            if (_objectInspector is not null)
+            {
+                foreach (var requirement in RequiredColumns)
+                {
+                    if (!await _objectInspector.TableExistsAsync("sigov", requirement.Key, cancellationToken).ConfigureAwait(false)
+                        || !(await Task.WhenAll(requirement.Value.Select(column => _objectInspector.ColumnExistsAsync("sigov", requirement.Key, column, cancellationToken))).ConfigureAwait(false)).All(exists => exists))
+                    {
+                        var pending = await _fallback.BuildFallbackAsync(ModuleKey, screen, q, cancellationToken).ConfigureAwait(false);
+                        pending.Status = "Estrutura pendente";
+                        pending.Description = $"Estrutura pendente em sigov.{requirement.Key}; indicadores retornam zero até a migration do Bloco 7 ser concluída.";
+                        pending.Kpis = new[] { new ModuleKpi("Estrutura pendente", "0", "Tabela ou coluna ainda não disponível", "warning") };
+                        pending.PageStatus = new OperationalPageStatusViewModel { Modulo = pending.Title, Status = "Estrutura pendente", UsaDadosReais = false, UsaFallback = true, Mensagem = pending.Description };
+                        pending.Records = Array.Empty<DemoRecord>();
+                        return pending;
+                    }
+                }
+            }
+
             var detected = new List<string>();
             foreach (var table in CandidateTables)
             {

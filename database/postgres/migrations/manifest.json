@@ -722,7 +722,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "efcab93f125e29bf8845cc10a905d745d8f7652d4a48f86e382069103f5b4a4a",
+      "checksum": "cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7",
       "postConditionSql": "select to_regclass('sigov.saude_paciente') is not null and to_regclass('sigov.saude_farmacia_movimento') is not null"
     },
     {
@@ -732,7 +732,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "c6e371c0418454db38c04dfdd602b4ce52f0002edfb54d0aef6a1ce3e26935a4",
+      "checksum": "a6554696f26233a432e3cfad41a9714227648d4f99d012f1e45f205836c5c39b",
       "postConditionSql": "select to_regclass('sigov.assistencia_familia') is not null and to_regclass('sigov.assistencia_acompanhamento_familiar') is not null"
     },
     {
@@ -742,7 +742,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "11284b2a2ebe536e12c6f8a781ee87c03eaa5b0c1f6249952abf25d6eed3fa24",
+      "checksum": "cc24ac60670d2459ae7611a3d784c087eac41493df995bc480ba40c6374a34a8",
       "postConditionSql": "select to_regclass('sigov.saneamento_consumo') is not null and to_regclass('sigov.saneamento_inadimplencia') is not null"
     },
     {
@@ -752,7 +752,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "7637f5cec36286636faaf87645f64008065d6855a3725b028fcc7c2bfd754bff",
+      "checksum": "e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa",
       "postConditionSql": "select to_regclass('sigov.frota_veiculo') is not null and to_regclass('sigov.obra_medicao') is not null"
     },
     {

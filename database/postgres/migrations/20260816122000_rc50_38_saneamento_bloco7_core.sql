@@ -60,7 +60,9 @@ create table if not exists sigov.saneamento_consumo (
     constraint ck_saneamento_consumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_consumo
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_consumo_tenant_ativo on sigov.saneamento_consumo(tenant_id, is_deleted);
@@ -125,7 +127,9 @@ create table if not exists sigov.saneamento_pagamento (
     constraint ck_saneamento_pagamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_pagamento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_pagamento_tenant_ativo on sigov.saneamento_pagamento(tenant_id, is_deleted);
@@ -190,7 +194,9 @@ create table if not exists sigov.saneamento_manutencao (
     constraint ck_saneamento_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_manutencao
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_manutencao_tenant_ativo on sigov.saneamento_manutencao(tenant_id, is_deleted);
@@ -255,7 +261,9 @@ create table if not exists sigov.saneamento_inadimplencia (
     constraint ck_saneamento_inadimplencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_inadimplencia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_inadimplencia_tenant_ativo on sigov.saneamento_inadimplencia(tenant_id, is_deleted);
@@ -320,7 +328,9 @@ create table if not exists sigov.saneamento_ocorrencia (
     constraint ck_saneamento_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_ocorrencia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_ocorrencia_tenant_ativo on sigov.saneamento_ocorrencia(tenant_id, is_deleted);
@@ -385,7 +395,9 @@ create table if not exists sigov.saneamento_rota_leitura (
     constraint ck_saneamento_rota_leitura_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_rota_leitura
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_rota_leitura_tenant_ativo on sigov.saneamento_rota_leitura(tenant_id, is_deleted);

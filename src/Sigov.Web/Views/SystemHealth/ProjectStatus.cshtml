@@ -10,6 +10,7 @@
         <dt class="col-sm-3">Última falha registrada</dt><dd class="col-sm-9">@(Model.LastFailedMigration is null ? "Nenhuma falha persistida" : $"{Model.LastFailedMigration.Version} · SQLSTATE {Model.LastFailedMigration.SqlState ?? "não informado"} · {Model.LastFailedMigration.File} · {Model.LastFailedMigration.Stage} · correlationId {Model.LastFailedMigration.CorrelationId ?? "não informado"}")</dd></dl>
         @if (Model.HasIndexColumnWarning) { <div class="alert alert-warning mt-3 mb-0">Migration com índice dependente de coluna não garantida. Execute o validador operacional.</div> }
         @if (Model.LastFailedMigration?.SqlState == "42P17") { <div class="alert alert-danger mt-3 mb-0"><strong>SQLSTATE 42P17:</strong> o PostgreSQL rejeitou uma expressão de índice não IMMUTABLE. Materialize o valor derivado em coluna simples e execute o validador de migrations.</div> }
+        @if (Model.LastFailedMigration?.SqlState == "42703") { <div class="alert alert-danger mt-3 mb-0"><strong>SQLSTATE 42703:</strong> um índice referenciou coluna ausente. Confirme o bloco de compatibilidade <code>ADD COLUMN IF NOT EXISTS</code> antes do índice.</div> }
     </div></div>
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Banco</span><strong class="d-block">@Model.DatabaseStatus</strong></div></div></div>

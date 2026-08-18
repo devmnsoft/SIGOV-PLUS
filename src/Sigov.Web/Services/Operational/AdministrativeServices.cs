@@ -47,15 +47,17 @@ public sealed class PatrimonioService : OperationalModuleDataServiceBase
 }
 public sealed class FrotasService : OperationalModuleDataServiceBase
 {
-    public FrotasService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<FrotasService> l) : base(c, s, a, f, l) { }
+    public FrotasService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<FrotasService> l, Sigov.Application.Health.IDatabaseObjectInspector i) : base(c, s, a, f, l, i) { }
     protected override string ModuleKey => "Frotas";
     protected override IReadOnlyList<string> CandidateTables => new[] { "frota_veiculo", "frota_abastecimento", "frota_manutencao", "frota_multa" };
+    protected override IReadOnlyDictionary<string, IReadOnlyList<string>> RequiredColumns => new Dictionary<string, IReadOnlyList<string>> { ["frota_veiculo"] = new[] { "tenant_id", "status", "data_referencia", "is_deleted" } };
 }
 public sealed class ObrasService : OperationalModuleDataServiceBase
 {
-    public ObrasService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<ObrasService> l) : base(c, s, a, f, l) { }
+    public ObrasService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<ObrasService> l, Sigov.Application.Health.IDatabaseObjectInspector i) : base(c, s, a, f, l, i) { }
     protected override string ModuleKey => "Obras";
     protected override IReadOnlyList<string> CandidateTables => new[] { "obra", "obra_contrato", "obra_medicao", "obra_diario", "obra_foto", "obra_ocorrencia", "obra_fiscalizacao", "obra_garantia", "contrato", "contrato_fiscal" };
+    protected override IReadOnlyDictionary<string, IReadOnlyList<string>> RequiredColumns => new Dictionary<string, IReadOnlyList<string>> { ["obra"] = new[] { "tenant_id", "status", "data_referencia", "is_deleted" }, ["obra_medicao"] = new[] { "data_referencia" } };
 }
 public sealed class TransparenciaService : OperationalModuleDataServiceBase
 {

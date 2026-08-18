@@ -11717,7 +11717,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816120000_rc50_38_saude_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: efcab93f125e29bf8845cc10a905d745d8f7652d4a48f86e382069103f5b4a4a
+-- CHECKSUM_SHA256: cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -13111,7 +13111,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', 'efcab93f125e29bf8845cc10a905d745d8f7652d4a48f86e382069103f5b4a4a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', 'cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -13121,7 +13121,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816121000_rc50_38_assistencia_social_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: c6e371c0418454db38c04dfdd602b4ce52f0002edfb54d0aef6a1ce3e26935a4
+-- CHECKSUM_SHA256: a6554696f26233a432e3cfad41a9714227648d4f99d012f1e45f205836c5c39b
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -13185,7 +13185,9 @@ create table if not exists sigov.assistencia_unidade (
     constraint ck_assistencia_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_unidade
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_unidade_tenant_ativo on sigov.assistencia_unidade(tenant_id, is_deleted);
@@ -13250,7 +13252,9 @@ create table if not exists sigov.assistencia_pessoa (
     constraint ck_assistencia_pessoa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_pessoa
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_pessoa_tenant_ativo on sigov.assistencia_pessoa(tenant_id, is_deleted);
@@ -13315,7 +13319,9 @@ create table if not exists sigov.assistencia_familia (
     constraint ck_assistencia_familia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_familia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_familia_tenant_ativo on sigov.assistencia_familia(tenant_id, is_deleted);
@@ -13380,7 +13386,9 @@ create table if not exists sigov.assistencia_familia_membro (
     constraint ck_assistencia_familia_membro_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_familia_membro
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_familia_membro_tenant_ativo on sigov.assistencia_familia_membro(tenant_id, is_deleted);
@@ -13445,7 +13453,9 @@ create table if not exists sigov.assistencia_atendimento (
     constraint ck_assistencia_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_atendimento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_atendimento_tenant_ativo on sigov.assistencia_atendimento(tenant_id, is_deleted);
@@ -13510,7 +13520,9 @@ create table if not exists sigov.assistencia_beneficio (
     constraint ck_assistencia_beneficio_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_beneficio
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_beneficio_tenant_ativo on sigov.assistencia_beneficio(tenant_id, is_deleted);
@@ -13575,7 +13587,9 @@ create table if not exists sigov.assistencia_beneficio_concessao (
     constraint ck_assistencia_beneficio_concessao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_beneficio_concessao
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_beneficio_concessao_tenant_ativo on sigov.assistencia_beneficio_concessao(tenant_id, is_deleted);
@@ -13640,7 +13654,9 @@ create table if not exists sigov.assistencia_vulnerabilidade (
     constraint ck_assistencia_vulnerabilidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_vulnerabilidade
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_vulnerabilidade_tenant_ativo on sigov.assistencia_vulnerabilidade(tenant_id, is_deleted);
@@ -13705,7 +13721,9 @@ create table if not exists sigov.assistencia_visita_domiciliar (
     constraint ck_assistencia_visita_domiciliar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_visita_domiciliar
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_visita_domiciliar_tenant_ativo on sigov.assistencia_visita_domiciliar(tenant_id, is_deleted);
@@ -13770,7 +13788,9 @@ create table if not exists sigov.assistencia_encaminhamento (
     constraint ck_assistencia_encaminhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_encaminhamento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_encaminhamento_tenant_ativo on sigov.assistencia_encaminhamento(tenant_id, is_deleted);
@@ -13835,7 +13855,9 @@ create table if not exists sigov.assistencia_acompanhamento_familiar (
     constraint ck_assistencia_acompanhamento_familiar_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_acompanhamento_familiar
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_acompanhamento_familiar_tenant_ativo on sigov.assistencia_acompanhamento_familiar(tenant_id, is_deleted);
@@ -13900,7 +13922,9 @@ create table if not exists sigov.assistencia_plano_acompanhamento (
     constraint ck_assistencia_plano_acompanhamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_plano_acompanhamento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_plano_acompanhamento_tenant_ativo on sigov.assistencia_plano_acompanhamento(tenant_id, is_deleted);
@@ -13965,7 +13989,9 @@ create table if not exists sigov.assistencia_cras_creas (
     constraint ck_assistencia_cras_creas_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_cras_creas
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_cras_creas_tenant_ativo on sigov.assistencia_cras_creas(tenant_id, is_deleted);
@@ -14030,7 +14056,9 @@ create table if not exists sigov.assistencia_evento (
     constraint ck_assistencia_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.assistencia_evento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_assistencia_evento_tenant_ativo on sigov.assistencia_evento(tenant_id, is_deleted);
@@ -14046,7 +14074,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816121000', '20260816121000_rc50_38_assistencia_social_bloco7_core', 'c6e371c0418454db38c04dfdd602b4ce52f0002edfb54d0aef6a1ce3e26935a4', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816121000', '20260816121000_rc50_38_assistencia_social_bloco7_core', 'a6554696f26233a432e3cfad41a9714227648d4f99d012f1e45f205836c5c39b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -14056,7 +14084,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816122000_rc50_38_saneamento_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 11284b2a2ebe536e12c6f8a781ee87c03eaa5b0c1f6249952abf25d6eed3fa24
+-- CHECKSUM_SHA256: cc24ac60670d2459ae7611a3d784c087eac41493df995bc480ba40c6374a34a8
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
@@ -14120,7 +14148,9 @@ create table if not exists sigov.saneamento_consumo (
     constraint ck_saneamento_consumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_consumo
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_consumo_tenant_ativo on sigov.saneamento_consumo(tenant_id, is_deleted);
@@ -14185,7 +14215,9 @@ create table if not exists sigov.saneamento_pagamento (
     constraint ck_saneamento_pagamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_pagamento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_pagamento_tenant_ativo on sigov.saneamento_pagamento(tenant_id, is_deleted);
@@ -14250,7 +14282,9 @@ create table if not exists sigov.saneamento_manutencao (
     constraint ck_saneamento_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_manutencao
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_manutencao_tenant_ativo on sigov.saneamento_manutencao(tenant_id, is_deleted);
@@ -14315,7 +14349,9 @@ create table if not exists sigov.saneamento_inadimplencia (
     constraint ck_saneamento_inadimplencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_inadimplencia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_inadimplencia_tenant_ativo on sigov.saneamento_inadimplencia(tenant_id, is_deleted);
@@ -14380,7 +14416,9 @@ create table if not exists sigov.saneamento_ocorrencia (
     constraint ck_saneamento_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_ocorrencia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_ocorrencia_tenant_ativo on sigov.saneamento_ocorrencia(tenant_id, is_deleted);
@@ -14445,7 +14483,9 @@ create table if not exists sigov.saneamento_rota_leitura (
     constraint ck_saneamento_rota_leitura_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saneamento_rota_leitura
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
 create index if not exists ix_saneamento_rota_leitura_tenant_ativo on sigov.saneamento_rota_leitura(tenant_id, is_deleted);
@@ -14460,7 +14500,7 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816122000', '20260816122000_rc50_38_saneamento_bloco7_core', '11284b2a2ebe536e12c6f8a781ee87c03eaa5b0c1f6249952abf25d6eed3fa24', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816122000', '20260816122000_rc50_38_saneamento_bloco7_core', 'cc24ac60670d2459ae7611a3d784c087eac41493df995bc480ba40c6374a34a8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -14470,10 +14510,31 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260816123000_rc50_38_frotas_obras_bloco7_core.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 7637f5cec36286636faaf87645f64008065d6855a3725b028fcc7c2bfd754bff
+-- CHECKSUM_SHA256: e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa
 -- ==================================================
 -- SIGOV+ RC50.38 - Bloco 7. Idempotente e compatível com Database=postgres / Schema=sigov.
 create schema if not exists sigov;
+
+
+-- Helper temporário: preserva a data histórica quando a estrutura legada já possui created_at.
+create or replace function sigov.rc50_38_fo_backfill_data_referencia(p_table regclass)
+returns void
+language plpgsql
+as $$
+begin
+    if exists (
+        select 1
+        from pg_attribute
+        where attrelid = p_table
+          and attname = 'created_at'
+          and not attisdropped
+    ) then
+        execute format(
+            'update %s set data_referencia = created_at where data_referencia is null and created_at is not null',
+            p_table
+        );
+    end if;
+end $$;
 
 create table if not exists sigov.frota_veiculo (
     id bigint generated by default as identity primary key,
@@ -14534,9 +14595,12 @@ create table if not exists sigov.frota_veiculo (
     constraint ck_frota_veiculo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_veiculo
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_veiculo'::regclass);
 create index if not exists ix_frota_veiculo_tenant_ativo on sigov.frota_veiculo(tenant_id, is_deleted);
 create index if not exists ix_frota_veiculo_status_data on sigov.frota_veiculo(tenant_id, status, data_referencia);
 
@@ -14599,9 +14663,12 @@ create table if not exists sigov.frota_motorista (
     constraint ck_frota_motorista_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_motorista
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_motorista'::regclass);
 create index if not exists ix_frota_motorista_tenant_ativo on sigov.frota_motorista(tenant_id, is_deleted);
 create index if not exists ix_frota_motorista_status_data on sigov.frota_motorista(tenant_id, status, data_referencia);
 
@@ -14664,9 +14731,12 @@ create table if not exists sigov.frota_abastecimento (
     constraint ck_frota_abastecimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_abastecimento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_abastecimento'::regclass);
 create index if not exists ix_frota_abastecimento_tenant_ativo on sigov.frota_abastecimento(tenant_id, is_deleted);
 create index if not exists ix_frota_abastecimento_status_data on sigov.frota_abastecimento(tenant_id, status, data_referencia);
 
@@ -14729,9 +14799,12 @@ create table if not exists sigov.frota_manutencao (
     constraint ck_frota_manutencao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_manutencao
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_manutencao'::regclass);
 create index if not exists ix_frota_manutencao_tenant_ativo on sigov.frota_manutencao(tenant_id, is_deleted);
 create index if not exists ix_frota_manutencao_status_data on sigov.frota_manutencao(tenant_id, status, data_referencia);
 
@@ -14794,9 +14867,12 @@ create table if not exists sigov.frota_viagem (
     constraint ck_frota_viagem_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_viagem
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_viagem'::regclass);
 create index if not exists ix_frota_viagem_tenant_ativo on sigov.frota_viagem(tenant_id, is_deleted);
 create index if not exists ix_frota_viagem_status_data on sigov.frota_viagem(tenant_id, status, data_referencia);
 
@@ -14859,9 +14935,12 @@ create table if not exists sigov.frota_ocorrencia (
     constraint ck_frota_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_ocorrencia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_ocorrencia'::regclass);
 create index if not exists ix_frota_ocorrencia_tenant_ativo on sigov.frota_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_frota_ocorrencia_status_data on sigov.frota_ocorrencia(tenant_id, status, data_referencia);
 
@@ -14924,9 +15003,12 @@ create table if not exists sigov.frota_equipamento (
     constraint ck_frota_equipamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.frota_equipamento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.frota_equipamento'::regclass);
 create index if not exists ix_frota_equipamento_tenant_ativo on sigov.frota_equipamento(tenant_id, is_deleted);
 create index if not exists ix_frota_equipamento_status_data on sigov.frota_equipamento(tenant_id, status, data_referencia);
 
@@ -14989,9 +15071,12 @@ create table if not exists sigov.obra (
     constraint ck_obra_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra'::regclass);
 create index if not exists ix_obra_tenant_ativo on sigov.obra(tenant_id, is_deleted);
 create index if not exists ix_obra_status_data on sigov.obra(tenant_id, status, data_referencia);
 
@@ -15054,9 +15139,12 @@ create table if not exists sigov.obra_etapa (
     constraint ck_obra_etapa_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_etapa
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_etapa'::regclass);
 create index if not exists ix_obra_etapa_tenant_ativo on sigov.obra_etapa(tenant_id, is_deleted);
 create index if not exists ix_obra_etapa_status_data on sigov.obra_etapa(tenant_id, status, data_referencia);
 
@@ -15119,9 +15207,12 @@ create table if not exists sigov.obra_medicao (
     constraint ck_obra_medicao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_medicao
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_medicao'::regclass);
 create index if not exists ix_obra_medicao_tenant_ativo on sigov.obra_medicao(tenant_id, is_deleted);
 create index if not exists ix_obra_medicao_status_data on sigov.obra_medicao(tenant_id, status, data_referencia);
 
@@ -15184,9 +15275,12 @@ create table if not exists sigov.obra_fiscalizacao (
     constraint ck_obra_fiscalizacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_fiscalizacao
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_fiscalizacao'::regclass);
 create index if not exists ix_obra_fiscalizacao_tenant_ativo on sigov.obra_fiscalizacao(tenant_id, is_deleted);
 create index if not exists ix_obra_fiscalizacao_status_data on sigov.obra_fiscalizacao(tenant_id, status, data_referencia);
 
@@ -15249,9 +15343,12 @@ create table if not exists sigov.obra_diario (
     constraint ck_obra_diario_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_diario
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_diario'::regclass);
 create index if not exists ix_obra_diario_tenant_ativo on sigov.obra_diario(tenant_id, is_deleted);
 create index if not exists ix_obra_diario_status_data on sigov.obra_diario(tenant_id, status, data_referencia);
 
@@ -15314,9 +15411,12 @@ create table if not exists sigov.obra_ocorrencia (
     constraint ck_obra_ocorrencia_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_ocorrencia
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_ocorrencia'::regclass);
 create index if not exists ix_obra_ocorrencia_tenant_ativo on sigov.obra_ocorrencia(tenant_id, is_deleted);
 create index if not exists ix_obra_ocorrencia_status_data on sigov.obra_ocorrencia(tenant_id, status, data_referencia);
 
@@ -15379,9 +15479,12 @@ create table if not exists sigov.obra_integracao_contrato (
     constraint ck_obra_integracao_contrato_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_integracao_contrato
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_integracao_contrato'::regclass);
 create index if not exists ix_obra_integracao_contrato_tenant_ativo on sigov.obra_integracao_contrato(tenant_id, is_deleted);
 create index if not exists ix_obra_integracao_contrato_status_data on sigov.obra_integracao_contrato(tenant_id, status, data_referencia);
 
@@ -15444,9 +15547,12 @@ create table if not exists sigov.obra_evento (
     constraint ck_obra_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.obra_evento
+    add column if not exists tenant_id bigint,
     add column if not exists status varchar(40) not null default 'ATIVO',
+    add column if not exists data_referencia timestamptz,
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+select sigov.rc50_38_fo_backfill_data_referencia('sigov.obra_evento'::regclass);
 create index if not exists ix_obra_evento_tenant_ativo on sigov.obra_evento(tenant_id, is_deleted);
 create index if not exists ix_obra_evento_status_data on sigov.obra_evento(tenant_id, status, data_referencia);
 
@@ -15461,7 +15567,10 @@ select 0, 'BLOCO7', 'ALERTAS_QUALIDADE', 'RC50_38_SCHEMA_READY', 'PENDENTE',
 where exists (select 1 from information_schema.tables where table_schema='sigov' and table_name='integracao_interna_evento')
   and not exists (select 1 from sigov.integracao_interna_evento where origem_modulo='BLOCO7' and tipo_evento='RC50_38_SCHEMA_READY');
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816123000', '20260816123000_rc50_38_frotas_obras_bloco7_core', '7637f5cec36286636faaf87645f64008065d6855a3725b028fcc7c2bfd754bff', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+-- Remove o helper operacional para não deixar API temporária no schema.
+drop function if exists sigov.rc50_38_fo_backfill_data_referencia(regclass);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816123000', '20260816123000_rc50_38_frotas_obras_bloco7_core', 'e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -15469,241 +15578,10 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
--- COMPATIBILITY: 850_post_migration_compatibility.sql
--- STAGE: AFTER ALL MIGRATIONS
+-- MIGRATION: 20260817120000_rc50_42_processos_digitais_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 0e9e2f92a8fe6d24d572578414194631b6086d5cc68a6293538ffafa07332853
 -- ==================================================
--- SIGOV+ RC38E
--- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
-
-create extension if not exists pgcrypto;
-
-alter table sigov.usuario add column if not exists tenant_id bigint null;
-alter table sigov.usuario add column if not exists nome varchar(200) null;
-alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
-alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
-alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
-alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
-alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
-alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
-
-alter table sigov.entidade add column if not exists tenant_id bigint null;
-alter table sigov.exercicio add column if not exists tenant_id bigint null;
-alter table sigov.pessoa add column if not exists tenant_id bigint null;
-alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
-alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
-alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
-alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
-alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
-alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
-alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
-alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
-alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
-alter table sigov.politica_senha add column if not exists tenant_id bigint null;
-
-alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
-alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
-alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
-alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
-
-alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
-alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
-alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
-
--- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
--- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
--- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
--- seus checksums e sem criar vínculos fora do tenant correto.
-create or replace function sigov.fn_preencher_tenant_vinculo()
-returns trigger
-language plpgsql
-as $$
-begin
-    if new.tenant_id is not null then
-        return new;
-    end if;
-
-    case tg_table_name
-        when 'usuario_entidade' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select e.tenant_id into new.tenant_id
-                  from sigov.entidade e
-                 where e.id = new.entidade_id;
-            end if;
-
-        when 'usuario_exercicio' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select x.tenant_id into new.tenant_id
-                  from sigov.exercicio x
-                 where x.id = new.exercicio_id;
-            end if;
-
-        when 'usuario_grupo' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select g.tenant_id into new.tenant_id
-                  from sigov.grupo_acesso g
-                 where g.id = new.grupo_acesso_id;
-            end if;
-
-        when 'grupo_perfil' then
-            select g.tenant_id into new.tenant_id
-              from sigov.grupo_acesso g
-             where g.id = new.grupo_acesso_id;
-            if new.tenant_id is null then
-                select p.tenant_id into new.tenant_id
-                  from sigov.perfil_acesso p
-                 where p.id = new.perfil_acesso_id;
-            end if;
-
-        when 'perfil_permissao' then
-            select p.tenant_id into new.tenant_id
-              from sigov.perfil_acesso p
-             where p.id = new.perfil_acesso_id;
-    end case;
-
-    if new.tenant_id is null then
-        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
-            using errcode = '23502';
-    end if;
-
-    return new;
-end $$;
-
-drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
-create trigger trg_usuario_entidade_tenant
-before insert or update on sigov.usuario_entidade
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
-create trigger trg_usuario_exercicio_tenant
-before insert or update on sigov.usuario_exercicio
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
-create trigger trg_usuario_grupo_tenant
-before insert or update on sigov.usuario_grupo
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
-create trigger trg_grupo_perfil_tenant
-before insert or update on sigov.grupo_perfil
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
-create trigger trg_perfil_permissao_tenant
-before insert or update on sigov.perfil_permissao
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
--- Bancos que já foram executados parcialmente podem possuir perfis e grupos
--- duplicados por tenant. Antes de criar os índices únicos usados pelo bootstrap,
--- preservamos todos os registros e seus vínculos, mantendo como canônico o item
--- com maior uso em relacionamentos e renomeando apenas a chave/nome dos legados.
-do $$
-begin
-    if to_regclass('sigov.perfil_acesso') is not null then
-        with perfil_uso as (
-            select p.id,
-                   count(distinct gp.grupo_acesso_id) + count(distinct pp.permissao_id) as total_vinculos
-              from sigov.perfil_acesso p
-              left join sigov.grupo_perfil gp on gp.perfil_acesso_id = p.id
-              left join sigov.perfil_permissao pp on pp.perfil_acesso_id = p.id
-             group by p.id
-        ), perfil_rank as (
-            select p.id,
-                   p.codigo_externo,
-                   row_number() over (
-                       partition by p.tenant_id, p.codigo_externo
-                       order by coalesce(u.total_vinculos, 0) desc,
-                                case when p.ativo then 0 else 1 end,
-                                p.created_at nulls last,
-                                p.id
-                   ) as rn
-              from sigov.perfil_acesso p
-              left join perfil_uso u on u.id = p.id
-             where p.tenant_id is not null
-               and nullif(p.codigo_externo, '') is not null
-               and p.is_deleted = false
-        )
-        update sigov.perfil_acesso p
-           set codigo_externo = concat(
-                   left(r.codigo_externo, greatest(1, 100 - length('_LEGACY_' || p.id::text))),
-                   '_LEGACY_',
-                   p.id::text
-               ),
-               observacao = concat_ws(E'\n',
-                   nullif(p.observacao, ''),
-                   'Código externo legado ajustado para remover duplicidade antes do índice ux_bootstrap_perfil_codigo_tenant. Código anterior: ' || r.codigo_externo
-               ),
-               updated_at = now()
-          from perfil_rank r
-         where p.id = r.id
-           and r.rn > 1;
-    end if;
-
-    if to_regclass('sigov.grupo_acesso') is not null then
-        with grupo_uso as (
-            select g.id,
-                   count(distinct ug.usuario_id) + count(distinct gp.perfil_acesso_id) as total_vinculos
-              from sigov.grupo_acesso g
-              left join sigov.usuario_grupo ug on ug.grupo_acesso_id = g.id
-              left join sigov.grupo_perfil gp on gp.grupo_acesso_id = g.id
-             group by g.id
-        ), grupo_rank as (
-            select g.id,
-                   g.nome,
-                   row_number() over (
-                       partition by g.tenant_id, g.nome
-                       order by coalesce(u.total_vinculos, 0) desc,
-                                case when g.ativo then 0 else 1 end,
-                                g.created_at nulls last,
-                                g.id
-                   ) as rn
-              from sigov.grupo_acesso g
-              left join grupo_uso u on u.id = g.id
-             where g.tenant_id is not null
-               and nullif(g.nome, '') is not null
-               and g.is_deleted = false
-        )
-        update sigov.grupo_acesso g
-           set nome = concat(
-                   left(r.nome, greatest(1, 150 - length(' (legado ' || g.id::text || ')'))),
-                   ' (legado ',
-                   g.id::text,
-                   ')'
-               ),
-               observacao = concat_ws(E'\n',
-                   nullif(g.observacao, ''),
-                   'Nome legado ajustado para remover duplicidade antes do índice ux_bootstrap_grupo_nome_tenant. Nome anterior: ' || r.nome
-               ),
-               updated_at = now()
-          from grupo_rank r
-         where g.id = r.id
-           and r.rn > 1;
-    end if;
-end $$;
-
-create unique index if not exists ux_bootstrap_usuario_login_tenant
-    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
-create unique index if not exists ux_bootstrap_usuario_email_tenant
-    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
-create unique index if not exists ux_bootstrap_perfil_codigo_tenant
-    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
-create unique index if not exists ux_bootstrap_grupo_nome_tenant
-    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
-
--- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
--- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
-
-
--- MIGRATION RC50.42: 20260817120000_rc50_42_processos_digitais_core.sql
 -- SIGOV+ RC50.42 - Bloco 8. Idempotente, preserva dados e suporta bancos parcialmente migrados.
 
 create schema if not exists sigov;
@@ -15939,8 +15817,18 @@ create index if not exists ix_protocolo_comprovante_tenant_ativo on sigov.protoc
 
 drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817120000', '20260817120000_rc50_42_processos_digitais_core', '0e9e2f92a8fe6d24d572578414194631b6086d5cc68a6293538ffafa07332853', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- MIGRATION RC50.42: 20260817121000_rc50_42_ged_assinaturas_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817121000_rc50_42_ged_assinaturas_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: f01c2ff0a7ad334082bc3f24eb9752a4122f58b984b102373d4315a72c43101b
+-- ==================================================
 -- SIGOV+ RC50.42 - Bloco 8. Idempotente, preserva dados e suporta bancos parcialmente migrados.
 
 create schema if not exists sigov;
@@ -16251,8 +16139,18 @@ create index if not exists ix_assinatura_evento_tenant_ativo on sigov.assinatura
 
 drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817121000', '20260817121000_rc50_42_ged_assinaturas_core', 'f01c2ff0a7ad334082bc3f24eb9752a4122f58b984b102373d4315a72c43101b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- MIGRATION RC50.42: 20260817122000_rc50_42_legislativo_camara_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817122000_rc50_42_legislativo_camara_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 71bb8284719919e8cc3b4d1e0396cdb95d8969a65b400d112b6797cca322f80a
+-- ==================================================
 -- SIGOV+ RC50.42 - Bloco 8. Idempotente, preserva dados e suporta bancos parcialmente migrados.
 
 create schema if not exists sigov;
@@ -16548,8 +16446,18 @@ create index if not exists ix_legislativo_evento_tenant_ativo on sigov.legislati
 
 drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817122000', '20260817122000_rc50_42_legislativo_camara_core', '71bb8284719919e8cc3b4d1e0396cdb95d8969a65b400d112b6797cca322f80a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- MIGRATION RC50.42: 20260817123000_rc50_42_transparencia_atendimento_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817123000_rc50_42_transparencia_atendimento_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9
+-- ==================================================
 -- SIGOV+ RC50.42 - Bloco 8. Idempotente, preserva dados e suporta bancos parcialmente migrados.
 
 create schema if not exists sigov;
@@ -16874,6 +16782,19 @@ create index if not exists ix_atendimento_digital_satisfacao_tenant_status on si
 create index if not exists ix_atendimento_digital_satisfacao_tenant_ativo on sigov.atendimento_digital_satisfacao(tenant_id, is_deleted, ativo);
 
 drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817123000', '20260817123000_rc50_42_transparencia_atendimento_core', '3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817130000_rc50_43_empresarial_comercial_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.emp_comercial_cliente (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(100), numero bigint, ano integer, tipo varchar(80), status varchar(40) not null default 'ATIVO', titulo varchar(300), descricao text, referencia_id bigint, responsavel_id bigint, quantidade numeric(18,4), valor numeric(18,2), data_referencia timestamptz, prazo_at timestamptz, justificativa text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -16919,6 +16840,19 @@ create table if not exists sigov.emp_comercial_evento (id bigint generated by de
 alter table sigov.emp_comercial_evento add column if not exists ativo boolean not null default true, add column if not exists is_deleted boolean not null default false, add column if not exists status varchar(40) not null default 'ATIVO';
 create index if not exists ix_emp_comercial_evento_tenant_status on sigov.emp_comercial_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817130000', '20260817130000_rc50_43_empresarial_comercial_core', 'cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817131000_rc50_43_empresarial_ordem_servico_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.emp_os_ordem (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(100), numero bigint, ano integer, tipo varchar(80), status varchar(40) not null default 'ATIVO', titulo varchar(300), descricao text, referencia_id bigint, responsavel_id bigint, quantidade numeric(18,4), valor numeric(18,2), data_referencia timestamptz, prazo_at timestamptz, justificativa text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -16955,6 +16889,19 @@ create table if not exists sigov.emp_os_evento (id bigint generated by default a
 alter table sigov.emp_os_evento add column if not exists ativo boolean not null default true, add column if not exists is_deleted boolean not null default false, add column if not exists status varchar(40) not null default 'ATIVO';
 create index if not exists ix_emp_os_evento_tenant_status on sigov.emp_os_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817131000', '20260817131000_rc50_43_empresarial_ordem_servico_core', '1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817132000_rc50_43_empresarial_estoque_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.emp_estoque_produto (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(100), numero bigint, ano integer, tipo varchar(80), status varchar(40) not null default 'ATIVO', titulo varchar(300), descricao text, referencia_id bigint, responsavel_id bigint, quantidade numeric(18,4), valor numeric(18,2), data_referencia timestamptz, prazo_at timestamptz, justificativa text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -17000,6 +16947,19 @@ create table if not exists sigov.emp_estoque_evento (id bigint generated by defa
 alter table sigov.emp_estoque_evento add column if not exists ativo boolean not null default true, add column if not exists is_deleted boolean not null default false, add column if not exists status varchar(40) not null default 'ATIVO';
 create index if not exists ix_emp_estoque_evento_tenant_status on sigov.emp_estoque_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817132000', '20260817132000_rc50_43_empresarial_estoque_core', 'b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817133000_rc50_43_empresarial_industrial_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.emp_industrial_ativo (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(100), numero bigint, ano integer, tipo varchar(80), status varchar(40) not null default 'ATIVO', titulo varchar(300), descricao text, referencia_id bigint, responsavel_id bigint, quantidade numeric(18,4), valor numeric(18,2), data_referencia timestamptz, prazo_at timestamptz, justificativa text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -17044,6 +17004,20 @@ create index if not exists ix_emp_industrial_qualidade_ocorrencia_tenant_status 
 create table if not exists sigov.emp_industrial_evento (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(100), numero bigint, ano integer, tipo varchar(80), status varchar(40) not null default 'ATIVO', titulo varchar(300), descricao text, referencia_id bigint, responsavel_id bigint, quantidade numeric(18,4), valor numeric(18,2), data_referencia timestamptz, prazo_at timestamptz, justificativa text, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
 alter table sigov.emp_industrial_evento add column if not exists ativo boolean not null default true, add column if not exists is_deleted boolean not null default false, add column if not exists status varchar(40) not null default 'ATIVO';
 create index if not exists ix_emp_industrial_evento_tenant_status on sigov.emp_industrial_evento(tenant_id,status) where is_deleted=false and ativo=true;
+commit;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817133000', '20260817133000_rc50_43_empresarial_industrial_core', '61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817140000_rc50_45_processos_digitais_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: aec28f0c3cd4778778acf04fadf7035247b3d3d5fbc7926c409f3c548bbf595c
+-- ==================================================
 -- SIGOV+ RC50.45 - invariantes de protocolo e processos digitais.
 
 create table if not exists sigov.processo_numero_sequencial (
@@ -17073,6 +17047,18 @@ create index if not exists ix_protocolo_codigo_consulta
     on sigov.protocolo_externo (tenant_id, codigo)
     where codigo is not null and is_deleted = false and sigiloso = false;
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817140000', '20260817140000_rc50_45_processos_digitais_core', 'aec28f0c3cd4778778acf04fadf7035247b3d3d5fbc7926c409f3c548bbf595c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817141000_rc50_45_ged_assinaturas_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: a613ad05f8cb8bc9f2304ac5d875d3aa1ce5a9caee769382bdb20554a973d38b
+-- ==================================================
 -- SIGOV+ RC50.45 - integridade, validação pública e evidências GED.
 
 create table if not exists sigov.assinatura_documento (
@@ -17099,6 +17085,18 @@ create index if not exists ix_assinatura_prazo_pendente
     on sigov.assinatura_documento (tenant_id, prazo_at)
     where is_deleted = false and ativo = true and status = 'PENDENTE';
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817141000', '20260817141000_rc50_45_ged_assinaturas_core', 'a613ad05f8cb8bc9f2304ac5d875d3aa1ce5a9caee769382bdb20554a973d38b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817142000_rc50_45_legislativo_camara_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 595a5a64c98ab84c4397d08c2326264573bf903c2aeaa55735614f7872abdd95
+-- ==================================================
 -- SIGOV+ RC50.45 - numeração, votação e publicação legislativa.
 
 create table if not exists sigov.legislativo_votacao (
@@ -17125,6 +17123,18 @@ create index if not exists ix_legislativo_votacao_aberta
     on sigov.legislativo_votacao (tenant_id, referencia_id, status)
     where is_deleted = false and ativo = true;
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817142000', '20260817142000_rc50_45_legislativo_camara_core', '595a5a64c98ab84c4397d08c2326264573bf903c2aeaa55735614f7872abdd95', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817143000_rc50_45_transparencia_atendimento_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74
+-- ==================================================
 -- SIGOV+ RC50.45 - prazos legais, publicação segura e atendimento digital.
 
 create table if not exists sigov.esic_pedido (
@@ -17154,9 +17164,18 @@ create unique index if not exists ux_atendimento_codigo
     on sigov.atendimento_digital_chamado (tenant_id, codigo)
     where codigo is not null and is_deleted = false;
 
-commit;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817143000', '20260817143000_rc50_45_transparencia_atendimento_core', '8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- RC50.47 Tributário Avançado
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817150000_rc50_47_tributario_carnes_boletos_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41
+-- ==================================================
 begin;
 create schema if not exists sigov;
 -- RC50.47: núcleo preparatório, multi-tenant, auditável e sem integração externa declarada.
@@ -17203,6 +17222,18 @@ alter table sigov.tributario_carne_emissao drop constraint if exists ck_carne_em
 alter table sigov.tributario_carne_entrega drop constraint if exists ck_carne_entrega_status; alter table sigov.tributario_carne_entrega add constraint ck_carne_entrega_status check (status in ('PENDENTE','ENTREGUE','NAO_ENCONTRADO','RECUSADO','ENDERECO_INSUFICIENTE','NOVA_TENTATIVA','DEVOLVIDO'));
 commit;
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817150000', '20260817150000_rc50_47_tributario_carnes_boletos_core', '554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817151000_rc50_47_tributario_portal_contribuinte_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c
+-- ==================================================
 begin;
 create schema if not exists sigov;
 -- RC50.47: núcleo preparatório, multi-tenant, auditável e sem integração externa declarada.
@@ -17232,6 +17263,18 @@ alter table sigov.portal_contribuinte_evento add column if not exists is_deleted
 create index if not exists ix_portal_contribuinte_evento_tenant_status on sigov.portal_contribuinte_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817151000', '20260817151000_rc50_47_tributario_portal_contribuinte_core', 'f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817152000_rc50_47_tributario_fiscalizacao_issqn_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc
+-- ==================================================
 begin;
 create schema if not exists sigov;
 -- RC50.47: núcleo preparatório, multi-tenant, auditável e sem integração externa declarada.
@@ -17285,6 +17328,18 @@ alter table sigov.tributario_iss_apuracao add column if not exists is_deleted bo
 create index if not exists ix_tributario_iss_apuracao_tenant_status on sigov.tributario_iss_apuracao(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817152000', '20260817152000_rc50_47_tributario_fiscalizacao_issqn_core', 'ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260817153000_rc50_47_tributario_nfse_desif_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23
+-- ==================================================
 begin;
 create schema if not exists sigov;
 -- RC50.47: núcleo preparatório, multi-tenant, auditável e sem integração externa declarada.
@@ -17342,12 +17397,18 @@ create index if not exists ix_tributario_desif_evento_tenant_status on sigov.tri
 alter table sigov.tributario_nfse_nota drop constraint if exists ck_nfse_status; alter table sigov.tributario_nfse_nota add constraint ck_nfse_status check (status in ('RASCUNHO','EMITIDA','CANCELADA','SUBSTITUIDA','REJEITADA'));
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260817150000','20260817150000_rc50_47_tributario_carnes_boletos_core','554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260817151000','20260817151000_rc50_47_tributario_portal_contribuinte_core','f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260817152000','20260817152000_rc50_47_tributario_fiscalizacao_issqn_core','ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260817153000','20260817153000_rc50_47_tributario_nfse_desif_core','2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817153000', '20260817153000_rc50_47_tributario_nfse_desif_core', '2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- RC50.48 Educação avançada
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818120000_rc50_48_educacao_transporte_escolar_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.educacao_transporte_rota (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, ano_letivo integer, escola_id bigint, aluno_id bigint, turma_id bigint, servidor_id bigint, referencia_id bigint, rota_id bigint, veiculo_id bigint, motorista_id bigint, produto_id bigint, acervo_id bigint, exemplar_id bigint, centro_custo_id bigint, codigo varchar(120), numero bigint, nome varchar(240), tipo varchar(80), categoria varchar(120), turno varchar(40), status varchar(40) not null default 'RASCUNHO', descricao text, justificativa text, unidade varchar(40), quantidade numeric(18,4), saldo numeric(18,4), saldo_minimo numeric(18,4), valor numeric(18,2), competencia date, data_inicio date, data_fim date, prazo_at timestamptz, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -17386,7 +17447,18 @@ create index if not exists ix_educacao_transporte_evento_tenant_status on sigov.
 create unique index if not exists ux_educacao_transporte_aluno_rota_turno on sigov.educacao_transporte_aluno(tenant_id,rota_id,aluno_id,turno) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818120000','20260818120000_rc50_48_educacao_transporte_escolar_core','a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818120000', '20260818120000_rc50_48_educacao_transporte_escolar_core', 'a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818121000_rc50_48_educacao_merenda_cardapio_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.educacao_merenda_produto (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, ano_letivo integer, escola_id bigint, aluno_id bigint, turma_id bigint, servidor_id bigint, referencia_id bigint, rota_id bigint, veiculo_id bigint, motorista_id bigint, produto_id bigint, acervo_id bigint, exemplar_id bigint, centro_custo_id bigint, codigo varchar(120), numero bigint, nome varchar(240), tipo varchar(80), categoria varchar(120), turno varchar(40), status varchar(40) not null default 'RASCUNHO', descricao text, justificativa text, unidade varchar(40), quantidade numeric(18,4), saldo numeric(18,4), saldo_minimo numeric(18,4), valor numeric(18,2), competencia date, data_inicio date, data_fim date, prazo_at timestamptz, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -17427,7 +17499,18 @@ alter table sigov.educacao_merenda_evento add column if not exists is_deleted bo
 create index if not exists ix_educacao_merenda_evento_tenant_status on sigov.educacao_merenda_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818121000','20260818121000_rc50_48_educacao_merenda_cardapio_core','693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818121000', '20260818121000_rc50_48_educacao_merenda_cardapio_core', '693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818122000_rc50_48_educacao_biblioteca_digital_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.educacao_biblioteca_acervo (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, ano_letivo integer, escola_id bigint, aluno_id bigint, turma_id bigint, servidor_id bigint, referencia_id bigint, rota_id bigint, veiculo_id bigint, motorista_id bigint, produto_id bigint, acervo_id bigint, exemplar_id bigint, centro_custo_id bigint, codigo varchar(120), numero bigint, nome varchar(240), tipo varchar(80), categoria varchar(120), turno varchar(40), status varchar(40) not null default 'RASCUNHO', descricao text, justificativa text, unidade varchar(40), quantidade numeric(18,4), saldo numeric(18,4), saldo_minimo numeric(18,4), valor numeric(18,2), competencia date, data_inicio date, data_fim date, prazo_at timestamptz, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -17463,7 +17546,18 @@ create index if not exists ix_educacao_biblioteca_evento_tenant_status on sigov.
 create unique index if not exists ux_educacao_biblioteca_exemplar_codigo on sigov.educacao_biblioteca_exemplar(tenant_id,coalesce(escola_id,0),codigo) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818122000','20260818122000_rc50_48_educacao_biblioteca_digital_core','b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818122000', '20260818122000_rc50_48_educacao_biblioteca_digital_core', 'b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.educacao_fundeb_parametro (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, ano_letivo integer, escola_id bigint, aluno_id bigint, turma_id bigint, servidor_id bigint, referencia_id bigint, rota_id bigint, veiculo_id bigint, motorista_id bigint, produto_id bigint, acervo_id bigint, exemplar_id bigint, centro_custo_id bigint, codigo varchar(120), numero bigint, nome varchar(240), tipo varchar(80), categoria varchar(120), turno varchar(40), status varchar(40) not null default 'RASCUNHO', descricao text, justificativa text, unidade varchar(40), quantidade numeric(18,4), saldo numeric(18,4), saldo_minimo numeric(18,4), valor numeric(18,2), competencia date, data_inicio date, data_fim date, prazo_at timestamptz, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint);
@@ -17513,9 +17607,18 @@ alter table sigov.educacao_avaliacao_resultado add column if not exists is_delet
 create index if not exists ix_educacao_avaliacao_resultado_tenant_status on sigov.educacao_avaliacao_resultado(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818123000','20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core','c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818123000', '20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core', 'c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Migration: 20260818130000_rc50_49_saude_acs_offline_georreferencia_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818130000_rc50_49_saude_acs_offline_georreferencia_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.saude_acs_dispositivo (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, acs_id bigint, area_id bigint, microarea_id bigint, domicilio_id bigint, familia_id bigint, visita_id bigint, referencia_id bigint, lote_id bigint, dispositivo_id bigint, codigo varchar(120), numero bigint, chave_offline varchar(160), origem varchar(40) not null default 'WEB', tipo varchar(80), status varchar(50) not null default 'RASCUNHO', gravidade varchar(20), descricao text, justificativa text, latitude numeric(10,7), longitude numeric(10,7), quantidade numeric(18,4), saldo_minimo numeric(18,4), data_referencia timestamptz, validade date, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, constraint ck_saude_acs_dispositivo_latitude check(latitude is null or latitude between -90 and 90), constraint ck_saude_acs_dispositivo_longitude check(longitude is null or longitude between -180 and 180));
@@ -17549,9 +17652,18 @@ create unique index if not exists ux_saude_acs_lote_item_offline on sigov.saude_
 create unique index if not exists ux_saude_acs_dispositivo_codigo on sigov.saude_acs_dispositivo(tenant_id,codigo) where is_deleted=false and codigo is not null;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818130000','20260818130000_rc50_49_saude_acs_offline_georreferencia_core','3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818130000', '20260818130000_rc50_49_saude_acs_offline_georreferencia_core', '3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Migration: 20260818131000_rc50_49_saude_cadastros_visitas_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818131000_rc50_49_saude_cadastros_visitas_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.saude_domicilio (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, acs_id bigint, area_id bigint, microarea_id bigint, domicilio_id bigint, familia_id bigint, visita_id bigint, referencia_id bigint, lote_id bigint, dispositivo_id bigint, codigo varchar(120), numero bigint, chave_offline varchar(160), origem varchar(40) not null default 'WEB', tipo varchar(80), status varchar(50) not null default 'RASCUNHO', gravidade varchar(20), descricao text, justificativa text, latitude numeric(10,7), longitude numeric(10,7), quantidade numeric(18,4), saldo_minimo numeric(18,4), data_referencia timestamptz, validade date, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, constraint ck_saude_domicilio_latitude check(latitude is null or latitude between -90 and 90), constraint ck_saude_domicilio_longitude check(longitude is null or longitude between -180 and 180));
@@ -17601,9 +17713,18 @@ alter table sigov.saude_acs_campo_evento add column if not exists is_deleted boo
 create index if not exists ix_saude_acs_campo_evento_tenant_status on sigov.saude_acs_campo_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818131000','20260818131000_rc50_49_saude_cadastros_visitas_core','49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818131000', '20260818131000_rc50_49_saude_cadastros_visitas_core', '49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Migration: 20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.saude_vacina_calendario (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, acs_id bigint, area_id bigint, microarea_id bigint, domicilio_id bigint, familia_id bigint, visita_id bigint, referencia_id bigint, lote_id bigint, dispositivo_id bigint, codigo varchar(120), numero bigint, chave_offline varchar(160), origem varchar(40) not null default 'WEB', tipo varchar(80), status varchar(50) not null default 'RASCUNHO', gravidade varchar(20), descricao text, justificativa text, latitude numeric(10,7), longitude numeric(10,7), quantidade numeric(18,4), saldo_minimo numeric(18,4), data_referencia timestamptz, validade date, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, constraint ck_saude_vacina_calendario_latitude check(latitude is null or latitude between -90 and 90), constraint ck_saude_vacina_calendario_longitude check(longitude is null or longitude between -180 and 180));
@@ -17644,9 +17765,18 @@ alter table sigov.saude_operacao_evento add column if not exists is_deleted bool
 create index if not exists ix_saude_operacao_evento_tenant_status on sigov.saude_operacao_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818132000','20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core','61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818132000', '20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core', '61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Migration: 20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a
+-- ==================================================
 begin;
 create schema if not exists sigov;
 create table if not exists sigov.saude_retaguarda_indicador (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint, exercicio_id bigint, unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, acs_id bigint, area_id bigint, microarea_id bigint, domicilio_id bigint, familia_id bigint, visita_id bigint, referencia_id bigint, lote_id bigint, dispositivo_id bigint, codigo varchar(120), numero bigint, chave_offline varchar(160), origem varchar(40) not null default 'WEB', tipo varchar(80), status varchar(50) not null default 'RASCUNHO', gravidade varchar(20), descricao text, justificativa text, latitude numeric(10,7), longitude numeric(10,7), quantidade numeric(18,4), saldo_minimo numeric(18,4), data_referencia timestamptz, validade date, dados jsonb not null default '{}'::jsonb, auditoria jsonb not null default '{}'::jsonb, correlation_id uuid not null default gen_random_uuid(), ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz, deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, constraint ck_saude_retaguarda_indicador_latitude check(latitude is null or latitude between -90 and 90), constraint ck_saude_retaguarda_indicador_longitude check(longitude is null or longitude between -180 and 180));
@@ -17687,4 +17817,243 @@ alter table sigov.saude_retaguarda_evento add column if not exists is_deleted bo
 create index if not exists ix_saude_retaguarda_evento_tenant_status on sigov.saude_retaguarda_evento(tenant_id,status) where is_deleted=false and ativo=true;
 commit;
 
-insert into sigov.schema_migrations(version,description,checksum,category,source,success,applied_at) values ('20260818133000','20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core','657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a','schema','script_completop',true,now()) on conflict(version) do update set description=excluded.description,checksum=excluded.checksum,success=true,applied_at=now();
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818133000', '20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core', '657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 850_post_migration_compatibility.sql
+-- STAGE: AFTER ALL MIGRATIONS
+-- ==================================================
+-- SIGOV+ RC38E
+-- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
+
+create extension if not exists pgcrypto;
+
+alter table sigov.usuario add column if not exists tenant_id bigint null;
+alter table sigov.usuario add column if not exists nome varchar(200) null;
+alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
+alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
+alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
+alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
+alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
+alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
+
+alter table sigov.entidade add column if not exists tenant_id bigint null;
+alter table sigov.exercicio add column if not exists tenant_id bigint null;
+alter table sigov.pessoa add column if not exists tenant_id bigint null;
+alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
+alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
+alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
+alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
+alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
+alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
+alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
+alter table sigov.politica_senha add column if not exists tenant_id bigint null;
+
+alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
+alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
+alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
+
+alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
+alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
+
+-- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
+-- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
+-- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
+-- seus checksums e sem criar vínculos fora do tenant correto.
+create or replace function sigov.fn_preencher_tenant_vinculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.tenant_id is not null then
+        return new;
+    end if;
+
+    case tg_table_name
+        when 'usuario_entidade' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select e.tenant_id into new.tenant_id
+                  from sigov.entidade e
+                 where e.id = new.entidade_id;
+            end if;
+
+        when 'usuario_exercicio' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select x.tenant_id into new.tenant_id
+                  from sigov.exercicio x
+                 where x.id = new.exercicio_id;
+            end if;
+
+        when 'usuario_grupo' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select g.tenant_id into new.tenant_id
+                  from sigov.grupo_acesso g
+                 where g.id = new.grupo_acesso_id;
+            end if;
+
+        when 'grupo_perfil' then
+            select g.tenant_id into new.tenant_id
+              from sigov.grupo_acesso g
+             where g.id = new.grupo_acesso_id;
+            if new.tenant_id is null then
+                select p.tenant_id into new.tenant_id
+                  from sigov.perfil_acesso p
+                 where p.id = new.perfil_acesso_id;
+            end if;
+
+        when 'perfil_permissao' then
+            select p.tenant_id into new.tenant_id
+              from sigov.perfil_acesso p
+             where p.id = new.perfil_acesso_id;
+    end case;
+
+    if new.tenant_id is null then
+        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
+            using errcode = '23502';
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
+create trigger trg_usuario_entidade_tenant
+before insert or update on sigov.usuario_entidade
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
+create trigger trg_usuario_exercicio_tenant
+before insert or update on sigov.usuario_exercicio
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
+create trigger trg_usuario_grupo_tenant
+before insert or update on sigov.usuario_grupo
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
+create trigger trg_grupo_perfil_tenant
+before insert or update on sigov.grupo_perfil
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
+create trigger trg_perfil_permissao_tenant
+before insert or update on sigov.perfil_permissao
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+-- Bancos que já foram executados parcialmente podem possuir perfis e grupos
+-- duplicados por tenant. Antes de criar os índices únicos usados pelo bootstrap,
+-- preservamos todos os registros e seus vínculos, mantendo como canônico o item
+-- com maior uso em relacionamentos e renomeando apenas a chave/nome dos legados.
+do $$
+begin
+    if to_regclass('sigov.perfil_acesso') is not null then
+        with perfil_uso as (
+            select p.id,
+                   count(distinct gp.grupo_acesso_id) + count(distinct pp.permissao_id) as total_vinculos
+              from sigov.perfil_acesso p
+              left join sigov.grupo_perfil gp on gp.perfil_acesso_id = p.id
+              left join sigov.perfil_permissao pp on pp.perfil_acesso_id = p.id
+             group by p.id
+        ), perfil_rank as (
+            select p.id,
+                   p.codigo_externo,
+                   row_number() over (
+                       partition by p.tenant_id, p.codigo_externo
+                       order by coalesce(u.total_vinculos, 0) desc,
+                                case when p.ativo then 0 else 1 end,
+                                p.created_at nulls last,
+                                p.id
+                   ) as rn
+              from sigov.perfil_acesso p
+              left join perfil_uso u on u.id = p.id
+             where p.tenant_id is not null
+               and nullif(p.codigo_externo, '') is not null
+               and p.is_deleted = false
+        )
+        update sigov.perfil_acesso p
+           set codigo_externo = concat(
+                   left(r.codigo_externo, greatest(1, 100 - length('_LEGACY_' || p.id::text))),
+                   '_LEGACY_',
+                   p.id::text
+               ),
+               observacao = concat_ws(E'\n',
+                   nullif(p.observacao, ''),
+                   'Código externo legado ajustado para remover duplicidade antes do índice ux_bootstrap_perfil_codigo_tenant. Código anterior: ' || r.codigo_externo
+               ),
+               updated_at = now()
+          from perfil_rank r
+         where p.id = r.id
+           and r.rn > 1;
+    end if;
+
+    if to_regclass('sigov.grupo_acesso') is not null then
+        with grupo_uso as (
+            select g.id,
+                   count(distinct ug.usuario_id) + count(distinct gp.perfil_acesso_id) as total_vinculos
+              from sigov.grupo_acesso g
+              left join sigov.usuario_grupo ug on ug.grupo_acesso_id = g.id
+              left join sigov.grupo_perfil gp on gp.grupo_acesso_id = g.id
+             group by g.id
+        ), grupo_rank as (
+            select g.id,
+                   g.nome,
+                   row_number() over (
+                       partition by g.tenant_id, g.nome
+                       order by coalesce(u.total_vinculos, 0) desc,
+                                case when g.ativo then 0 else 1 end,
+                                g.created_at nulls last,
+                                g.id
+                   ) as rn
+              from sigov.grupo_acesso g
+              left join grupo_uso u on u.id = g.id
+             where g.tenant_id is not null
+               and nullif(g.nome, '') is not null
+               and g.is_deleted = false
+        )
+        update sigov.grupo_acesso g
+           set nome = concat(
+                   left(r.nome, greatest(1, 150 - length(' (legado ' || g.id::text || ')'))),
+                   ' (legado ',
+                   g.id::text,
+                   ')'
+               ),
+               observacao = concat_ws(E'\n',
+                   nullif(g.observacao, ''),
+                   'Nome legado ajustado para remover duplicidade antes do índice ux_bootstrap_grupo_nome_tenant. Nome anterior: ' || r.nome
+               ),
+               updated_at = now()
+          from grupo_rank r
+         where g.id = r.id
+           and r.rn > 1;
+    end if;
+end $$;
+
+create unique index if not exists ux_bootstrap_usuario_login_tenant
+    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_usuario_email_tenant
+    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_perfil_codigo_tenant
+    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
+create unique index if not exists ux_bootstrap_grupo_nome_tenant
+    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
+
+-- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
+-- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
