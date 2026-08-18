@@ -5,6 +5,11 @@
         <div><span class="badge text-bg-primary mb-2">RC50.49-B</span><h1 class="h2 mb-1">Status do projeto</h1><p class="text-muted mb-0">Visão operacional sem credenciais ou dados pessoais.</p></div>
         <small class="text-muted">Atualizado em @Model.GeneratedAt.ToLocalTime().ToString("g")</small>
     </div>
+    <div class="card mb-4"><div class="card-header fw-semibold">Diagnóstico de migrations</div><div class="card-body">
+        <dl class="row mb-0"><dt class="col-sm-3">Última aplicada</dt><dd class="col-sm-9">@(Model.LastAppliedMigration is null ? "Sem registro" : $"{Model.LastAppliedMigration.Version} · {Model.LastAppliedMigration.File} · {Model.LastAppliedMigration.Stage}")</dd>
+        <dt class="col-sm-3">Última falha registrada</dt><dd class="col-sm-9">@(Model.LastFailedMigration is null ? "Nenhuma falha persistida" : $"{Model.LastFailedMigration.Version} · SQLSTATE {Model.LastFailedMigration.SqlState ?? "não informado"} · {Model.LastFailedMigration.File} · {Model.LastFailedMigration.Stage} · correlationId {Model.LastFailedMigration.CorrelationId ?? "não informado"}")</dd></dl>
+        @if (Model.HasIndexColumnWarning) { <div class="alert alert-warning mt-3 mb-0">Migration com índice dependente de coluna não garantida. Execute o validador operacional.</div> }
+    </div></div>
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Banco</span><strong class="d-block">@Model.DatabaseStatus</strong></div></div></div>
         <div class="col-6 col-lg-3"><div class="card h-100 shadow-sm"><div class="card-body"><span class="text-muted">Swagger</span><strong class="d-block">@Model.SwaggerStatus</strong></div></div></div>

@@ -60,6 +60,8 @@ create table if not exists sigov.saude_unidade (
     constraint ck_saude_unidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_unidade
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -125,6 +127,10 @@ create table if not exists sigov.saude_paciente (
     constraint ck_saude_paciente_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_paciente
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
+    add column if not exists cpf_normalizado varchar(11),
+    add column if not exists cns varchar(20),
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -190,6 +196,8 @@ create table if not exists sigov.saude_profissional (
     constraint ck_saude_profissional_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_profissional
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -255,6 +263,8 @@ create table if not exists sigov.saude_especialidade (
     constraint ck_saude_especialidade_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_especialidade
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -320,6 +330,11 @@ create table if not exists sigov.saude_agenda (
     constraint ck_saude_agenda_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_agenda
+    add column if not exists tenant_id bigint,
+    add column if not exists profissional_id bigint,
+    add column if not exists data_referencia timestamptz,
+    add column if not exists data_inicio timestamptz,
+    add column if not exists data_fim timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -385,6 +400,8 @@ create table if not exists sigov.saude_agendamento (
     constraint ck_saude_agendamento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_agendamento
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -450,6 +467,8 @@ create table if not exists sigov.saude_atendimento (
     constraint ck_saude_atendimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_atendimento
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -515,6 +534,8 @@ create table if not exists sigov.saude_prontuario_resumo (
     constraint ck_saude_prontuario_resumo_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_prontuario_resumo
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -580,6 +601,8 @@ create table if not exists sigov.saude_procedimento (
     constraint ck_saude_procedimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_procedimento
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -645,6 +668,8 @@ create table if not exists sigov.saude_prescricao (
     constraint ck_saude_prescricao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_prescricao
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -710,6 +735,12 @@ create table if not exists sigov.saude_vacinacao (
     constraint ck_saude_vacinacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_vacinacao
+    add column if not exists tenant_id bigint,
+    add column if not exists paciente_id bigint,
+    add column if not exists nome varchar(250),
+    add column if not exists tipo varchar(80),
+    add column if not exists justificativa text,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -775,6 +806,8 @@ create table if not exists sigov.saude_vacina (
     constraint ck_saude_vacina_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_vacina
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -840,6 +873,8 @@ create table if not exists sigov.saude_acs_area (
     constraint ck_saude_acs_area_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_acs_area
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -905,6 +940,8 @@ create table if not exists sigov.saude_acs_microarea (
     constraint ck_saude_acs_microarea_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_acs_microarea
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -970,6 +1007,8 @@ create table if not exists sigov.saude_acs_visita (
     constraint ck_saude_acs_visita_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_acs_visita
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -1035,6 +1074,8 @@ create table if not exists sigov.saude_farmacia_item (
     constraint ck_saude_farmacia_item_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_farmacia_item
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -1100,6 +1141,8 @@ create table if not exists sigov.saude_farmacia_movimento (
     constraint ck_saude_farmacia_movimento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_farmacia_movimento
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -1165,6 +1208,8 @@ create table if not exists sigov.saude_vigilancia_notificacao (
     constraint ck_saude_vigilancia_notificacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_vigilancia_notificacao
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -1230,6 +1275,8 @@ create table if not exists sigov.saude_regulacao_solicitacao (
     constraint ck_saude_regulacao_solicitacao_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_regulacao_solicitacao
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
@@ -1295,6 +1342,8 @@ create table if not exists sigov.saude_evento (
     constraint ck_saude_evento_valores check ((quantidade is null or quantidade >= 0) and (valor is null or valor >= 0) and (saldo is null or saldo >= 0))
 );
 alter table sigov.saude_evento
+    add column if not exists tenant_id bigint,
+    add column if not exists data_referencia timestamptz,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;

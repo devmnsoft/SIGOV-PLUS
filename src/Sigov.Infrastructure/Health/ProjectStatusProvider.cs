@@ -19,11 +19,15 @@ public sealed class ProjectStatusProvider
     {
         var manifestCount = ReadManifestCount();
         int? applied = null;
+        MigrationDiagnostic? lastApplied = null;
+        MigrationDiagnostic? lastFailed = null;
         var databaseStatus = "Indisponível";
         var errors = new List<string>();
         try
         {
             applied = await _inspector.CountRowsAsync("sigov", "schema_migrations", cancellationToken).ConfigureAwait(false);
+            lastApplied = await _inspector.GetLatestMigrationAsync(true, cancellationToken).ConfigureAwait(false);
+            lastFailed = await _inspector.GetLatestMigrationAsync(false, cancellationToken).ConfigureAwait(false);
             databaseStatus = applied.HasValue ? "Conectado" : "Conectado; histórico de migrations ausente";
         }
         catch (Exception)
@@ -50,7 +54,8 @@ public sealed class ProjectStatusProvider
         return new ProjectStatusResponse(DateTimeOffset.UtcNow, databaseStatus,
             _configuration.GetValue("Sigov:Security:SwaggerEnabledInProduction", false) ? "Habilitado por configuração" : "Disponível em Development",
             "Não aferido em runtime; consultar pipeline/artefato de build", manifestCount, applied,
-            applied.HasValue ? Math.Max(0, manifestCount - applied.Value) : null, implemented, pending, errors, priorities,
+            applied.HasValue ? Math.Max(0, manifestCount - applied.Value) : null, lastApplied, lastFailed,
+            HasIndexColumnWarning(), implemented, pending, errors, priorities,
             new[] { "Validar módulos avançados em runtime", "Confirmar Swagger e autenticação no ambiente integrado", "Fechar relatórios e auditoria dos blocos 8 e 9" });
     }
 
@@ -93,5 +98,26 @@ public sealed class ProjectStatusProvider
             directory = directory.Parent;
         }
         return 0;
+    }
+
+    private static bool HasIndexColumnWarning()
+    {
+        var migration = FindRepositoryFile("database", "postgres", "migrations", "20260816120000_rc50_38_saude_bloco7_core.sql");
+        if (migration is null) return false;
+        var sql = File.ReadAllText(migration);
+        return sql.Contains("data_referencia", StringComparison.OrdinalIgnoreCase)
+            && !sql.Contains("add column if not exists data_referencia", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? FindRepositoryFile(params string[] parts)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var path = Path.Combine(new[] { directory.FullName }.Concat(parts).ToArray());
+            if (File.Exists(path)) return path;
+            directory = directory.Parent;
+        }
+        return null;
     }
 }
