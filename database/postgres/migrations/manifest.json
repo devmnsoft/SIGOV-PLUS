@@ -722,7 +722,7 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "ea3bbd7710e2961570846ba8850f5fce5258f02954f0117fb21afc46ee6d71b0",
+      "checksum": "efcab93f125e29bf8845cc10a905d745d8f7652d4a48f86e382069103f5b4a4a",
       "postConditionSql": "select to_regclass('sigov.saude_paciente') is not null and to_regclass('sigov.saude_farmacia_movimento') is not null"
     },
     {

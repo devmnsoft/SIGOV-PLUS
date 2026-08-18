@@ -711,6 +711,7 @@ create table if not exists sigov.saude_vacinacao (
     prioridade varchar(30),
     competencia varchar(7),
     data_referencia timestamptz,
+    data_referencia_dia date,
     data_inicio timestamptz,
     data_fim timestamptz,
     leitura_anterior numeric(16,3),
@@ -741,9 +742,35 @@ alter table sigov.saude_vacinacao
     add column if not exists tipo varchar(80),
     add column if not exists justificativa text,
     add column if not exists data_referencia timestamptz,
+    add column if not exists data_referencia_dia date,
     add column if not exists status varchar(40) not null default 'ATIVO',
     add column if not exists ativo boolean not null default true,
     add column if not exists is_deleted boolean not null default false;
+
+-- Materializa o dia em UTC fora do índice. O cast de timestamptz não é IMMUTABLE
+-- porque depende do fuso da sessão e, por isso, não pode compor a chave do índice.
+update sigov.saude_vacinacao
+set data_referencia_dia = (data_referencia at time zone 'UTC')::date
+where data_referencia_dia is null
+  and data_referencia is not null;
+
+create or replace function sigov.saude_vacinacao_materializar_dia()
+returns trigger
+language plpgsql
+as $function$
+begin
+    new.data_referencia_dia := case
+        when new.data_referencia is null then null
+        else (new.data_referencia at time zone 'UTC')::date
+    end;
+    return new;
+end
+$function$;
+
+drop trigger if exists trg_saude_vacinacao_materializar_dia on sigov.saude_vacinacao;
+create trigger trg_saude_vacinacao_materializar_dia
+before insert or update of data_referencia on sigov.saude_vacinacao
+for each row execute function sigov.saude_vacinacao_materializar_dia();
 create index if not exists ix_saude_vacinacao_tenant_ativo on sigov.saude_vacinacao(tenant_id, is_deleted);
 create index if not exists ix_saude_vacinacao_status_data on sigov.saude_vacinacao(tenant_id, status, data_referencia);
 
@@ -1353,7 +1380,7 @@ create index if not exists ix_saude_evento_status_data on sigov.saude_evento(ten
 create unique index if not exists ux_saude_paciente_cpf on sigov.saude_paciente(tenant_id, cpf_normalizado) where cpf_normalizado is not null and not is_deleted;
 create unique index if not exists ux_saude_paciente_cns on sigov.saude_paciente(tenant_id, cns) where cns is not null and not is_deleted;
 create index if not exists ix_saude_agenda_profissional on sigov.saude_agenda(tenant_id, profissional_id, data_inicio, data_fim) where not is_deleted;
-create unique index if not exists ux_saude_vacinacao_dose_dia on sigov.saude_vacinacao(tenant_id,paciente_id,nome,tipo,(data_referencia::date)) where justificativa is null and not is_deleted;
+create unique index if not exists ux_saude_vacinacao_dose_dia on sigov.saude_vacinacao(tenant_id,paciente_id,nome,tipo,data_referencia_dia) where justificativa is null and not is_deleted;
 
 -- A integração é somente interna e preparatória; não representa homologação externa.
 insert into sigov.integracao_interna_evento
