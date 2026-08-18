@@ -31,10 +31,15 @@ public sealed class ProjectStatusProvider
             errors.Add("Banco não acessível no instante da consulta; consulte os logs operacionais.");
         }
 
+        var advancedModules = await InspectAdvancedModulesAsync(cancellationToken).ConfigureAwait(false);
         var implemented = new[] { "Tenants e usuários", "Permissões e auditoria", "Educação/RH/Folha", "Financeiro/SIAFIC", "Compras/Contratos/Patrimônio", "Saúde/Assistência Social", "Saneamento/Frotas/Obras" }
-            .Select(name => new ProjectModuleStatus(name, "Núcleo implementado")).ToArray();
-        var pending = new[] { "Bloco 8 digital", "Bloco 9 empresarial", "Tributário avançado", "Educação avançada", "Saúde avançada", "Saneamento avançado" }
-            .Select(name => new ProjectModuleStatus(name, "Parcial")).ToArray();
+            .Select(name => new ProjectModuleStatus(name, "Núcleo implementado"))
+            .Concat(advancedModules.Where(module => module.Status == "Aplicado"))
+            .ToArray();
+        var pending = new[] { "Bloco 8 digital", "Bloco 9 empresarial", "Tributário avançado", "Saneamento avançado" }
+            .Select(name => new ProjectModuleStatus(name, "Parcial"))
+            .Concat(advancedModules.Where(module => module.Status != "Aplicado"))
+            .ToArray();
         var priorities = new Dictionary<string, IReadOnlyCollection<string>>
         {
             ["P0"] = errors.Count == 0 ? Array.Empty<string>() : new[] { "Validar conectividade e migrations no ambiente real" },
@@ -46,7 +51,31 @@ public sealed class ProjectStatusProvider
             _configuration.GetValue("Sigov:Security:SwaggerEnabledInProduction", false) ? "Habilitado por configuração" : "Disponível em Development",
             "Não aferido em runtime; consultar pipeline/artefato de build", manifestCount, applied,
             applied.HasValue ? Math.Max(0, manifestCount - applied.Value) : null, implemented, pending, errors, priorities,
-            new[] { "RC50.45 — Fechar Bloco 8", "RC50.46 — Fechar Bloco 9", "RC50.47 — Tributário Avançado", "RC50.48 — Educação Avançada" });
+            new[] { "Validar RC50.48 — Educação Avançada em runtime", "Validar RC50.49 — Saúde Avançada em runtime", "Fechar relatórios e auditoria dos blocos 8 e 9" });
+    }
+
+    private async Task<IReadOnlyCollection<ProjectModuleStatus>> InspectAdvancedModulesAsync(CancellationToken cancellationToken)
+    {
+        var modules = new[]
+        {
+            (Name: "Educação avançada", Tables: new[] { "educacao_transporte_rota", "educacao_merenda_produto", "educacao_biblioteca_acervo", "educacao_indicador" }),
+            (Name: "Saúde avançada", Tables: new[] { "saude_acs_lote_offline", "saude_visita_domiciliar", "saude_vacinacao_evento", "saude_farmacia_estoque", "saude_regulacao_fila" })
+        };
+        var statuses = new List<ProjectModuleStatus>(modules.Length);
+        foreach (var module in modules)
+        {
+            try
+            {
+                var checks = await Task.WhenAll(module.Tables.Select(table => _inspector.TableExistsAsync("sigov", table, cancellationToken))).ConfigureAwait(false);
+                var available = checks.Count(exists => exists);
+                statuses.Add(new ProjectModuleStatus(module.Name, available == module.Tables.Length ? "Aplicado" : $"Pendente ({available}/{module.Tables.Length} tabelas)"));
+            }
+            catch (Exception)
+            {
+                statuses.Add(new ProjectModuleStatus(module.Name, "Pendente de validação do banco"));
+            }
+        }
+        return statuses;
     }
 
     private static int ReadManifestCount()
