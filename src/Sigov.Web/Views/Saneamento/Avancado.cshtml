@@ -1,0 +1,24 @@
+@{
+    var titulo = Convert.ToString(ViewData["Titulo"]) ?? "Dashboard";
+    var modulo = Convert.ToString(ViewData["Modulo"]) ?? "comercial";
+    var recurso = Convert.ToString(ViewData["Recurso"]) ?? "dashboard";
+    ViewData["Title"] = $"Saneamento — {titulo}";
+}
+<section class="sanitation-workspace" data-sanitation-module="@modulo" data-sanitation-resource="@recurso">
+    <header class="sanitation-hero">
+        <div><span class="lgpd-badge"><i class="bi bi-shield-lock"></i> LGPD e auditoria habilitadas</span><p class="sanitation-eyebrow">SIGOV+ · Saneamento Avançado</p><h1>@titulo</h1><p>Operação multi-tenant de água e esgoto com dados persistidos, rastreabilidade e integrações externas preparatórias.</p></div>
+        <div class="sanitation-hero__actions"><button class="btn btn-light" type="button" data-sanitation-refresh><i class="bi bi-arrow-clockwise"></i> Atualizar</button><a class="btn btn-outline-light" href="/api/saneamento/@modulo/relatorios/exportar-csv"><i class="bi bi-download"></i> Exportar CSV</a></div>
+    </header>
+    <div class="sanitation-kpis" aria-live="polite">
+        <article class="sanitation-dashboard-card"><span>Total</span><strong data-kpi="total">—</strong><small>registros isolados por tenant</small></article>
+        <article class="sanitation-dashboard-card"><span>Ativos</span><strong data-kpi="ativos">—</strong><small>fluxos em operação</small></article>
+        <article class="sanitation-dashboard-card"><span>Pendências</span><strong data-kpi="pendentes">—</strong><small>itens que exigem ação</small></article>
+        <article class="sanitation-dashboard-card quality-alert-card"><span>Alertas</span><strong data-kpi="alertas">—</strong><small>prioridades operacionais</small></article>
+    </div>
+    <div class="filter-bar"><label>Busca segura <input class="form-control" type="search" data-sanitation-search placeholder="Código, número, tipo ou status" /></label><label>Status <select class="form-select" data-sanitation-status><option value="">Todos</option><option>ATIVO</option><option>PENDENTE</option><option>ABERTA</option><option>VENCIDA</option></select></label><button class="btn btn-primary" type="button" data-sanitation-filter>Filtrar</button></div>
+    <div class="responsive-data-table"><table><thead><tr><th>Código / número</th><th>Tipo</th><th>Status</th><th>Descrição</th><th>Valor</th><th>Ações</th></tr></thead><tbody data-sanitation-rows><tr class="loading-skeleton"><td colspan="6">Carregando dados reais…</td></tr></tbody></table></div>
+    <div class="empty-state" data-sanitation-empty hidden><i class="bi bi-droplet-half"></i><h2>Nenhum registro encontrado</h2><p>A estrutura está pronta para receber a operação. Nenhum dado demonstrativo foi injetado.</p></div>
+    <aside class="audit-timeline"><h2>Rastreabilidade</h2><p><span class="status-chip status-chip--ok">CorrelationId</span> Toda mutação registra tenant, usuário, correlação e auditoria JSON.</p></aside>
+</section>
+<div class="toast" role="status" data-sanitation-toast hidden></div>
+@section Scripts { <script src="~/js/modules/saneamento.avancado.js" asp-append-version="true"></script> }

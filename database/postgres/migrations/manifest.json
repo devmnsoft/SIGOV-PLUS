@@ -994,6 +994,46 @@
       "applyAutomatically": true,
       "checksum": "657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a",
       "postConditionSql": "select to_regclass('sigov.saude_retaguarda_indicador') is not null"
+    },
+    {
+      "version": "20260818140000",
+      "file": "20260818140000_rc50_50_saneamento_comercial_atendimento_core.sql",
+      "description": "20260818140000_rc50_50_saneamento_comercial_atendimento_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "50ed25704f7a746d5f7e49ad217e313da9431fd98af35f72e7b6e28525d1339a",
+      "postConditionSql": "select to_regclass('sigov.saneamento_consumidor_contato') is not null"
+    },
+    {
+      "version": "20260818141000",
+      "file": "20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core.sql",
+      "description": "20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "792e1423928b022612fd777925f5016d97882fd09986650f8ab9e12f44d9a7bd",
+      "postConditionSql": "select to_regclass('sigov.saneamento_rota_leitura') is not null"
+    },
+    {
+      "version": "20260818142000",
+      "file": "20260818142000_rc50_50_saneamento_operacao_campo_core.sql",
+      "description": "20260818142000_rc50_50_saneamento_operacao_campo_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b03968468dc02a4a1fbf2c39fe4c6a01c89951250bc80edac201393b36b867e3",
+      "postConditionSql": "select to_regclass('sigov.saneamento_equipe') is not null"
+    },
+    {
+      "version": "20260818143000",
+      "file": "20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core.sql",
+      "description": "20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330",
+      "postConditionSql": "select to_regclass('sigov.saneamento_ponto_gis') is not null"
     }
   ],
   "compatibilityAfterAll": [
