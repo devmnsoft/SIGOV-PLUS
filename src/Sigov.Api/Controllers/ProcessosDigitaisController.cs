@@ -22,5 +22,5 @@ public sealed class ProcessosDigitaisController : ProcessosControllerBase
     [HttpPost("{id:long}/movimentar")] public async Task<ActionResult<ApiResponse<long>>> Movimentar(long id, [FromBody] MovimentarProcessoRequest request, CancellationToken ct) => FromResult(await _service.MovimentarAsync(id, request, ct).ConfigureAwait(false));
     [HttpPost("{id:long}/pareceres")] public async Task<ActionResult<ApiResponse<long>>> Parecer(long id, [FromBody] EmitirParecerRequest request, CancellationToken ct) => FromResult(await _service.EmitirParecerAsync(id, request, ct).ConfigureAwait(false));
     [HttpPost("{id:long}/encerrar")] public async Task<ActionResult<ApiResponse<object>>> Encerrar(long id, CancellationToken ct) => FromResult(await _service.EncerrarAsync(id, ct).ConfigureAwait(false));
-    [HttpPost("{id:long}/cancelar")] public async Task<ActionResult<ApiResponse<object>>> Cancelar(long id, CancellationToken ct) => FromResult(await _service.CancelarAsync(id, ct).ConfigureAwait(false));
+    [HttpPost("{id:long}/cancelar")] public async Task<ActionResult<ApiResponse<object>>> Cancelar(long id, [FromBody] CancelarProcessoRequest request, CancellationToken ct) => FromResult(await _service.CancelarAsync(id, request, ct).ConfigureAwait(false));
 }
