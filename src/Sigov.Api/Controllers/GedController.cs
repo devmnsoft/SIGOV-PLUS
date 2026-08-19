@@ -35,7 +35,7 @@ public sealed class GedController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("ged.visualizar")) return Forbid();
+            if (!HasAnyPermission("ged.dashboard.visualizar", "ged.visualizar")) return Forbid();
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
             var cards = await c.QuerySingleAsync<object>(@"select
@@ -62,10 +62,14 @@ public sealed class GedController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("ged.visualizar")) return Forbid();
+            if (!HasAnyPermission("ged.documento.visualizar", "ged.visualizar")) return Forbid();
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
-            var rows = await c.QueryAsync<object>(@"select distinct d.*
+            var rows = await c.QueryAsync<object>(@"select distinct d.id, d.tenant_id, d.entidade_id, d.exercicio_id,
+d.tipo_documento_id, d.protocolo_id, d.contrato_id, d.origem_modulo, d.origem_entidade,
+d.origem_id, d.titulo, d.descricao, d.numero_documento, d.tipo, d.status,
+d.classificacao_lgpd, d.sigiloso, d.metadados, d.tags, d.data_documento, d.publicado_at,
+d.ativo, d.created_at, d.created_by, d.updated_at, d.updated_by, d.correlation_id
 from sigov.ged_documento d
 left join sigov.ged_indice i on i.documento_id=d.id and i.tenant_id=d.tenant_id and i.is_deleted=false
 where d.tenant_id=@TenantId and d.is_deleted=false
@@ -87,7 +91,7 @@ offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Tipo = t
     }
 
     [HttpGet("documentos/{id:long}")]
-    public Task<ActionResult<ApiResponse<object>>> ObterDocumento(long id) => Obter("sigov.ged_documento", id, "ged.visualizar");
+    public Task<ActionResult<ApiResponse<object>>> ObterDocumento(long id) => Obter("sigov.ged_documento", id, "ged.documento.visualizar", "ged.visualizar");
 
     [HttpPost("documentos")]
     public async Task<ActionResult<ApiResponse<object>>> CriarDocumento([FromBody] GedDocumentoRequest request)
@@ -95,8 +99,11 @@ offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Tipo = t
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("ged.upload")) return Forbid();
+            if (!HasAnyPermission("ged.documento.criar", "ged.upload")) return Forbid();
             if (string.IsNullOrWhiteSpace(request.Titulo)) return BadRequest(ApiResponse<object>.Fail("Título do documento é obrigatório.", cid));
+            if (string.IsNullOrWhiteSpace(request.Tipo)) return BadRequest(ApiResponse<object>.Fail("Tipo do documento é obrigatório.", cid));
+            if (string.IsNullOrWhiteSpace(request.OrigemModulo)) return BadRequest(ApiResponse<object>.Fail("Origem do documento é obrigatória.", cid));
+            if (request.Sigiloso && string.IsNullOrWhiteSpace(request.JustificativaSigilo)) return BadRequest(ApiResponse<object>.Fail("Justificativa do sigilo é obrigatória.", cid));
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
             var id = await c.ExecuteScalarAsync<long>(@"insert into sigov.ged_documento(tenant_id,entidade_id,exercicio_id,titulo,descricao,tipo,status,classificacao_lgpd,sigiloso,metadados,tags,origem_modulo,origem_entidade,origem_id,contrato_id,data_documento,created_by,correlation_id)
@@ -118,7 +125,7 @@ values(@TenantId,@EntidadeId,@ExercicioId,@Titulo,@Descricao,@Tipo,@Status,@Clas
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("ged.upload")) return Forbid();
+            if (!HasAnyPermission("processos.documento.anexar", "ged.documento.versionar", "ged.upload")) return Forbid();
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
             if (!await Existe(c, "sigov.ged_documento", tenantId, id)) return NotFound(ApiResponse<object>.Fail("Documento não encontrado.", cid));
@@ -213,7 +220,11 @@ values(@TenantId,@DocumentoId,@ContratoId,@UsuarioId,@Nome,@Documento,'SIMULADA'
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("ged.tramitar")) return Forbid();
+            if (!HasAnyPermission("processos.processo.tramitar", "ged.tramitar")) return Forbid();
+            if (!request.UnidadeDestinoId.HasValue && !request.UsuarioDestinoId.HasValue)
+                return BadRequest(ApiResponse<object>.Fail("Unidade ou usuário de destino é obrigatório.", cid));
+            if (string.IsNullOrWhiteSpace(request.Despacho))
+                return BadRequest(ApiResponse<object>.Fail("Despacho é obrigatório.", cid));
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
             var statusAnterior = await c.ExecuteScalarAsync<string?>("select status from sigov.ged_documento where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId });
@@ -236,7 +247,7 @@ values(@TenantId,@DocumentoId,@WorkflowId,@UnidadeOrigemId,@UnidadeDestinoId,@Us
     public async Task<ActionResult<ApiResponse<object>>> HistoricoDocumento(long id)
     {
         var cid = CorrelationId();
-        if (!HasPermission("ged.visualizar")) return Forbid();
+        if (!HasAnyPermission("ged.documento.visualizar", "ged.visualizar")) return Forbid();
         var tenantId = RequireTenant();
         using var c = _context.CreateConnection();
         var rows = await c.QueryAsync<object>("select id, tenant_id, documento_id, protocolo_id, contrato_id, acao, descricao, usuario_id, antes, depois, ip, user_agent, evento_at, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id from sigov.ged_historico where tenant_id=@TenantId and documento_id=@Id order by evento_at desc", new { TenantId = tenantId, Id = id });
@@ -336,12 +347,12 @@ values(@TenantId,@EntidadeId,@ExercicioId,@Numero,@Assunto,@InteressadoNome,@Int
         }
     }
 
-    private async Task<ActionResult<ApiResponse<object>>> Obter(string tabela, long id, string permissao)
+    private async Task<ActionResult<ApiResponse<object>>> Obter(string tabela, long id, params string[] permissoes)
     {
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission(permissao)) return Forbid();
+            if (!HasAnyPermission(permissoes)) return Forbid();
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
             var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId and is_deleted=false", new { Id = id, TenantId = tenantId });
@@ -374,6 +385,7 @@ values(@TenantId,@DocumentoId,@ProtocoloId,@ContratoId,@Acao,@Descricao,@Usuario
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);
     private static int Offset(int page, int pageSize) => (Math.Max(1, page) - 1) * Limit(pageSize);
     private bool HasPermission(string permission) => User.Identity?.IsAuthenticated != true || User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.Claims.Any(c => (c.Type == "permission" || c.Type == ClaimTypes.Role) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
+    private bool HasAnyPermission(params string[] permissions) => permissions.Any(HasPermission);
     private static Guid GuidOrNew(string value) => Guid.TryParse(value, out var parsed) ? parsed : Guid.NewGuid();
     private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     private static async Task<string> HashAsync(IFormFile file)
@@ -386,7 +398,7 @@ values(@TenantId,@DocumentoId,@ProtocoloId,@ContratoId,@Acao,@Descricao,@Usuario
     }
 }
 
-public sealed record GedDocumentoRequest(string Titulo, string? Descricao, string? Tipo, string? Status, string? ClassificacaoLgpd, bool Sigiloso, string? Metadados, string[]? Tags, string? OrigemModulo, string? OrigemEntidade, long? OrigemId, long? ContratoId, DateTime? DataDocumento);
+public sealed record GedDocumentoRequest(string Titulo, string? Descricao, string? Tipo, string? Status, string? ClassificacaoLgpd, bool Sigiloso, string? JustificativaSigilo, string? Metadados, string[]? Tags, string? OrigemModulo, string? OrigemEntidade, long? OrigemId, long? ContratoId, DateTime? DataDocumento);
 public sealed record GedIndiceRequest(string Chave, string Valor, string? TipoValor, string? Origem, decimal? Confianca);
 public sealed record OcrRequest(long? AnexoId, string? Idioma, string? TextoExtraido, string? MetadadosExtraidos, decimal? ConfiancaMedia);
 public sealed record AssinaturaRequest(string SignatarioNome, string? SignatarioDocumento, bool AceiteLegal);
