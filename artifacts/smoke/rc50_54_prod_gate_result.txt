@@ -1,7 +1,4 @@
 RUN manifest
-Nenhum conflito direto em 605 rotas API (/workspace/SIGOV-PLUS/src/Sigov.Api/Controllers).
-PASS route-conflicts exit_code=0 duration_seconds=2
-FAIL tooling tool=psql reason=not_found classification=P0_ENVIRONMENTAL
 {
     "migrations": [
         {
@@ -1058,6 +1055,16 @@ FAIL tooling tool=psql reason=not_found classification=P0_ENVIRONMENTAL
             "applyAutomatically": true,
             "checksum": "e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee",
             "postConditionSql": "select to_regclass('sigov.lgpd_incidente_evento') is not null"
+        },
+        {
+            "version": "20260819120000",
+            "file": "20260819120000_rc50_60_fluxos_educacao_saude_core.sql",
+            "description": "20260819120000_rc50_60_fluxos_educacao_saude_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c",
+            "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar')"
         }
     ],
     "compatibilityAfterAll": [
@@ -1067,16 +1074,8 @@ FAIL tooling tool=psql reason=not_found classification=P0_ENVIRONMENTAL
         }
     ]
 }
-FAIL tooling tool=pg_dump reason=not_found classification=P0_ENVIRONMENTAL
-FAIL tooling tool=pg_restore reason=not_found classification=P0_ENVIRONMENTAL
-PASS manifest exit_code=0 duration_seconds=2
+PASS manifest exit_code=0 duration_seconds=1
 RUN partial-indexes
-SKIP database reason=psql_not_found classification=P0_ENVIRONMENTAL
-SKIP build reason=dotnet_not_found classification=P0_ENVIRONMENTAL
-SKIP API probes reason=SIGOV_API_BASE_URL_not_set classification=OPTIONAL_RUNTIME_NOT_REQUESTED
-SKIP Web probes reason=SIGOV_WEB_BASE_URL_not_set classification=OPTIONAL_RUNTIME_NOT_REQUESTED
-SMOKE COMPLETE output=sanitized secrets=not_logged
-GATE BLOCKED reason=mandatory_tooling_unavailable exit_code=2
 [WARN] migration 010_create_sigov_indexes_constraints.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
 [OK] migration 013_sigov_foundation_refactor_fixups.sql: colunas usadas em índices parciais estão garantidas
 [WARN] migration 017_processos_digitais_protocolo_ged.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
@@ -1156,8 +1155,9 @@ GATE BLOCKED reason=mandatory_tooling_unavailable exit_code=2
 [OK] migration 20260818142000_rc50_50_saneamento_operacao_campo_core.sql: colunas usadas em índices parciais estão garantidas
 [OK] migration 20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core.sql: colunas usadas em índices parciais estão garantidas
 [WARN] migration 20260818160000_rc50_52_lgpd_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
-Resumo: 49 migration(s) com possível risco; revise os avisos antes de publicar.
-PASS partial-indexes exit_code=0 duration_seconds=2
+[WARN] migration 20260819120000_rc50_60_fluxos_educacao_saude_core.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+Resumo: 50 migration(s) com possível risco; revise os avisos antes de publicar.
+PASS partial-indexes exit_code=0 duration_seconds=1
 RUN indexes
 [WARN] 010_create_sigov_indexes_constraints.sql: ux_entidade_cnpj em sigov.entidade não garante antes do índice: cnpj, is_deleted
 [WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_entidade_id em sigov.pessoa não garante antes do índice: entidade_id
@@ -1285,8 +1285,9 @@ RUN indexes
 [WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_esic_prazo_operacional em sigov.esic_pedido não garante antes do índice: prazo_at
 [WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_ouvidoria_prazo_operacional em sigov.ouvidoria_manifestacao não garante antes do índice: ativo, is_deleted, prazo_at, status, tenant_id
 [WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ux_atendimento_codigo em sigov.atendimento_digital_chamado não garante antes do índice: codigo, is_deleted, tenant_id
-Resumo: 1215 índice(s) simples verificados; 126 aviso(s).
-PASS indexes exit_code=0 duration_seconds=2
+[WARN] 20260819120000_rc50_60_fluxos_educacao_saude_core.sql: ux_matricula_aluno_ano_ativa em sigov.matricula não garante antes do índice: ativa, confirmada, in
+Resumo: 1217 índice(s) simples verificados; 127 aviso(s).
+PASS indexes exit_code=0 duration_seconds=1
 RUN immutable-indexes
 database/postgres/migrations/021_educacao_base.sql:422: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_frequencia_turma_aluno_data_componente on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula, coalesce(componente_curricular, '')) where is_deleted = false;
   recomendação: avalie uma coluna materializada para simplificar a chave do índice.
@@ -1302,8 +1303,8 @@ database/postgres/migrations/20260813160000_rc50_25_educacao_fluxo_diario.sql:18
   recomendação: avalie uma coluna materializada para simplificar a chave do índice.
 database/postgres/migrations/20260818122000_rc50_48_educacao_biblioteca_digital_core.sql:33: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_educacao_biblioteca_exemplar_codigo on sigov.educacao_biblioteca_exemplar(tenant_id,coalesce(escola_id,0),codigo) where is_deleted=false and ativo=true;
   recomendação: avalie uma coluna materializada para simplificar a chave do índice.
-OK: 114 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conservador(es).
-PASS immutable-indexes exit_code=0 duration_seconds=2
+OK: 115 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conservador(es).
+PASS immutable-indexes exit_code=0 duration_seconds=1
 RUN route-conflicts
 Nenhum conflito direto em 605 rotas API (/workspace/SIGOV-PLUS/src/Sigov.Api/Controllers).
 PASS route-conflicts exit_code=0 duration_seconds=1

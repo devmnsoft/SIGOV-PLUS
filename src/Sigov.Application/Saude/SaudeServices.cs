@@ -34,11 +34,17 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     private async Task<Result> GuardAsync(string recurso, string acao, CancellationToken ct, bool offline = false)
     {
         if (TenantId <= 0) return Fail("Tenant obrigatório para operações de Saúde.");
-        if (!await _modulos.IsModuleEnabledAsync(TenantId, SaudePermissoes.Modulo, ct).ConfigureAwait(false)) return Fail("Módulo saúde não contratado/habilitado para o tenant.");
-        if (offline && !await _features.IsEnabledAsync(TenantId, SaudePermissoes.AcsOfflineFeature, ct).ConfigureAwait(false)) return Fail("Feature ACS offline desabilitada para o tenant.");
-        if (!_user.IsAuthenticated || !UsuarioId.HasValue) return Fail("Usuário autenticado obrigatório.");
+        if (!await _modulos.IsModuleEnabledAsync(TenantId, SaudePermissoes.Modulo, ct).ConfigureAwait(false)) return await NegarAsync(recurso, acao, "Módulo saúde não contratado/habilitado para o tenant.", ct).ConfigureAwait(false);
+        if (offline && !await _features.IsEnabledAsync(TenantId, SaudePermissoes.AcsOfflineFeature, ct).ConfigureAwait(false)) return await NegarAsync(recurso, acao, "Feature ACS offline desabilitada para o tenant.", ct).ConfigureAwait(false);
+        if (!_user.IsAuthenticated || !UsuarioId.HasValue) return await NegarAsync(recurso, acao, "Usuário autenticado obrigatório.", ct).ConfigureAwait(false);
         var ok = await _permissions.HasPermissionAsync(UsuarioId.Value, SaudePermissoes.Modulo, recurso, acao, ct).ConfigureAwait(false);
-        return ok ? Result.Success() : Fail("Usuário sem permissão para a operação de Saúde.");
+        return ok ? Result.Success() : await NegarAsync(recurso, acao, "Usuário sem permissão para a operação de Saúde.", ct).ConfigureAwait(false);
+    }
+
+    private async Task<Result> NegarAsync(string recurso, string acao, string motivo, CancellationToken ct)
+    {
+        await _audit.RegistrarAsync("saude", "ACESSO_NEGADO", "seguranca_evento", recurso, null, new { recurso, acao, motivo, usuarioId = UsuarioId, tenantId = TenantId }, ct).ConfigureAwait(false);
+        return Fail(motivo);
     }
 
     private async Task<Result<long>> CriarAsync(string recurso, string acao, object request, CancellationToken ct, bool offline = false)
@@ -139,15 +145,15 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     Task<Result<PagedResult<FarmaciaProdutoResponse>>> IFarmaciaService.ListarProdutosAsync(UnidadeSaudeFiltro f, CancellationToken ct) => ListarAsync<FarmaciaProdutoResponse>("farmacia_produto", "farmacia", f, ct);
     Task<Result<long>> IFarmaciaService.CriarProdutoAsync(FarmaciaProdutoCreateRequest r, CancellationToken ct) => CriarAsync("farmacia_produto", "produto.criar", r, ct);
     Task<Result<PagedResult<FarmaciaEstoqueResponse>>> IFarmaciaService.ListarEstoqueAsync(UnidadeSaudeFiltro f, CancellationToken ct) => ListarAsync<FarmaciaEstoqueResponse>("farmacia_estoque", "farmacia", f, ct);
-    Task<Result<long>> IFarmaciaService.DispensarAsync(FarmaciaDispensacaoCreateRequest r, CancellationToken ct) => CriarAsync("farmacia_dispensacao", "dispensar", r, ct);
+    Task<Result<long>> IFarmaciaService.DispensarAsync(FarmaciaDispensacaoCreateRequest r, CancellationToken ct) => r.Quantidade <= 0 || r.PacienteId <= 0 ? Task.FromResult(Fail<long>("Dispensação exige paciente e quantidade positiva.")) : CriarAsync("farmacia_dispensacao", "dispensar", r, ct);
     Task<Result<PagedResult<VacinacaoResponse>>> IVacinacaoService.ListarAsync(PacienteFiltro f, CancellationToken ct) => ListarAsync<VacinacaoResponse>("vacinacao", "vacinacao", f, ct);
-    Task<Result<long>> IVacinacaoService.CriarAsync(VacinacaoCreateRequest r, CancellationToken ct) => CriarAsync("vacinacao", "criar", r, ct);
+    Task<Result<long>> IVacinacaoService.CriarAsync(VacinacaoCreateRequest r, CancellationToken ct) => r.PacienteId <= 0 || r.ProfissionalSaudeId.GetValueOrDefault() <= 0 ? Task.FromResult(Fail<long>("Aplicação de vacina exige paciente e profissional.")) : CriarAsync("vacinacao", "aplicar", r, ct);
     Task<Result<PagedResult<LaboratorioExameResponse>>> ILaboratorioService.ListarAsync(PacienteFiltro f, CancellationToken ct) => ListarAsync<LaboratorioExameResponse>("laboratorio", "laboratorio", f, ct);
     Task<Result<long>> ILaboratorioService.CriarAsync(LaboratorioExameCreateRequest r, CancellationToken ct) => CriarAsync("laboratorio", "criar", r, ct);
     Task<Result> ILaboratorioService.RegistrarResultadoAsync(long id, LaboratorioResultadoRequest r, CancellationToken ct) => AtualizarAsync("laboratorio_resultado", "resultado", id, r, ct);
     Task<Result<PagedResult<RegulacaoSolicitacaoResponse>>> IRegulacaoService.ListarAsync(PacienteFiltro f, CancellationToken ct) => ListarAsync<RegulacaoSolicitacaoResponse>("regulacao", "regulacao", f, ct);
-    Task<Result<long>> IRegulacaoService.CriarAsync(RegulacaoSolicitacaoCreateRequest r, CancellationToken ct) => CriarAsync("regulacao", "criar", r, ct);
-    Task<Result> IRegulacaoService.AlterarStatusAsync(long id, AlterarStatusRequest r, CancellationToken ct) => AtualizarAsync("regulacao_status", "editar", id, r, ct);
+    Task<Result<long>> IRegulacaoService.CriarAsync(RegulacaoSolicitacaoCreateRequest r, CancellationToken ct) => r.PacienteId <= 0 || string.IsNullOrWhiteSpace(r.TipoSolicitacao) || string.IsNullOrWhiteSpace(r.Justificativa) ? Task.FromResult(Fail<long>("Regulação exige paciente, tipo e justificativa.")) : CriarAsync("regulacao", "criar", r, ct);
+    Task<Result> IRegulacaoService.AlterarStatusAsync(long id, AlterarStatusRequest r, CancellationToken ct) => string.IsNullOrWhiteSpace(r.Status) ? Task.FromResult(Fail("Movimentação da regulação exige status.")) : AtualizarAsync("regulacao_status", "movimentar", id, r, ct);
     Task<Result<PagedResult<AcsMicroareaResponse>>> IAcsService.ListarMicroareasAsync(UnidadeSaudeFiltro f, CancellationToken ct) => ListarAsync<AcsMicroareaResponse>("acs_microarea", "acs", f, ct);
     Task<Result<long>> IAcsService.CriarMicroareaAsync(AcsMicroareaCreateRequest r, CancellationToken ct) => CriarAsync("acs_microarea", "cadastrar", r, ct);
     Task<Result<long>> IAcsService.CriarDispositivoAsync(AcsDispositivoCreateRequest r, CancellationToken ct) => CriarAsync("acs_dispositivo", "cadastrar", r, ct);
@@ -156,7 +162,7 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     Task<Result<PagedResult<AcsCadastroIndividualResponse>>> IAcsService.ListarIndividuosAsync(PacienteFiltro f, CancellationToken ct) => ListarAsync<AcsCadastroIndividualResponse>("acs_individuo", "acs", f, ct);
     Task<Result<long>> IAcsService.CriarIndividuoAsync(AcsCadastroIndividualCreateRequest r, CancellationToken ct) => CriarAsync("acs_individuo", "cadastrar", r, ct);
     Task<Result<PagedResult<AcsVisitaResponse>>> IAcsService.ListarVisitasAsync(PacienteFiltro f, CancellationToken ct) => ListarAsync<AcsVisitaResponse>("acs_visita", "acs", f, ct);
-    Task<Result<long>> IAcsService.RegistrarVisitaAsync(AcsVisitaCreateRequest r, CancellationToken ct) => CriarAsync("acs_visita", "visita", r, ct);
+    Task<Result<long>> IAcsService.RegistrarVisitaAsync(AcsVisitaCreateRequest r, CancellationToken ct) => r.ProfissionalAcsId <= 0 || string.IsNullOrWhiteSpace(r.Desfecho) || (!r.AcsCadastroDomiciliarId.HasValue && !r.PacienteId.HasValue && !r.AcsCadastroIndividualId.HasValue) ? Task.FromResult(Fail<long>("Visita exige ACS, domicílio ou paciente e desfecho.")) : CriarAsync("acs_visita", "registrar", r, ct);
 
     async Task<Result<AcsSyncLoteResponse>> IAcsSyncService.ProcessarAsync(AcsSyncLoteRequest r, CancellationToken ct)
     {

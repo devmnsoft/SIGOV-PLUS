@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Api.Middlewares;
 using Sigov.Application.Common;
 using Sigov.Application.Educacao;
 using Sigov.Domain.Common;
@@ -6,6 +7,7 @@ using Sigov.Domain.Common;
 namespace Sigov.Api.Controllers;
 
 [ApiController]
+[RequireModule(EducacaoPermissoes.Modulo)]
 public abstract class EducacaoApiControllerBase : ControllerBase
 {
     protected ActionResult<ApiResponse<T>> FromResult<T>(Result<T> result)

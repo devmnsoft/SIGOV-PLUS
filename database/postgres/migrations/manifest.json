@@ -1054,6 +1054,16 @@
       "applyAutomatically": true,
       "checksum": "e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee",
       "postConditionSql": "select to_regclass('sigov.lgpd_incidente_evento') is not null"
+    },
+    {
+      "version": "20260819120000",
+      "file": "20260819120000_rc50_60_fluxos_educacao_saude_core.sql",
+      "description": "20260819120000_rc50_60_fluxos_educacao_saude_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar')"
     }
   ],
   "compatibilityAfterAll": [
