@@ -1085,6 +1085,16 @@ RUN manifest
             "applyAutomatically": true,
             "checksum": "19843e03bcab2cfe86cd45b4a5ed1f10c976f479c95f3163f51188f21b2cb78a",
             "postConditionSql": "select exists (select 1 from sigov.permissao where chave='obras.encerramento.registrar')"
+        },
+        {
+            "version": "20260819150000",
+            "file": "20260819150000_rc50_63_consolidacao_transversal_core.sql",
+            "description": "20260819150000_rc50_63_consolidacao_transversal_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "dd6d8fd38e1ede277a30a01385fb9a7a012ed9c0d2ee84525fc9c10f554f8e1b",
+            "postConditionSql": "select to_regclass('sigov.pendencia_operacional') is not null and to_regclass('sigov.alerta_operacional') is not null"
         }
     ],
     "compatibilityAfterAll": [
@@ -1094,7 +1104,7 @@ RUN manifest
         }
     ]
 }
-PASS manifest exit_code=0 duration_seconds=1
+PASS manifest exit_code=0 duration_seconds=0
 RUN partial-indexes
 [WARN] migration 010_create_sigov_indexes_constraints.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
 [OK] migration 013_sigov_foundation_refactor_fixups.sql: colunas usadas em índices parciais estão garantidas
@@ -1178,7 +1188,8 @@ RUN partial-indexes
 [WARN] migration 20260819120000_rc50_60_fluxos_educacao_saude_core.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
 [WARN] migration 20260819130000_rc50_61_fluxos_documental_institucional_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
 [WARN] migration 20260819140000_rc50_62_fluxos_administrativos_internos_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
-Resumo: 52 migration(s) com possível risco; revise os avisos antes de publicar.
+[WARN] migration 20260819150000_rc50_63_consolidacao_transversal_core.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+Resumo: 53 migration(s) com possível risco; revise os avisos antes de publicar.
 PASS partial-indexes exit_code=0 duration_seconds=1
 RUN indexes
 [WARN] 010_create_sigov_indexes_constraints.sql: ux_entidade_cnpj em sigov.entidade não garante antes do índice: cnpj, is_deleted
@@ -1308,7 +1319,9 @@ RUN indexes
 [WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_ouvidoria_prazo_operacional em sigov.ouvidoria_manifestacao não garante antes do índice: ativo, is_deleted, prazo_at, status, tenant_id
 [WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ux_atendimento_codigo em sigov.atendimento_digital_chamado não garante antes do índice: codigo, is_deleted, tenant_id
 [WARN] 20260819120000_rc50_60_fluxos_educacao_saude_core.sql: ux_matricula_aluno_ano_ativa em sigov.matricula não garante antes do índice: ativa, confirmada, in
-Resumo: 1217 índice(s) simples verificados; 127 aviso(s).
+[WARN] 20260819150000_rc50_63_consolidacao_transversal_core.sql: ux_pendencia_operacional_aberta em sigov.pendencia_operacional não garante antes do índice: aberta, em_tratamento, in
+[WARN] 20260819150000_rc50_63_consolidacao_transversal_core.sql: ux_qualidade_dados_aberta em sigov.qualidade_dados_ocorrencia não garante antes do índice: aberta, em_correcao, in
+Resumo: 1222 índice(s) simples verificados; 129 aviso(s).
 PASS indexes exit_code=0 duration_seconds=2
 RUN immutable-indexes
 database/postgres/migrations/021_educacao_base.sql:422: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_frequencia_turma_aluno_data_componente on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula, coalesce(componente_curricular, '')) where is_deleted = false;
@@ -1325,10 +1338,10 @@ database/postgres/migrations/20260813160000_rc50_25_educacao_fluxo_diario.sql:18
   recomendação: avalie uma coluna materializada para simplificar a chave do índice.
 database/postgres/migrations/20260818122000_rc50_48_educacao_biblioteca_digital_core.sql:33: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_educacao_biblioteca_exemplar_codigo on sigov.educacao_biblioteca_exemplar(tenant_id,coalesce(escola_id,0),codigo) where is_deleted=false and ativo=true;
   recomendação: avalie uma coluna materializada para simplificar a chave do índice.
-OK: 117 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conservador(es).
+OK: 118 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conservador(es).
 PASS immutable-indexes exit_code=0 duration_seconds=1
 RUN route-conflicts
-Nenhum conflito direto em 605 rotas API (/workspace/SIGOV-PLUS/src/Sigov.Api/Controllers).
+Nenhum conflito direto em 611 rotas API (/workspace/SIGOV-PLUS/src/Sigov.Api/Controllers).
 PASS route-conflicts exit_code=0 duration_seconds=1
 FAIL tooling tool=psql reason=not_found classification=P0_ENVIRONMENTAL
 FAIL tooling tool=pg_dump reason=not_found classification=P0_ENVIRONMENTAL
