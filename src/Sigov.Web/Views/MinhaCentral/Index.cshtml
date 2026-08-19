@@ -30,7 +30,7 @@
 </section>
 <div class="central-grid">
   <section class="central-panel central-panel--attention" aria-labelledby="meu-dia-title" data-sigov-tour="central-worklist">
-    <div class="central-panel__heading"><div><span class="central-eyebrow">Meu dia</span><h2 id="meu-dia-title">Prioridades de hoje</h2></div><button class="sigov-btn sigov-btn--ghost sigov-btn--sm" type="button" data-sigov-mark-seen>Marcar como visto</button></div>
+    <div class="central-panel__heading"><div><span class="central-eyebrow">Meu dia</span><h2 id="meu-dia-title">Prioridades de hoje</h2></div><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Pendencias">Ver todas</a></div>
     @if (Model.Pendencias.Count == 0) { <div class="sigov-empty-state-premium"><sigov-icon name="success" size="34" /><strong>Nenhuma pendência agora</strong><span>Quando tarefas, protocolos ou documentos exigirem sua ação, eles aparecerão aqui.</span></div> }
     else { <ul class="sigov-timeline-premium">@foreach (var item in Model.Pendencias.Take(6)) { <li><div><strong>@item.Titulo</strong><span>@item.Descricao</span></div><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Url">Abrir</a></li> }</ul> }
   </section>
@@ -41,11 +41,12 @@
   </section>
   <section class="central-panel central-panel--wide" aria-labelledby="acoes-title">
     <div class="central-panel__heading"><div><span class="central-eyebrow">Produtividade</span><h2 id="acoes-title">Atalhos recomendados</h2></div></div>
-    <nav class="central-shortcuts" aria-label="Ações recomendadas">@foreach (var acao in Model.Acoes.Take(8)) { <a class="sigov-action-card" href="@acao.Url"><span class="sigov-action-card__icon"><sigov-icon name="@("warning" == acao.CssClass ? "risk" : "dashboard")" size="20" /></span><span><strong>@acao.Titulo</strong><small>@acao.Descricao</small></span></a> }</nav>
+    @if (Model.Acoes.Count == 0) { <div class="sigov-empty-state-premium"><sigov-icon name="locked" size="32" /><strong>Nenhum atalho disponível para este perfil</strong><span>Os atalhos aparecem quando o perfil recebe acesso a uma jornada operacional.</span><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Modulos/MeuAcesso">Consultar meu acesso</a></div> }
+    else { <nav class="central-shortcuts" aria-label="Ações recomendadas">@foreach (var acao in Model.Acoes.Take(8)) { <a class="sigov-action-card" href="@acao.Url"><span class="sigov-action-card__icon"><sigov-icon name="@("warning" == acao.CssClass ? "risk" : "dashboard")" size="20" /></span><span><strong>@acao.Titulo</strong><small>@acao.Descricao</small></span></a> }</nav> }
   </section>
   @if (admin)
   {
     <section class="central-panel" aria-labelledby="ambiente-title"><div class="central-panel__heading"><div><span class="central-eyebrow">Saúde do ambiente</span><h2 id="ambiente-title">Operação</h2></div><a href="/Operacao/Health">Detalhar</a></div><ul class="central-modules">@foreach (var item in Model.Ambiente.Take(5)) { <li><span>@item.Nome</span><span class="sigov-status-pill @(item.Online ? "sigov-status-pill--success" : "sigov-status-pill--danger")">@item.Status</span></li> }</ul></section>
   }
 </div>
-@section Scripts { <script>document.querySelector('[data-sigov-mark-seen]')?.addEventListener('click',()=>window.SigovToast?.success('Itens marcados','A marcação local foi registrada para auditoria futura.'));(function(){const box=document.querySelector('[data-sigov-recent-list]'),empty=document.querySelector('[data-sigov-recent-empty]');try{const rows=JSON.parse(localStorage.getItem('sigov.recent.routes')||'[]').slice(0,5); if(rows.length){empty.hidden=true; rows.forEach(r=>{const a=document.createElement('a');a.className='sigov-action-card';a.href=r.url;a.innerHTML='<span class="sigov-action-card__icon"><sigov-icon name="recent" size="18" /></span><span><strong>'+r.title+'</strong><small>'+r.url+'</small></span>';box.appendChild(a);});}}catch{empty.hidden=false;}})();</script> }
+@section Scripts { <script>(function(){const box=document.querySelector('[data-sigov-recent-list]'),empty=document.querySelector('[data-sigov-recent-empty]');try{const rows=JSON.parse(localStorage.getItem('sigov.recent.routes')||'[]').slice(0,5); if(rows.length){empty.hidden=true; rows.forEach(r=>{const a=document.createElement('a');a.className='sigov-action-card';a.href=r.url;a.innerHTML='<span class="sigov-action-card__icon"><sigov-icon name="recent" size="18" /></span><span><strong>'+r.title+'</strong><small>'+r.url+'</small></span>';box.appendChild(a);});}}catch{empty.hidden=false;}})();</script> }

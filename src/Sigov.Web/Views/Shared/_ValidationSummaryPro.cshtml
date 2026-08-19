@@ -1,0 +1,7 @@
+@if (!ViewData.ModelState.IsValid)
+{
+  <div class="sigov-validation-summary" role="alert" tabindex="-1" data-sigov-validation-summary>
+    <strong>Revise os campos indicados.</strong>
+    <div asp-validation-summary="ModelOnly"></div>
+  </div>
+}

@@ -25,7 +25,7 @@ public sealed class MinhaCentralService
         try
         {
             var tenantId = TryGetLong(user.FindFirst("tenant_id")?.Value);
-            var tenant = tenantId.HasValue ? $"Tenant #{tenantId.Value}" : "Ambiente demonstração";
+            var tenant = tenantId.HasValue ? $"Tenant #{tenantId.Value}" : "Contexto institucional não identificado";
             if (tenantId.HasValue && await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false))
             {
                 using var cn = _connectionFactory.CreateConnection();
@@ -41,8 +41,7 @@ public sealed class MinhaCentralService
                 Pendencias = await ObterPendenciasAsync(user, cancellationToken).ConfigureAwait(false),
                 AlertasLgpd = await ObterAlertasLgpdAsync(user, cancellationToken).ConfigureAwait(false),
                 Atividades = await ObterUltimasAtividadesAsync(user, cancellationToken).ConfigureAwait(false),
-                Ambiente = _saasService.CriarAmbiente(true),
-                MensagemFallback = "Quando alguma tabela opcional não existir, a Central mostra recomendações e sinaliza limitação sem simular dados."
+                Ambiente = _saasService.CriarAmbiente(true)
             };
         }
         catch (Exception ex)
@@ -96,14 +95,15 @@ public sealed class MinhaCentralService
     private static string Perfil(ClaimsPrincipal user) => user.Claims.FirstOrDefault(x => x.Type is ClaimTypes.Role or "role")?.Value ?? "Operador";
     private static AcaoRecomendadaViewModel[] AcoesPerfil(ClaimsPrincipal user)
     {
-        if (user.IsInRole("ADMINISTRADOR_GERAL") || user.IsInRole("SUPER_ADMIN")) return new[] { A("Status funcional", "Comprove estruturas e módulos.", "/Modulos/StatusFuncional"), A("Alertas críticos", "Acompanhe riscos técnicos e funcionais.", "/Alertas"), A("Matriz de acesso", "Revise concessões e negativas.", "/Seguranca/Permissoes") };
+        if (user.IsInRole("ADMINISTRADOR_GERAL") || user.IsInRole("SUPER_ADMIN") || user.IsInRole("SUPERADMIN") || user.IsInRole("ADMIN_GERAL")) return new[] { A("Status funcional", "Comprove estruturas e módulos.", "/Modulos/StatusFuncional"), A("Alertas críticos", "Acompanhe riscos técnicos e funcionais.", "/Alertas"), A("Matriz de acesso", "Revise concessões e negativas.", "/Seguranca/MatrizAcesso") };
         if (user.IsInRole("ADMIN_TENANT")) return new[] { A("Módulos contratados", "Revise o catálogo do tenant.", "/Saas/Modulos"), A("Pendências", "Resolva pendências do tenant.", "/Pendencias"), A("Auditoria e LGPD", "Acompanhe trilhas autorizadas.", "/Auditoria/Trilhas") };
         if (user.IsInRole("PROFESSOR")) return new[] { A("Minhas turmas", "Consulte somente turmas vinculadas.", "/Educacao/Turmas"), A("Frequência", "Registre a frequência pendente.", "/Educacao/Frequencias") };
-        if (user.IsInRole("ACS")) return new[] { A("Visitas pendentes", "Consulte sua microárea.", "/Saude/Acs"), A("Ocorrências", "Registre o desfecho da visita.", "/Saude/Acs") };
+        if (user.IsInRole("ACS")) return new[] { A("Visitas pendentes", "Consulte sua microárea.", "/Acs/Visitas"), A("Domicílios", "Consulte somente sua área autorizada.", "/Acs/Domicilios") };
         if (user.IsInRole("FUNCIONARIO_FINANCEIRO")) return new[] { A("Pagamentos", "Trate pagamentos permitidos.", "/Financeiro/Pagamentos"), A("Pendências financeiras", "Consulte baixas, DAMs e faturas.", "/Pendencias") };
         if (user.IsInRole("AUDITOR")) return new[] { A("Trilhas", "Consulte eventos sem alterar operação.", "/Auditoria/Trilhas"), A("Alertas", "Veja negativas, exportações e LGPD.", "/Alertas") };
+        if (user.IsInRole("ATENDIMENTO")) return new[] { A("Protocolos", "Acompanhe os atendimentos autorizados.", "/AtendimentoDigital/Chamados"), A("Ouvidoria", "Consulte manifestações do tenant.", "/AtendimentoDigital/Ouvidoria"), A("e-SIC", "Acompanhe solicitações de informação.", "/AtendimentoDigital/ESic") };
         if (user.IsInRole("ALMOXARIFADO")) return new[] { A("Estoque", "Consulte saldos e estoque crítico.", "/Almoxarifado"), A("Pendências", "Trate requisições autorizadas.", "/Pendencias") };
-        return new[] { A("Minhas pendências", "Veja somente ações do seu perfil.", "/Pendencias"), A("Alertas", "Acompanhe alertas autorizados.", "/Alertas") };
+        return new[] { A("Meu acesso", "Consulte os módulos e ações liberados para seu perfil.", "/Modulos/MeuAcesso") };
     }
     private static AcaoRecomendadaViewModel A(string title, string description, string url) => new(title, description, url, "info");
 }

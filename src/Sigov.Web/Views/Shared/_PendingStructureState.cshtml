@@ -1,0 +1,10 @@
+@{
+    var title = ViewData["StateTitle"] as string ?? "Estrutura pendente";
+    var message = ViewData["StateMessage"] as string ?? "A estrutura deste módulo ainda não foi aplicada. Nenhum dado foi simulado.";
+}
+<section class="sigov-system-state" role="status" aria-labelledby="pending-structure-title">
+  <sigov-icon name="info" size="32" />
+  <span class="sigov-status-pill sigov-status-pill--warning">Estrutura pendente</span>
+  <h2 id="pending-structure-title">@title</h2><p>@message</p>
+  <a class="sigov-btn sigov-btn--ghost" href="/MinhaCentral">Voltar com segurança</a>
+</section>

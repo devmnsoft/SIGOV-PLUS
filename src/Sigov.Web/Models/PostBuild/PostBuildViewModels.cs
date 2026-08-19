@@ -131,7 +131,7 @@ public sealed class HealthVisualViewModel
 public sealed class MinhaCentralViewModel
 {
     public string Perfil { get; init; } = "Operador";
-    public string Tenant { get; init; } = "Ambiente demonstração";
+    public string Tenant { get; init; } = "Contexto institucional não identificado";
     public IReadOnlyCollection<AcaoRecomendadaViewModel> Acoes { get; init; } = Array.Empty<AcaoRecomendadaViewModel>();
     public IReadOnlyCollection<ModuloResumoViewModel> Modulos { get; init; } = Array.Empty<ModuloResumoViewModel>();
     public IReadOnlyCollection<PendenciaViewModel> Pendencias { get; init; } = Array.Empty<PendenciaViewModel>();
