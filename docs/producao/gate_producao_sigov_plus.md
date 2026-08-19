@@ -22,3 +22,7 @@ A aprovação é formal e exige evidência anexada ao change. Item não comprova
 - [ ] logs estruturados têm correlation id sem segredo/PII; health e migrations têm diagnóstico sanitizado.
 - [ ] backup, restore, rollback, deploy, workers e troubleshooting estão documentados.
 - [ ] smoke de produção-like e checklist pós-deploy foram arquivados; nenhum P0 está aberto.
+
+## Automação RC50.54
+
+Dispare **SIGOV+ Production Gate** em `workflow_dispatch` ou por PR para `main`. Os jobs `static-validation`, `database-clean-apply`, `database-partial-apply`, `runtime-build`, `runtime-smoke` e `artifact-summary` precisam terminar em sucesso. Baixe `rc50-54-production-evidence`; `SKIP` de ferramenta/banco/build, segredo ou P0 torna o gate reprovado. No Windows execute `scripts/prod-gate-local.ps1` conforme `prod_gate_local_windows.md`.

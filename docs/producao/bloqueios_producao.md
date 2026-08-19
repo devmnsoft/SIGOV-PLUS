@@ -17,3 +17,9 @@
 - **P2:** CSP sem `unsafe-inline`, tuning medido e polimento visual.
 
 Os gates estáticos passam, mas não encerram nenhum P0 runtime. O relatório detalhado está em `docs/execucao/rc50_53_prod_relatorio_validacao_integrada_real.md`.
+
+## Gate RC50.54
+
+O workflow `production-gate.yml` transforma ausência de ferramenta, apply/build/runtime/restore falho e segredo em P0. Um resultado CI só encerra a parte automatizada; login autenticado e persistência de permissões/LGPD/auditoria/exportação ainda exigem evidência local/homologação. Até execução verde do workflow e do gate Windows, a decisão permanece **não apto**.
+
+- **P0 estático RC50.54:** usos históricos de `SELECT *` permanecem no código/migrations; `static-validation` bloqueia o PR até a substituição segura por projeções explícitas.

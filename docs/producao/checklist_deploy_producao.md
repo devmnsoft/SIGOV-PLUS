@@ -13,3 +13,8 @@
 - [ ] validar login/troca inicial de senha, MinhaCentral, ProjectStatus, Observabilidade, permissões, LGPD e auditoria.
 - [ ] confirmar Swagger inacessível, headers/TLS/cookie, páginas críticas, exportação auditada e ausência de 404/500.
 - [ ] executar smoke, arquivar resultado sanitizado e monitorar latência/erros/filas após liberar tráfego.
+
+## Evidência automatizada RC50.54
+- [ ] Workflow **SIGOV+ Production Gate** verde e artifacts baixados/inspecionados.
+- [ ] Gate Windows executado em `C:\MNSOFT\SIGOV-PLUS`; admin/superadmin validados sem registrar credenciais.
+- [ ] Nenhum `SKIP` obrigatório; logs e dumps não contêm senha/conexão completa.

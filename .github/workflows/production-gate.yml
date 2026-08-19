@@ -1,0 +1,183 @@
+name: SIGOV+ Production Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ASPNETCORE_ENVIRONMENT: Development
+  PGPASSWORD: '123456'
+  SIGOV_DB_HOST: localhost
+  SIGOV_DB_PORT: '5432'
+  SIGOV_DB_NAME: postgres
+  SIGOV_DB_USER: postgres
+  SIGOV_DB_SCHEMA: sigov
+  SIGOV_SMOKE_APPLY_DATABASE: 'true'
+  SIGOV_API_BASE_URL: http://localhost:5001
+  SIGOV_WEB_BASE_URL: http://localhost:5002
+  SIGOV_SWAGGER_ENABLED: 'true'
+  SIGOV_WORKER_DISABLE_EXTERNAL_JOBS: 'true'
+  ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=123456;Search Path=sigov;Application Name=sigov.ci
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation tools
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Validate manifest, migrations, routes and C# 10 contracts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m json.tool database/postgres/migrations/manifest.json >/dev/null
+          ./scripts/check-migration-partial-index-columns.sh database/postgres/migrations
+          ./scripts/check-migration-index-columns.sh database/postgres/migrations
+          ./scripts/check-migration-immutable-index-expressions.sh database/postgres/migrations
+          bash scripts/check-api-route-conflicts.sh
+          ! rg '"""' src -g '*.cs'
+          ! rg 'SELECT[[:space:]]+\*' src database/postgres/migrations -g '*.cs' -g '*.sql' -i
+          ! rg '\.TotalCount' src -g '*.cs'
+          ! rg 'NotImplemented|NotImplementedException|StatusCode\(501|return[[:space:]]+501' src -g '*.cs' -g '*.cshtml'
+
+  database-clean-apply:
+    runs-on: ubuntu-latest
+    services: &postgres
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 123456
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require PostgreSQL client suite
+        run: command -v psql && command -v pg_dump && command -v pg_restore && psql --version && pg_dump --version && pg_restore --version
+      - name: Apply and verify clean database
+        run: |
+          psql -X -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS sigov;'
+          psql -X -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/postgres/script_completo_dev.sql > clean-apply.log
+          psql -X -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT current_database();
+          SELECT schema_name FROM information_schema.schemata WHERE schema_name='sigov';
+          SELECT count(*) FROM sigov.schema_migrations WHERE success;
+          SELECT to_regclass('sigov.usuario'), to_regclass('sigov.tenant'), to_regclass('sigov.permissao'), to_regclass('sigov.solicitacao_titular'), to_regclass('sigov.trilha_auditoria');
+          SQL
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: database-clean-log, path: clean-apply.log}
+
+  database-partial-apply:
+    runs-on: ubuntu-latest
+    services: *postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create isolated legacy shape and converge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          command -v psql && command -v pg_dump && command -v pg_restore
+          createdb -h localhost -U postgres sigov_partial
+          psql -X -h localhost -U postgres -d sigov_partial -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE SCHEMA sigov;
+          CREATE TABLE sigov.obra_medicao (
+            id bigserial PRIMARY KEY, tenant_id bigint NOT NULL, obra_id bigint NOT NULL,
+            competencia date NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+          );
+          SQL
+          psql -X -h localhost -U postgres -d sigov_partial -v ON_ERROR_STOP=1 -f database/postgres/script_completo_dev.sql > partial-apply.log
+          psql -X -h localhost -U postgres -d sigov_partial -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM sigov.schema_migrations WHERE success;"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: database-partial-log, path: partial-apply.log}
+
+  runtime-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - name: Clean, locked restore and warnings-as-errors build
+        run: |
+          dotnet --info
+          dotnet clean sigov.runtime.slnf
+          dotnet restore sigov.runtime.slnf --locked-mode
+          dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror
+
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    needs: [static-validation, database-clean-apply, database-partial-apply, runtime-build]
+    services: *postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: {global-json-file: global.json}
+      - name: Require tools, build and provision database
+        run: |
+          command -v psql && command -v pg_dump && command -v pg_restore && command -v dotnet
+          dotnet restore sigov.runtime.slnf --locked-mode
+          dotnet build sigov.runtime.slnf -c Release --no-restore --nologo -warnaserror
+          psql -X -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/postgres/script_completo_dev.sql > database.log
+      - name: Start API and Web
+        run: |
+          mkdir -p artifacts/smoke artifacts/logs artifacts/backups
+          ASPNETCORE_URLS=http://localhost:5001 dotnet run --project src/Sigov.Api/Sigov.Api.csproj -c Release --no-build > artifacts/logs/api.log 2>&1 & echo $! > api.pid
+          ASPNETCORE_URLS=http://localhost:5002 dotnet run --project src/Sigov.Web/Sigov.Web.csproj -c Release --no-build > artifacts/logs/web.log 2>&1 & echo $! > web.pid
+          for i in {1..60}; do curl -fsS http://localhost:5001/health >/dev/null && curl -fsS http://localhost:5002/Auth/Login >/dev/null && exit 0; sleep 2; done
+          exit 1
+      - name: Probe API, Web and critical pages
+        run: ./scripts/check-critical-pages.sh
+      - name: Verify Worker remains healthy until controlled timeout
+        shell: bash
+        run: |
+          set +e
+          timeout 30s dotnet run --project src/Sigov.Worker/Sigov.Worker.csproj -c Release --no-build > artifacts/logs/worker.log 2>&1
+          code=$?
+          set -e
+          test "$code" -eq 124 || test "$code" -eq 0
+      - name: Run production-like smoke without mandatory skips
+        run: |
+          ./scripts/smoke-production-like.sh
+          ! rg 'SKIP (database|build)|FAIL tooling' artifacts/smoke/rc50_54_prod_gate_result.txt
+      - name: Backup, isolated restore and verification
+        shell: bash
+        run: |
+          backup="$(SIGOV_BACKUP_DIR=artifacts/backups ./scripts/db/backup-sigov.sh artifacts/backups)"
+          createdb -h localhost -U postgres sigov_restore
+          SIGOV_DB_NAME=sigov_restore ./scripts/db/restore-sigov.sh "$backup"
+          SIGOV_DB_NAME=sigov_restore ./scripts/db/verify-restore-sigov.sh
+      - name: Reject secret disclosure
+        if: always()
+        run: |
+          ! rg -F 'Password=123456' artifacts || exit 1
+          ! rg -F 'PGPASSWORD' artifacts || exit 1
+      - name: Stop processes
+        if: always()
+        run: for f in api.pid web.pid; do test ! -f "$f" || kill "$(cat "$f")" 2>/dev/null || true; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: rc50-54-production-evidence, path: artifacts}
+
+  artifact-summary:
+    runs-on: ubuntu-latest
+    needs: [static-validation, database-clean-apply, database-partial-apply, runtime-build, runtime-smoke]
+    if: always()
+    steps:
+      - name: Enforce all gate jobs and publish summary
+        shell: bash
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: |
+          printf '## SIGOV+ Production Gate\n\nJobs: `%s`\n' "$RESULTS" >> "$GITHUB_STEP_SUMMARY"
+          test "${RESULTS//success/}" = ',,,,'

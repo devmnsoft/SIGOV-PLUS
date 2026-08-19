@@ -9,3 +9,11 @@
 7. **Performance:** identifique query/tenant/paginação, plano e locks; não crie índice sem os três validadores.
 
 Escale P0 imediatamente. Após correção, repita smoke e registre causa raiz, evidência e prevenção.
+
+## Diagnóstico do gate RC50.54
+
+* **`psql`/dump/restore:** confirme os três binários no `PATH`, PostgreSQL em `localhost:5432`, banco `postgres`, schema `sigov` e `PGPASSWORD` somente na sessão.
+* **Build:** repita restore locked e build `-warnaserror`; corrija a origem, sem `NoWarn`, mudança de linguagem ou remoção de DI/controller.
+* **Swagger/health:** confirme `Development`, URLs HTTP 5001, processo/API log e banco; Swagger em Production deve continuar restrito.
+* **Login/500/404:** preserve status, rota, horário e correlation id; confira antiforgery, cookie, autorização, migration e logs sanitizados.
+* **Backup/restore:** valide espaço/permissão, formato custom e banco isolado; nunca restaure sobre `postgres` e nunca anexe dump com dados reais ao artifact público.
