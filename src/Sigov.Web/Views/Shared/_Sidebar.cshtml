@@ -1,9 +1,12 @@
+@inject Sigov.Web.Services.IMenuPermissionService MenuPermissions
 @{
   var path = Context.Request.Path.Value ?? string.Empty;
   Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
   Func<string[], string> opened = urls => urls.Any(url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase)) ? "open" : string.Empty;
   var claims = User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope").SelectMany(c => c.Value.Split(new[]{' ',',',';'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
   var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || claims.Contains("compras_empresariais.dashboard.visualizar", StringComparer.OrdinalIgnoreCase);
+  var canSeeSecurity = MenuPermissions.CanSeeModule(User, "seguranca");
+  var canSeeAudit = MenuPermissions.CanSeeModule(User, "auditoria-lgpd");
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
@@ -188,14 +191,19 @@
     <details class="sigov-nav-group" @opened(new[]{"/SystemHealth","/Observabilidade","/Seguranca","/Auditoria","/Lgpd"})><summary><sigov-icon name="shield" size="16" />Governança e Segurança</summary>
       <a class="sigov-nav-link@(active("/SystemHealth/ProjectStatus"))" href="/SystemHealth/ProjectStatus"><span>Project Status</span></a>
       <a class="sigov-nav-link@(active("/Observabilidade"))" href="/Observabilidade/Dashboard"><span>Observabilidade</span></a>
+      @if (canSeeSecurity) {
       <a class="sigov-nav-link@(active("/Seguranca/Dashboard"))" href="/Seguranca/Dashboard"><span>Segurança</span></a>
       <a class="sigov-nav-link@(active("/Seguranca/Perfis"))" href="/Seguranca/Perfis"><span>Perfis e Permissões</span></a>
+      <a class="sigov-nav-link@(active("/Seguranca/MatrizAcesso"))" href="/Seguranca/MatrizAcesso"><span>Matriz de acesso</span></a>
+      }
+      @if (canSeeAudit) {
       <a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Dashboard"><span>Auditoria</span></a>
       <a class="sigov-nav-link@(active("/Lgpd"))" href="/Lgpd/Dashboard"><span>LGPD</span></a>
       <a class="sigov-nav-link@(active("/Lgpd/Incidentes"))" href="/Lgpd/Incidentes"><span>Incidentes</span></a>
       <a class="sigov-nav-link@(active("/Lgpd/AcessosDadosPessoais"))" href="/Lgpd/AcessosDadosPessoais"><span>Acessos a Dados Pessoais</span></a>
       <a class="sigov-nav-link@(active("/Lgpd/Retencao"))" href="/Lgpd/Retencao"><span>Retenção e Descarte</span></a>
       <a class="sigov-nav-link@(active("/Auditoria/Exportacoes"))" href="/Auditoria/Exportacoes"><span>Relatórios de Governança</span></a>
+      }
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd"})><summary><sigov-icon name="settings" size="16" />Administração</summary>
       <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios"><sigov-icon name="users" size="18"/><span>Usuários</span></a>
@@ -205,7 +213,8 @@
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Ajuda","/Manual","/Modulos"})><summary><sigov-icon name="help" size="16" />Ajuda</summary>
       <a class="sigov-nav-link@(active("/Ajuda"))" href="/Ajuda"><sigov-icon name="help" size="18"/><span>Central de Ajuda</span></a>
-      <a class="sigov-nav-link@(active("/Modulos"))" href="/Modulos"><sigov-icon name="dashboard" size="18"/><span>Catálogo</span></a>
+      <a class="sigov-nav-link@(active("/Modulos/Catalogo"))" href="/Modulos/Catalogo"><sigov-icon name="dashboard" size="18"/><span>Catálogo de módulos</span></a>
+      <a class="sigov-nav-link@(active("/Modulos/MeuAcesso"))" href="/Modulos/MeuAcesso"><sigov-icon name="shield" size="18"/><span>Meu acesso</span></a>
     </details>
   </nav>
 </aside>

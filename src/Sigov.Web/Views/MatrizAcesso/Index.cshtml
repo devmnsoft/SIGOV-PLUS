@@ -1,0 +1,11 @@
+@model Sigov.Web.Models.Security.AccessMatrixViewModel
+@{ ViewData["Title"] = "Matriz de acesso"; }
+@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Matriz real de acesso", "Módulos, recursos, ações e bloqueios explícitos por perfil.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Segurança", "/Seguranca/Dashboard"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Matriz de acesso", Context.Request.Path, true) }))
+<form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-5"><label class="form-label" for="perfil">Perfil</label><select id="perfil" name="perfil" class="form-select">@foreach (var profile in Model.Profiles) { <option value="@profile" selected="@(profile == Model.Profile)">@profile</option> }</select></div>
+    <div class="col-auto"><button class="btn btn-primary" type="submit">Visualizar</button></div>
+    @if (Model.CanExport) { <div class="col-auto"><a class="btn btn-outline-primary" href="/Seguranca/MatrizAcesso/Exportar?perfil=@Model.Profile">Exportar CSV</a></div> }
+</form>
+<div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Módulo</th><th>Recurso</th><th>Ação</th><th>Estado</th><th>Motivo</th></tr></thead><tbody>
+@foreach (var row in Model.Rows) { <tr><td>@row.Module</td><td>@row.Resource</td><td>@row.Action</td><td><span class="badge @(row.Allowed ? "bg-success" : "bg-danger")">@(row.Allowed ? "Liberada" : "Bloqueada")</span></td><td>@row.Reason</td></tr> }
+</tbody></table></div>
