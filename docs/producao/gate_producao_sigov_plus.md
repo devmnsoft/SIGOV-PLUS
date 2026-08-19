@@ -26,3 +26,7 @@ A aprovação é formal e exige evidência anexada ao change. Item não comprova
 ## Automação RC50.54
 
 Dispare **SIGOV+ Production Gate** em `workflow_dispatch` ou por PR para `main`. Os jobs `static-validation`, `database-clean-apply`, `database-partial-apply`, `runtime-build`, `runtime-smoke` e `artifact-summary` precisam terminar em sucesso. Baixe `rc50-54-production-evidence`; `SKIP` de ferramenta/banco/build, segredo ou P0 torna o gate reprovado. No Windows execute `scripts/prod-gate-local.ps1` conforme `prod_gate_local_windows.md`.
+
+## RC50.55 — projeções e severidade
+
+O gate estático deve exigir zero correspondências executáveis para projeções curingas nos diretórios protegidos. Saída warning dos validadores permanece artifact: exit code não zero ou falha PostgreSQL é P0; aviso conservador aprovado apenas após applies limpo/parcial é P1; casamento imutável comprovado pode ser P2 documentado. Ausência de ferramenta obrigatória continua bloqueando, nunca aprovando por `SKIP`.

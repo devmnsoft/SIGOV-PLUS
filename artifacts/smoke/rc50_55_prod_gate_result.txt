@@ -1,0 +1,19 @@
+RUN manifest
+PASS manifest exit_code=0 duration_seconds=0
+RUN partial-indexes
+PASS partial-indexes exit_code=0 duration_seconds=1
+RUN indexes
+PASS indexes exit_code=0 duration_seconds=1
+RUN immutable-indexes
+PASS immutable-indexes exit_code=0 duration_seconds=1
+RUN route-conflicts
+PASS route-conflicts exit_code=0 duration_seconds=0
+FAIL tooling tool=psql reason=not_found classification=P0_ENVIRONMENTAL
+FAIL tooling tool=pg_dump reason=not_found classification=P0_ENVIRONMENTAL
+FAIL tooling tool=pg_restore reason=not_found classification=P0_ENVIRONMENTAL
+SKIP database reason=psql_not_found classification=P0_ENVIRONMENTAL
+SKIP build reason=dotnet_not_found classification=P0_ENVIRONMENTAL
+SKIP API probes reason=SIGOV_API_BASE_URL_not_set classification=OPTIONAL_RUNTIME_NOT_REQUESTED
+SKIP Web probes reason=SIGOV_WEB_BASE_URL_not_set classification=OPTIONAL_RUNTIME_NOT_REQUESTED
+SMOKE COMPLETE output=sanitized secrets=not_logged
+GATE BLOCKED reason=mandatory_tooling_unavailable exit_code=2

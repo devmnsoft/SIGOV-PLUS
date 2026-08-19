@@ -514,35 +514,35 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     private async Task<ActionResult<ApiResponse<object>>> Listar(string tabela, string? busca, int page, int pageSize, string order)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select * from {tabela} t where t.tenant_id=@TenantId and (@Busca is null or t::text ilike '%'||@Busca||'%') order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} t where t.tenant_id=@TenantId and (@Busca is null or t::text ilike '%'||@Busca||'%') order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao listar indústria. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao listar registros.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> Obter(string tabela, long id)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select * from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter indústria. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter registro.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ObterComFilhos(string tabela, string tabelaFilho, string fk, long id, string nomeFilho)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select * from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (row is null) return NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)); var filhos = await c.QueryAsync<object>($"select * from {tabelaFilho} where {fk}=@Id order by id", new { Id = id }); return Ok(ApiResponse<object>.Ok(new Dictionary<string, object?> { ["registro"] = row, [nomeFilho] = filhos }, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (row is null) return NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)); var filhos = await c.QueryAsync<object>($"select {Projection(tabelaFilho)} from {tabelaFilho} where {fk}=@Id order by id", new { Id = id }); return Ok(ApiResponse<object>.Ok(new Dictionary<string, object?> { ["registro"] = row, [nomeFilho] = filhos }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter composição indústria. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter registro.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ObterOrdem(long id)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var ordem = await c.QuerySingleOrDefaultAsync<object>("select * from sigov.industria_ordem_producao where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (ordem is null) return NotFound(ApiResponse<object>.Fail("OP não encontrada.", cid)); var materiais = await c.QueryAsync<object>("select * from sigov.industria_ordem_material where ordem_id=@Id", new { Id = id }); var operacoes = await c.QueryAsync<object>("select * from sigov.industria_ordem_operacao where ordem_id=@Id", new { Id = id }); var historico = await c.QueryAsync<object>("select * from sigov.industria_ordem_historico where ordem_id=@Id and tenant_id=@TenantId order by created_at", new { Id = id, TenantId = tenantId }); return Ok(ApiResponse<object>.Ok(new { ordem, materiais, operacoes, historico }, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var ordem = await c.QuerySingleOrDefaultAsync<object>("select id, tenant_id, numero, produto_id, ficha_tecnica_id, roteiro_id, pedido_id, os_id, status, quantidade_planejada, quantidade_produzida, quantidade_refugada, data_previsao_inicio, data_previsao_fim, inicio_at, fim_at, observacao, created_at, updated_at from sigov.industria_ordem_producao where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (ordem is null) return NotFound(ApiResponse<object>.Fail("OP não encontrada.", cid)); var materiais = await c.QueryAsync<object>("select id, ordem_id, produto_id, quantidade_planejada, quantidade_consumida, unidade from sigov.industria_ordem_material where ordem_id=@Id", new { Id = id }); var operacoes = await c.QueryAsync<object>("select id, ordem_id, operacao_codigo, descricao, centro_trabalho_id, recurso_id, status, inicio_at, fim_at, ordem from sigov.industria_ordem_operacao where ordem_id=@Id", new { Id = id }); var historico = await c.QueryAsync<object>("select id, tenant_id, ordem_id, status_anterior, status_novo, usuario_id, origem, observacao, correlation_id, created_at from sigov.industria_ordem_historico where ordem_id=@Id and tenant_id=@TenantId order by created_at", new { Id = id, TenantId = tenantId }); return Ok(ApiResponse<object>.Ok(new { ordem, materiais, operacoes, historico }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter OP. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter OP.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ListarPorOrdem(string tabela, long ordemId)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select * from {tabela} where tenant_id=@TenantId and ordem_id=@OrdemId order by id", new { TenantId = tenantId, OrdemId = ordemId }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} where tenant_id=@TenantId and ordem_id=@OrdemId order by id", new { TenantId = tenantId, OrdemId = ordemId }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao listar por OP. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao listar por OP.", cid)); }
     }
 
@@ -564,6 +564,22 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     private static Task<bool> ExisteProduto(System.Data.IDbConnection c, long tenantId, long id) => c.ExecuteScalarAsync<bool>("select exists(select 1 from sigov.industria_produto where id=@Id and tenant_id=@TenantId and ativo=true)", new { Id = id, TenantId = tenantId });
     private Task Historico(System.Data.IDbConnection c, long tenantId, long ordemId, string? anterior, string novo, string origem, string observacao, string cid) => c.ExecuteAsync("insert into sigov.industria_ordem_historico(tenant_id,ordem_id,status_anterior,status_novo,usuario_id,origem,observacao,correlation_id) values(@TenantId,@OrdemId,@Anterior,@Novo,@UsuarioId,@Origem,@Observacao,cast(@CorrelationId as uuid))", new { TenantId = tenantId, OrdemId = ordemId, Anterior = anterior, Novo = novo, UsuarioId = _user.UsuarioId, Origem = origem, Observacao = observacao, CorrelationId = Guid.TryParse(cid, out var parsed) ? parsed : Guid.NewGuid() });
     private Task Auditar(System.Data.IDbConnection c, long tenantId, string evento, string entidade, long entityId, object payload, string cid) => c.ExecuteAsync("insert into sigov.auditoria_evento(tenant_id,usuario_id,acao,entidade,entidade_id,correlation_id,depois,created_at) values(@TenantId,@UsuarioId,@Evento,@Entidade,@RegistroId,cast(@CorrelationId as uuid),cast(@Payload as jsonb),now())", new { TenantId = tenantId, UsuarioId = _user.UsuarioId, Evento = evento, Entidade = entidade, RegistroId = entityId.ToString(CultureInfo.InvariantCulture), CorrelationId = Guid.TryParse(cid, out var parsed) ? parsed : Guid.NewGuid(), Payload = JsonSerializer.Serialize(payload) });
+
+    private static string Projection(string table) => table switch
+    {
+        "sigov.industria_apontamento" => "id, tenant_id, ordem_id, ordem_operacao_id, usuario_id, tipo, origem, inicio_at, fim_at, quantidade_boas, quantidade_refugo, observacao, created_at",
+        "sigov.industria_centro_trabalho" => "id, tenant_id, codigo, nome, descricao, ativo, created_at, updated_at",
+        "sigov.industria_custo_ordem" => "id, tenant_id, ordem_id, custo_material, custo_mao_obra, custo_maquina, custo_indireto, custo_refugo, custo_total, custo_unitario, calculado_at",
+        "sigov.industria_ficha_tecnica" => "id, tenant_id, produto_id, codigo, versao, status, rendimento, observacao, created_at, updated_at",
+        "sigov.industria_ficha_tecnica_item" => "id, ficha_tecnica_id, componente_produto_id, quantidade, perda_percentual, unidade, obrigatorio, ordem",
+        "sigov.industria_inspecao_qualidade" => "id, tenant_id, ordem_id, produto_id, status, resultado, observacao, inspecionado_por, inspecionado_at, created_at",
+        "sigov.industria_ordem_producao" => "id, tenant_id, numero, produto_id, ficha_tecnica_id, roteiro_id, pedido_id, os_id, status, quantidade_planejada, quantidade_produzida, quantidade_refugada, data_previsao_inicio, data_previsao_fim, inicio_at, fim_at, observacao, created_at, updated_at",
+        "sigov.industria_produto" => "id, tenant_id, produto_id, codigo, nome, tipo, unidade, controla_lote, controla_validade, exige_ficha_tecnica, inspecao_obrigatoria, ativo, created_at, updated_at",
+        "sigov.industria_recurso" => "id, tenant_id, centro_trabalho_id, codigo, nome, tipo, custo_hora, capacidade_hora, ativo, created_at, updated_at",
+        "sigov.industria_roteiro" => "id, tenant_id, produto_id, codigo, nome, versao, status, created_at, updated_at",
+        "sigov.industria_roteiro_operacao" => "id, roteiro_id, centro_trabalho_id, recurso_id, codigo, descricao, tempo_setup_min, tempo_execucao_min, ordem",
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela fora da allowlist de projeções.")
+    };
     private long RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("tenant_id obrigatório para operação industrial.");
     private string CorrelationId() => HttpContext.TraceIdentifier;
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);

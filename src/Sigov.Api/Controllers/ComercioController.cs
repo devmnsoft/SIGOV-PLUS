@@ -346,7 +346,7 @@ order by nome offset @Offset limit @Limit", new { TenantId = tenantId, Busca = b
     private async Task<ActionResult<ApiResponse<object>>> ObterCaixaAberto()
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>("select * from sigov.comercio_caixa where tenant_id=@TenantId and status='ABERTO' order by aberto_at desc limit 1", new { TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Nenhum caixa aberto.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>("select id, tenant_id, usuario_abertura_id, usuario_fechamento_id, status, valor_abertura, valor_fechamento, aberto_at, fechado_at, observacao from sigov.comercio_caixa where tenant_id=@TenantId and status='ABERTO' order by aberto_at desc limit 1", new { TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Nenhum caixa aberto.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter caixa aberto. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter caixa.", cid)); }
     }
 
@@ -402,21 +402,21 @@ select tenant_id,cliente_id,vendedor_id,tabela_preco_id,id,concat('P-',numero),s
     private async Task<ActionResult<ApiResponse<object>>> ListarCadastro(string tabela, string? busca, int page, int pageSize, string order)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select * from {tabela} where tenant_id=@TenantId order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} where tenant_id=@TenantId order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao listar cadastro comércio. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao listar cadastro.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> Obter(string tabela, long id)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select * from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter comércio. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter registro.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ObterComItens(string tabela, string itensTabela, string fk, long id)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select * from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); var itens = await c.QueryAsync<object>($"select * from {itensTabela} where {fk}=@Id", new { Id = id }); return Ok(ApiResponse<object>.Ok(new { row, itens }, correlationId: cid)); }
+        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); var itens = await c.QueryAsync<object>($"select {Projection(itensTabela)} from {itensTabela} where {fk}=@Id", new { Id = id }); return Ok(ApiResponse<object>.Ok(new { row, itens }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter documento comércio. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter documento.", cid)); }
     }
 
@@ -502,6 +502,22 @@ select tenant_id,cliente_id,vendedor_id,tabela_preco_id,id,concat('P-',numero),s
         await c.ExecuteAsync("insert into sigov.auditoria_evento(tenant_id,usuario_id,acao,entidade,entidade_id,correlation_id,depois,created_at) values(@TenantId,@UsuarioId,@Evento,@Tabela,@RegistroId,cast(@CorrelationId as uuid),cast(@Payload as jsonb),now())", new { TenantId = tenantId, Evento = evento, Tabela = "comercio", RegistroId = entityId.ToString(CultureInfo.InvariantCulture), UsuarioId = _user.UsuarioId, CorrelationId = Guid.TryParse(cid, out var parsedCid) ? parsedCid : Guid.NewGuid(), Payload = System.Text.Json.JsonSerializer.Serialize(payload) });
     }
 
+
+    private static string Projection(string table) => table switch
+    {
+        "sigov.comercio_caixa" => "id, tenant_id, usuario_abertura_id, usuario_fechamento_id, status, valor_abertura, valor_fechamento, aberto_at, fechado_at, observacao",
+        "sigov.comercio_cliente" => "id, tenant_id, nome, tipo_pessoa, documento, email, telefone, endereco_json, limite_credito, ativo, created_at, updated_at",
+        "sigov.comercio_comissao" => "id, tenant_id, venda_id, pedido_id, vendedor_id, representante_id, base_calculo, percentual, valor, status, created_at, paga_at",
+        "sigov.comercio_orcamento" => "id, tenant_id, cliente_id, vendedor_id, tabela_preco_id, numero, status, subtotal, desconto, acrescimo, total, observacao, created_at, aprovado_at, reprovado_at",
+        "sigov.comercio_orcamento_item" => "id, orcamento_id, produto_id, descricao, quantidade, valor_unitario, desconto, total",
+        "sigov.comercio_pedido" => "id, tenant_id, cliente_id, vendedor_id, representante_id, tabela_preco_id, orcamento_id, numero, status, subtotal, desconto, acrescimo, total, observacao, estoque_reservado, estoque_baixado, created_at, confirmado_at, separado_at, faturado_at, cancelado_at",
+        "sigov.comercio_pedido_item" => "id, pedido_id, produto_id, descricao, quantidade, valor_unitario, desconto, total, gera_os",
+        "sigov.comercio_produto" => "id, tenant_id, codigo, nome, descricao, unidade, codigo_barras, preco_venda, preco_custo, controla_estoque, gera_os, estoque_minimo, ativo, created_at, updated_at",
+        "sigov.comercio_tabela_preco" => "id, tenant_id, codigo, nome, tipo, ativo, vigencia_inicio, vigencia_fim, created_at, updated_at",
+        "sigov.comercio_venda" => "id, tenant_id, caixa_id, cliente_id, vendedor_id, numero, tipo, status, subtotal, desconto, acrescimo, total, observacao, estoque_baixado, created_at, finalizada_at, cancelada_at",
+        "sigov.comercio_venda_item" => "id, venda_id, produto_id, descricao, quantidade, valor_unitario, desconto, total",
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela fora da allowlist de projeções.")
+    };
     private long RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("tenant_id obrigatório para operação comercial.");
     private string CorrelationId() => HttpContext.TraceIdentifier;
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);

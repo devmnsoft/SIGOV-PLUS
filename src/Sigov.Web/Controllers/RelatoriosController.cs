@@ -81,7 +81,9 @@ public sealed class RelatoriosController : Controller
     {
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "implantacao", "implantacao_etapa", "migracao_lote", "migracao_log", "treinamento", "treinamento_participante", "suporte_chamado", "sla_evento", "poc_requisito", "aceite_formal" };
         if (!allowed.Contains(table)) return Csv("mensagem\nRelatório contratual não permitido.\n", "contratual-indisponivel.csv");
-        return await ExportSimpleAsync(table, $"select * from sigov.\"{table}\" limit 500;", "dados", $"{table}.csv", cancellationToken).ConfigureAwait(false);
+        var columns = await _schemaInspector.GetColumnsAsync("sigov", table, cancellationToken).ConfigureAwait(false);
+        var projection = string.Join(", ", columns.Select(column => $"\"{column.Replace("\"", "\"\"", StringComparison.Ordinal)}\""));
+        return await ExportSimpleAsync(table, $"select {projection} from sigov.\"{table}\" limit 500;", string.Join(';', columns), $"{table}.csv", cancellationToken).ConfigureAwait(false);
     }
 
     [HttpGet("/Relatorios/AuditoriasCsv")]

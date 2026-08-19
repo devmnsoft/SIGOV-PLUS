@@ -23,3 +23,7 @@ Os gates estáticos passam, mas não encerram nenhum P0 runtime. O relatório de
 O workflow `production-gate.yml` transforma ausência de ferramenta, apply/build/runtime/restore falho e segredo em P0. Um resultado CI só encerra a parte automatizada; login autenticado e persistência de permissões/LGPD/auditoria/exportação ainda exigem evidência local/homologação. Até execução verde do workflow e do gate Windows, a decisão permanece **não apto**.
 
 - **P0 estático RC50.54:** usos históricos de `SELECT *` permanecem no código/migrations; `static-validation` bloqueia o PR até a substituição segura por projeções explícitas.
+
+## Estado RC50.55 — 2026-08-19
+
+O P0 estático de projeções curingas foi encerrado (52/52). Os validadores passam sem P0 comprovado e preservam 49/126 P1 e 7 P2 documentados. A promoção continua **bloqueada**: este host não oferece `dotnet`, `psql`, `pg_dump` ou `pg_restore`, logo banco limpo/parcial, build e runtime não possuem evidência e são P0 ambiental.

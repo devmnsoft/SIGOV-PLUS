@@ -1,0 +1,127 @@
+[WARN] 010_create_sigov_indexes_constraints.sql: ux_entidade_cnpj em sigov.entidade não garante antes do índice: cnpj, is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_entidade_id em sigov.pessoa não garante antes do índice: entidade_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_exercicio_id em sigov.pessoa não garante antes do índice: exercicio_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_documento em sigov.pessoa não garante antes do índice: documento
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_is_deleted em sigov.pessoa não garante antes do índice: is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_created_at em sigov.pessoa não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_login em sigov.usuario não garante antes do índice: is_deleted, login
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_entidade_id em sigov.usuario não garante antes do índice: entidade_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_exercicio_id em sigov.usuario não garante antes do índice: exercicio_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_is_deleted em sigov.usuario não garante antes do índice: is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_created_at em sigov.usuario não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_trilha_auditoria_periodo em sigov.trilha_auditoria não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_trilha_auditoria_tabela em sigov.trilha_auditoria não garante antes do índice: tabela
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_trilha_auditoria_usuario_id em sigov.trilha_auditoria não garante antes do índice: usuario_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_acesso_dado_pessoal_pessoa em sigov.acesso_dado_pessoal não garante antes do índice: pessoa_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_usuario_solicitante_id em sigov.chamado não garante antes do índice: usuario_solicitante_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_entidade_id em sigov.chamado não garante antes do índice: entidade_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_exercicio_id em sigov.chamado não garante antes do índice: exercicio_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_is_deleted em sigov.chamado não garante antes do índice: is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_created_at em sigov.chamado não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_endereco_pessoa_id em sigov.endereco não garante antes do índice: pessoa_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_contato_pessoa_id em sigov.contato não garante antes do índice: pessoa_id
+[WARN] 013_sigov_foundation_refactor_fixups.sql: idx_usuario_login em sigov.usuario não garante antes do índice: is_deleted, login
+[WARN] 013_sigov_foundation_refactor_fixups.sql: idx_usuario_email em sigov.usuario não garante antes do índice: email, is_deleted
+[WARN] 013_sigov_foundation_refactor_fixups.sql: idx_permissao_modulo_recurso_acao em sigov.permissao não garante antes do índice: is_deleted, modulo
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_usuario_tenant_login em sigov.usuario não garante antes do índice: login, tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_usuario_tenant_email em sigov.usuario não garante antes do índice: email, tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_pessoa_tenant_documento em sigov.pessoa não garante antes do índice: documento, tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_chamado_tenant_numero em sigov.chamado não garante antes do índice: tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_trilha_auditoria_tenant_created_at em sigov.trilha_auditoria não garante antes do índice: tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_solicitacao_titular_tenant_status em sigov.solicitacao_titular não garante antes do índice: status, tenant_id
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_slug em sigov.tenant não garante antes do índice: slug
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_status em sigov.tenant não garante antes do índice: status
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_dominio_dominio em sigov.tenant_dominio não garante antes do índice: dominio
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_assinatura_status em sigov.tenant_assinatura não garante antes do índice: status
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_modulo_tenant_modulo em sigov.tenant_modulo não garante antes do índice: modulo_saas_id, tenant_id
+[WARN] 019_core_pessoas_enderecos_operacional.sql: ux_pessoa_tenant_documento_ativo em sigov.pessoa não garante antes do índice: documento, is_deleted, tenant_id
+[WARN] 019_core_pessoas_enderecos_operacional.sql: idx_pessoa_tenant_nome em sigov.pessoa não garante antes do índice: is_deleted, nome, tenant_id
+[WARN] 019_core_pessoas_enderecos_operacional.sql: idx_pessoa_tenant_tipo em sigov.pessoa não garante antes do índice: is_deleted, tenant_id, tipo_pessoa
+[WARN] 019_core_pessoas_enderecos_operacional.sql: idx_endereco_tenant_pessoa em sigov.endereco não garante antes do índice: is_deleted, pessoa_id, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_servidor_matricula em sigov.servidor não garante antes do índice: dados, is_deleted, matricula, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_servidor_cpf em sigov.servidor não garante antes do índice: cpf, dados, is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_cargo_codigo em sigov.cargo não garante antes do índice: codigo, dados, is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_lotacao_codigo em sigov.lotacao não garante antes do índice: codigo, dados, is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_vinculo_servidor em sigov.vinculo não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_folha_competencia em sigov.folha não garante antes do índice: is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_folha_lancamento_servidor em sigov.folha_lancamento não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_ponto_servidor_data em sigov.ponto não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_ferias_servidor em sigov.ferias não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_afastamento_servidor em sigov.afastamento não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_evento_outbox em sigov.rh_evento não garante antes do índice: is_deleted, tenant_id
+[WARN] 025_integracoes_outbox_webhooks_base.sql: idx_fila_evento_tenant_status em sigov.fila_evento não garante antes do índice: status
+[WARN] 025_integracoes_outbox_webhooks_base.sql: idx_fila_evento_proxima_tentativa em sigov.fila_evento não garante antes do índice: in, pendente, status
+[WARN] 20260608090000_saas_parametrizacao_perfis_modulos.sql: idx_usuario_tenant em sigov.usuario não garante antes do índice: is_deleted
+[WARN] 20260609120000_pos_build_03_saas_implantacao_tributario.sql: idx_saas_assinatura_tenant_status em sigov.saas_assinatura não garante antes do índice: status, tenant_id
+[WARN] 20260609120000_pos_build_03_saas_implantacao_tributario.sql: ux_saas_assinatura_ativa_tenant em sigov.saas_assinatura não garante antes do índice: ativa, status, tenant_id
+[WARN] 20260709120000_enterprise_funcional_crud.sql: enterprise_estoque_saldo_tenant_produto_uidx em sigov.enterprise_estoque_saldo não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_status em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_responsavel_prazo em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_version em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_entidade em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260730090000_pos_rc_32_ordem_servico.sql: ix_enterprise_financeiro_core em sigov.enterprise_integracao_financeira não garante antes do índice: conta_receber_core_id, tenant_core_id
+[WARN] 20260730110000_pos_rc_36b_permissao_chave_canonica.sql: permissao_chave_uidx em sigov.permissao não garante antes do índice: chave
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_cliente_documento_hash_uidx em sigov.enterprise_cliente não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_proposta_numero_uidx em sigov.enterprise_proposta não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_pedido_numero_uidx em sigov.enterprise_pedido_venda não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_pedido_proposta_uidx em sigov.enterprise_pedido_venda não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_lead_operacao_idx em sigov.enterprise_lead não garante antes do índice: is_deleted, status, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_oportunidade_funil_idx em sigov.enterprise_oportunidade não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_proposta_operacao_idx em sigov.enterprise_proposta não garante antes do índice: is_deleted, status, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_pedido_operacao_idx em sigov.enterprise_pedido_venda não garante antes do índice: is_deleted, status, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_cr_tenant_idempotency em sigov.financeiro_conta_receber não garante antes do índice: idempotency_key, is_deleted, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_cp_tenant_idempotency em sigov.financeiro_conta_pagar não garante antes do índice: idempotency_key, is_deleted, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_mov_tenant_idempotency em sigov.financeiro_movimento não garante antes do índice: idempotency_key, is_deleted, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_br_tenant_idempotency em sigov.financeiro_baixa_receber não garante antes do índice: tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_bp_tenant_idempotency em sigov.financeiro_baixa_pagar não garante antes do índice: tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_cr_pedido_parcela em sigov.financeiro_conta_receber não garante antes do índice: is_deleted, parcela, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ix_fin_cr_tenant_competencia em sigov.financeiro_conta_receber não garante antes do índice: competencia, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ix_fin_cp_tenant_competencia em sigov.financeiro_conta_pagar não garante antes do índice: competencia, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ix_fin_mov_tenant_conta_data em sigov.financeiro_movimento não garante antes do índice: conta_bancaria_id, data_movimento, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_caixa_sessao_aberta em sigov.financeiro_caixa_sessao não garante antes do índice: aberta
+[WARN] 20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql: ux_estoque_reserva_pedido_item_ativa em sigov.enterprise_estoque_reserva não garante antes do índice: is_deleted, pedido_item_id, tenant_id
+[WARN] 20260807120000_rc46_operacao_integrada.sql: ux_protocolo_numero_exercicio em sigov.protocolo não garante antes do índice: coalesce, exercicio, is_deleted, numero, tenant_id
+[WARN] 20260807120000_rc46_operacao_integrada.sql: ix_protocolo_escopo_status em sigov.protocolo não garante antes do índice: status, tenant_id
+[WARN] 20260813120000_rc50_24_educacao_rh_folha_produto_core.sql: ux_educacao_matricula_aluno_ano_ativa em sigov.educacao_matricula não garante antes do índice: ativa, ativo, confirmada, in, is_deleted, pendente, tenant_id
+[WARN] 20260813120000_rc50_24_educacao_rh_folha_produto_core.sql: ux_educacao_frequencia_diaria em sigov.educacao_frequencia não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813120000_rc50_27_operacoes_inteligentes.sql: ux_educacao_fila_ativa em sigov.educacao_fila_espera não garante antes do índice: aguardando
+[WARN] 20260813120000_rc50_27_operacoes_inteligentes.sql: ix_alerta_operacional_aberto em sigov.alerta_operacional não garante antes do índice: aberto
+[WARN] 20260813160000_rc50_25_educacao_fluxo_diario.sql: ux_diario_frequencia_aluno_data_componente em sigov.diario_frequencia não garante antes do índice: aluno_id, data_aula, entidade_id, is_deleted, tenant_id, turma_id
+[WARN] 20260813160000_rc50_25_educacao_fluxo_diario.sql: ux_matricula_aluno_ano_em_curso em sigov.matricula não garante antes do índice: aluno_id, ano_letivo_id, ativa, ativo, confirmada, entidade_id, in, is_deleted, pendente, status, tenant_id
+[WARN] 20260813190000_rc50_28_gestao_avancada.sql: ux_diario_turma_disciplina_periodo em sigov.educacao_diario_classe não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813195500_rc50_30_governanca_executiva.sql: ix_qualidade_abertas em sigov.qualidade_dados_inconsistencia não garante antes do índice: aberta
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_educacao_matricula_historico_matricula em sigov.educacao_matricula_historico não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_educacao_nota_matricula em sigov.educacao_nota não garante antes do índice: is_deleted, matricula_id, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_educacao_avaliacao_turma em sigov.educacao_avaliacao não garante antes do índice: is_deleted, tenant_id, turma_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ux_rh_servidor_matricula em sigov.rh_servidor não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ux_rh_servidor_cpf em sigov.rh_servidor não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_vinculo_servidor em sigov.rh_vinculo não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_dependente_servidor em sigov.rh_dependente não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_historico_servidor em sigov.rh_historico_funcional não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_pendencia_servidor_status em sigov.rh_pendencia_cadastral não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_folha_critica_folha_status em sigov.folha_critica não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_folha_contracheque_folha_servidor em sigov.folha_contracheque não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_folha_status_historico_folha em sigov.folha_status_historico não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ux_rh_ponto_registro_batida em sigov.rh_ponto_registro não garante antes do índice: is_deleted, servidor_id, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ux_rh_ponto_integracao_origem em sigov.rh_ponto_integracao_folha não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ux_rh_evento_integracao_origem em sigov.rh_evento_integracao_folha não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ix_rh_ponto_registro_data em sigov.rh_ponto_registro não garante antes do índice: data_referencia
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ix_rh_ponto_apuracao_competencia em sigov.rh_ponto_apuracao não garante antes do índice: competencia
+[WARN] 20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql: ux_fin_integracao_origem em sigov.financeiro_integracao_interna não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: ix_rel_exec_config_tenant_modulo em sigov.relatorio_executivo_config não garante antes do índice: is_deleted, modulo, tenant_id
+[WARN] 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: ix_rel_exec_execucao_status em sigov.relatorio_executivo_execucao não garante antes do índice: created_at, is_deleted, status, tenant_id
+[WARN] 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: ix_rel_exec_filtro_usuario em sigov.relatorio_executivo_filtro_salvo não garante antes do índice: created_by, is_deleted, modulo, tenant_id
+[WARN] 20260817140000_rc50_45_processos_digitais_core.sql: ux_processo_codigo_publico em sigov.processo_digital não garante antes do índice: codigo, is_deleted, tenant_id
+[WARN] 20260817140000_rc50_45_processos_digitais_core.sql: ix_processo_prazo_operacional em sigov.processo_prazo não garante antes do índice: ativo, is_deleted, prazo_at, status, tenant_id
+[WARN] 20260817140000_rc50_45_processos_digitais_core.sql: ix_protocolo_codigo_consulta em sigov.protocolo_externo não garante antes do índice: codigo, is_deleted, sigiloso, tenant_id
+[WARN] 20260817141000_rc50_45_ged_assinaturas_core.sql: ux_ged_validacao_codigo_publico em sigov.ged_validacao_publica não garante antes do índice: codigo_validacao, is_deleted, sigiloso, tenant_id
+[WARN] 20260817141000_rc50_45_ged_assinaturas_core.sql: ix_ged_documento_hash em sigov.ged_documento não garante antes do índice: hash_sha256, tenant_id
+[WARN] 20260817141000_rc50_45_ged_assinaturas_core.sql: ix_assinatura_prazo_pendente em sigov.assinatura_documento não garante antes do índice: pendente, prazo_at
+[WARN] 20260817142000_rc50_45_legislativo_camara_core.sql: ux_legislativo_proposicao_numero em sigov.legislativo_proposicao não garante antes do índice: ano, numero, tenant_id, tipo
+[WARN] 20260817142000_rc50_45_legislativo_camara_core.sql: ux_legislativo_voto_parlamentar em sigov.legislativo_voto não garante antes do índice: is_deleted, referencia_id, responsavel_id, tenant_id
+[WARN] 20260817142000_rc50_45_legislativo_camara_core.sql: ix_legislativo_votacao_aberta em sigov.legislativo_votacao não garante antes do índice: referencia_id
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ux_diario_validacao_publica em sigov.diario_oficial_publicacao não garante antes do índice: codigo_validacao, sigiloso, tenant_id
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_esic_prazo_operacional em sigov.esic_pedido não garante antes do índice: prazo_at
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_ouvidoria_prazo_operacional em sigov.ouvidoria_manifestacao não garante antes do índice: ativo, is_deleted, prazo_at, status, tenant_id
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ux_atendimento_codigo em sigov.atendimento_digital_chamado não garante antes do índice: codigo, is_deleted, tenant_id
+Resumo: 1215 índice(s) simples verificados; 126 aviso(s).

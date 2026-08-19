@@ -17,3 +17,7 @@ Escale P0 imediatamente. Após correção, repita smoke e registre causa raiz, e
 * **Swagger/health:** confirme `Development`, URLs HTTP 5001, processo/API log e banco; Swagger em Production deve continuar restrito.
 * **Login/500/404:** preserve status, rota, horário e correlation id; confira antiforgery, cookie, autorização, migration e logs sanitizados.
 * **Backup/restore:** valide espaço/permissão, formato custom e banco isolado; nunca restaure sobre `postgres` e nunca anexe dump com dados reais ao artifact público.
+
+## RC50.55 — gate bloqueado por ambiente
+
+Quando o smoke registrar `P0_ENVIRONMENTAL`, instale o SDK definido em `global.json` e os clientes PostgreSQL (`psql`, `pg_dump`, `pg_restore`), disponibilize o banco isolado e repita o gate. Não edite o artifact nem reclassifique `SKIP` como sucesso. Para avisos de índice, consulte os artifacts `rc50_55_*_warnings.txt` e promova para P0 qualquer migration que falhe no apply.
