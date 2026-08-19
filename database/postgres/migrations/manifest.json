@@ -1044,6 +1044,16 @@
       "applyAutomatically": true,
       "checksum": "493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63",
       "postConditionSql": "select to_regclass('sigov.seguranca_permissao_granular') is not null and to_regclass('sigov.lgpd_incidente') is not null and to_regclass('sigov.auditoria_evento_operacional') is not null"
+    },
+    {
+      "version": "20260818160000",
+      "file": "20260818160000_rc50_52_lgpd_operacional.sql",
+      "description": "20260818160000_rc50_52_lgpd_operacional",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee",
+      "postConditionSql": "select to_regclass('sigov.lgpd_incidente_evento') is not null"
     }
   ],
   "compatibilityAfterAll": [
