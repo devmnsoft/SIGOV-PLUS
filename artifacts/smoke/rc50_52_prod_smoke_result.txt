@@ -1,0 +1,1303 @@
+RUN python -m json.tool database/postgres/migrations/manifest.json
+{
+    "migrations": [
+        {
+            "version": "001",
+            "file": "001_create_sigov_schema.sql",
+            "description": "create_sigov_schema",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8"
+        },
+        {
+            "version": "002",
+            "file": "002_create_sigov_infrastructure.sql",
+            "description": "create_sigov_infrastructure",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130"
+        },
+        {
+            "version": "003",
+            "file": "003_create_sigov_core.sql",
+            "description": "create_sigov_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e"
+        },
+        {
+            "version": "004",
+            "file": "004_create_sigov_security_audit_lgpd.sql",
+            "description": "create_sigov_security_audit_lgpd",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2"
+        },
+        {
+            "version": "005",
+            "file": "005_create_sigov_bi_workflow.sql",
+            "description": "create_sigov_bi_workflow",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+        },
+        {
+            "version": "006",
+            "file": "006_create_sigov_financeiro_tributario.sql",
+            "description": "create_sigov_financeiro_tributario",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+        },
+        {
+            "version": "007",
+            "file": "007_create_sigov_compras_rh_educacao.sql",
+            "description": "create_sigov_compras_rh_educacao",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+        },
+        {
+            "version": "008",
+            "file": "008_create_sigov_saude_social_saneamento.sql",
+            "description": "create_sigov_saude_social_saneamento",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb"
+        },
+        {
+            "version": "009",
+            "file": "009_create_sigov_suporte_integracao_geo.sql",
+            "description": "create_sigov_suporte_integracao_geo",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441"
+        },
+        {
+            "version": "010",
+            "file": "010_create_sigov_indexes_constraints.sql",
+            "description": "create_sigov_indexes_constraints",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3"
+        },
+        {
+            "version": "011",
+            "file": "011_seed_sigov_dev.sql",
+            "description": "seed_sigov_dev",
+            "category": "development-seed",
+            "includeInBaseline": false,
+            "applyAutomatically": false,
+            "checksum": "c7beb5fd376638f7aa6ee9096e28d9bd21be342e7182b10e60d992c9bc348606"
+        },
+        {
+            "version": "012",
+            "file": "012_compat_move_legacy_schemas_to_sigov.sql",
+            "description": "compat_move_legacy_schemas_to_sigov",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699"
+        },
+        {
+            "version": "013",
+            "file": "013_sigov_foundation_refactor_fixups.sql",
+            "description": "sigov_foundation_refactor_fixups",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367"
+        },
+        {
+            "version": "014",
+            "file": "014_saas_tenants_planos_assinaturas.sql",
+            "description": "saas_tenants_planos_assinaturas",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0"
+        },
+        {
+            "version": "015",
+            "file": "015_saas_tenant_id_operational_tables.sql",
+            "description": "saas_tenant_id_operational_tables",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f"
+        },
+        {
+            "version": "016",
+            "file": "016_saas_rls_indexes_usage_operacao.sql",
+            "description": "saas_rls_indexes_usage_operacao",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55"
+        },
+        {
+            "version": "017",
+            "file": "017_processos_digitais_protocolo_ged.sql",
+            "description": "processos_digitais_protocolo_ged",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea"
+        },
+        {
+            "version": "018",
+            "file": "018_financeiro_siafic_base.sql",
+            "description": "financeiro_siafic_base",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c"
+        },
+        {
+            "version": "019",
+            "file": "019_core_pessoas_enderecos_operacional.sql",
+            "description": "core_pessoas_enderecos_operacional",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e"
+        },
+        {
+            "version": "020",
+            "file": "020_rh_completo.sql",
+            "description": "rh_completo",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e"
+        },
+        {
+            "version": "021",
+            "file": "021_educacao_base.sql",
+            "description": "educacao_base",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6"
+        },
+        {
+            "version": "022",
+            "file": "022_saude_acs_base.sql",
+            "description": "saude_acs_base",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c"
+        },
+        {
+            "version": "023",
+            "file": "023_saneamento_base.sql",
+            "description": "saneamento_base",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff"
+        },
+        {
+            "version": "024",
+            "file": "024_assistencia_social_base.sql",
+            "description": "assistencia_social_base",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "4a05c6594b297f58185fd5c1cfa0b4fd93f4d725a56e4c4f2135d86e49096531"
+        },
+        {
+            "version": "025",
+            "file": "025_integracoes_outbox_webhooks_base.sql",
+            "description": "integracoes_outbox_webhooks_base",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c",
+            "compatibilityBefore": [
+                {
+                    "file": "030_pre_025_integration_views.sql",
+                    "checksum": "953ae911bfbc8ea0540f6bab8e5a3dd76c2e274740599595d07fd56d9df10798"
+                }
+            ]
+        },
+        {
+            "version": "026",
+            "file": "026_agro_fundacao_geo_dashboard.sql",
+            "description": "agro_fundacao_geo_dashboard",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc",
+            "compatibilityBefore": [
+                {
+                    "file": "040_pre_026_feature_flags.sql",
+                    "checksum": "4fe8d0543a17d63dc3608dc822585e392c50731ebfe0f3810944d5fda70f6a80"
+                }
+            ]
+        },
+        {
+            "version": "20260607090000",
+            "file": "20260607090000_ui_commercial_finish.sql",
+            "description": "ui_commercial_finish",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847"
+        },
+        {
+            "version": "20260608090000",
+            "file": "20260608090000_saas_parametrizacao_perfis_modulos.sql",
+            "description": "saas_parametrizacao_perfis_modulos",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb"
+        },
+        {
+            "version": "20260608100000",
+            "file": "20260608100000_agro_produtores_propriedades_producao.sql",
+            "description": "agro_produtores_propriedades_producao",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10"
+        },
+        {
+            "version": "20260608110000",
+            "file": "20260608110000_agro_programas_beneficios_patrulha_mecanizada.sql",
+            "description": "agro_programas_beneficios_patrulha_mecanizada",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe"
+        },
+        {
+            "version": "20260608120000",
+            "file": "20260608120000_plantao_pro_white_label_b2b_launch.sql",
+            "description": "plantao_pro_white_label_b2b_launch",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1",
+            "compatibilityBefore": [
+                {
+                    "file": "000_preflight_legacy_compatibility.sql",
+                    "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+                }
+            ]
+        },
+        {
+            "version": "20260608120001",
+            "file": "20260608120000_saas_comercial_white_label_planos.sql",
+            "description": "saas_comercial_white_label_planos",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b"
+        },
+        {
+            "version": "20260608130000",
+            "file": "20260608130000_agro_estradas_feiras_agroindustrias.sql",
+            "description": "agro_estradas_feiras_agroindustrias",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9"
+        },
+        {
+            "version": "20260608140000",
+            "file": "20260608140000_agro_relatorios_bi_transparencia.sql",
+            "description": "agro_relatorios_bi_transparencia",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad"
+        },
+        {
+            "version": "20260609090000",
+            "file": "20260609090000_pos_build_dashboard_saas.sql",
+            "description": "pos_build_dashboard_saas",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d"
+        },
+        {
+            "version": "20260609120000",
+            "file": "20260609120000_pos_build_03_saas_implantacao_tributario.sql",
+            "description": "pos_build_03_saas_implantacao_tributario",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c"
+        },
+        {
+            "version": "20260610100000",
+            "file": "20260610100000_pos_build_04_enterprise_modules.sql",
+            "description": "pos_build_04_enterprise_modules",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593"
+        },
+        {
+            "version": "20260610120000",
+            "file": "20260610120000_pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro.sql",
+            "description": "pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b"
+        },
+        {
+            "version": "20260610150000",
+            "file": "20260610150000_pos_build_06_industria_producao.sql",
+            "description": "pos_build_06_industria_producao",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5"
+        },
+        {
+            "version": "20260610180000",
+            "file": "20260610180000_pos_build_07_financeiro_integrado.sql",
+            "description": "pos_build_07_financeiro_integrado",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "7524a57b97313f65ca623dfbb1865d20588fbc55d23d69835e550c8837c291fe"
+        },
+        {
+            "version": "20260610200000",
+            "file": "20260610200000_pos_build_08_tributario_avancado_iptu_iss_dam.sql",
+            "description": "pos_build_08_tributario_avancado_iptu_iss_dam",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2"
+        },
+        {
+            "version": "20260610220000",
+            "file": "20260610220000_pos_build_09_ged_ocr_assinatura_automacao.sql",
+            "description": "pos_build_09_ged_ocr_assinatura_automacao",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860"
+        },
+        {
+            "version": "20260611110000",
+            "file": "20260611110000_pos_build_11_ia_automacao_assistentes.sql",
+            "description": "pos_build_11_ia_automacao_assistentes",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8"
+        },
+        {
+            "version": "20260611130000",
+            "file": "20260611130000_pos_build_12_mobile_pwa_campo_offline_geo.sql",
+            "description": "pos_build_12_mobile_pwa_campo_offline_geo",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71"
+        },
+        {
+            "version": "20260706120000",
+            "file": "20260706120000_consolidacao_modulos_transversais.sql",
+            "description": "consolidacao_modulos_transversais",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d",
+            "knownChecksums": [
+                "2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc",
+                "983dfb35b7a953103c97ec439947ea0967b6132d914934c1fc0253c1ce233d1a"
+            ],
+            "postConditionSql": "select to_regclass('sigov.tarefa') is not null"
+        },
+        {
+            "version": "20260706153000",
+            "file": "20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql",
+            "description": "pos_rc_protocolo_ged_workflow_api_outbox",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a8b4347d56e0a9debcbe6ae15c254a5650e638c30454c0b6ada9fb062102ce39",
+            "knownChecksums": [
+                "ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064"
+            ],
+            "postConditionSql": "select to_regclass('sigov.protocolo') is not null and to_regclass('sigov.documento') is not null and to_regclass('sigov.workflow_instancia') is not null and to_regclass('sigov.outbox_evento') is not null"
+        },
+        {
+            "version": "20260709120000",
+            "file": "20260709120000_enterprise_funcional_crud.sql",
+            "description": "enterprise_funcional_crud",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784"
+        },
+        {
+            "version": "20260713120000",
+            "file": "20260713120000_pos_rc_11_enterprise_anexos_release.sql",
+            "description": "pos_rc_11_enterprise_anexos_release",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7"
+        },
+        {
+            "version": "20260721120000",
+            "file": "20260721120000_pos_rc_17_runtime_nucleo_operacional.sql",
+            "legacyTransactionWrapper": true,
+            "description": "pos_rc_17_runtime_nucleo_operacional",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e",
+            "knownChecksums": [
+                "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06",
+                "ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d"
+            ],
+            "postConditionSql": "select to_regclass('sigov.tarefa') is not null and to_regclass('sigov.outbox_evento') is not null and not exists (select 1 from sigov.outbox_evento where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null or attempts is null)"
+        },
+        {
+            "version": "20260722120000",
+            "description": "Enterprise tenant mapping",
+            "file": "20260722120000_enterprise_tenant_mapping.sql",
+            "checksum": "5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7",
+            "category": "schema",
+            "applyAutomatically": true
+        },
+        {
+            "version": "20260727120000",
+            "file": "20260727120000_pos_rc_27b2_tarefa_canonica.sql",
+            "description": "pos_rc_27b2_tarefa_canonica",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "177f36a01775fbc78039e1f77555def37ed0e15442946530bd55f5bd9539c62d",
+            "knownChecksums": [
+                "ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662"
+            ],
+            "postConditionSql": "select to_regclass('sigov.tarefa') is not null and not exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='tarefa' and column_name in ('status','prioridade','responsavel_id','is_deleted','updated_at','updated_by','correlation_id') having count(*) <> 7)"
+        },
+        {
+            "version": "20260727160000",
+            "file": "20260727160000_pos_rc_27b3_operacional_canonico.sql",
+            "description": "pos_rc_27b3_operacional_canonico",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8"
+        },
+        {
+            "version": "20260730090000",
+            "file": "20260730090000_pos_rc_32_ordem_servico.sql",
+            "description": "pos_rc_32_ordem_servico",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c",
+            "compatibilityBefore": [
+                {
+                    "file": "000_preflight_legacy_compatibility.sql",
+                    "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+                },
+                {
+                    "file": "010_pre_rc32_optional_financial_bridge.sql",
+                    "checksum": "f80b241d263f146f8db2dfe5f2b8b6e7012b715dba6cce1eaac7e5cd18a56120"
+                }
+            ],
+            "postConditionSql": "select to_regclass('sigov.enterprise_integracao_financeira') is not null\nand to_regclass('sigov.ix_enterprise_financeiro_core') is not null\nand not exists (\n    select 1\n    from (values\n        ('id', 'uuid'), ('tenant_id', 'uuid'), ('origem_tipo', 'character varying'),\n        ('origem_id', 'uuid'), ('conta_receber_core_id', 'bigint'), ('tenant_core_id', 'bigint'),\n        ('status', 'character varying'), ('payload_json', 'jsonb'), ('erro', 'text'),\n        ('created_at', 'timestamp with time zone'), ('updated_at', 'timestamp with time zone')\n    ) expected(column_name, data_type)\n    left join information_schema.columns actual\n      on actual.table_schema = 'sigov'\n     and actual.table_name = 'enterprise_integracao_financeira'\n     and actual.column_name = expected.column_name\n    where actual.column_name is null or actual.data_type <> expected.data_type\n)"
+        },
+        {
+            "version": "20260730110000",
+            "file": "20260730110000_pos_rc_36b_permissao_chave_canonica.sql",
+            "description": "pos_rc_36b_permissao_chave_canonica",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "740ef5203f9c67ee5c1519cd8baa971638bea21dd2d4c3a9371ea117308731c3",
+            "postConditionSql": "select to_regclass('sigov.permissao_chave_uidx') is not null and not exists (select chave from sigov.permissao group by chave having count(*) > 1)"
+        },
+        {
+            "version": "20260730120000",
+            "file": "20260730120000_pos_rc_29_comercial_operacional.sql",
+            "description": "pos_rc_29_comercial_operacional",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5"
+        },
+        {
+            "version": "20260730170000",
+            "file": "20260730170000_financeiro_empresarial_legacy_columns_compat.sql",
+            "description": "financeiro_empresarial_legacy_columns_compat",
+            "category": "compatibility",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e",
+            "postConditionSql": "select not exists (select 1 from (values ('financeiro_conta_receber','tenant_id'),('financeiro_conta_receber','parcela'),('financeiro_conta_receber','competencia'),('financeiro_conta_pagar','tenant_id'),('financeiro_conta_pagar','parcela'),('financeiro_conta_pagar','competencia'),('financeiro_movimento','tenant_id'),('financeiro_movimento','conta_bancaria_id'),('financeiro_movimento','data_movimento')) required(table_name,column_name) where not exists (select 1 from information_schema.columns c where c.table_schema='sigov' and c.table_name=required.table_name and c.column_name=required.column_name))"
+        },
+        {
+            "version": "20260730180000",
+            "file": "20260730180000_pos_rc_30_financeiro_empresarial_real.sql",
+            "description": "pos_rc_30_financeiro_empresarial_real",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042",
+            "compatibilityBefore": [
+                {
+                    "file": "000_preflight_legacy_compatibility.sql",
+                    "checksum": "f00af742ca47cd99e751434b3c73756ff785394f0891e0ae4ede4ee41ae97efe"
+                }
+            ]
+        },
+        {
+            "version": "20260730210000",
+            "file": "20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql",
+            "description": "pos_rc_31_consolidacao_comercial_financeiro",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf"
+        },
+        {
+            "version": "20260731120000",
+            "file": "20260731120000_pos_rc_33_operacao_servicos_campo.sql",
+            "description": "pos_rc_33_operacao_servicos_campo",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "56970917a32ca0a69809717b4d009f6ed7071c000c50fec56b44351ac1acdb04"
+        },
+        {
+            "version": "20260802210000",
+            "file": "20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql",
+            "description": "pos_rc_37b_compras_empresariais_fullstack",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331",
+            "postConditionSql": "select to_regclass('sigov.compras_fornecedor') is not null and to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_idempotencia') is not null",
+            "compatibilityBefore": [
+                {
+                    "file": "020_pre_rc37b_compras_compatibility.sql",
+                    "checksum": "409b83dfb5bf3f91bdd718fe55cc50dd0f6140e318b7fc0e15d26721d246eb4a"
+                }
+            ]
+        },
+        {
+            "version": "20260807120000",
+            "file": "20260807120000_rc46_operacao_integrada.sql",
+            "description": "rc46_operacao_integrada",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6",
+            "postConditionSql": "select to_regclass('sigov.timeline_evento') is not null and to_regprocedure('sigov.proximo_numero_protocolo(bigint,integer)') is not null and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='protocolo' and column_name='exercicio' and data_type='integer' and is_nullable='NO') and to_regclass('sigov.ux_protocolo_numero_exercicio') is not null",
+            "compatibilityBefore": [
+                {
+                    "file": "050_pre_rc46_protocolo_exercicio.sql",
+                    "checksum": "e2341691809e7f306b14c8cc758ba75bff15ef6071477d303c97a25fefd87df2"
+                }
+            ]
+        },
+        {
+            "version": "20260809120000",
+            "file": "20260809120000_rc48_authentication_hardening.sql",
+            "description": "rc48_authentication_hardening",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821",
+            "postConditionSql": "select to_regclass('sigov.senha_redefinicao_token') is not null"
+        },
+        {
+            "version": "20260809160000",
+            "file": "20260809160000_rc49_workflow_platform.sql",
+            "legacyTransactionWrapper": true,
+            "description": "rc49_workflow_platform",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735",
+            "postConditionSql": "select to_regclass('sigov.workflow_definicao') is not null and to_regclass('sigov.workflow_versao') is not null and to_regclass('sigov.workflow_etapa') is not null and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_etapa' and column_name='workflow_definicao_id') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_etapa' and column_name='tipo') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_etapa' and column_name='ordem') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_transicao' and column_name='workflow_definicao_id') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_transicao' and column_name='de_etapa_id') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_transicao' and column_name='para_etapa_id') and to_regclass('sigov.workflow_transicao') is not null and to_regclass('sigov.workflow_evento') is not null and to_regclass('sigov.ix_workflow_definicao_tenant_status') is not null and to_regclass('sigov.ix_workflow_etapa_tenant_workflow') is not null and to_regclass('sigov.ix_workflow_evento_tenant_instancia') is not null and not exists (select required.chave from (values ('WORKFLOW_CONSULTA'),('WORKFLOW_GERENCIAR')) required(chave) where not exists (select 1 from sigov.permissao p where p.chave = required.chave))",
+            "compatibilityBefore": [
+                {
+                    "file": "060_pre_rc49_workflow_compatibility.sql",
+                    "checksum": "c9e3e89cca8aa059dbb7d36ec4c01f025bb72580d3f8ce5a90c1fda94a5b8349"
+                }
+            ]
+        },
+        {
+            "version": "20260813223000",
+            "file": "20260813223000_rc50_32_bloco2_rh_core.sql",
+            "description": "rc50_32_bloco2_rh_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1",
+            "postConditionSql": "select to_regclass('sigov.rh_jornada') is not null and to_regclass('sigov.rh_portal_solicitacao') is not null"
+        },
+        {
+            "version": "20260813230000",
+            "file": "20260813230000_rc50_34_educacao_secretaria_bloco3_core.sql",
+            "description": "20260813230000_rc50_34_educacao_secretaria_bloco3_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5",
+            "postConditionSql": "select to_regclass('sigov.educacao_documento_escolar') is not null"
+        },
+        {
+            "version": "20260813231000",
+            "file": "20260813231000_rc50_34_educacao_diario_classe_bloco3_core.sql",
+            "description": "20260813231000_rc50_34_educacao_diario_classe_bloco3_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5",
+            "postConditionSql": "select to_regclass('sigov.educacao_diario_classe') is not null"
+        },
+        {
+            "version": "20260813232000",
+            "file": "20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core.sql",
+            "description": "20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f",
+            "postConditionSql": "select to_regclass('sigov.educacao_portal_vinculo') is not null"
+        },
+        {
+            "version": "20260814120000",
+            "file": "20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql",
+            "description": "20260814120000_rc50_36_financeiro_siafic_bloco5_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "21525439b3ddeafd72d2d53029f3d2cd16272d7648387eff2de4c3c04fa506a3",
+            "postConditionSql": "select to_regclass('sigov.financeiro_dotacao') is not null and to_regclass('sigov.financeiro_empenho') is not null"
+        },
+        {
+            "version": "20260814121000",
+            "file": "20260814121000_rc50_36_tributario_divida_ativa_bloco5_core.sql",
+            "description": "20260814121000_rc50_36_tributario_divida_ativa_bloco5_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "36b821f45a5b9d78212c9d287d889628ff7ae7a92a9d47c0bde7920b171c1cf6",
+            "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_divida_ativa') is not null"
+        },
+        {
+            "version": "20260814122000",
+            "file": "20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql",
+            "description": "20260814122000_rc50_36_relatorios_executivos_bloco5_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b4c74ede176a48826069e0ece3d9b8ddd301f453083d86eb5f5ee8a443cc6ec2",
+            "postConditionSql": "select to_regclass('sigov.relatorio_executivo_config') is not null"
+        },
+        {
+            "version": "20260816120000",
+            "file": "20260816120000_rc50_38_saude_bloco7_core.sql",
+            "description": "20260816120000_rc50_38_saude_bloco7_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7",
+            "postConditionSql": "select to_regclass('sigov.saude_paciente') is not null and to_regclass('sigov.saude_farmacia_movimento') is not null"
+        },
+        {
+            "version": "20260816121000",
+            "file": "20260816121000_rc50_38_assistencia_social_bloco7_core.sql",
+            "description": "20260816121000_rc50_38_assistencia_social_bloco7_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a6554696f26233a432e3cfad41a9714227648d4f99d012f1e45f205836c5c39b",
+            "postConditionSql": "select to_regclass('sigov.assistencia_familia') is not null and to_regclass('sigov.assistencia_acompanhamento_familiar') is not null"
+        },
+        {
+            "version": "20260816122000",
+            "file": "20260816122000_rc50_38_saneamento_bloco7_core.sql",
+            "description": "20260816122000_rc50_38_saneamento_bloco7_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "cc24ac60670d2459ae7611a3d784c087eac41493df995bc480ba40c6374a34a8",
+            "postConditionSql": "select to_regclass('sigov.saneamento_consumo') is not null and to_regclass('sigov.saneamento_inadimplencia') is not null"
+        },
+        {
+            "version": "20260816123000",
+            "file": "20260816123000_rc50_38_frotas_obras_bloco7_core.sql",
+            "description": "20260816123000_rc50_38_frotas_obras_bloco7_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa",
+            "postConditionSql": "select to_regclass('sigov.frota_veiculo') is not null and to_regclass('sigov.obra_medicao') is not null"
+        },
+        {
+            "version": "20260817120000",
+            "file": "20260817120000_rc50_42_processos_digitais_core.sql",
+            "description": "20260817120000_rc50_42_processos_digitais_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "0e9e2f92a8fe6d24d572578414194631b6086d5cc68a6293538ffafa07332853",
+            "postConditionSql": "select to_regclass('sigov.processo_digital') is not null and to_regclass('sigov.protocolo_externo') is not null"
+        },
+        {
+            "version": "20260817121000",
+            "file": "20260817121000_rc50_42_ged_assinaturas_core.sql",
+            "description": "20260817121000_rc50_42_ged_assinaturas_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "f01c2ff0a7ad334082bc3f24eb9752a4122f58b984b102373d4315a72c43101b",
+            "postConditionSql": "select to_regclass('sigov.ged_documento') is not null and to_regclass('sigov.assinatura_documento') is not null"
+        },
+        {
+            "version": "20260817122000",
+            "file": "20260817122000_rc50_42_legislativo_camara_core.sql",
+            "description": "20260817122000_rc50_42_legislativo_camara_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "71bb8284719919e8cc3b4d1e0396cdb95d8969a65b400d112b6797cca322f80a",
+            "postConditionSql": "select to_regclass('sigov.legislativo_proposicao') is not null and to_regclass('sigov.legislativo_sessao') is not null"
+        },
+        {
+            "version": "20260817123000",
+            "file": "20260817123000_rc50_42_transparencia_atendimento_core.sql",
+            "description": "20260817123000_rc50_42_transparencia_atendimento_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9",
+            "postConditionSql": "select to_regclass('sigov.diario_oficial_edicao') is not null and to_regclass('sigov.esic_pedido') is not null"
+        },
+        {
+            "version": "20260817130000",
+            "file": "20260817130000_rc50_43_empresarial_comercial_core.sql",
+            "description": "20260817130000_rc50_43_empresarial_comercial_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83",
+            "postConditionSql": "select to_regclass('sigov.emp_comercial_cliente') is not null"
+        },
+        {
+            "version": "20260817131000",
+            "file": "20260817131000_rc50_43_empresarial_ordem_servico_core.sql",
+            "description": "20260817131000_rc50_43_empresarial_ordem_servico_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08",
+            "postConditionSql": "select to_regclass('sigov.emp_os_ordem') is not null"
+        },
+        {
+            "version": "20260817132000",
+            "file": "20260817132000_rc50_43_empresarial_estoque_core.sql",
+            "description": "20260817132000_rc50_43_empresarial_estoque_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d",
+            "postConditionSql": "select to_regclass('sigov.emp_estoque_produto') is not null"
+        },
+        {
+            "version": "20260817133000",
+            "file": "20260817133000_rc50_43_empresarial_industrial_core.sql",
+            "description": "20260817133000_rc50_43_empresarial_industrial_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9",
+            "postConditionSql": "select to_regclass('sigov.emp_industrial_ativo') is not null"
+        },
+        {
+            "version": "20260817140000",
+            "file": "20260817140000_rc50_45_processos_digitais_core.sql",
+            "description": "20260817140000_rc50_45_processos_digitais_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "aec28f0c3cd4778778acf04fadf7035247b3d3d5fbc7926c409f3c548bbf595c",
+            "postConditionSql": "select to_regclass('sigov.processo_digital') is not null and to_regclass('sigov.processo_numero_sequencial') is not null"
+        },
+        {
+            "version": "20260817141000",
+            "file": "20260817141000_rc50_45_ged_assinaturas_core.sql",
+            "description": "20260817141000_rc50_45_ged_assinaturas_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a613ad05f8cb8bc9f2304ac5d875d3aa1ce5a9caee769382bdb20554a973d38b",
+            "postConditionSql": "select to_regclass('sigov.ged_documento') is not null and to_regclass('sigov.assinatura_evidencia') is not null"
+        },
+        {
+            "version": "20260817142000",
+            "file": "20260817142000_rc50_45_legislativo_camara_core.sql",
+            "description": "20260817142000_rc50_45_legislativo_camara_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "595a5a64c98ab84c4397d08c2326264573bf903c2aeaa55735614f7872abdd95",
+            "postConditionSql": "select to_regclass('sigov.legislativo_proposicao') is not null and to_regclass('sigov.legislativo_votacao') is not null"
+        },
+        {
+            "version": "20260817143000",
+            "file": "20260817143000_rc50_45_transparencia_atendimento_core.sql",
+            "description": "20260817143000_rc50_45_transparencia_atendimento_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74",
+            "postConditionSql": "select to_regclass('sigov.diario_oficial_publicacao') is not null and to_regclass('sigov.atendimento_digital_chamado') is not null"
+        },
+        {
+            "version": "20260817150000",
+            "file": "20260817150000_rc50_47_tributario_carnes_boletos_core.sql",
+            "description": "20260817150000_rc50_47_tributario_carnes_boletos_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41",
+            "postConditionSql": "select to_regclass('sigov.tributario_carne_emissao') is not null"
+        },
+        {
+            "version": "20260817151000",
+            "file": "20260817151000_rc50_47_tributario_portal_contribuinte_core.sql",
+            "description": "20260817151000_rc50_47_tributario_portal_contribuinte_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c",
+            "postConditionSql": "select to_regclass('sigov.portal_contribuinte_protocolo') is not null"
+        },
+        {
+            "version": "20260817152000",
+            "file": "20260817152000_rc50_47_tributario_fiscalizacao_issqn_core.sql",
+            "description": "20260817152000_rc50_47_tributario_fiscalizacao_issqn_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc",
+            "postConditionSql": "select to_regclass('sigov.tributario_fiscalizacao_ordem') is not null"
+        },
+        {
+            "version": "20260817153000",
+            "file": "20260817153000_rc50_47_tributario_nfse_desif_core.sql",
+            "description": "20260817153000_rc50_47_tributario_nfse_desif_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23",
+            "postConditionSql": "select to_regclass('sigov.tributario_nfse_nota') is not null"
+        },
+        {
+            "version": "20260818120000",
+            "file": "20260818120000_rc50_48_educacao_transporte_escolar_core.sql",
+            "description": "20260818120000_rc50_48_educacao_transporte_escolar_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c",
+            "postConditionSql": "select to_regclass('sigov.educacao_transporte_rota') is not null"
+        },
+        {
+            "version": "20260818121000",
+            "file": "20260818121000_rc50_48_educacao_merenda_cardapio_core.sql",
+            "description": "20260818121000_rc50_48_educacao_merenda_cardapio_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7",
+            "postConditionSql": "select to_regclass('sigov.educacao_merenda_produto') is not null"
+        },
+        {
+            "version": "20260818122000",
+            "file": "20260818122000_rc50_48_educacao_biblioteca_digital_core.sql",
+            "description": "20260818122000_rc50_48_educacao_biblioteca_digital_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3",
+            "postConditionSql": "select to_regclass('sigov.educacao_biblioteca_acervo') is not null"
+        },
+        {
+            "version": "20260818123000",
+            "file": "20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core.sql",
+            "description": "20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad",
+            "postConditionSql": "select to_regclass('sigov.educacao_educacenso_lote') is not null"
+        },
+        {
+            "version": "20260818130000",
+            "file": "20260818130000_rc50_49_saude_acs_offline_georreferencia_core.sql",
+            "description": "20260818130000_rc50_49_saude_acs_offline_georreferencia_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a",
+            "postConditionSql": "select to_regclass('sigov.saude_acs_dispositivo') is not null"
+        },
+        {
+            "version": "20260818131000",
+            "file": "20260818131000_rc50_49_saude_cadastros_visitas_core.sql",
+            "description": "20260818131000_rc50_49_saude_cadastros_visitas_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623",
+            "postConditionSql": "select to_regclass('sigov.saude_domicilio') is not null"
+        },
+        {
+            "version": "20260818132000",
+            "file": "20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core.sql",
+            "description": "20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa",
+            "postConditionSql": "select to_regclass('sigov.saude_vacina_calendario') is not null"
+        },
+        {
+            "version": "20260818133000",
+            "file": "20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core.sql",
+            "description": "20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a",
+            "postConditionSql": "select to_regclass('sigov.saude_retaguarda_indicador') is not null"
+        },
+        {
+            "version": "20260818140000",
+            "file": "20260818140000_rc50_50_saneamento_comercial_atendimento_core.sql",
+            "description": "20260818140000_rc50_50_saneamento_comercial_atendimento_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "50ed25704f7a746d5f7e49ad217e313da9431fd98af35f72e7b6e28525d1339a",
+            "postConditionSql": "select to_regclass('sigov.saneamento_consumidor_contato') is not null"
+        },
+        {
+            "version": "20260818141000",
+            "file": "20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core.sql",
+            "description": "20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "792e1423928b022612fd777925f5016d97882fd09986650f8ab9e12f44d9a7bd",
+            "postConditionSql": "select to_regclass('sigov.saneamento_rota_leitura') is not null"
+        },
+        {
+            "version": "20260818142000",
+            "file": "20260818142000_rc50_50_saneamento_operacao_campo_core.sql",
+            "description": "20260818142000_rc50_50_saneamento_operacao_campo_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "b03968468dc02a4a1fbf2c39fe4c6a01c89951250bc80edac201393b36b867e3",
+            "postConditionSql": "select to_regclass('sigov.saneamento_equipe') is not null"
+        },
+        {
+            "version": "20260818143000",
+            "file": "20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core.sql",
+            "description": "20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330",
+            "postConditionSql": "select to_regclass('sigov.saneamento_ponto_gis') is not null"
+        },
+        {
+            "version": "20260818150000",
+            "file": "20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core.sql",
+            "description": "20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63",
+            "postConditionSql": "select to_regclass('sigov.seguranca_permissao_granular') is not null and to_regclass('sigov.lgpd_incidente') is not null and to_regclass('sigov.auditoria_evento_operacional') is not null"
+        },
+        {
+            "version": "20260818160000",
+            "file": "20260818160000_rc50_52_lgpd_operacional.sql",
+            "description": "20260818160000_rc50_52_lgpd_operacional",
+            "category": "schema",
+            "includeInBaseline": true,
+            "applyAutomatically": true,
+            "checksum": "e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee",
+            "postConditionSql": "select to_regclass('sigov.lgpd_incidente_evento') is not null"
+        }
+    ],
+    "compatibilityAfterAll": [
+        {
+            "file": "850_post_migration_compatibility.sql",
+            "checksum": "7b2ff1df01618683e50b3a125ace6392ea657fe1bb4c7c18a7acc014c17fd196"
+        }
+    ]
+}
+PASS python -m json.tool database/postgres/migrations/manifest.json
+RUN ./scripts/check-migration-partial-index-columns.sh database/postgres/migrations
+[WARN] migration 010_create_sigov_indexes_constraints.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 013_sigov_foundation_refactor_fixups.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 017_processos_digitais_protocolo_ged.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 018_financeiro_siafic_base.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 019_core_pessoas_enderecos_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 020_rh_completo.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 021_educacao_base.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 022_saude_acs_base.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 023_saneamento_base.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 024_assistencia_social_base.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 025_integracoes_outbox_webhooks_base.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 026_agro_fundacao_geo_dashboard.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608090000_saas_parametrizacao_perfis_modulos.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608100000_agro_produtores_propriedades_producao.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608110000_agro_programas_beneficios_patrulha_mecanizada.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608130000_agro_estradas_feiras_agroindustrias.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608140000_agro_relatorios_bi_transparencia.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260609090000_pos_build_dashboard_saas.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260609120000_pos_build_03_saas_implantacao_tributario.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610120000_pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610150000_pos_build_06_industria_producao.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610180000_pos_build_07_financeiro_integrado.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610200000_pos_build_08_tributario_avancado_iptu_iss_dam.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610220000_pos_build_09_ged_ocr_assinatura_automacao.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 20260709120000_enterprise_funcional_crud.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 20260713120000_pos_rc_11_enterprise_anexos_release.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260727120000_pos_rc_27b2_tarefa_canonica.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260727160000_pos_rc_27b3_operacional_canonico.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730090000_pos_rc_32_ordem_servico.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730120000_pos_rc_29_comercial_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260731120000_pos_rc_33_operacao_servicos_campo.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260807120000_rc46_operacao_integrada.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260809160000_rc49_workflow_platform.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813120000_rc50_24_educacao_rh_folha_produto_core.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813120000_rc50_27_operacoes_inteligentes.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813160000_rc50_25_educacao_fluxo_diario.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813190000_rc50_28_gestao_avancada.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813193000_rc50_29_parametros_modulos.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813195500_rc50_30_governanca_executiva.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813210000_rc50_31_bloco1_fechamento.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813223000_rc50_32_bloco2_rh_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813231000_rc50_34_educacao_diario_classe_bloco3_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 20260814121000_rc50_36_tributario_divida_ativa_bloco5_core.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260815120000_rc50_37_compras_licitacoes_bloco6_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260815122000_rc50_37_almoxarifado_patrimonio_bloco6_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 20260816120000_rc50_38_saude_bloco7_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260816121000_rc50_38_assistencia_social_bloco7_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260816123000_rc50_38_frotas_obras_bloco7_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817130000_rc50_43_empresarial_comercial_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817131000_rc50_43_empresarial_ordem_servico_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817132000_rc50_43_empresarial_estoque_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817133000_rc50_43_empresarial_industrial_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817140000_rc50_45_processos_digitais_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817141000_rc50_45_ged_assinaturas_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817142000_rc50_45_legislativo_camara_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817143000_rc50_45_transparencia_atendimento_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817150000_rc50_47_tributario_carnes_boletos_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817151000_rc50_47_tributario_portal_contribuinte_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817152000_rc50_47_tributario_fiscalizacao_issqn_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817153000_rc50_47_tributario_nfse_desif_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818120000_rc50_48_educacao_transporte_escolar_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818121000_rc50_48_educacao_merenda_cardapio_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818122000_rc50_48_educacao_biblioteca_digital_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818130000_rc50_49_saude_acs_offline_georreferencia_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818131000_rc50_49_saude_cadastros_visitas_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818140000_rc50_50_saneamento_comercial_atendimento_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818142000_rc50_50_saneamento_operacao_campo_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 20260818160000_rc50_52_lgpd_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+Resumo: 49 migration(s) com possível risco; revise os avisos antes de publicar.
+PASS ./scripts/check-migration-partial-index-columns.sh database/postgres/migrations
+RUN ./scripts/check-migration-index-columns.sh database/postgres/migrations
+[WARN] 010_create_sigov_indexes_constraints.sql: ux_entidade_cnpj em sigov.entidade não garante antes do índice: cnpj, is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_entidade_id em sigov.pessoa não garante antes do índice: entidade_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_exercicio_id em sigov.pessoa não garante antes do índice: exercicio_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_documento em sigov.pessoa não garante antes do índice: documento
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_is_deleted em sigov.pessoa não garante antes do índice: is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_pessoa_created_at em sigov.pessoa não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_login em sigov.usuario não garante antes do índice: is_deleted, login
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_entidade_id em sigov.usuario não garante antes do índice: entidade_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_exercicio_id em sigov.usuario não garante antes do índice: exercicio_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_is_deleted em sigov.usuario não garante antes do índice: is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_usuario_created_at em sigov.usuario não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_trilha_auditoria_periodo em sigov.trilha_auditoria não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_trilha_auditoria_tabela em sigov.trilha_auditoria não garante antes do índice: tabela
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_trilha_auditoria_usuario_id em sigov.trilha_auditoria não garante antes do índice: usuario_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_acesso_dado_pessoal_pessoa em sigov.acesso_dado_pessoal não garante antes do índice: pessoa_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_usuario_solicitante_id em sigov.chamado não garante antes do índice: usuario_solicitante_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_entidade_id em sigov.chamado não garante antes do índice: entidade_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_exercicio_id em sigov.chamado não garante antes do índice: exercicio_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_is_deleted em sigov.chamado não garante antes do índice: is_deleted
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_chamado_created_at em sigov.chamado não garante antes do índice: created_at
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_endereco_pessoa_id em sigov.endereco não garante antes do índice: pessoa_id
+[WARN] 010_create_sigov_indexes_constraints.sql: idx_contato_pessoa_id em sigov.contato não garante antes do índice: pessoa_id
+[WARN] 013_sigov_foundation_refactor_fixups.sql: idx_usuario_login em sigov.usuario não garante antes do índice: is_deleted, login
+[WARN] 013_sigov_foundation_refactor_fixups.sql: idx_usuario_email em sigov.usuario não garante antes do índice: email, is_deleted
+[WARN] 013_sigov_foundation_refactor_fixups.sql: idx_permissao_modulo_recurso_acao em sigov.permissao não garante antes do índice: is_deleted, modulo
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_usuario_tenant_login em sigov.usuario não garante antes do índice: login, tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_usuario_tenant_email em sigov.usuario não garante antes do índice: email, tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_pessoa_tenant_documento em sigov.pessoa não garante antes do índice: documento, tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_chamado_tenant_numero em sigov.chamado não garante antes do índice: tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_trilha_auditoria_tenant_created_at em sigov.trilha_auditoria não garante antes do índice: tenant_id
+[WARN] 015_saas_tenant_id_operational_tables.sql: idx_solicitacao_titular_tenant_status em sigov.solicitacao_titular não garante antes do índice: status, tenant_id
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_slug em sigov.tenant não garante antes do índice: slug
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_status em sigov.tenant não garante antes do índice: status
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_dominio_dominio em sigov.tenant_dominio não garante antes do índice: dominio
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_assinatura_status em sigov.tenant_assinatura não garante antes do índice: status
+[WARN] 016_saas_rls_indexes_usage_operacao.sql: idx_tenant_modulo_tenant_modulo em sigov.tenant_modulo não garante antes do índice: modulo_saas_id, tenant_id
+[WARN] 019_core_pessoas_enderecos_operacional.sql: ux_pessoa_tenant_documento_ativo em sigov.pessoa não garante antes do índice: documento, is_deleted, tenant_id
+[WARN] 019_core_pessoas_enderecos_operacional.sql: idx_pessoa_tenant_nome em sigov.pessoa não garante antes do índice: is_deleted, nome, tenant_id
+[WARN] 019_core_pessoas_enderecos_operacional.sql: idx_pessoa_tenant_tipo em sigov.pessoa não garante antes do índice: is_deleted, tenant_id, tipo_pessoa
+[WARN] 019_core_pessoas_enderecos_operacional.sql: idx_endereco_tenant_pessoa em sigov.endereco não garante antes do índice: is_deleted, pessoa_id, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_servidor_matricula em sigov.servidor não garante antes do índice: dados, is_deleted, matricula, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_servidor_cpf em sigov.servidor não garante antes do índice: cpf, dados, is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_cargo_codigo em sigov.cargo não garante antes do índice: codigo, dados, is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: ux_rh_lotacao_codigo em sigov.lotacao não garante antes do índice: codigo, dados, is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_vinculo_servidor em sigov.vinculo não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_folha_competencia em sigov.folha não garante antes do índice: is_deleted, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_folha_lancamento_servidor em sigov.folha_lancamento não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_ponto_servidor_data em sigov.ponto não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_ferias_servidor em sigov.ferias não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_afastamento_servidor em sigov.afastamento não garante antes do índice: dados, is_deleted, servidorid, tenant_id
+[WARN] 020_rh_completo.sql: idx_rh_evento_outbox em sigov.rh_evento não garante antes do índice: is_deleted, tenant_id
+[WARN] 025_integracoes_outbox_webhooks_base.sql: idx_fila_evento_tenant_status em sigov.fila_evento não garante antes do índice: status
+[WARN] 025_integracoes_outbox_webhooks_base.sql: idx_fila_evento_proxima_tentativa em sigov.fila_evento não garante antes do índice: in, pendente, status
+[WARN] 20260608090000_saas_parametrizacao_perfis_modulos.sql: idx_usuario_tenant em sigov.usuario não garante antes do índice: is_deleted
+[WARN] 20260609120000_pos_build_03_saas_implantacao_tributario.sql: idx_saas_assinatura_tenant_status em sigov.saas_assinatura não garante antes do índice: status, tenant_id
+[WARN] 20260609120000_pos_build_03_saas_implantacao_tributario.sql: ux_saas_assinatura_ativa_tenant em sigov.saas_assinatura não garante antes do índice: ativa, status, tenant_id
+[WARN] 20260709120000_enterprise_funcional_crud.sql: enterprise_estoque_saldo_tenant_produto_uidx em sigov.enterprise_estoque_saldo não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_status em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_responsavel_prazo em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_version em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260727160000_pos_rc_27b3_operacional_canonico.sql: ix_tarefa_tenant_entidade em sigov.tarefa não garante antes do índice: tenant_id
+[WARN] 20260730090000_pos_rc_32_ordem_servico.sql: ix_enterprise_financeiro_core em sigov.enterprise_integracao_financeira não garante antes do índice: conta_receber_core_id, tenant_core_id
+[WARN] 20260730110000_pos_rc_36b_permissao_chave_canonica.sql: permissao_chave_uidx em sigov.permissao não garante antes do índice: chave
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_cliente_documento_hash_uidx em sigov.enterprise_cliente não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_proposta_numero_uidx em sigov.enterprise_proposta não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_pedido_numero_uidx em sigov.enterprise_pedido_venda não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_pedido_proposta_uidx em sigov.enterprise_pedido_venda não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_lead_operacao_idx em sigov.enterprise_lead não garante antes do índice: is_deleted, status, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_oportunidade_funil_idx em sigov.enterprise_oportunidade não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_proposta_operacao_idx em sigov.enterprise_proposta não garante antes do índice: is_deleted, status, tenant_id
+[WARN] 20260730120000_pos_rc_29_comercial_operacional.sql: enterprise_pedido_operacao_idx em sigov.enterprise_pedido_venda não garante antes do índice: is_deleted, status, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_cr_tenant_idempotency em sigov.financeiro_conta_receber não garante antes do índice: idempotency_key, is_deleted, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_cp_tenant_idempotency em sigov.financeiro_conta_pagar não garante antes do índice: idempotency_key, is_deleted, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_mov_tenant_idempotency em sigov.financeiro_movimento não garante antes do índice: idempotency_key, is_deleted, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_br_tenant_idempotency em sigov.financeiro_baixa_receber não garante antes do índice: tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_bp_tenant_idempotency em sigov.financeiro_baixa_pagar não garante antes do índice: tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_cr_pedido_parcela em sigov.financeiro_conta_receber não garante antes do índice: is_deleted, parcela, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ix_fin_cr_tenant_competencia em sigov.financeiro_conta_receber não garante antes do índice: competencia, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ix_fin_cp_tenant_competencia em sigov.financeiro_conta_pagar não garante antes do índice: competencia, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ix_fin_mov_tenant_conta_data em sigov.financeiro_movimento não garante antes do índice: conta_bancaria_id, data_movimento, tenant_id
+[WARN] 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: ux_fin_caixa_sessao_aberta em sigov.financeiro_caixa_sessao não garante antes do índice: aberta
+[WARN] 20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql: ux_estoque_reserva_pedido_item_ativa em sigov.enterprise_estoque_reserva não garante antes do índice: is_deleted, pedido_item_id, tenant_id
+[WARN] 20260807120000_rc46_operacao_integrada.sql: ux_protocolo_numero_exercicio em sigov.protocolo não garante antes do índice: coalesce, exercicio, is_deleted, numero, tenant_id
+[WARN] 20260807120000_rc46_operacao_integrada.sql: ix_protocolo_escopo_status em sigov.protocolo não garante antes do índice: status, tenant_id
+[WARN] 20260813120000_rc50_24_educacao_rh_folha_produto_core.sql: ux_educacao_matricula_aluno_ano_ativa em sigov.educacao_matricula não garante antes do índice: ativa, ativo, confirmada, in, is_deleted, pendente, tenant_id
+[WARN] 20260813120000_rc50_24_educacao_rh_folha_produto_core.sql: ux_educacao_frequencia_diaria em sigov.educacao_frequencia não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813120000_rc50_27_operacoes_inteligentes.sql: ux_educacao_fila_ativa em sigov.educacao_fila_espera não garante antes do índice: aguardando
+[WARN] 20260813120000_rc50_27_operacoes_inteligentes.sql: ix_alerta_operacional_aberto em sigov.alerta_operacional não garante antes do índice: aberto
+[WARN] 20260813160000_rc50_25_educacao_fluxo_diario.sql: ux_diario_frequencia_aluno_data_componente em sigov.diario_frequencia não garante antes do índice: aluno_id, data_aula, entidade_id, is_deleted, tenant_id, turma_id
+[WARN] 20260813160000_rc50_25_educacao_fluxo_diario.sql: ux_matricula_aluno_ano_em_curso em sigov.matricula não garante antes do índice: aluno_id, ano_letivo_id, ativa, ativo, confirmada, entidade_id, in, is_deleted, pendente, status, tenant_id
+[WARN] 20260813190000_rc50_28_gestao_avancada.sql: ux_diario_turma_disciplina_periodo em sigov.educacao_diario_classe não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813195500_rc50_30_governanca_executiva.sql: ix_qualidade_abertas em sigov.qualidade_dados_inconsistencia não garante antes do índice: aberta
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_educacao_matricula_historico_matricula em sigov.educacao_matricula_historico não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_educacao_nota_matricula em sigov.educacao_nota não garante antes do índice: is_deleted, matricula_id, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_educacao_avaliacao_turma em sigov.educacao_avaliacao não garante antes do índice: is_deleted, tenant_id, turma_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ux_rh_servidor_matricula em sigov.rh_servidor não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ux_rh_servidor_cpf em sigov.rh_servidor não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_vinculo_servidor em sigov.rh_vinculo não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_dependente_servidor em sigov.rh_dependente não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_historico_servidor em sigov.rh_historico_funcional não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_rh_pendencia_servidor_status em sigov.rh_pendencia_cadastral não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_folha_critica_folha_status em sigov.folha_critica não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_folha_contracheque_folha_servidor em sigov.folha_contracheque não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813210000_rc50_31_bloco1_fechamento.sql: ix_folha_status_historico_folha em sigov.folha_status_historico não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ux_rh_ponto_registro_batida em sigov.rh_ponto_registro não garante antes do índice: is_deleted, servidor_id, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ux_rh_ponto_integracao_origem em sigov.rh_ponto_integracao_folha não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ux_rh_evento_integracao_origem em sigov.rh_evento_integracao_folha não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ix_rh_ponto_registro_data em sigov.rh_ponto_registro não garante antes do índice: data_referencia
+[WARN] 20260813223000_rc50_32_bloco2_rh_core.sql: ix_rh_ponto_apuracao_competencia em sigov.rh_ponto_apuracao não garante antes do índice: competencia
+[WARN] 20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql: ux_fin_integracao_origem em sigov.financeiro_integracao_interna não garante antes do índice: is_deleted, tenant_id
+[WARN] 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: ix_rel_exec_config_tenant_modulo em sigov.relatorio_executivo_config não garante antes do índice: is_deleted, modulo, tenant_id
+[WARN] 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: ix_rel_exec_execucao_status em sigov.relatorio_executivo_execucao não garante antes do índice: created_at, is_deleted, status, tenant_id
+[WARN] 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: ix_rel_exec_filtro_usuario em sigov.relatorio_executivo_filtro_salvo não garante antes do índice: created_by, is_deleted, modulo, tenant_id
+[WARN] 20260817140000_rc50_45_processos_digitais_core.sql: ux_processo_codigo_publico em sigov.processo_digital não garante antes do índice: codigo, is_deleted, tenant_id
+[WARN] 20260817140000_rc50_45_processos_digitais_core.sql: ix_processo_prazo_operacional em sigov.processo_prazo não garante antes do índice: ativo, is_deleted, prazo_at, status, tenant_id
+[WARN] 20260817140000_rc50_45_processos_digitais_core.sql: ix_protocolo_codigo_consulta em sigov.protocolo_externo não garante antes do índice: codigo, is_deleted, sigiloso, tenant_id
+[WARN] 20260817141000_rc50_45_ged_assinaturas_core.sql: ux_ged_validacao_codigo_publico em sigov.ged_validacao_publica não garante antes do índice: codigo_validacao, is_deleted, sigiloso, tenant_id
+[WARN] 20260817141000_rc50_45_ged_assinaturas_core.sql: ix_ged_documento_hash em sigov.ged_documento não garante antes do índice: hash_sha256, tenant_id
+[WARN] 20260817141000_rc50_45_ged_assinaturas_core.sql: ix_assinatura_prazo_pendente em sigov.assinatura_documento não garante antes do índice: pendente, prazo_at
+[WARN] 20260817142000_rc50_45_legislativo_camara_core.sql: ux_legislativo_proposicao_numero em sigov.legislativo_proposicao não garante antes do índice: ano, numero, tenant_id, tipo
+[WARN] 20260817142000_rc50_45_legislativo_camara_core.sql: ux_legislativo_voto_parlamentar em sigov.legislativo_voto não garante antes do índice: is_deleted, referencia_id, responsavel_id, tenant_id
+[WARN] 20260817142000_rc50_45_legislativo_camara_core.sql: ix_legislativo_votacao_aberta em sigov.legislativo_votacao não garante antes do índice: referencia_id
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ux_diario_validacao_publica em sigov.diario_oficial_publicacao não garante antes do índice: codigo_validacao, sigiloso, tenant_id
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_esic_prazo_operacional em sigov.esic_pedido não garante antes do índice: prazo_at
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ix_ouvidoria_prazo_operacional em sigov.ouvidoria_manifestacao não garante antes do índice: ativo, is_deleted, prazo_at, status, tenant_id
+[WARN] 20260817143000_rc50_45_transparencia_atendimento_core.sql: ux_atendimento_codigo em sigov.atendimento_digital_chamado não garante antes do índice: codigo, is_deleted, tenant_id
+Resumo: 1215 índice(s) simples verificados; 126 aviso(s).
+PASS ./scripts/check-migration-index-columns.sh database/postgres/migrations
+RUN ./scripts/check-migration-immutable-index-expressions.sh database/postgres/migrations
+database/postgres/migrations/021_educacao_base.sql:422: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_frequencia_turma_aluno_data_componente on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula, coalesce(componente_curricular, '')) where is_deleted = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/026_agro_fundacao_geo_dashboard.sql:141: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_agro_geo_camada_tenant_entidade_codigo on sigov.agro_geo_camada (tenant_id, coalesce(entidade_id, 0), codigo) where is_deleted = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260608090000_saas_parametrizacao_perfis_modulos.sql:75: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_tenant_parametro_valor_resolucao on sigov.tenant_parametro_valor (tenant_id, parametro_definicao_id, escopo, coalesce(entidade_id, 0), coalesce(exercicio_id, 0), coalesce(usuario_id, 0), coalesce(modulo_codigo, '')) where ativo = true;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260608090000_saas_parametrizacao_perfis_modulos.sql:163: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_usuario_escopo_acesso_resolucao on sigov.usuario_escopo_acesso (tenant_id, usuario_id, coalesce(entidade_id, 0), coalesce(exercicio_id, 0), coalesce(modulo_codigo, ''), escopo) where ativo = true;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260807120000_rc46_operacao_integrada.sql:24: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_protocolo_numero_exercicio on sigov.protocolo (tenant_id, exercicio, numero) where coalesce(is_deleted, false) = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260813160000_rc50_25_educacao_fluxo_diario.sql:18: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_diario_frequencia_aluno_data_componente on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula, coalesce(componente_curricular, '')) where is_deleted = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260818122000_rc50_48_educacao_biblioteca_digital_core.sql:33: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_educacao_biblioteca_exemplar_codigo on sigov.educacao_biblioteca_exemplar(tenant_id,coalesce(escola_id,0),codigo) where is_deleted=false and ativo=true;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+OK: 114 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conservador(es).
+PASS ./scripts/check-migration-immutable-index-expressions.sh database/postgres/migrations
+RUN bash scripts/check-api-route-conflicts.sh
+Nenhum conflito direto em 605 rotas API (/workspace/SIGOV-PLUS/src/Sigov.Api/Controllers).
+PASS bash scripts/check-api-route-conflicts.sh
+SKIP database (psql ausente ou SIGOV_SMOKE_APPLY_DATABASE != true)
+SKIP build (dotnet ausente)
+SKIP API probes (SIGOV_API_BASE_URL ausente)
+SKIP Web probes (SIGOV_WEB_BASE_URL ausente)
+SMOKE COMPLETO (saída sanitizada: nenhuma senha ou connection string registrada)
