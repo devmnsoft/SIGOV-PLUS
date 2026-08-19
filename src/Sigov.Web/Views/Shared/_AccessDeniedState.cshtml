@@ -1,0 +1,10 @@
+@{
+    var title = ViewData["StateTitle"] as string ?? "Acesso não autorizado";
+    var message = ViewData["StateMessage"] as string ?? "Você não possui permissão para esta ação.";
+}
+<section class="sigov-system-state" role="status" aria-labelledby="access-denied-title">
+  <sigov-icon name="locked" size="32" />
+  <span class="sigov-status-pill sigov-status-pill--warning">Acesso protegido</span>
+  <h2 id="access-denied-title">@title</h2><p>@message</p>
+  <div class="sigov-empty-state__actions"><a class="sigov-btn sigov-btn--primary" href="/MinhaCentral">Ir para Minha Central</a><a class="sigov-btn sigov-btn--ghost" href="/Modulos/MeuAcesso">Consultar meu acesso</a></div>
+</section>

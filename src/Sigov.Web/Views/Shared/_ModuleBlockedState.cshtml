@@ -1,0 +1,10 @@
+@{
+    var title = ViewData["StateTitle"] as string ?? "Módulo indisponível";
+    var message = ViewData["StateMessage"] as string ?? "Este módulo não está contratado, habilitado ou liberado para seu perfil.";
+}
+<section class="sigov-system-state" role="status" aria-labelledby="module-blocked-title">
+  <sigov-icon name="locked" size="32" />
+  <span class="sigov-status-pill sigov-status-pill--warning">Módulo protegido</span>
+  <h2 id="module-blocked-title">@title</h2><p>@message</p>
+  <div class="sigov-empty-state__actions"><a class="sigov-btn sigov-btn--primary" href="/Modulos/Catalogo">Consultar catálogo</a><a class="sigov-btn sigov-btn--ghost" href="/MinhaCentral">Voltar</a></div>
+</section>

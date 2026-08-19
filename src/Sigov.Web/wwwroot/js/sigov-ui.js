@@ -179,9 +179,14 @@
   }
 
   document.addEventListener('click', handleAction);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && document.body.classList.contains('sigov-sidebar-open')) setSidebar(false);
+  });
   window.SigovUI = { init };
   document.addEventListener('DOMContentLoaded', () => {
     init(document);
+    const validationSummary = document.querySelector('[data-sigov-validation-summary]');
+    if (validationSummary) validationSummary.focus();
   });
 })();
 

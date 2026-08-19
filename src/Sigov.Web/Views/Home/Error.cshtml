@@ -1,6 +1,11 @@
 @{
     var code = (int?)ViewData["Code"] ?? 500;
-    var title = code == 404 ? "Página não encontrada" : code == 403 ? "Acesso não autorizado" : "Erro inesperado";
+    var title = code == 404 ? "Página não encontrada" : code == 403 ? "Acesso não autorizado" : "Não foi possível concluir";
+    var message = code == 404
+        ? "O endereço informado não existe ou o recurso foi removido. Confira o menu para continuar."
+        : code == 403
+            ? "Você não possui permissão para esta ação. A tentativa foi interrompida com segurança."
+            : "Tente novamente. Se o problema continuar, acione o suporte e informe o código de referência abaixo.";
     ViewData["Title"] = title;
 }
-<section class="container-fluid py-5"><div class="card border-0 shadow-sm"><div class="card-body p-5 text-center"><span class="badge text-bg-secondary mb-3">@code</span><h1 class="h3">@title</h1><p class="text-muted">Não foi possível concluir a solicitação. A equipe técnica recebeu os dados necessários nos logs, sem expor stacktrace ou dados pessoais.</p><p class="small text-muted">CorrelationId: @Context.TraceIdentifier</p><a class="btn btn-primary" href="/Dashboard">Voltar ao dashboard</a> <a class="btn btn-outline-secondary" href="/Ajuda">Central de ajuda</a></div></div></section>
+<section class="sigov-system-state" role="@(code >= 500 ? "alert" : "status")" aria-labelledby="error-title"><sigov-icon name="@(code == 403 ? "locked" : code == 404 ? "search" : "warning")" size="32" /><span class="sigov-status-pill sigov-status-pill--@(code >= 500 ? "danger" : "warning")">Erro @code</span><h1 id="error-title">@title</h1><p>@message</p><p class="sigov-reference">Código de referência: <code>@Context.TraceIdentifier</code></p><div class="sigov-empty-state__actions"><a class="sigov-btn sigov-btn--primary" href="/MinhaCentral">Ir para Minha Central</a><a class="sigov-btn sigov-btn--ghost" href="/Ajuda">Abrir central de ajuda</a></div></section>

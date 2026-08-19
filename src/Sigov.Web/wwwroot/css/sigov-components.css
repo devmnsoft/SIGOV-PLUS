@@ -24,6 +24,7 @@
 .sigov-empty-state__message { max-width: 36rem; margin: 0; color: var(--sigov-text-muted); }
 .sigov-empty-state__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sigov-space-2); }
 .sigov-empty-state__actions .btn { display: inline-flex; align-items: center; gap: var(--sigov-space-2); }
+.sigov-system-state{display:grid;justify-items:center;gap:.8rem;max-width:760px;margin:clamp(2rem,8vh,6rem) auto;padding:clamp(1.5rem,5vw,3rem);text-align:center;background:var(--sigov-surface,#fff);border:1px solid var(--sigov-border,#dce3ec);border-radius:24px;box-shadow:0 18px 50px rgba(15,23,42,.08)}.sigov-system-state>svg{color:var(--sigov-primary,#0f766e)}.sigov-system-state h1,.sigov-system-state h2{margin:0;font-size:clamp(1.45rem,4vw,2rem)}.sigov-system-state p{max-width:58ch;margin:0;color:var(--sigov-text-muted,#64748b)}.sigov-reference{padding:.55rem .8rem;border-radius:10px;background:var(--sigov-neutral-100,#f1f5f9);overflow-wrap:anywhere}.sigov-validation-summary{margin-bottom:1rem;padding:1rem;border:1px solid #fca5a5;border-left:4px solid #dc2626;border-radius:12px;background:#fef2f2;color:#7f1d1d}.sigov-validation-summary ul{margin:.5rem 0 0;padding-left:1.25rem}
 .sigov-loading { display: inline-flex; align-items: center; gap: .5rem; }
 .sigov-kpi { border-left: 4px solid var(--sigov-primary); }
 :focus-visible { outline: 3px solid rgba(20,184,166,.55); outline-offset: 2px; }
