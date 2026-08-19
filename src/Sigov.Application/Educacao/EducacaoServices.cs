@@ -30,10 +30,16 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     private async Task<Result> GuardAsync(string recurso, string acao, CancellationToken ct)
     {
         if (TenantId <= 0) return Fail("Tenant obrigatório para operações de Educação.");
-        if (!await ModuloHabilitadoAsync(ct).ConfigureAwait(false)) return Fail("Módulo educação não contratado/habilitado para o tenant.");
-        if (!_user.IsAuthenticated || !UsuarioId.HasValue) return Fail("Usuário autenticado obrigatório.");
+        if (!await ModuloHabilitadoAsync(ct).ConfigureAwait(false)) return await NegarAsync(recurso, acao, "Módulo educação não contratado/habilitado para o tenant.", ct).ConfigureAwait(false);
+        if (!_user.IsAuthenticated || !UsuarioId.HasValue) return await NegarAsync(recurso, acao, "Usuário autenticado obrigatório.", ct).ConfigureAwait(false);
         var ok = await _permissions.HasPermissionAsync(UsuarioId.Value, EducacaoPermissoes.Modulo, recurso, acao, ct).ConfigureAwait(false);
-        return ok ? Result.Success() : Fail("Usuário sem permissão para a operação de Educação.");
+        return ok ? Result.Success() : await NegarAsync(recurso, acao, "Usuário sem permissão para a operação de Educação.", ct).ConfigureAwait(false);
+    }
+
+    private async Task<Result> NegarAsync(string recurso, string acao, string motivo, CancellationToken ct)
+    {
+        await _audit.RegistrarAsync("educacao", "ACESSO_NEGADO", "seguranca_evento", recurso, null, new { recurso, acao, motivo, usuarioId = UsuarioId, tenantId = TenantId }, ct).ConfigureAwait(false);
+        return Fail(motivo);
     }
 
     private Task<bool> ModuloHabilitadoAsync(CancellationToken ct) => _modulos.IsModuleEnabledAsync(TenantId, EducacaoPermissoes.Modulo, ct);
@@ -162,15 +168,24 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
         if (matricula.Value.Status.Equals("CONFIRMADA", StringComparison.OrdinalIgnoreCase)) return Result.Success();
         return await AtualizarAsync("matricula", "confirmar", id, new { Status = "CONFIRMADA", request.Observacao }, ct).ConfigureAwait(false);
     }
-    Task<Result> IMatriculaService.CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct) => AtualizarAsync("matricula", "cancelar", id, new { Status = "CANCELADA", request.Motivo }, ct);
-    Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct) => AtualizarAsync("matricula", "transferir", id, new { Status = "TRANSFERIDA", request.NovaTurmaId, request.Motivo }, ct);
+    Task<Result> IMatriculaService.CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct) =>
+        string.IsNullOrWhiteSpace(request.Motivo)
+            ? Task.FromResult(Fail("Cancelamento de matrícula exige justificativa."))
+            : AtualizarAsync("matricula", "cancelar", id, new { Status = "CANCELADA", Motivo = request.Motivo.Trim() }, ct);
+    Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct) =>
+        request.NovaTurmaId <= 0 || string.IsNullOrWhiteSpace(request.Motivo)
+            ? Task.FromResult(Fail("Transferência exige nova turma e justificativa."))
+            : AtualizarAsync("matricula", "transferir", id, new { Status = "TRANSFERIDA", request.NovaTurmaId, Motivo = request.Motivo.Trim() }, ct);
 
     Task<Result<PagedResult<ProfessorResponse>>> IProfessorService.ListarAsync(EscolaFiltro filtro, CancellationToken ct) => ListarAsync<ProfessorResponse>("professor", "professor", filtro, ct);
     Task<Result<long>> IProfessorService.CriarAsync(ProfessorCreateRequest request, CancellationToken ct) => CriarAsync("professor", "criar", request, ct);
     Task<Result<long>> IProfessorService.VincularTurmaAsync(long professorId, ProfessorTurmaRequest request, CancellationToken ct) => CriarAsync("professor_turma", "criar", new { ProfessorId = professorId, request.TurmaId, request.ComponenteCurricular, request.CargaHorariaSemanal }, ct);
 
     Task<Result<PagedResult<FrequenciaResponse>>> IFrequenciaService.ListarAsync(FrequenciaFiltro filtro, CancellationToken ct) => ListarAsync<FrequenciaResponse>("diario_frequencia", "frequencia", filtro, ct);
-    Task<Result<long>> IFrequenciaService.CriarAsync(FrequenciaCreateRequest request, CancellationToken ct) => CriarAsync("diario_frequencia", "criar", request, ct);
+    Task<Result<long>> IFrequenciaService.CriarAsync(FrequenciaCreateRequest request, CancellationToken ct) =>
+        request.TurmaId <= 0 || request.AlunoId <= 0
+            ? Task.FromResult(Fail<long>("Frequência exige turma e aluno com matrícula ativa."))
+            : CriarAsync("diario_frequencia", "criar", request, ct);
 
     Task<Result<PagedResult<AvaliacaoResponse>>> IAvaliacaoService.ListarAsync(TurmaFiltro filtro, CancellationToken ct) => ListarAsync<AvaliacaoResponse>("avaliacao", "avaliacao", filtro, ct);
     Task<Result<long>> IAvaliacaoService.CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct) => request.ValorMaximo <= 0m ? Task.FromResult(Fail<long>("Valor máximo da avaliação deve ser positivo.")) : CriarAsync("avaliacao", "criar", request, ct);
