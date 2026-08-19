@@ -1074,6 +1074,16 @@
       "applyAutomatically": true,
       "checksum": "c82d37cad431124b6de33fa399e1b1bdf0329f595f84edd3ec7df8344ea7566e",
       "postConditionSql": "select exists (select 1 from sigov.permissao where chave='ged.documento.definir_sigilo')"
+    },
+    {
+      "version": "20260819140000",
+      "file": "20260819140000_rc50_62_fluxos_administrativos_internos_core.sql",
+      "description": "20260819140000_rc50_62_fluxos_administrativos_internos_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "19843e03bcab2cfe86cd45b4a5ed1f10c976f479c95f3163f51188f21b2cb78a",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='obras.encerramento.registrar')"
     }
   ],
   "compatibilityAfterAll": [
