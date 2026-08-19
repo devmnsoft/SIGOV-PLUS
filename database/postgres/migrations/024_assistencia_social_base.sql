@@ -40,7 +40,7 @@ create index if not exists idx_social_vigilancia_indicador_tenant_competencia on
 create index if not exists idx_social_vigilancia_ocorrencia_tenant_status on sigov.social_vigilancia_ocorrencia(tenant_id, entidade_id, status);
 
 create or replace view sigov.vw_social_dashboard as select tenant_id, entidade_id, count(*) total_familias from sigov.social_familia where is_deleted=false group by tenant_id, entidade_id;
-create or replace view sigov.vw_social_familias_risco as select * from sigov.social_familia where is_deleted=false and classificacao_risco in ('ALTO','CRITICO');
+create or replace view sigov.vw_social_familias_risco as select id, tenant_id, entidade_id, codigo_familia, nis_familiar, responsavel_pessoa_id, endereco_json, renda_familiar, quantidade_membros, situacao, classificacao_risco, latitude, longitude, observacao, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id from sigov.social_familia where is_deleted=false and classificacao_risco in ('ALTO','CRITICO');
 create or replace view sigov.vw_social_atendimentos_resumo as select tenant_id, entidade_id, status, count(*) total from sigov.social_atendimento where is_deleted=false group by tenant_id, entidade_id, status;
 create or replace view sigov.vw_social_beneficios_resumo as select tenant_id, entidade_id, status, count(*) total from sigov.social_beneficio_concessao where is_deleted=false group by tenant_id, entidade_id, status;
 create or replace view sigov.vw_social_vulnerabilidades_resumo as select tenant_id, entidade_id, tipo_vulnerabilidade, grau, count(*) total from sigov.social_vulnerabilidade where is_deleted=false group by tenant_id, entidade_id, tipo_vulnerabilidade, grau;

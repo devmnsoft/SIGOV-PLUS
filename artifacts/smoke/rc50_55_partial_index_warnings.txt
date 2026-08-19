@@ -1,0 +1,80 @@
+[WARN] migration 010_create_sigov_indexes_constraints.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 013_sigov_foundation_refactor_fixups.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 017_processos_digitais_protocolo_ged.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 018_financeiro_siafic_base.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 019_core_pessoas_enderecos_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 020_rh_completo.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 021_educacao_base.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 022_saude_acs_base.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 023_saneamento_base.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 024_assistencia_social_base.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 025_integracoes_outbox_webhooks_base.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 026_agro_fundacao_geo_dashboard.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608090000_saas_parametrizacao_perfis_modulos.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608100000_agro_produtores_propriedades_producao.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608110000_agro_programas_beneficios_patrulha_mecanizada.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608130000_agro_estradas_feiras_agroindustrias.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260608140000_agro_relatorios_bi_transparencia.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260609090000_pos_build_dashboard_saas.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260609120000_pos_build_03_saas_implantacao_tributario.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610120000_pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610150000_pos_build_06_industria_producao.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610180000_pos_build_07_financeiro_integrado.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610200000_pos_build_08_tributario_avancado_iptu_iss_dam.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260610220000_pos_build_09_ged_ocr_assinatura_automacao.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 20260709120000_enterprise_funcional_crud.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 20260713120000_pos_rc_11_enterprise_anexos_release.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260727120000_pos_rc_27b2_tarefa_canonica.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260727160000_pos_rc_27b3_operacional_canonico.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730090000_pos_rc_32_ordem_servico.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730120000_pos_rc_29_comercial_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730180000_pos_rc_30_financeiro_empresarial_real.sql: índice parcial usa status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260730210000_pos_rc_31_consolidacao_comercial_financeiro.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260731120000_pos_rc_33_operacao_servicos_campo.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260802210000_pos_rc_37b_compras_empresariais_fullstack.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260807120000_rc46_operacao_integrada.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260809160000_rc49_workflow_platform.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813120000_rc50_24_educacao_rh_folha_produto_core.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813120000_rc50_27_operacoes_inteligentes.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813160000_rc50_25_educacao_fluxo_diario.sql: índice parcial usa ativo, is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813190000_rc50_28_gestao_avancada.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813193000_rc50_29_parametros_modulos.sql: índice parcial usa ativo, is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813195500_rc50_30_governanca_executiva.sql: índice parcial usa is_deleted, status, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813210000_rc50_31_bloco1_fechamento.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813223000_rc50_32_bloco2_rh_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813231000_rc50_34_educacao_diario_classe_bloco3_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260814120000_rc50_36_financeiro_siafic_bloco5_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 20260814121000_rc50_36_tributario_divida_ativa_bloco5_core.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 20260814122000_rc50_36_relatorios_executivos_bloco5_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260815120000_rc50_37_compras_licitacoes_bloco6_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[WARN] migration 20260815122000_rc50_37_almoxarifado_patrimonio_bloco6_core.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+[OK] migration 20260816120000_rc50_38_saude_bloco7_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260816121000_rc50_38_assistencia_social_bloco7_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260816123000_rc50_38_frotas_obras_bloco7_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817130000_rc50_43_empresarial_comercial_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817131000_rc50_43_empresarial_ordem_servico_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817132000_rc50_43_empresarial_estoque_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817133000_rc50_43_empresarial_industrial_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817140000_rc50_45_processos_digitais_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817141000_rc50_45_ged_assinaturas_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817142000_rc50_45_legislativo_camara_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817143000_rc50_45_transparencia_atendimento_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817150000_rc50_47_tributario_carnes_boletos_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817151000_rc50_47_tributario_portal_contribuinte_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817152000_rc50_47_tributario_fiscalizacao_issqn_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260817153000_rc50_47_tributario_nfse_desif_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818120000_rc50_48_educacao_transporte_escolar_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818121000_rc50_48_educacao_merenda_cardapio_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818122000_rc50_48_educacao_biblioteca_digital_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818130000_rc50_49_saude_acs_offline_georreferencia_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818131000_rc50_49_saude_cadastros_visitas_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818140000_rc50_50_saneamento_comercial_atendimento_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818142000_rc50_50_saneamento_operacao_campo_core.sql: colunas usadas em índices parciais estão garantidas
+[OK] migration 20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core.sql: colunas usadas em índices parciais estão garantidas
+[WARN] migration 20260818160000_rc50_52_lgpd_operacional.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
+Resumo: 49 migration(s) com possível risco; revise os avisos antes de publicar.

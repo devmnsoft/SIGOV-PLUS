@@ -16,3 +16,7 @@ O script falha se faltar ferramenta, aplica migrations sem marcar/pular versões
 ## Login real
 
 O gate não contorna antiforgery. Com credenciais locais fornecidas fora do relatório, execute `scripts/check-local-login.ps1` para admin e superadmin e registre apenas PASS/FAIL sanitizado. Se o banco de restore já existir, use um banco isolado vazio autorizado; nunca restaure sobre `postgres`.
+
+## Evidência RC50.55
+
+Antes da execução confirme `dotnet --info`, `psql --version`, `pg_dump --version` e `pg_restore --version`. O resultado deve registrar zero projeções curingas, os três validadores, banco limpo/parcial, build, API/Web/Worker e páginas críticas. Falta de ferramenta ou etapa obrigatória é `P0_ENVIRONMENTAL`; não aceite execução parcial como gate verde.

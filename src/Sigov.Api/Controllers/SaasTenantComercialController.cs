@@ -30,7 +30,7 @@ public sealed class SaasTenantComercialController : ControllerBase
             if (tenantId <= 0) return BadRequest(ApiResponse<object>.Fail("Tenant inválido.", cid));
             using var c = _context.CreateConnection();
             var assinatura = await c.QuerySingleOrDefaultAsync<object>(@"select a.*, p.codigo as plano_codigo, p.nome as plano_nome from sigov.saas_assinatura a join sigov.saas_plano p on p.id=a.plano_id where a.tenant_id=@TenantId order by a.created_at desc limit 1", new { TenantId = tenantId });
-            var historico = await c.QueryAsync<object>("select * from sigov.saas_assinatura_historico where tenant_id=@TenantId order by created_at desc limit 50", new { TenantId = tenantId });
+            var historico = await c.QueryAsync<object>("select id, assinatura_id, tenant_id, plano_anterior_id, plano_novo_id, acao, motivo, usuario_id, correlation_id, created_at from sigov.saas_assinatura_historico where tenant_id=@TenantId order by created_at desc limit 50", new { TenantId = tenantId });
             return Ok(ApiResponse<object>.Ok(new { assinatura, historico }, correlationId: cid));
         }
         catch (Exception ex)
@@ -63,8 +63,8 @@ public sealed class SaasTenantComercialController : ControllerBase
         {
             using var c = _context.CreateConnection();
             await EnsureImplantacao(c, tenantId, cid);
-            var implantacao = await c.QuerySingleAsync<object>("select * from sigov.saas_implantacao where tenant_id=@TenantId", new { TenantId = tenantId });
-            var itens = await c.QueryAsync<object>("select * from sigov.saas_implantacao_item where implantacao_id=(select id from sigov.saas_implantacao where tenant_id=@TenantId) order by ordem", new { TenantId = tenantId });
+            var implantacao = await c.QuerySingleAsync<object>("select id, tenant_id, status, responsavel_nome, responsavel_email, data_inicio, data_previsao, data_conclusao, percentual, observacao, created_at, updated_at from sigov.saas_implantacao where tenant_id=@TenantId", new { TenantId = tenantId });
+            var itens = await c.QueryAsync<object>("select id, implantacao_id, codigo, titulo, descricao, categoria, obrigatorio, concluido, concluido_at, concluido_por, ordem from sigov.saas_implantacao_item where implantacao_id=(select id from sigov.saas_implantacao where tenant_id=@TenantId) order by ordem", new { TenantId = tenantId });
             return Ok(ApiResponse<object>.Ok(new { implantacao, itens }, correlationId: cid));
         }
         catch (Exception ex)

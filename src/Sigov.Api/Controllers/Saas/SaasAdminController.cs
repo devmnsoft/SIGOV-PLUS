@@ -106,7 +106,13 @@ public sealed class SaasAdminController : ControllerBase
         }
 
         using var connection = _context.CreateConnection();
-        var rows = await connection.QueryAsync<object>(new CommandDefinition($"select * from sigov.{tabela} where ativo = true order by id;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var projection = tabela switch
+        {
+            "plano_saas" => "id, codigo, nome, descricao, valor_mensal, usuarios_inclusos, entidades_inclusas, armazenamento_gb, ativo, is_deleted, created_at, created_by, updated_at, updated_by, correlation_id",
+            "modulo_saas" => "id, codigo, nome, descricao, categoria, ordem, rota_base, icone, ativo, is_deleted, created_at, created_by, updated_at, updated_by, correlation_id",
+            _ => throw new ArgumentOutOfRangeException(nameof(tabela))
+        };
+        var rows = await connection.QueryAsync<object>(new CommandDefinition($"select {projection} from sigov.{tabela} where ativo = true order by id;", cancellationToken: cancellationToken)).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<object>>.Ok(rows.AsList()));
     }
 

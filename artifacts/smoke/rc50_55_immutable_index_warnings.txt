@@ -1,0 +1,15 @@
+database/postgres/migrations/021_educacao_base.sql:422: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_frequencia_turma_aluno_data_componente on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula, coalesce(componente_curricular, '')) where is_deleted = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/026_agro_fundacao_geo_dashboard.sql:141: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_agro_geo_camada_tenant_entidade_codigo on sigov.agro_geo_camada (tenant_id, coalesce(entidade_id, 0), codigo) where is_deleted = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260608090000_saas_parametrizacao_perfis_modulos.sql:75: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_tenant_parametro_valor_resolucao on sigov.tenant_parametro_valor (tenant_id, parametro_definicao_id, escopo, coalesce(entidade_id, 0), coalesce(exercicio_id, 0), coalesce(usuario_id, 0), coalesce(modulo_codigo, '')) where ativo = true;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260608090000_saas_parametrizacao_perfis_modulos.sql:163: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_usuario_escopo_acesso_resolucao on sigov.usuario_escopo_acesso (tenant_id, usuario_id, coalesce(entidade_id, 0), coalesce(exercicio_id, 0), coalesce(modulo_codigo, ''), escopo) where ativo = true;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260807120000_rc46_operacao_integrada.sql:24: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_protocolo_numero_exercicio on sigov.protocolo (tenant_id, exercicio, numero) where coalesce(is_deleted, false) = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260813160000_rc50_25_educacao_fluxo_diario.sql:18: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_diario_frequencia_aluno_data_componente on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula, coalesce(componente_curricular, '')) where is_deleted = false;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+database/postgres/migrations/20260818122000_rc50_48_educacao_biblioteca_digital_core.sql:33: aviso conservador para COALESCE em CREATE INDEX: create unique index if not exists ux_educacao_biblioteca_exemplar_codigo on sigov.educacao_biblioteca_exemplar(tenant_id,coalesce(escola_id,0),codigo) where is_deleted=false and ativo=true;
+  recomendação: avalie uma coluna materializada para simplificar a chave do índice.
+OK: 114 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conservador(es).

@@ -94,7 +94,7 @@ public sealed class TributarioController : ControllerBase
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
             await c.ExecuteAsync("insert into sigov.tributario_configuracao(tenant_id) values(@TenantId) on conflict(tenant_id) do nothing", new { TenantId = tenantId });
-            var row = await c.QuerySingleAsync<object>("select * from sigov.tributario_configuracao where tenant_id=@TenantId", new { TenantId = tenantId });
+            var row = await c.QuerySingleAsync<object>("select tenant_id, inscricao_imobiliaria_mascara, inscricao_mobiliaria_mascara, usa_georreferenciamento, usa_integracao_nfse, usa_protesto, updated_at from sigov.tributario_configuracao where tenant_id=@TenantId", new { TenantId = tenantId });
             return Ok(ApiResponse<object>.Ok(row, correlationId: cid));
         }
         catch (Exception ex)
@@ -348,7 +348,7 @@ values(@TenantId,@Competencia,@Tipo,@Versao,'GERADO',@TotalLancado,@TotalArrecad
             if (!await TemPermissao(recursoPermissao, acaoPermissao)) return Forbid();
             var page = Math.Max(1, filtro.Page);
             var pageSize = Math.Clamp(filtro.PageSize, 1, 100);
-            var sql = $@"select * from {meta.Table}
+            var sql = $@"select {Projection(meta.Table)} from {meta.Table}
 where tenant_id=@TenantId
   and (@Status is null or cast({meta.StatusColumn} as text)=@Status)
   and (@Busca is null or cast({meta.SearchColumn} as text) ilike '%' || @Busca || '%')
@@ -376,7 +376,7 @@ limit @PageSize offset @Offset";
             var (recursoPermissao, acaoPermissao) = PermissaoParaListagem(resource);
             if (!await TemPermissao(recursoPermissao, acaoPermissao)) return Forbid();
             using var c = _context.CreateConnection();
-            var row = await c.QuerySingleOrDefaultAsync<object>($"select * from {meta.Table} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId });
+            var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(meta.Table)} from {meta.Table} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId });
             return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado para o tenant informado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid));
         }
         catch (Exception ex)
@@ -587,7 +587,7 @@ values(@TenantId,'DAM',@DamId,@Numero,1,@Descricao,@Valor,@Valor,@Vencimento,'AB
         {
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
-            var sql = $"select * from {tabela} where tenant_id=@TenantId" + (tipo is null ? string.Empty : " and tipo_cadastro_codigo=@Tipo") + $" order by {order}";
+            var sql = $"select {Projection(tabela)} from {tabela} where tenant_id=@TenantId" + (tipo is null ? string.Empty : " and tipo_cadastro_codigo=@Tipo") + $" order by {order}";
             var rows = await c.QueryAsync<object>(sql, new { TenantId = tenantId, Tipo = tipo });
             return Ok(ApiResponse<object>.Ok(rows, correlationId: cid));
         }
@@ -701,7 +701,7 @@ order by nome limit @PageSize offset @Offset", new { TenantId = tenantId, Busca 
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
             using var c = _context.CreateConnection();
-            var rows = await c.QueryAsync<object>($"select * from {table} where tenant_id=@TenantId and (@Busca is null or inscricao ilike '%' || @Busca || '%') order by inscricao limit @PageSize offset @Offset", new { TenantId = tenantId, Busca = busca, PageSize = pageSize, Offset = (page - 1) * pageSize });
+            var rows = await c.QueryAsync<object>($"select {Projection(table)} from {table} where tenant_id=@TenantId and (@Busca is null or inscricao ilike '%' || @Busca || '%') order by inscricao limit @PageSize offset @Offset", new { TenantId = tenantId, Busca = busca, PageSize = pageSize, Offset = (page - 1) * pageSize });
             return Ok(ApiResponse<object>.Ok(new { items = rows, page, pageSize }, correlationId: cid));
         }
         catch (Exception ex)
@@ -753,6 +753,25 @@ order by nome limit @PageSize offset @Offset", new { TenantId = tenantId, Busca 
         _ => ("dashboard", "visualizar")
     };
 
+
+    private static string Projection(string table) => table switch
+    {
+        "sigov.arrecadacao" => "id, tenant_id, parcela_id, contribuinte_id, valor_pago, data_pagamento, forma_pagamento, status, codigo_baixa, correlation_id, usuario_id, created_at, updated_at",
+        "sigov.contribuinte" => "id, tenant_id, inscricao, nome, documento, tipo_pessoa, email, telefone, endereco_json, consentimento_lgpd, ativo, created_at, updated_at",
+        "sigov.documento_arrecadacao_municipal" => "id, tenant_id, numero, parcela_id, contribuinte_id, linha_digitavel, codigo_barras, valor, data_vencimento, status, emissao_simulada, versao, historico_json, correlation_id, usuario_id, created_at, updated_at",
+        "sigov.integracao_nfse" => "id, tenant_id, contribuinte_id, inscricao_municipal, rps_numero, nfse_numero, competencia, valor_servico, valor_iss, status, payload_json, resposta_json, correlation_id, usuario_id, created_at, updated_at",
+        "sigov.iptu" => "id, tenant_id, inscricao_imobiliaria, contribuinte_id, exercicio, valor_venal, aliquota, valor_lancado, data_vencimento, status, dados_json, created_at, updated_at",
+        "sigov.iss" => "id, tenant_id, inscricao_municipal, contribuinte_id, competencia, base_calculo, aliquota, valor_lancado, data_vencimento, status, origem, origem_id, created_at, updated_at",
+        "sigov.livro_eletronico_tributario" => "id, tenant_id, competencia, tipo, versao, status, total_lancado, total_arrecadado, registros_json, historico_json, gerado_por, correlation_id, created_at, updated_at",
+        "sigov.parcela" => "id, tenant_id, origem_tipo, origem_id, contribuinte_id, numero, valor_original, valor_atualizado, data_vencimento, status, conta_receber_id, created_at, updated_at",
+        "sigov.parcelamento_divida_ativa" => "id, tenant_id, numero, contribuinte_id, inscricao_divida, valor_original, valor_atualizado, quantidade_parcelas, status, termo_json, created_at, updated_at",
+        "sigov.taxas_municipais" => "id, tenant_id, codigo, descricao, contribuinte_id, inscricao, competencia, valor, data_vencimento, status, created_at, updated_at",
+        "sigov.tributario_campo_dinamico" => "id, tenant_id, tipo_cadastro_codigo, codigo, nome, tipo, obrigatorio, ordem, opcoes_json, ativo",
+        "sigov.tributario_economico" => "id, tenant_id, inscricao, contribuinte_id, nome_fantasia, atividade_principal, dados_json, ativo, created_at, updated_at",
+        "sigov.tributario_imovel" => "id, tenant_id, inscricao, contribuinte_id, endereco_json, area_terreno, area_construida, dados_json, ativo, created_at, updated_at",
+        "sigov.tributario_tipo_cadastro" => "id, tenant_id, codigo, nome, descricao, ativo",
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela fora da allowlist de projeções.")
+    };
     private long RequireTenant() => _currentTenant.TenantId ?? throw new InvalidOperationException("Tenant obrigatório para operar Tributário.");
 
     private string CorrelationId()

@@ -239,7 +239,7 @@ values(@TenantId,@DocumentoId,@WorkflowId,@UnidadeOrigemId,@UnidadeDestinoId,@Us
         if (!HasPermission("ged.visualizar")) return Forbid();
         var tenantId = RequireTenant();
         using var c = _context.CreateConnection();
-        var rows = await c.QueryAsync<object>("select * from sigov.ged_historico where tenant_id=@TenantId and documento_id=@Id order by evento_at desc", new { TenantId = tenantId, Id = id });
+        var rows = await c.QueryAsync<object>("select id, tenant_id, documento_id, protocolo_id, contrato_id, acao, descricao, usuario_id, antes, depois, ip, user_agent, evento_at, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id from sigov.ged_historico where tenant_id=@TenantId and documento_id=@Id order by evento_at desc", new { TenantId = tenantId, Id = id });
         return Ok(ApiResponse<object>.Ok(rows, correlationId: cid));
     }
 
@@ -326,7 +326,7 @@ values(@TenantId,@EntidadeId,@ExercicioId,@Numero,@Assunto,@InteressadoNome,@Int
             if (!HasPermission(permissao)) return Forbid();
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
-            var rows = await c.QueryAsync<object>($"select * from {tabela} t where t.tenant_id=@TenantId and t.is_deleted=false and (@Busca is null or t::text ilike '%'||@Busca||'%') order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) });
+            var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} t where t.tenant_id=@TenantId and t.is_deleted=false and (@Busca is null or t::text ilike '%'||@Busca||'%') order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) });
             return Ok(ApiResponse<object>.Ok(rows, correlationId: cid));
         }
         catch (Exception ex)
@@ -344,7 +344,7 @@ values(@TenantId,@EntidadeId,@ExercicioId,@Numero,@Assunto,@InteressadoNome,@Int
             if (!HasPermission(permissao)) return Forbid();
             var tenantId = RequireTenant();
             using var c = _context.CreateConnection();
-            var row = await c.QuerySingleOrDefaultAsync<object>($"select * from {tabela} where id=@Id and tenant_id=@TenantId and is_deleted=false", new { Id = id, TenantId = tenantId });
+            var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId and is_deleted=false", new { Id = id, TenantId = tenantId });
             return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid));
         }
         catch (Exception ex)
@@ -360,6 +360,15 @@ values(@TenantId,@DocumentoId,@ProtocoloId,@ContratoId,@Acao,@Descricao,@Usuario
     private Task Auditar(System.Data.IDbConnection c, long tenantId, string evento, string? entidade, long? entityId, object payload, string cid) => c.ExecuteAsync("insert into sigov.auditoria_evento(tenant_id,usuario_id,acao,entidade,entidade_id,correlation_id,depois,created_at) values(@TenantId,@UsuarioId,@Evento,@Entidade,@RegistroId,cast(@CorrelationId as uuid),cast(@Payload as jsonb),now())", new { TenantId = tenantId, UsuarioId = _user.UsuarioId, Evento = evento, Entidade = entidade ?? "ged", RegistroId = entityId?.ToString(), CorrelationId = GuidOrNew(cid), Payload = JsonSerializer.Serialize(payload) });
 
     private static Task<bool> Existe(System.Data.IDbConnection c, string tabela, long tenantId, long id) => c.ExecuteScalarAsync<bool>($"select exists(select 1 from {tabela} where id=@Id and tenant_id=@TenantId and is_deleted=false)", new { Id = id, TenantId = tenantId });
+
+    private static string Projection(string table) => table switch
+    {
+        "sigov.contrato" => "id, tenant_id, numero, objeto, fornecedor_id, status, vigencia_inicio, vigencia_fim, valor, created_at, updated_at, is_deleted",
+        "sigov.ged_documento" => "id, tenant_id, entidade_id, exercicio_id, tipo_documento_id, protocolo_id, contrato_id, origem_modulo, origem_entidade, origem_id, titulo, descricao, numero_documento, tipo, status, classificacao_lgpd, sigiloso, metadados, tags, data_documento, publicado_at, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id",
+        "sigov.ged_workflow" => "id, tenant_id, documento_id, codigo, nome, etapa_atual, status, responsavel_usuario_id, responsavel_perfil, definicao, iniciado_at, concluido_at, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id",
+        "sigov.protocolo" => "id, tenant_id, numero, assunto, interessado_nome, interessado_documento, status, workflow_instancia_id, correlation_id, created_at, updated_at, is_deleted",
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela fora da allowlist de projeções.")
+    };
     private long RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("tenant_id obrigatório para GED.");
     private string CorrelationId() => HttpContext.TraceIdentifier;
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);

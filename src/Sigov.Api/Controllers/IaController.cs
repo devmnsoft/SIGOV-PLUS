@@ -35,7 +35,7 @@ public sealed class IaController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> GetConfiguracao(CancellationToken ct) => await Safe("IA_CONFIGURACAO_VISUALIZADA", async (tenantId, cid) =>
     {
         using var c = _context.CreateConnection();
-        var row = await c.QuerySingleOrDefaultAsync<object>(new CommandDefinition("select * from sigov.ia_configuracao_tenant where tenant_id=@TenantId", new { TenantId = tenantId }, cancellationToken: ct)).ConfigureAwait(false)
+        var row = await c.QuerySingleOrDefaultAsync<object>(new CommandDefinition("select tenant_id, ia_habilitada, permitir_envio_externo, mascarar_dados_sensiveis, exigir_confirmacao_acao_critica, provedor_padrao_codigo, limite_interacoes_mes, limite_tokens_mes, updated_at from sigov.ia_configuracao_tenant where tenant_id=@TenantId", new { TenantId = tenantId }, cancellationToken: ct)).ConfigureAwait(false)
             ?? new { tenant_id = tenantId, ia_habilitada = false, permitir_envio_externo = false, mascarar_dados_sensiveis = true, exigir_confirmacao_acao_critica = true, provedor_padrao_codigo = "INTERNO", limite_interacoes_mes = (int?)null, limite_tokens_mes = (int?)null };
         return Ok(ApiResponse<object>.Ok(row, correlationId: cid));
     }, ct).ConfigureAwait(false);
@@ -52,13 +52,13 @@ on conflict(tenant_id) do update set ia_habilitada=excluded.ia_habilitada,permit
     }, ct).ConfigureAwait(false);
 
     [HttpGet("assistentes")]
-    public async Task<ActionResult<ApiResponse<object>>> Assistentes(CancellationToken ct) => await Query("select * from sigov.ia_assistente where ativo=true order by nome", "IA_ASSISTENTES_LISTADOS", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Assistentes(CancellationToken ct) => await Query("select id, codigo, nome, descricao, tipo, ativo, created_at from sigov.ia_assistente where ativo=true order by nome", "IA_ASSISTENTES_LISTADOS", ct).ConfigureAwait(false);
 
     [HttpGet("assistentes/{codigo}")]
     public async Task<ActionResult<ApiResponse<object>>> Assistente(string codigo, CancellationToken ct) => await Safe("IA_ASSISTENTE_OBTIDO", async (tenantId, cid) =>
     {
         using var c = _context.CreateConnection();
-        var row = await c.QuerySingleOrDefaultAsync<object>(new CommandDefinition("select * from sigov.ia_assistente where codigo=@Codigo", new { Codigo = codigo }, cancellationToken: ct)).ConfigureAwait(false);
+        var row = await c.QuerySingleOrDefaultAsync<object>(new CommandDefinition("select id, codigo, nome, descricao, tipo, ativo, created_at from sigov.ia_assistente where codigo=@Codigo", new { Codigo = codigo }, cancellationToken: ct)).ConfigureAwait(false);
         return row is null ? NotFound(ApiResponse<object>.Fail("Assistente não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid));
     }, ct).ConfigureAwait(false);
 
@@ -75,15 +75,15 @@ on conflict(tenant_id) do update set ia_habilitada=excluded.ia_habilitada,permit
     public async Task<ActionResult<ApiResponse<object>>> Execucoes(CancellationToken ct) => await TenantQuery("select id,tenant_id,usuario_id,assistente_codigo,modulo_codigo,tipo,origem,origem_id,status,provedor_codigo,tokens_entrada,tokens_saida,custo_estimado,correlation_id,created_at,concluida_at from sigov.ia_execucao where tenant_id=@TenantId order by created_at desc limit 100", "IA_EXECUCOES_LISTADAS", ct).ConfigureAwait(false);
 
     [HttpGet("execucoes/{id:long}")]
-    public async Task<ActionResult<ApiResponse<object>>> Execucao(long id, CancellationToken ct) => await TenantSingle("select * from sigov.ia_execucao where tenant_id=@TenantId and id=@Id", new { Id = id }, "Execução não encontrada.", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Execucao(long id, CancellationToken ct) => await TenantSingle("select id, tenant_id, usuario_id, assistente_codigo, modulo_codigo, tipo, origem, origem_id, prompt, resposta, status, provedor_codigo, tokens_entrada, tokens_saida, custo_estimado, erro, correlation_id, created_at, concluida_at from sigov.ia_execucao where tenant_id=@TenantId and id=@Id", new { Id = id }, "Execução não encontrada.", ct).ConfigureAwait(false);
 
     [HttpPost("execucoes/{id:long}/cancelar")]
     public async Task<ActionResult<ApiResponse<object>>> Cancelar(long id, CancellationToken ct) => await UpdateStatus("ia_execucao", id, "CANCELADA", "Execução cancelada.", ct).ConfigureAwait(false);
 
     [HttpGet("sugestoes")]
-    public async Task<ActionResult<ApiResponse<object>>> Sugestoes(CancellationToken ct) => await TenantQuery("select * from sigov.ia_sugestao where tenant_id=@TenantId order by criada_at desc limit 100", "IA_SUGESTOES_LISTADAS", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Sugestoes(CancellationToken ct) => await TenantQuery("select id, tenant_id, execucao_id, modulo_codigo, origem, origem_id, titulo, descricao, tipo, prioridade, status, exige_confirmacao, criada_at, aplicada_at, rejeitada_at, usuario_decisao_id from sigov.ia_sugestao where tenant_id=@TenantId order by criada_at desc limit 100", "IA_SUGESTOES_LISTADAS", ct).ConfigureAwait(false);
     [HttpGet("sugestoes/{id:long}")]
-    public async Task<ActionResult<ApiResponse<object>>> Sugestao(long id, CancellationToken ct) => await TenantSingle("select * from sigov.ia_sugestao where tenant_id=@TenantId and id=@Id", new { Id = id }, "Sugestão não encontrada.", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Sugestao(long id, CancellationToken ct) => await TenantSingle("select id, tenant_id, execucao_id, modulo_codigo, origem, origem_id, titulo, descricao, tipo, prioridade, status, exige_confirmacao, criada_at, aplicada_at, rejeitada_at, usuario_decisao_id from sigov.ia_sugestao where tenant_id=@TenantId and id=@Id", new { Id = id }, "Sugestão não encontrada.", ct).ConfigureAwait(false);
     [HttpPost("sugestoes/{id:long}/aprovar")]
     public async Task<ActionResult<ApiResponse<object>>> AprovarSugestao(long id, CancellationToken ct) => await SuggestionStatus(id, "APROVADA", "aplicada_at=null, rejeitada_at=null", "IA_SUGESTAO_APROVADA", ct).ConfigureAwait(false);
     [HttpPost("sugestoes/{id:long}/aplicar")]
@@ -98,9 +98,9 @@ on conflict(tenant_id) do update set ia_habilitada=excluded.ia_habilitada,permit
     [HttpPost("documentos/{documentoId:long}/extrair-campos")]
     public async Task<ActionResult<ApiResponse<object>>> ExtrairCampos(long documentoId, [FromBody] IaExecutionRequest? request, CancellationToken ct) => await DocumentAction(documentoId, request ?? new IaExecutionRequest("EXTRACAO", $"Extrair campos do documento {documentoId}", "ged", "ASSISTENTE_GED", "DOCUMENTO", documentoId), "IA_CAMPOS_EXTRAIDOS", ct).ConfigureAwait(false);
     [HttpGet("documentos/{documentoId:long}/classificacoes")]
-    public async Task<ActionResult<ApiResponse<object>>> Classificacoes(long documentoId, CancellationToken ct) => await TenantQuery("select * from sigov.ia_classificacao_documento where tenant_id=@TenantId and documento_id=@DocumentoId order by created_at desc", "IA_CLASSIFICACOES_LISTADAS", ct, new { DocumentoId = documentoId }).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Classificacoes(long documentoId, CancellationToken ct) => await TenantQuery("select id, tenant_id, documento_id, tipo_sugerido, confianca, metadados_json, revisado, revisado_por, created_at from sigov.ia_classificacao_documento where tenant_id=@TenantId and documento_id=@DocumentoId order by created_at desc", "IA_CLASSIFICACOES_LISTADAS", ct, new { DocumentoId = documentoId }).ConfigureAwait(false);
     [HttpGet("documentos/{documentoId:long}/campos-extraidos")]
-    public async Task<ActionResult<ApiResponse<object>>> Campos(long documentoId, CancellationToken ct) => await TenantQuery("select * from sigov.ia_extracao_campo where tenant_id=@TenantId and documento_id=@DocumentoId order by created_at desc", "IA_CAMPOS_LISTADOS", ct, new { DocumentoId = documentoId }).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Campos(long documentoId, CancellationToken ct) => await TenantQuery("select id, tenant_id, documento_id, campo, valor, confianca, revisado, revisado_por, created_at from sigov.ia_extracao_campo where tenant_id=@TenantId and documento_id=@DocumentoId order by created_at desc", "IA_CAMPOS_LISTADOS", ct, new { DocumentoId = documentoId }).ConfigureAwait(false);
 
     [HttpPost("relatorios/gerar")]
     [HttpPost("relatorios/financeiro")]
@@ -110,7 +110,7 @@ on conflict(tenant_id) do update set ia_habilitada=excluded.ia_habilitada,permit
     public async Task<ActionResult<ApiResponse<object>>> GerarRelatorio([FromBody] IaRelatorioRequest request, CancellationToken ct) => await Executar(new IaExecutionRequest("RELATORIO", request.Contexto ?? $"Gerar relatório {request.Tipo}", request.ModuloCodigo, "ASSISTENTE_GERAL", "RELATORIO", null), ct).ConfigureAwait(false);
 
     [HttpGet("automacoes")]
-    public async Task<ActionResult<ApiResponse<object>>> Automacoes(CancellationToken ct) => await TenantQuery("select * from sigov.ia_automacao where tenant_id=@TenantId order by created_at desc", "IA_AUTOMACOES_LISTADAS", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Automacoes(CancellationToken ct) => await TenantQuery("select id, tenant_id, codigo, nome, descricao, modulo_codigo, gatilho, condicao_json, acao_json, exige_confirmacao, ativo, created_at, updated_at from sigov.ia_automacao where tenant_id=@TenantId order by created_at desc", "IA_AUTOMACOES_LISTADAS", ct).ConfigureAwait(false);
     [HttpPost("automacoes")]
     public async Task<ActionResult<ApiResponse<object>>> CriarAutomacao([FromBody] IaAutomationRequest request, CancellationToken ct) => await UpsertAutomacao(null, request, ct).ConfigureAwait(false);
     [HttpPut("automacoes/{id:long}")]
@@ -120,17 +120,17 @@ on conflict(tenant_id) do update set ia_habilitada=excluded.ia_habilitada,permit
     [HttpPost("automacoes/{id:long}/executar")]
     public async Task<ActionResult<ApiResponse<object>>> ExecutarAutomacao(long id, CancellationToken ct) => await Safe("IA_AUTOMACAO_EXECUTADA", async (tenantId, cid) => Ok(ApiResponse<object>.Ok(new { execucaoId = await _automations.ExecutarAsync(tenantId, id, Guid.Parse(cid), ct).ConfigureAwait(false) }, correlationId: cid)), ct).ConfigureAwait(false);
     [HttpGet("automacoes/{id:long}/execucoes")]
-    public async Task<ActionResult<ApiResponse<object>>> ExecucoesAutomacao(long id, CancellationToken ct) => await TenantQuery("select * from sigov.ia_automacao_execucao where tenant_id=@TenantId and automacao_id=@AutomacaoId order by created_at desc", "IA_AUTOMACAO_EXECUCOES_LISTADAS", ct, new { AutomacaoId = id }).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> ExecucoesAutomacao(long id, CancellationToken ct) => await TenantQuery("select id, automacao_id, tenant_id, status, entrada_json, resultado_json, erro, correlation_id, created_at, concluida_at from sigov.ia_automacao_execucao where tenant_id=@TenantId and automacao_id=@AutomacaoId order by created_at desc", "IA_AUTOMACAO_EXECUCOES_LISTADAS", ct, new { AutomacaoId = id }).ConfigureAwait(false);
 
     [HttpGet("alertas")]
-    public async Task<ActionResult<ApiResponse<object>>> Alertas(CancellationToken ct) => await TenantQuery("select * from sigov.ia_alerta_inteligente where tenant_id=@TenantId order by created_at desc limit 100", "IA_ALERTAS_LISTADOS", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Alertas(CancellationToken ct) => await TenantQuery("select id, tenant_id, modulo_codigo, tipo, titulo, mensagem, prioridade, origem, origem_id, lido, resolvido, created_at, resolvido_at from sigov.ia_alerta_inteligente where tenant_id=@TenantId order by created_at desc limit 100", "IA_ALERTAS_LISTADOS", ct).ConfigureAwait(false);
     [HttpPost("alertas/{id:long}/marcar-lido")]
     public async Task<ActionResult<ApiResponse<object>>> MarcarLido(long id, CancellationToken ct) => await FlagAlerta(id, "lido=true", "Alerta marcado como lido.", ct).ConfigureAwait(false);
     [HttpPost("alertas/{id:long}/resolver")]
     public async Task<ActionResult<ApiResponse<object>>> ResolverAlerta(long id, CancellationToken ct) => await FlagAlerta(id, "resolvido=true,resolvido_at=now()", "IA_ALERTA_RESOLVIDO", ct).ConfigureAwait(false);
 
     [HttpGet("predicoes")]
-    public async Task<ActionResult<ApiResponse<object>>> Predicoes(CancellationToken ct) => await TenantQuery("select * from sigov.ia_predicao_resultado where tenant_id=@TenantId order by created_at desc limit 100", "IA_PREDICOES_LISTADAS", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Predicoes(CancellationToken ct) => await TenantQuery("select id, tenant_id, modelo_codigo, origem, origem_id, score, classificacao, explicacao, dados_json, created_at from sigov.ia_predicao_resultado where tenant_id=@TenantId order by created_at desc limit 100", "IA_PREDICOES_LISTADAS", ct).ConfigureAwait(false);
     [HttpPost("predicoes/inadimplencia")]
     [HttpPost("predicoes/estoque-ruptura")]
     [HttpPost("predicoes/os-atraso")]
@@ -142,7 +142,7 @@ on conflict(tenant_id) do update set ia_habilitada=excluded.ia_habilitada,permit
     public async Task<ActionResult<ApiResponse<object>>> Feedback([FromBody] IaFeedbackRequest request, CancellationToken ct) => await Safe("IA_FEEDBACK_REGISTRADO", async (tenantId, cid) => { using var c = _context.CreateConnection(); var id = await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.ia_feedback_usuario(tenant_id,execucao_id,sugestao_id,usuario_id,avaliacao,comentario,util) values(@TenantId,@ExecucaoId,@SugestaoId,@UsuarioId,@Avaliacao,@Comentario,@Util) returning id", new { TenantId = tenantId, request.ExecucaoId, request.SugestaoId, UsuarioId = UserId(), request.Avaliacao, request.Comentario, request.Util }, cancellationToken: ct)).ConfigureAwait(false); return Ok(ApiResponse<object>.Ok(new { id }, correlationId: cid)); }, ct).ConfigureAwait(false);
 
     [HttpGet("consumo")]
-    public async Task<ActionResult<ApiResponse<object>>> Consumo(CancellationToken ct) => await TenantQuery("select * from sigov.ia_consumo where tenant_id=@TenantId order by competencia desc limit 24", "IA_CONSUMO_VISUALIZADO", ct).ConfigureAwait(false);
+    public async Task<ActionResult<ApiResponse<object>>> Consumo(CancellationToken ct) => await TenantQuery("select id, tenant_id, competencia, interacoes, tokens_entrada, tokens_saida, custo_estimado, created_at from sigov.ia_consumo where tenant_id=@TenantId order by competencia desc limit 24", "IA_CONSUMO_VISUALIZADO", ct).ConfigureAwait(false);
     [HttpPost("consumo/recalcular")]
     public async Task<ActionResult<ApiResponse<object>>> Recalcular(CancellationToken ct) => await Safe("IA_CONSUMO_RECALCULADO", async (tenantId, cid) => { using var c = _context.CreateConnection(); await c.ExecuteAsync(new CommandDefinition("insert into sigov.ia_consumo(tenant_id,competencia,interacoes,tokens_entrada,tokens_saida,custo_estimado) select tenant_id,date_trunc('month',created_at)::date,count(*),coalesce(sum(tokens_entrada),0),coalesce(sum(tokens_saida),0),coalesce(sum(custo_estimado),0) from sigov.ia_execucao where tenant_id=@TenantId group by tenant_id,date_trunc('month',created_at)::date on conflict(tenant_id,competencia) do update set interacoes=excluded.interacoes,tokens_entrada=excluded.tokens_entrada,tokens_saida=excluded.tokens_saida,custo_estimado=excluded.custo_estimado", new { TenantId = tenantId }, cancellationToken: ct)).ConfigureAwait(false); return Ok(ApiResponse<object>.Ok(new { recalculado = true }, correlationId: cid)); }, ct).ConfigureAwait(false);
 
