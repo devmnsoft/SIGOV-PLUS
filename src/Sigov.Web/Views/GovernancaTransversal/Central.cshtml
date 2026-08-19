@@ -1,0 +1,15 @@
+@model Sigov.Web.Models.Governanca.CentralTransversalViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<header class="sigov-page-hero"><div><span class="sigov-eyebrow">Governança transversal</span><h1>@Model.Titulo</h1><p>@Model.Descricao</p></div></header>
+<section class="central-panel central-panel--wide mt-4">
+  @if (Model.Itens.Count == 0)
+  {
+    <div class="sigov-empty-state-premium"><sigov-icon name="success" size="34" /><strong>Nenhuma ocorrência disponível</strong><span>A estrutura está pronta e não há registros reais visíveis para seu tenant e permissões.</span></div>
+  }
+  else
+  {
+    <div class="table-responsive"><table class="table"><thead><tr><th>Módulo/origem</th><th>Ocorrência</th><th>Classificação</th><th>Status</th><th>Ação</th></tr></thead><tbody>
+    @foreach (var item in Model.Itens) { <tr><td>@item.Modulo</td><td>@item.Titulo</td><td>@item.Classificacao</td><td><span class="sigov-status-pill sigov-status-pill--info">@item.Status</span></td><td>@if (!string.IsNullOrWhiteSpace(item.Rota)) { <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Rota">Abrir</a> } else { <span>Sem ação aplicável</span> }</td></tr> }
+    </tbody></table></div>
+  }
+</section>

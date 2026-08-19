@@ -1084,6 +1084,16 @@
       "applyAutomatically": true,
       "checksum": "19843e03bcab2cfe86cd45b4a5ed1f10c976f479c95f3163f51188f21b2cb78a",
       "postConditionSql": "select exists (select 1 from sigov.permissao where chave='obras.encerramento.registrar')"
+    },
+    {
+      "version": "20260819150000",
+      "file": "20260819150000_rc50_63_consolidacao_transversal_core.sql",
+      "description": "20260819150000_rc50_63_consolidacao_transversal_core",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "dd6d8fd38e1ede277a30a01385fb9a7a012ed9c0d2ee84525fc9c10f554f8e1b",
+      "postConditionSql": "select to_regclass('sigov.pendencia_operacional') is not null and to_regclass('sigov.alerta_operacional') is not null"
     }
   ],
   "compatibilityAfterAll": [

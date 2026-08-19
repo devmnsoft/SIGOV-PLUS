@@ -79,6 +79,8 @@ using Sigov.Application.Lgpd;
 using Sigov.Infrastructure.Lgpd;
 using Sigov.Application.Release;
 using Sigov.Application.Homologacao;
+using Sigov.Application.Governanca;
+using Sigov.Infrastructure.Governanca;
 using Sigov.Infrastructure.Homologacao;
 using Sigov.Infrastructure.Release;
 using Sigov.Infrastructure.Ui;
@@ -132,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<ITributarioFiscalizacaoService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<ITributarioNfseService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddSingleton<NpgsqlConnectionFactory>();
+        services.AddScoped<ITransversalGovernancaService, TransversalGovernancaService>();
         services.AddScoped<IComprasRepository, ComprasRepository>();
         services.AddScoped<IContratosRepository, ContratosRepository>();
         services.AddScoped<IAlmoxarifadoRepository, AlmoxarifadoRepository>();

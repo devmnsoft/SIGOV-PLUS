@@ -7,6 +7,7 @@
   var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || claims.Contains("compras_empresariais.dashboard.visualizar", StringComparer.OrdinalIgnoreCase);
   var canSeeSecurity = MenuPermissions.CanSeeModule(User, "seguranca");
   var canSeeAudit = MenuPermissions.CanSeeModule(User, "auditoria-lgpd");
+  var canSeeGovernanca = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL") || User.IsInRole("AUDITOR") || claims.Any(c => c.StartsWith("governanca.", StringComparison.OrdinalIgnoreCase));
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
@@ -21,8 +22,13 @@
       <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard" data-favorite-key="Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Dashboard">★</button></a>
       <a class="sigov-nav-link@(active("/Notificacoes"))" href="/Notificacoes"><sigov-icon name="notifications" size="18"/><span>Notificações</span></a>
       <a class="sigov-nav-link@(active("/GovernancaOperacional"))" href="/GovernancaOperacional"><sigov-icon name="dashboard" size="18"/><span>Governança Operacional</span></a>
+      @if (canSeeGovernanca) {
+      <a class="sigov-nav-link@(active("/Pendencias"))" href="/Pendencias"><sigov-icon name="workflow" size="18"/><span>Pendências</span></a>
+      <a class="sigov-nav-link@(active("/Alertas"))" href="/Alertas"><sigov-icon name="notifications" size="18"/><span>Alertas</span></a>
       <a class="sigov-nav-link@(active("/IntegracoesInternas"))" href="/IntegracoesInternas"><sigov-icon name="sync" size="18"/><span>Integrações Internas</span></a>
       <a class="sigov-nav-link@(active("/QualidadeDados"))" href="/QualidadeDados"><sigov-icon name="audit" size="18"/><span>Qualidade de Dados</span></a>
+      <a class="sigov-nav-link@(active("/Modulos/StatusFuncional"))" href="/Modulos/StatusFuncional"><sigov-icon name="dashboard" size="18"/><span>Status funcional</span></a>
+      }
       <a class="sigov-nav-link@(active("/BuscaGlobal"))" href="/BuscaGlobal"><sigov-icon name="search" size="18"/><span>Busca Global</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Educacao/Secretaria","/Educacao/Diario","/Educacao/Portal"})><summary><sigov-icon name="education" size="16" />Educação • Bloco 3</summary>
