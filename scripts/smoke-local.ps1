@@ -1,0 +1,7 @@
+$ErrorActionPreference='Continue'; $out='artifacts/smoke/rc50_52_smoke_result.txt'; New-Item (Split-Path $out) -ItemType Directory -Force|Out-Null; Set-Content $out '';$failed=$false
+function Run([scriptblock]$Command,[string]$Label){"> $Label"|Add-Content $out;& $Command *>>$out;if($LASTEXITCODE -ne 0){'FAIL'|Add-Content $out;$script:failed=$true}}
+Run {python -m json.tool database/postgres/migrations/manifest.json} 'validar manifest'
+foreach($s in 'partial-index-columns','index-columns','immutable-index-expressions'){Run {& "scripts/check-migration-$s.ps1" database/postgres/migrations} "migration $s"}
+if(Get-Command psql -ErrorAction SilentlyContinue){$env:PGPASSWORD=$env:SIGOV_DB_PASSWORD;Run {psql -h $(if($env:SIGOV_DB_HOST){$env:SIGOV_DB_HOST}else{'localhost'}) -p 5432 -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/postgres/script_completo_dev.sql} 'aplicar migrations'}else{'SKIP psql indisponível'|Add-Content $out;$failed=$true}
+if(Get-Command dotnet -ErrorAction SilentlyContinue){Run {dotnet restore sigov.runtime.slnf --locked-mode} 'restore';Run {dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror} 'build'}else{'SKIP dotnet indisponível'|Add-Content $out;$failed=$true}
+Run {& scripts/check-critical-pages.ps1} 'páginas críticas';"Resultado: $(if($failed){'REPROVADO'}else{'APROVADO'})"|Add-Content $out;Get-Content $out;if($failed){exit 1}

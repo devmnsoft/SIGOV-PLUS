@@ -19699,6 +19699,90 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260818160000_rc50_52_lgpd_operacional.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee
+-- ==================================================
+-- RC50.52: completa o fluxo operacional LGPD sem remover dados existentes.
+set search_path to sigov;
+
+alter table sigov.solicitacao_titular add column if not exists tenant_id bigint null;
+alter table sigov.solicitacao_titular add column if not exists protocolo varchar(80) null;
+alter table sigov.solicitacao_titular add column if not exists resposta text null;
+alter table sigov.solicitacao_titular add column if not exists is_deleted boolean not null default false;
+create sequence if not exists sigov.lgpd_protocolo_seq;
+
+update sigov.solicitacao_titular s
+set tenant_id = e.tenant_id
+from sigov.entidade e
+where s.tenant_id is null and e.id = s.entidade_id and e.tenant_id is not null;
+
+create unique index if not exists ux_solicitacao_titular_tenant_protocolo
+    on sigov.solicitacao_titular (tenant_id, protocolo)
+    where protocolo is not null and not is_deleted;
+
+create table if not exists sigov.lgpd_incidente_evento (
+    id bigint generated always as identity primary key,
+    tenant_id bigint not null,
+    incidente_id bigint not null references sigov.lgpd_incidente(id),
+    descricao text not null,
+    created_by bigint null,
+    correlation_id varchar(100) not null,
+    created_at timestamptz not null default now()
+);
+create index if not exists ix_lgpd_incidente_evento_tenant_incidente
+    on sigov.lgpd_incidente_evento (tenant_id, incidente_id, created_at desc);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818160000', '20260818160000_rc50_52_lgpd_operacional', 'e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260818160000_rc50_52_lgpd_operacional.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee
+-- ==================================================
+-- RC50.52: completa o fluxo operacional LGPD sem remover dados existentes.
+set search_path to sigov;
+
+alter table sigov.solicitacao_titular add column if not exists tenant_id bigint null;
+alter table sigov.solicitacao_titular add column if not exists protocolo varchar(80) null;
+alter table sigov.solicitacao_titular add column if not exists resposta text null;
+alter table sigov.solicitacao_titular add column if not exists is_deleted boolean not null default false;
+create sequence if not exists sigov.lgpd_protocolo_seq;
+
+update sigov.solicitacao_titular s
+set tenant_id = e.tenant_id
+from sigov.entidade e
+where s.tenant_id is null and e.id = s.entidade_id and e.tenant_id is not null;
+
+create unique index if not exists ux_solicitacao_titular_tenant_protocolo
+    on sigov.solicitacao_titular (tenant_id, protocolo)
+    where protocolo is not null and not is_deleted;
+
+create table if not exists sigov.lgpd_incidente_evento (
+    id bigint generated always as identity primary key,
+    tenant_id bigint not null,
+    incidente_id bigint not null references sigov.lgpd_incidente(id),
+    descricao text not null,
+    created_by bigint null,
+    correlation_id varchar(100) not null,
+    created_at timestamptz not null default now()
+);
+create index if not exists ix_lgpd_incidente_evento_tenant_incidente
+    on sigov.lgpd_incidente_evento (tenant_id, incidente_id, created_at desc);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818160000', '20260818160000_rc50_52_lgpd_operacional', 'e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================
