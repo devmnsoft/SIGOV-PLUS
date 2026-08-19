@@ -215,7 +215,7 @@ RUN manifest
             "category": "schema",
             "includeInBaseline": true,
             "applyAutomatically": true,
-            "checksum": "4a05c6594b297f58185fd5c1cfa0b4fd93f4d725a56e4c4f2135d86e49096531"
+            "checksum": "cb4117e8390fbd7fe281d678178ae57943f803d30d4052a18c953f4d875aabba"
         },
         {
             "version": "025",
@@ -1064,7 +1064,7 @@ RUN manifest
         }
     ]
 }
-PASS manifest exit_code=0 duration_seconds=1
+PASS manifest exit_code=0 duration_seconds=0
 RUN partial-indexes
 [WARN] migration 010_create_sigov_indexes_constraints.sql: índice parcial usa is_deleted, mas a compatibilidade legado (CREATE + ADD COLUMN IF NOT EXISTS) não está explícita
 [OK] migration 013_sigov_foundation_refactor_fixups.sql: colunas usadas em índices parciais estão garantidas
@@ -1295,7 +1295,7 @@ OK: 114 migration(s) sem expressões de índice não IMMUTABLE; 7 aviso(s) conse
 PASS immutable-indexes exit_code=0 duration_seconds=1
 RUN route-conflicts
 Nenhum conflito direto em 605 rotas API (/workspace/SIGOV-PLUS/src/Sigov.Api/Controllers).
-PASS route-conflicts exit_code=0 duration_seconds=1
+PASS route-conflicts exit_code=0 duration_seconds=0
 FAIL tooling tool=psql reason=not_found classification=P0_ENVIRONMENTAL
 FAIL tooling tool=pg_dump reason=not_found classification=P0_ENVIRONMENTAL
 FAIL tooling tool=pg_restore reason=not_found classification=P0_ENVIRONMENTAL
