@@ -1,7 +1,7 @@
 @{
     ViewData["Title"] = "Insumos";
 }
-<div class="container-fluid py-3 sigov-page agro-page" data-module="agro">
+<div class="container-fluid py-3 sigov-page agro-page" data-module="agro" data-agro-resource="insumos">
     @Html.AntiForgeryToken()
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
@@ -20,5 +20,5 @@
     </section>
 </div>
 @section Scripts {
-    <script src="~/js/modules/agro.insumos.js" asp-append-version="true"></script>
+    <script src="~/js/modules/agro.crud.js" asp-append-version="true"></script>
 }
