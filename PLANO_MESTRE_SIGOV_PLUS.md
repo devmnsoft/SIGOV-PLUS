@@ -17,10 +17,10 @@
 - [x] RC50.68D — dashboard operacional do SuperAdmin entregue com leitura Dapper, autorização
   persistente, exports protegidos e estados explícitos para áreas opcionais. A promoção permanece
   condicionada aos gates de runtime, PostgreSQL e CI descritos no relatório da RC50.68E.
-- [ ] RC50.68E-R3 — esteira manual de promoção criada em
-  `.github/workflows/rc50-68-promotion.yml`, com .NET 10.0.100, PostgreSQL 16 e todos os gates reais
-  das RC50.68A–D. A promoção continua **BLOCKED** até uma execução verde desse workflow com o
-  repository secret `SIGOV_CI_DB_PASSWORD`; não há PASS inferido da criação da esteira.
+- [ ] RC50.68E-R4 — execução da esteira tentada no candidato
+  `f6da64e3b756640b1322e7d0b8a3e506f7c92311`, mas **BLOCKED** antes do dispatch porque o ambiente
+  não possui autenticação GitHub para confirmar o repository secret `SIGOV_CI_DB_PASSWORD` nem
+  consultar Actions. Nenhum gate foi marcado PASS e ainda é obrigatória uma run integralmente verde.
 - [ ] RC50.69 — ERP Serviços é a próxima macro-release e não foi iniciada. Só pode começar após
   a RC50.68 ficar sem pendência P0/P1.
 

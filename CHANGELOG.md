@@ -1,5 +1,13 @@
 # Changelog
 
+## RC50.68E-R4 — 2026-08-20
+
+- confirmada a tentativa sobre o candidato `f6da64e3b756640b1322e7d0b8a3e506f7c92311`;
+- registrado **BLOCKED** porque o ambiente não possui autenticação GitHub para consultar o nome do
+  repository secret, confirmar o workflow em Actions ou disparar e acompanhar uma run;
+- preservados os gates sem PASS inferido, sem alteração especulativa de código ou migration e sem
+  início da RC50.69.
+
 ## RC50.68E-R3 — 2026-08-20
 
 - criada a esteira manual `rc50-68-promotion.yml` para executar, em runner equipado, build .NET
