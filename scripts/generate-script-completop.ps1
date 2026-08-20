@@ -7,11 +7,13 @@ $manifestPath = Join-Path $migrationsDir 'manifest.json'
 $versionPath = Join-Path $root 'eng/version.json'
 $out = Join-Path $root 'database/postgres/script_completo.sql'
 $devOut = Join-Path $root 'database/postgres/script_completo_dev.sql'
+$devCompatibilityOut = Join-Path $root 'script_completo_dev.sql'
 $developmentSeeds = @(
     (Join-Path $root 'database/postgres/seeds/development/999_super_admin_access_guard.sql'),
     (Join-Path $root 'database/postgres/seeds/rc50_68a_perfis_autorizacao.sql')
 )
 $compatibilityOutputs = @(
+    (Join-Path $root 'script_completo.sql'),
     (Join-Path $root 'database/script_completo.sql'),
     (Join-Path $root 'script_completop.sql')
 )
@@ -176,9 +178,11 @@ if ($Verify) {
         if ($compatibilityText -ne $new) { throw "Artefato de compatibilidade divergente: $compatibilityOutput" }
     }
     if ($IncludeDevelopmentSeed) {
-        if (-not (Test-Path $devOut)) { throw 'database/postgres/script_completo_dev.sql não existe.' }
-        $oldDev = [IO.File]::ReadAllText($devOut).Replace("`r`n", "`n")
-        if ($oldDev -ne $devNew) { throw 'script_completo_dev.sql desatualizado.' }
+        foreach ($developmentOutput in @($devOut, $devCompatibilityOut)) {
+            if (-not (Test-Path $developmentOutput)) { throw "Artefato Development ausente: $developmentOutput" }
+            $oldDev = [IO.File]::ReadAllText($developmentOutput).Replace("`r`n", "`n")
+            if ($oldDev -ne $devNew) { throw "Artefato Development divergente: $developmentOutput" }
+        }
     }
     Write-Host 'Scripts completos estão sincronizados com as migrations.'
     exit 0
@@ -189,6 +193,10 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 foreach ($compatibilityOutput in $compatibilityOutputs) {
     [System.IO.File]::WriteAllText($compatibilityOutput, $new, $utf8NoBom)
 }
-if ($IncludeDevelopmentSeed) { [System.IO.File]::WriteAllText($devOut, $devNew, $utf8NoBom) }
+if ($IncludeDevelopmentSeed) {
+    foreach ($developmentOutput in @($devOut, $devCompatibilityOut)) {
+        [System.IO.File]::WriteAllText($developmentOutput, $devNew, $utf8NoBom)
+    }
+}
 if ($IncludeDevelopmentSeed) { Write-Host "Gerado $devOut (estrutura + seed Development)." }
 Write-Host "Gerado $out com $($included.Count) migrations incluídas, $($excluded.Count) excluídas e compatibilidade incorporada."

@@ -11,13 +11,16 @@
 
 ## Próximas releases (não implementar nesta RC)
 - [x] RC50.68B — avaliador de autorização persistente, auditável e precedência de negativas.
-- [ ] RC50.68C — troca auditada de contexto (tenant/entidade/exercício/unidade). A implementação
-  foi integrada no PR #267, porém sua promoção permanece bloqueada pela homologação e pelos gates
-  de banco/CI da RC50.68C-R2; o secret administrativo `SIGOV_CI_DB_PASSWORD` ainda precisa ser
-  confirmado/configurado e os workflows precisam ser reexecutados.
+- [x] RC50.68C — troca auditada de contexto (tenant/entidade/exercício/unidade), integrada nos
+  PRs #267/#268. A implementação está entregue; a promoção conjunta da RC50.68 permanece
+  bloqueada pelos gates externos de runtime, banco e CI registrados na RC50.68E.
 - [x] RC50.68D — dashboard operacional do SuperAdmin entregue com leitura Dapper, autorização
   persistente, exports protegidos e estados explícitos para áreas opcionais. A promoção permanece
-  condicionada aos gates de runtime, PostgreSQL e CI descritos no relatório da release.
+  condicionada aos gates de runtime, PostgreSQL e CI descritos no relatório da RC50.68E.
+- [ ] RC50.68E — homologação final executada estaticamente; promoção **BLOCKED** até build .NET 10,
+  aplicação real em PostgreSQL 16+ e workflows com `SIGOV_CI_DB_PASSWORD` concluírem com sucesso.
+- [ ] RC50.69 — ERP Serviços é a próxima macro-release e não foi iniciada. Só pode começar após
+  a RC50.68 ficar sem pendência P0/P1.
 
 ## Regras permanentes
 O banco é a fonte de autoridade para autorização e parametrização. Não são aceitos
@@ -32,4 +35,5 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 - [x] Trilha global de decisões e integridade/estado dos vínculos adicionadas por migration corretiva.
 - [ ] Ampliação do CRUD administrativo legado permanece como risco residual: as telas atuais de perfis e
   permissões persistem dados, mas grupos e a matriz contextual ainda não cobrem integralmente todos os campos.
-- [ ] A promoção da RC50.68C permanece pendente da RC50.68C-R2; a RC50.68D não foi iniciada.
+- [x] RC50.68C e RC50.68D foram implementadas; sua promoção produtiva integra o gate único da
+  RC50.68E e não deve ser confundida com conclusão apenas documental.

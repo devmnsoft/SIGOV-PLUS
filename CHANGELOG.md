@@ -1,5 +1,14 @@
 # Changelog
 
+## RC50.68E — 2026-08-20
+
+- auditada a base do control plane SuperAdmin 360 sobre o merge do PR #269;
+- consolidados os scripts PostgreSQL a partir do manifest e ampliada a verificação do gerador para
+  todas as cópias distribuíveis de produção e desenvolvimento;
+- corrigido o Plano Mestre para separar implementação entregue de promoção produtiva;
+- registrados como BLOCKED os gates dependentes de .NET 10, PostgreSQL/psql, PowerShell,
+  actionlint e execução autenticada dos workflows; RC50.69 não foi iniciada.
+
 ## v1.0.0 - 2026-06-07
 
 ### Adicionado
