@@ -288,6 +288,7 @@ public static class DependencyInjection
         services.AddScoped<Sigov.Application.Saas.Context.ITenantContextSwitchRepository, TenantContextSwitchRepository>();
         services.AddScoped<Sigov.Application.Saas.Context.IGlobalAdminChecker, Sigov.Application.Saas.Context.GlobalAdminChecker>();
         services.AddScoped<Sigov.Application.Saas.Context.ITenantContextSwitcher, Sigov.Application.Saas.Context.TenantContextSwitcher>();
+        services.AddScoped<Sigov.Application.Saas.Context.IOperationalContextService, Sigov.Application.Saas.Context.OperationalContextService>();
         services.AddScoped<ISaasPlanoRepository, SaasPlanoRepository>();
         services.AddScoped<ISaasPlanoService, SaasPlanoService>();
         services.AddScoped<SaasPlanoValidator>();

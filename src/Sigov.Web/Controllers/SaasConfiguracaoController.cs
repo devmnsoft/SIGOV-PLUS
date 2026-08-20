@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Sigov.Application.Saas.Modules;
 
 namespace Sigov.Web.Controllers;
 
+[Authorize]
 public sealed class SaasConfiguracaoController : Controller
 {
     private readonly IModuleCatalogService _moduleCatalogService;

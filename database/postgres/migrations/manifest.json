@@ -1114,6 +1114,16 @@
       "applyAutomatically": true,
       "checksum": "cdf95bcec5cf04cd80299bb93a6cfe0936cede30ddda9210c2f75b6eb867e10c",
       "postConditionSql": "select to_regclass('sigov.autorizacao_decisao_auditoria') is not null"
+    },
+    {
+      "version": "20260820200000",
+      "file": "20260820200000_rc50_68c_contexto_operacional_seguro.sql",
+      "description": "rc50_68c_contexto_operacional_seguro",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "b349733d0bbdbe6fbfdd33b90b87b703439e6aca417734b45cc03eca506abe09",
+      "postConditionSql": "select to_regclass('sigov.sessao_contexto_usuario') is not null and to_regclass('sigov.contexto_operacional_auditoria') is not null"
     }
   ],
   "compatibilityAfterAll": [
