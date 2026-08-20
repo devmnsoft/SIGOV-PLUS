@@ -1,16 +1,73 @@
+using System.Globalization;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Authorization;
+using Sigov.Application.Saas.SuperAdmin;
 
 namespace Sigov.Web.Controllers;
 
-public sealed class SaasAdminController : Controller
+[Authorize]
+[Route("SaasAdmin")]
+public sealed class SaasAdminController(ISuperAdminOperationalDashboardService dashboard, IAuthorizationEvaluator authorization) : Controller
 {
-    public IActionResult Tenants() => View();
-    public IActionResult TenantDetalhe() => View();
-    public IActionResult NovoTenant() => View();
-    public IActionResult Planos() => View();
-    public IActionResult Modulos() => View();
-    public IActionResult Assinaturas() => View();
-    public IActionResult FeatureFlags() => View();
-    public IActionResult Uso() => View();
-    public IActionResult Operacao() => View();
+    [HttpGet("Dashboard")]
+    [HttpGet("Operacional")]
+    public async Task<IActionResult> Dashboard(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, string? status, CancellationToken ct)
+    {
+        if (!await Allowed("visualizar", tenantId, ct)) return Forbid();
+        var filter = Filter(tenantId, from, to, module, status);
+        ViewBag.Filter = filter;
+        ViewBag.Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Não configurado";
+        ViewBag.Version = typeof(SaasAdminController).Assembly.GetName().Version?.ToString() ?? "Não disponível";
+        return View("Dashboard", await dashboard.GetAsync(filter, ct));
+    }
+
+    [HttpGet("Dashboard/Export")]
+    public async Task<IActionResult> Export(string format, long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, string? status, CancellationToken ct)
+    {
+        if (!await Allowed("exportar", tenantId, ct)) return Forbid();
+        var data = await dashboard.GetAsync(Filter(tenantId, from, to, module, status), ct);
+        if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
+            return File(JsonSerializer.SerializeToUtf8Bytes(data, new JsonSerializerOptions { WriteIndented = true }), "application/json", "sigov-operacional.json");
+        var csv = new StringBuilder("area;data;tenant;evento;status\n");
+        foreach (var item in data.Authorizations)
+            csv.Append(Csv("autorizacao")).Append(';').Append(Csv(item.AtUtc.ToString("O"))).Append(';').Append(Csv(item.TenantId?.ToString())).Append(';').Append(Csv($"{item.Resource}.{item.Action}")).Append(';').Append(Csv(item.Allowed ? "PERMITIR" : "NEGAR")).Append('\n');
+        foreach (var item in data.Audits)
+            csv.Append(Csv(item.Area)).Append(';').Append(Csv(item.AtUtc.ToString("O"))).Append(';').Append(Csv(item.TenantId?.ToString())).Append(';').Append(Csv(item.Event)).Append(';').Append(Csv(item.Result)).Append('\n');
+        return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "sigov-operacional.csv");
+    }
+
+    [HttpGet("Tenants")] public IActionResult Tenants() => View();
+    [HttpGet("TenantDetalhe")] public IActionResult TenantDetalhe() => View();
+    [HttpGet("NovoTenant")] public IActionResult NovoTenant() => View();
+    [HttpGet("Planos")] public IActionResult Planos() => View();
+    [HttpGet("Modulos")] public IActionResult Modulos() => View();
+    [HttpGet("Assinaturas")] public IActionResult Assinaturas() => View();
+    [HttpGet("FeatureFlags")] public IActionResult FeatureFlags() => View();
+    [HttpGet("Uso")] public IActionResult Uso() => View();
+    private async Task<bool> Allowed(string action, long? tenantId, CancellationToken ct)
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue("usuario_id");
+        if (!long.TryParse(raw, CultureInfo.InvariantCulture, out var userId)) return false;
+        var decision = await authorization.EvaluateAsync(new(userId, "saas", "saas.superadmin.dashboard", action, tenantId,
+            CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_DASHBOARD"), ct);
+        return decision.Permitido;
+    }
+
+    private static SuperAdminDashboardFilter Filter(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, string? status)
+    {
+        var end = to ?? DateTimeOffset.UtcNow;
+        var start = from ?? end.AddDays(-7);
+        return new(tenantId, start > end ? end.AddDays(-7) : start, end, module, status);
+    }
+
+    private static string Csv(string? value)
+    {
+        var safe = value ?? string.Empty;
+        if (safe.Length > 0 && "=+-@".Contains(safe[0])) safe = "'" + safe;
+        return '"' + safe.Replace("\"", "\"\"") + '"';
+    }
 }

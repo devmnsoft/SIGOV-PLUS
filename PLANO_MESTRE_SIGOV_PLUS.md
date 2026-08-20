@@ -15,7 +15,9 @@
   foi integrada no PR #267, porém sua promoção permanece bloqueada pela homologação e pelos gates
   de banco/CI da RC50.68C-R2; o secret administrativo `SIGOV_CI_DB_PASSWORD` ainda precisa ser
   confirmado/configurado e os workflows precisam ser reexecutados.
-- [ ] RC50.68D — dashboard operacional do SuperAdmin.
+- [x] RC50.68D — dashboard operacional do SuperAdmin entregue com leitura Dapper, autorização
+  persistente, exports protegidos e estados explícitos para áreas opcionais. A promoção permanece
+  condicionada aos gates de runtime, PostgreSQL e CI descritos no relatório da release.
 
 ## Regras permanentes
 O banco é a fonte de autoridade para autorização e parametrização. Não são aceitos

@@ -1124,6 +1124,16 @@
       "applyAutomatically": true,
       "checksum": "b349733d0bbdbe6fbfdd33b90b87b703439e6aca417734b45cc03eca506abe09",
       "postConditionSql": "select to_regclass('sigov.sessao_contexto_usuario') is not null and to_regclass('sigov.contexto_operacional_auditoria') is not null"
+    },
+    {
+      "version": "20260820230000",
+      "file": "20260820230000_rc50_68d_superadmin_dashboard_operacional.sql",
+      "description": "rc50_68d_superadmin_dashboard_operacional",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "e96bfa078a1ee0fb6fc5d1aaf3b6202ad4aceb0c91ed6b409f4ed42ce72c700c",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saas.superadmin.dashboard.visualizar')"
     }
   ],
   "compatibilityAfterAll": [
