@@ -17,7 +17,7 @@ public sealed class PermissionService : IPermissionService
         if (!_tenant.TenantId.HasValue) return false;
         try
         {
-            return (await _evaluator.EvaluateAsync(new AuthorizationRequest(usuarioId, recurso, acao, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId), cancellationToken).ConfigureAwait(false)).Permitido;
+            return (await _evaluator.EvaluateAsync(new AuthorizationRequest(usuarioId, modulo, recurso, acao, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId), cancellationToken).ConfigureAwait(false)).Permitido;
         }
         catch (Exception ex)
         {

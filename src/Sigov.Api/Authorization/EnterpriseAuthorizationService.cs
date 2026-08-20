@@ -103,8 +103,11 @@ public sealed class EnterpriseAuthorizationHandler : AuthorizationHandler<Enterp
         var separator = requirement.Permission.LastIndexOf('.');
         var resource = separator > 0 ? requirement.Permission[..separator] : requirement.Permission;
         var action = separator > 0 ? requirement.Permission[(separator + 1)..] : "acessar";
+        var moduleSeparator = resource.IndexOf('.');
+        var module = moduleSeparator > 0 ? resource[..moduleSeparator] : "enterprise";
         var decision = await _evaluator.EvaluateAsync(new Sigov.Application.Authorization.AuthorizationRequest(
-            userId, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId)).ConfigureAwait(false);
+            userId, module, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId,
+            CorrelationId: null, Origem: "API_ENTERPRISE")).ConfigureAwait(false);
         if (decision.Permitido) context.Succeed(requirement);
     }
 }

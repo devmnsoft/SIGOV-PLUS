@@ -10,7 +10,7 @@
 - [x] Formalizar Definition of Done e relatório da release.
 
 ## Próximas releases (não implementar nesta RC)
-- [ ] RC50.68B — avaliador de autorização persistente e precedência de negativas.
+- [x] RC50.68B — avaliador de autorização persistente, auditável e precedência de negativas.
 - [ ] RC50.68C — troca auditada de contexto (tenant/entidade/exercício/unidade).
 - [ ] RC50.68D — dashboard operacional do SuperAdmin.
 
@@ -23,5 +23,8 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 - [x] Centralizar decisão fail-closed em avaliador Dapper parametrizado.
 - [x] Aplicar vigência, escopos, alçada e precedência de `NEGAR`.
 - [x] Converter serviços legados e handler Enterprise em adapters sem autoridade paralela.
-- [ ] Gestão administrativa integral de perfis/grupos — BLOCKED nesta entrega; requer continuação antes de promover a RC.
+- [x] Policies Web e diagnóstico da API consomem a mesma decisão persistente, sem autoridade em claims.
+- [x] Trilha global de decisões e integridade/estado dos vínculos adicionadas por migration corretiva.
+- [ ] Ampliação do CRUD administrativo legado permanece como risco residual: as telas atuais de perfis e
+  permissões persistem dados, mas grupos e a matriz contextual ainda não cobrem integralmente todos os campos.
 - [ ] RC50.68C/RC50.68D permanecem fora do escopo.
