@@ -10,7 +10,7 @@ permissions:
 
 env:
   ASPNETCORE_ENVIRONMENT: Development
-  PGPASSWORD: '123456'
+  PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
   SIGOV_DB_HOST: localhost
   SIGOV_DB_PORT: '5432'
   SIGOV_DB_NAME: postgres
@@ -21,7 +21,7 @@ env:
   SIGOV_WEB_BASE_URL: http://localhost:5002
   SIGOV_SWAGGER_ENABLED: 'true'
   SIGOV_WORKER_DISABLE_EXTERNAL_JOBS: 'true'
-  ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=123456;Search Path=sigov;Application Name=sigov.ci
+  ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }};Search Path=sigov;Application Name=sigov.ci
 
 jobs:
   static-validation:
@@ -51,7 +51,7 @@ jobs:
         image: postgis/postgis:16-3.4
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 123456
+          POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
           POSTGRES_DB: postgres
         ports: ['5432:5432']
         options: >-
@@ -160,7 +160,7 @@ jobs:
       - name: Reject secret disclosure
         if: always()
         run: |
-          ! rg -F 'Password=123456' artifacts || exit 1
+          ! rg -F 'Password=${{ secrets.SIGOV_CI_DB_PASSWORD }}' artifacts || exit 1
           ! rg -F 'PGPASSWORD' artifacts || exit 1
       - name: Stop processes
         if: always()

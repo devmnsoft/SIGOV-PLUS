@@ -25,12 +25,12 @@ jobs:
       SIGOV_RELEASE_CHANNEL: ${{ inputs.release_channel }}
       SIGOV_COMMIT_SHA: ${{ github.sha }}
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }}
       Sigov__Jwt__Secret: ci-only-secret-with-more-than-thirty-two-chars
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '10.0.x' }
+        with: { global-json-file: global.json }
       - run: echo "SIGOV_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
       - run: dotnet restore sigov.sln
       - run: dotnet build sigov.sln --configuration Release --no-restore

@@ -2,3 +2,8 @@
 .env.local
 appsettings.Local.json
 .local/
+
+# Ambiente local e segredos
+.env
+.env.*
+!.env.example

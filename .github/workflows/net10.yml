@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: mkdir -p artifacts/build
       - run: dotnet restore sigov.sln --locked-mode --verbosity normal -bl:artifacts/build/restore.binlog 2>&1 | tee artifacts/build/restore.log
       - if: always()
@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: dotnet restore sigov.sln --locked-mode
       - run: mkdir -p artifacts/build && dotnet build sigov.sln -c Debug --no-restore -bl:artifacts/build/debug-build.binlog
       - if: always()
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: dotnet restore sigov.sln --locked-mode
       - run: mkdir -p artifacts/build && dotnet build sigov.sln -c Release --no-restore -bl:artifacts/build/release-build.binlog
       - if: always()
@@ -60,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj -c Debug --logger trx --results-directory TestResults/Unit
       - if: always()
         uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: dotnet test tests/Sigov.ApiTests/Sigov.ApiTests.csproj -c Debug --logger trx --results-directory TestResults/Api
       - if: always()
         uses: actions/upload-artifact@v4
@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: dotnet test tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj -c Debug --logger trx --results-directory TestResults/Integration
       - if: always()
         uses: actions/upload-artifact@v4
@@ -96,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj -c Debug --filter "FullyQualifiedName~DependencyInjectionResolutionTests" --logger trx --results-directory TestResults/DependencyInjection
       - if: always()
         uses: actions/upload-artifact@v4
@@ -108,7 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: 10.0.x }
+        with: { global-json-file: global.json }
       - run: |
           mkdir -p artifacts/packages
           dotnet list sigov.sln package --include-transitive --format json > artifacts/packages/package-graph.json

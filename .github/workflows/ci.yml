@@ -102,12 +102,12 @@ jobs:
     env:
       ASPNETCORE_ENVIRONMENT: Testing
       DOTNET_ENVIRONMENT: Testing
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }}
       Sigov__Jwt__Secret: ci-only-secret-with-more-than-thirty-two-chars
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '10.0.x' }
+        with: { global-json-file: global.json }
       - run: dotnet --info | tee dotnet-info.log
       - name: Restore locked dependencies with diagnostics
         run: ./scripts/ci/restore-locked.sh
@@ -144,7 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '10.0.x' }
+        with: { global-json-file: global.json }
       - run: |
           set -euo pipefail
           dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj --configuration Release --filter "FullyQualifiedName~DependencyInjectionResolutionTests" --logger trx --results-directory TestResults/DependencyInjection 2>&1 | tee dependency-injection.log
@@ -166,7 +166,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '10.0.x' }
+        with: { global-json-file: global.json }
       - name: Reject fragile test repository paths
         run: |
           set -euo pipefail
@@ -237,7 +237,7 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
-        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: sigov_ci_password }
+        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
         ports: [ '5432:5432' ]
         options: >-
           --health-cmd "pg_isready -U sigov -d sigov" --health-interval 10s --health-timeout 5s --health-retries 10
@@ -246,7 +246,7 @@ jobs:
       PGPORT: 5432
       PGDATABASE: sigov
       PGUSER: sigov
-      PGPASSWORD: sigov_ci_password
+      PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -264,11 +264,11 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
-        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: sigov_ci_password }
+        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
         ports: [ '5432:5432' ]
         options: >-
           --health-cmd "pg_isready -U sigov -d sigov" --health-interval 10s --health-timeout 5s --health-retries 10
-    env: { PGHOST: localhost, PGPORT: 5432, PGDATABASE: sigov, PGUSER: sigov, PGPASSWORD: sigov_ci_password, SIGOV_DEMO_SEED_ALLOW_NON_DEV: 'true' }
+    env: { PGHOST: localhost, PGPORT: 5432, PGDATABASE: sigov, PGUSER: sigov, PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}', SIGOV_DEMO_SEED_ALLOW_NON_DEV: 'true' }
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -308,11 +308,11 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
-        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: sigov_ci_password }
+        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
         ports: [ '5432:5432' ]
         options: >-
           --health-cmd "pg_isready -U sigov -d sigov" --health-interval 10s --health-timeout 5s --health-retries 10
-    env: { PGHOST: localhost, PGPORT: 5432, PGDATABASE: sigov, PGUSER: sigov, PGPASSWORD: sigov_ci_password }
+    env: { PGHOST: localhost, PGPORT: 5432, PGDATABASE: sigov, PGUSER: sigov, PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -334,11 +334,11 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
-        env: { POSTGRES_DB: postgres, POSTGRES_USER: sigov, POSTGRES_PASSWORD: sigov_ci_password }
+        env: { POSTGRES_DB: postgres, POSTGRES_USER: sigov, POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
         ports: [ '5432:5432' ]
         options: >-
           --health-cmd "pg_isready -U sigov -d postgres" --health-interval 10s --health-timeout 5s --health-retries 10
-    env: { PGHOST: localhost, PGPORT: 5432, PGUSER: sigov, PGPASSWORD: sigov_ci_password }
+    env: { PGHOST: localhost, PGPORT: 5432, PGUSER: sigov, PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -361,7 +361,7 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
-        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: sigov_ci_password }
+        env: { POSTGRES_DB: sigov, POSTGRES_USER: sigov, POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}' }
         ports: [ '5432:5432' ]
         options: >-
           --health-cmd "pg_isready -U sigov -d sigov" --health-interval 10s --health-timeout 5s --health-retries 10
@@ -370,14 +370,14 @@ jobs:
       PGPORT: 5432
       PGDATABASE: sigov
       PGUSER: sigov
-      PGPASSWORD: sigov_ci_password
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov_ci_password
+      PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }}
       ASPNETCORE_ENVIRONMENT: Local
       Sigov__Database__MigrationMode: ValidateOnly
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '10.0.x' }
+        with: { global-json-file: global.json }
       - run: dotnet build sigov.sln --configuration Release
       - name: Start API Web Worker without Docker
         run: |
@@ -470,7 +470,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '10.0.x' }
+        with: { global-json-file: global.json }
       - run: |
           set -euo pipefail
           dotnet test tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj --configuration Release --filter "FullyQualifiedName~WebRuntimeSmokeTests" --logger trx --results-directory TestResults/WebSmoke 2>&1 | tee web-smoke.log

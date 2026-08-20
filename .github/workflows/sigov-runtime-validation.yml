@@ -17,17 +17,17 @@ jobs:
       postgres:
         image: postgis/postgis:16-3.4
         env:
-          POSTGRES_PASSWORD: ci-postgres-local-only
+          POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       ASPNETCORE_ENVIRONMENT: Development
-      PGPASSWORD: ci-postgres-local-only
-      SIGOV_DB_PASSWORD: ci-sigov-local-A9!
-      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-local-A9!
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=ci-sigov-local-A9!
+      PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+      SIGOV_DB_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
