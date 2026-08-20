@@ -1,0 +1,178 @@
+name: RC50.68 promotion
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secret-preflight:
+    name: Secret preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require database password
+        shell: bash
+        env:
+          SIGOV_CI_DB_PASSWORD: ${{ secrets.SIGOV_CI_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SIGOV_CI_DB_PASSWORD}" ]]; then
+            echo 'BLOCKED: configure o repository secret SIGOV_CI_DB_PASSWORD.' >&2
+            exit 1
+          fi
+          echo 'SIGOV_CI_DB_PASSWORD configurado (valor omitido).'
+
+  promotion-gates:
+    name: Real promotion gates
+    needs: secret-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: sigov_rc5068
+          POSTGRES_USER: sigov
+          POSTGRES_PASSWORD: ${{ secrets.SIGOV_CI_DB_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sigov -d sigov_rc5068"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: sigov_rc5068
+      PGUSER: sigov
+      PGPASSWORD: ${{ secrets.SIGOV_CI_DB_PASSWORD }}
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sigov_rc5068;Username=sigov;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install exact .NET SDK from global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Go for actionlint
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23.x'
+          cache: false
+
+      - name: Install pinned actionlint
+        env:
+          ACTIONLINT_VERSION: v1.7.7
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/actionlint-bin"
+          GOBIN="$RUNNER_TEMP/actionlint-bin" go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+          echo "$RUNNER_TEMP/actionlint-bin" >> "$GITHUB_PATH"
+
+      - name: Validate required toolchain
+        run: |
+          set -euo pipefail
+          dotnet --info
+          [[ "$(dotnet --version)" == '10.0.100' ]] || { echo 'SDK ativo deve ser 10.0.100.' >&2; exit 1; }
+          psql --version
+          [[ "$(psql -X -Atqc 'show server_version_num')" -ge 160000 ]] || { echo 'PostgreSQL 16+ é obrigatório.' >&2; exit 1; }
+          pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          actionlint -version
+
+      - name: Build runtime with .NET 10
+        run: |
+          set -euo pipefail
+          dotnet clean sigov.runtime.slnf
+          dotnet restore sigov.runtime.slnf --locked-mode
+          dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror
+
+      - name: Validate YAML, workflow integrity, JSON, shell and routes
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true) }' .github/workflows/*.yml
+          python3 scripts/validate-workflow-integrity.py .github/workflows/ci.yml
+          python3 -m json.tool global.json >/dev/null
+          python3 -m json.tool database/postgres/migrations/manifest.json >/dev/null
+          find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          bash scripts/check-api-route-conflicts.sh
+          pwsh -NoProfile -File scripts/generate-script-completop.ps1 -Verify
+          actionlint .github/workflows/*.yml
+
+      - name: Validate consolidated-script drift
+        run: |
+          set -euo pipefail
+          cmp script_completop.sql script_completo.sql
+          cmp script_completop.sql database/script_completo.sql
+          cmp script_completop.sql database/postgres/script_completo.sql
+          cmp script_completo_dev.sql database/postgres/script_completo_dev.sql
+
+      - name: Scan RC50.68 promotion surface
+        run: |
+          set -euo pipefail
+          files=(.github/workflows/rc50-68-promotion.yml database/postgres/migrations/20260820120000_rc50_68a_autorizacao_persistente.sql database/postgres/migrations/20260820160000_rc50_68b_avaliador_efetivo.sql database/postgres/migrations/20260820200000_rc50_68c_contexto_operacional_seguro.sql database/postgres/migrations/20260820230000_rc50_68d_superadmin_dashboard_operacional.sql)
+          if rg -ni '(password|senha)[[:space:]]*[:=][[:space:]]*["'"'][^$][^"'"']+["'"']' "${files[@]}"; then
+            echo 'Segredo literal encontrado na superfície de promoção.' >&2; exit 1
+          fi
+          if rg -ni '\b(mock|demo|fallback)\b' database/postgres/migrations/20260820*_rc50_68*.sql; then
+            echo 'Autoridade mock/demo/fallback encontrada na superfície de promoção.' >&2; exit 1
+          fi
+          if rg -ni '^\s*(GO|USE\s+|SET\s+NOCOUNT\s+ON)|\b(NVARCHAR|GETDATE|NEWID)\s*\(|\[[A-Za-z_][A-Za-z0-9_]*\]' database/postgres/migrations/20260820*_rc50_68*.sql; then
+            echo 'T-SQL executável residual encontrado nas migrations RC50.68.' >&2; exit 1
+          fi
+
+      - name: Apply baseline twice with fail-fast SQL
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f script_completop.sql
+          psql -X -v ON_ERROR_STOP=1 -f script_completop.sql
+
+      - name: Validate RC50.68 migrations and persisted authority
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          table sigov.schema_migrations;
+          do $$
+          declare
+            missing_versions text;
+            context_permissions integer;
+            dashboard_permissions integer;
+          begin
+            select string_agg(required.version, ', ' order by required.version)
+              into missing_versions
+              from (values ('20260820120000'), ('20260820160000'), ('20260820200000'), ('20260820230000')) required(version)
+             where not exists (
+               select 1 from sigov.schema_migrations sm
+                where sm.version = required.version and sm.success
+             );
+            if missing_versions is not null then
+              raise exception 'Migrations RC50.68 ausentes ou sem sucesso: %', missing_versions;
+            end if;
+
+            select count(*) into context_permissions
+              from sigov.perfil_acesso pa
+              join sigov.perfil_permissao pp on pp.perfil_acesso_id = pa.id
+              join sigov.permissao p on p.id = pp.permissao_id
+             where pa.codigo_externo = 'SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
+               and p.modulo = 'contexto' and p.ativo and not p.is_deleted
+               and pp.efeito = 'PERMITIR' and pp.ativo and not pp.is_deleted;
+            if context_permissions <> 10 then
+              raise exception 'SUPERADMIN deve possuir 10 permissões de contexto; atual=%', context_permissions;
+            end if;
+
+            select count(*) into dashboard_permissions
+              from sigov.perfil_acesso pa
+              join sigov.perfil_permissao pp on pp.perfil_acesso_id = pa.id
+              join sigov.permissao p on p.id = pp.permissao_id
+             where pa.codigo_externo = 'SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
+               and p.chave in ('saas.superadmin.dashboard.visualizar', 'saas.superadmin.dashboard.exportar')
+               and p.ativo and not p.is_deleted
+               and pp.efeito = 'PERMITIR' and pp.ativo and not pp.is_deleted;
+            if dashboard_permissions <> 2 then
+              raise exception 'SUPERADMIN deve possuir 2 permissões de dashboard; atual=%', dashboard_permissions;
+            end if;
+          end $$;
+          SQL
