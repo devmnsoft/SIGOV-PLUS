@@ -88,40 +88,23 @@ public sealed class EnterpriseAuthorizationService : IEnterpriseAuthorizationSer
 
 public sealed class EnterpriseAuthorizationHandler : AuthorizationHandler<EnterpriseAuthorizationRequirement>
 {
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, EnterpriseAuthorizationRequirement requirement)
+    private readonly Sigov.Application.Authorization.IAuthorizationEvaluator _evaluator;
+    private readonly Sigov.Application.Abstractions.ICurrentTenant _tenant;
+
+    public EnterpriseAuthorizationHandler(Sigov.Application.Authorization.IAuthorizationEvaluator evaluator, Sigov.Application.Abstractions.ICurrentTenant tenant)
+        => (_evaluator, _tenant) = (evaluator, tenant);
+
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, EnterpriseAuthorizationRequirement requirement)
     {
-        if (context.User.Identity?.IsAuthenticated != true) return Task.CompletedTask;
-
-        var globalAdmin = IsInRole(context.User, "ADMIN_GERAL");
-        var tenantAdmin = IsInRole(context.User, "ADMIN_TENANT");
-        if (globalAdmin)
-        {
-            context.Succeed(requirement); // tenant selection is explicit in the requirement.
-            return Task.CompletedTask;
-        }
-
-        if (tenantAdmin)
-        {
-            var tenantClaim = FindTenant(context.User);
-            if (tenantClaim == requirement.TenantId) context.Succeed(requirement);
-            return Task.CompletedTask;
-        }
-
-        if (Permissions(context.User).Contains(requirement.Permission, StringComparer.OrdinalIgnoreCase))
-            context.Succeed(requirement);
-        return Task.CompletedTask;
+        if (context.User.Identity?.IsAuthenticated != true || !_tenant.TenantId.HasValue) return;
+        var rawUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirstValue("usuario_id") ?? context.User.FindFirstValue("user_id");
+        if (!long.TryParse(rawUserId, out var userId)) return;
+        var separator = requirement.Permission.LastIndexOf('.');
+        var resource = separator > 0 ? requirement.Permission[..separator] : requirement.Permission;
+        var action = separator > 0 ? requirement.Permission[(separator + 1)..] : "acessar";
+        var decision = await _evaluator.EvaluateAsync(new Sigov.Application.Authorization.AuthorizationRequest(
+            userId, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId)).ConfigureAwait(false);
+        if (decision.Permitido) context.Succeed(requirement);
     }
-
-    private static bool IsInRole(ClaimsPrincipal user, string role) =>
-        user.IsInRole(role) || user.Claims.Any(c => (c.Type == ClaimTypes.Role || c.Type.Equals("role", StringComparison.OrdinalIgnoreCase)) && c.Value.Equals(role, StringComparison.OrdinalIgnoreCase));
-
-    private static Guid? FindTenant(ClaimsPrincipal user)
-    {
-        var value = user.Claims.FirstOrDefault(c => (c.Type.Equals("tenant_id", StringComparison.OrdinalIgnoreCase) || c.Type.Equals("tenantId", StringComparison.OrdinalIgnoreCase) || c.Type.EndsWith("/tenant_id", StringComparison.OrdinalIgnoreCase)))?.Value;
-        return Guid.TryParse(value, out var tenant) ? tenant : null;
-    }
-
-    private static IEnumerable<string> Permissions(ClaimsPrincipal user) => user.Claims
-        .Where(c => c.Type.Equals("permission", StringComparison.OrdinalIgnoreCase) || c.Type.Equals("permissions", StringComparison.OrdinalIgnoreCase) || c.Type.Equals("scope", StringComparison.OrdinalIgnoreCase))
-        .SelectMany(c => c.Value.Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }

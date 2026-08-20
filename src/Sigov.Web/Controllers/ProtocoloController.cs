@@ -131,6 +131,6 @@ public sealed class ProtocoloController : Controller
 
     [HttpPost("/Protocolo/{id:long}/Anexar"), ValidateAntiForgeryToken]
     public async Task<IActionResult> Anexar(long id, CancellationToken cancellationToken) { if (!Can("protocolo.anexar")) return Forbid(); await Audit("protocolo.anexar", id.ToString(), cancellationToken); return Redirect($"/Ged/NovoDocumento?protocolo_id={id}"); }
-    private bool Can(string permission) => User.Identity?.IsAuthenticated != true || _permissions.HasPermission(User, permission) || _permissions.HasPermission(User, "ADMIN_GERAL");
+    private bool Can(string permission) => User.Identity?.IsAuthenticated == true && _permissions.HasPermission(User, permission);
     private Task Audit(string acao, string? id, CancellationToken ct) => _auditTrail.RegistrarAsync(null, null, acao, "protocolo", id, null, new { acao, id }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct);
 }
