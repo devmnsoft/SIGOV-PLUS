@@ -44,11 +44,11 @@ as permissões persistidas `saas.superadmin.dashboard.visualizar` e
 `saas.superadmin.dashboard.exportar`; áreas sem schema são identificadas como indisponíveis.
 
 O código das RC50.68A–D está integrado, mas a promoção produtiva da RC50.68 permanece
-**BLOCKED** até a execução bem-sucedida dos gates .NET 10, PostgreSQL 16+ e GitHub Actions com o
-secret `SIGOV_CI_DB_PASSWORD`. A tentativa R2 encontrou as ferramentas ausentes e o GitHub sem
-secret/sessão acessíveis; nenhum PASS foi inferido. Consulte
-[`docs/RC50.68E-R2.md`](docs/RC50.68E-R2.md). A RC50.69 ERP
-Serviços é apenas a próxima macro-release e ainda não foi iniciada.
+**BLOCKED** até uma execução verde do workflow manual **RC50.68 promotion**, com o repository
+secret `SIGOV_CI_DB_PASSWORD`. A R3 fornece o runner equipado com .NET 10.0.100, PostgreSQL 16,
+PowerShell e actionlint e executa os gates reais sem expor o secret; a mera criação da esteira não
+é PASS. Consulte [`docs/RC50.68E-R3.md`](docs/RC50.68E-R3.md). A RC50.69 ERP Serviços segue não
+iniciada.
 
 # sigov
 

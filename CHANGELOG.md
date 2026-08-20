@@ -1,5 +1,14 @@
 # Changelog
 
+## RC50.68E-R3 — 2026-08-20
+
+- criada a esteira manual `rc50-68-promotion.yml` para executar, em runner equipado, build .NET
+  10.0.100, validações estáticas, aplicação e reaplicação do baseline no PostgreSQL 16 e asserções
+  das migrations e permissões persistidas das RC50.68A–D;
+- adicionados preflight do secret sem impressão do valor, validação explícita de ferramentas,
+  verificação de drift e scans preventivos da superfície de promoção;
+- mantida a RC50.68 como **BLOCKED** até execução verde real do workflow; RC50.69 não foi iniciada.
+
 ## RC50.68E-R2 — 2026-08-20
 
 - repetidos os gates obrigatórios sobre o merge do PR #270, registrando exit 127 para .NET,
