@@ -36,6 +36,13 @@ Docker Compose permanece como alternativa para validações de container, mas n�
 
 Em produção, forneça segredos por variáveis de ambiente ou secret manager e configure explicitamente `Sigov:Database:MigrationMode`.
 
+## Dashboard operacional SuperAdmin
+
+A rota autenticada `/SaasAdmin/Operacional` apresenta saúde, tenants, contexto, autorização,
+auditoria e integrações a partir do PostgreSQL. Visualização e exportação exigem, respectivamente,
+as permissões persistidas `saas.superadmin.dashboard.visualizar` e
+`saas.superadmin.dashboard.exportar`; áreas sem schema são identificadas como indisponíveis.
+
 # sigov
 
 Plataforma SaaS de gestão pública municipal para operação real de prefeituras, câmaras, autarquias, fundos, secretarias e unidades descentralizadas.

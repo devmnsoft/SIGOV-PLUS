@@ -117,6 +117,7 @@ using Sigov.Application.Bloco6;
 using Sigov.Infrastructure.Bloco6;
 using Sigov.Application.Tributario.TributarioAvancado;
 using Sigov.Infrastructure.Tributario;
+using Sigov.Application.Saas.SuperAdmin;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
@@ -134,6 +135,7 @@ public static class DependencyInjection
         services.AddScoped<ITributarioFiscalizacaoService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<ITributarioNfseService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddSingleton<NpgsqlConnectionFactory>();
+        services.AddScoped<ISuperAdminOperationalDashboardService, SuperAdminOperationalDashboardService>();
         services.AddScoped<ITransversalGovernancaService, TransversalGovernancaService>();
         services.AddScoped<IComprasRepository, ComprasRepository>();
         services.AddScoped<IContratosRepository, ContratosRepository>();
