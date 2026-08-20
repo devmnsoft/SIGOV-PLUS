@@ -10,19 +10,19 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_PASSWORD: ci-admin-secret
+          POSTGRES_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s
           --health-timeout 5s --health-retries 12
     env:
-      PGPASSWORD: ci-admin-secret
+      PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
       SIGOV_DB_PASSWORD: ci-runtime-secret-A9!
       SIGOV_BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-secret-A9!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '8.0.x' }
+        with: { global-json-file: global.json }
       - name: Setup completo
         shell: pwsh
         run: ./scripts/setup-local-sigov.ps1 -Force -SkipBuild

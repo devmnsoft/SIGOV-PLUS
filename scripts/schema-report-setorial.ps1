@@ -3,7 +3,7 @@ param(
     [string]$Output = "docs/schema-report-setorial-local.md"
 )
 $ErrorActionPreference = "Stop"
-if ([string]::IsNullOrWhiteSpace($ConnectionString)) { $ConnectionString = "Host=localhost;Port=5432;Database=sigov;Username=sigov;Password=sigov" }
+if ([string]::IsNullOrWhiteSpace($ConnectionString)) { throw 'Defina ConnectionStrings__DefaultConnection no ambiente.' }
 $sql = Get-Content "database/diagnostics/schema-report-setorial.sql" -Raw
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ssK"
 try {

@@ -20096,6 +20096,78 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260820120000_rc50_68a_autorizacao_persistente.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 15c33ca8593c7dfc0daa01a57e02800fa71c75139267b94502f3a7d93d612571
+-- ==================================================
+-- RC50.68A: evolução não destrutiva do modelo canônico de autorização.
+-- Não cria tabelas paralelas: amplia permissao e os vínculos existentes.
+alter table sigov.permissao
+    add column if not exists recurso varchar(160),
+    add column if not exists acao varchar(80);
+
+update sigov.permissao
+   set recurso = coalesce(nullif(recurso, ''), split_part(chave, '.', 1)),
+       acao = coalesce(nullif(acao, ''), case when position('.' in chave) > 0
+                    then substring(chave from position('.' in chave) + 1) else 'acessar' end)
+ where recurso is null or acao is null;
+
+alter table sigov.perfil_permissao
+    add column if not exists tenant_id bigint,
+    add column if not exists entidade_id bigint,
+    add column if not exists exercicio_id bigint,
+    add column if not exists unidade_id bigint,
+    add column if not exists vigencia_inicio timestamptz,
+    add column if not exists vigencia_fim timestamptz,
+    add column if not exists alcada_valor numeric(18,2),
+    add column if not exists efeito varchar(10) not null default 'PERMITIR',
+    add column if not exists justificativa varchar(500),
+    add column if not exists updated_at timestamptz;
+
+alter table sigov.grupo_perfil
+    add column if not exists tenant_id bigint,
+    add column if not exists entidade_id bigint,
+    add column if not exists exercicio_id bigint,
+    add column if not exists unidade_id bigint,
+    add column if not exists vigencia_inicio timestamptz,
+    add column if not exists vigencia_fim timestamptz;
+
+alter table sigov.usuario_grupo
+    add column if not exists tenant_id bigint,
+    add column if not exists entidade_id bigint,
+    add column if not exists exercicio_id bigint,
+    add column if not exists unidade_id bigint,
+    add column if not exists vigencia_inicio timestamptz,
+    add column if not exists vigencia_fim timestamptz;
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname='ck_perfil_permissao_efeito') then
+    alter table sigov.perfil_permissao add constraint ck_perfil_permissao_efeito
+      check (efeito in ('PERMITIR','NEGAR'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_perfil_permissao_vigencia') then
+    alter table sigov.perfil_permissao add constraint ck_perfil_permissao_vigencia
+      check (vigencia_fim is null or vigencia_inicio is null or vigencia_fim > vigencia_inicio);
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_perfil_permissao_alcada') then
+    alter table sigov.perfil_permissao add constraint ck_perfil_permissao_alcada
+      check (alcada_valor is null or alcada_valor >= 0);
+  end if;
+end $$;
+
+create index if not exists ix_perfil_permissao_escopo_vigencia
+ on sigov.perfil_permissao(tenant_id,entidade_id,exercicio_id,unidade_id,efeito,vigencia_fim);
+create index if not exists ix_permissao_recurso_acao
+ on sigov.permissao(recurso,acao) where ativo and not is_deleted;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260820120000', 'rc50_68a_autorizacao_persistente', '15c33ca8593c7dfc0daa01a57e02800fa71c75139267b94502f3a7d93d612571', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================
@@ -20329,7 +20401,7 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
 
--- DEVELOPMENT ONLY: acesso administrativo local
+-- DEVELOPMENT ONLY: seeds fictícias idempotentes
 -- SIGOV+ RC50.10 - guarda canônica de acesso administrativo local.
 -- EXCLUSIVO PARA DEVELOPMENT. Idempotente, sem senha em texto puro e sem remoção física.
 do $guard$
@@ -20466,3 +20538,43 @@ begin
     on conflict(tenant_id,modulo_codigo) do update set status='HABILITADO',ativo=true,updated_at=now();
 end
 $guard$;
+-- Seed fictícia e idempotente: catálogo persistente, sem usuários ou credenciais.
+do $$
+declare r record; p record; v_perfil_id bigint; v_permissao_id bigint;
+begin
+  for r in select t.id tenant_id, x.codigo, x.nome, x.descricao
+    from sigov.tenant t cross join (values
+      ('SUPERADMIN','Superadministrador','Administração global da plataforma'),
+      ('ADMIN_TENANT','Administrador do tenant','Administração do tenant'),
+      ('DIRETOR_GESTOR','Diretor gestor','Gestão e aprovação institucional'),
+      ('COORDENADOR_AREA','Coordenador de área','Coordenação de unidade ou área'),
+      ('OPERACIONAL_USUARIO','Usuário operacional','Execução operacional'),
+      ('FINANCEIRO','Financeiro','Operação e aprovação financeira'),
+      ('AUDITOR_LEITURA','Auditor de leitura','Auditoria somente leitura'),
+      ('ATENDIMENTO','Atendimento','Atendimento ao cidadão')
+    ) x(codigo,nome,descricao) where not coalesce(t.is_deleted,false)
+  loop
+    insert into sigov.perfil_acesso(tenant_id,nome,descricao,codigo_externo,ativo,is_deleted)
+    select r.tenant_id,r.nome,r.descricao,r.codigo,true,false
+    where not exists(select 1 from sigov.perfil_acesso where tenant_id=r.tenant_id and codigo_externo=r.codigo and not is_deleted);
+    update sigov.perfil_acesso set nome=r.nome,descricao=r.descricao,ativo=true,is_deleted=false,updated_at=now()
+     where tenant_id=r.tenant_id and codigo_externo=r.codigo;
+    select id into v_perfil_id from sigov.perfil_acesso where tenant_id=r.tenant_id and codigo_externo=r.codigo and not is_deleted order by id limit 1;
+
+    for p in select * from (values
+      ('AUTORIZACAO','autorizacao.catalogo','ler','Consulta ao catálogo persistente'),
+      ('AUTORIZACAO','autorizacao.atribuicao','gerenciar','Gestão persistente de atribuições')
+    ) q(modulo,chave,acao,descricao)
+    loop
+      insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
+      values(p.modulo,p.chave,split_part(p.chave,'.',1),p.acao,p.descricao,true,false)
+      on conflict(modulo,chave) do update set recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true,is_deleted=false;
+      select id into v_permissao_id from sigov.permissao where modulo=p.modulo and chave=p.chave;
+      if r.codigo in ('SUPERADMIN','ADMIN_TENANT') or (r.codigo='AUDITOR_LEITURA' and p.acao='ler') then
+        insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,tenant_id,efeito)
+        values(v_perfil_id,v_permissao_id,r.tenant_id,'PERMITIR')
+        on conflict(perfil_acesso_id,permissao_id) do update set tenant_id=excluded.tenant_id,efeito='PERMITIR',updated_at=now();
+      end if;
+    end loop;
+  end loop;
+end $$;

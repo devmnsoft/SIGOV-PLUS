@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sigov}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sigov-local-only-change-me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:

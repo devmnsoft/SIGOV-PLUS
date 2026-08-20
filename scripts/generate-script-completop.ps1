@@ -7,7 +7,10 @@ $manifestPath = Join-Path $migrationsDir 'manifest.json'
 $versionPath = Join-Path $root 'eng/version.json'
 $out = Join-Path $root 'database/postgres/script_completo.sql'
 $devOut = Join-Path $root 'database/postgres/script_completo_dev.sql'
-$developmentSeed = Join-Path $root 'database/postgres/seeds/development/999_super_admin_access_guard.sql'
+$developmentSeeds = @(
+    (Join-Path $root 'database/postgres/seeds/development/999_super_admin_access_guard.sql'),
+    (Join-Path $root 'database/postgres/seeds/rc50_68a_perfis_autorizacao.sql')
+)
 $compatibilityOutputs = @(
     (Join-Path $root 'database/script_completo.sql'),
     (Join-Path $root 'script_completop.sql')
@@ -139,8 +142,10 @@ foreach ($entry in $excluded) {
 $new = $sb.ToString().Replace("`r`n", "`n")
 $devNew = $null
 if ($IncludeDevelopmentSeed) {
-    $seedText = Get-NormalizedText $developmentSeed
-    $devNew = $new + "`n-- DEVELOPMENT ONLY: acesso administrativo local`n" + $seedText.Trim() + "`n"
+    $devNew = $new + "`n-- DEVELOPMENT ONLY: seeds fictícias idempotentes`n"
+    foreach ($developmentSeed in $developmentSeeds) {
+        $devNew += (Get-NormalizedText $developmentSeed).Trim() + "`n"
+    }
 }
 if ($Verify) {
     if (-not (Test-Path $out)) { throw 'database/postgres/script_completo.sql não existe. Execute o gerador sem -Verify.' }

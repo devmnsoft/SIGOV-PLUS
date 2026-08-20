@@ -1094,6 +1094,16 @@
       "applyAutomatically": true,
       "checksum": "dd6d8fd38e1ede277a30a01385fb9a7a012ed9c0d2ee84525fc9c10f554f8e1b",
       "postConditionSql": "select to_regclass('sigov.pendencia_operacional') is not null and to_regclass('sigov.alerta_operacional') is not null"
+    },
+    {
+      "version": "20260820120000",
+      "file": "20260820120000_rc50_68a_autorizacao_persistente.sql",
+      "description": "rc50_68a_autorizacao_persistente",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "15c33ca8593c7dfc0daa01a57e02800fa71c75139267b94502f3a7d93d612571",
+      "postConditionSql": "select exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_permissao' and column_name='efeito')"
     }
   ],
   "compatibilityAfterAll": [
