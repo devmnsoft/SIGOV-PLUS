@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "probes": [
+    { "group": "health", "target": "API", "path": "/health", "allowed": [200] },
+    { "group": "health", "target": "API", "path": "/api/health", "allowed": [200, 401] },
+    { "group": "web", "target": "WEB", "path": "/MinhaCentral", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/Modulos/Catalogo", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/Modulos/MeuAcesso", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/Modulos/StatusFuncional", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/Pendencias", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/Alertas", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/QualidadeDados", "allowed": [200, 302, 401, 403] },
+    { "group": "web", "target": "WEB", "path": "/IntegracoesInternas", "allowed": [200, 302, 401, 403] },
+    { "group": "security", "target": "WEB", "path": "/Seguranca/MatrizAcesso", "allowed": [200, 302, 401, 403] },
+    { "group": "agro", "target": "WEB", "path": "/Agro", "allowed": [200, 302, 401, 403] },
+    { "group": "agro", "target": "WEB", "path": "/Agro/Dashboard", "allowed": [200, 302, 401, 403] },
+    { "group": "agro", "target": "WEB", "path": "/Agro/Mapa", "allowed": [200, 302, 401, 403] },
+    { "group": "agro", "target": "WEB", "path": "/Agro/Camadas", "allowed": [200, 302, 401, 403] },
+    { "group": "api", "target": "API", "path": "/api/modulos/catalogo", "allowed": [200, 401, 403] },
+    { "group": "api", "target": "API", "path": "/api/pendencias", "allowed": [200, 401, 403] },
+    { "group": "api", "target": "API", "path": "/api/alertas", "allowed": [200, 401, 403] },
+    { "group": "api", "target": "API", "path": "/api/qualidade-dados", "allowed": [200, 401, 403] },
+    { "group": "api", "target": "API", "path": "/api/integracoes-internas", "allowed": [200, 401, 403] },
+    { "group": "api", "target": "API", "path": "/api/modulos/status-funcional", "allowed": [200, 401, 403] },
+    { "group": "geojson", "target": "API", "path": "/api/agro/geo/camadas", "allowed": [200, 401, 403] },
+    { "group": "geojson", "target": "API", "path": "/api/agro/geo/exportar/geojson", "allowed": [200, 401, 403] }
+  ]
+}
