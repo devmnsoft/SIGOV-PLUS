@@ -17,8 +17,9 @@
 - [x] RC50.68D — dashboard operacional do SuperAdmin entregue com leitura Dapper, autorização
   persistente, exports protegidos e estados explícitos para áreas opcionais. A promoção permanece
   condicionada aos gates de runtime, PostgreSQL e CI descritos no relatório da RC50.68E.
-- [ ] RC50.68E — homologação final executada estaticamente; promoção **BLOCKED** até build .NET 10,
-  aplicação real em PostgreSQL 16+ e workflows com `SIGOV_CI_DB_PASSWORD` concluírem com sucesso.
+- [ ] RC50.68E-R2 — nova tentativa de fechamento executada sobre o merge do PR #270; promoção
+  **BLOCKED** porque o runner não dispõe de .NET 10, PostgreSQL/psql, PowerShell ou actionlint e
+  não possui `SIGOV_CI_DB_PASSWORD` nem autenticação GitHub. Evidências em `docs/RC50.68E-R2.md`.
 - [ ] RC50.69 — ERP Serviços é a próxima macro-release e não foi iniciada. Só pode começar após
   a RC50.68 ficar sem pendência P0/P1.
 
