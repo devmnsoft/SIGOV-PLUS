@@ -4,7 +4,22 @@ on:
   pull_request:
     paths: ['scripts/**', 'src/Sigov.Api/**', 'src/Sigov.Infrastructure/**', '.env*.example', '.github/workflows/runtime-local-smoke.yml']
 jobs:
+  database-secret-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require CI database repository secret
+        shell: bash
+        env:
+          SIGOV_CI_DB_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+        run: |
+          if [ -z "$SIGOV_CI_DB_PASSWORD" ]; then
+            echo 'BLOCKED: configure o repository secret SIGOV_CI_DB_PASSWORD.' >&2
+            exit 1
+          fi
+
   runtime-smoke:
+    needs: database-secret-preflight
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -17,8 +32,8 @@ jobs:
           --health-timeout 5s --health-retries 12
     env:
       PGPASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
-      SIGOV_DB_PASSWORD: ci-runtime-secret-A9!
-      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-secret-A9!
+      SIGOV_DB_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+      SIGOV_BOOTSTRAP_ADMIN_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -42,9 +57,16 @@ jobs:
         run: |
           ! rg -F "$SIGOV_DB_PASSWORD" artifacts .local/logs
           ! rg -F "$SIGOV_BOOTSTRAP_ADMIN_PASSWORD" artifacts .local/logs
-      - if: always()
+      - name: Stop local processes when checkout completed
+        if: always()
         shell: pwsh
-        run: ./scripts/stop-local.ps1
+        run: |
+          if (Test-Path -LiteralPath './scripts/stop-local.ps1' -PathType Leaf) {
+            ./scripts/stop-local.ps1
+          }
+          else {
+            Write-Host 'Cleanup não executado: checkout não disponibilizou scripts/stop-local.ps1.'
+          }
       - if: always()
         uses: actions/upload-artifact@v4
         with:

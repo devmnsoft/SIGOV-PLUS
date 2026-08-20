@@ -11,7 +11,7 @@ public sealed class ProcessosAuditService : IAuditService
 {
     private readonly DapperContext _context; private readonly ICurrentTenant _tenant; private readonly ICurrentUser _user; private readonly ICorrelationIdProvider _correlation;
     public ProcessosAuditService(DapperContext context, ICurrentTenant tenant, ICurrentUser user, ICorrelationIdProvider correlation) { _context = context; _tenant = tenant; _user = user; _correlation = correlation; }
-    public async Task RegistrarAsync(string modulo, string acao, string tabela, string chave, object? anterior, object? novo, CancellationToken cancellationToken = default)
+    public async Task RegistrarAsync(string modulo, string acao, string tabela, string? chave, object? anterior, object? novo, CancellationToken cancellationToken = default)
     {
         if (!_tenant.TenantId.HasValue) return;
         const string sql = "insert into sigov.trilha_auditoria (tenant_id, entidade_id, exercicio_id, usuario_id, tabela, registro_id, acao, valores_anteriores, valores_novos, correlation_id) values (@TenantId, @EntidadeId, @ExercicioId, @UsuarioId, @Tabela, @RegistroId, @Acao, cast(@Anterior as jsonb), cast(@Novo as jsonb), @CorrelationId);";

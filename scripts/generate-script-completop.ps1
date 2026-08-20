@@ -34,19 +34,31 @@ foreach ($entry in $manifest.migrations) {
 }
 
 function Get-NormalizedText([string]$Path) {
-    if (-not (Test-Path $Path)) { throw "Arquivo ausente: $Path" }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Arquivo regular ausente ou caminho não é arquivo: $Path"
+    }
     $bytes = [System.IO.File]::ReadAllBytes($Path)
     return [System.Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF).Replace("`r`n", "`n").Replace("`r", "`n")
 }
 
 function Add-CompatibilityFile([System.Text.StringBuilder]$Builder, [object]$Compatibility, [string]$Stage) {
+    if ($null -eq $Compatibility) { throw "Entrada de compatibilidade nula no estágio $Stage." }
     $fileName = [string]$Compatibility.file
-    if ([IO.Path]::IsPathRooted($fileName) -or $fileName -ne [IO.Path]::GetFileName($fileName)) { throw "Path de compatibilidade inválido: $fileName" }
+    if ([string]::IsNullOrWhiteSpace($fileName)) { throw "Arquivo de compatibilidade ausente ou vazio no estágio $Stage." }
+    if ([IO.Path]::IsPathRooted($fileName) -or
+        $fileName.Contains('..') -or
+        $fileName -ne [IO.Path]::GetFileName($fileName)) {
+        throw "Path de compatibilidade inválido no estágio $Stage. Use somente um nome de arquivo relativo ao diretório bootstrap."
+    }
+    $expectedChecksum = [string]$Compatibility.checksum
+    if ([string]::IsNullOrWhiteSpace($expectedChecksum) -or $expectedChecksum -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "Checksum SHA-256 ausente ou inválido para a compatibilidade $fileName."
+    }
     $path = Join-Path $bootstrapDir $fileName
     $normalized = Get-NormalizedText $path
     $shaBytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($normalized))
     $sha = [System.BitConverter]::ToString($shaBytes).Replace('-', '').ToLowerInvariant()
-    if ($sha -ne [string]$Compatibility.checksum) { throw "Checksum divergente na compatibilidade $fileName" }
+    if ($sha -ne $expectedChecksum.ToLowerInvariant()) { throw "Checksum divergente na compatibilidade $fileName" }
     [void]$Builder.AppendLine('-- ==================================================')
     [void]$Builder.AppendLine("-- COMPATIBILITY: $FileName")
     [void]$Builder.AppendLine("-- STAGE: $Stage")
@@ -113,7 +125,8 @@ foreach ($entry in $included) {
 
     Add-TemporaryHelperReset -Builder $sb
 
-    foreach ($compatibility in @($entry.compatibilityBefore)) {
+    $compatibilityBefore = if ($null -eq $entry.compatibilityBefore) { @() } else { @($entry.compatibilityBefore) }
+    foreach ($compatibility in $compatibilityBefore) {
         Add-CompatibilityFile -Builder $sb -Compatibility $compatibility -Stage "BEFORE $($entry.file)"
     }
 
@@ -131,7 +144,8 @@ foreach ($entry in $included) {
 }
 
 Add-TemporaryHelperReset -Builder $sb
-foreach ($compatibility in @($manifest.compatibilityAfterAll)) {
+$compatibilityAfterAll = if ($null -eq $manifest.compatibilityAfterAll) { @() } else { @($manifest.compatibilityAfterAll) }
+foreach ($compatibility in $compatibilityAfterAll) {
     Add-CompatibilityFile -Builder $sb -Compatibility $compatibility -Stage 'AFTER ALL MIGRATIONS'
 }
 

@@ -13,6 +13,27 @@ permissions:
   contents: read
 
 jobs:
+  database-secret-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require CI database repository secret
+        shell: bash
+        env:
+          SIGOV_CI_DB_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+        run: |
+          if [ -z "$SIGOV_CI_DB_PASSWORD" ]; then
+            echo 'BLOCKED: configure o repository secret SIGOV_CI_DB_PASSWORD.' >&2
+            exit 1
+          fi
+          echo 'Repository secret SIGOV_CI_DB_PASSWORD configurado (valor omitido).' > database-secret-preflight.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-secret-preflight-log
+          path: database-secret-preflight.log
+          if-no-files-found: ignore
+
   workflow-integrity:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -231,7 +252,7 @@ jobs:
             smoke-static.log
 
   migrations-manifest:
-    needs: [workflow-integrity, release-context]
+    needs: [database-secret-preflight, workflow-integrity, release-context]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -258,7 +279,7 @@ jobs:
         with: { name: migrations-manifest-log, path: migration.log }
 
   seed-idempotency:
-    needs: migrations-manifest
+    needs: [database-secret-preflight, migrations-manifest]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -302,7 +323,7 @@ jobs:
         with: { name: script-completop-validate-log, path: script-completop-validate.log }
 
   script-completop-idempotency:
-    needs: script-completop-validate
+    needs: [database-secret-preflight, script-completop-validate]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -328,7 +349,7 @@ jobs:
         with: { name: script-completop-idempotency-log, path: script-completop-idempotency.log }
 
   schema-equivalence:
-    needs: [migrations-manifest, script-completop-validate]
+    needs: [database-secret-preflight, migrations-manifest, script-completop-validate]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -355,7 +376,7 @@ jobs:
             artifacts/schema-equivalence/schema-diff.json
 
   standalone-postgres-runtime:
-    needs: [build-test, migrations-manifest, script-completop-idempotency]
+    needs: [database-secret-preflight, build-test, migrations-manifest, script-completop-idempotency]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
