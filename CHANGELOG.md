@@ -1,5 +1,14 @@
 # Changelog
 
+## RC50.68E-R2 — 2026-08-20
+
+- repetidos os gates obrigatórios sobre o merge do PR #270, registrando exit 127 para .NET,
+  PostgreSQL/psql, PowerShell e actionlint ausentes;
+- confirmados Ruby/YAML, integridade do workflow principal, JSON, shell, rotas e igualdade byte a
+  byte dos scripts consolidados como verificações estáticas auxiliares;
+- mantida a promoção **BLOCKED** porque o banco real, o build e os workflows com
+  `SIGOV_CI_DB_PASSWORD` não puderam ser executados; RC50.69 permanece não iniciada.
+
 ## RC50.68E — 2026-08-20
 
 - auditada a base do control plane SuperAdmin 360 sobre o merge do PR #269;
