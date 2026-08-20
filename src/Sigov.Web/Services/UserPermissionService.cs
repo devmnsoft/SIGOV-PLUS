@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Sigov.Web.Services;
 
@@ -19,7 +20,10 @@ public sealed class UserPermissionService : IUserPermissionService
         var separator = permission.LastIndexOf('.');
         var resource = separator > 0 ? permission[..separator] : permission;
         var action = separator > 0 ? permission[(separator + 1)..] : "acessar";
-        return _evaluator.EvaluateAsync(new AuthorizationRequest(userId, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId)).GetAwaiter().GetResult().Permitido;
+        var moduleSeparator = resource.IndexOf('.');
+        var module = moduleSeparator > 0 ? resource[..moduleSeparator] : resource;
+        return _evaluator.EvaluateAsync(new AuthorizationRequest(userId, module, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId,
+            CorrelationId: null, Origem: "WEB_LEGACY_ADAPTER")).GetAwaiter().GetResult().Permitido;
     }
 
     private static bool TryUserId(ClaimsPrincipal user, out long id)
@@ -35,4 +39,32 @@ public sealed class MenuAuthorizationService : IMenuAuthorizationService
     private readonly IUserPermissionService _permissions;
     public MenuAuthorizationService(IUserPermissionService permissions) => _permissions = permissions;
     public bool CanSee(ClaimsPrincipal user, string menuCode) => user?.Identity?.IsAuthenticated == true && _permissions.HasPermission(user, menuCode);
+}
+
+public sealed record PersistedPermissionRequirement(string Permission) : IAuthorizationRequirement;
+
+/// <summary>Handler assíncrono usado pelas policies; claims fornecem somente a identidade.</summary>
+public sealed class PersistedPermissionHandler : AuthorizationHandler<PersistedPermissionRequirement>
+{
+    private readonly IAuthorizationEvaluator _evaluator;
+    private readonly ICurrentTenant _tenant;
+
+    public PersistedPermissionHandler(IAuthorizationEvaluator evaluator, ICurrentTenant tenant) =>
+        (_evaluator, _tenant) = (evaluator, tenant);
+
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PersistedPermissionRequirement requirement)
+    {
+        if (context.User.Identity?.IsAuthenticated != true || !TryIdentity(context.User, out var userId)) return;
+        var separator = requirement.Permission.LastIndexOf('.');
+        var resource = separator > 0 ? requirement.Permission[..separator] : requirement.Permission;
+        var action = separator > 0 ? requirement.Permission[(separator + 1)..] : "acessar";
+        var moduleSeparator = resource.IndexOf('.');
+        var module = moduleSeparator > 0 ? resource[..moduleSeparator] : resource;
+        var decision = await _evaluator.EvaluateAsync(new AuthorizationRequest(userId, module, resource, action,
+            _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId, Origem: "WEB_POLICY")).ConfigureAwait(false);
+        if (decision.Permitido) context.Succeed(requirement);
+    }
+
+    private static bool TryIdentity(ClaimsPrincipal user, out long userId) => long.TryParse(
+        user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("usuario_id") ?? user.FindFirstValue("user_id"), out userId);
 }

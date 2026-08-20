@@ -1104,6 +1104,16 @@
       "applyAutomatically": true,
       "checksum": "15c33ca8593c7dfc0daa01a57e02800fa71c75139267b94502f3a7d93d612571",
       "postConditionSql": "select exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_permissao' and column_name='efeito')"
+    },
+    {
+      "version": "20260820160000",
+      "file": "20260820160000_rc50_68b_avaliador_efetivo.sql",
+      "description": "rc50_68b_avaliador_efetivo",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "cdf95bcec5cf04cd80299bb93a6cfe0936cede30ddda9210c2f75b6eb867e10c",
+      "postConditionSql": "select to_regclass('sigov.autorizacao_decisao_auditoria') is not null"
     }
   ],
   "compatibilityAfterAll": [

@@ -7,6 +7,7 @@ using Sigov.Application.Executive;
 using Sigov.Application.Onboarding;
 using Sigov.Application.Ui;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Threading.RateLimiting;
 using Serilog.Context;
@@ -61,8 +62,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization(options =>
 {
     foreach (var (policyName, permission) in PermissionCatalog.Policies)
-        options.AddPolicy(policyName, policy => policy.RequireAssertion(context =>
-            PermissionCatalog.UserHasPermission(context.User, permission)));
+        options.AddPolicy(policyName, policy => policy.Requirements.Add(new PersistedPermissionRequirement(permission)));
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));
@@ -87,6 +87,7 @@ builder.Services.AddScoped<DevelopmentAuthDiagnosticService>();
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
 builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
+builder.Services.AddScoped<IAuthorizationHandler, PersistedPermissionHandler>();
 builder.Services.AddScoped<ModuleAccessService>();
 builder.Services.AddScoped<IModuloAccessService>(provider => provider.GetRequiredService<ModuleAccessService>());
 builder.Services.AddScoped<IMenuPermissionService>(provider => provider.GetRequiredService<ModuleAccessService>());

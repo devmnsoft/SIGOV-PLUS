@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Common;
+using Sigov.Application.Authorization;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Api.Controllers;
@@ -15,10 +16,11 @@ public sealed class SegurancaController : ControllerBase
     private readonly DapperContext _db;
     private readonly ICurrentTenant _tenant;
     private readonly ICurrentUser _user;
+    private readonly IAuthorizationEvaluator _authorization;
 
-    public SegurancaController(DapperContext db, ICurrentTenant tenant, ICurrentUser user)
+    public SegurancaController(DapperContext db, ICurrentTenant tenant, ICurrentUser user, IAuthorizationEvaluator authorization)
     {
-        _db = db; _tenant = tenant; _user = user;
+        _db = db; _tenant = tenant; _user = user; _authorization = authorization;
     }
 
     [HttpGet("usuarios")]
@@ -82,13 +84,13 @@ public sealed class SegurancaController : ControllerBase
     [HttpPost("validar-permissao")]
     public async Task<ActionResult<ApiResponse<object>>> Validar([FromBody] ValidarPermissaoRequest request, CancellationToken ct)
     {
-        var tenantId = TenantId(); var correlationId = CorrelationId();
-        using var c = _db.CreateConnection();
-        const string sql = @"select coalesce((select up.concedida from sigov.seguranca_usuario_permissao up join sigov.seguranca_permissao_granular p on p.id=up.permissao_id join sigov.seguranca_recurso r on r.id=p.recurso_id where up.tenant_id=@TenantId and up.usuario_id=@UsuarioId and r.modulo=@Modulo and r.codigo=@Recurso and p.acao=@Acao and p.ativo and (up.expira_em is null or up.expira_em>now()) order by up.id desc limit 1), false)";
-        var permitido = await c.ExecuteScalarAsync<bool>(new CommandDefinition(sql, new { TenantId = tenantId, UsuarioId = _user.UsuarioId, request.Modulo, request.Recurso, request.Acao }, cancellationToken: ct));
-        const string audit = "insert into sigov.seguranca_evento(tenant_id,usuario_id,modulo,recurso,acao,permitido,entidade_id,motivo,ip,user_agent,correlation_id) values(@TenantId,@UsuarioId,@Modulo,@Recurso,@Acao,@Permitido,@EntidadeId,@Motivo,cast(@Ip as inet),@UserAgent,@CorrelationId)";
-        await c.ExecuteAsync(new CommandDefinition(audit, new { TenantId = tenantId, UsuarioId = _user.UsuarioId, request.Modulo, request.Recurso, request.Acao, Permitido = permitido, request.EntidadeId, Motivo = permitido ? null : "Permissão efetiva não encontrada.", Ip = HttpContext.Connection.RemoteIpAddress?.ToString(), UserAgent = Request.Headers.UserAgent.ToString(), correlationId }, cancellationToken: ct));
-        return ApiResponse<object>.Ok(new { request.Modulo, request.Recurso, request.Acao, permitido, correlationId });
+        if (!_user.UsuarioId.HasValue) return Unauthorized(ApiResponse<object>.Fail("Identidade autenticada inválida."));
+        var correlationId = CorrelationId();
+        var decision = await _authorization.EvaluateAsync(new AuthorizationRequest(
+            _user.UsuarioId.Value, request.Modulo, request.Recurso, request.Acao, TenantId(),
+            request.EntidadeId, _tenant.ExercicioId, request.UnidadeId, request.Valor,
+            correlationId, "API_DIAGNOSTICO"), ct).ConfigureAwait(false);
+        return ApiResponse<object>.Ok(new { request.Modulo, request.Recurso, request.Acao, decisao = decision, correlationId });
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ListarVinculos(string tipo, long id, CancellationToken ct)
@@ -122,4 +124,4 @@ public sealed class SegurancaController : ControllerBase
 }
 
 public sealed record PermissaoRequest(long[] PermissaoIds);
-public sealed record ValidarPermissaoRequest(string Modulo, string Recurso, string Acao, long? EntidadeId);
+public sealed record ValidarPermissaoRequest(string Modulo, string Recurso, string Acao, long? EntidadeId, long? UnidadeId, decimal? Valor);
