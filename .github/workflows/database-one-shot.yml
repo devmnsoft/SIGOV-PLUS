@@ -16,7 +16,22 @@ permissions:
   contents: read
 
 jobs:
+  database-secret-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require CI database repository secret
+        shell: bash
+        env:
+          SIGOV_CI_DB_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+        run: |
+          if [ -z "$SIGOV_CI_DB_PASSWORD" ]; then
+            echo 'BLOCKED: configure o repository secret SIGOV_CI_DB_PASSWORD.' >&2
+            exit 1
+          fi
+
   install-one-shot:
+    needs: database-secret-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:

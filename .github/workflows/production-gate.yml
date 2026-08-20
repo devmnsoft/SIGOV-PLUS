@@ -24,6 +24,20 @@ env:
   ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=${{ secrets.SIGOV_CI_DB_PASSWORD }};Search Path=sigov;Application Name=sigov.ci
 
 jobs:
+  database-secret-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require CI database repository secret
+        shell: bash
+        env:
+          SIGOV_CI_DB_PASSWORD: '${{ secrets.SIGOV_CI_DB_PASSWORD }}'
+        run: |
+          if [ -z "$SIGOV_CI_DB_PASSWORD" ]; then
+            echo 'BLOCKED: configure o repository secret SIGOV_CI_DB_PASSWORD.' >&2
+            exit 1
+          fi
+
   static-validation:
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +59,7 @@ jobs:
           ! rg 'NotImplemented|NotImplementedException|StatusCode\(501|return[[:space:]]+501' src -g '*.cs' -g '*.cshtml'
 
   database-clean-apply:
+    needs: database-secret-preflight
     runs-on: ubuntu-latest
     services: &postgres
       postgres:
@@ -76,6 +91,7 @@ jobs:
         with: {name: database-clean-log, path: clean-apply.log}
 
   database-partial-apply:
+    needs: database-secret-preflight
     runs-on: ubuntu-latest
     services: *postgres
     steps:
@@ -117,7 +133,7 @@ jobs:
 
   runtime-smoke:
     runs-on: ubuntu-latest
-    needs: [static-validation, database-clean-apply, database-partial-apply, runtime-build]
+    needs: [database-secret-preflight, static-validation, database-clean-apply, database-partial-apply, runtime-build]
     services: *postgres
     steps:
       - uses: actions/checkout@v4
@@ -171,7 +187,7 @@ jobs:
 
   artifact-summary:
     runs-on: ubuntu-latest
-    needs: [static-validation, database-clean-apply, database-partial-apply, runtime-build, runtime-smoke]
+    needs: [database-secret-preflight, static-validation, database-clean-apply, database-partial-apply, runtime-build, runtime-smoke]
     if: always()
     steps:
       - name: Enforce all gate jobs and publish summary
@@ -180,4 +196,4 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ',') }}
         run: |
           printf '## SIGOV+ Production Gate\n\nJobs: `%s`\n' "$RESULTS" >> "$GITHUB_STEP_SUMMARY"
-          test "${RESULTS//success/}" = ',,,,'
+          test "${RESULTS//success/}" = ',,,,,'

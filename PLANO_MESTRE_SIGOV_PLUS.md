@@ -11,7 +11,10 @@
 
 ## Próximas releases (não implementar nesta RC)
 - [x] RC50.68B — avaliador de autorização persistente, auditável e precedência de negativas.
-- [ ] RC50.68C — troca auditada de contexto (tenant/entidade/exercício/unidade).
+- [ ] RC50.68C — troca auditada de contexto (tenant/entidade/exercício/unidade). A implementação
+  foi integrada no PR #267, porém sua promoção permanece bloqueada pela homologação e pelos gates
+  de banco/CI da RC50.68C-R2; o secret administrativo `SIGOV_CI_DB_PASSWORD` ainda precisa ser
+  confirmado/configurado e os workflows precisam ser reexecutados.
 - [ ] RC50.68D — dashboard operacional do SuperAdmin.
 
 ## Regras permanentes
@@ -27,4 +30,4 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 - [x] Trilha global de decisões e integridade/estado dos vínculos adicionadas por migration corretiva.
 - [ ] Ampliação do CRUD administrativo legado permanece como risco residual: as telas atuais de perfis e
   permissões persistem dados, mas grupos e a matriz contextual ainda não cobrem integralmente todos os campos.
-- [ ] RC50.68C/RC50.68D permanecem fora do escopo.
+- [ ] A promoção da RC50.68C permanece pendente da RC50.68C-R2; a RC50.68D não foi iniciada.
