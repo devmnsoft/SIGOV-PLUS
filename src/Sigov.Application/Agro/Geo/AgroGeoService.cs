@@ -105,7 +105,16 @@ public sealed class AgroGeoService : IAgroGeoService
     public async Task<Result<string>> ExportarGeoJsonAsync(CancellationToken cancellationToken)
     {
         var ctx = await Ctx(AgroPermissions.GeoExportar, "agro.exportacao_geojson", cancellationToken).ConfigureAwait(false); if (ctx.IsFailure) return Result<string>.Failure(ctx.Error ?? "Contexto inválido.");
-        return Result<string>.Success(await _repository.ExportarGeoJsonAsync(ctx.Value!.TenantId, ctx.Value!.EntidadeId, cancellationToken).ConfigureAwait(false));
+        var geoJson = await _repository.ExportarGeoJsonAsync(ctx.Value!.TenantId, ctx.Value!.EntidadeId, cancellationToken).ConfigureAwait(false);
+        await _audit.RegistrarAsync(
+            AgroPermissions.Modulo,
+            "EXPORTAR_GEOJSON",
+            "sigov.agro_geo_feicao",
+            "feature-collection",
+            null,
+            new { formato = "GeoJSON", tamanhoBytes = System.Text.Encoding.UTF8.GetByteCount(geoJson) },
+            cancellationToken).ConfigureAwait(false);
+        return Result<string>.Success(geoJson);
     }
 
     private Result ValidarCamada(AgroGeoCamadaRequest r)

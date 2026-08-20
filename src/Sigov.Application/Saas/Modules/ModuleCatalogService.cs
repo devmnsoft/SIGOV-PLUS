@@ -40,7 +40,7 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("integracoes", "Integrações", "APIs, webhooks, outbox e conectores externos.", "Plataforma", true, true, new[] { "core", "auditoria" }),
             Module("suporte", "Suporte", "Chamados, acompanhamento técnico e suporte auditado.", "Plataforma", false, true, new[] { "core" }),
             Module("operacao", "Operação", "Painéis e rotinas operacionais transversais.", "Plataforma", true, true, new[] { "core" }),
-            Module("agro", "Agro e Desenvolvimento Rural", "Catálogo contratável futuro para gestão rural e georreferenciamento.", "Políticas Públicas", true, true, new[] { "core", "tributario" }),
+            Module("agro", "Agro e Desenvolvimento Rural", "Gestão rural, patrulha mecanizada, produção e georreferenciamento integrados.", "Políticas Públicas", true, true, new[] { "core", "tributario" }),
             Module("comercial", "Comercial/CRM", "Clientes, leads, oportunidades, propostas, pedidos e preços.", "Empresarial", true, true, new[] { "core", "lgpd" }),
             Module("ordem_servico", "Ordem de Serviço", "OS técnica, agenda, checklist, apontamentos e peças.", "Serviços", true, true, new[] { "core", "comercial", "estoque_compras" }),
             Module("manutencao_industrial", "Manutenção Industrial", "Ativos, planos, medidores, paradas e falhas.", "Indústria", true, true, new[] { "core", "ordem_servico" }),

@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Sigov.Web.Controllers;
 
+[Authorize]
 public sealed class AgroTransparenciaController : Controller
 {
     public IActionResult Index() => View("~/Views/Agro/Transparencia.cshtml");
