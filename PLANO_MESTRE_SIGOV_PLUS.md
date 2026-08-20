@@ -18,3 +18,10 @@
 O banco é a fonte de autoridade para autorização e parametrização. Não são aceitos
 mock/demo/fallback, segredo versionado, nova PK UUID ou drift entre migration, manifest
 e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
+
+## RC50.68B — avaliador persistente
+- [x] Centralizar decisão fail-closed em avaliador Dapper parametrizado.
+- [x] Aplicar vigência, escopos, alçada e precedência de `NEGAR`.
+- [x] Converter serviços legados e handler Enterprise em adapters sem autoridade paralela.
+- [ ] Gestão administrativa integral de perfis/grupos — BLOCKED nesta entrega; requer continuação antes de promover a RC.
+- [ ] RC50.68C/RC50.68D permanecem fora do escopo.

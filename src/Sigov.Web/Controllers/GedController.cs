@@ -70,7 +70,7 @@ public sealed class GedController : Controller
     public async Task<IActionResult> Visualizar(long id, CancellationToken cancellationToken) => await AcessarArquivo(id, false, cancellationToken);
     private async Task<IActionResult> AcessarArquivo(long id, bool download, CancellationToken ct)
     { if (!Can(download ? "ged.download" : "ged.visualizar")) return Forbid(); await Audit(download ? "ged.download" : "ged.visualizar", id.ToString(), ct); TempData["Warning"] = "Arquivo protegido: o path físico nunca é exposto; stream real depende do registro GED."; return Redirect($"/Ged/Detalhes/{id}"); }
-    private bool Can(string permission) => User.Identity?.IsAuthenticated != true || _permissions.HasPermission(User, permission) || _permissions.HasPermission(User, "ADMIN_GERAL");
+    private bool Can(string permission) => User.Identity?.IsAuthenticated == true && _permissions.HasPermission(User, permission);
     private Task Audit(string acao, string? id, CancellationToken ct) => _auditTrail.RegistrarAsync(null, null, acao, "documento", id, null, new { acao, id }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct);
     private async Task TryExecuteAsync(System.Data.IDbConnection cn, string sql, object args, CancellationToken ct)
     {

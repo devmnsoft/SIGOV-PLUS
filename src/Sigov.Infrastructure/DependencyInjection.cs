@@ -254,6 +254,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ICurrentExercicio, CurrentExercicio>();
         services.AddScoped<IPasswordHashService, PasswordHashService>();
+        services.AddScoped<Sigov.Application.Authorization.IAuthorizationEvaluator, PersistentAuthorizationEvaluator>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ITenantResolver, TenantResolver>();

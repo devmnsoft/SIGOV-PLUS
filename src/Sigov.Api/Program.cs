@@ -34,7 +34,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 builder.Services.AddScoped<EnterpriseExecutionContextFilter>();
 builder.Services.AddScoped<IEnterpriseAuthorizationService, EnterpriseAuthorizationService>();
-builder.Services.AddSingleton<IAuthorizationHandler, EnterpriseAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, EnterpriseAuthorizationHandler>();
 builder.Services.AddAuthorization(options =>
 {
     foreach (var (policyName, permission) in PermissionCatalog.Policies)
