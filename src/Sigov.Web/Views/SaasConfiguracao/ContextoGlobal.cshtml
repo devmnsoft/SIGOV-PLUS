@@ -1,11 +1,21 @@
-<section class="container-fluid py-3" data-saas-page="contexto-global">
-  <div class="alert alert-danger" id="globalContextBanner">Administrador geral em contexto de tenant: todas as ações permanecem auditadas.</div>
-  <div class="row g-3"><div class="col-lg-5"><div class="card"><div class="card-header fw-bold">Troca de contexto global</div><div class="card-body">
-    <input id="ctxUsuarioGlobalId" class="form-control mb-2" placeholder="usuario_global_id" />
-    <input id="ctxTenantDestinoId" class="form-control mb-2" placeholder="tenant_destino_id" />
-    <input id="ctxEntidadeDestinoId" class="form-control mb-2" placeholder="entidade_destino_id opcional" />
-    <textarea id="ctxMotivo" class="form-control mb-2" placeholder="motivo obrigatório"></textarea>
-    <button id="ctxTrocar" class="btn btn-danger">Trocar contexto com auditoria</button>
-  </div></div></div><div class="col-lg-7"><div class="card"><div class="card-header fw-bold">Logs de contexto</div><div class="card-body"><button id="ctxLogs" class="btn btn-outline-secondary">Atualizar logs</button><pre id="ctxLogsOutput" class="bg-light p-2 mt-2"></pre></div></div></div></div>
+@{ ViewData["Title"] = "Contexto operacional"; }
+<section class="container-fluid py-3" data-saas-page="contexto-operacional">
+  <div id="ctxAssistedBanner" class="alert alert-warning d-none" role="status"><strong>Contexto assistido ativo.</strong> Suas ações nesta empresa estão sendo auditadas.</div>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div><h1 class="h3 mb-1">Contexto operacional</h1><p class="text-muted mb-0">Selecione somente os ambientes disponibilizados para seu acesso.</p></div>
+    <button id="ctxReturnGlobal" class="btn btn-outline-secondary d-none" type="button">Voltar ao contexto global</button>
+  </div>
+  <div id="ctxSummary" class="alert alert-light border" aria-live="polite">Carregando contexto atual…</div>
+  <form id="ctxForm" class="card shadow-sm" novalidate>
+    <div class="card-body"><div id="ctxGeneralError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
+      <div class="col-lg-6 position-relative"><label for="ctxCompanySearch" class="form-label">Empresa</label><input id="ctxCompanySearch" class="form-control" autocomplete="off" placeholder="Digite ao menos 2 caracteres" aria-describedby="ctxCompanyHelp" required><div id="ctxCompanyResults" class="list-group position-absolute start-0 end-0 mx-2 shadow d-none" style="z-index:20"></div><div id="ctxCompanyHelp" class="form-text">A pesquisa consulta empresas autorizadas no servidor.</div></div>
+      <div class="col-lg-6"><label for="ctxUnit" class="form-label">Unidade</label><select id="ctxUnit" class="form-select" required disabled><option value="">Selecione a empresa primeiro</option></select></div>
+      <div class="col-md-4"><label for="ctxExercise" class="form-label">Exercício</label><select id="ctxExercise" class="form-select" required disabled><option value="">Selecione uma unidade</option></select></div>
+      <div class="col-md-4"><label for="ctxSystem" class="form-label">Sistema</label><select id="ctxSystem" class="form-select" required disabled><option value="">Selecione a empresa</option></select></div>
+      <div class="col-md-4"><label for="ctxMode" class="form-label">Modo de acesso</label><select id="ctxMode" class="form-select"><option value="OPERACIONAL">Operacional</option><option value="LEITURA">Somente leitura</option></select></div>
+      <div id="ctxReasonGroup" class="col-12 d-none"><label for="ctxReason" class="form-label">Justificativa obrigatória</label><textarea id="ctxReason" class="form-control" minlength="15" maxlength="1000" rows="3" aria-describedby="ctxReasonHelp"></textarea><div id="ctxReasonHelp" class="form-text">Explique o motivo do acesso assistido (<span id="ctxReasonCount">0</span>/1000).</div></div>
+    </div></div>
+    <div class="card-footer d-flex justify-content-end gap-2"><button id="ctxRetry" class="btn btn-light d-none" type="button">Tentar novamente</button><button class="btn btn-primary" type="submit"><span id="ctxSpinner" class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Confirmar contexto</button></div>
+  </form>
 </section>
 <script src="~/js/modules/saas.contexto-global.js"></script>

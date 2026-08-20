@@ -103,6 +103,7 @@ app.UseMiddleware<ApiKeyV1Middleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseCors("SigovCors");
 app.UseMiddleware<SimpleRateLimitMiddleware>();
+app.UseAuthorization();
 
 var sigovOptions = app.Services.GetRequiredService<IOptions<SigovOptions>>().Value;
 if (app.Environment.IsProduction() && string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("DefaultConnection")))

@@ -8,6 +8,7 @@ public sealed class TenantResolutionMiddleware
     private static readonly PathString[] PublicPrefixes =
     {
         new("/api/health"),
+        new("/api/saas/contexto"),
         new("/api/saas/admin"),
         new("/api/operacao/backups"),
         new("/api/operacao/restores"),
@@ -31,8 +32,7 @@ public sealed class TenantResolutionMiddleware
             return;
         }
 
-        var allowDevelopmentResolvers = httpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()
-            || httpContext.RequestServices.GetRequiredService<IHostEnvironment>().EnvironmentName.Equals("Test", StringComparison.OrdinalIgnoreCase);
+        const bool allowDevelopmentResolvers = false;
         var claims = httpContext.User.Claims
             .GroupBy(static claim => claim.Type, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(static group => group.Key, static group => (string?)group.First().Value, StringComparer.OrdinalIgnoreCase);
@@ -43,8 +43,8 @@ public sealed class TenantResolutionMiddleware
 
         var result = await resolver.ResolveAsync(
             httpContext.Request.Host.Value,
-            httpContext.Request.Headers["X-Sigov-Tenant"].FirstOrDefault(),
-            httpContext.Request.Query["tenant"].FirstOrDefault(),
+            null,
+            null,
             claims,
             allowDevelopmentResolvers,
             httpContext.RequestAborted).ConfigureAwait(false);
