@@ -1,5 +1,13 @@
 # Changelog
 
+## RC50.68F — 2026-08-21
+
+- entregue o CRUD SuperAdmin AJAX da autorização contextual persistida para perfis, grupos,
+  permissões e vínculos usuário-grupo, grupo-perfil e perfil-permissão;
+- preservados a autoridade no PostgreSQL, o avaliador fail-closed e a precedência de `NEGAR`, com
+  validação server-side, estados, exclusão lógica e auditoria antes/depois;
+- mantida a promoção RC50.68 como **BLOCKED** pelo CI real, sem consultar Actions e sem iniciar RC50.69.
+
 ## RC50.68E-R4 — 2026-08-20
 
 - confirmada a tentativa sobre o candidato `f6da64e3b756640b1322e7d0b8a3e506f7c92311`;

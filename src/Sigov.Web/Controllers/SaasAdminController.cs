@@ -11,7 +11,8 @@ namespace Sigov.Web.Controllers;
 
 [Authorize]
 [Route("SaasAdmin")]
-public sealed class SaasAdminController(ISuperAdminOperationalDashboardService dashboard, IAuthorizationEvaluator authorization) : Controller
+public sealed class SaasAdminController(ISuperAdminOperationalDashboardService dashboard, IAuthorizationEvaluator authorization,
+    IAuthorizationAdminService authorizationAdmin) : Controller
 {
     [HttpGet("Dashboard")]
     [HttpGet("Operacional")]
@@ -48,6 +49,57 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     [HttpGet("Assinaturas")] public IActionResult Assinaturas() => View();
     [HttpGet("FeatureFlags")] public IActionResult FeatureFlags() => View();
     [HttpGet("Uso")] public IActionResult Uso() => View();
+    [HttpGet("Autorizacao")]
+    public async Task<IActionResult> Autorizacao(CancellationToken ct)
+    {
+        if (!await AllowedAdmin(ct)) return Forbid();
+        return View();
+    }
+
+    [HttpGet("Autorizacao/Dados")]
+    public async Task<IActionResult> AuthorizationData(string? search, long? tenantId, bool includeInactive, CancellationToken ct)
+    {
+        if (!await AllowedAdmin(ct)) return Forbid();
+        return Json(await authorizationAdmin.ListAsync(new(search, tenantId, includeInactive), ct));
+    }
+
+    [HttpPost("Autorizacao/Catalogo/{kind}")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveAuthorizationCatalog(string kind, [FromBody] AuthorizationCatalogCommand command, CancellationToken ct)
+    {
+        var identity = await AdminIdentity(ct); if (identity is null) return Forbid();
+        var result = await authorizationAdmin.SaveCatalogAsync(kind, command, identity.Value, HttpContext.TraceIdentifier, ct);
+        return StatusCode(result.Success ? StatusCodes.Status200OK : StatusCodes.Status422UnprocessableEntity, result);
+    }
+
+    [HttpPost("Autorizacao/Vinculo")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveAuthorizationLink([FromBody] AuthorizationLinkCommand command, CancellationToken ct)
+    {
+        var identity = await AdminIdentity(ct); if (identity is null) return Forbid();
+        var result = await authorizationAdmin.SaveLinkAsync(command, identity.Value, HttpContext.TraceIdentifier, ct);
+        return StatusCode(result.Success ? StatusCodes.Status200OK : StatusCodes.Status422UnprocessableEntity, result);
+    }
+
+    [HttpPost("Autorizacao/Status")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangeAuthorizationStatus([FromBody] AuthorizationStatusRequest request, CancellationToken ct)
+    {
+        var identity = await AdminIdentity(ct); if (identity is null) return Forbid();
+        var result = await authorizationAdmin.ChangeStatusAsync(request.Kind, request.LeftId, request.RightId, request.Active, request.Delete,
+            identity.Value, HttpContext.TraceIdentifier, ct);
+        return StatusCode(result.Success ? StatusCodes.Status200OK : StatusCodes.Status422UnprocessableEntity, result);
+    }
+
+    private async Task<bool> AllowedAdmin(CancellationToken ct) => (await AdminIdentity(ct)) is not null;
+    private async Task<long?> AdminIdentity(CancellationToken ct)
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue("usuario_id");
+        if (!long.TryParse(raw, CultureInfo.InvariantCulture, out var userId)) return null;
+        var decision = await authorization.EvaluateAsync(new(userId, "saas", "saas.superadmin.autorizacao", "administrar",
+            CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_AUTORIZACAO"), ct);
+        return decision.Permitido ? userId : null;
+    }
     private async Task<bool> Allowed(string action, long? tenantId, CancellationToken ct)
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue("usuario_id");
@@ -71,3 +123,5 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         return '"' + safe.Replace("\"", "\"\"") + '"';
     }
 }
+
+public sealed record AuthorizationStatusRequest(string Kind, long LeftId, long? RightId, bool Active, bool Delete);

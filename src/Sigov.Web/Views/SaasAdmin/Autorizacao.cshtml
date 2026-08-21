@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "Autorização contextual";
+}
+<div class="container-fluid py-4" id="authorization-admin">
+    @Html.AntiForgeryToken()
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div><h1 class="h3 mb-1">Autorização persistente</h1><p class="text-muted mb-0">Perfis, grupos e vínculos contextuais. O banco é a autoridade final.</p></div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#link-modal">Novo vínculo</button>
+    </div>
+    <div id="message" class="alert d-none" role="alert"></div>
+    <form id="filters" class="card card-body mb-3"><div class="row g-2 align-items-end">
+        <div class="col-md-5"><label class="form-label" for="search">Busca</label><input id="search" class="form-control" placeholder="Código, nome, login ou permissão"></div>
+        <div class="col-md-3"><label class="form-label" for="tenant">Tenant/cliente</label><input id="tenant" type="number" min="1" class="form-control"></div>
+        <div class="col-md-2 form-check ms-2"><input id="inactive" type="checkbox" class="form-check-input"><label for="inactive" class="form-check-label">Incluir inativos</label></div>
+        <div class="col-md-1"><button class="btn btn-outline-primary">Filtrar</button></div>
+    </div></form>
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#catalogs">Cadastros</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#links">Matriz contextual</button></li>
+    </ul>
+    <div class="tab-content border border-top-0 p-3">
+      <div class="tab-pane fade show active" id="catalogs"><div class="row g-3" id="catalog-cards"></div></div>
+      <div class="tab-pane fade" id="links"><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Tipo</th><th>Origem</th><th>Destino</th><th>Contexto</th><th>Efeito/alçada</th><th>Vigência</th><th>Estado</th><th></th></tr></thead><tbody id="link-rows"></tbody></table></div></div>
+    </div>
+</div>
+
+<div class="modal fade" id="catalog-modal" tabindex="-1"><div class="modal-dialog"><form class="modal-content" id="catalog-form"><div class="modal-header"><h2 class="modal-title fs-5">Cadastro</h2><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+    <input type="hidden" id="catalog-kind"><input type="hidden" id="catalog-id"><label class="form-label">Código/chave</label><input id="catalog-code" maxlength="150" required class="form-control mb-2"><label class="form-label">Nome</label><input id="catalog-name" maxlength="160" required class="form-control mb-2"><label class="form-label">Descrição</label><textarea id="catalog-description" class="form-control"></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Salvar</button></div></form></div></div>
+
+<div class="modal fade" id="link-modal" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content" id="link-form"><div class="modal-header"><h2 class="modal-title fs-5">Vínculo contextual</h2><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="row g-2">
+    <div class="col-md-4"><label class="form-label">Tipo</label><select id="link-kind" class="form-select"><option value="usuario-grupo">Usuário → grupo</option><option value="grupo-perfil">Grupo → perfil</option><option value="perfil-permissao">Perfil → permissão</option></select></div>
+    <div class="col-md-4"><label class="form-label">Origem</label><select id="link-left" required class="form-select"></select></div><div class="col-md-4"><label class="form-label">Destino</label><select id="link-right" required class="form-select"></select></div>
+    <div class="col-md-3"><label class="form-label">Tenant</label><input id="link-tenant" type="number" min="1" class="form-control"></div><div class="col-md-3"><label class="form-label">Entidade</label><input id="link-entity" type="number" min="1" class="form-control"></div><div class="col-md-3"><label class="form-label">Exercício</label><input id="link-year" type="number" min="1" class="form-control"></div><div class="col-md-3"><label class="form-label">Unidade/órgão</label><input id="link-unit" type="number" min="1" class="form-control"></div>
+    <div class="col-md-3"><label class="form-label">Efeito</label><select id="link-effect" class="form-select"><option>PERMITIR</option><option>NEGAR</option></select></div><div class="col-md-3"><label class="form-label">Alçada</label><input id="link-limit" type="number" min="0" step="0.01" class="form-control"></div><div class="col-md-3"><label class="form-label">Início</label><input id="link-from" type="datetime-local" class="form-control"></div><div class="col-md-3"><label class="form-label">Fim</label><input id="link-to" type="datetime-local" class="form-control"></div>
+    <div class="col-12"><label class="form-label">Justificativa</label><textarea id="link-justification" maxlength="500" class="form-control"></textarea></div>
+ </div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Salvar vínculo</button></div></form></div></div>
+
+<script src="~/js/saas-authorization-admin.js" asp-append-version="true"></script>

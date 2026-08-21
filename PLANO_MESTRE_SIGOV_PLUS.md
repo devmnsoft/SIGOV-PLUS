@@ -35,7 +35,9 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 - [x] Converter serviços legados e handler Enterprise em adapters sem autoridade paralela.
 - [x] Policies Web e diagnóstico da API consomem a mesma decisão persistente, sem autoridade em claims.
 - [x] Trilha global de decisões e integridade/estado dos vínculos adicionadas por migration corretiva.
-- [ ] Ampliação do CRUD administrativo legado permanece como risco residual: as telas atuais de perfis e
-  permissões persistem dados, mas grupos e a matriz contextual ainda não cobrem integralmente todos os campos.
+- [x] RC50.68F fecha o risco residual do CRUD administrativo: SuperAdmin administra perfis, grupos,
+  permissões e os três vínculos da matriz com escopos, vigência, efeito, alçada, estado e auditoria.
+- [ ] A promoção continua **BLOCKED** pelo gate de CI real da RC50.68E-R4; esta conclusão funcional
+  não inicia a RC50.69 nem substitui execução verde da esteira.
 - [x] RC50.68C e RC50.68D foram implementadas; sua promoção produtiva integra o gate único da
   RC50.68E e não deve ser confundida com conclusão apenas documental.
