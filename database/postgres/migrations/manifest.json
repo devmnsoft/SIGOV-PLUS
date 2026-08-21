@@ -1134,6 +1134,16 @@
       "applyAutomatically": true,
       "checksum": "e96bfa078a1ee0fb6fc5d1aaf3b6202ad4aceb0c91ed6b409f4ed42ce72c700c",
       "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saas.superadmin.dashboard.visualizar')"
+    },
+    {
+      "version": "20260821120000",
+      "file": "20260821120000_rc50_68f_admin_autorizacao_contextual.sql",
+      "description": "rc50_68f_admin_autorizacao_contextual",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "3908cb29fcff7c550ed99176f3503b1fdbfffcd88cf40490ac685d6431d26784",
+      "postConditionSql": "select to_regclass('sigov.autorizacao_admin_auditoria') is not null and exists (select 1 from sigov.permissao where chave='saas.superadmin.autorizacao.administrar')"
     }
   ],
   "compatibilityAfterAll": [

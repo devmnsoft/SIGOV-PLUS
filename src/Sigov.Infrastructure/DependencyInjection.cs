@@ -136,6 +136,7 @@ public static class DependencyInjection
         services.AddScoped<ITributarioNfseService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddSingleton<NpgsqlConnectionFactory>();
         services.AddScoped<ISuperAdminOperationalDashboardService, SuperAdminOperationalDashboardService>();
+        services.AddScoped<IAuthorizationAdminService, AuthorizationAdminService>();
         services.AddScoped<ITransversalGovernancaService, TransversalGovernancaService>();
         services.AddScoped<IComprasRepository, ComprasRepository>();
         services.AddScoped<IContratosRepository, ContratosRepository>();

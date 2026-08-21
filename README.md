@@ -43,6 +43,11 @@ auditoria e integrações a partir do PostgreSQL. Visualização e exportação 
 as permissões persistidas `saas.superadmin.dashboard.visualizar` e
 `saas.superadmin.dashboard.exportar`; áreas sem schema são identificadas como indisponíveis.
 
+Em `/SaasAdmin/Autorizacao`, um SuperAdmin com a concessão persistida
+`saas.superadmin.autorizacao.administrar` administra perfis, grupos, permissões e vínculos de
+usuário→grupo, grupo→perfil e perfil→permissão, inclusive escopo, vigência, negativa e alçada. As
+operações usam Dapper, validação no servidor, exclusão lógica e auditoria antes/depois.
+
 O código das RC50.68A–D está integrado, mas a promoção produtiva da RC50.68 permanece
 **BLOCKED** até uma execução verde do workflow manual **RC50.68 promotion**, com o repository
 secret `SIGOV_CI_DB_PASSWORD`. Na R4, a ausência de autenticação GitHub no ambiente impediu a
