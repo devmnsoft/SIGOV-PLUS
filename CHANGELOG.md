@@ -130,3 +130,8 @@
 ## FUNC04 — 2026-08-24
 - Gestão operacional de frotas com veículos, motoristas, utilizações, abastecimentos, manutenções, OS e documentos.
 - Migration idempotente, scripts consolidados, RBAC, auditoria, LGPD e integrações FUNC01/FUNC02/FUNC03; sem promoção de release.
+
+## FUNC05 — 2026-08-24
+
+- Educação/Gestão Escolar: schema PostgreSQL idempotente, permissões, escolas, alunos/responsáveis, professores, calendário, turmas, matrículas, frequência, avaliações, ocorrências, pré-matrícula, portal, dashboard, CSV e rotas MVC/API.
+- RC50.68 permanece BLOCKED; RC50.69 não iniciada; GED/InovaGED adiado.

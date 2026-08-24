@@ -71,3 +71,7 @@ Trilha funcional implementada paralelamente, sem alteração do estado da RC50.6
 ## FUNC04 — Frotas, Abastecimento e Manutenção
 
 Trilha funcional paralela entregue em código: autoridade PostgreSQL, Dapper parametrizado, auditoria antes/depois, CPF mascarado, RBAC fail-closed, MVC/API e integrações seguras com FUNC01/FUNC02/FUNC03. A RC50.68 permanece **BLOCKED** e a RC50.69 não foi iniciada.
+
+## FUNC05 — Educação e Gestão Escolar
+
+Trilha funcional paralela entregue com autoridade PostgreSQL, Dapper parametrizado, RBAC fail-closed, auditoria/LGPD, MVC/API, i-Diário, pré-matrícula e portal interno. Não promove a RC50.68 (**BLOCKED**), não inicia a RC50.69 e mantém GED/InovaGED adiado para a etapa final.
