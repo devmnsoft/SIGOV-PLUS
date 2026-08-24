@@ -21,6 +21,10 @@
   `f6da64e3b756640b1322e7d0b8a3e506f7c92311`, mas **BLOCKED** antes do dispatch porque o ambiente
   não possui autenticação GitHub para confirmar o repository secret `SIGOV_CI_DB_PASSWORD` nem
   consultar Actions. Nenhum gate foi marcado PASS e ainda é obrigatória uma run integralmente verde.
+- [x] RC50.68E-R5 — entregue esteira local assistida para Windows/Linux, com preflight seguro,
+  build runtime, aplicação e reaplicação PostgreSQL 16, autoridade persistida, smoke opcional e
+  evidências sanitizadas. A entrega da ferramenta não altera o estado da promoção: **BLOCKED** até
+  execução real verde e conclusão do gate oficial.
 - [ ] RC50.69 — ERP Serviços é a próxima macro-release e não foi iniciada. Só pode começar após
   a RC50.68 ficar sem pendência P0/P1.
 

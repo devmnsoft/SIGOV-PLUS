@@ -8,7 +8,9 @@
   administração SuperAdmin de perfis, grupos, permissões e vínculos contextuais,
   incluindo vigência, escopos, efeito, alçada, estado e auditoria antes/depois.
 - [ ] Promoção RC50.68: **BLOCKED** até CI real integralmente verde. A falta de autenticação que
-  bloqueou a RC50.68E-R4 não é contornada nem considerada aprovada por esta entrega.
+  bloqueou a RC50.68E-R4 não é contornada nem considerada aprovada por esta entrega. A RC50.68E-R5
+  fornece homologação local assistida, reproduzível e com evidências sanitizadas para .NET 10 e
+  PostgreSQL 16; a existência da esteira, sem execução integralmente verde, não aprova a promoção.
 - [ ] RC50.69: não iniciada e condicionada à promoção da RC50.68.
 
 O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MESTRE_SIGOV_PLUS.md).

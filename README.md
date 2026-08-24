@@ -52,7 +52,9 @@ O código das RC50.68A–D está integrado, mas a promoção produtiva da RC50.6
 **BLOCKED** até uma execução verde do workflow manual **RC50.68 promotion**, com o repository
 secret `SIGOV_CI_DB_PASSWORD`. Na R4, a ausência de autenticação GitHub no ambiente impediu a
 confirmação do secret e o dispatch; não existe run nem PASS inferido. Consulte
-[`docs/RC50.68E-R4.md`](docs/RC50.68E-R4.md). A RC50.69 ERP Serviços segue não iniciada e não pode
+[`docs/RC50.68E-R4.md`](docs/RC50.68E-R4.md). Para produzir evidência executável em .NET 10 e
+PostgreSQL 16, consulte a [homologação local assistida da RC50.68](docs/execucao/RC50.68-PROMOCAO-LOCAL.md).
+A RC50.69 ERP Serviços segue não iniciada e não pode
 começar antes da promoção.
 
 # sigov
