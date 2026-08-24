@@ -35,6 +35,7 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 - [x] Converter serviços legados e handler Enterprise em adapters sem autoridade paralela.
 - [x] Policies Web e diagnóstico da API consomem a mesma decisão persistente, sem autoridade em claims.
 - [x] Trilha global de decisões e integridade/estado dos vínculos adicionadas por migration corretiva.
+- [x] RC50.68F-R2 estabiliza SQL Dapper, contratos e tela do CRUD, sem alterar a promoção bloqueada.
 - [x] RC50.68F fecha o risco residual do CRUD administrativo: SuperAdmin administra perfis, grupos,
   permissões e os três vínculos da matriz com escopos, vigência, efeito, alçada, estado e auditoria.
 - [ ] A promoção continua **BLOCKED** pelo gate de CI real da RC50.68E-R4; esta conclusão funcional

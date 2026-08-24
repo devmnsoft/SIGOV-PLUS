@@ -23,7 +23,8 @@ public sealed class AuthorizationAdminService(DapperContext context) : IAuthoriz
     {
         kind = kind.Trim().ToLowerInvariant();
         if (kind is not ("perfil" or "grupo" or "permissao")) return Fail("Catálogo inválido.");
-        if (string.IsNullOrWhiteSpace(command.Code) || string.IsNullOrWhiteSpace(command.Name) || command.Code.Length > 150 || command.Name.Length > 160)
+        var maximumCodeLength = kind == "permissao" ? 150 : 100;
+        if (string.IsNullOrWhiteSpace(command.Code) || string.IsNullOrWhiteSpace(command.Name) || command.Code.Trim().Length > maximumCodeLength || command.Name.Trim().Length > 150)
             return Fail("Código e nome são obrigatórios e devem respeitar os limites do cadastro.");
         if (kind == "permissao" && command.Code.Split('.', StringSplitOptions.RemoveEmptyEntries).Length < 3)
             return Fail("A chave da permissão deve usar modulo.recurso.acao.");
@@ -83,11 +84,16 @@ public sealed class AuthorizationAdminService(DapperContext context) : IAuthoriz
     private static AuthorizationAdminResult Ok(string message)=>new(true,message); private static AuthorizationAdminResult Fail(string message)=>new(false,message);
 
     private const string ListSql = """
-select id,coalesce(codigo_externo,id::text) code,nome name,ativo active from sigov.perfil_acesso where not is_deleted and (@IncludeInactive or ativo) and (@Search is null or nome ilike @Search or codigo_externo ilike @Search) order by nome limit 500;
-select id,coalesce(codigo_externo,id::text) code,nome name,ativo active from sigov.grupo_acesso where not is_deleted and (@IncludeInactive or ativo) and (@Search is null or nome ilike @Search or codigo_externo ilike @Search) order by nome limit 500;
-select id,chave code,coalesce(descricao,chave) name,ativo active from sigov.permissao where not is_deleted and (@IncludeInactive or ativo) and (@Search is null or chave ilike @Search or descricao ilike @Search) order by modulo,recurso,acao limit 1000;
-select id,login code,nome name,ativo active from sigov.usuario where not is_deleted and (@IncludeInactive or ativo) and (@TenantId is null or tenant_id=@TenantId) and (@Search is null or login ilike @Search or nome ilike @Search) order by nome limit 500;
-select 'usuario-grupo' kind,ug.usuario_id leftid,u.nome leftname,ug.grupo_acesso_id rightid,g.nome rightname,ug.tenant_id tenantid,ug.entidade_id entityid,ug.exercicio_id fiscalyearid,ug.unidade_id unitid,ug.vigencia_inicio validfrom,ug.vigencia_fim validto,null effect,null approvallimit,ug.ativo active,ug.is_deleted deleted from sigov.usuario_grupo ug join sigov.usuario u on u.id=ug.usuario_id join sigov.grupo_acesso g on g.id=ug.grupo_acesso_id where (@IncludeInactive or (ug.ativo and not ug.is_deleted)) and (@TenantId is null or ug.tenant_id is null or ug.tenant_id=@TenantId) order by u.nome,g.nome limit 1000;
+select id,coalesce(codigo_externo,id::text) code,nome name,descricao description,ativo active from sigov.perfil_acesso where not is_deleted and (@IncludeInactive or ativo) and (@Search is null or nome ilike @Search or codigo_externo ilike @Search) order by nome limit 500;
+select id,coalesce(codigo_externo,id::text) code,nome name,descricao description,ativo active from sigov.grupo_acesso where not is_deleted and (@IncludeInactive or ativo) and (@Search is null or nome ilike @Search or codigo_externo ilike @Search) order by nome limit 500;
+select id,chave code,coalesce(descricao,chave) name,descricao description,ativo active from sigov.permissao where not is_deleted and (@IncludeInactive or ativo) and (@Search is null or chave ilike @Search or descricao ilike @Search) order by modulo,recurso,acao limit 1000;
+select u.id,u.login code,coalesce(pe.nome,u.login) name,null::text description,u.ativo active
+  from sigov.usuario u left join sigov.pessoa pe on pe.id=u.pessoa_id and not pe.is_deleted
+ where not u.is_deleted and (@IncludeInactive or u.ativo)
+   and (@TenantId is null or exists (select 1 from sigov.usuario_grupo ug where ug.usuario_id=u.id and ug.tenant_id=@TenantId and not ug.is_deleted))
+   and (@Search is null or u.login ilike @Search or pe.nome ilike @Search)
+ order by coalesce(pe.nome,u.login) limit 500;
+select 'usuario-grupo' kind,ug.usuario_id leftid,coalesce(pe.nome,u.login) leftname,ug.grupo_acesso_id rightid,g.nome rightname,ug.tenant_id tenantid,ug.entidade_id entityid,ug.exercicio_id fiscalyearid,ug.unidade_id unitid,ug.vigencia_inicio validfrom,ug.vigencia_fim validto,null effect,null approvallimit,ug.ativo active,ug.is_deleted deleted from sigov.usuario_grupo ug join sigov.usuario u on u.id=ug.usuario_id left join sigov.pessoa pe on pe.id=u.pessoa_id and not pe.is_deleted join sigov.grupo_acesso g on g.id=ug.grupo_acesso_id where (@IncludeInactive or (ug.ativo and not ug.is_deleted)) and (@TenantId is null or ug.tenant_id is null or ug.tenant_id=@TenantId) and (@Search is null or u.login ilike @Search or pe.nome ilike @Search or g.nome ilike @Search) order by coalesce(pe.nome,u.login),g.nome limit 1000;
 select 'grupo-perfil' kind,gp.grupo_acesso_id leftid,g.nome leftname,gp.perfil_acesso_id rightid,p.nome rightname,gp.tenant_id tenantid,gp.entidade_id entityid,gp.exercicio_id fiscalyearid,gp.unidade_id unitid,gp.vigencia_inicio validfrom,gp.vigencia_fim validto,null effect,null approvallimit,gp.ativo active,gp.is_deleted deleted from sigov.grupo_perfil gp join sigov.grupo_acesso g on g.id=gp.grupo_acesso_id join sigov.perfil_acesso p on p.id=gp.perfil_acesso_id where (@IncludeInactive or (gp.ativo and not gp.is_deleted)) and (@TenantId is null or gp.tenant_id is null or gp.tenant_id=@TenantId) order by g.nome,p.nome limit 1000;
 select 'perfil-permissao' kind,pp.perfil_acesso_id leftid,pa.nome leftname,pp.permissao_id rightid,p.chave rightname,pp.tenant_id tenantid,pp.entidade_id entityid,pp.exercicio_id fiscalyearid,pp.unidade_id unitid,pp.vigencia_inicio validfrom,pp.vigencia_fim validto,pp.efeito effect,pp.alcada_valor approvallimit,pp.ativo active,pp.is_deleted deleted from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where (@IncludeInactive or (pp.ativo and not pp.is_deleted)) and (@TenantId is null or pp.tenant_id is null or pp.tenant_id=@TenantId) order by pa.nome,p.chave limit 2000;
 """;
