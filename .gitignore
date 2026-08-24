@@ -7,3 +7,5 @@ appsettings.Local.json
 .env
 .env.*
 !.env.example
+# Evidências locais geradas pela homologação RC50.68 (podem conter metadados do ambiente).
+artifacts/rc50-68-local-promotion/

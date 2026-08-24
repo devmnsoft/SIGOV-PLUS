@@ -1,5 +1,13 @@
 # Changelog
 
+## RC50.68E-R5 — 2026-08-24
+
+- criada homologação local assistida equivalente em Bash e PowerShell para .NET 10/PostgreSQL 16;
+- adicionados aplicação/reaplicação do baseline, checks de autoridade persistida, build, smoke
+  opcional e evidências JSON/Markdown/log sanitizadas;
+- mantida a promoção **BLOCKED** até execução real verde e CI oficial, sem disparar Actions, validar
+  secret de CI ou iniciar a RC50.69.
+
 ## RC50.68F-R2 — 2026-08-24
 
 - corrigido o contrato Dapper para usar somente colunas reais de usuário e contexto persistido;
