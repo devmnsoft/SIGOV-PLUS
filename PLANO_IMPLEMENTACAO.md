@@ -14,3 +14,10 @@
 - [ ] RC50.69: não iniciada e condicionada à promoção da RC50.68.
 
 O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MESTRE_SIGOV_PLUS.md).
+
+## FUNC01 — trilha funcional paralela
+
+- [x] Implementação de Patrimônio, Inventário e Responsabilidade Patrimonial entregue em código com PostgreSQL/Dapper, MVC/API, dashboard, auditoria, LGPD e autorização persistida.
+- [ ] Homologação integral depende dos gates disponíveis de .NET 10 e PostgreSQL 16.
+- A FUNC01 avança produto real e não altera promoções: RC50.68 continua **BLOCKED** por ambiente/CI e RC50.69 continua não iniciada/não promovida.
+- Manual: [`docs/FUNC01-PATRIMONIO-INVENTARIO.md`](docs/FUNC01-PATRIMONIO-INVENTARIO.md).

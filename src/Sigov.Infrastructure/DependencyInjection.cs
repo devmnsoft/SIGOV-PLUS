@@ -118,12 +118,15 @@ using Sigov.Infrastructure.Bloco6;
 using Sigov.Application.Tributario.TributarioAvancado;
 using Sigov.Infrastructure.Tributario;
 using Sigov.Application.Saas.SuperAdmin;
+using Sigov.Application.Patrimonio;
+using Sigov.Infrastructure.Patrimonio;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
+        services.AddScoped<IPatrimonioService, PatrimonioService>();
         services.AddScoped<TributarioAvancadoRepository>();
         services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<IPortalContribuinteRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());

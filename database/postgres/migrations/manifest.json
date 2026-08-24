@@ -1144,6 +1144,16 @@
       "applyAutomatically": true,
       "checksum": "3908cb29fcff7c550ed99176f3503b1fdbfffcd88cf40490ac685d6431d26784",
       "postConditionSql": "select to_regclass('sigov.autorizacao_admin_auditoria') is not null and exists (select 1 from sigov.permissao where chave='saas.superadmin.autorizacao.administrar')"
+    },
+    {
+      "version": "20260824120000",
+      "file": "20260824120000_func01_patrimonio_inventario.sql",
+      "description": "func01_patrimonio_inventario",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "d1e705d8727ad182ce18d0820147edf47bc92c9a3af8d889943a69c59036373f",
+      "postConditionSql": "select to_regclass('sigov.patrimonio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='patrimonio.bem.visualizar')"
     }
   ],
   "compatibilityAfterAll": [

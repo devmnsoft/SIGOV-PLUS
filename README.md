@@ -261,3 +261,7 @@ A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migration
 ## Pós-RC 20 — baseline PostgreSQL standalone
 
 A trilha Pós-RC 20 centraliza a versão `1.0.0-rc20`, separa seeds demonstrativos da baseline estrutural e exige que `script_completop.sql` seja gerado por `scripts/generate-script-completop.ps1` a partir de `database/postgres/migrations/manifest.json`. A criação do primeiro administrador não é feita no SQL estrutural; use explicitamente `scripts/create-initial-admin.ps1` ou `scripts/create-initial-admin.sh` após instalar o banco.
+
+## FUNC01 — Patrimônio e Inventário
+
+O módulo funcional de patrimônio público está disponível em `/Patrimonio`, com API em `/api/patrimonio`, persistência Dapper, inventário, responsabilidade, baixa, dashboard, auditoria e CSV LGPD. Consulte o [manual FUNC01](docs/FUNC01-PATRIMONIO-INVENTARIO.md). Esta trilha não altera a RC50.68 (BLOCKED) nem promove a RC50.69.
