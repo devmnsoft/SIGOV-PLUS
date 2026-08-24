@@ -28,3 +28,6 @@ O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MEST
 - [ ] Homologação integral depende dos gates oficiais de .NET 10, PostgreSQL 16 e smoke autenticado.
 - FUNC02 não promove a RC50.68, que continua **BLOCKED**, e não inicia nem marca a RC50.69.
 - Manual: [`docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md`](docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md).
+
+## FUNC03 — Compras Públicas (trilha funcional paralela)
+Implementados fornecedores, solicitações, processos e fases, cotações, julgamento, contratos, atas e recebimentos rastreáveis, com PostgreSQL/Dapper, RBAC persistente, auditoria e telas MVC. A RC50.68 permanece **BLOCKED** pelo ambiente oficial; RC50.69 não foi iniciada. Esta entrega não promove release.

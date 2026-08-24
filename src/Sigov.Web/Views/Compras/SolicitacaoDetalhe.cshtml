@@ -1,0 +1,2 @@
+@model Sigov.Application.Compras.SolicitacaoDto
+<h1 class="h3">Solicitação #@Model.Id</h1><div class="card"><div class="card-header"><span class="badge bg-primary">@Model.Status</span></div><div class="card-body"><dl class="row"><dt class="col-3">Unidade</dt><dd class="col-9">@Model.UnidadeSolicitante</dd><dt class="col-3">Justificativa</dt><dd class="col-9">@Model.Justificativa</dd><dt class="col-3">Valor</dt><dd class="col-9">@Model.ValorEstimado.ToString("C")</dd></dl></div></div>

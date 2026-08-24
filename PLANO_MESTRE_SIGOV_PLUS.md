@@ -64,3 +64,6 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 - [x] Integração não destrutiva com FUNC01 por pendência patrimonial única para entradas permanentes.
 - [x] MVC/API, dashboard operacional, CSV protegido e RBAC persistente.
 - [ ] Gates oficiais de runtime/banco permanecem pendentes; RC50.68 segue BLOCKED e RC50.69 não foi iniciada.
+
+### FUNC03 — Compras, Licitações, Contratos e Atas
+Trilha funcional implementada paralelamente, sem alteração do estado da RC50.68 (**BLOCKED**) e sem iniciar RC50.69. Inclui integração rastreável com FUNC01/FUNC02, condicionada à validação PostgreSQL oficial.
