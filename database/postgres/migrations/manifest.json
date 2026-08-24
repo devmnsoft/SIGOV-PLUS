@@ -1203,6 +1203,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.saude_acolhimento') is not null and exists(select 1 from sigov.permissao where chave='saude.prontuario.retificar')"
+    },
+    {
+      "version": "20260825010000",
+      "description": "FUNC07 Saneamento Comercial e Operacional",
+      "category": "functional",
+      "file": "20260825010000_func07_saneamento_comercial_operacional.sql",
+      "checksum": "2ed8027063d864eccd79b6524f6052acbcbe578187cc9c0cdd9cc2376ed5a90c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.saneamento_unidade_consumidora') is not null and exists(select 1 from sigov.permissao where chave='SANEAMENTO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
