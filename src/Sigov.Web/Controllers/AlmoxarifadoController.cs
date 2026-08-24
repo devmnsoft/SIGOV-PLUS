@@ -1,46 +1,30 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Sigov.Web.Services;
-using Sigov.Web.Services.Operational;
-
+using Sigov.Application.Abstractions;
+using Sigov.Application.Almoxarifado;
+using Sigov.Application.Authorization;
 namespace Sigov.Web.Controllers;
-
 [Authorize]
-public sealed class AlmoxarifadoController : Controller
+public sealed class AlmoxarifadoController(IAlmoxarifadoService service,ICurrentTenant tenant,ICurrentUser user,IAuthorizationEvaluator auth):Controller
 {
-    private readonly AlmoxarifadoService _service;
-    private readonly IAuditTrailService _auditTrail;
-    private readonly ILogger<AlmoxarifadoController> _logger;
-    public AlmoxarifadoController(AlmoxarifadoService service, IAuditTrailService auditTrail, ILogger<AlmoxarifadoController> logger) { _service = service; _auditTrail = auditTrail; _logger = logger; }
-
-    [HttpGet, Route("/Almoxarifado")]
-    [Route("/Estoque/Dashboard")]
-    [Route("/Almoxarifado/Produtos")]
-    [Route("/Almoxarifado/Entradas")]
-    [Route("/Almoxarifado/Saidas")]
-    [Route("/Almoxarifado/Movimentos")]
-    [Route("/Almoxarifado/Inventario")]
-    [Route("/Almoxarifado/Dashboard")]
-    [Route("/Almoxarifado/Itens")]
-    [Route("/Almoxarifado/Estoque")]
-    [Route("/Almoxarifado/Inventarios")]
-    [Route("/Almoxarifado/Relatorios")]
-    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
-    {
-        var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
-        return View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Almoxarifado", screen, q, cancellationToken).ConfigureAwait(false));
-    }
-
-    [HttpGet, Route("/Almoxarifado/Detalhes/{id:long}")]
-    [HttpGet, Route("/Almoxarifado/Solicitacoes/{id:long}")]
-    [HttpGet, Route("/Almoxarifado/Processos/{id:long}")]
-    [HttpGet, Route("/Almoxarifado/Bens/{id:long}")]
-    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Almoxarifado", $"Detalhes #{id}", null, cancellationToken).ConfigureAwait(false));
-
-
-    private async Task Audit(string acao, string entidade, string? id, CancellationToken ct)
-    {
-        try { await _auditTrail.RegistrarAsync(null, null, acao, entidade, id, null, null, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Auditoria administrativa em fallback"); }
-    }
+ [HttpGet("/Almoxarifado")]public async Task<IActionResult> Dashboard(CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.DashboardVisualizar,ct)?View(await service.ObterDashboardAsync(T(),E(),ct)):Forbid();
+ [HttpGet("/Almoxarifado/Materiais")]public async Task<IActionResult> Materiais([FromQuery]AlmoxarifadoFiltro f,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialVisualizar,ct))return Forbid();ViewBag.Exportar=await Allowed(AlmoxarifadoPermissoes.Exportar,ct);return View(await service.ListarMateriaisAsync(T(),E(),f,ct));}
+ [HttpGet("/Almoxarifado/Materiais/Novo")]public async Task<IActionResult> NovoMaterial(CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.MaterialCriar,ct)?View("MaterialForm",new MaterialInput(E(),"","","CONSUMO","UN",null,0,null,false,false)):Forbid();
+ [HttpPost("/Almoxarifado/Materiais/Novo"),ValidateAntiForgeryToken]public async Task<IActionResult> NovoMaterial(MaterialInput i,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialCriar,ct))return Forbid();try{await service.CriarMaterialAsync(T(),U(),Trace(),i with{EntidadeId=E()},ct);TempData["Success"]="Material cadastrado.";return Redirect("/Almoxarifado/Materiais");}catch(Exception x)when(x is ArgumentException or InvalidOperationException){ModelState.AddModelError("",x.Message);return View("MaterialForm",i);}}
+ [HttpGet("/Almoxarifado/Materiais/{id:long}/Editar")]public async Task<IActionResult> EditarMaterial(long id,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialEditar,ct))return Forbid();var x=await service.ObterMaterialAsync(T(),E(),id,ct);if(x is null)return NotFound();ViewBag.Id=id;return View("MaterialForm",new MaterialInput(E(),x.Codigo,x.Descricao,x.TipoMaterial,x.UnidadeMedida,x.Categoria,x.EstoqueMinimo,x.EstoqueMaximo,x.ControlaLote,x.ControlaValidade,x.Ativo));}
+ [HttpPost("/Almoxarifado/Materiais/{id:long}/Editar"),ValidateAntiForgeryToken]public async Task<IActionResult> EditarMaterial(long id,MaterialInput i,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialEditar,ct))return Forbid();try{await service.EditarMaterialAsync(T(),U(),Trace(),id,i with{EntidadeId=E()},ct);return Redirect("/Almoxarifado/Materiais");}catch(Exception x)when(x is ArgumentException or InvalidOperationException){ModelState.AddModelError("",x.Message);ViewBag.Id=id;return View("MaterialForm",i);}}
+ [HttpGet("/Almoxarifado/Locais")]public async Task<IActionResult> Locais(CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.EstoqueVisualizar,ct)?View(await service.ListarLocaisAsync(T(),E(),null,ct)):Forbid();
+ [HttpPost("/Almoxarifado/Locais"),ValidateAntiForgeryToken]public async Task<IActionResult> Local(LocalInput i,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialCriar,ct))return Forbid();await service.CriarLocalAsync(T(),U(),Trace(),i with{EntidadeId=E()},ct);return Redirect("/Almoxarifado/Locais");}
+ [HttpGet("/Almoxarifado/Estoque")]public async Task<IActionResult> Estoque(string? busca,CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.EstoqueVisualizar,ct)?View(await service.ListarEstoqueAsync(T(),E(),busca,ct)):Forbid();
+ [HttpGet("/Almoxarifado/Movimentacoes/NovaEntrada")]public async Task<IActionResult> NovaEntrada(CancellationToken ct)=>await MovimentoForm(true,ct);
+ [HttpGet("/Almoxarifado/Movimentacoes/NovaSaida")]public async Task<IActionResult> NovaSaida(CancellationToken ct)=>await MovimentoForm(false,ct);
+ [HttpPost("/Almoxarifado/Movimentacoes/{tipo}"),ValidateAntiForgeryToken]public async Task<IActionResult> Movimento(string tipo,MovimentacaoInput i,CancellationToken ct){var entrada=tipo=="entrada";if(!await Allowed(entrada?AlmoxarifadoPermissoes.Entrada:AlmoxarifadoPermissoes.Saida,ct))return Forbid();try{if(entrada)await service.RegistrarEntradaAsync(T(),U(),Trace(),i with{EntidadeId=E()},ct);else await service.RegistrarSaidaAsync(T(),U(),Trace(),i with{EntidadeId=E()},ct);TempData["Success"]="Movimentação registrada.";return Redirect("/Almoxarifado/Estoque");}catch(Exception x)when(x is ArgumentException or InvalidOperationException or KeyNotFoundException){ModelState.AddModelError("",x.Message);return await MovimentoForm(entrada,ct,i);}}
+ [HttpGet("/Almoxarifado/Requisicoes")]public async Task<IActionResult> Requisicoes(string? status,int pagina=1,CancellationToken ct=default)=>await Allowed(AlmoxarifadoPermissoes.RequisicaoVisualizar,ct)?View(await service.ListarRequisicoesAsync(T(),E(),status,pagina,ct)):Forbid();
+ [HttpGet("/Almoxarifado/Requisicoes/Nova")]public async Task<IActionResult> NovaRequisicao(CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.RequisicaoCriar,ct))return Forbid();await Selects(ct);return View("RequisicaoForm");}
+ [HttpPost("/Almoxarifado/Requisicoes/Nova"),ValidateAntiForgeryToken]public async Task<IActionResult> NovaRequisicao(long almoxarifadoId,long materialId,decimal quantidade,string? observacao,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.RequisicaoCriar,ct))return Forbid();var id=await service.CriarRequisicaoAsync(T(),U(),Trace(),new(E(),almoxarifadoId,null,observacao,[new(materialId,quantidade)]),ct);return Redirect($"/Almoxarifado/Requisicoes/Detalhe/{id}");}
+ [HttpGet("/Almoxarifado/Requisicoes/Detalhe/{id:long}")]public async Task<IActionResult> Detalhe(long id,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.RequisicaoVisualizar,ct))return Forbid();ViewBag.Aprovar=await Allowed(AlmoxarifadoPermissoes.RequisicaoAprovar,ct);ViewBag.Atender=await Allowed(AlmoxarifadoPermissoes.RequisicaoAtender,ct);ViewBag.Criar=await Allowed(AlmoxarifadoPermissoes.RequisicaoCriar,ct);var r=await service.ObterRequisicaoAsync(T(),E(),id,ct);return r is null?NotFound():View(r);}
+ [HttpPost("/Almoxarifado/Requisicoes/{id:long}/{acao}"),ValidateAntiForgeryToken]public async Task<IActionResult> Status(long id,string acao,string? justificativa,CancellationToken ct){var p=acao is "aprovar" or "rejeitar"?AlmoxarifadoPermissoes.RequisicaoAprovar:acao=="atender"?AlmoxarifadoPermissoes.RequisicaoAtender:AlmoxarifadoPermissoes.RequisicaoCriar;if(!await Allowed(p,ct))return Forbid();await service.AlterarStatusAsync(T(),E(),U(),Trace(),id,acao,justificativa,ct);return Redirect($"/Almoxarifado/Requisicoes/Detalhe/{id}");}
+ [HttpGet("/Almoxarifado/Exportar/{tipo}")]public async Task<IActionResult> Exportar(string tipo,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.Exportar,ct))return Forbid();return File(await service.ExportarCsvAsync(T(),E(),tipo,U(),Trace(),ct),"text/csv; charset=utf-8",$"almoxarifado-{tipo}.csv");}
+ async Task<IActionResult> MovimentoForm(bool entrada,CancellationToken ct,MovimentacaoInput? model=null){if(!await Allowed(entrada?AlmoxarifadoPermissoes.Entrada:AlmoxarifadoPermissoes.Saida,ct))return Forbid();await Selects(ct);ViewBag.Entrada=entrada;return View("MovimentoForm",model??new(E(),0,0,0,entrada?"COMPRA":"CONSUMO",null,null));}async Task Selects(CancellationToken ct){ViewBag.Locais=await service.ListarLocaisAsync(T(),E(),true,ct);ViewBag.Materiais=(await service.ListarMateriaisAsync(T(),E(),new(Ativo:true,TamanhoPagina:100),ct)).Itens;}
+ async Task<bool> Allowed(string p,CancellationToken ct){var i=p.LastIndexOf('.');return(await auth.EvaluateAsync(new(U(),"almoxarifado",p[..i],p[(i+1)..],T(),E(),tenant.ExercicioId,null,null,Trace(),"WEB_FUNC02"),ct)).Permitido;}long T()=>tenant.TenantId??throw new InvalidOperationException("tenant_id obrigatório.");long E()=>tenant.EntidadeId??throw new InvalidOperationException("entidade_id obrigatório.");long U()=>user.UsuarioId??throw new InvalidOperationException("Usuário obrigatório.");string Trace()=>HttpContext.TraceIdentifier;
 }

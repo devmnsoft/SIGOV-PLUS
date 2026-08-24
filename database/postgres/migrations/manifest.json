@@ -1154,6 +1154,16 @@
       "applyAutomatically": true,
       "checksum": "d1e705d8727ad182ce18d0820147edf47bc92c9a3af8d889943a69c59036373f",
       "postConditionSql": "select to_regclass('sigov.patrimonio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='patrimonio.bem.visualizar')"
+    },
+    {
+      "version": "20260824180000",
+      "file": "20260824180000_func02_almoxarifado_estoque_requisicoes.sql",
+      "description": "func02_almoxarifado_estoque_requisicoes",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "15a775c2ee963a62dfc3923e33d17dabc0fee768f954b269418ca4b4cd666007",
+      "postConditionSql": "select to_regclass('sigov.almoxarifado_movimentacao') is not null and exists(select 1 from sigov.permissao where chave='almoxarifado.material.visualizar')"
     }
   ],
   "compatibilityAfterAll": [
