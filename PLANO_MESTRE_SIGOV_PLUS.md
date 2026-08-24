@@ -49,3 +49,10 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
   não inicia a RC50.69 nem substitui execução verde da esteira.
 - [x] RC50.68C e RC50.68D foram implementadas; sua promoção produtiva integra o gate único da
   RC50.68E e não deve ser confundida com conclusão apenas documental.
+
+## Trilha funcional FUNC01 — Patrimônio e Inventário
+
+- [x] Código ponta a ponta para bens, tombamento, responsabilidade, movimentação, inventário, divergência, baixa, dashboard e CSV LGPD.
+- [x] Persistência PostgreSQL bigint, Dapper parametrizado, auditoria transacional e autoridade de permissões no banco.
+- [ ] Validação de runtime e banco permanece condicionada às ferramentas/ambiente seguros disponíveis.
+- Esta trilha paralela não promove releases: RC50.68 permanece **BLOCKED** por ambiente/CI; RC50.69 permanece não iniciada e não promovida.

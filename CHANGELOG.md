@@ -109,3 +109,10 @@
 ### Observações
 - Docker e .NET devem ser validados em ambiente com SDK .NET 6 e Docker instalados.
 - Módulos estruturais/parciais foram registrados como pendência real, sem criação de módulos novos neste RC.
+
+## FUNC01 — 2026-08-24
+
+- Entregue módulo funcional de Patrimônio e Inventário com bens, tombamento, movimentação, responsabilidade, inventário físico, divergências, baixa, dashboard, API/MVC e CSV protegido.
+- Adicionada migration idempotente com preservação do legado UUID, PKs bigint canônicas, índices, constraints, categorias e dez permissões persistidas.
+- Adicionada auditoria antes/depois na transação e interface responsiva Bootstrap.
+- RC50.68 continua BLOCKED por ambiente/CI; FUNC01 não promove RC50.68 nem inicia/promove RC50.69.
