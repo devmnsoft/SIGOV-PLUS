@@ -67,3 +67,7 @@ e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 
 ### FUNC03 — Compras, Licitações, Contratos e Atas
 Trilha funcional implementada paralelamente, sem alteração do estado da RC50.68 (**BLOCKED**) e sem iniciar RC50.69. Inclui integração rastreável com FUNC01/FUNC02, condicionada à validação PostgreSQL oficial.
+
+## FUNC04 — Frotas, Abastecimento e Manutenção
+
+Trilha funcional paralela entregue em código: autoridade PostgreSQL, Dapper parametrizado, auditoria antes/depois, CPF mascarado, RBAC fail-closed, MVC/API e integrações seguras com FUNC01/FUNC02/FUNC03. A RC50.68 permanece **BLOCKED** e a RC50.69 não foi iniciada.

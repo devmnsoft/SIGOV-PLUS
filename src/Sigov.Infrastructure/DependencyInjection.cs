@@ -633,9 +633,8 @@ public static class DependencyInjection
         services.AddScoped<ISocialDashboardService, SocialService>();
         services.AddScoped<ISocialExportacaoService, SocialService>();
         services.AddScoped<FrotasObrasRepository>();
-        services.AddScoped<IFrotasRepository, FrotasObrasRepository>();
         services.AddScoped<IObrasRepository, FrotasObrasRepository>();
-        services.AddScoped<IFrotasService, FrotasService>();
+        services.AddScoped<IFrotasService, Sigov.Infrastructure.Frotas.FrotasService>();
         services.AddScoped<IObrasService, ObrasService>();
                 services.AddScoped<Bloco8Repository>();
         services.AddScoped<IBloco8Repository, Bloco8Repository>();

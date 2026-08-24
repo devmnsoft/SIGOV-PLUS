@@ -126,3 +126,7 @@
 ## FUNC03 — 2026-08-24
 - Módulo operacional de compras públicas, fornecedores, licitações, cotações, julgamento, contratos, atas e recebimentos integrados.
 - Migration idempotente, permissões persistentes, Dapper/Npgsql, auditoria e mascaramento LGPD.
+
+## FUNC04 — 2026-08-24
+- Gestão operacional de frotas com veículos, motoristas, utilizações, abastecimentos, manutenções, OS e documentos.
+- Migration idempotente, scripts consolidados, RBAC, auditoria, LGPD e integrações FUNC01/FUNC02/FUNC03; sem promoção de release.

@@ -1174,6 +1174,16 @@
       "applyAutomatically": true,
       "checksum": "407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0",
       "postConditionSql": "select to_regclass('sigov.compras_recebimento') is not null and exists(select 1 from sigov.permissao where chave='compras.fornecedor.visualizar')"
+    },
+    {
+      "version": "20260824220000",
+      "file": "20260824220000_func04_frotas_abastecimento_manutencao.sql",
+      "description": "func04_frotas_abastecimento_manutencao",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "a51f54ebe93fc03d3f280ba195e3545282d68d80ea300d0b91b17007b6c14587",
+      "postConditionSql": "select to_regclass('sigov.frotas_ordem_servico') is not null and exists(select 1 from sigov.permissao where chave='frotas.veiculo.visualizar')"
     }
   ],
   "compatibilityAfterAll": [

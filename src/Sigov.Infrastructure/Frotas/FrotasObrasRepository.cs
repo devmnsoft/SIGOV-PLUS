@@ -1,28 +1,16 @@
 using Dapper;
 using Sigov.Application.Common;
-using Sigov.Application.Frotas;
 using Sigov.Application.Obras;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Frotas;
 
-public sealed class FrotasObrasRepository : IFrotasRepository,IObrasRepository
+public sealed class FrotasObrasRepository : IObrasRepository
 {
     private readonly DapperContext _context;
     public FrotasObrasRepository(DapperContext context)=>_context=context;
-    private static readonly HashSet<string> Tables=new(StringComparer.Ordinal){"frota_veiculo","frota_motorista","frota_abastecimento","frota_manutencao","frota_viagem","obra","obra_etapa","obra_medicao","obra_fiscalizacao","obra_diario"};
+    private static readonly HashSet<string> Tables=new(StringComparer.Ordinal){"obra","obra_etapa","obra_medicao","obra_fiscalizacao","obra_diario"};
     private static string Table(string recurso)=>Tables.Contains(recurso)?recurso:throw new ArgumentException("Recurso operacional inválido.",nameof(recurso));
-
-    async Task<PagedResult<FrotaRegistroDto>> IFrotasRepository.ListarAsync(long tenantId,string recurso,int pagina,int tamanho,CancellationToken ct)
-    {
-        var table=Table(recurso);var sql=$"select id as Id,codigo as Codigo,nome as Nome,descricao as Descricao,status as Status,data_referencia as DataReferencia,quantidade as Quantidade,valor as Valor from sigov.{table} where tenant_id=@TenantId and is_deleted=false order by id desc limit @Limit offset @Offset;select count(*) from sigov.{table} where tenant_id=@TenantId and is_deleted=false;";
-        using var cn=_context.CreateConnection();using var multi=await cn.QueryMultipleAsync(new CommandDefinition(sql,new{TenantId=tenantId,Limit=tamanho,Offset=(pagina-1)*tamanho},cancellationToken:ct));var rows=(await multi.ReadAsync<FrotaRegistroDto>()).AsList();var total=await multi.ReadFirstAsync<long>();return new(rows,pagina,tamanho,total);
-    }
-    async Task<long> IFrotasRepository.CriarAsync(long t,long? e,long? ex,long? u,string recurso,FrotaRegistroRequest r,string correlationId,CancellationToken ct)
-    {
-        var table=Table(recurso);var sql=$"insert into sigov.{table}(tenant_id,entidade_id,exercicio_id,veiculo_id,motorista_id,codigo,nome,descricao,documento,placa,status,data_referencia,quantidade,valor,correlation_id,created_by,auditoria) values(@TenantId,@EntidadeId,@ExercicioId,@VeiculoId,@MotoristaId,@Codigo,@Nome,@Descricao,@Documento,@Placa,@Status,@DataReferencia,@Quantidade,@Valor,cast(@CorrelationId as uuid),@UsuarioId,jsonb_build_object('acao','CRIAR','usuario_id',@UsuarioId)) returning id;";using var cn=_context.CreateConnection();return await cn.ExecuteScalarAsync<long>(new CommandDefinition(sql,new{TenantId=t,EntidadeId=e,ExercicioId=ex,UsuarioId=u,r.VeiculoId,r.MotoristaId,r.Codigo,r.Nome,r.Descricao,r.Documento,r.Placa,r.Status,r.DataReferencia,r.Quantidade,r.Valor,CorrelationId=Correlation(correlationId)},cancellationToken:ct));
-    }
-    async Task<FrotasDashboardDto> IFrotasRepository.DashboardAsync(long t,CancellationToken ct){const string sql=@"select (select count(*) from sigov.frota_veiculo where tenant_id=@TenantId and not is_deleted) Veiculos,(select count(*) from sigov.frota_motorista where tenant_id=@TenantId and not is_deleted) Motoristas,(select count(*) from sigov.frota_abastecimento where tenant_id=@TenantId and data_referencia>=date_trunc('month',now()) and not is_deleted) AbastecimentosMes,(select count(*) from sigov.frota_manutencao where tenant_id=@TenantId and status not in ('CONCLUIDA','CANCELADA') and not is_deleted) ManutencoesAbertas,(select count(*) from sigov.frota_viagem where tenant_id=@TenantId and status='EM_ANDAMENTO' and not is_deleted) ViagensAtivas";using var cn=_context.CreateConnection();return await cn.QuerySingleAsync<FrotasDashboardDto>(new CommandDefinition(sql,new{TenantId=t},cancellationToken:ct));}
 
     async Task<PagedResult<ObraRegistroDto>> IObrasRepository.ListarAsync(long tenantId,string recurso,long? obraId,int pagina,int tamanho,CancellationToken ct){var table=Table(recurso);var byObra=table!="obra"&&obraId.HasValue?" and obra_id=@ObraId":"";var sql=$"select id as Id,obra_id as ObraId,codigo as Codigo,nome as Nome,descricao as Descricao,status as Status,data_referencia as DataReferencia,quantidade as Quantidade,valor as Valor from sigov.{table} where tenant_id=@TenantId and is_deleted=false{byObra} order by id desc limit @Limit offset @Offset;select count(*) from sigov.{table} where tenant_id=@TenantId and is_deleted=false{byObra};";using var cn=_context.CreateConnection();using var multi=await cn.QueryMultipleAsync(new CommandDefinition(sql,new{TenantId=tenantId,ObraId=obraId,Limit=tamanho,Offset=(pagina-1)*tamanho},cancellationToken:ct));var rows=(await multi.ReadAsync<ObraRegistroDto>()).AsList();return new(rows,pagina,tamanho,await multi.ReadFirstAsync<long>());}
     async Task<long> IObrasRepository.CriarAsync(long t,long? e,long? ex,long? u,string recurso,ObraRegistroRequest r,string correlationId,CancellationToken ct){var table=Table(recurso);var sql=$"insert into sigov.{table}(tenant_id,entidade_id,exercicio_id,obra_id,contrato_id,codigo,nome,descricao,status,data_referencia,quantidade,valor,justificativa,correlation_id,created_by,auditoria) values(@TenantId,@EntidadeId,@ExercicioId,@ObraId,@ContratoId,@Codigo,@Nome,@Descricao,@Status,@DataReferencia,@Quantidade,@Valor,@Justificativa,cast(@CorrelationId as uuid),@UsuarioId,jsonb_build_object('acao','CRIAR','usuario_id',@UsuarioId)) returning id;";using var cn=_context.CreateConnection();return await cn.ExecuteScalarAsync<long>(new CommandDefinition(sql,new{TenantId=t,EntidadeId=e,ExercicioId=ex,UsuarioId=u,r.ObraId,r.ContratoId,r.Codigo,r.Nome,r.Descricao,r.Status,r.DataReferencia,r.Quantidade,r.Valor,r.Justificativa,CorrelationId=Correlation(correlationId)},cancellationToken:ct));}
