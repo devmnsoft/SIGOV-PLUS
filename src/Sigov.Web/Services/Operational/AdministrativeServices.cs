@@ -7,7 +7,7 @@ public sealed class SiaficService : OperationalModuleDataServiceBase
 {
     public SiaficService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<SiaficService> l) : base(c, s, a, f, l) { }
     protected override string ModuleKey => "Siafic";
-    protected override IReadOnlyList<string> CandidateTables => new[] { "plano_contas", "dotacao_orcamentaria", "empenho", "liquidacao", "pagamento", "receita_arrecadada", "fonte_recurso", "natureza_receita", "natureza_despesa" };
+    protected override IReadOnlyList<string> CandidateTables => new[] { "financeiro_dotacao", "financeiro_empenho", "financeiro_liquidacao", "financeiro_ordem_pagamento", "financeiro_pagamento", "financeiro_receita_arrecadada" };
 }
 public sealed class PlanejamentoService : OperationalModuleDataServiceBase
 {
@@ -19,7 +19,7 @@ public sealed class TesourariaService : OperationalModuleDataServiceBase
 {
     public TesourariaService(NpgsqlConnectionFactory c, IDatabaseSchemaInspector s, IAuditTrailService a, OperationalDemoService f, ILogger<TesourariaService> l) : base(c, s, a, f, l) { }
     protected override string ModuleKey => "Tesouraria";
-    protected override IReadOnlyList<string> CandidateTables => new[] { "conta_bancaria", "movimento_bancario", "conciliacao_bancaria", "pagamento", "receita_arrecadada" };
+    protected override IReadOnlyList<string> CandidateTables => new[] { "financeiro_conta_bancaria", "financeiro_ordem_pagamento", "financeiro_pagamento", "financeiro_conciliacao_bancaria", "financeiro_receita_arrecadada" };
 }
 public sealed class ComprasService : OperationalModuleDataServiceBase
 {
