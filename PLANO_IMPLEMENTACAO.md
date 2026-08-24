@@ -21,3 +21,10 @@ O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MEST
 - [ ] Homologação integral depende dos gates disponíveis de .NET 10 e PostgreSQL 16.
 - A FUNC01 avança produto real e não altera promoções: RC50.68 continua **BLOCKED** por ambiente/CI e RC50.69 continua não iniciada/não promovida.
 - Manual: [`docs/FUNC01-PATRIMONIO-INVENTARIO.md`](docs/FUNC01-PATRIMONIO-INVENTARIO.md).
+
+## FUNC02 — trilha funcional paralela
+
+- [x] Almoxarifado, catálogo, locais, saldos, movimentos, requisições, dashboard, CSV auditado e pendência patrimonial entregues em código.
+- [ ] Homologação integral depende dos gates oficiais de .NET 10, PostgreSQL 16 e smoke autenticado.
+- FUNC02 não promove a RC50.68, que continua **BLOCKED**, e não inicia nem marca a RC50.69.
+- Manual: [`docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md`](docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md).

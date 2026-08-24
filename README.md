@@ -265,3 +265,7 @@ A trilha Pós-RC 20 centraliza a versão `1.0.0-rc20`, separa seeds demonstrativ
 ## FUNC01 — Patrimônio e Inventário
 
 O módulo funcional de patrimônio público está disponível em `/Patrimonio`, com API em `/api/patrimonio`, persistência Dapper, inventário, responsabilidade, baixa, dashboard, auditoria e CSV LGPD. Consulte o [manual FUNC01](docs/FUNC01-PATRIMONIO-INVENTARIO.md). Esta trilha não altera a RC50.68 (BLOCKED) nem promove a RC50.69.
+
+## FUNC02 — Almoxarifado
+
+O módulo autenticado usa dados PostgreSQL do contexto tenant/entidade e está disponível em `/Almoxarifado`, com catálogo em `/Almoxarifado/Materiais`, saldos em `/Almoxarifado/Estoque`, entradas/saídas em `/Almoxarifado/Movimentacoes/*` e requisições em `/Almoxarifado/Requisicoes`. A API equivalente inicia em `/api/almoxarifado`. Consulte [`docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md`](docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md).

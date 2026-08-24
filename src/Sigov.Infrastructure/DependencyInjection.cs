@@ -120,6 +120,8 @@ using Sigov.Infrastructure.Tributario;
 using Sigov.Application.Saas.SuperAdmin;
 using Sigov.Application.Patrimonio;
 using Sigov.Infrastructure.Patrimonio;
+using Sigov.Application.Almoxarifado;
+using Sigov.Infrastructure.Almoxarifado;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
@@ -127,6 +129,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddScoped<IPatrimonioService, PatrimonioService>();
+        services.AddScoped<IAlmoxarifadoService, AlmoxarifadoService>();
         services.AddScoped<TributarioAvancadoRepository>();
         services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<IPortalContribuinteRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());

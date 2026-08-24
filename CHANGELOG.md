@@ -116,3 +116,9 @@
 - Adicionada migration idempotente com preservação do legado UUID, PKs bigint canônicas, índices, constraints, categorias e dez permissões persistidas.
 - Adicionada auditoria antes/depois na transação e interface responsiva Bootstrap.
 - RC50.68 continua BLOCKED por ambiente/CI; FUNC01 não promove RC50.68 nem inicia/promove RC50.69.
+
+## FUNC02 — 2026-08-24
+
+- Entregue Almoxarifado com catálogo, locais, entradas, saídas, estoque, requisições, dashboard, API/MVC e três exportações CSV auditadas.
+- Adicionada migration idempotente com PK bigint, constraints, índices, doze permissões e pendência única de tombamento para material permanente.
+- RC50.68 continua BLOCKED; FUNC02 não promove RC50.68 nem inicia ou marca RC50.69.
