@@ -1,0 +1,2 @@
+@model Sigov.Application.Frotas.OrdemServicoDto
+@{ViewData["Title"]="Ordem de serviço";}<partial name="_Nav"/><h1 class="h3">OS @Model.Numero</h1><section class="card"><div class="card-header">@Model.Placa <span class="badge bg-secondary">@Model.Status</span></div><div class="card-body"><p>@Model.Descricao</p><strong>@Model.Itens item(ns) — @Model.ValorTotal.ToString("C")</strong></div></section>

@@ -31,3 +31,9 @@ O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MEST
 
 ## FUNC03 — Compras Públicas (trilha funcional paralela)
 Implementados fornecedores, solicitações, processos e fases, cotações, julgamento, contratos, atas e recebimentos rastreáveis, com PostgreSQL/Dapper, RBAC persistente, auditoria e telas MVC. A RC50.68 permanece **BLOCKED** pelo ambiente oficial; RC50.69 não foi iniciada. Esta entrega não promove release.
+
+## FUNC04 — Gestão de Frotas (trilha funcional paralela)
+
+- [x] Veículos, motoristas, utilizações, abastecimentos, manutenções, ordens de serviço, documentos, custos e alertas entregues com PostgreSQL/Dapper, MVC/API e RBAC persistente.
+- [x] Integrações rastreáveis com bem patrimonial, contratos/fornecedores e baixa transacional do Almoxarifado, com bloqueio por saldo insuficiente.
+- [ ] Homologação runtime/PostgreSQL oficial permanece condicionada ao ambiente. RC50.68 continua **BLOCKED** e RC50.69 não foi iniciada; FUNC04 não promove release.
