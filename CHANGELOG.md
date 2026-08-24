@@ -7,6 +7,8 @@
   opcional e evidências JSON/Markdown/log sanitizadas;
 - mantida a promoção **BLOCKED** até execução real verde e CI oficial, sem disparar Actions, validar
   secret de CI ou iniciar a RC50.69.
+- reforçada a recusa de hosts com marcador de produção e a sanitização dos logs de startup do
+  smoke antes de persistir qualquer saída nas evidências.
 
 ## RC50.68F-R2 — 2026-08-24
 

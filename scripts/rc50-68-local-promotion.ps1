@@ -74,6 +74,7 @@ $required = @('SIGOV_DB_HOST','SIGOV_DB_PORT','SIGOV_DB_NAME','SIGOV_DB_USER','S
 $missingVariables = $required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
 $dbSafe = $false
 if ($missingVariables.Count) { Add-SigovResult connection-preflight BLOCKED "Variáveis ausentes: $($missingVariables -join ', ')" }
+elseif ($env:SIGOV_DB_HOST -match '(?i)(^|[._-])(prod|production)([._-]|$)') { Add-SigovResult connection-preflight FAIL 'Host recusado: o destino parece ser de produção' }
 elseif ($env:SIGOV_DB_NAME -notmatch '(?i)(rc50|homolog|local|dev|test)') { Add-SigovResult connection-preflight FAIL 'Nome do banco recusado: deve conter rc50, homolog, local, dev ou test' }
 elseif ($env:ASPNETCORE_ENVIRONMENT -match '(?i)^Production$' -or $env:SIGOV_ENVIRONMENT -match '(?i)^Production$') { Add-SigovResult connection-preflight FAIL 'Ambiente Production recusado' }
 elseif (-not $Confirm) { Add-SigovResult connection-preflight BLOCKED 'Use -Confirm após conferir o destino mascarado; nenhuma alteração foi feita' }
@@ -163,14 +164,13 @@ if (-not $Smoke) {
     if ([string]::IsNullOrWhiteSpace($env:SIGOV_API_URL)) { $env:SIGOV_API_URL = 'http://localhost:5001' }
     if ([string]::IsNullOrWhiteSpace($env:SIGOV_WEB_URL)) { $env:SIGOV_WEB_URL = 'http://localhost:5000' }
     $env:ConnectionStrings__DefaultConnection = "Host=$env:SIGOV_DB_HOST;Port=$env:SIGOV_DB_PORT;Database=$env:SIGOV_DB_NAME;Username=$env:SIGOV_DB_USER;Password=$env:SIGOV_DB_PASSWORD"
-    & (Join-Path $PSScriptRoot 'start-local.ps1') -SkipBuild *> (Join-Path $Artifacts 'startup.raw.log')
+    & (Join-Path $PSScriptRoot 'start-local.ps1') -SkipBuild 2>&1 | ForEach-Object { Add-Content $Log (Protect-SigovText ($_ | Out-String)) }
     Start-Sleep -Seconds 5
     try { Invoke-WebRequest "${env:SIGOV_API_URL}/api/health" -UseBasicParsing | Out-Null; Add-SigovResult smoke-health PASS 'API health respondeu' } catch { Add-SigovResult smoke-health FAIL 'Health não respondeu' }
     try { $response=Invoke-WebRequest "${env:SIGOV_WEB_URL}/SaasAdmin/Autorizacao" -MaximumRedirection 0 -SkipHttpErrorCheck; if ($response.StatusCode -in 302,401,403) { Add-SigovResult smoke-unauthenticated PASS "Rota protegida recusou acesso anônimo ($($response.StatusCode))" } else { Add-SigovResult smoke-unauthenticated FAIL "Resposta anônima inesperada ($($response.StatusCode))" } } catch { Add-SigovResult smoke-unauthenticated FAIL 'Consulta anônima falhou de forma inesperada' }
     if ([string]::IsNullOrWhiteSpace($env:SIGOV_LOCAL_AUTH_COOKIE)) { Add-SigovResult smoke-authenticated BLOCKED 'SIGOV_LOCAL_AUTH_COOKIE não fornecido; nenhum PASS autenticado foi inferido' }
     else { try { $headers=@{Cookie=$env:SIGOV_LOCAL_AUTH_COOKIE}; $r=Invoke-WebRequest "${env:SIGOV_WEB_URL}/SaasAdmin/Autorizacao" -Headers $headers -SkipHttpErrorCheck; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 300) { Add-SigovResult smoke-authenticated PASS "Tela autenticada respondeu $($r.StatusCode) (cookie omitido)" } else { Add-SigovResult smoke-authenticated FAIL "Tela autenticada respondeu $($r.StatusCode) (cookie omitido)" } } catch { Add-SigovResult smoke-authenticated FAIL 'Tela autenticada falhou (cookie omitido)' } }
     Get-ChildItem (Join-Path $Root '.local/run/*.pid') -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id ([int](Get-Content $_)) -ErrorAction SilentlyContinue }
-    Remove-Item (Join-Path $Artifacts 'startup.raw.log') -ErrorAction SilentlyContinue
 }
 
 $overall = if ($Results.status -contains 'FAIL') {'FAIL'} elseif ($Results.status -contains 'BLOCKED') {'BLOCKED'} else {'PASS'}

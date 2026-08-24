@@ -70,6 +70,9 @@ missing_vars=(); for var in "${required[@]}"; do [[ -n "${!var:-}" ]] || missing
 if ((${#missing_vars[@]})); then
   step connection-preflight BLOCKED "Variáveis ausentes: ${missing_vars[*]}"
   DB_SAFE=false
+elif [[ "${SIGOV_DB_HOST,,}" =~ (^|[._-])(prod|production)([._-]|$) ]]; then
+  step connection-preflight FAIL 'Host recusado: o destino parece ser de produção'
+  DB_SAFE=false
 elif [[ ! "${SIGOV_DB_NAME,,}" =~ (rc50|homolog|local|dev|test) ]]; then
   step connection-preflight FAIL 'Nome do banco recusado: deve conter rc50, homolog, local, dev ou test'
   DB_SAFE=false
@@ -163,8 +166,8 @@ if $RUN_SMOKE && $DB_SAFE && have dotnet && have curl; then
   export ConnectionStrings__DefaultConnection="Host=$SIGOV_DB_HOST;Port=$SIGOV_DB_PORT;Database=$SIGOV_DB_NAME;Username=$SIGOV_DB_USER;Password=$SIGOV_DB_PASSWORD"
   export ASPNETCORE_ENVIRONMENT=Local SIGOV_RUN_MIGRATIONS=false SIGOV_MIGRATION_MODE=Validate
   api_url="${SIGOV_API_URL:-http://localhost:5001}"; web_url="${SIGOV_WEB_URL:-http://localhost:5000}"
-  ASPNETCORE_URLS="$api_url" dotnet run --project "$ROOT/src/Sigov.Api/Sigov.Api.csproj" --no-launch-profile --no-build --configuration Release >>"$LOG" 2>&1 & api_pid=$!
-  ASPNETCORE_URLS="$web_url" dotnet run --project "$ROOT/src/Sigov.Web/Sigov.Web.csproj" --no-launch-profile --no-build --configuration Release >>"$LOG" 2>&1 & web_pid=$!
+  ASPNETCORE_URLS="$api_url" dotnet run --project "$ROOT/src/Sigov.Api/Sigov.Api.csproj" --no-launch-profile --no-build --configuration Release > >(sanitize >>"$LOG") 2> >(sanitize >>"$LOG") & api_pid=$!
+  ASPNETCORE_URLS="$web_url" dotnet run --project "$ROOT/src/Sigov.Web/Sigov.Web.csproj" --no-launch-profile --no-build --configuration Release > >(sanitize >>"$LOG") 2> >(sanitize >>"$LOG") & web_pid=$!
   trap 'kill ${api_pid:-} ${web_pid:-} 2>/dev/null || true' EXIT
   ready=false; for _ in {1..30}; do if curl -fsS "$api_url/api/health" >/dev/null 2>>"$LOG" || curl -fsS "$api_url/health" >/dev/null 2>>"$LOG"; then ready=true; break; fi; sleep 2; done
   if $ready; then step smoke-health PASS 'API health respondeu'; else step smoke-health FAIL 'Health não respondeu'; fi
