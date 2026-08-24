@@ -1213,6 +1213,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.saneamento_unidade_consumidora') is not null and exists(select 1 from sigov.permissao where chave='SANEAMENTO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825020000",
+      "description": "FUNC08 Assistência Social, CRAS/CREAS e Benefícios",
+      "category": "functional",
+      "file": "20260825020000_func08_assistencia_social_cras_beneficios.sql",
+      "checksum": "fad32bffa62a91cf8d7dcb05ee6a02b6f22cf23378a6060cab91c94d5f0cb247",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.social_prontuario') is not null and to_regclass('sigov.social_scfv_frequencia') is not null and exists(select 1 from sigov.permissao where chave='SOCIAL_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
