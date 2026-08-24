@@ -135,3 +135,9 @@
 
 - Educação/Gestão Escolar: schema PostgreSQL idempotente, permissões, escolas, alunos/responsáveis, professores, calendário, turmas, matrículas, frequência, avaliações, ocorrências, pré-matrícula, portal, dashboard, CSV e rotas MVC/API.
 - RC50.68 permanece BLOCKED; RC50.69 não iniciada; GED/InovaGED adiado.
+
+## FUNC06 — 2026-08-25
+
+- Saúde Pública Municipal fechada com cadastros, equipes, agenda, acolhimento, prontuário SOAP, procedimentos, vacinação, dispensação, regulação, dashboard, CSV e rotas MVC/API.
+- Migration corretiva idempotente, RBAC persistente, auditoria/LGPD e validações transacionais com Almoxarifado quando há vínculo seguro.
+- RC50.68 permanece BLOCKED; RC50.69 não foi iniciada; GED/InovaGED segue adiado.

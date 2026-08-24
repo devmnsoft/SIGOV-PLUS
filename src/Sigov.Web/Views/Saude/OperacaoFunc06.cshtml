@@ -1,0 +1,14 @@
+@{
+    var endpoint = (string?)ViewData["Endpoint"] ?? string.Empty;
+}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div><h1 class="h3 mb-1">@ViewData["Title"]</h1><p class="text-muted mb-0">@ViewData["Descricao"]</p></div>
+    <a class="btn btn-outline-success" href="@endpoint/export.csv">Exportar CSV (LGPD)</a>
+</div>
+<div class="card" data-saude-endpoint="@endpoint">
+    <div class="card-header fw-semibold">Registros persistidos</div>
+    <div class="card-body p-0">
+        <div class="table-responsive"><table class="table table-striped table-hover mb-0"><thead><tr><th>Identificador</th><th>Status</th><th>Data</th></tr></thead><tbody id="func06-registros"><tr><td colspan="3" class="text-center text-muted py-4">Carregando dados autorizados…</td></tr></tbody></table></div>
+    </div>
+</div>
+<div class="alert alert-info mt-3 mb-0">Dados clínicos não são exibidos nesta listagem. O acesso detalhado exige permissão persistida e gera auditoria.</div>

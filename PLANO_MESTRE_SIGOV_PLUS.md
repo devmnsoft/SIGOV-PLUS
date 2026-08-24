@@ -75,3 +75,7 @@ Trilha funcional paralela entregue em código: autoridade PostgreSQL, Dapper par
 ## FUNC05 — Educação e Gestão Escolar
 
 Trilha funcional paralela entregue com autoridade PostgreSQL, Dapper parametrizado, RBAC fail-closed, auditoria/LGPD, MVC/API, i-Diário, pré-matrícula e portal interno. Não promove a RC50.68 (**BLOCKED**), não inicia a RC50.69 e mantém GED/InovaGED adiado para a etapa final.
+
+## FUNC06 — Saúde, Atenção Básica e Regulação
+
+Trilha funcional paralela entregue com schema corretivo idempotente, Dapper/API, MVC/Razor, RBAC persistente, auditoria e LGPD. Abrange unidades, pacientes, equipes, agenda, acolhimento, prontuário, procedimentos, vacinação, farmácia e regulação. Não promove RC50.68, não inicia RC50.69 e mantém GED/InovaGED para a etapa final.
