@@ -37,3 +37,9 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - [x] Veículos, motoristas, utilizações, abastecimentos, manutenções, ordens de serviço, documentos, custos e alertas entregues com PostgreSQL/Dapper, MVC/API e RBAC persistente.
 - [x] Integrações rastreáveis com bem patrimonial, contratos/fornecedores e baixa transacional do Almoxarifado, com bloqueio por saldo insuficiente.
 - [ ] Homologação runtime/PostgreSQL oficial permanece condicionada ao ambiente. RC50.68 continua **BLOCKED** e RC50.69 não foi iniciada; FUNC04 não promove release.
+
+## FUNC05 — Educação e Gestão Escolar (trilha funcional paralela)
+
+- [x] Schema FUNC05 idempotente, RBAC persistente, Dapper/API e telas MVC para gestão escolar, i-Diário, pré-matrícula e Portal Pais/Alunos.
+- [x] LGPD, auditoria, vagas, duplicidade de matrícula e bloqueios de período/nota documentados.
+- [ ] RC50.68 permanece **BLOCKED** pelos gates oficiais; RC50.69 não foi iniciada. GED/InovaGED foi adiado para a etapa final.

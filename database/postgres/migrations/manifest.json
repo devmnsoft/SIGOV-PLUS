@@ -1184,6 +1184,15 @@
       "applyAutomatically": true,
       "checksum": "a51f54ebe93fc03d3f280ba195e3545282d68d80ea300d0b91b17007b6c14587",
       "postConditionSql": "select to_regclass('sigov.frotas_ordem_servico') is not null and exists(select 1 from sigov.permissao where chave='frotas.veiculo.visualizar')"
+    },
+    {
+      "version": "20260824230000",
+      "description": "FUNC05 Educação, Gestão Escolar, i-Diário, Pré-matrícula e Portal",
+      "category": "functional",
+      "file": "20260824230000_func05_educacao_gestao_escolar.sql",
+      "checksum": "f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86",
+      "applyAutomatically": true,
+      "includeInBaseline": true
     }
   ],
   "compatibilityAfterAll": [
