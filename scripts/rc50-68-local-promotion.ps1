@@ -14,7 +14,8 @@ Set-Content -Path $Log -Value ''
 
 function Protect-SigovText([string]$Text) {
     if ($null -eq $Text) { return '' }
-    $Text = $Text -replace '(?i)(Password|Pwd|PGPASSWORD|SIGOV_DB_PASSWORD|Authorization)[=:][^;\s]+', '$1=***'
+    $Text = $Text -replace '(?i)(Password|Pwd|PGPASSWORD|SIGOV_DB_PASSWORD|Authorization|Cookie|Set-Cookie)[=:][^;\s]+', '$1=***'
+    $Text = $Text -replace '(?i)(Authorization:\s*Bearer)\s+\S+', '$1 ***'
     $Text = $Text -replace '(?i)(Host|Server|Username|User ID|User Id)[=:][^;\s]+', '$1=***'
     return ($Text -replace '(?i)postgres(?:ql)?://[^/@\s]+(?::[^/@\s]+)?@', 'postgres://***:***@')
 }
@@ -74,7 +75,7 @@ $required = @('SIGOV_DB_HOST','SIGOV_DB_PORT','SIGOV_DB_NAME','SIGOV_DB_USER','S
 $missingVariables = $required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
 $dbSafe = $false
 if ($missingVariables.Count) { Add-SigovResult connection-preflight BLOCKED "Variáveis ausentes: $($missingVariables -join ', ')" }
-elseif ($env:SIGOV_DB_HOST -match '(?i)(^|[._-])(prod|production)([._-]|$)') { Add-SigovResult connection-preflight FAIL 'Host recusado: o destino parece ser de produção' }
+elseif ($env:SIGOV_DB_HOST -match '(?i)prod(?:uction)?') { Add-SigovResult connection-preflight FAIL 'Host recusado: o destino parece ser de produção' }
 elseif ($env:SIGOV_DB_NAME -notmatch '(?i)(rc50|homolog|local|dev|test)') { Add-SigovResult connection-preflight FAIL 'Nome do banco recusado: deve conter rc50, homolog, local, dev ou test' }
 elseif ($env:ASPNETCORE_ENVIRONMENT -match '(?i)^Production$' -or $env:SIGOV_ENVIRONMENT -match '(?i)^Production$') { Add-SigovResult connection-preflight FAIL 'Ambiente Production recusado' }
 elseif (-not $Confirm) { Add-SigovResult connection-preflight BLOCKED 'Use -Confirm após conferir o destino mascarado; nenhuma alteração foi feita' }
@@ -174,10 +175,11 @@ if (-not $Smoke) {
 }
 
 $overall = if ($Results.status -contains 'FAIL') {'FAIL'} elseif ($Results.status -contains 'BLOCKED') {'BLOCKED'} else {'PASS'}
-$evidence = [ordered]@{ release='RC50.68E-R5'; status=$overall; promotion='BLOCKED'; validatedSha=$sha; generatedAtLocal=(Get-Date).ToString('o'); versions=[ordered]@{dotnet=$dotnetVersion;psql=$psqlVersion;node=$nodeVersion}; steps=$Results }
+$promotion = if ($overall -eq 'PASS') { 'PROMOVÍVEL LOCALMENTE' } else { 'BLOCKED' }
+$evidence = [ordered]@{ release='RC50.68E-R6'; status=$overall; promotion=$promotion; officialCi='não executado; gate distinto'; validatedSha=$sha; generatedAtLocal=(Get-Date).ToString('o'); versions=[ordered]@{dotnet=$dotnetVersion;psql=$psqlVersion;node=$nodeVersion}; steps=$Results }
 $evidence | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $Artifacts 'result.json') -Encoding utf8
-$lines = @('# Evidência local RC50.68','',"- Resultado da execução: **$overall**",'- Promoção: **BLOCKED** até evidência integralmente verde e CI oficial',"- SHA validado: ``$sha``","- Data/hora local: $($evidence.generatedAtLocal)",'','| Etapa | Status | Detalhe |','|---|---|---|')
+$lines = @('# Evidência local RC50.68','',"- Resultado da execução: **$overall**","- Decisão local: **$promotion**",'- CI oficial: **não executado; gate distinto**',"- SHA validado: ``$sha``","- Data/hora local: $($evidence.generatedAtLocal)",'','| Etapa | Status | Detalhe |','|---|---|---|')
 foreach ($result in $Results) { $lines += "| $($result.name) | **$($result.status)** | $($result.detail -replace '\|','/') |" }
 $lines | Set-Content (Join-Path $Artifacts 'summary.md') -Encoding utf8
-Write-SigovLog "Evidências: artifacts/rc50-68-local-promotion (resultado=$overall; promoção permanece BLOCKED)"
+Write-SigovLog "Evidências: artifacts/rc50-68-local-promotion (resultado=$overall; decisão local=$promotion)"
 if ($overall -eq 'FAIL') { exit 1 }; if ($overall -eq 'BLOCKED') { exit 2 }; exit 0

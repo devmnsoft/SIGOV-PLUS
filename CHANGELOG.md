@@ -1,5 +1,13 @@
 # Changelog
 
+## RC50.68E-R6 — 2026-08-24
+
+- executada a homologação local disponível e registrada decisão **BLOCKED**, sem inventar PASS para
+  .NET, PostgreSQL, PowerShell ou smoke ausentes;
+- endurecida a geração de evidência Bash em saídas antecipadas, os códigos 0/1/2, a sanitização de
+  cookie/Bearer e a recusa de destinos com marcador de produção nas duas plataformas;
+- separada a decisão local do CI oficial, mantida a RC50.68 bloqueada e a RC50.69 não iniciada.
+
 ## RC50.68E-R5 — 2026-08-24
 
 - criada homologação local assistida equivalente em Bash e PowerShell para .NET 10/PostgreSQL 16;

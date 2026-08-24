@@ -10,6 +10,41 @@ CONFIRM=false
 RUN_SMOKE=false
 declare -a STEP_NAMES=() STEP_STATUS=() STEP_DETAILS=()
 
+# A evidência é materializada também em saídas antecipadas. O fallback sem Python
+# é deliberadamente mínimo, mas continua sendo JSON válido e nunca sugere PASS.
+finalize() {
+  local incoming="$?" overall=PASS promotion='PROMOVÍVEL LOCALMENTE'
+  trap - EXIT
+  for s in "${STEP_STATUS[@]}"; do [[ "$s" == FAIL ]] && overall=FAIL; done
+  if [[ "$overall" != FAIL ]]; then
+    for s in "${STEP_STATUS[@]}"; do [[ "$s" == BLOCKED ]] && overall=BLOCKED; done
+  fi
+  if ((${#STEP_STATUS[@]} == 0)); then overall=BLOCKED; fi
+  [[ "$overall" != PASS ]] && promotion=BLOCKED
+  export RESULT_JSON SUMMARY SHA DOTNET_VERSION PSQL_VERSION NODE_VERSION overall promotion
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "${STEP_NAMES[@]}" -- "${STEP_STATUS[@]}" -- "${STEP_DETAILS[@]}" <<'PY'
+import datetime,json,os,sys
+a=sys.argv[1:]; i=a.index('--'); j=a.index('--',i+1); names=a[:i]; statuses=a[i+1:j]; details=a[j+1:]
+d={'release':'RC50.68E-R6','status':os.environ['overall'],'promotion':os.environ['promotion'],'validatedSha':os.environ.get('SHA','desconhecido'),'generatedAtLocal':datetime.datetime.now().astimezone().isoformat(),'versions':{'dotnet':os.environ.get('DOTNET_VERSION','indisponível'),'psql':os.environ.get('PSQL_VERSION','indisponível'),'node':os.environ.get('NODE_VERSION','indisponível')},'steps':[{'name':n,'status':s,'detail':detail} for n,s,detail in zip(names,statuses,details)]}
+with open(os.environ['RESULT_JSON'],'w',encoding='utf-8') as f: json.dump(d,f,ensure_ascii=False,indent=2); f.write('\n')
+with open(os.environ['SUMMARY'],'w',encoding='utf-8') as f:
+ f.write('# Evidência local RC50.68\n\n- Resultado da execução: **%s**\n- Decisão local: **%s**\n- CI oficial: **não executado; gate distinto**\n- SHA validado: `%s`\n- Data/hora local: `%s`\n\n| Etapa | Status | Detalhe |\n|---|---|---|\n'%(d['status'],d['promotion'],d['validatedSha'],d['generatedAtLocal']))
+ for x in d['steps']: f.write('| %s | **%s** | %s |\n'%(x['name'],x['status'],x['detail'].replace('|','/').replace('\n',' ')))
+PY
+  else
+    printf '{"release":"RC50.68E-R6","status":"BLOCKED","promotion":"BLOCKED","validatedSha":"desconhecido","versions":{"dotnet":"indisponível","psql":"indisponível","node":"indisponível"},"steps":[{"name":"evidence-writer","status":"BLOCKED","detail":"python3 ausente; detalhes disponíveis somente no log sanitizado"}]}\n' >"$RESULT_JSON"
+    printf '# Evidência local RC50.68\n\n- Resultado: **BLOCKED**\n- Motivo: `python3` ausente; foi emitido JSON mínimo válido.\n' >"$SUMMARY"
+    overall=BLOCKED
+  fi
+  chmod 600 "$LOG" "$RESULT_JSON" "$SUMMARY" 2>/dev/null || true
+  printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "Evidências concluídas (resultado=$overall)" | tee -a "$LOG"
+  [[ "$overall" == FAIL ]] && exit 1
+  [[ "$overall" == BLOCKED ]] && exit 2
+  [[ "$incoming" -ne 0 ]] && exit "$incoming"
+  exit 0
+}
+
 usage() {
   cat <<'EOF'
 Uso: scripts/rc50-68-local-promotion.sh --confirm [--smoke]
@@ -20,16 +55,16 @@ script_completop.sql no banco informado; este script nunca remove o banco.
 --smoke inicia Web/API temporariamente e consulta health e a rota protegida.
 EOF
 }
-for arg in "$@"; do
-  case "$arg" in --confirm) CONFIRM=true ;; --smoke) RUN_SMOKE=true ;; -h|--help) usage; exit 0 ;; *) echo "Argumento inválido: $arg" >&2; usage; exit 2 ;; esac
-done
-
 mkdir -p "$ARTIFACTS"
 : >"$LOG"
 chmod 700 "$ARTIFACTS" 2>/dev/null || true
+SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf desconhecido)"
+DOTNET_VERSION="indisponível"; PSQL_VERSION="indisponível"; NODE_VERSION="indisponível"
+trap finalize EXIT
 sanitize() {
   sed -E \
-    -e 's#(Password|Pwd|PGPASSWORD|SIGOV_DB_PASSWORD|Authorization)[=:][^;[:space:]]+#\1=***#gI' \
+    -e 's#(Password|Pwd|PGPASSWORD|SIGOV_DB_PASSWORD|Authorization|Cookie|Set-Cookie)[=:][^;[:space:]]+#\1=***#gI' \
+    -e 's#(Authorization:[[:space:]]*Bearer)[[:space:]]+[^[:space:]]+#\1 ***#gI' \
     -e 's#(Host|Server|Username|User ID|User Id)[=:][^;[:space:]]+#\1=***#gI' \
     -e 's#postgres(ql)?://[^/@[:space:]]+(:[^/@[:space:]]+)?@#postgres://***:***@#gI'
 }
@@ -42,8 +77,14 @@ run_logged() {
   "$@" > >(sanitize >>"$LOG") 2> >(sanitize >>"$LOG")
 }
 
-DOTNET_VERSION="indisponível"; PSQL_VERSION="indisponível"; NODE_VERSION="indisponível"
-SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf desconhecido)"
+for arg in "$@"; do
+  case "$arg" in
+    --confirm) CONFIRM=true ;;
+    --smoke) RUN_SMOKE=true ;;
+    -h|--help) usage; step invocation BLOCKED 'Ajuda solicitada; homologação não executada'; exit 2 ;;
+    *) step invocation BLOCKED "Argumento inválido: $arg"; usage; exit 2 ;;
+  esac
+done
 
 # Preflight de arquivos e ferramentas não consulta GitHub Actions nem secrets de CI.
 missing_files=()
@@ -70,7 +111,7 @@ missing_vars=(); for var in "${required[@]}"; do [[ -n "${!var:-}" ]] || missing
 if ((${#missing_vars[@]})); then
   step connection-preflight BLOCKED "Variáveis ausentes: ${missing_vars[*]}"
   DB_SAFE=false
-elif [[ "${SIGOV_DB_HOST,,}" =~ (^|[._-])(prod|production)([._-]|$) ]]; then
+elif [[ "${SIGOV_DB_HOST,,}" =~ prod(uction)? ]]; then
   step connection-preflight FAIL 'Host recusado: o destino parece ser de produção'
   DB_SAFE=false
 elif [[ ! "${SIGOV_DB_NAME,,}" =~ (rc50|homolog|local|dev|test) ]]; then
@@ -184,21 +225,4 @@ else
   step smoke-health BLOCKED "$reason"; step smoke-unauthenticated BLOCKED "$reason"; step smoke-authenticated BLOCKED 'Credencial local segura e smoke preparado são obrigatórios'
 fi
 
-overall=PASS
-for s in "${STEP_STATUS[@]}"; do [[ "$s" == FAIL ]] && overall=FAIL; done
-if [[ "$overall" != FAIL ]]; then for s in "${STEP_STATUS[@]}"; do [[ "$s" == BLOCKED ]] && overall=BLOCKED; done; fi
-export RESULT_JSON SUMMARY SHA DOTNET_VERSION PSQL_VERSION NODE_VERSION overall
-python3 - "${STEP_NAMES[@]}" -- "${STEP_STATUS[@]}" -- "${STEP_DETAILS[@]}" <<'PY'
-import datetime,json,os,sys
-a=sys.argv[1:]; i=a.index('--'); j=a.index('--',i+1); names=a[:i]; statuses=a[i+1:j]; details=a[j+1:]
-d={'release':'RC50.68E-R5','status':os.environ['overall'],'promotion':'BLOCKED','validatedSha':os.environ['SHA'],'generatedAtLocal':datetime.datetime.now().astimezone().isoformat(),'versions':{'dotnet':os.environ['DOTNET_VERSION'],'psql':os.environ['PSQL_VERSION'],'node':os.environ['NODE_VERSION']},'steps':[{'name':n,'status':s,'detail':d} for n,s,d in zip(names,statuses,details)]}
-json.dump(d,open(os.environ['RESULT_JSON'],'w'),ensure_ascii=False,indent=2); open(os.environ['RESULT_JSON'],'a').write('\n')
-with open(os.environ['SUMMARY'],'w') as f:
- f.write('# Evidência local RC50.68\n\n- Resultado da execução: **%s**\n- Promoção: **BLOCKED** até evidência integralmente verde e CI oficial\n- SHA validado: `%s`\n- Data/hora local: `%s`\n\n| Etapa | Status | Detalhe |\n|---|---|---|\n'%(d['status'],d['validatedSha'],d['generatedAtLocal']))
- for x in d['steps']: f.write('| %s | **%s** | %s |\n'%(x['name'],x['status'],x['detail'].replace('|','/')))
-PY
-chmod 600 "$LOG" "$RESULT_JSON" "$SUMMARY" 2>/dev/null || true
-log "Evidências: artifacts/rc50-68-local-promotion (resultado=$overall; promoção permanece BLOCKED)"
-[[ "$overall" == FAIL ]] && exit 1
-[[ "$overall" == BLOCKED ]] && exit 2
 exit 0

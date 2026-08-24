@@ -25,6 +25,9 @@
   build runtime, aplicação e reaplicação PostgreSQL 16, autoridade persistida, smoke opcional e
   evidências sanitizadas. A entrega da ferramenta não altera o estado da promoção: **BLOCKED** até
   execução real verde e conclusão do gate oficial.
+- [ ] RC50.68E-R6 — decisão técnica local executada no ambiente disponível: checks estáticos PASS,
+  porém build, PostgreSQL, smoke e parse PowerShell estão **BLOCKED** por ferramentas/banco/credencial
+  ausentes. O CI oficial não foi consultado e a RC50.68 não foi promovida.
 - [ ] RC50.69 — ERP Serviços é a próxima macro-release e não foi iniciada. Só pode começar após
   a RC50.68 ficar sem pendência P0/P1.
 
