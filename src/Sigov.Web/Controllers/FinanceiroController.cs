@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Models.Financeiro;
 
@@ -6,6 +7,7 @@ using Sigov.Web.Services.Operational;
 
 namespace Sigov.Web.Controllers;
 
+[Authorize]
 public sealed class FinanceiroController : Controller
 {
     private readonly FinanceiroOperationalService _operationalDemo;
@@ -20,6 +22,14 @@ public sealed class FinanceiroController : Controller
     [Route("/Financeiro")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Dashboard", q, cancellationToken));
     public IActionResult Dashboard() => View(new FinanceiroDashboardViewModel());
+    [Route("/Financeiro/Exercicios")] public async Task<IActionResult> Exercicios(string? q, CancellationToken ct) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Exercícios", q, ct));
+    [Route("/Financeiro/UnidadesOrcamentarias")] public async Task<IActionResult> UnidadesOrcamentarias(string? q, CancellationToken ct) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Unidades orçamentárias", q, ct));
+    [Route("/Financeiro/Dotacoes")] public IActionResult Dotacoes() => RedirectToAction(nameof(OrcamentoDespesa));
+    [Route("/Financeiro/FontesRecursos")] public IActionResult FontesRecursos() => RedirectToAction(nameof(FontesRecurso));
+    [Route("/Financeiro/OrdensPagamento")] public async Task<IActionResult> OrdensPagamento(string? q, CancellationToken ct) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Ordens de pagamento", q, ct));
+    [Route("/Financeiro/Arrecadacao")] public async Task<IActionResult> Arrecadacao(string? q, CancellationToken ct) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Arrecadação", q, ct));
+    [Route("/Financeiro/RestosPagar")] public async Task<IActionResult> RestosPagar(string? q, CancellationToken ct) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Restos a pagar", q, ct));
+    [Route("/Financeiro/Suprimentos")] public async Task<IActionResult> Suprimentos(string? q, CancellationToken ct) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "Suprimentos e adiantamentos", q, ct));
     public IActionResult PlanoContas() => View(new PlanoContasFormViewModel());
     public IActionResult FontesRecurso() => View(new FonteRecursoFormViewModel());
     public IActionResult Programas() => View(new ProgramaFormViewModel());

@@ -1233,6 +1233,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_certidao') is not null and exists(select 1 from sigov.permissao where chave='TRIBUTARIO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825040000",
+      "description": "FUNC10 Financeiro, SIAFIC e Tesouraria",
+      "category": "functional",
+      "file": "20260825040000_func10_financeiro_siafic_tesouraria.sql",
+      "checksum": "abf22f0cc71c188ed73592739be04f360c6b9ea84de92dfa739b24b14cd2f5c9",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.financeiro_ordem_pagamento') is not null and to_regclass('sigov.financeiro_suprimento') is not null and exists(select 1 from sigov.permissao where chave='FINANCEIRO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

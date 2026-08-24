@@ -19,6 +19,7 @@ public sealed class TesourariaController : Controller
     [Route("/Tesouraria/Conciliacao")]
     [Route("/Tesouraria/Arrecadacao")]
     [Route("/Tesouraria/Pagamentos")]
+    [Route("/Tesouraria/Relatorios")]
     public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
     {
         var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
