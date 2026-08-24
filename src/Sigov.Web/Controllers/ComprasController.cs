@@ -1,52 +1,11 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Sigov.Web.Services;
-using Sigov.Web.Services.Operational;
-
+using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;using Sigov.Application.Abstractions;using Sigov.Application.Authorization;using Sigov.Application.Compras;
 namespace Sigov.Web.Controllers;
-
-[Authorize]
-public sealed class ComprasController : Controller
+[Authorize]public sealed class ComprasController(IComprasService s,ICurrentTenant tenant,ICurrentUser user,IAuthorizationEvaluator auth):Controller
 {
-    private readonly ComprasService _service;
-    private readonly IAuditTrailService _auditTrail;
-    private readonly ILogger<ComprasController> _logger;
-    public ComprasController(ComprasService service, IAuditTrailService auditTrail, ILogger<ComprasController> logger) { _service = service; _auditTrail = auditTrail; _logger = logger; }
-
-    [HttpGet, Route("/Compras")]
-    [Route("/Compras/Dashboard")]
-    [Route("/Compras/Solicitacoes")]
-    [Route("/Compras/Solicitacoes/Nova")]
-    [Route("/Compras/Fornecedores")]
-    [Route("/Compras/Itens")]
-    [Route("/Compras/Relatorios")]
-    [Route("/Compras/Cotacoes")]
-    [Route("/Compras/MapaComparativo")]
-    [Route("/Compras/Processos")]
-    [Route("/Compras/OrdensCompra")]
-    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
-    {
-        var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
-        return View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Compras", screen, q, cancellationToken).ConfigureAwait(false));
-    }
-
-    [HttpGet, Route("/Compras/Detalhes/{id:long}")]
-    [HttpGet, Route("/Compras/Solicitacoes/{id:long}")]
-    [HttpGet, Route("/Compras/Processos/{id:long}")]
-    [HttpGet, Route("/Compras/Bens/{id:long}")]
-    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Compras", $"Detalhes #{id}", null, cancellationToken).ConfigureAwait(false));
-
-    [HttpPost, ValidateAntiForgeryToken, Route("/Compras/Solicitacoes/Nova")]
-    public async Task<IActionResult> Salvar(CancellationToken cancellationToken)
-    {
-        await Audit("compra_solicitacao.criar", "compra_solicitacao", null, cancellationToken).ConfigureAwait(false);
-        TempData["Warning"] = "Registro não foi salvo: schema/regra oficial ainda não homologado. Nenhum número oficial foi gerado.";
-        return Redirect("/Compras");
-    }
-
-    private async Task Audit(string acao, string entidade, string? id, CancellationToken ct)
-    {
-        try { await _auditTrail.RegistrarAsync(null, null, acao, entidade, id, null, null, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Auditoria administrativa em fallback"); }
-    }
+ [HttpGet("/Compras")]public async Task<IActionResult> Index(CancellationToken c)=>await ViewIf(ComprasPermissoes.Dashboard,await s.DashboardAsync(T(),E(),c),"Dashboard",c);
+ [HttpGet("/Compras/Fornecedores")]public async Task<IActionResult> Fornecedores([FromQuery]CompraFiltro f,CancellationToken c)=>await ViewIf(ComprasPermissoes.FornecedorVer,await s.FornecedoresAsync(T(),E(),f,c),null,c);[HttpGet("/Compras/Fornecedores/Novo")]public async Task<IActionResult> NovoFornecedor(CancellationToken c)=>await ViewIf(ComprasPermissoes.FornecedorCriar,new FornecedorInput(E(),"","JURIDICA","",null,null,null,null),"FornecedorForm",c);[HttpPost("/Compras/Fornecedores/Novo"),ValidateAntiForgeryToken]public async Task<IActionResult> NovoFornecedor(FornecedorInput i,CancellationToken c){if(!await Allowed(ComprasPermissoes.FornecedorCriar,c))return Forbid();try{await s.CriarFornecedorAsync(T(),U(),Trace(),i with{EntidadeId=E()},c);return Redirect("/Compras/Fornecedores");}catch(Exception x)when(x is ArgumentException or InvalidOperationException){ModelState.AddModelError("",x.Message);return View("FornecedorForm",i);}}[HttpGet("/Compras/Fornecedores/Exportar")]public async Task<IActionResult> Exportar(CancellationToken c)=>await Allowed(ComprasPermissoes.Exportar,c)?File(await s.ExportarFornecedoresAsync(T(),E(),U(),Trace(),c),"text/csv; charset=utf-8","fornecedores.csv"):Forbid();
+ [HttpGet("/Compras/Solicitacoes")]public async Task<IActionResult> Solicitacoes([FromQuery]CompraFiltro f,CancellationToken c)=>await ViewIf(ComprasPermissoes.SolicitacaoVer,await s.SolicitacoesAsync(T(),E(),f,c),null,c);[HttpGet("/Compras/Solicitacoes/Nova")]public async Task<IActionResult> NovaSolicitacao(CancellationToken c)=>await ViewIf(ComprasPermissoes.SolicitacaoCriar,null,"SolicitacaoForm",c);[HttpPost("/Compras/Solicitacoes/Nova"),ValidateAntiForgeryToken]public async Task<IActionResult> NovaSolicitacao(string unidadeSolicitante,string justificativa,string prioridade,string origem,string descricao,decimal quantidade,string unidade,string tipo,decimal valorEstimado,CancellationToken c){if(!await Allowed(ComprasPermissoes.SolicitacaoCriar,c))return Forbid();var id=await s.CriarSolicitacaoAsync(T(),U(),Trace(),new(E(),unidadeSolicitante,justificativa,prioridade,origem,null,null,[new(descricao,quantidade,unidade,tipo,valorEstimado,tipo=="PERMANENTE")]),c);return Redirect($"/Compras/Solicitacoes/Detalhe/{id}");}[HttpGet("/Compras/Solicitacoes/Detalhe/{id:long}")]public async Task<IActionResult> SolicitacaoDetalhe(long id,CancellationToken c){var x=(await s.SolicitacoesAsync(T(),E(),new(),c)).SingleOrDefault(x=>x.Id==id);return x is null?NotFound():await ViewIf(ComprasPermissoes.SolicitacaoVer,x,"SolicitacaoDetalhe",c);}
+ [HttpGet("/Compras/Processos")]public async Task<IActionResult> Processos([FromQuery]CompraFiltro f,CancellationToken c)=>await ViewIf(ComprasPermissoes.ProcessoVer,await s.ProcessosAsync(T(),E(),f,c),null,c);[HttpGet("/Compras/Processos/Novo")]public async Task<IActionResult> NovoProcesso(CancellationToken c)=>await ViewIf(ComprasPermissoes.ProcessoCriar,null,"ProcessoForm",c);[HttpGet("/Compras/Processos/Detalhe/{id:long}")]public async Task<IActionResult> ProcessoDetalhe(long id,CancellationToken c){var x=await s.ProcessoAsync(T(),E(),id,c);return x is null?NotFound():await ViewIf(ComprasPermissoes.ProcessoVer,x,"ProcessoDetalhe",c);}[HttpGet("/Compras/Processos/{id:long}/Cotacoes")]public async Task<IActionResult> Cotacoes(long id,CancellationToken c){ViewBag.Id=id;return await ViewIf(ComprasPermissoes.CotacaoVer,await s.ProcessoAsync(T(),E(),id,c),"Cotacoes",c);}[HttpGet("/Compras/Processos/{id:long}/Julgamento")]public async Task<IActionResult> Julgamento(long id,CancellationToken c){ViewBag.Id=id;return await ViewIf(ComprasPermissoes.Julgar,await s.ProcessoAsync(T(),E(),id,c),"Julgamento",c);}
+ [HttpGet("/Compras/Contratos")]public async Task<IActionResult> Contratos([FromQuery]CompraFiltro f,CancellationToken c)=>await ViewIf(ComprasPermissoes.ContratoVer,await s.ContratosAsync(T(),E(),f,c),null,c);[HttpGet("/Compras/Contratos/Detalhe/{id:long}")]public async Task<IActionResult> ContratoDetalhe(long id,CancellationToken c){var x=(await s.ContratosAsync(T(),E(),new(),c)).SingleOrDefault(x=>x.Id==id);return x is null?NotFound():await ViewIf(ComprasPermissoes.ContratoVer,x,"InstrumentoDetalhe",c);}[HttpGet("/Compras/Atas")]public async Task<IActionResult> Atas([FromQuery]CompraFiltro f,CancellationToken c)=>await ViewIf(ComprasPermissoes.AtaVer,await s.AtasAsync(T(),E(),f,c),null,c);[HttpGet("/Compras/Atas/Detalhe/{id:long}")]public async Task<IActionResult> AtaDetalhe(long id,CancellationToken c){var x=(await s.AtasAsync(T(),E(),new(),c)).SingleOrDefault(x=>x.Id==id);return x is null?NotFound():await ViewIf(ComprasPermissoes.AtaVer,x,"InstrumentoDetalhe",c);}
+ async Task<IActionResult> ViewIf(string p,object? m,string? v,CancellationToken c)=>await Allowed(p,c)?v is null?View(m):View(v,m):Forbid();async Task<bool> Allowed(string p,CancellationToken c){var i=p.LastIndexOf('.');return(await auth.EvaluateAsync(new(U(),"compras",p[..i],p[(i+1)..],T(),E(),tenant.ExercicioId,null,null,Trace(),"WEB_FUNC03"),c)).Permitido;}long T()=>tenant.TenantId??throw new InvalidOperationException("tenant_id obrigatório.");long E()=>tenant.EntidadeId??throw new InvalidOperationException("entidade_id obrigatório.");long U()=>user.UsuarioId??throw new InvalidOperationException("Usuário obrigatório.");string Trace()=>HttpContext.TraceIdentifier;
 }

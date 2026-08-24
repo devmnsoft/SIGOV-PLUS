@@ -122,6 +122,7 @@ using Sigov.Application.Patrimonio;
 using Sigov.Infrastructure.Patrimonio;
 using Sigov.Application.Almoxarifado;
 using Sigov.Infrastructure.Almoxarifado;
+using Sigov.Infrastructure.Compras;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
@@ -130,6 +131,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IPatrimonioService, PatrimonioService>();
         services.AddScoped<IAlmoxarifadoService, AlmoxarifadoService>();
+        services.AddScoped<Sigov.Application.Compras.IComprasService, ComprasService>();
         services.AddScoped<TributarioAvancadoRepository>();
         services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<IPortalContribuinteRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());

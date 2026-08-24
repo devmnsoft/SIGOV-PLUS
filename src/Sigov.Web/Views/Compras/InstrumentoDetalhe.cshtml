@@ -1,0 +1,2 @@
+@model Sigov.Application.Compras.CompraLinhaDto
+<h1 class="h3">@Model.Numero</h1><div class="card"><div class="card-header"><span class="badge bg-primary">@Model.Status</span></div><div class="card-body"><h2 class="h5">@Model.Descricao</h2><p>Fornecedor: @Model.Fornecedor</p><p>Vigência: @Model.Inicio a @Model.Fim</p><strong>@Model.Valor.ToString("C")</strong></div></div>

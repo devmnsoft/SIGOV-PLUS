@@ -122,3 +122,7 @@
 - Entregue Almoxarifado com catálogo, locais, entradas, saídas, estoque, requisições, dashboard, API/MVC e três exportações CSV auditadas.
 - Adicionada migration idempotente com PK bigint, constraints, índices, doze permissões e pendência única de tombamento para material permanente.
 - RC50.68 continua BLOCKED; FUNC02 não promove RC50.68 nem inicia ou marca RC50.69.
+
+## FUNC03 — 2026-08-24
+- Módulo operacional de compras públicas, fornecedores, licitações, cotações, julgamento, contratos, atas e recebimentos integrados.
+- Migration idempotente, permissões persistentes, Dapper/Npgsql, auditoria e mascaramento LGPD.

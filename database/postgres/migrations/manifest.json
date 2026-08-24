@@ -1164,6 +1164,16 @@
       "applyAutomatically": true,
       "checksum": "15a775c2ee963a62dfc3923e33d17dabc0fee768f954b269418ca4b4cd666007",
       "postConditionSql": "select to_regclass('sigov.almoxarifado_movimentacao') is not null and exists(select 1 from sigov.permissao where chave='almoxarifado.material.visualizar')"
+    },
+    {
+      "version": "20260824200000",
+      "file": "20260824200000_func03_compras_licitacoes_contratos.sql",
+      "description": "func03_compras_licitacoes_contratos",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0",
+      "postConditionSql": "select to_regclass('sigov.compras_recebimento') is not null and exists(select 1 from sigov.permissao where chave='compras.fornecedor.visualizar')"
     }
   ],
   "compatibilityAfterAll": [
