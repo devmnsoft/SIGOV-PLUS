@@ -1,39 +1,5 @@
-@model Sigov.Web.Models.Tributario.TributarioDashboardViewModel
-@{ ViewData["Title"] = "Dashboard Tributário Avançado"; }
-<partial name="~/Views/Shared/_Breadcrumb.cshtml" />
-<div class="d-flex justify-content-between align-items-center mb-3" data-module="tributario" data-permission="tributario.dashboard.visualizar">
-  <div>
-    <h1>Dashboard Tributário Avançado</h1>
-    <p class="text-muted mb-0">Visão integrada de IPTU, ISS, taxas municipais, dívida ativa, parcelamentos, arrecadação, DAM e NFS-e simulada.</p>
-  </div>
-  <div class="btn-group">
-    <a class="btn btn-primary" href="/Tributario/Iptu">IPTU</a>
-    <a class="btn btn-outline-primary" href="/Tributario/Iss">ISS</a>
-    <a class="btn btn-outline-primary" href="/Tributario/Taxas">Taxas</a>
-  </div>
-</div>
-<div class="row g-3 sigov-dashboard" data-module="tributario-dashboard" data-api="/api/tributario/dashboard">
-@foreach (var card in new[] { "Contribuintes ativos", "IPTU em aberto", "ISS em aberto", "Taxas em aberto", "Total lançado", "Total arrecadado", "Parcelas vencidas", "Dívida ativa", "DAMs simulados", "NFS-e simuladas", "Livros gerados", "Relatórios fiscais" })
-{
-  <div class="col-md-3"><div class="card shadow-sm h-100"><div class="card-body"><span class="text-muted">@card</span><h3 class="valor">@(card.StartsWith("Total", StringComparison.Ordinal) || card == "Dívida ativa" ? "R$ 0,00" : "0")</h3></div></div></div>
-}
-</div>
-<section class="card mt-3">
-  <div class="card-body">
-    <h2 class="h5">Alertas fiscais e LGPD</h2>
-    <p class="text-muted mb-0">Todas as alterações fiscais registram usuário, tenant, correlationId e timestamp. Dados pessoais são tratados com mascaramento nas APIs e relatórios exibem versão e histórico.</p>
-  </div>
-</section>
-<section class="card mt-3">
-  <div class="card-body">
-    <h2 class="h5">Acessos rápidos</h2>
-    <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/Parcelamentos">Parcelamentos</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/Arrecadacao">Arrecadação</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/Nfse">NFS-e simulada</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/LivroEletronico">Livro Eletrônico</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/Tributario/RelatoriosFiscais">Relatórios fiscais</a>
-    </div>
-  </div>
-</section>
-@section Scripts { <script src="~/js/modules/tributario.dashboard.js"></script><script src="~/js/modules/tributario.avancado.js"></script> }
+@model Sigov.Application.Tributario.ReceitaMunicipal.TributarioDashboard
+@{ViewData["Title"]="Dashboard Tributário";var cards=new[]{("Contribuintes ativos",Model.ContribuintesAtivos.ToString()),("Imóveis",Model.Imoveis.ToString()),("Empresas/autônomos",Model.Mobiliarios.ToString()),("Lançamentos do exercício",Model.LancamentosExercicio.ToString()),("Guias emitidas",Model.GuiasEmitidas.ToString()),("Valor lançado",Model.ValorLancado.ToString("C")),("Valor arrecadado",Model.ValorArrecadado.ToString("C")),("Inadimplência",Model.Inadimplencia.ToString("C")),("Dívida ativa",Model.DividaAtiva.ToString("C")),("Parcelamentos ativos",Model.ParcelamentosAtivos.ToString()),("Fiscalizações abertas",Model.FiscalizacoesAbertas.ToString()),("Certidões emitidas",Model.CertidoesEmitidas.ToString())};}
+<h1 class="h3">Tributário e Receita Municipal</h1><p class="text-muted">Indicadores calculados em tempo real no PostgreSQL.</p><div class="row g-3 mb-4">@foreach(var c in cards){<div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-muted">@c.Item1</div><strong class="fs-4">@c.Item2</strong></div></div></div>}</div>
+<h2 class="h5">Alertas operacionais</h2>@if(Model.Alertas.Count==0){<div class="alert alert-success">Não há vencimentos próximos nem inconsistências cadastrais detectadas.</div>}else{<ul class="list-group mb-4">@foreach(var a in Model.Alertas){<li class="list-group-item list-group-item-warning">@a</li>}</ul>}
+<div class="d-flex flex-wrap gap-2">@foreach(var x in new[]{("Contribuintes","/Tributario/Contribuintes"),("Imóveis","/Tributario/Imoveis"),("Mobiliário","/Tributario/Mobiliario"),("Lançamentos","/Tributario/Lancamentos"),("Guias","/Tributario/Guias"),("Arrecadação","/Tributario/Arrecadacao"),("Dívida ativa","/Tributario/DividaAtiva"),("Fiscalização","/Tributario/Fiscalizacao"),("Relatórios","/Tributario/Relatorios")}){<a class="btn btn-outline-primary" href="@x.Item2">@x.Item1</a>}</div>

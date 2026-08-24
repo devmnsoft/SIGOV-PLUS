@@ -1,114 +1,36 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Sigov.Web.Models.Tributario;
-
-using Sigov.Web.Services;
-using Sigov.Web.Services.Operational;
-
+using Sigov.Application.Tributario.ReceitaMunicipal;
 namespace Sigov.Web.Controllers;
-
-public sealed class TributarioController : Controller
+[Authorize]
+[Route("Tributario")]
+public sealed class TributarioController(ITributarioReceitaRepository repository,ILogger<TributarioController> logger) : Controller
 {
-    private readonly TributarioOperationalService _operationalDemo;
-    private readonly ILogger<TributarioController> _operationalLogger;
-    private readonly IAuditTrailService _auditTrail;
-
-    public TributarioController(TributarioOperationalService operationalDemo, IAuditTrailService auditTrail, ILogger<TributarioController> operationalLogger)
-    {
-        _operationalDemo = operationalDemo;
-        _auditTrail = auditTrail;
-        _operationalLogger = operationalLogger;
-    }
-
-    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Dashboard", null, cancellationToken));
-
-    public IActionResult Iptu() => View();
-    public IActionResult Iss() => View();
-    public IActionResult Taxas() => View();
-    public IActionResult Parcelamentos() => View();
-    public IActionResult Arrecadacao() => View();
-    public IActionResult LivroEletronico() => View();
-    public IActionResult RelatoriosFiscais() => View();
-    public IActionResult Nfse() => View();
-    public IActionResult Configuracao() => View();
-    public IActionResult TiposCadastro() => View();
-    public IActionResult CamposDinamicos() => View();
-    [Route("/Tributario/Imoveis")]
-    public async Task<IActionResult> Imoveis(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Imoveis", null, cancellationToken));
-    public async Task<IActionResult> Economicos(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Economicos", null, cancellationToken));
-    [Route("/Tributario/Contribuintes")]
-    public async Task<IActionResult> Contribuintes(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Contribuintes", null, cancellationToken));
-    public IActionResult ContribuinteCriar() => View(new ContribuinteFormViewModel());
-    public IActionResult ContribuinteEditar(long id) => View(new ContribuinteFormViewModel { Id = id });
-    [Route("/Tributario/Contribuintes/{id:long}")]
-    public async Task<IActionResult> ContribuinteDetalhe(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", $"Contribuinte #{id}", null, cancellationToken));
-    public IActionResult CadastroImobiliario() => View(new CadastroImobiliarioFormViewModel());
-    public IActionResult CadastroMercantil() => View(new CadastroMercantilFormViewModel());
-    public IActionResult AtividadesEconomicas() => View(new AtividadeEconomicaFormViewModel());
-    public IActionResult Lancamentos() => View(new LancamentoTributarioFormViewModel());
-    public IActionResult LancamentoCriar() => View(new LancamentoTributarioFormViewModel());
-    public IActionResult LancamentoDetalhe(long id) => View(id);
-    public IActionResult Parcelas() => View();
-    public IActionResult DamBoletos() => View();
-    public IActionResult PixPagamentos() => View();
-    public IActionResult Certidoes() => View(new CertidaoFormViewModel());
-    [HttpGet("/Tributario/DividaAtiva")]
-    public IActionResult DividaAtiva() => View(new DividaAtivaFormViewModel());
-    public IActionResult Carnes() => View(new CarneFormViewModel());
-    public IActionResult CarneDetalhe(long id) => View(id);
-
-
-    [Route("/Tributario")]
-    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Dashboard", q, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Tributario/Index");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Em implantação", null, cancellationToken));
-        }
-    }
-
-    [Route("/Tributario/Debitos")]
-    public async Task<IActionResult> Debitos(string? q = null, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Debitos", q, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Tributario/Debitos");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Em implantação", null, cancellationToken));
-        }
-    }
-
-    [Route("/Tributario/Relatorios")]
-    public async Task<IActionResult> Relatorios(string? q = null, CancellationToken cancellationToken = default) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Relatorios", q, cancellationToken));
-    [Route("/Tributario/Contribuintes/Novo")]
-    public async Task<IActionResult> NovoContribuinte(CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Novo contribuinte", null, cancellationToken));
-    [HttpPost, ValidateAntiForgeryToken, Route("/Tributario/Contribuintes/Novo")]
-    public async Task<IActionResult> NovoContribuintePost(CancellationToken cancellationToken) { await Audit("tributario.contribuinte.criar", null, cancellationToken); TempData["Warning"] = "Contribuinte não salvo sem tabela sigov.contribuinte homologada."; return Redirect("/Tributario/Contribuintes"); }
-    [Route("/Tributario/ContribuintesCsv")]
-    public IActionResult ContribuintesCsv() => File(System.Text.Encoding.UTF8.GetBytes("codigo;nome;documento_mascarado;status\nTRI-001;Registro demonstrativo;***.123.456-**;Em implantação\n"), "text/csv", "contribuintes-mascarado.csv");
-
-    [Route("/Tributario/Guias")]
-    public async Task<IActionResult> Guias(string? q = null, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Guias", q, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _operationalLogger.LogError(ex, "Falha ao carregar fluxo Tributario/Guias");
-            TempData["Error"] = "Não foi possível carregar dados reais. Exibimos uma visão demonstrativa segura.";
-            return View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Tributario", "Em implantação", null, cancellationToken));
-        }
-    }
-    private async Task Audit(string acao, string? id, CancellationToken ct) { try { await _auditTrail.RegistrarAsync(null, null, acao, "tributario", id, null, null, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct); } catch (Exception ex) { _operationalLogger.LogWarning(ex, "Auditoria tributária falhou"); } }
+ [HttpGet(""),HttpGet("Dashboard")]
+ [Authorize(Policy="TRIBUTARIO_DASHBOARD_VIEW")]
+ public async Task<IActionResult> Dashboard(CancellationToken ct){var c=Contexto();return View("Dashboard",await repository.DashboardAsync(c.TenantId,c.EntidadeId,ct));}
+ [HttpGet("Contribuintes")][Authorize(Policy="TRIBUTARIO_CONTRIBUINTE_VIEW")] public Task<IActionResult> Contribuintes(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Contribuintes","contribuintes",busca,status,pagina,ct);
+ [HttpGet("Imobiliario"),HttpGet("Imoveis")][Authorize(Policy="TRIBUTARIO_IMOVEL_VIEW")] public Task<IActionResult> Imoveis(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Cadastro imobiliário","imoveis",busca,status,pagina,ct);
+ [HttpGet("Mobiliario"),HttpGet("Empresas")][Authorize(Policy="TRIBUTARIO_MOBILIARIO_VIEW")] public Task<IActionResult> Mobiliario(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Cadastro mobiliário","mobiliario",busca,status,pagina,ct);
+ [HttpGet("Parametros")][Authorize(Policy="TRIBUTARIO_PARAMETRO_VIEW")] public Task<IActionResult> Parametros(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Parâmetros tributários","parametros",busca,status,pagina,ct);
+ [HttpGet("Exercicios")][Authorize(Policy="TRIBUTARIO_PARAMETRO_VIEW")] public Task<IActionResult> Exercicios(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Exercícios fiscais","exercicios",busca,status,pagina,ct);
+ [HttpGet("Tributos")][Authorize(Policy="TRIBUTARIO_PARAMETRO_VIEW")] public Task<IActionResult> Tributos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Tributos","tributos",busca,status,pagina,ct);
+ [HttpGet("Lancamentos")][Authorize(Policy="TRIBUTARIO_LANCAMENTO_VIEW")] public Task<IActionResult> Lancamentos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Lançamentos tributários","lancamentos",busca,status,pagina,ct);
+ [HttpGet("Guias"),HttpGet("Carnes")][Authorize(Policy="TRIBUTARIO_GUIA_VIEW")] public Task<IActionResult> Guias(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Guias e carnês","guias",busca,status,pagina,ct);
+ [HttpGet("Arrecadacao"),HttpGet("Pagamentos")][Authorize(Policy="TRIBUTARIO_ARRECADACAO_VIEW")] public Task<IActionResult> Pagamentos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Arrecadação e baixas","pagamentos",busca,status,pagina,ct);
+ [HttpGet("DividaAtiva")][Authorize(Policy="TRIBUTARIO_DIVIDA_ATIVA_VIEW")] public Task<IActionResult> DividaAtiva(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Dívida ativa","divida-ativa",busca,status,pagina,ct);
+ [HttpGet("Parcelamentos")][Authorize(Policy="TRIBUTARIO_PARCELAMENTO_VIEW")] public Task<IActionResult> Parcelamentos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Parcelamentos","parcelamentos",busca,status,pagina,ct);
+ [HttpGet("Fiscalizacao")][Authorize(Policy="TRIBUTARIO_FISCALIZACAO_VIEW")] public Task<IActionResult> Fiscalizacao(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Fiscalização tributária","fiscalizacoes",busca,status,pagina,ct);
+ [HttpGet("Notificacoes")][Authorize(Policy="TRIBUTARIO_FISCALIZACAO_VIEW")] public Task<IActionResult> Notificacoes(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Notificações fiscais","notificacoes",busca,status,pagina,ct);
+ [HttpGet("AutosInfracao")][Authorize(Policy="TRIBUTARIO_FISCALIZACAO_VIEW")] public Task<IActionResult> Autos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Autos de infração","autos-infracao",busca,status,pagina,ct);
+ [HttpGet("Certidoes")][Authorize(Policy="TRIBUTARIO_CERTIDAO_VIEW")] public Task<IActionResult> Certidoes(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Certidões","certidoes",busca,status,pagina,ct);
+ [AllowAnonymous,HttpGet("ValidarCertidao")] public async Task<IActionResult> ValidarCertidao(string? codigo,CancellationToken ct){if(string.IsNullOrWhiteSpace(codigo))return View("ValidarCertidao",null);var c=ContextoPublico();var p=await repository.ListarAsync(c.TenantId,c.EntidadeId,"certidoes",codigo,null,1,1,ct);return View("ValidarCertidao",p.Items.SingleOrDefault());}
+ [HttpGet("Relatorios")][Authorize(Policy="TRIBUTARIO_RELATORIO_EXPORT")] public IActionResult Relatorios()=>View("Relatorios");
+ [HttpGet("Relatorios/{recurso}.csv")][Authorize(Policy="TRIBUTARIO_RELATORIO_EXPORT")] public async Task<IActionResult> Csv(string recurso,CancellationToken ct){var c=Contexto();var bytes=await repository.ExportarCsvAsync(c.TenantId,c.EntidadeId,recurso,ct);await repository.RegistrarAuditoriaAsync(c,"EXPORTAR_CSV",recurso,null,"Relatório operacional tributário",ct);return File(bytes,"text/csv; charset=utf-8",$"tributario-{recurso}-{DateTime.UtcNow:yyyyMMdd}.csv");}
+ [HttpGet("Contribuintes/Novo")][Authorize(Policy="TRIBUTARIO_CONTRIBUINTE_MANAGE")] public IActionResult NovoContribuinte()=>View("ContribuinteForm",new ContribuinteRequest("F","","",null,null,null,null,null,null,null));
+ [HttpPost("Contribuintes/Novo")][ValidateAntiForgeryToken][Authorize(Policy="TRIBUTARIO_CONTRIBUINTE_MANAGE")]
+ public async Task<IActionResult> NovoContribuinte(ContribuinteRequest model,CancellationToken ct){if(string.IsNullOrWhiteSpace(model.NomeRazaoSocial)||string.IsNullOrWhiteSpace(model.Documento))ModelState.AddModelError("","Documento e nome/razão social são obrigatórios.");if(!ModelState.IsValid)return View("ContribuinteForm",model);try{var c=Contexto();var id=await repository.CriarContribuinteAsync(c,model,ct);await repository.RegistrarAuditoriaAsync(c,"CRIAR","contribuinte",id,"Cadastro fiscal municipal",ct);TempData["Success"]="Contribuinte cadastrado com sucesso.";return RedirectToAction(nameof(Contribuintes));}catch(ArgumentException ex){ModelState.AddModelError("",ex.Message);return View("ContribuinteForm",model);}catch(Exception ex){logger.LogError(ex,"Falha ao cadastrar contribuinte. CorrelationId={CorrelationId}",HttpContext.TraceIdentifier);ModelState.AddModelError("",$"Não foi possível salvar. Referência: {HttpContext.TraceIdentifier}");return View("ContribuinteForm",model);}}
+ private async Task<IActionResult> Lista(string titulo,string recurso,string? busca,string? status,int pagina,CancellationToken ct){var c=Contexto();ViewData["Title"]=titulo;ViewData["Recurso"]=recurso;return View("Lista",await repository.ListarAsync(c.TenantId,c.EntidadeId,recurso,busca,status,pagina<1?1:pagina,20,ct));}
+ private TributarioContexto Contexto(){if(!long.TryParse(User.FindFirst("tenant_id")?.Value,out var t)||t<=0)throw new UnauthorizedAccessException("Tenant não resolvido.");if(!long.TryParse(User.FindFirst("entidade_id")?.Value,out var e)||e<=0)throw new UnauthorizedAccessException("Entidade não resolvida.");long.TryParse(User.FindFirst("sub")?.Value??User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,out var u);return new(t,e,u>0?u:null,HttpContext.TraceIdentifier);}
+ private TributarioContexto ContextoPublico(){if(!long.TryParse(Request.Query["tenantId"],out var t)||!long.TryParse(Request.Query["entidadeId"],out var e)||t<=0||e<=0)throw new BadHttpRequestException("Tenant e entidade são obrigatórios para validação.");return new(t,e,null,HttpContext.TraceIdentifier);}
 }

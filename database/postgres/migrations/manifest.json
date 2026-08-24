@@ -1223,6 +1223,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.social_prontuario') is not null and to_regclass('sigov.social_scfv_frequencia') is not null and exists(select 1 from sigov.permissao where chave='SOCIAL_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825030000",
+      "description": "FUNC09 Tributário e Receita Municipal",
+      "category": "functional",
+      "file": "20260825030000_func09_tributario_receita_municipal.sql",
+      "checksum": "f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_certidao') is not null and exists(select 1 from sigov.permissao where chave='TRIBUTARIO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

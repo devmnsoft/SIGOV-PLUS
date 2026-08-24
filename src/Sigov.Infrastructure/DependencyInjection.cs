@@ -21,6 +21,8 @@ using Sigov.Infrastructure.Processos;
 using Sigov.Application.Financeiro;
 using Sigov.Application.Core;
 using Sigov.Application.Frotas;
+using Sigov.Application.Tributario.ReceitaMunicipal;
+using Sigov.Infrastructure.Tributario.ReceitaMunicipal;
 using Sigov.Application.Obras;
 using Sigov.Infrastructure.Frotas;
 using Sigov.Infrastructure.Financeiro;
@@ -496,6 +498,7 @@ public static class DependencyInjection
         services.AddScoped<ISaneamentoDashboardService, SaneamentoService>();
         services.AddScoped<ISaneamentoExportacaoService, SaneamentoService>();
         services.AddScoped<SocialRepository>();
+        services.AddScoped<ITributarioReceitaRepository, TributarioReceitaRepository>();
         services.AddScoped<IAgroModuloCatalogService, AgroModuloCatalogService>();
         services.AddScoped<ICoordenadaValidator, CoordenadaValidator>();
         services.AddScoped<IGeoJsonValidator, GeoJsonValidator>();
