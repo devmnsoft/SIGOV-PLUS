@@ -1193,6 +1193,16 @@
       "checksum": "f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86",
       "applyAutomatically": true,
       "includeInBaseline": true
+    },
+    {
+      "version": "20260825000000",
+      "description": "FUNC06 Saúde, Atenção Básica, Agenda, Prontuário, Vacinação, Farmácia e Regulação",
+      "category": "functional",
+      "file": "20260825000000_func06_saude_atencao_basica.sql",
+      "checksum": "69cf4c6ffaa1069f38d33676c732b5515a27a0f6597f01ddd0a70d1141789003",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.saude_acolhimento') is not null and exists(select 1 from sigov.permissao where chave='saude.prontuario.retificar')"
     }
   ],
   "compatibilityAfterAll": [

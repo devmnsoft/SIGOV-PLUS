@@ -43,3 +43,9 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - [x] Schema FUNC05 idempotente, RBAC persistente, Dapper/API e telas MVC para gestão escolar, i-Diário, pré-matrícula e Portal Pais/Alunos.
 - [x] LGPD, auditoria, vagas, duplicidade de matrícula e bloqueios de período/nota documentados.
 - [ ] RC50.68 permanece **BLOCKED** pelos gates oficiais; RC50.69 não foi iniciada. GED/InovaGED foi adiado para a etapa final.
+
+## FUNC06 — Saúde e Atenção Básica (trilha funcional paralela)
+
+- [x] Unidades, pacientes, profissionais/equipes, agenda, acolhimento, prontuário, vacinação, farmácia, regulação, dashboard e CSV entregues sobre PostgreSQL/Dapper e RBAC persistente.
+- [x] Regras críticas defendidas no banco, com auditoria/LGPD e integração de saldo do Almoxarifado quando existe vínculo seguro.
+- [ ] Homologação PostgreSQL 16 e smoke autenticado dependem do ambiente oficial. RC50.68 continua **BLOCKED**; RC50.69 não foi iniciada; GED/InovaGED segue adiado.
