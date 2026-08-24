@@ -1,7 +1,7 @@
 namespace Sigov.Application.Saas.SuperAdmin;
 
 public sealed record AuthorizationAdminFilter(string? Search = null, long? TenantId = null, bool IncludeInactive = false);
-public sealed record AuthorizationCatalogItem(long Id, string Code, string Name, bool Active);
+public sealed record AuthorizationCatalogItem(long Id, string Code, string Name, string? Description, bool Active);
 public sealed record AuthorizationLinkItem(string Kind, long LeftId, string LeftName, long RightId, string RightName,
     long? TenantId, long? EntityId, long? FiscalYearId, long? UnitId, DateTimeOffset? ValidFrom,
     DateTimeOffset? ValidTo, string? Effect, decimal? ApprovalLimit, bool Active, bool Deleted);

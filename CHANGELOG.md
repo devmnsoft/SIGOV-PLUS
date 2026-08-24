@@ -1,5 +1,11 @@
 # Changelog
 
+## RC50.68F-R2 — 2026-08-24
+
+- corrigido o contrato Dapper para usar somente colunas reais de usuário e contexto persistido;
+- estabilizados DTOs, limites de schema, modais, antiforgery, erros HTTP e estados vazios do CRUD;
+- preservados migration publicada, manifest e scripts consolidados sem drift; promoção segue **BLOCKED** e RC50.69 não foi iniciada.
+
 ## RC50.68F — 2026-08-21
 
 - entregue o CRUD SuperAdmin AJAX da autorização contextual persistida para perfis, grupos,
