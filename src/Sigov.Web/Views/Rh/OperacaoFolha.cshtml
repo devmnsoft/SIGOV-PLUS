@@ -1,0 +1,5 @@
+@model Sigov.Web.Models.Rh.RhRegistroViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<h1>@Model.Titulo</h1><p class="text-muted">A operação usa a competência persistida e respeita bloqueio após homologação.</p>
+@{ await Html.RenderPartialAsync("_Registro", Model); }
+@section Scripts { <script src="~/js/modules/rh.js"></script> }

@@ -1253,6 +1253,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.agro_produtor') is not null and to_regclass('sigov.agro_solicitacao') is not null and exists(select 1 from sigov.permissao where chave='AGRO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825060000",
+      "description": "FUNC12 Recursos Humanos e Folha de Pagamento",
+      "category": "functional",
+      "file": "20260825060000_func12_rh_folha_pagamento.sql",
+      "checksum": "2a2fbfe6a03cdd016b7d1928400f821c812427acb095c0b8d4f14ce3230b413f",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.rh_folha_competencia') is not null and to_regclass('sigov.rh_auditoria') is not null and exists(select 1 from sigov.permissao where chave='RH_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
