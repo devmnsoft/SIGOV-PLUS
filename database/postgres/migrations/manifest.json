@@ -1293,6 +1293,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.atendimento_demanda') is not null and to_regclass('sigov.atendimento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='ATENDIMENTO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825100000",
+      "description": "FUNC16 Habitação, Regularização Fundiária e Programas Habitacionais",
+      "category": "functional",
+      "file": "20260825100000_func16_habitacao_regularizacao_fundiaria.sql",
+      "checksum": "c38ae4b1bffe412acaadb37c94693cc2093ad70f78fb891836deb502bee6e53d",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.habitacao_familia') is not null and to_regclass('sigov.habitacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HABITACAO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
