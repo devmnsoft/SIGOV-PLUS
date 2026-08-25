@@ -1,58 +1,39 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Sigov.Web.Services;
-using Sigov.Web.Services.Operational;
-
+using Sigov.Application.Obras.Engenharia;
+using Sigov.Web.Models.Obras;
 namespace Sigov.Web.Controllers;
-
-[Authorize]
-public sealed class ObrasController : Controller
+[Authorize,Route("Obras")]
+public sealed class ObrasController(IObrasEngenhariaRepository repository,ILogger<ObrasController> logger):Controller
 {
-    private readonly ObrasService _service;
-    private readonly IAuditTrailService _auditTrail;
-    private readonly ILogger<ObrasController> _logger;
-    public ObrasController(ObrasService service, IAuditTrailService auditTrail, ILogger<ObrasController> logger) { _service = service; _auditTrail = auditTrail; _logger = logger; }
-
-    [HttpGet, Route("/Obras")]
-    [Route("/Obras/Dashboard")]
-    [Route("/Obras/Listar")]
-    [Route("/Obras/Nova")]
-    [Route("/Obras/Medicoes")]
-    [Route("/Obras/Diario")]
-    [Route("/Obras/Diario/Novo")]
-    [Route("/Obras/Medicoes/Nova")]
-    [Route("/Obras/Fotos")]
-    [Route("/Obras/Fiscalizacao")]
-    [Route("/Obras/Relatorios")]
-    public async Task<IActionResult> Index(string? q = null, CancellationToken cancellationToken = default)
-    {
-        var screen = RouteData.Values["action"]?.ToString() ?? "Dashboard";
-        return View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Obras", screen, q, cancellationToken).ConfigureAwait(false));
-    }
-
-    [HttpGet, Route("/Obras/Detalhes/{id:long}")]
-    [HttpGet, Route("/Obras/Solicitacoes/{id:long}")]
-    [HttpGet, Route("/Obras/Processos/{id:long}")]
-    [HttpGet, Route("/Obras/Bens/{id:long}")]
-    public async Task<IActionResult> Detalhes(long id, CancellationToken cancellationToken) => View("~/Views/Operational/Module.cshtml", await _service.BuildAsync("Obras", $"Detalhes #{id}", null, cancellationToken).ConfigureAwait(false));
-
-    [HttpGet, Route("/Obras/ObrasCsv")]
-    public IActionResult ObrasCsv() => File(System.Text.Encoding.UTF8.GetBytes("mensagem\nExportação em implantação neste ambiente; schema obra não confirmado.\n"), "text/csv; charset=utf-8", "obras.csv");
-
-    [HttpPost, Route("/Obras/Nova")]
-    [HttpPost, Route("/Obras/Medicoes/Nova")]
-    [HttpPost, Route("/Obras/Diario/Novo")]
-    [HttpPost, Route("/Obras/{id:long}/Fotos")]
-    public async Task<IActionResult> Salvar(CancellationToken cancellationToken)
-    {
-        await Audit("obra.criar", "obra", null, cancellationToken).ConfigureAwait(false);
-        TempData["Warning"] = "Registro não foi salvo: schema/regra oficial ainda não homologado. Nenhum número oficial foi gerado.";
-        return Redirect("/Obras");
-    }
-
-    private async Task Audit(string acao, string entidade, string? id, CancellationToken ct)
-    {
-        try { await _auditTrail.RegistrarAsync(null, null, acao, entidade, id, null, null, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Auditoria administrativa em fallback"); }
-    }
+ [HttpGet(""),HttpGet("Dashboard"),Authorize(Policy="OBRAS_DASHBOARD_VIEW")]
+ public async Task<IActionResult> Index([FromQuery]ObrasFiltro? filtro,CancellationToken ct)=>View("Dashboard",await repository.DashboardAsync(Contexto(),filtro??Filtro(),ct));
+ [HttpGet("Cadastro"),Authorize(Policy="OBRAS_OBRA_VIEW")]
+ public async Task<IActionResult> Cadastro(string? busca,string? status,int pagina,CancellationToken ct)=>View("Cadastro",await repository.ListarObrasAsync(Contexto(),Filtro(busca,status,pagina),ct));
+ [HttpGet("Cadastro/Nova"),Authorize(Policy="OBRAS_OBRA_MANAGE")]public IActionResult Nova()=>View("ObraForm",new ObraRequest("","",null,"",null,"",null,null,null,0,0,DateOnly.FromDateTime(DateTime.Today),DateOnly.FromDateTime(DateTime.Today),null,null,"PLANEJADA",null,null,null,null,null));
+ [HttpPost("Cadastro/Salvar"),ValidateAntiForgeryToken,Authorize(Policy="OBRAS_OBRA_MANAGE")]
+ public async Task<IActionResult> SalvarObra(ObraRequest model,long? id,CancellationToken ct){if(!ModelState.IsValid)return View("ObraForm",model);try{await repository.SalvarObraAsync(Contexto(),model,id,ct);TempData["Success"]="Obra salva com sucesso.";return RedirectToAction(nameof(Cadastro));}catch(ArgumentException ex){ModelState.AddModelError("",ex.Message);}catch(Exception ex){logger.LogError(ex,"Falha ao salvar obra {CorrelationId}",HttpContext.TraceIdentifier);ModelState.AddModelError("",$"Falha ao salvar. Referência: {HttpContext.TraceIdentifier}");}return View("ObraForm",model);}
+ [HttpPost("Cadastro/{id:long}/Excluir"),ValidateAntiForgeryToken,Authorize(Policy="OBRAS_OBRA_MANAGE")]public async Task<IActionResult> Excluir(long id,string justificativa,CancellationToken ct){await repository.ExcluirObraAsync(Contexto(),id,justificativa,ct);return RedirectToAction(nameof(Cadastro));}
+ [HttpGet("Projetos"),Authorize(Policy="OBRAS_PROJETO_VIEW")]public Task<IActionResult> Projetos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Projetos de engenharia","projetos",busca,status,pagina,ct);
+ [HttpGet("Orcamentos"),Authorize(Policy="OBRAS_ORCAMENTO_VIEW")]public Task<IActionResult> Orcamentos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Orçamentos e itens","orcamentos",busca,status,pagina,ct);
+ [HttpGet("Cronogramas"),Authorize(Policy="OBRAS_CRONOGRAMA_VIEW")]public Task<IActionResult> Cronogramas(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Cronograma físico-financeiro","cronogramas",busca,status,pagina,ct);
+ [HttpGet("Medicoes"),Authorize(Policy="OBRAS_MEDICAO_VIEW")]public Task<IActionResult> Medicoes(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Medições","medicoes",busca,status,pagina,ct);
+ [HttpGet("DiarioObra"),HttpGet("Diario"),Authorize(Policy="OBRAS_DIARIO_VIEW")]public Task<IActionResult> Diario(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Diário de obra","diarios",busca,status,pagina,ct);
+ [HttpGet("Fiscalizacao"),Authorize(Policy="OBRAS_FISCALIZACAO_VIEW")]public Task<IActionResult> Fiscalizacao(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Fiscalizações e vistorias","fiscalizacoes",busca,status,pagina,ct);
+ [HttpGet("Ocorrencias"),Authorize(Policy="OBRAS_FISCALIZACAO_VIEW")]public Task<IActionResult> Ocorrencias(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Ocorrências","ocorrencias",busca,status,pagina,ct);
+ [HttpGet("OrdensServico"),Authorize(Policy="OBRAS_ORDEM_SERVICO_VIEW")]public Task<IActionResult> Ordens(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Ordens de serviço","ordens-servico",busca,status,pagina,ct);
+ [HttpGet("Convenios"),Authorize(Policy="OBRAS_CONVENIO_VIEW")]public Task<IActionResult> Convenios(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Convênios, fontes e repasses","convenios",busca,status,pagina,ct);
+ [HttpGet("Documentos"),Authorize(Policy="OBRAS_DOCUMENTO_VIEW")]public Task<IActionResult> Documentos(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Documentos técnicos (metadados)","documentos",busca,status,pagina,ct);
+ [HttpGet("IntegracaoFinanceira"),Authorize(Policy="OBRAS_INTEGRACAO_FINANCEIRA_VIEW")]public Task<IActionResult> Integracao(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Integração financeira preparada","integracao-financeira",busca,status,pagina,ct);
+ [HttpGet("Auditoria"),Authorize(Policy="OBRAS_AUDITORIA_VIEW")]public Task<IActionResult> Auditoria(string? busca,string? status,int pagina,CancellationToken ct)=>Lista("Auditoria do módulo","auditoria",busca,status,pagina,ct);
+ [HttpGet("{recurso}/Novo"),Authorize(Policy="OBRAS_OBRA_MANAGE")]public IActionResult NovoRegistro(string recurso){ViewData["Recurso"]=recurso;return View("RegistroForm",new ObrasRegistroRequest(0,"","","RASCUNHO",null,null,null));}
+ [HttpPost("{recurso}/Salvar"),ValidateAntiForgeryToken,Authorize(Policy="OBRAS_OBRA_MANAGE")]public async Task<IActionResult> SalvarRegistro(string recurso,ObrasRegistroRequest model,long? id,CancellationToken ct){try{await repository.SalvarAsync(Contexto(),recurso,model,id,ct);TempData["Success"]="Registro salvo e auditado.";return Redirect(Action(recurso));}catch(Exception ex) when(ex is ArgumentException or InvalidOperationException){ModelState.AddModelError("",ex.Message);ViewData["Recurso"]=recurso;return View("RegistroForm",model);}}
+ [HttpPost("Medicoes/{id:long}/Homologar"),ValidateAntiForgeryToken,Authorize(Policy="OBRAS_MEDICAO_HOMOLOGAR")]public async Task<IActionResult> Homologar(long id,CancellationToken ct){await repository.HomologarMedicaoAsync(Contexto(),id,ct);TempData["Success"]="Medição homologada e disponibilizada para integração.";return RedirectToAction(nameof(Medicoes));}
+ [HttpGet("Relatorios"),Authorize(Policy="OBRAS_RELATORIO_EXPORT")]public IActionResult Relatorios()=>View("Relatorios");
+ [HttpGet("Relatorios/{relatorio}.csv"),Authorize(Policy="OBRAS_RELATORIO_EXPORT")]public async Task<IActionResult> Csv(string relatorio,CancellationToken ct)=>File(await repository.ExportarCsvAsync(Contexto(),relatorio,Filtro(),ct),"text/csv; charset=utf-8",$"obras-{relatorio}-{DateTime.UtcNow:yyyyMMdd}.csv");
+ [HttpGet("ObrasCsv"),Authorize(Policy="OBRAS_RELATORIO_EXPORT")]public Task<IActionResult> ObrasCsv(CancellationToken ct)=>Csv("obras-status-localidade",ct);
+ private async Task<IActionResult> Lista(string titulo,string recurso,string? busca,string? status,int pagina,CancellationToken ct)=>View("Lista",new ObrasListaViewModel(titulo,recurso,await repository.ListarAsync(Contexto(),recurso,Filtro(busca,status,pagina),ct),Filtro(busca,status,pagina)));
+ private ObrasContexto Contexto(){if(!long.TryParse(User.FindFirst("tenant_id")?.Value,out var t)||t<=0||!long.TryParse(User.FindFirst("entidade_id")?.Value,out var e)||e<=0)throw new UnauthorizedAccessException("Tenant/entidade não resolvidos.");long.TryParse(User.FindFirst("sub")?.Value??User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,out var u);return new(t,e,u>0?u:null,HttpContext.TraceIdentifier,HttpContext.Connection.RemoteIpAddress?.ToString());}
+ private static ObrasFiltro Filtro(string? busca=null,string? status=null,int pagina=1)=>new(busca,status,null,null,null,null,null,null,null,Math.Max(1,pagina),20);
+ private static string Action(string r)=>r switch{"projetos"=>"/Obras/Projetos","orcamentos"=>"/Obras/Orcamentos","cronogramas"=>"/Obras/Cronogramas","medicoes"=>"/Obras/Medicoes","diarios"=>"/Obras/DiarioObra","fiscalizacoes"=>"/Obras/Fiscalizacao","ocorrencias"=>"/Obras/Ocorrencias","ordens-servico"=>"/Obras/OrdensServico","convenios"=>"/Obras/Convenios","documentos"=>"/Obras/Documentos",_=>"/Obras"};
 }
