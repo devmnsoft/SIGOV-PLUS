@@ -1303,6 +1303,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.habitacao_familia') is not null and to_regclass('sigov.habitacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HABITACAO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825110000",
+      "description": "FUNC17 Procuradoria Jurídica, Contencioso e Dívida Ativa Judicial",
+      "category": "functional",
+      "file": "20260825110000_func17_procuradoria_juridica_contencioso.sql",
+      "checksum": "52b30af5bac763cd6903de92c80740996407e873c2e7fd6a170880ffeac35116",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.juridico_processo') is not null and to_regclass('sigov.juridico_auditoria') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
