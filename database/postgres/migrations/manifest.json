@@ -1313,6 +1313,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.juridico_processo') is not null and to_regclass('sigov.juridico_auditoria') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825120000",
+      "description": "FUNC18 Trânsito, Mobilidade Urbana e Fiscalização de Transporte",
+      "category": "functional",
+      "file": "20260825120000_func18_transito_mobilidade_fiscalizacao.sql",
+      "checksum": "f862b25c2e1b93a09542ba242db81b42190e5bbca062430a6a11f9d8c27621ee",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.transito_auto_infracao') is not null and to_regclass('sigov.transito_auditoria') is not null and exists(select 1 from sigov.permissao where chave='TRANSITO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

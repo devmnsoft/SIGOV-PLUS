@@ -1,0 +1,1 @@
+@{ViewData["Title"]="Relatórios de Trânsito";}<h1 class="h3">Relatórios CSV</h1><partial name="_Nav"/><div class="list-group">@foreach(var x in new[]{"Autos","Notificacoes","Recursos","Ocorrencias","Sinalizacao","Autorizacoes","Vistorias","Credenciais"}){<a class="list-group-item list-group-item-action" href="/Transito/Relatorios/@x.csv">Exportar @x (CSV)</a>}</div>

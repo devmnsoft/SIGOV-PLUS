@@ -713,6 +713,7 @@ public static class DependencyInjection
         services.AddScoped<IEducacaoIndicadoresRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoIndicadoresService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoFundebService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoCustosService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoEducacensoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoAvaliacaoMagisterioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
 services.AddScoped<IHabitacaoRepository, HabitacaoRepository>();
 services.AddScoped<IJuridicoRepository, JuridicoRepository>();
+services.AddScoped<Sigov.Application.Transito.ITransitoRepository, Sigov.Infrastructure.Transito.TransitoRepository>();
         return services;
     }
 }
