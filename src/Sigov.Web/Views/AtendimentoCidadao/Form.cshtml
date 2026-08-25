@@ -1,2 +1,13 @@
 @model Sigov.Application.Atendimento.AtendimentoRegistroRequest
-@{ViewData["Title"]=ViewData["Titulo"];}<h1 class="h3">@ViewData["Titulo"]</h1><partial name="_Nav"/><form method="post" action="/AtendimentoCidadao/@ViewData["Recurso"]/Salvar" class="card card-body" asp-antiforgery="true"><div asp-validation-summary="All" class="text-danger"></div><label class="form-label">Código</label><input asp-for="Codigo" class="form-control mb-3" maxlength="80"/><label class="form-label">Descrição</label><textarea asp-for="Descricao" class="form-control mb-3" required maxlength="8000"></textarea><label class="form-label">Status</label><input asp-for="Status" class="form-control mb-3" required/><label class="form-label">Justificativa (obrigatória para conclusão, cancelamento, arquivamento, negativa, prorrogação e encerramento)</label><textarea asp-for="Justificativa" class="form-control mb-3"></textarea><label class="form-label">Metadados JSON (sem anexos)</label><textarea asp-for="DadosJson" class="form-control font-monospace mb-3"></textarea><button class="btn btn-primary align-self-start">Salvar</button></form>
+@{ ViewData["Title"] = ViewData["Titulo"]; var recurso = Convert.ToString(ViewData["Recurso"]) ?? ""; }
+<h1 class="h3">@ViewData["Titulo"]</h1>
+<partial name="_Nav"/>
+<form method="post" asp-controller="AtendimentoCidadao" asp-action="Salvar" asp-route-recurso="@recurso" class="card card-body" asp-antiforgery="true">
+  <div asp-validation-summary="All" class="text-danger"></div>
+  <label class="form-label">Código</label><input asp-for="Codigo" class="form-control mb-3" maxlength="80"/>
+  <label class="form-label">Descrição</label><textarea asp-for="Descricao" class="form-control mb-3" required maxlength="8000"></textarea>
+  <label class="form-label">Status</label><input asp-for="Status" class="form-control mb-3" required/>
+  <label class="form-label">Justificativa (obrigatória para conclusão, cancelamento, arquivamento, negativa, prorrogação e encerramento)</label><textarea asp-for="Justificativa" class="form-control mb-3"></textarea>
+  <label class="form-label">Metadados JSON (sem anexos)</label><textarea asp-for="DadosJson" class="form-control font-monospace mb-3"></textarea>
+  <div><button class="btn btn-primary">Salvar</button> <a asp-controller="AtendimentoCidadao" asp-action="Lista" asp-route-recurso="@recurso" class="btn btn-outline-secondary">Cancelar</a></div>
+</form>
