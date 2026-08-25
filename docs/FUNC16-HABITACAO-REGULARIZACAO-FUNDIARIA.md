@@ -19,3 +19,7 @@ Inscrição ativa é única por família/programa. Estados terminais e exceçõe
 ## Operação
 
 Aplicar `database/postgres/migrations/20260825100000_func16_habitacao_regularizacao_fundiaria.sql` com `psql -v ON_ERROR_STOP=1`. A conexão segue `ConnectionStrings__DefaultConnection`.
+
+## Fechamento CORR16
+
+O fechamento endurece respostas de rota, RBAC, auditoria, transações, JSON e CSV e adiciona navegação interna segura com Tag Helpers. O resultado e os bloqueios objetivos de validação estão em `docs/entregas/FUNC16-HABITACAO-REGULARIZACAO-FUNDIARIA-FECHAMENTO.md`.
