@@ -1,3 +1,4 @@
 @model Sigov.Application.Habitacao.HabitacaoDashboard
 @{ViewData["Title"]="Habitação";var cards=new[]{("Famílias",Model.Familias),("Inscrições ativas",Model.InscricoesAtivas),("Vulnerabilidade alta",Model.VulnerabilidadeAlta),("Programas ativos",Model.ProgramasAtivos),("Visitas pendentes",Model.VisitasPendentes),("Lotes/unidades disponíveis",Model.Disponiveis),("Regularizações",Model.Regularizacoes),("Beneficiários",Model.Beneficiarios),("Termos pendentes",Model.TermosPendentes)};}
+<partial name="_Nav" />
 <header class="d-flex justify-content-between mb-4"><div><h1>Habitação</h1><p class="text-muted">Gestão habitacional e regularização fundiária.</p></div><a class="btn btn-primary" href="/Habitacao/Familias">Operar famílias</a></header><div class="row g-3">@foreach(var c in cards){<div class="col-md-4"><div class="card h-100"><div class="card-body"><span class="text-muted">@c.Item1</span><strong class="display-6 d-block">@c.Item2</strong></div></div></div>}</div>

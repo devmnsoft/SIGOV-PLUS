@@ -1,0 +1,6 @@
+<nav class="nav nav-pills flex-wrap gap-1 mb-4" aria-label="Navegação de Habitação">
+    <a class="nav-link" asp-controller="Habitacao" asp-action="Index">Dashboard</a>
+    @foreach (var item in new[] { "Familias", "Membros", "Domicilios", "Programas", "Inscricoes", "Classificacao", "Visitas", "Regularizacao", "Nucleos", "Lotes", "Unidades", "Beneficiarios", "Auditoria" })
+    { <a class="nav-link" asp-controller="Habitacao" asp-action="Lista" asp-route-recurso="@item">@item</a> }
+    <a class="nav-link" asp-controller="Habitacao" asp-action="Relatorios">Relatórios</a>
+</nav>
