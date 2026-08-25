@@ -1,55 +1,32 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using Sigov.Application.Abstractions;
+using Sigov.Application.Agro;
 namespace Sigov.Web.Controllers;
-
-[Authorize]
-public sealed class AgroController : Controller
+[Authorize,Route("Agro")]
+public sealed class AgroController(IAgroService service,ICurrentTenant tenant,ICurrentUser user,ILogger<AgroController> logger):Controller
 {
-    public IActionResult Dashboard() => View();
-    public IActionResult MapaRural() => View();
-    public IActionResult CamadasGeo() => View();
-    public IActionResult Produtores() => View();
-    public IActionResult ProdutorDetalhe(long id) { ViewData["ProdutorId"] = id; return View(); }
-    public IActionResult Propriedades() => View();
-    public IActionResult PropriedadeDetalhe(long id) { ViewData["PropriedadeId"] = id; return View(); }
-    public IActionResult Talhoes() => View();
-    public IActionResult Culturas() => View();
-    public IActionResult Safras() => View();
-    public IActionResult Producao() => View();
-    [HttpGet("/Agro/Programas")]
-    public IActionResult Programas() => View();
-    public IActionResult Beneficios() => View();
-    public IActionResult ConcessoesBeneficios() => View();
-    public IActionResult Insumos() => View();
-    public IActionResult DistribuicaoInsumos() => View();
-    public IActionResult PatrulhaMecanizada() => View();
-    [HttpGet("/Agro/Patrulha")]
-    public IActionResult Patrulha() => View("PatrulhaMecanizada");
-    public IActionResult Maquinas() => View();
-    public IActionResult MaquinaDetalhe(long id) { ViewData["MaquinaId"] = id; return View(); }
-    public IActionResult Implementos() => View();
-    public IActionResult AgendaMaquinas() => View();
-    public IActionResult ServicosMaquina() => View();
-    public IActionResult ServicoMaquinaDetalhe(long id) { ViewData["ServicoMaquinaId"] = id; return View(); }
-    public IActionResult EstradasVicinais() => View();
-    public IActionResult EstradaVicinalDetalhe(long id) { ViewData["EstradaVicinalId"] = id; return View(); }
-    public IActionResult PontosCriticos() => View();
-    public IActionResult OcorrenciasRurais() => View();
-    public IActionResult ManutencoesRurais() => View();
-    public IActionResult Feiras() => View();
-    public IActionResult FeiraDetalhe(long id) { ViewData["FeiraId"] = id; return View(); }
-    public IActionResult Feirantes() => View();
-    public IActionResult Agroindustrias() => View();
-    public IActionResult AgroindustriaDetalhe(long id) { ViewData["AgroindustriaId"] = id; return View(); }
-    public IActionResult InspecoesMunicipais() => View();
-    public IActionResult ComprasAgriculturaFamiliar() => View();
-    public IActionResult Bi() => View();
-    public IActionResult Indicadores() => View();
-    public IActionResult Relatorios() => View();
-    public IActionResult ExecutarRelatorio(long id) { ViewData["ModeloId"] = id; return View(); }
-    public IActionResult Transparencia() => View();
-    public IActionResult Datasets() => View();
-    public IActionResult DicionarioDados() => View();
-    public IActionResult PainelComercial() => View();
+ [HttpGet(""),HttpGet("Dashboard"),Authorize(Policy=AgroPermissoes.DashboardView)]public async Task<IActionResult> Dashboard([FromQuery]AgroFiltro f,CancellationToken ct)=>View(await service.DashboardAsync(T(),E(),f,ct));
+ [HttpGet("Produtores"),Authorize(Policy=AgroPermissoes.ProdutorView)]public Task<IActionResult> Produtores([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Produtores rurais","produtores",f,ct);
+ [HttpGet("Propriedades"),Authorize(Policy=AgroPermissoes.PropriedadeView)]public Task<IActionResult> Propriedades([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Propriedades rurais","propriedades",f,ct);
+ [HttpGet("Atividades"),Authorize(Policy=AgroPermissoes.AtividadeView)]public Task<IActionResult> Atividades([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Atividades produtivas","atividades",f,ct);
+ [HttpGet("AssistenciaTecnica"),Authorize(Policy=AgroPermissoes.AssistenciaView)]public Task<IActionResult> Assistencia([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Assistência técnica e visitas","assistenciatecnica",f,ct);
+ [HttpGet("Programas"),Authorize(Policy=AgroPermissoes.ProgramaView)]public Task<IActionResult> Programas([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Programas rurais e beneficiários","programas",f,ct);
+ [HttpGet("Insumos"),Authorize(Policy=AgroPermissoes.InsumoView)]public Task<IActionResult> Insumos([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Insumos, mudas e sementes","insumos",f,ct);
+ [HttpGet("Patrulha"),Authorize(Policy=AgroPermissoes.PatrulhaView)]public Task<IActionResult> Patrulha([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Patrulha mecanizada","patrulha",f,ct);
+ [HttpGet("Feiras"),Authorize(Policy=AgroPermissoes.FeiraView)]public Task<IActionResult> Feiras([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Feiras e comercialização","feiras",f,ct);
+ [HttpGet("Agroindustrias"),Authorize(Policy=AgroPermissoes.AgroindustriaView)]public Task<IActionResult> Agroindustrias([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Agroindústrias e orientações","agroindustrias",f,ct);
+ [HttpGet("Solicitacoes"),Authorize(Policy=AgroPermissoes.SolicitacaoView)]public Task<IActionResult> Solicitacoes([FromQuery]AgroFiltro f,CancellationToken ct)=>Lista("Solicitações e atendimentos","solicitacoes",f,ct);
+ [HttpGet("Relatorios"),Authorize(Policy=AgroPermissoes.RelatorioExport)]public IActionResult Relatorios()=>View();
+ [HttpGet("Relatorios/{tipo}.csv"),Authorize(Policy=AgroPermissoes.RelatorioExport)]public async Task<IActionResult> Csv(string tipo,[FromQuery]AgroFiltro f,CancellationToken ct)=>File(await service.ExportarAsync(T(),E(),U(),Trace(),tipo,f,ct),"text/csv; charset=utf-8",$"agro-{tipo}-{DateTime.UtcNow:yyyyMMdd}.csv");
+ [HttpGet("Produtores/Novo"),Authorize(Policy=AgroPermissoes.ProdutorManage)]public IActionResult NovoProdutor()=>View("ProdutorForm",new ProdutorInput("PF","","",null,null,null,null,null,null,"ATIVO",null));
+ [HttpPost("Produtores/Novo"),ValidateAntiForgeryToken,Authorize(Policy=AgroPermissoes.ProdutorManage)]public async Task<IActionResult> NovoProdutor(ProdutorInput input,CancellationToken ct)=>await Salvar(async()=>await service.CriarProdutorAsync(T(),E(),U(),Trace(),input,ct),"/Agro/Produtores","Produtor cadastrado.","ProdutorForm",input);
+ [HttpGet("Propriedades/Nova"),Authorize(Policy=AgroPermissoes.PropriedadeManage)]public IActionResult NovaPropriedade()=>View("PropriedadeForm",new PropriedadeInput("",0,0,null,null,null,null,null,null,null,"ATIVA",null,null));
+ [HttpPost("Propriedades/Nova"),ValidateAntiForgeryToken,Authorize(Policy=AgroPermissoes.PropriedadeManage)]public async Task<IActionResult> NovaPropriedade(PropriedadeInput input,CancellationToken ct)=>await Salvar(async()=>await service.CriarPropriedadeAsync(T(),E(),U(),Trace(),input,ct),"/Agro/Propriedades","Propriedade cadastrada.","PropriedadeForm",input);
+ [HttpPost("{recurso}/Novo"),ValidateAntiForgeryToken]public async Task<IActionResult> Novo(string recurso,AgroOperacaoInput input,CancellationToken ct){var policy=Manage(recurso);var authorized=await HttpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(User,policy);if(!authorized.Succeeded)return Forbid();return await Salvar(async()=>await service.CriarAsync(T(),E(),U(),Trace(),recurso,input,ct),$"/Agro/{recurso}","Registro salvo.","Lista",await service.ListarAsync(T(),E(),recurso,new(),ct));}
+ [HttpPost("{recurso}/{id:long}/Excluir"),ValidateAntiForgeryToken]public async Task<IActionResult> Excluir(string recurso,long id,CancellationToken ct){var authorized=await HttpContext.RequestServices.GetRequiredService<IAuthorizationService>().AuthorizeAsync(User,Manage(recurso));if(!authorized.Succeeded)return Forbid();await service.ExcluirAsync(T(),E(),U(),Trace(),recurso,id,ct);TempData["Success"]="Registro excluído com retenção auditável.";return Redirect($"/Agro/{recurso}");}
+ async Task<IActionResult> Lista(string title,string resource,AgroFiltro f,CancellationToken ct){ViewData["Title"]=title;ViewData["Recurso"]=resource;ViewData["ManagePolicy"]=Manage(resource);return View("Lista",await service.ListarAsync(T(),E(),resource,f,ct));}
+ async Task<IActionResult> Salvar(Func<Task> action,string redirect,string success,string view,object model){try{await action();TempData["Success"]=success;return Redirect(redirect);}catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){ModelState.AddModelError("",ex.Message);return View(view,model);}catch(Exception ex){logger.LogError(ex,"Falha no módulo Agro. CorrelationId={CorrelationId}",Trace());ModelState.AddModelError("",$"Não foi possível concluir. Referência: {Trace()}");return View(view,model);}}
+ static string Manage(string r)=>r.ToLowerInvariant() switch{"produtores"=>AgroPermissoes.ProdutorManage,"propriedades"=>AgroPermissoes.PropriedadeManage,"atividades"=>AgroPermissoes.AtividadeManage,"assistenciatecnica"=>AgroPermissoes.AssistenciaManage,"programas"=>AgroPermissoes.ProgramaManage,"insumos"=>AgroPermissoes.InsumoManage,"patrulha"=>AgroPermissoes.PatrulhaManage,"feiras"=>AgroPermissoes.FeiraManage,"agroindustrias"=>AgroPermissoes.AgroindustriaManage,"solicitacoes"=>AgroPermissoes.SolicitacaoManage,_=>throw new ArgumentException("Recurso inválido.")};
+ long T()=>tenant.TenantId??throw new UnauthorizedAccessException("Tenant não resolvido.");long E()=>tenant.EntidadeId??throw new UnauthorizedAccessException("Entidade não resolvida.");long U()=>user.UsuarioId??throw new UnauthorizedAccessException("Usuário não resolvido.");string Trace()=>HttpContext.TraceIdentifier;
 }

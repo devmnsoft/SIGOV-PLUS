@@ -1243,6 +1243,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.financeiro_ordem_pagamento') is not null and to_regclass('sigov.financeiro_suprimento') is not null and exists(select 1 from sigov.permissao where chave='FINANCEIRO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825050000",
+      "description": "FUNC11 Agro e Desenvolvimento Rural",
+      "category": "functional",
+      "file": "20260825050000_func11_agro_desenvolvimento_rural.sql",
+      "checksum": "d5a269a1812ff2e0f04e9e61661fc8e89e4042653c341b0c71a1c43c341ced85",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.agro_produtor') is not null and to_regclass('sigov.agro_solicitacao') is not null and exists(select 1 from sigov.permissao where chave='AGRO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
