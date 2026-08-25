@@ -29,6 +29,8 @@ using Sigov.Application.Obras.Engenharia;
 using Sigov.Infrastructure.Obras;
 using Sigov.Infrastructure.Ambiental;
 using Sigov.Infrastructure.Atendimento;
+using Sigov.Application.Habitacao;
+using Sigov.Infrastructure.Habitacao;
 using Sigov.Infrastructure.Financeiro;
 using Sigov.Application.FinanceiroEmpresarial;
 using Sigov.Infrastructure.FinanceiroEmpresarial;
@@ -707,6 +709,7 @@ public static class DependencyInjection
         services.AddScoped<IEducacaoMerendaRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaEstoqueService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaCardapioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoMerendaRelatorioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
         services.AddScoped<IEducacaoBibliotecaRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaEmprestimoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaRelatorioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
         services.AddScoped<IEducacaoIndicadoresRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoIndicadoresService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoFundebService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoCustosService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoEducacensoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoAvaliacaoMagisterioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
-return services;
+services.AddScoped<IHabitacaoRepository, HabitacaoRepository>();
+        return services;
     }
 }
