@@ -30,7 +30,9 @@ using Sigov.Infrastructure.Obras;
 using Sigov.Infrastructure.Ambiental;
 using Sigov.Infrastructure.Atendimento;
 using Sigov.Application.Habitacao;
+using Sigov.Application.Juridico;
 using Sigov.Infrastructure.Habitacao;
+using Sigov.Infrastructure.Juridico;
 using Sigov.Infrastructure.Financeiro;
 using Sigov.Application.FinanceiroEmpresarial;
 using Sigov.Infrastructure.FinanceiroEmpresarial;
@@ -710,6 +712,7 @@ public static class DependencyInjection
         services.AddScoped<IEducacaoBibliotecaRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaEmprestimoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoBibliotecaRelatorioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
         services.AddScoped<IEducacaoIndicadoresRepository>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoIndicadoresService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoFundebService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoCustosService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoEducacensoService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>()); services.AddScoped<IEducacaoAvaliacaoMagisterioService>(sp => sp.GetRequiredService<EducacaoAvancadaRepository>());
 services.AddScoped<IHabitacaoRepository, HabitacaoRepository>();
+services.AddScoped<IJuridicoRepository, JuridicoRepository>();
         return services;
     }
 }
