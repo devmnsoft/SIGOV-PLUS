@@ -1,12 +1,21 @@
-# Fechamento FUNC18
+# Fechamento técnico CORR18 — FUNC18
 
-Entrega persistente e integrada do módulo municipal de trânsito. Inclui 19 tabelas, 29 permissões, 21 endpoints/telas, navegação, validações de domínio, isolamento tenant/entidade, auditoria e oito famílias de CSV. Todos os relacionamentos dos formulários usam opções reais do banco; nenhum ID relacional é solicitado em campo de texto. Scripts consolidados e manifesto estão sincronizados. Consulte `docs/FUNC18-TRANSITO-MOBILIDADE-FISCALIZACAO.md` para inventário e comandos.
+## Correções realizadas
 
-Pendências devem ser limitadas a validações bloqueadas por ferramentas/serviços ausentes no ambiente; não há fallback fictício.
+- Persistência Dapper protegida por whitelist explícita de campos para cada recurso, sem coluna arbitrária oriunda do formulário.
+- Isolamento por tenant/entidade na listagem, opções, gravação, exclusão, dashboard e CSV; vínculos são validados no mesmo contexto.
+- Seletores reais e identificáveis para todos os relacionamentos, com CPF mascarado onde aplicável e nenhum input manual de ID.
+- Antiforgery nos POSTs, resumo de validação, preservação de campos e recarga das listas após erro.
+- Validações server-side para autos, notificações, recursos, julgamentos, ocorrências, sinalização, intervenções, rotas, autorizações, vistorias e credenciais.
+- Filtros reais por busca, status e período; CSV limitado às oito famílias autorizadas e protegido contra CSV injection.
+- Dashboard permanece inteiramente baseado em consultas PostgreSQL do contexto ativo; navegação responsiva reorganizada em Cadastros, Fiscalização e Transporte urbano.
+- Migration corretiva idempotente, manifesto e scripts consolidados sincronizados, sem alterar a migration FUNC18 publicada.
 
-## Comandos executados
-- `dotnet restore sigov.sln && dotnet build sigov.sln --no-restore`: **BLOCKED**, o executável `dotnet` não existe no ambiente (`command not found`).
+## Validação e bloqueios reais
+
 - `python3 -m json.tool database/postgres/migrations/manifest.json`: aprovado.
-- checksum SHA-256 da migration comparado ao manifesto: aprovado.
-- aplicação com `psql`: **BLOCKED**, o executável `psql` não existe no ambiente.
-- inspeções `rg` de IDs visíveis, ValidationSummary, validações e formulários POST: aprovadas.
+- checksum SHA-256 da migration corretiva comparado ao manifesto: aprovado.
+- inspeção com `rg` de formulários relacionais e antiforgery: aprovada.
+- `dotnet restore sigov.sln` e `dotnet build sigov.sln --no-restore`: **BLOCKED** — `dotnet: command not found`.
+- aplicação da migration em PostgreSQL local: **BLOCKED** — `psql: command not found`.
+- smoke manual em navegador: **BLOCKED** — a aplicação não pode ser iniciada sem o runtime .NET e sem PostgreSQL.

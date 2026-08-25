@@ -1323,6 +1323,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.transito_auto_infracao') is not null and to_regclass('sigov.transito_auditoria') is not null and exists(select 1 from sigov.permissao where chave='TRANSITO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825121000",
+      "description": "CORR18 validações e índices de Trânsito",
+      "category": "corrective",
+      "file": "20260825121000_corr18_transito_validacoes_indices.sql",
+      "checksum": "7d54ae2884409857f5dab616f6d883fff52f3f8100bfcdb9f25206d76179cd1a",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_transito_sinalizacao_datas')"
     }
   ],
   "compatibilityAfterAll": [

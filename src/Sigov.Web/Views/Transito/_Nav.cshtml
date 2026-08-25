@@ -1,1 +1,12 @@
-<nav class="nav nav-pills flex-wrap gap-1 mb-4" aria-label="Navegação de Trânsito"><a class="nav-link" href="/Transito/Dashboard">Dashboard</a>@foreach(var x in new[]{"Agentes","Condutores","Veiculos","Infracoes","Autos","Notificacoes","Recursos","Julgamentos","Ocorrencias","Sinalizacao","Intervencoes","Linhas","Rotas","Pontos","Autorizacoes","Vistorias","Credenciais","Relatorios","Auditoria"}){<a class="nav-link" href="/Transito/@x">@x</a>}</nav>
+<nav class="navbar navbar-expand-lg bg-body-tertiary rounded mb-4" aria-label="Navegação de Trânsito e Mobilidade">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/Transito/Dashboard">Trânsito e Mobilidade</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#transitoNav" aria-controls="transitoNav" aria-expanded="false" aria-label="Abrir navegação"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse" id="transitoNav"><ul class="navbar-nav flex-wrap">
+            <li class="nav-item"><a class="nav-link" href="/Transito/Dashboard">Dashboard</a></li>
+            @foreach (var grupo in new[] { ("Cadastros", new[] { "Agentes", "Condutores", "Veiculos", "Infracoes" }), ("Fiscalização", new[] { "Autos", "Notificacoes", "Recursos", "Julgamentos", "Ocorrencias", "Sinalizacao", "Intervencoes", "Vistorias" }), ("Transporte urbano", new[] { "Linhas", "Rotas", "Pontos", "Autorizacoes" }) })
+            {<li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">@grupo.Item1</a><ul class="dropdown-menu">@foreach(var item in grupo.Item2){<li><a class="dropdown-item" href="/Transito/@item">@item</a></li>}</ul></li>}
+            <li class="nav-item"><a class="nav-link" href="/Transito/Credenciais">Credenciais</a></li><li class="nav-item"><a class="nav-link" href="/Transito/Relatorios">Relatórios</a></li><li class="nav-item"><a class="nav-link" href="/Transito/Auditoria">Auditoria</a></li>
+        </ul></div>
+    </div>
+</nav>
