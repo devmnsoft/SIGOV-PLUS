@@ -1263,6 +1263,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.rh_folha_competencia') is not null and to_regclass('sigov.rh_auditoria') is not null and exists(select 1 from sigov.permissao where chave='RH_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825070000",
+      "description": "FUNC13 Obras Públicas, Engenharia e Fiscalização",
+      "category": "functional",
+      "file": "20260825070000_func13_obras_engenharia_fiscalizacao.sql",
+      "checksum": "9cef4d24362ff713397ba5bc61eb718666546e23895956eb8102f087b607556b",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.obras_obra') is not null and to_regclass('sigov.obras_auditoria') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
