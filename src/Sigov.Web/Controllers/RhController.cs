@@ -9,13 +9,26 @@ public sealed class RhController : Controller
     public IActionResult Pendencias() => View();
     public IActionResult Dashboard() => View();
     public IActionResult Servidores() => View(new RhRegistroViewModel("servidores", "Servidores"));
+    [Route("/Rh/Servidores/Novo")]
     public IActionResult ServidorCriar() => View(new RhRegistroViewModel("servidores", "Novo Servidor"));
     public IActionResult ServidorEditar(long id) { ViewData["ServidorId"] = id; return View(new RhRegistroViewModel("servidores", "Editar Servidor")); }
     public IActionResult ServidorDetalhe(long id) { ViewData["ServidorId"] = id; return View(new RhRegistroViewModel("servidores", "Detalhe do Servidor")); }
     public IActionResult Cargos() => View(new RhRegistroViewModel("cargos", "Cargos"));
+    public IActionResult Funcoes() => View("RegistroFunc12", new RhRegistroViewModel("funcoes", "Funções"));
+    public IActionResult Dependentes() => View("RegistroFunc12", new RhRegistroViewModel("dependentes", "Dependentes"));
+    public IActionResult Frequencia() => View("RegistroFunc12", new RhRegistroViewModel("frequencias", "Frequência"));
     public IActionResult Lotacoes() => View(new RhRegistroViewModel("lotacoes", "Lotações"));
     public IActionResult Vinculos() => View(new RhRegistroViewModel("vinculos", "Vínculos"));
     public IActionResult Folhas() => View(new RhRegistroViewModel("folhas", "Folhas de Pagamento"));
+    public IActionResult Folha() => RedirectToAction(nameof(Folhas));
+    [Route("/Rh/Folha/Calcular")]
+    public IActionResult Calcular() => View("OperacaoFolha", new RhRegistroViewModel("folhas", "Calcular folha"));
+    [Route("/Rh/Folha/Homologar")]
+    public IActionResult Homologar() => View("OperacaoFolha", new RhRegistroViewModel("folhas", "Homologar folha"));
+    public IActionResult Holerites() => View("RegistroFunc12", new RhRegistroViewModel("holerites", "Holerites"));
+    public IActionResult IntegracaoFinanceira() => View("RegistroFunc12", new RhRegistroViewModel("integracoes-financeiras", "Integração financeira"));
+    public IActionResult Relatorios() => View("Relatorios");
+    public IActionResult Auditoria() => View("RegistroFunc12", new RhRegistroViewModel("auditoria", "Auditoria de RH"));
     public IActionResult FolhaCriar() => View(new RhRegistroViewModel("folhas", "Nova Folha"));
     public IActionResult FolhaDetalhe(long id) { ViewData["FolhaId"] = id; return View(new RhRegistroViewModel("folhas", "Detalhe da Folha")); }
     public IActionResult FolhaEventos() => View(new RhRegistroViewModel("folha-eventos", "Eventos da Folha"));

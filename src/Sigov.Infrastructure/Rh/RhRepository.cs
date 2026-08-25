@@ -192,6 +192,9 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         }
 
         var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        // Neutraliza fórmulas interpretáveis por Excel/LibreOffice antes do escaping RFC 4180.
+        var first = text.AsSpan().TrimStart();
+        if (!first.IsEmpty && first[0] is '=' or '+' or '-' or '@') text = "'" + text;
         text = text.Replace("\"", "\"\"", StringComparison.Ordinal);
 
         return text.IndexOfAny(new[] { ';', '\"', '\r', '\n' }) >= 0
