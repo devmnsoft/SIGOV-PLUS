@@ -1283,6 +1283,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.ambiental_requerimento') is not null and to_regclass('sigov.ambiental_auditoria') is not null and exists(select 1 from sigov.permissao where chave='AMBIENTAL_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825090000",
+      "description": "FUNC15 Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços",
+      "category": "functional",
+      "file": "20260825090000_func15_ouvidoria_atendimento_esic.sql",
+      "checksum": "568b1f57531c05c45c21fcb10054e874a8dc3b5b5022c16cc12517242d949641",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.atendimento_demanda') is not null and to_regclass('sigov.atendimento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='ATENDIMENTO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
