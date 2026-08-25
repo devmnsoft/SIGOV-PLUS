@@ -11,3 +11,8 @@ Rotas sob `/Juridico` oferecem dashboard calculado no banco, filtros, paginaçã
 
 ## Instalação
 Aplique `database/postgres/migrations/20260825110000_func17_procuradoria_juridica_contencioso.sql` com `psql -v ON_ERROR_STOP=1`. Configure exclusivamente `ConnectionStrings__DefaultConnection` no ambiente.
+
+## Fechamento de segurança e rotas
+Relatórios exigem `JURIDICO_RELATORIO_EXPORT`; auditoria exige `JURIDICO_AUDITORIA_VIEW`, é somente leitura e guarda metadados sem duplicar o JSON funcional. Controles de alteração só aparecem após avaliação da permissão `*_MANAGE`. Ausência do contexto oficial resulta em `Forbid`, sem substituto.
+
+Rotas confirmadas: `/Juridico`, `/Juridico/Dashboard`, `/Juridico/Advogados`, `/Juridico/Partes`, `/Juridico/Processos`, `/Juridico/Movimentacoes`, `/Juridico/Prazos`, `/Juridico/Intimacoes`, `/Juridico/Audiencias`, `/Juridico/Pareceres`, `/Juridico/Consultas`, `/Juridico/Acordos`, `/Juridico/DividaAtiva`, `/Juridico/Custas`, `/Juridico/Relatorios` e `/Juridico/Auditoria`.

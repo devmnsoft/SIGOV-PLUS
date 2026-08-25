@@ -34,7 +34,8 @@ public sealed class JuridicoController(
         try
         {
             var filter = new JuridicoFiltro(busca, status, Math.Max(1, pagina));
-            return View("Lista", new JuridicoListaViewModel(meta.Title, key, await repository.ListarAsync(Context(), key, filter, ct), filter, key != "auditoria"));
+            var canManage = key != "auditoria" && await Allowed(meta.Manage);
+            return View("Lista", new JuridicoListaViewModel(meta.Title, key, await repository.ListarAsync(Context(), key, filter, ct), filter, canManage));
         }
         catch (Exception ex) { return FunctionalError(ex, $"listar {key}"); }
     }
@@ -62,6 +63,7 @@ public sealed class JuridicoController(
             TempData["Success"] = "Registro salvo com histórico e auditoria.";
             return RedirectToAction(nameof(Lista), new { recurso = Route(key) });
         }
+        catch (UnauthorizedAccessException) { return Forbid(); }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
         {
             logger.LogWarning(ex, "Falha funcional ao salvar {Recurso}. CorrelationId {CorrelationId}", key, HttpContext.TraceIdentifier);
@@ -115,6 +117,7 @@ public sealed class JuridicoController(
 
     private IActionResult FunctionalError(Exception ex, string operation)
     {
+        if (ex is UnauthorizedAccessException) return Forbid();
         logger.LogError(ex, "Falha ao {Operation}. CorrelationId {CorrelationId}", operation, HttpContext.TraceIdentifier);
         return Problem($"Não foi possível {operation}. Referência: {HttpContext.TraceIdentifier}", statusCode: StatusCodes.Status500InternalServerError);
     }
