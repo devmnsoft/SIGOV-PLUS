@@ -1273,6 +1273,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.obras_obra') is not null and to_regclass('sigov.obras_auditoria') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825080000",
+      "description": "FUNC14 Meio Ambiente, Licenciamento e Fiscalização",
+      "category": "functional",
+      "file": "20260825080000_func14_meio_ambiente_licenciamento_fiscalizacao.sql",
+      "checksum": "664ed3d4f1151fb92f1d6abfd9832ece34353f9302b7b5f5709135859788b2ab",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.ambiental_requerimento') is not null and to_regclass('sigov.ambiental_auditoria') is not null and exists(select 1 from sigov.permissao where chave='AMBIENTAL_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

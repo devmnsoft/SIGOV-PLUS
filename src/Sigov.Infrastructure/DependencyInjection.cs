@@ -27,6 +27,7 @@ using Sigov.Application.Obras;
 using Sigov.Infrastructure.Frotas;
 using Sigov.Application.Obras.Engenharia;
 using Sigov.Infrastructure.Obras;
+using Sigov.Infrastructure.Ambiental;
 using Sigov.Infrastructure.Financeiro;
 using Sigov.Application.FinanceiroEmpresarial;
 using Sigov.Infrastructure.FinanceiroEmpresarial;
@@ -643,6 +644,7 @@ public static class DependencyInjection
         services.AddScoped<FrotasObrasRepository>();
         services.AddScoped<IObrasRepository, FrotasObrasRepository>();
         services.AddScoped<IObrasEngenhariaRepository, ObrasEngenhariaRepository>();
+        services.AddScoped<Sigov.Application.Ambiental.IAmbientalRepository, AmbientalRepository>();
         services.AddScoped<IFrotasService, Sigov.Infrastructure.Frotas.FrotasService>();
         services.AddScoped<IObrasService, ObrasService>();
                 services.AddScoped<Bloco8Repository>();
