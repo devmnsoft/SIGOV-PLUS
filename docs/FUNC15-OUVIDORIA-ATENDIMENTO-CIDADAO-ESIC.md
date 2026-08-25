@@ -17,3 +17,7 @@ Queries filtram `tenant_id`, `entidade_id` e `is_deleted=false`; SQL parametriza
 
 ## Limites
 InovaGED, GED e Protocolo não foram alterados. Não foram criados testes ou dados fictícios. Prazo e-SIC é parametrizável em `atendimento_sla_parametro`.
+
+## Fechamento CORR15 (2026-08-25)
+
+A correção de fechamento normalizou os formulários Razor com Tag Helpers, tornou a Carta pública fail-safe quando não há contexto institucional, restringiu a carta a serviços ativos/não excluídos, reforçou o sigilo da exportação de Ouvidoria, normalizou JSON vazio e reduziu os dados registrados na auditoria. Os resultados e bloqueios objetivos de build, banco e smoke test estão documentados em `docs/entregas/FUNC15-OUVIDORIA-ATENDIMENTO-CIDADAO-ESIC-FECHAMENTO.md`.
