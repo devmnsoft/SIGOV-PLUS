@@ -269,3 +269,6 @@ O módulo funcional de patrimônio público está disponível em `/Patrimonio`, 
 ## FUNC02 — Almoxarifado
 
 O módulo autenticado usa dados PostgreSQL do contexto tenant/entidade e está disponível em `/Almoxarifado`, com catálogo em `/Almoxarifado/Materiais`, saldos em `/Almoxarifado/Estoque`, entradas/saídas em `/Almoxarifado/Movimentacoes/*` e requisições em `/Almoxarifado/Requisicoes`. A API equivalente inicia em `/api/almoxarifado`. Consulte [`docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md`](docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md).
+
+### FUNC18 — Trânsito e Mobilidade
+O SIGOV-PLUS inclui gestão persistente de trânsito, fiscalização e transporte urbano em `/Transito`, com isolamento tenant/entidade, autorização proveniente do banco, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC18-TRANSITO-MOBILIDADE-FISCALIZACAO.md).

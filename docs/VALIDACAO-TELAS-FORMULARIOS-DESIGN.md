@@ -36,3 +36,6 @@ Auditoria estática em 25/08/2026 nas views funcionais: Patrimônio (7), Almoxar
 | navegador/screenshot | aplicação não executável | responsividade inspecionada apenas no Razor/Bootstrap |
 
 FUNC18 não foi iniciado. InovaGED, GED e Protocolo não tiveram regra de negócio alterada.
+
+## FUNC18 — Trânsito e Mobilidade
+As telas responsivas em `Views/Transito` usam cards, tabelas, estados vazios, badges, ValidationSummary, validação por campo, antiforgery e selects relacionais carregados do PostgreSQL. A inspeção obrigatória confirma que IDs de agente, condutor, veículo, infração, auto, notificação, recurso, linha, ponto e autorização não são digitáveis.
