@@ -97,3 +97,7 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 ## EXP13 — Obras360
 
 Implementação do fechamento operacional do FUNC13 entregue por migration corretiva/funcional, repositório Dapper, MVC/Razor, RBAC persistido, CSV seguro e documentação. Integrações externas preservam a autoridade dos módulos de origem e não usam fallback artificial.
+
+### CORR13 — Obras360
+
+Fechamento técnico concluído no código e nos artefatos SQL: validações de domínio, autorização fail-closed, read models Dapper, formulários Razor e exportações CSV revisados. A execução de build, PostgreSQL e smoke ficou registrada como `BLOCKED` por ausência das ferramentas no ambiente, sem simulação de sucesso.
