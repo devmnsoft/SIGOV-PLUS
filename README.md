@@ -272,3 +272,6 @@ O módulo autenticado usa dados PostgreSQL do contexto tenant/entidade e está d
 
 ### FUNC18 — Trânsito e Mobilidade
 O SIGOV-PLUS inclui gestão persistente de trânsito, fiscalização e transporte urbano em `/Transito`, com isolamento tenant/entidade, autorização proveniente do banco, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC18-TRANSITO-MOBILIDADE-FISCALIZACAO.md).
+
+### FUNC19 — Defesa Civil e Guarda Municipal
+O módulo persistente está disponível em `/Defesa`, com operação municipal, isolamento tenant/entidade, RBAC, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC19-DEFESA-CIVIL-GUARDA-MUNICIPAL.md).
