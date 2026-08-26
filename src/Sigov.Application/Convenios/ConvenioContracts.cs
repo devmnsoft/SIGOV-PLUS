@@ -7,7 +7,7 @@ public sealed record ConvenioFiltro(string? Busca,string? Status,DateOnly? Inici
 public sealed record ConvenioRegistro(long Id,string Codigo,string Descricao,string Status,DateTimeOffset CriadoEm);
 public sealed record ConvenioPagina(IReadOnlyList<ConvenioRegistro> Itens,int Pagina,int Tamanho,long Total);
 public sealed record ConvenioOpcao(long Id,string Rotulo);
-public sealed record ConvenioDashboard(long InstrumentosAtivos,long InstrumentosVencendo,long InstrumentosVencidos,decimal ValorGlobalExecucao,decimal ValorRepassado,decimal ValorExecutado,long ProjetosAtrasados,long MetasPendentes,long PrestacoesPendentes,long DiligenciasVencidas,long EmendasAno,decimal SaldoContas);
+public sealed record ConvenioDashboard(long InstrumentosAtivos,long InstrumentosVencendo,long InstrumentosVencidos,decimal ValorGlobalExecucao,decimal ValorRepassado,decimal ValorContrapartida,decimal ValorExecutado,long ProjetosAtrasados,long MetasPendentes,long PrestacoesPendentes,long DiligenciasAbertas,long DiligenciasVencidas,long EmendasAno,decimal SaldoContas);
 public sealed class ConvenioRegistroRequest
 {
     [Required(ErrorMessage="Informe a identificação.")] public string Codigo { get; set; }="";
