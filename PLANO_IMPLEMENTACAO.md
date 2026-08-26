@@ -84,3 +84,12 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - [x] Dapper parametrizado, antiforgery, validação server-side e seleção de relacionamentos.
 - [ ] BLOCKED: `dotnet build --no-restore` não executado porque o SDK dotnet não está instalado no ambiente.
 - [ ] Smoke executável depende de runtime e PostgreSQL configurado.
+
+## CORR03 — fechamento LicitaPro IA no FUNC03
+
+- [x] Consolidar navegação, dashboard e telas reais do LicitaPro no FUNC03.
+- [x] Remover entrada manual de identificadores relacionais e preservar ModelState.
+- [x] Aplicar validações server-side de oportunidade, documento e agenda.
+- [x] Corrigir filtros e cabeçalhos/proteção de CSV.
+- [x] Sincronizar migration corretiva, manifest e scripts PostgreSQL consolidados.
+- [x] Documentar limite explícito: sem Fiscaliza360 e sem FUNC21–FUNC24.

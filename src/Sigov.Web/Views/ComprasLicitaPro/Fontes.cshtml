@@ -1,4 +1,9 @@
 @model IReadOnlyList<Sigov.Application.Compras.LicitaProFonte>
-@{ ViewData["Title"]="Fontes oficiais"; }
-<link rel="stylesheet" href="~/css/licitapro.css" /><partial name="_Nav" /><header class="lp-hero"><div><span>Radar configurável</span><h1>Fontes oficiais</h1><p>PNCP e portais públicos somente quando configurados, sem retorno simulado.</p></div></header>
-<div class="table-responsive lp-panel"><table class="table"><thead><tr><th>Fonte</th><th>Tipo</th><th>Estado</th><th>Última sincronização</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Nome</td><td>@x.Tipo</td><td><span class="lp-badge">@x.Estado</span></td><td>@(x.UltimaSincronizacaoAt?.ToString("g")??"Nunca")</td></tr>}@if(Model.Count==0){<tr><td colspan="4" class="lp-empty">Nenhuma fonte cadastrada. Fonte não configurada.</td></tr>}</tbody></table></div>
+@{ ViewData["Title"] = "Fontes LicitaPro"; }
+<link rel="stylesheet" href="~/css/licitapro.css" asp-append-version="true" />
+<partial name="_Nav" />
+<header class="lp-hero"><div><span>Radar configurável</span><h1>Fontes oficiais</h1><p>Origens públicas identificadas; uma fonte não configurada nunca simula resultados.</p></div></header>
+<div class="table-responsive lp-panel"><table class="table align-middle"><thead><tr><th>Fonte</th><th>Tipo</th><th>Configuração</th><th>Última sincronização</th></tr></thead><tbody>
+@foreach (var item in Model) { <tr><td>@item.Nome</td><td>@item.Tipo</td><td><span class="lp-badge">@item.Estado</span></td><td>@(item.UltimaSincronizacaoAt?.ToString("g") ?? "Nunca")</td></tr> }
+@if (Model.Count == 0) { <tr><td colspan="4" class="lp-empty"><strong>Nenhuma fonte cadastrada</strong><span>Configure uma origem oficial para iniciar importações.</span></td></tr> }
+</tbody></table></div>

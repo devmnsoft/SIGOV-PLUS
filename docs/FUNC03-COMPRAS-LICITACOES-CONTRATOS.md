@@ -24,3 +24,7 @@ A migration `20260826130000_exp03_licitapro_func03.sql` cria tabelas `compras_li
 ### Segurança
 
 As 17 permissões `COMPRAS_LICITAPRO_*` são persistidas e avaliadas fail-closed. Queries são Dapper parametrizadas; seleção de área e exportação usam whitelist de rota/switch. CNPJ/CPF não são projetados nas novas listagens e erros externos devem ser sanitizados.
+
+## CORR03 — fechamento LicitaPro IA
+
+O LicitaPro permanece uma capacidade integrada ao FUNC03. Dashboard, fontes, importações, oportunidades, portal do fornecedor, documentos, checklists, análises, agenda, alertas, auditoria e CSV operam com contexto tenant/entidade e autorização persistida. Seleções relacionais vêm do banco e validações críticas são aplicadas no servidor. Consulte `docs/entregas/CORR03-FECHAMENTO-LICITAPRO-FUNC03.md`.

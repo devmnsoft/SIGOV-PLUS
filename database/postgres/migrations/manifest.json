@@ -1393,6 +1393,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.compras_licitapro_oportunidade') is not null and to_regclass('sigov.compras_licitapro_auditoria') is not null and exists(select 1 from sigov.permissao where chave='COMPRAS_LICITAPRO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260826140000",
+      "description": "CORR03 fechamento LicitaPro IA no FUNC03",
+      "category": "corrective",
+      "file": "20260826140000_corr03_licitapro_integridade.sql",
+      "checksum": "0191865793bc9845ec077ed2c78964e7866a80acbdd61521bd06e6272aad5e9a",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento') is not null and exists(select 1 from pg_constraint where conname='ck_clp_fonte_endpoint_url')"
     }
   ],
   "compatibilityAfterAll": [
