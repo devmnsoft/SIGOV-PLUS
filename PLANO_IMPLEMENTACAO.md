@@ -15,6 +15,25 @@
 
 O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MESTRE_SIGOV_PLUS.md).
 
+## Roadmap estratégico 2026
+
+- [x] Matriz de integração consolidada sem duplicar FUNC01, FUNC03, FUNC04,
+  FUNC13, FUNC15, FUNC17 e FUNC19.
+- [ ] Consolidar o núcleo transversal de fiscalização, evidências, campo e
+  sincronização offline após a promoção da RC50.68.
+- [ ] Fechar as expansões LicitaPro IA, Fiscaliza360, Obras360, DefesaCivil360,
+  Ativos360, Cidadão360 e Jurídico360 nas FUNCs existentes.
+- [ ] Implementar FUNC21 SST 360.
+- [ ] Implementar FUNC22 Carbono360.
+- [ ] Implementar FUNC23 Energia360.
+- [ ] Implementar FUNC24 Royalties360.
+
+Critérios, integrações e regras de negócio estão em
+[`docs/ROADMAP-MODULOS-ESTRATEGICOS-2026.md`](docs/ROADMAP-MODULOS-ESTRATEGICOS-2026.md).
+Itens planejados não podem aparecer como disponíveis no catálogo comercial ou
+no menu operacional antes da persistência, autorização, telas, testes existentes,
+smoke e documentação estarem homologados.
+
 ## FUNC01 — trilha funcional paralela
 
 - [x] Implementação de Patrimônio, Inventário e Responsabilidade Patrimonial entregue em código com PostgreSQL/Dapper, MVC/API, dashboard, auditoria, LGPD e autorização persistida.

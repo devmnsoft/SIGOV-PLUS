@@ -36,6 +36,18 @@ O banco é a fonte de autoridade para autorização e parametrização. Não sã
 mock/demo/fallback, segredo versionado, nova PK UUID ou drift entre migration, manifest
 e scripts distribuíveis. Riscos P0/P1 bloqueiam a promoção da release.
 
+## Módulos estratégicos 2026
+
+O roadmap de integração de SST 360, LicitaPro IA, Fiscaliza360, Obras360,
+DefesaCivil360, Ativos360, Carbono360, Cidadão360, Jurídico360, Energia360 e
+Royalties360 foi consolidado em
+[`docs/ROADMAP-MODULOS-ESTRATEGICOS-2026.md`](docs/ROADMAP-MODULOS-ESTRATEGICOS-2026.md).
+Os produtos que correspondem a módulos existentes devem evoluir as FUNCs atuais,
+sem criar cadastros, permissões, tabelas ou menus paralelos. Os módulos novos são
+planejados como FUNC21 SST 360, FUNC22 Carbono360, FUNC23 Energia360 e FUNC24
+Royalties360. O registro no roadmap não altera o estado **BLOCKED** da RC50.68 e
+não classifica qualquer módulo planejado como funcional ou disponível.
+
 ## RC50.68B — avaliador persistente
 - [x] Centralizar decisão fail-closed em avaliador Dapper parametrizado.
 - [x] Aplicar vigência, escopos, alçada e precedência de `NEGAR`.
