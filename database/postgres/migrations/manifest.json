@@ -1443,6 +1443,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.defesa_civil_ocorrencia') is not null and to_regclass('sigov.defesa_civil_alerta') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_CIVIL_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260826210000",
+      "description": "CORR19 fechamento DefesaCivil360 com integridade operacional",
+      "category": "corrective",
+      "file": "20260826210000_corr19_defesacivil360_integridade.sql",
+      "checksum": "48ca18ced7eba9ab34fab7934e889b4bf8a3b9f2ab6b1fbe69d9b3c1028c87ee",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_corr19_plano_publicacao') and to_regclass('sigov.ux_corr19_ocupacao_pessoa') is not null"
     }
   ],
   "compatibilityAfterAll": [

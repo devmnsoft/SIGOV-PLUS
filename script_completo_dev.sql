@@ -22829,6 +22829,449 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
 
+-- MIGRATION: 20260826130000_exp03_licitapro_func03.sql
+-- EXP03 - LicitaPro IA integrado ao FUNC03 Compras, Licitações, Contratos e Atas.
+-- Estrutura aditiva, idempotente, multi-tenant e sem dados simulados.
+create table if not exists sigov.compras_licitapro_fonte (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ nome varchar(160) not null, tipo varchar(30) not null, endpoint_url text, configurada boolean not null default false,
+ ativa boolean not null default true, ultima_sincronizacao_at timestamptz, created_at timestamptz not null default now(), created_by bigint not null,
+ updated_at timestamptz, updated_by bigint, constraint ck_clp_fonte_tipo check(tipo in('PNCP','PORTAL_PUBLICO','OUTRA_OFICIAL')),
+ constraint ck_clp_fonte_config check(not configurada or endpoint_url is not null), unique(tenant_id,entidade_id,nome)
+);
+create table if not exists sigov.compras_licitapro_importacao (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, fonte_id bigint not null references sigov.compras_licitapro_fonte(id),
+ versao integer not null, status varchar(25) not null default 'PENDENTE', iniciada_at timestamptz not null default now(), concluida_at timestamptz,
+ itens_lidos integer not null default 0, itens_importados integer not null default 0, erro_sanitizado text, created_by bigint not null,
+ constraint ck_clp_import_status check(status in('PENDENTE','PROCESSANDO','CONCLUIDA','FALHA','INDISPONIVEL')),
+ constraint ck_clp_import_qtd check(itens_lidos>=0 and itens_importados>=0 and itens_importados<=itens_lidos), unique(tenant_id,entidade_id,fonte_id,versao)
+);
+create table if not exists sigov.compras_licitapro_oportunidade (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, fonte_id bigint not null references sigov.compras_licitapro_fonte(id),
+ importacao_id bigint references sigov.compras_licitapro_importacao(id), identificador_externo varchar(180) not null, numero varchar(120) not null,
+ objeto text not null, modalidade varchar(100) not null, orgao varchar(200), data_publicacao date not null, data_limite date,
+ status varchar(25) not null default 'ABERTA', url_oficial text, valor_estimado numeric(18,2), processo_id bigint references sigov.compras_processo(id),
+ versao_fonte integer not null default 1, payload_hash varchar(64), created_at timestamptz not null default now(), created_by bigint not null, updated_at timestamptz, updated_by bigint,
+ constraint ck_clp_oport_status check(status in('ABERTA','VINCULADA','VENCIDA','CANCELADA','INDISPONIVEL')),
+ constraint ck_clp_oport_datas check(data_limite is null or data_limite>=data_publicacao), constraint ck_clp_oport_valor check(valor_estimado is null or valor_estimado>=0),
+ unique(tenant_id,entidade_id,fonte_id,identificador_externo)
+);
+create table if not exists sigov.compras_licitapro_documento (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, fornecedor_id bigint not null references sigov.compras_fornecedor(id),
+ tipo varchar(80) not null, titulo varchar(180) not null, validade date, status varchar(25) not null default 'PENDENTE', referencia_documental text,
+ aprovado_por bigint, aprovado_at timestamptz, created_at timestamptz not null default now(), created_by bigint not null, updated_at timestamptz, updated_by bigint,
+ constraint ck_clp_doc_status check(status in('PENDENTE','EM_ANALISE','APROVADO','REPROVADO','VENCIDO')),
+ constraint ck_clp_doc_aprovado check(status<>'APROVADO' or (validade is not null and referencia_documental is not null))
+);
+create table if not exists sigov.compras_licitapro_checklist (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, fornecedor_id bigint not null references sigov.compras_fornecedor(id),
+ processo_id bigint not null references sigov.compras_processo(id), status varchar(20) not null default 'PENDENTE', concluido_at timestamptz, concluido_por bigint,
+ created_at timestamptz not null default now(), created_by bigint not null, updated_at timestamptz, updated_by bigint,
+ constraint ck_clp_check_status check(status in('PENDENTE','EM_ANALISE','CONCLUIDO','BLOQUEADO')), unique(tenant_id,entidade_id,fornecedor_id,processo_id)
+);
+create table if not exists sigov.compras_licitapro_checklist_item (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, checklist_id bigint not null references sigov.compras_licitapro_checklist(id) on delete cascade,
+ requisito text not null, obrigatorio boolean not null default true, status varchar(20) not null default 'PENDENTE', justificativa text, documento_id bigint references sigov.compras_licitapro_documento(id),
+ created_at timestamptz not null default now(), created_by bigint not null, updated_at timestamptz, updated_by bigint,
+ constraint ck_clp_item_status check(status in('PENDENTE','ATENDIDO','NAO_APLICAVEL','BLOQUEADO')),
+ constraint ck_clp_item_just check(not(obrigatorio and status in('NAO_APLICAVEL','BLOQUEADO')) or justificativa is not null)
+);
+create table if not exists sigov.compras_licitapro_analise (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, processo_id bigint not null references sigov.compras_processo(id),
+ oportunidade_id bigint references sigov.compras_licitapro_oportunidade(id), status varchar(20) not null default 'RASCUNHO', observacoes text, riscos text,
+ sugestao text, justificativa_responsavel text, responsavel_id bigint not null, created_at timestamptz not null default now(), created_by bigint not null, updated_at timestamptz, updated_by bigint,
+ constraint ck_clp_analise_status check(status in('RASCUNHO','EM_REVISAO','CONCLUIDA'))
+);
+create table if not exists sigov.compras_licitapro_criterio (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, analise_id bigint not null references sigov.compras_licitapro_analise(id) on delete cascade,
+ nome varchar(160) not null, peso_percentual numeric(5,2) not null, aderencia_percentual numeric(5,2) not null, score numeric(12,4) not null, explicacao text not null,
+ created_at timestamptz not null default now(), created_by bigint not null,
+ constraint ck_clp_criterio_percent check(peso_percentual between 0 and 100 and aderencia_percentual between 0 and 100), constraint ck_clp_criterio_score check(score>=0)
+);
+create table if not exists sigov.compras_licitapro_agenda (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, oportunidade_id bigint references sigov.compras_licitapro_oportunidade(id),
+ processo_id bigint not null references sigov.compras_processo(id), fornecedor_id bigint not null references sigov.compras_fornecedor(id), titulo varchar(180) not null,
+ prazo_at timestamptz not null, status varchar(25) not null default 'PREPARACAO', responsavel_id bigint not null, alerta_bloqueio text,
+ contrato_id bigint references sigov.compras_contrato(id), created_at timestamptz not null default now(), created_by bigint not null, updated_at timestamptz, updated_by bigint,
+ constraint ck_clp_agenda_status check(status in('PREPARACAO','PRONTA','ENVIADA','VENCIDA','CANCELADA','CONQUISTADA'))
+);
+create table if not exists sigov.compras_licitapro_alerta (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, fornecedor_id bigint references sigov.compras_fornecedor(id),
+ documento_id bigint references sigov.compras_licitapro_documento(id), agenda_id bigint references sigov.compras_licitapro_agenda(id), tipo varchar(40) not null,
+ mensagem text not null, status varchar(20) not null default 'ABERTO', vencimento_at timestamptz, created_at timestamptz not null default now(), created_by bigint not null,
+ constraint ck_clp_alerta_status check(status in('ABERTO','CIENTE','RESOLVIDO'))
+);
+create table if not exists sigov.compras_licitapro_sincronizacao (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, fonte_id bigint not null references sigov.compras_licitapro_fonte(id),
+ importacao_id bigint references sigov.compras_licitapro_importacao(id), status varchar(25) not null, tentativa_at timestamptz not null default now(), finalizada_at timestamptz,
+ erro_sanitizado text, correlation_id varchar(120), created_by bigint not null, constraint ck_clp_sync_status check(status in('PROCESSANDO','CONCLUIDA','FALHA','INDISPONIVEL','NAO_CONFIGURADA'))
+);
+create table if not exists sigov.compras_licitapro_auditoria (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, entidade varchar(80) not null, registro_id bigint,
+ acao varchar(60) not null, detalhes jsonb, usuario_id bigint not null, ocorrido_at timestamptz not null default now(), correlation_id varchar(120)
+);
+create index if not exists ix_clp_oport_status_fonte_publicacao on sigov.compras_licitapro_oportunidade(tenant_id,entidade_id,status,fonte_id,data_publicacao desc);
+create index if not exists ix_clp_oport_limite_modalidade on sigov.compras_licitapro_oportunidade(tenant_id,entidade_id,data_limite,modalidade);
+create index if not exists ix_clp_oport_processo on sigov.compras_licitapro_oportunidade(tenant_id,entidade_id,processo_id);
+create index if not exists ix_clp_doc_fornecedor_status on sigov.compras_licitapro_documento(tenant_id,entidade_id,fornecedor_id,status,validade);
+create index if not exists ix_clp_check_processo_status on sigov.compras_licitapro_checklist(tenant_id,entidade_id,processo_id,status);
+create index if not exists ix_clp_agenda_status_prazo on sigov.compras_licitapro_agenda(tenant_id,entidade_id,status,prazo_at);
+create index if not exists ix_clp_sync_fonte_data on sigov.compras_licitapro_sincronizacao(tenant_id,entidade_id,fonte_id,tentativa_at desc);
+create index if not exists ix_clp_auditoria_data on sigov.compras_licitapro_auditoria(tenant_id,entidade_id,ocorrido_at desc,acao);
+do $$ declare p text; begin foreach p in array array['COMPRAS_LICITAPRO_DASHBOARD_VIEW','COMPRAS_LICITAPRO_FONTE_VIEW','COMPRAS_LICITAPRO_FONTE_MANAGE','COMPRAS_LICITAPRO_OPORTUNIDADE_VIEW','COMPRAS_LICITAPRO_OPORTUNIDADE_MANAGE','COMPRAS_LICITAPRO_FORNECEDOR_PORTAL_VIEW','COMPRAS_LICITAPRO_FORNECEDOR_PORTAL_MANAGE','COMPRAS_LICITAPRO_DOCUMENTO_VIEW','COMPRAS_LICITAPRO_DOCUMENTO_MANAGE','COMPRAS_LICITAPRO_CHECKLIST_VIEW','COMPRAS_LICITAPRO_CHECKLIST_MANAGE','COMPRAS_LICITAPRO_ANALISE_VIEW','COMPRAS_LICITAPRO_ANALISE_MANAGE','COMPRAS_LICITAPRO_AGENDA_VIEW','COMPRAS_LICITAPRO_AGENDA_MANAGE','COMPRAS_LICITAPRO_RELATORIO_EXPORT','COMPRAS_LICITAPRO_AUDITORIA_VIEW'] loop
+ insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted) select 'compras',p,'compras.licitapro.'||lower(regexp_replace(regexp_replace(p,'^COMPRAS_LICITAPRO_',''),'_(VIEW|MANAGE|EXPORT)$','')),case when p like '%_VIEW' then 'visualizar' when p like '%_EXPORT' then 'exportar' else 'gerenciar' end,'Permissão LicitaPro IA integrada ao FUNC03',true,false where not exists(select 1 from sigov.permissao where chave=p);
+end loop; end $$;
+
+-- MIGRATION: 20260826140000_corr03_licitapro_integridade.sql
+-- CORR03 - fechamento do LicitaPro IA no FUNC03.
+-- Migration corretiva aditiva: a EXP03 publicada permanece imutável.
+
+do $$
+begin
+    if not exists (select 1 from pg_constraint where conname = 'ck_clp_fonte_endpoint_url') then
+        alter table sigov.compras_licitapro_fonte
+            add constraint ck_clp_fonte_endpoint_url
+            check (not configurada or endpoint_url ~* '^https?://[^[:space:]]+$') not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conname = 'ck_clp_doc_referencia_preenchida') then
+        alter table sigov.compras_licitapro_documento
+            add constraint ck_clp_doc_referencia_preenchida
+            check (status <> 'APROVADO' or nullif(btrim(referencia_documental), '') is not null) not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conname = 'ck_clp_criterio_explicacao_preenchida') then
+        alter table sigov.compras_licitapro_criterio
+            add constraint ck_clp_criterio_explicacao_preenchida
+            check (nullif(btrim(explicacao), '') is not null) not valid;
+    end if;
+end $$;
+
+create index if not exists ix_clp_importacao_tenant_fonte
+    on sigov.compras_licitapro_importacao(tenant_id, entidade_id, fonte_id, iniciada_at desc);
+create index if not exists ix_clp_item_tenant_checklist_status
+    on sigov.compras_licitapro_checklist_item(tenant_id, entidade_id, checklist_id, status);
+create index if not exists ix_clp_analise_tenant_processo
+    on sigov.compras_licitapro_analise(tenant_id, entidade_id, processo_id, status);
+create index if not exists ix_clp_criterio_tenant_analise
+    on sigov.compras_licitapro_criterio(tenant_id, entidade_id, analise_id);
+create index if not exists ix_clp_alerta_tenant_status_vencimento
+    on sigov.compras_licitapro_alerta(tenant_id, entidade_id, status, vencimento_at);
+
+create or replace function sigov.compras_licitapro_validar_relacoes()
+returns trigger language plpgsql as $$
+begin
+    if tg_table_name = 'compras_licitapro_checklist_item' and not exists (
+        select 1 from sigov.compras_licitapro_checklist x where x.id=new.checklist_id and x.tenant_id=new.tenant_id and x.entidade_id=new.entidade_id
+    ) then raise exception 'Checklist fora do contexto tenant/entidade';
+    elsif tg_table_name = 'compras_licitapro_criterio' and not exists (
+        select 1 from sigov.compras_licitapro_analise x where x.id=new.analise_id and x.tenant_id=new.tenant_id and x.entidade_id=new.entidade_id
+    ) then raise exception 'Análise fora do contexto tenant/entidade';
+    end if;
+    return new;
+end $$;
+
+drop trigger if exists trg_clp_checklist_item_contexto on sigov.compras_licitapro_checklist_item;
+create trigger trg_clp_checklist_item_contexto before insert or update on sigov.compras_licitapro_checklist_item
+for each row execute function sigov.compras_licitapro_validar_relacoes();
+drop trigger if exists trg_clp_criterio_contexto on sigov.compras_licitapro_criterio;
+create trigger trg_clp_criterio_contexto before insert or update on sigov.compras_licitapro_criterio
+for each row execute function sigov.compras_licitapro_validar_relacoes();
+
+-- MIGRATION: 20260826150000_exp_fiscaliza360_transversal.sql
+-- CHECKSUM_SHA256: c63d78093ff2c1bff13a347434e758d8c4aedbe19c8b6e597c4085068246ed9c
+-- EXP-FISCALIZA360: núcleo transversal de fiscalização e campo.
+create schema if not exists sigov;
+
+create table if not exists sigov.fiscalizacao_equipe (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null,
+ nome varchar(160) not null, descricao text, status varchar(20) not null default 'ATIVA', criado_por bigint not null,
+ created_at timestamptz not null default now(), updated_at timestamptz, is_deleted boolean not null default false,
+ constraint ck_fiscalizacao_equipe_status check(status in('ATIVA','INATIVA')), constraint ck_fiscalizacao_equipe_nome check(btrim(nome)<>'')
+);
+create table if not exists sigov.fiscalizacao_equipe_membro (
+ id bigint generated always as identity primary key, equipe_id bigint not null references sigov.fiscalizacao_equipe(id),
+ tenant_id bigint not null, entidade_id bigint not null, usuario_id bigint not null, funcao varchar(80) not null, ativo boolean not null default true,
+ created_at timestamptz not null default now(), unique(equipe_id,usuario_id)
+);
+create table if not exists sigov.fiscalizacao_checklist_modelo (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null,
+ nome varchar(180) not null, tipo_fiscalizacao varchar(100) not null, origem_modulo varchar(30) not null, status varchar(20) not null default 'ATIVO',
+ versao integer not null default 1, criado_por bigint not null, created_at timestamptz not null default now(), updated_at timestamptz,
+ constraint ck_fcm_origem check(origem_modulo in('OBRAS','MEIO_AMBIENTE','TRANSITO','DEFESA_CIVIL')), constraint ck_fcm_status check(status in('ATIVO','INATIVO')), constraint ck_fcm_versao check(versao>0)
+);
+create table if not exists sigov.fiscalizacao_checklist_item_modelo (
+ id bigint generated always as identity primary key, checklist_modelo_id bigint not null references sigov.fiscalizacao_checklist_modelo(id),
+ ordem integer not null, pergunta text not null, tipo_resposta varchar(30) not null, obrigatorio boolean not null default false, opcoes jsonb,
+ created_at timestamptz not null default now(), constraint ck_fcim_tipo check(tipo_resposta in('SIM_NAO','MULTIPLA_ESCOLHA','TEXTO','NUMERO','DATA','CHECKLIST')), constraint ck_fcim_ordem check(ordem>0), unique(checklist_modelo_id,ordem)
+);
+create table if not exists sigov.fiscalizacao_ordem (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null,
+ origem_modulo varchar(30) not null, tipo varchar(100) not null, prioridade varchar(20) not null, status varchar(30) not null default 'ABERTA',
+ equipe_id bigint references sigov.fiscalizacao_equipe(id), responsavel_usuario_id bigint, registro_fiscalizado_tipo varchar(100) not null,
+ registro_fiscalizado_id bigint not null, registro_fiscalizado_rotulo varchar(250) not null, aberta_em timestamptz not null default now(),
+ agendada_em timestamptz, concluida_em timestamptz, cancelada_em timestamptz, motivo text not null, observacoes text,
+ criado_por bigint not null, atualizado_por bigint, created_at timestamptz not null default now(), updated_at timestamptz,
+ constraint ck_fo_origem check(origem_modulo in('OBRAS','MEIO_AMBIENTE','TRANSITO','DEFESA_CIVIL')),
+ constraint ck_fo_prioridade check(prioridade in('BAIXA','NORMAL','ALTA','URGENTE')),
+ constraint ck_fo_status check(status in('ABERTA','AGENDADA','EM_VISTORIA','CONCLUIDA','CANCELADA')),
+ constraint ck_fo_datas check((concluida_em is null or concluida_em>=aberta_em) and (cancelada_em is null or cancelada_em>=aberta_em)),
+ constraint ck_fo_vinculo check(registro_fiscalizado_id>0 and btrim(registro_fiscalizado_rotulo)<>'')
+);
+create table if not exists sigov.fiscalizacao_vistoria (
+ id bigint generated always as identity primary key, ordem_id bigint not null references sigov.fiscalizacao_ordem(id), tenant_id bigint not null,
+ entidade_id bigint not null, exercicio_id bigint not null, equipe_id bigint not null references sigov.fiscalizacao_equipe(id), checklist_modelo_id bigint references sigov.fiscalizacao_checklist_modelo(id),
+ status varchar(30) not null default 'AGENDADA', agendada_em timestamptz not null, iniciada_em timestamptz, concluida_em timestamptz,
+ local_descricao varchar(250) not null, latitude numeric(10,7), longitude numeric(10,7), observacoes text, resultado text,
+ criado_por bigint not null, atualizado_por bigint, created_at timestamptz not null default now(), updated_at timestamptz,
+ constraint ck_fv_status check(status in('AGENDADA','EM_ANDAMENTO','CONCLUIDA','CANCELADA','REABERTA')),
+ constraint ck_fv_lat check(latitude is null or latitude between -90 and 90), constraint ck_fv_lon check(longitude is null or longitude between -180 and 180)
+);
+create table if not exists sigov.fiscalizacao_vistoria_item (
+ id bigint generated always as identity primary key, vistoria_id bigint not null references sigov.fiscalizacao_vistoria(id), item_modelo_id bigint not null references sigov.fiscalizacao_checklist_item_modelo(id),
+ resposta_texto text, resposta_numero numeric, resposta_data date, resposta_boolean boolean, resposta_opcoes jsonb, observacao text, respondido_em timestamptz, respondido_por bigint,
+ unique(vistoria_id,item_modelo_id)
+);
+create table if not exists sigov.fiscalizacao_roteiro (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null,
+ equipe_id bigint not null references sigov.fiscalizacao_equipe(id), data_roteiro date not null, nome varchar(160) not null, status varchar(20) not null default 'PLANEJADO',
+ ordem_ids bigint[] not null, observacoes text, criado_por bigint not null, created_at timestamptz not null default now(), updated_at timestamptz,
+ constraint ck_fr_status check(status in('PLANEJADO','EM_EXECUCAO','CONCLUIDO','CANCELADO')), constraint ck_fr_ordens check(cardinality(ordem_ids)>0)
+);
+create table if not exists sigov.fiscalizacao_auto_notificacao (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null,
+ ordem_id bigint not null references sigov.fiscalizacao_ordem(id), vistoria_id bigint not null references sigov.fiscalizacao_vistoria(id),
+ tipo varchar(60) not null, fundamento text not null, descricao text not null, prazo date, responsavel_usuario_id bigint, status varchar(25) not null default 'EMITIDO',
+ emitido_em timestamptz not null default now(), criado_por bigint not null, updated_at timestamptz,
+ constraint ck_fan_status check(status in('RASCUNHO','EMITIDO','CIENTE','ATENDIDO','CANCELADO'))
+);
+create table if not exists sigov.fiscalizacao_sincronizacao_item (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, vistoria_id bigint references sigov.fiscalizacao_vistoria(id),
+ outbox_id bigint references sigov.sincronizacao_outbox(id), chave_idempotencia varchar(160) not null, status varchar(20) not null default 'PENDENTE', erro_sanitizado text,
+ created_at timestamptz not null default now(), updated_at timestamptz, constraint ck_fsi_status check(status in('PENDENTE','PROCESSANDO','CONCLUIDO','FALHA')), unique(tenant_id,entidade_id,chave_idempotencia)
+);
+create table if not exists sigov.fiscalizacao_auditoria (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint not null,
+ tabela varchar(100) not null, registro_id bigint not null, acao varchar(40) not null, usuario_id bigint not null, dados_anteriores jsonb, dados_novos jsonb,
+ correlation_id uuid, created_at timestamptz not null default now()
+);
+create index if not exists ix_fo_contexto_status on sigov.fiscalizacao_ordem(tenant_id,entidade_id,exercicio_id,status,aberta_em desc);
+create index if not exists ix_fo_origem_vinculo on sigov.fiscalizacao_ordem(tenant_id,entidade_id,origem_modulo,registro_fiscalizado_tipo,registro_fiscalizado_id);
+create index if not exists ix_fo_equipe_data on sigov.fiscalizacao_ordem(tenant_id,entidade_id,equipe_id,agendada_em);
+create index if not exists ix_fv_contexto_data on sigov.fiscalizacao_vistoria(tenant_id,entidade_id,exercicio_id,status,agendada_em);
+create index if not exists ix_fan_contexto_status on sigov.fiscalizacao_auto_notificacao(tenant_id,entidade_id,status,emitido_em desc);
+create index if not exists ix_fa_registro on sigov.fiscalizacao_auditoria(tenant_id,entidade_id,tabela,registro_id,created_at desc);
+
+insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+ ('FISCALIZACAO_DASHBOARD_VIEW','Visualizar dashboard Fiscaliza360','fiscalizacao',true,now()),('FISCALIZACAO_ORDEM_VIEW','Visualizar ordens de fiscalização','fiscalizacao',true,now()),
+ ('FISCALIZACAO_ORDEM_MANAGE','Gerenciar ordens de fiscalização','fiscalizacao',true,now()),('FISCALIZACAO_VISTORIA_VIEW','Visualizar vistorias','fiscalizacao',true,now()),
+ ('FISCALIZACAO_VISTORIA_MANAGE','Gerenciar vistorias','fiscalizacao',true,now()),('FISCALIZACAO_CHECKLIST_MANAGE','Gerenciar checklists','fiscalizacao',true,now()),
+ ('FISCALIZACAO_AUTO_MANAGE','Emitir autos e notificações','fiscalizacao',true,now()),('FISCALIZACAO_RELATORIO_EXPORT','Exportar relatórios de fiscalização','fiscalizacao',true,now()),
+ ('FISCALIZACAO_SINCRONIZACAO_VIEW','Visualizar sincronização de campo','fiscalizacao',true,now()) on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+
+comment on table sigov.fiscalizacao_sincronizacao_item is 'Controle local da outbox; o processamento externo permanece BLOCKED até existir adaptador/worker oficial.';
+
+-- MIGRATION: 20260826160000_exp13_obras360_func13.sql
+-- CHECKSUM_SHA256: c269ca4a5e5fc9836f52f9552e7b80342679117d304eee3538117787c7624dc1
+-- EXP13 Obras360: fechamento operacional do FUNC13
+create schema if not exists sigov;
+
+-- Contexto orçamentário e vínculos oficiais acrescentados sem alterar migrations publicadas.
+alter table sigov.obras_obra add column if not exists exercicio_id bigint;
+alter table sigov.obras_cronograma add column if not exists exercicio_id bigint, add column if not exists contrato_id bigint, add column if not exists data_inicio_prevista date, add column if not exists data_fim_prevista date;
+alter table sigov.obras_medicao add column if not exists exercicio_id bigint, add column if not exists contrato_id bigint, add column if not exists competencia date, add column if not exists numero_medicao varchar(80), add column if not exists saldo_contratual_antes numeric(18,2) not null default 0, add column if not exists saldo_contratual_depois numeric(18,2) not null default 0;
+alter table sigov.obras_medicao drop constraint if exists ck_obras_medicao_status; alter table sigov.obras_medicao add constraint ck_obras_medicao_status check(status in('RASCUNHO','ENVIADA','EM_ANALISE','APROVADA','REJEITADA','HOMOLOGADA','CANCELADA')) not valid;
+do $$ begin if not exists(select 1 from pg_constraint where conname='ck_obras_diario_status' and conrelid='sigov.obras_diario'::regclass) then alter table sigov.obras_diario add constraint ck_obras_diario_status check(status in('RASCUNHO','ENVIADO','APROVADO','REJEITADO')) not valid; end if; end $$;
+alter table sigov.obras_diario add column if not exists exercicio_id bigint, add column if not exists responsavel_id bigint, add column if not exists atividades_executadas text, add column if not exists paralisacoes text, add column if not exists ocorrencias text, add column if not exists observacoes text;
+alter table sigov.obras_ocorrencia add column if not exists exercicio_id bigint, add column if not exists origem varchar(30) not null default 'MANUAL', add column if not exists severidade varchar(20) not null default 'MEDIA', add column if not exists responsavel_id bigint, add column if not exists prazo date, add column if not exists providencia text, add column if not exists evidencia_id bigint;
+alter table sigov.obras_ordem_servico add column if not exists exercicio_id bigint, add column if not exists origem varchar(30) not null default 'MANUAL', add column if not exists severidade varchar(20) not null default 'MEDIA', add column if not exists responsavel_id bigint, add column if not exists prazo date, add column if not exists providencia text, add column if not exists evidencia_id bigint;
+alter table sigov.obras_integracao_financeira add column if not exists exercicio_id bigint, add column if not exists contrato_id bigint, add column if not exists liquidacao_id bigint, add column if not exists pagamento_id bigint, add column if not exists convenio_id bigint, add column if not exists emenda_id bigint, add column if not exists mensagem_erro_sanitizada text, add column if not exists idempotency_key varchar(120);
+create unique index if not exists ux_obras_integracao_idempotencia on sigov.obras_integracao_financeira(tenant_id,entidade_id,idempotency_key) where idempotency_key is not null and not is_deleted;
+
+create table if not exists sigov.obras_cronograma_item(id bigint generated by default as identity primary key,cronograma_id bigint not null references sigov.obras_cronograma(id),obra_id bigint not null references sigov.obras_obra(id),contrato_id bigint,etapa varchar(180) not null,item varchar(300) not null,data_inicio_prevista date not null,data_fim_prevista date not null,percentual_fisico_previsto numeric(7,4) not null default 0,valor_previsto numeric(18,2) not null default 0,ordem integer not null default 0,status varchar(24) not null default 'PLANEJADO',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_crono_item_datas check(data_fim_prevista>=data_inicio_prevista),constraint ck_obra_crono_item_percentual check(percentual_fisico_previsto between 0 and 100),constraint ck_obra_crono_item_valor check(valor_previsto>=0));
+create table if not exists sigov.obras_diario_equipe(id bigint generated by default as identity primary key,diario_id bigint not null references sigov.obras_diario(id),obra_id bigint not null references sigov.obras_obra(id),responsavel_id bigint,nome_funcao varchar(180) not null,quantidade integer not null default 1,tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,created_at timestamptz not null default now(),created_by bigint,constraint ck_obra_diario_equipe_qtd check(quantidade>0));
+create table if not exists sigov.obras_diario_equipamento(id bigint generated by default as identity primary key,diario_id bigint not null references sigov.obras_diario(id),obra_id bigint not null references sigov.obras_obra(id),equipamento varchar(200) not null,quantidade integer not null default 1,horas_utilizadas numeric(8,2) not null default 0,tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,created_at timestamptz not null default now(),created_by bigint,constraint ck_obra_diario_equip_qtd check(quantidade>0 and horas_utilizadas>=0));
+create table if not exists sigov.obras_diario_clima(id bigint generated by default as identity primary key,diario_id bigint not null references sigov.obras_diario(id),periodo varchar(20) not null,condicao varchar(30) not null,temperatura numeric(5,2),impactou_atividade boolean not null default false,observacao text,tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,created_at timestamptz not null default now(),created_by bigint,constraint ck_obra_diario_clima_periodo check(periodo in('MANHA','TARDE','NOITE')));
+create table if not exists sigov.obras_medicao_memoria_calculo(id bigint generated by default as identity primary key,medicao_id bigint not null references sigov.obras_medicao(id),medicao_item_id bigint references sigov.obras_medicao_item(id),formula text not null,memoria text not null,resultado numeric(18,4) not null default 0,tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,created_at timestamptz not null default now(),created_by bigint,constraint ck_obra_memoria_resultado check(resultado>=0));
+create table if not exists sigov.obras_medicao_aprovacao(id bigint generated by default as identity primary key,medicao_id bigint not null references sigov.obras_medicao(id),aprovador_id bigint not null,alcada varchar(80) not null,decisao varchar(20) not null,justificativa text,decidida_at timestamptz not null default now(),tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,created_at timestamptz not null default now(),created_by bigint,constraint ck_obra_aprovacao_decisao check(decisao in('APROVADA','REJEITADA','CANCELADA')),constraint ck_obra_aprovacao_just check(decisao='APROVADA' or nullif(btrim(justificativa),'') is not null));
+
+-- Registros contratuais mantêm colunas comuns consumidas pelo repositório Dapper e campos técnicos explícitos.
+create table if not exists sigov.obras_aditivo(id bigint generated by default as identity primary key,obra_id bigint not null references sigov.obras_obra(id),contrato_id bigint,codigo varchar(80) not null default '',descricao text not null,status varchar(30) not null default 'RASCUNHO',valor numeric(18,2),data date,tipo varchar(40),motivo text,fundamento text,valor_anterior numeric(18,2) not null default 0,valor_alterado numeric(18,2) not null default 0,percentual numeric(7,4) not null default 0,ged_documento_id bigint,justificativa text,dados jsonb not null default '{}',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_aditivo_valores check(coalesce(valor,0)>=0 and valor_anterior>=0 and valor_alterado>=0 and percentual between 0 and 100));
+create table if not exists sigov.obras_reajuste(id bigint generated by default as identity primary key,obra_id bigint not null references sigov.obras_obra(id),contrato_id bigint,codigo varchar(80) not null default '',descricao text not null,status varchar(30) not null default 'RASCUNHO',valor numeric(18,2),data date,tipo varchar(40),motivo text,fundamento text,valor_anterior numeric(18,2) not null default 0,valor_alterado numeric(18,2) not null default 0,percentual numeric(7,4) not null default 0,ged_documento_id bigint,justificativa text,dados jsonb not null default '{}',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_reajuste_valores check(coalesce(valor,0)>=0 and valor_anterior>=0 and valor_alterado>=0 and percentual between 0 and 100));
+create table if not exists sigov.obras_reequilibrio(id bigint generated by default as identity primary key,obra_id bigint not null references sigov.obras_obra(id),contrato_id bigint,codigo varchar(80) not null default '',descricao text not null,status varchar(30) not null default 'RASCUNHO',valor numeric(18,2),data date,tipo varchar(40),motivo text,fundamento text,valor_anterior numeric(18,2) not null default 0,valor_alterado numeric(18,2) not null default 0,percentual numeric(7,4) not null default 0,ged_documento_id bigint,justificativa text,dados jsonb not null default '{}',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_reequilibrio_valores check(coalesce(valor,0)>=0 and valor_anterior>=0 and valor_alterado>=0 and percentual between 0 and 100));
+
+create table if not exists sigov.obras_nao_conformidade(id bigint generated by default as identity primary key,obra_id bigint not null references sigov.obras_obra(id),codigo varchar(80) not null default '',descricao text not null,status varchar(30) not null default 'ABERTA',valor numeric(18,2),data date,origem varchar(30) not null default 'MANUAL',severidade varchar(20) not null default 'MEDIA',responsavel_id bigint,prazo date,providencia text,evidencia_id bigint references sigov.evidencia_transversal(id),justificativa text,dados jsonb not null default '{}',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_nc_origem check(origem in('DIARIO','FISCALIZACAO','VISTORIA','MANUAL')),constraint ck_obra_nc_severidade check(severidade in('BAIXA','MEDIA','ALTA','CRITICA')));
+create table if not exists sigov.obras_evidencia_vinculo(id bigint generated by default as identity primary key,obra_id bigint not null references sigov.obras_obra(id),evidencia_id bigint not null references sigov.evidencia_transversal(id),codigo varchar(80) not null default '',descricao text not null,status varchar(30) not null default 'ATIVA',valor numeric(18,2),data date,contexto_tipo varchar(30) not null,contexto_id bigint,justificativa text,dados jsonb not null default '{}',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_evid_contexto check(contexto_tipo in('OBRA','DIARIO','MEDICAO','OCORRENCIA','NAO_CONFORMIDADE')));
+create table if not exists sigov.obras_transparencia_publicacao(id bigint generated by default as identity primary key,obra_id bigint not null references sigov.obras_obra(id),medicao_id bigint references sigov.obras_medicao(id),diario_id bigint references sigov.obras_diario(id),codigo varchar(80) not null default '',descricao text not null,status varchar(30) not null default 'PENDENTE',valor numeric(18,2),data date,data_publicacao timestamptz,visibilidade varchar(20) not null default 'PUBLICA',resumo_publico text not null,justificativa text,dados jsonb not null default '{}',tenant_id bigint not null,entidade_id bigint not null,exercicio_id bigint,ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by bigint,updated_by bigint,constraint ck_obra_transp_status check(status in('PENDENTE','PUBLICADA','SUSPENSA','CANCELADA')),constraint ck_obra_transp_visibilidade check(visibilidade in('PUBLICA','RESTRITA')));
+
+create index if not exists ix_obra_cronograma_item_contexto on sigov.obras_cronograma_item(tenant_id,entidade_id,exercicio_id,obra_id,status,data_inicio_prevista);
+create index if not exists ix_obra_medicao_contexto_competencia on sigov.obras_medicao(tenant_id,entidade_id,exercicio_id,obra_id,contrato_id,status,competencia);
+create index if not exists ix_obra_diario_contexto_data on sigov.obras_diario(tenant_id,entidade_id,exercicio_id,obra_id,data,status);
+create index if not exists ix_obra_nc_contexto_prazo on sigov.obras_nao_conformidade(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo);
+create index if not exists ix_obra_transp_contexto on sigov.obras_transparencia_publicacao(tenant_id,entidade_id,exercicio_id,obra_id,status,data_publicacao);
+
+insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+('OBRAS_MEDICAO_APPROVE','Obras360: aprovar medição','obras',true,now()),('OBRAS_ADITIVO_MANAGE','Obras360: gerir aditivos e equilíbrio','obras',true,now()),('OBRAS_OCORRENCIA_MANAGE','Obras360: gerir ocorrências','obras',true,now()),('OBRAS_NAO_CONFORMIDADE_MANAGE','Obras360: gerir não conformidades','obras',true,now()),('OBRAS_TRANSPARENCIA_VIEW','Obras360: consultar transparência','obras',true,now())
+on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+
+-- ============================================================================
+-- MIGRATION: 20260826170000_corr13_obras360_validacoes.sql
+-- ============================================================================
+-- CORR13: validações defensivas do Obras360, sem alteração destrutiva de objetos publicados.
+create schema if not exists sigov;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_obra_coordenadas' and conrelid='sigov.obras_obra'::regclass) then
+    alter table sigov.obras_obra add constraint ck_corr13_obra_coordenadas check ((latitude is null or latitude between -90 and 90) and (longitude is null or longitude between -180 and 180)) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_cronograma_status' and conrelid='sigov.obras_cronograma'::regclass) then
+    alter table sigov.obras_cronograma add constraint ck_corr13_cronograma_status check (status in ('RASCUNHO','ATIVO','CONCLUIDO','CANCELADO')) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_medicao_percentual_periodo' and conrelid='sigov.obras_medicao'::regclass) then
+    alter table sigov.obras_medicao add constraint ck_corr13_medicao_percentual_periodo check ((percentual_fisico is null or percentual_fisico between 0 and 100) and (periodo_inicio is null or periodo_fim is null or periodo_fim>=periodo_inicio)) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_medicao_saldos' and conrelid='sigov.obras_medicao'::regclass) then
+    alter table sigov.obras_medicao add constraint ck_corr13_medicao_saldos check (saldo_contratual_antes>=0 and saldo_contratual_depois>=0 and saldo_contratual_depois<=saldo_contratual_antes) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_diario_conteudo_aprovado' and conrelid='sigov.obras_diario'::regclass) then
+    alter table sigov.obras_diario add constraint ck_corr13_diario_conteudo_aprovado check (status not in ('ENVIADO','APROVADO') or (data is not null and responsavel_id is not null and nullif(btrim(coalesce(atividades_executadas,descricao)), '') is not null)) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_ocorrencia_dominio' and conrelid='sigov.obras_ocorrencia'::regclass) then
+    alter table sigov.obras_ocorrencia add constraint ck_corr13_ocorrencia_dominio check (status in ('ABERTA','EM_TRATAMENTO','RESOLVIDA','CANCELADA') and origem in ('DIARIO','FISCALIZACAO','VISTORIA','MANUAL') and severidade in ('BAIXA','MEDIA','ALTA','CRITICA')) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='ck_corr13_nc_status' and conrelid='sigov.obras_nao_conformidade'::regclass) then
+    alter table sigov.obras_nao_conformidade add constraint ck_corr13_nc_status check (status in ('ABERTA','EM_CORRECAO','CORRIGIDA','CANCELADA')) not valid;
+  end if;
+end $$;
+
+create index if not exists ix_corr13_ocorrencia_contexto_prazo on sigov.obras_ocorrencia(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo) where not is_deleted;
+create index if not exists ix_corr13_ordem_contexto_prazo on sigov.obras_ordem_servico(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo) where not is_deleted;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260826180000_exp19_defesacivil360_func19.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa
+-- ==================================================
+-- EXP19 DefesaCivil360: expansão operacional do FUNC19
+create schema if not exists sigov;
+
+create table if not exists sigov.defesa_civil_area_risco(id bigint generated by default as identity primary key,codigo varchar(80) not null,nome varchar(200) not null,tipo varchar(40) not null,nivel_risco varchar(20) not null,status varchar(24) not null default 'ATIVA',bairro varchar(160) not null,localidade varchar(200),unidade_id bigint,descricao text not null,populacao_estimada integer not null default 0,latitude numeric(9,6),longitude numeric(9,6),vulnerabilidades text,tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_area_nivel check(nivel_risco in('BAIXO','MEDIO','ALTO','CRITICO')),constraint ck_dc_area_status check(status in('ATIVA','MONITORADA','INATIVA')),constraint ck_dc_area_pop check(populacao_estimada>=0),constraint ck_dc_area_coord check((latitude is null or latitude between -90 and 90) and (longitude is null or longitude between -180 and 180)));
+create unique index if not exists ux_dc_area_contexto on sigov.defesa_civil_area_risco(tenant_id,entidade_id,exercicio_id,bairro,coalesce(localidade,''),tipo) where deleted_at is null;
+
+create table if not exists sigov.defesa_civil_cenario_risco(id bigint generated by default as identity primary key,area_risco_id bigint not null references sigov.defesa_civil_area_risco(id),codigo varchar(80) not null,descricao text not null,tipo varchar(40) not null,severidade varchar(20) not null,probabilidade varchar(20) not null,status varchar(24) not null default 'ATIVO',populacao_exposta integer not null default 0,impactos text,gatilhos text,tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_cenario_sev check(severidade in('BAIXA','MEDIA','ALTA','CRITICA')),constraint ck_dc_cenario_pop check(populacao_exposta>=0));
+create table if not exists sigov.defesa_civil_populacao_vulneravel(id bigint generated by default as identity primary key,area_risco_id bigint not null references sigov.defesa_civil_area_risco(id),pessoa_id bigint not null,categoria varchar(40) not null,necessidade_operacional text,status varchar(24) not null default 'ATIVA',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,unique(tenant_id,entidade_id,exercicio_id,area_risco_id,pessoa_id));
+create table if not exists sigov.defesa_civil_equipe(id bigint generated by default as identity primary key,codigo varchar(80) not null,nome varchar(200) not null,tipo varchar(40) not null,responsavel_usuario_id bigint not null,status varchar(24) not null default 'ATIVA',unidade_id bigint,descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz);
+create table if not exists sigov.defesa_civil_equipe_membro(id bigint generated by default as identity primary key,equipe_id bigint not null references sigov.defesa_civil_equipe(id),usuario_id bigint not null,funcao varchar(100) not null,status varchar(24) not null default 'ATIVO',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,unique(tenant_id,entidade_id,exercicio_id,equipe_id,usuario_id));
+create table if not exists sigov.defesa_civil_abrigo(id bigint generated by default as identity primary key,codigo varchar(80) not null,nome varchar(200) not null,endereco text not null,bairro varchar(160) not null,responsavel_usuario_id bigint not null,capacidade integer not null,vagas_reservadas integer not null default 0,estrutura text,status varchar(24) not null default 'ATIVO',descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,unidade_id bigint,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_abrigo_cap check(capacidade>=0 and vagas_reservadas>=0 and vagas_reservadas<=capacidade));
+create table if not exists sigov.defesa_civil_abrigo_ocupacao(id bigint generated by default as identity primary key,abrigo_id bigint not null references sigov.defesa_civil_abrigo(id),pessoa_id bigint not null,entrada_em timestamptz not null,saida_em timestamptz,justificativa_excedente text,status varchar(24) not null default 'ABRIGADA',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_ocup_datas check(saida_em is null or saida_em>=entrada_em));
+create table if not exists sigov.defesa_civil_recurso(id bigint generated by default as identity primary key,codigo varchar(80) not null,descricao text not null,tipo varchar(40) not null,patrimonio_id bigint,frota_veiculo_id bigint,quantidade numeric(14,3) not null default 1,quantidade_mobilizada numeric(14,3) not null default 0,status varchar(24) not null default 'DISPONIVEL',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,unidade_id bigint,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_recurso_qtd check(quantidade>=0 and quantidade_mobilizada>=0 and quantidade_mobilizada<=quantidade));
+create table if not exists sigov.defesa_civil_embarcacao(id bigint generated by default as identity primary key,recurso_id bigint not null references sigov.defesa_civil_recurso(id),patrimonio_id bigint,frota_veiculo_id bigint,registro varchar(100),capacidade integer not null,descricao text not null default '',status varchar(24) not null default 'DISPONIVEL',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_emb_cap check(capacidade>=0));
+create table if not exists sigov.defesa_civil_plano_contingencia(id bigint generated by default as identity primary key,codigo varchar(80) not null,titulo varchar(240) not null,cenario_risco_id bigint not null references sigov.defesa_civil_cenario_risco(id),responsavel_usuario_id bigint not null,versao integer not null default 1,vigencia_inicio date not null,vigencia_fim date not null,status varchar(24) not null default 'RASCUNHO',aprovado_por bigint,aprovado_em timestamptz,descricao text not null,tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_plano_datas check(vigencia_fim>=vigencia_inicio),constraint ck_dc_plano_versao check(versao>0),constraint ck_dc_plano_status check(status in('RASCUNHO','EM_APROVACAO','APROVADO','PUBLICADO','INATIVO')));
+create table if not exists sigov.defesa_civil_rota_evacuacao(id bigint generated by default as identity primary key,codigo varchar(80) not null,plano_id bigint not null references sigov.defesa_civil_plano_contingencia(id),origem text not null,destino text not null,restricoes text,recursos_necessarios text,descricao text not null,status varchar(24) not null default 'ATIVA',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz);
+create table if not exists sigov.defesa_civil_ocorrencia(id bigint generated by default as identity primary key,codigo varchar(80) not null,tipo varchar(40) not null,severidade varchar(20) not null,nivel_resposta varchar(20) not null,local text not null,inicio_em timestamptz not null,encerrada_em timestamptz,area_risco_id bigint references sigov.defesa_civil_area_risco(id),equipe_id bigint references sigov.defesa_civil_equipe(id),fiscalizacao_ordem_id bigint,status varchar(24) not null default 'ABERTA',descricao text not null,tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_oc_sev check(severidade in('BAIXA','MEDIA','ALTA','CRITICA')),constraint ck_dc_oc_nivel check(nivel_resposta in('OBSERVACAO','ATENCAO','ALERTA','EMERGENCIA')),constraint ck_dc_oc_datas check(encerrada_em is null or encerrada_em>=inicio_em));
+create table if not exists sigov.defesa_civil_ocorrencia_resposta(id bigint generated by default as identity primary key,ocorrencia_id bigint not null references sigov.defesa_civil_ocorrencia(id),equipe_id bigint references sigov.defesa_civil_equipe(id),recurso_id bigint references sigov.defesa_civil_recurso(id),acao text not null,inicio_em timestamptz not null,fim_em timestamptz,status varchar(24) not null default 'EM_ANDAMENTO',descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_resp_datas check(fim_em is null or fim_em>=inicio_em));
+create table if not exists sigov.defesa_civil_estoque(id bigint generated by default as identity primary key,codigo varchar(80) not null,item varchar(200) not null,abrigo_id bigint references sigov.defesa_civil_abrigo(id),saldo numeric(14,3) not null default 0,nivel_critico numeric(14,3) not null default 0,unidade_medida varchar(30) not null,status varchar(24) not null default 'ATIVO',descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,unidade_id bigint,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_estoque_saldo check(saldo>=0 and nivel_critico>=0));
+create table if not exists sigov.defesa_civil_doacao(id bigint generated by default as identity primary key,codigo varchar(80) not null,origem text not null,tipo varchar(80) not null,quantidade numeric(14,3) not null,destino_abrigo_id bigint references sigov.defesa_civil_abrigo(id),prestacao text,status varchar(24) not null default 'RECEBIDA',descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_doacao_qtd check(quantidade>0));
+create table if not exists sigov.defesa_civil_fonte_monitoramento(id bigint generated by default as identity primary key,codigo varchar(80) not null,nome varchar(200) not null,tipo varchar(40) not null,identificacao text not null,periodicidade_minutos integer not null,ultima_atualizacao timestamptz,status varchar(24) not null default 'INDISPONIVEL',erro_sanitizado text,descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_fonte_periodo check(periodicidade_minutos>0));
+create table if not exists sigov.defesa_civil_alerta(id bigint generated by default as identity primary key,codigo varchar(80) not null,area_risco_id bigint not null references sigov.defesa_civil_area_risco(id),severidade varchar(20) not null,mensagem text not null,valido_de timestamptz not null,valido_ate timestamptz not null,canal varchar(40) not null,aprovado_por bigint,publicado_em timestamptz,status varchar(24) not null default 'RASCUNHO',descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_alerta_sev check(severidade in('BAIXA','MEDIA','ALTA','CRITICA')),constraint ck_dc_alerta_datas check(valido_ate>valido_de));
+create table if not exists sigov.defesa_civil_comunicacao(id bigint generated by default as identity primary key,codigo varchar(80) not null,alerta_id bigint references sigov.defesa_civil_alerta(id),canal varchar(40) not null,mensagem text not null,publicada_em timestamptz,outbox_id bigint,erro_sanitizado text,status varchar(24) not null default 'PENDENTE',descricao text not null default '',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz);
+create table if not exists sigov.defesa_civil_evidencia_vinculo(id bigint generated by default as identity primary key,evidencia_id bigint not null references sigov.evidencia_transversal(id),contexto_tipo varchar(30) not null,contexto_id bigint not null,descricao text not null,status varchar(24) not null default 'ATIVA',tenant_id bigint not null,entity_id bigint not null,entidade_id bigint generated always as (entity_id) stored,exercicio_id bigint not null default 0,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,constraint ck_dc_evid_tipo check(contexto_tipo in('AREA_RISCO','OCORRENCIA','RESPOSTA','ABRIGO','ALERTA')));
+
+create index if not exists ix_dc_cenario_contexto on sigov.defesa_civil_cenario_risco(tenant_id,entidade_id,exercicio_id,area_risco_id,status,severidade);
+create index if not exists ix_dc_ocorrencia_contexto on sigov.defesa_civil_ocorrencia(tenant_id,entidade_id,exercicio_id,area_risco_id,equipe_id,status,severidade,inicio_em);
+create index if not exists ix_dc_resposta_contexto on sigov.defesa_civil_ocorrencia_resposta(tenant_id,entidade_id,exercicio_id,ocorrencia_id,equipe_id,status);
+create index if not exists ix_dc_abrigo_contexto on sigov.defesa_civil_abrigo(tenant_id,entidade_id,exercicio_id,status);
+create index if not exists ix_dc_ocupacao_contexto on sigov.defesa_civil_abrigo_ocupacao(tenant_id,entidade_id,exercicio_id,abrigo_id,status,entrada_em);
+create index if not exists ix_dc_alerta_contexto on sigov.defesa_civil_alerta(tenant_id,entidade_id,exercicio_id,area_risco_id,status,severidade,valido_ate);
+create index if not exists ix_dc_estoque_contexto on sigov.defesa_civil_estoque(tenant_id,entidade_id,exercicio_id,abrigo_id,status);
+
+insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+('DEFESA_CIVIL_DASHBOARD_VIEW','DefesaCivil360: visualizar dashboard','defesa',true,now()),('DEFESA_CIVIL_RISCO_VIEW','DefesaCivil360: visualizar riscos','defesa',true,now()),('DEFESA_CIVIL_RISCO_MANAGE','DefesaCivil360: gerenciar riscos','defesa',true,now()),('DEFESA_CIVIL_PLANO_VIEW','DefesaCivil360: visualizar planos','defesa',true,now()),('DEFESA_CIVIL_PLANO_MANAGE','DefesaCivil360: gerenciar planos','defesa',true,now()),('DEFESA_CIVIL_OCORRENCIA_VIEW','DefesaCivil360: visualizar ocorrências','defesa',true,now()),('DEFESA_CIVIL_OCORRENCIA_MANAGE','DefesaCivil360: gerenciar ocorrências','defesa',true,now()),('DEFESA_CIVIL_RESPOSTA_MANAGE','DefesaCivil360: gerenciar resposta','defesa',true,now()),('DEFESA_CIVIL_ABRIGO_VIEW','DefesaCivil360: visualizar abrigos','defesa',true,now()),('DEFESA_CIVIL_ABRIGO_MANAGE','DefesaCivil360: gerenciar abrigos','defesa',true,now()),('DEFESA_CIVIL_DADO_SENSIVEL_VIEW','DefesaCivil360: visualizar dados sensíveis','defesa',true,now()),('DEFESA_CIVIL_DADO_SENSIVEL_EXPORT','DefesaCivil360: exportar dados sensíveis','defesa',true,now()),('DEFESA_CIVIL_RECURSO_MANAGE','DefesaCivil360: gerenciar recursos','defesa',true,now()),('DEFESA_CIVIL_ESTOQUE_MANAGE','DefesaCivil360: gerenciar estoque','defesa',true,now()),('DEFESA_CIVIL_ALERTA_MANAGE','DefesaCivil360: gerenciar alertas','defesa',true,now()),('DEFESA_CIVIL_ALERTA_PUBLISH','DefesaCivil360: publicar alertas','defesa',true,now()),('DEFESA_CIVIL_RELATORIO_EXPORT','DefesaCivil360: exportar relatórios','defesa',true,now())
+on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826180000', 'EXP19 DefesaCivil360 operacional no FUNC19', 'b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260826210000_corr19_defesacivil360_integridade.sql
+-- CATEGORY: corrective
+-- CHECKSUM_SHA256: 48ca18ced7eba9ab34fab7934e889b4bf8a3b9f2ab6b1fbe69d9b3c1028c87ee
+-- ==================================================
+-- CORR19 DefesaCivil360: integridade operacional, isolamento contextual e fechamento fail-closed.
+create schema if not exists sigov;
+
+do $corr19$
+begin
+ if to_regclass('sigov.defesa_civil_area_risco') is null then raise exception 'CORR19 requer a migration EXP19 aplicada'; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_cenario_status') then alter table sigov.defesa_civil_cenario_risco add constraint ck_corr19_cenario_status check(status in('ATIVO','INATIVO')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_cenario_probabilidade') then alter table sigov.defesa_civil_cenario_risco add constraint ck_corr19_cenario_probabilidade check(probabilidade in('BAIXA','MEDIA','ALTA','MUITO_ALTA')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_equipe_status') then alter table sigov.defesa_civil_equipe add constraint ck_corr19_equipe_status check(status in('ATIVA','INATIVA')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_abrigo_status') then alter table sigov.defesa_civil_abrigo add constraint ck_corr19_abrigo_status check(status in('ATIVO','INATIVO')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_ocorrencia_status') then alter table sigov.defesa_civil_ocorrencia add constraint ck_corr19_ocorrencia_status check(status in('ABERTA','EM_ATENDIMENTO','ENCERRADA','CANCELADA')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_resposta_status') then alter table sigov.defesa_civil_ocorrencia_resposta add constraint ck_corr19_resposta_status check(status in('EM_ANDAMENTO','CONCLUIDA','CANCELADA')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_alerta_status') then alter table sigov.defesa_civil_alerta add constraint ck_corr19_alerta_status check(status in('RASCUNHO','APROVADO','PUBLICADO','EXPIRADO','CANCELADO')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_alerta_publicacao') then alter table sigov.defesa_civil_alerta add constraint ck_corr19_alerta_publicacao check(status<>'PUBLICADO' or (aprovado_por is not null and publicado_em is not null)) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_plano_publicacao') then alter table sigov.defesa_civil_plano_contingencia add constraint ck_corr19_plano_publicacao check(status not in('APROVADO','PUBLICADO') or (aprovado_por is not null and aprovado_em is not null and vigencia_fim>=current_date)) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_ocupacao_status') then alter table sigov.defesa_civil_abrigo_ocupacao add constraint ck_corr19_ocupacao_status check(status in('ABRIGADA','ENCERRADA')) not valid; end if;
+ if not exists(select 1 from pg_constraint where conname='ck_corr19_doacao_status') then alter table sigov.defesa_civil_doacao add constraint ck_corr19_doacao_status check(status in('RECEBIDA','DESTINADA','PRESTADA','CANCELADA')) not valid; end if;
+end$corr19$;
+
+create or replace function sigov.fn_corr19_validar_contexto_fk() returns trigger language plpgsql as $fn$
+declare ref_tenant bigint; ref_entity bigint; ref_exercicio bigint;
+begin
+ if tg_argv[0]='area' then select tenant_id,entity_id,exercicio_id into ref_tenant,ref_entity,ref_exercicio from sigov.defesa_civil_area_risco where id=new.area_risco_id and deleted_at is null;
+ elsif tg_argv[0]='cenario' then select tenant_id,entity_id,exercicio_id into ref_tenant,ref_entity,ref_exercicio from sigov.defesa_civil_cenario_risco where id=new.cenario_risco_id and deleted_at is null;
+ elsif tg_argv[0]='plano' then select tenant_id,entity_id,exercicio_id into ref_tenant,ref_entity,ref_exercicio from sigov.defesa_civil_plano_contingencia where id=new.plano_id and deleted_at is null;
+ elsif tg_argv[0]='ocorrencia' then select tenant_id,entity_id,exercicio_id into ref_tenant,ref_entity,ref_exercicio from sigov.defesa_civil_ocorrencia where id=new.ocorrencia_id and deleted_at is null;
+ elsif tg_argv[0]='abrigo' then select tenant_id,entity_id,exercicio_id into ref_tenant,ref_entity,ref_exercicio from sigov.defesa_civil_abrigo where id=new.abrigo_id and deleted_at is null;
+ end if;
+ if ref_tenant is null or (ref_tenant,ref_entity,ref_exercicio) is distinct from (new.tenant_id,new.entity_id,new.exercicio_id) then raise exception 'Vínculo fora do contexto tenant/entidade/exercício'; end if;
+ return new;
+end$fn$;
+
+do $triggers$ declare item text; parts text[]; begin
+ foreach item in array array['tr_corr19_cenario_area|defesa_civil_cenario_risco|area','tr_corr19_plano_cenario|defesa_civil_plano_contingencia|cenario','tr_corr19_rota_plano|defesa_civil_rota_evacuacao|plano','tr_corr19_resposta_ocorrencia|defesa_civil_ocorrencia_resposta|ocorrencia','tr_corr19_estoque_abrigo|defesa_civil_estoque|abrigo','tr_corr19_ocupacao_abrigo|defesa_civil_abrigo_ocupacao|abrigo'] loop
+  parts:=string_to_array(item,'|'); execute format('drop trigger if exists %I on sigov.%I',parts[1],parts[2]); execute format('create trigger %I before insert or update on sigov.%I for each row execute function sigov.fn_corr19_validar_contexto_fk(%L)',parts[1],parts[2],parts[3]);
+ end loop;
+end$triggers$;
+
+create or replace function sigov.fn_corr19_validar_operacao() returns trigger language plpgsql as $fn$
+declare capacidade_abrigo integer; ocupacao integer;
+begin
+ if tg_table_name='defesa_civil_ocorrencia' and new.status='ENCERRADA' and (old.status is distinct from new.status) then
+  if new.encerrada_em is null or length(btrim(new.descricao))<20 then raise exception 'Encerramento exige data e resultado descritivo mínimo'; end if;
+  if not exists(select 1 from sigov.defesa_civil_evidencia_vinculo e where e.tenant_id=new.tenant_id and e.entity_id=new.entity_id and e.exercicio_id=new.exercicio_id and e.contexto_tipo='OCORRENCIA' and e.contexto_id=new.id and e.status='ATIVA' and e.deleted_at is null) then raise exception 'Encerramento exige evidência transversal ativa'; end if;
+ end if;
+ if tg_table_name='defesa_civil_ocorrencia_resposta' and new.status<>'CANCELADA' and exists(select 1 from sigov.defesa_civil_ocorrencia_resposta r where r.id<>coalesce(new.id,0) and r.tenant_id=new.tenant_id and r.entity_id=new.entity_id and r.exercicio_id=new.exercicio_id and r.ocorrencia_id=new.ocorrencia_id and r.status<>'CANCELADA' and r.deleted_at is null and (new.equipe_id is not null and r.equipe_id=new.equipe_id or new.recurso_id is not null and r.recurso_id=new.recurso_id) and tstzrange(r.inicio_em,coalesce(r.fim_em,'infinity')) && tstzrange(new.inicio_em,coalesce(new.fim_em,'infinity'))) then raise exception 'Equipe ou recurso já alocado no período'; end if;
+ if tg_table_name='defesa_civil_abrigo_ocupacao' and new.status='ABRIGADA' and new.saida_em is null then
+  select capacidade into capacidade_abrigo from sigov.defesa_civil_abrigo where id=new.abrigo_id and tenant_id=new.tenant_id and entity_id=new.entity_id and deleted_at is null for update;
+  select count(*) into ocupacao from sigov.defesa_civil_abrigo_ocupacao where abrigo_id=new.abrigo_id and tenant_id=new.tenant_id and entity_id=new.entity_id and status='ABRIGADA' and saida_em is null and deleted_at is null and id<>coalesce(new.id,0);
+  if ocupacao>=capacidade_abrigo then raise exception 'Capacidade do abrigo esgotada; excedente depende de fluxo autorizado e auditado'; end if;
+ end if;
+ return new;
+end$fn$;
+
+drop trigger if exists tr_corr19_encerrar_ocorrencia on sigov.defesa_civil_ocorrencia;
+create trigger tr_corr19_encerrar_ocorrencia before update on sigov.defesa_civil_ocorrencia for each row execute function sigov.fn_corr19_validar_operacao();
+drop trigger if exists tr_corr19_alocacao_resposta on sigov.defesa_civil_ocorrencia_resposta;
+create trigger tr_corr19_alocacao_resposta before insert or update on sigov.defesa_civil_ocorrencia_resposta for each row execute function sigov.fn_corr19_validar_operacao();
+drop trigger if exists tr_corr19_capacidade_abrigo on sigov.defesa_civil_abrigo_ocupacao;
+create trigger tr_corr19_capacidade_abrigo before insert or update on sigov.defesa_civil_abrigo_ocupacao for each row execute function sigov.fn_corr19_validar_operacao();
+
+create unique index if not exists ux_corr19_codigo_area on sigov.defesa_civil_area_risco(tenant_id,entity_id,exercicio_id,codigo) where deleted_at is null;
+create unique index if not exists ux_corr19_codigo_ocorrencia on sigov.defesa_civil_ocorrencia(tenant_id,entity_id,exercicio_id,codigo) where deleted_at is null;
+create unique index if not exists ux_corr19_codigo_plano on sigov.defesa_civil_plano_contingencia(tenant_id,entity_id,exercicio_id,codigo,versao) where deleted_at is null;
+create unique index if not exists ux_corr19_ocupacao_pessoa on sigov.defesa_civil_abrigo_ocupacao(tenant_id,entity_id,exercicio_id,pessoa_id) where deleted_at is null and status='ABRIGADA' and saida_em is null;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826210000', 'CORR19 fechamento DefesaCivil360 com integridade operacional', '48ca18ced7eba9ab34fab7934e889b4bf8a3b9f2ab6b1fbe69d9b3c1028c87ee', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 -- DEVELOPMENT ONLY: seeds fictícias idempotentes
 -- SIGOV+ RC50.10 - guarda canônica de acesso administrativo local.
 -- EXCLUSIVO PARA DEVELOPMENT. Idempotente, sem senha em texto puro e sem remoção física.
