@@ -145,6 +145,7 @@ public static class DependencyInjection
         services.AddScoped<IAlmoxarifadoService, AlmoxarifadoService>();
         services.AddScoped<IAgroService, AgroService>();
         services.AddScoped<Sigov.Application.Compras.IComprasService, ComprasService>();
+        services.AddScoped<Sigov.Application.Compras.ILicitaProService, LicitaProService>();
         services.AddScoped<TributarioAvancadoRepository>();
         services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<IPortalContribuinteRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());

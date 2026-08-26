@@ -1383,6 +1383,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.evidencia_transversal') is not null and to_regclass('sigov.sincronizacao_outbox') is not null"
+    },
+    {
+      "version": "20260826130000",
+      "description": "EXP03 LicitaPro IA integrado ao FUNC03",
+      "category": "functional",
+      "file": "20260826130000_exp03_licitapro_func03.sql",
+      "checksum": "6cebafe4e884b6105b6fee01715b412809035599b964179f4b42a9c9fc66adeb",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.compras_licitapro_oportunidade') is not null and to_regclass('sigov.compras_licitapro_auditoria') is not null and exists(select 1 from sigov.permissao where chave='COMPRAS_LICITAPRO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

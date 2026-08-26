@@ -75,3 +75,12 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - Contratos compartilhados de evidência, seleção de entidades relacionadas e sincronização foram adicionados; relatórios CSV passam a dispor de escape contra formula injection.
 - FUNC21, FUNC22, FUNC23 e FUNC24 permanecem planejadas e indisponíveis. Nenhum módulo, rota ou item de menu foi liberado.
 - Gates de .NET, PostgreSQL e smoke ficaram **BLOCKED** neste ambiente porque `dotnet` e `psql` não estão instalados e não há banco/credencial de homologação.
+
+## EXP03 — LicitaPro IA / FUNC03
+
+- [x] Persistência aditiva e idempotente, permissões e índices.
+- [x] Dashboard, fontes, importações, oportunidades e vínculo a processo.
+- [x] Portal, documentos, checklist, análise, agenda, alertas, CSV e auditoria.
+- [x] Dapper parametrizado, antiforgery, validação server-side e seleção de relacionamentos.
+- [ ] BLOCKED: `dotnet build --no-restore` não executado porque o SDK dotnet não está instalado no ambiente.
+- [ ] Smoke executável depende de runtime e PostgreSQL configurado.

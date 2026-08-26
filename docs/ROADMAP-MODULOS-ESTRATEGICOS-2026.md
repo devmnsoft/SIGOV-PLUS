@@ -199,3 +199,7 @@ sincronizados, seed fictícia idempotente, Dapper parametrizado, regras de
 domínio, serviços, API, MVC/Razor real, RBAC persistido, auditoria, LGPD,
 relatórios, documentação, execução dos testes existentes e smoke autenticado.
 Nenhuma FUNC é concluída apenas por documentação ou por presença de rota.
+
+## EXP03 — LicitaPro IA integrado ao FUNC03
+
+Entregue como expansão de Compras, Licitações, Contratos e Atas: fonte oficial configurável, importação versionada, radar, habilitação documental, análise assistida explicável, agenda, alertas, contrato conquistado, relatórios e auditoria. Integração externa permanece indisponível/não configurada até configuração operacional válida, sem simulação.
