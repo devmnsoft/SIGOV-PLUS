@@ -93,3 +93,7 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - [x] Corrigir filtros e cabeçalhos/proteção de CSV.
 - [x] Sincronizar migration corretiva, manifest e scripts PostgreSQL consolidados.
 - [x] Documentar limite explícito: sem Fiscaliza360 e sem FUNC21–FUNC24.
+
+## EXP13 — Obras360
+
+Implementação do fechamento operacional do FUNC13 entregue por migration corretiva/funcional, repositório Dapper, MVC/Razor, RBAC persistido, CSV seguro e documentação. Integrações externas preservam a autoridade dos módulos de origem e não usam fallback artificial.
