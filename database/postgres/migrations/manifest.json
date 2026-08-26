@@ -1363,6 +1363,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.convenio_instrumento') is not null and to_regclass('sigov.convenio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='CONVENIO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260826110000",
+      "description": "CORR20 integridade e índices de Convênios",
+      "category": "corrective",
+      "file": "20260826110000_corr20_convenios_integridade_indices.sql",
+      "checksum": "825a60b39b5eadb63bf13e3c127947120467c86b39f18b8dacd11e968d496f6b",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.ix_convenio_prestacao_instrumento_status') is not null and to_regclass('sigov.ix_convenio_auditoria_registro') is not null"
     }
   ],
   "compatibilityAfterAll": [

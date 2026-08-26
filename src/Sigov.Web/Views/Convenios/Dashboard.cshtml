@@ -1,3 +1,42 @@
 @model Sigov.Application.Convenios.ConvenioDashboard
-@{ViewData["Title"]="Convênios e Emendas";var cards=new[]{("Instrumentos ativos",Model.InstrumentosAtivos.ToString("N0")),("Vencendo em 60 dias",Model.InstrumentosVencendo.ToString("N0")),("Instrumentos vencidos",Model.InstrumentosVencidos.ToString("N0")),("Valor global em execução",Model.ValorGlobalExecucao.ToString("C")),("Valor repassado",Model.ValorRepassado.ToString("C")),("Valor executado",Model.ValorExecutado.ToString("C")),("Projetos em atraso",Model.ProjetosAtrasados.ToString("N0")),("Metas pendentes",Model.MetasPendentes.ToString("N0")),("Prestações pendentes",Model.PrestacoesPendentes.ToString("N0")),("Diligências vencidas",Model.DiligenciasVencidas.ToString("N0")),("Emendas no ano",Model.EmendasAno.ToString("N0")),("Saldo das contas",Model.SaldoContas.ToString("C"))};}
-<h1 class="h3">Gestão de Convênios, Emendas e Prestação de Contas</h1><partial name="_Nav"/><div class="row g-3">@foreach(var c in cards){<div class="col-12 col-sm-6 col-xl-3"><div class="card h-100 shadow-sm"><div class="card-body"><div class="text-secondary small">@c.Item1</div><strong class="fs-4">@c.Item2</strong></div></div></div>}</div>
+@{
+    ViewData["Title"] = "Convênios e Emendas";
+    var cards = new[]
+    {
+        ("Instrumentos ativos", Model.InstrumentosAtivos.ToString("N0"), "text-bg-success"),
+        ("Vencendo em 60 dias", Model.InstrumentosVencendo.ToString("N0"), "text-bg-warning"),
+        ("Instrumentos vencidos", Model.InstrumentosVencidos.ToString("N0"), "text-bg-danger"),
+        ("Valor global", Model.ValorGlobalExecucao.ToString("C"), "text-bg-primary"),
+        ("Valor repassado", Model.ValorRepassado.ToString("C"), "text-bg-info"),
+        ("Contrapartida realizada", Model.ValorContrapartida.ToString("C"), "text-bg-info"),
+        ("Valor executado", Model.ValorExecutado.ToString("C"), "text-bg-primary"),
+        ("Prestações pendentes", Model.PrestacoesPendentes.ToString("N0"), "text-bg-warning"),
+        ("Diligências abertas", Model.DiligenciasAbertas.ToString("N0"), "text-bg-warning"),
+        ("Diligências vencidas", Model.DiligenciasVencidas.ToString("N0"), "text-bg-danger"),
+        ("Projetos em atraso", Model.ProjetosAtrasados.ToString("N0"), "text-bg-danger"),
+        ("Saldo das contas", Model.SaldoContas.ToString("C"), "text-bg-secondary")
+    };
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Gestão de Convênios, Emendas e Prestação de Contas</h1>
+        <p class="text-secondary mb-0">Indicadores operacionais do contexto selecionado, atualizados com dados do PostgreSQL.</p>
+    </div>
+    <a asp-action="Relatorios" class="btn btn-outline-primary">Exportar relatórios</a>
+</div>
+<partial name="_Nav" />
+<div class="row g-3">
+    @foreach (var card in cards)
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <span class="badge @card.Item3 mb-3">Indicador</span>
+                    <div class="text-secondary small">@card.Item1</div>
+                    <strong class="fs-4">@card.Item2</strong>
+                </div>
+            </div>
+        </div>
+    }
+</div>
