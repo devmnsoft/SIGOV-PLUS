@@ -1,0 +1,4 @@
+@model Sigov.Application.Obras.Engenharia.ObrasRegistro
+@{ViewData["Title"]="Detalhe Obras360";}
+<span class="badge text-bg-primary">Obras360</span><h1 class="h3 mt-2">@Model.Codigo</h1><partial name="_Nav"/>
+<div class="card border-0 shadow-sm"><div class="card-body"><dl class="row mb-0"><dt class="col-sm-3">Descrição</dt><dd class="col-sm-9">@Model.Descricao</dd><dt class="col-sm-3">Status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary">@Model.Status</span></dd><dt class="col-sm-3">Data</dt><dd class="col-sm-9">@Model.Data?.ToString("d")</dd><dt class="col-sm-3">Valor</dt><dd class="col-sm-9">@Model.Valor?.ToString("C")</dd><dt class="col-sm-3">Criado em</dt><dd class="col-sm-9">@Model.CriadoEm.ToString("g")</dd></dl></div></div>

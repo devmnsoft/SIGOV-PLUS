@@ -211,3 +211,7 @@ Fechamento técnico concluído no escopo do FUNC03: validações, MVC/Razor resp
 ## EXP-FISCALIZA360 transversal
 
 Núcleo transversal de fiscalização e campo estruturado para FUNC13, FUNC14, FUNC18 e FUNC19, com ordens, vistorias, checklists, equipes, roteiros, autos, evidências, outbox, auditoria e relatórios. Integração externa offline permanece bloqueada até existir adaptador oficial.
+
+## EXP13 — Obras360 / FUNC13
+
+Obras360 foi promovido a expansão operacional: cronograma físico-financeiro, diário, geoevidências transversais, medições e aprovação, eventos contratuais, conformidade, ordens, transparência e rastreabilidade financeira. Detalhes e limites estão em `docs/OBRAS360-FUNC13.md`. As expansões DefesaCivil360, Ativos360, Cidadão360, Jurídico360 e FUNC21–FUNC24 permanecem fora deste incremento.
