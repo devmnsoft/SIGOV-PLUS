@@ -91,3 +91,10 @@ Trilha funcional paralela entregue com autoridade PostgreSQL, Dapper parametriza
 ## FUNC06 — Saúde, Atenção Básica e Regulação
 
 Trilha funcional paralela entregue com schema corretivo idempotente, Dapper/API, MVC/Razor, RBAC persistente, auditoria e LGPD. Abrange unidades, pacientes, equipes, agenda, acolhimento, prontuário, procedimentos, vacinação, farmácia e regulação. Não promove RC50.68, não inicia RC50.69 e mantém GED/InovaGED para a etapa final.
+# Marco RC50.68 — fundação transversal
+
+Em 26/08/2026 foi consolidada uma base aditiva para evidências, georreferenciamento
+opcional, referência GED, auditoria, LGPD e sincronização/outbox idempotente. A
+entrega não altera a autoridade persistida de módulos, permissões, perfis ou
+parâmetros e não promove módulos estratégicos planejados. FUNC21–FUNC24 continuam
+dependentes de releases funcionais próprias, com persistência, RBAC, UI e smoke.

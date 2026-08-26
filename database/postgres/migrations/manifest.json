@@ -1373,6 +1373,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.ix_convenio_prestacao_instrumento_status') is not null and to_regclass('sigov.ix_convenio_auditoria_registro') is not null"
+    },
+    {
+      "version": "20260826120000",
+      "description": "RC50.68 fundação transversal de evidências e sincronização idempotente",
+      "category": "corrective",
+      "file": "20260826120000_rc50_68_fundacao_transversal.sql",
+      "checksum": "1b94531a4a583b62400e7c70e9858eb09c749a42ce25fc2473bd73e5772b754c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.evidencia_transversal') is not null and to_regclass('sigov.sincronizacao_outbox') is not null"
     }
   ],
   "compatibilityAfterAll": [

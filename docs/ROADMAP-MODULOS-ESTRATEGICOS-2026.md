@@ -11,6 +11,17 @@ de produção.
 Este roadmap não promove a RC50.68, que permanece bloqueada até a execução
 verde dos gates oficiais de runtime, PostgreSQL, smoke e CI.
 
+## Estado da fundação RC50.68
+
+A migration corretiva `20260826120000` consolidou somente os contratos mínimos
+de evidência e sincronização idempotente. A evidência guarda metadados, contexto
+tenant/entidade, geolocalização opcional, hash e referência opcional ao documento
+real do GED; não guarda arquivo fictício. A fila registra payload, estado,
+tentativas e datas, mas não instala worker nem chama serviço externo.
+
+FUNC21, FUNC22, FUNC23 e FUNC24 permanecem **planejadas e indisponíveis**. Elas
+não possuem entrada de menu nem devem ser inferidas a partir desta fundação.
+
 ## Matriz de integração
 
 | Produto estratégico | Integração no SIGOV PLUS | Tipo de evolução |

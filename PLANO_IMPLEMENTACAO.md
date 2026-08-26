@@ -68,3 +68,10 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - [x] Unidades, pacientes, profissionais/equipes, agenda, acolhimento, prontuário, vacinação, farmácia, regulação, dashboard e CSV entregues sobre PostgreSQL/Dapper e RBAC persistente.
 - [x] Regras críticas defendidas no banco, com auditoria/LGPD e integração de saldo do Almoxarifado quando existe vínculo seguro.
 - [ ] Homologação PostgreSQL 16 e smoke autenticado dependem do ambiente oficial. RC50.68 continua **BLOCKED**; RC50.69 não foi iniciada; GED/InovaGED segue adiado.
+# RC50.68 — desbloqueio e fundação transversal (26/08/2026)
+
+- Baseline, manifest e scripts distribuíveis foram sincronizados com a migration corretiva `20260826120000`.
+- A fundação canônica agora define metadados de evidência com referência opcional ao GED e fila de sincronização idempotente, sem arquivo fictício, worker ou envio externo.
+- Contratos compartilhados de evidência, seleção de entidades relacionadas e sincronização foram adicionados; relatórios CSV passam a dispor de escape contra formula injection.
+- FUNC21, FUNC22, FUNC23 e FUNC24 permanecem planejadas e indisponíveis. Nenhum módulo, rota ou item de menu foi liberado.
+- Gates de .NET, PostgreSQL e smoke ficaram **BLOCKED** neste ambiente porque `dotnet` e `psql` não estão instalados e não há banco/credencial de homologação.
