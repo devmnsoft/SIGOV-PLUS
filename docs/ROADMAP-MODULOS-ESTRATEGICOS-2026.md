@@ -104,6 +104,8 @@ habilitado.
 
 ### DefesaCivil360 em FUNC19
 
+**EXP19 implementada em 2026-08-26**, integrada ao FUNC19 com persistência, RBAC, telas MVC/Razor, relatórios CSV e integrações transversais. A homologação ambiental permanece condicionada aos gates .NET 10/PostgreSQL 16.
+
 - áreas e cenários de risco, população vulnerável e planos de contingência;
 - ocorrências, níveis de resposta, equipes, abrigos, vagas, estoque e doações;
 - rotas de evacuação, recursos, embarcações e comunicação à população;

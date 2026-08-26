@@ -21,8 +21,9 @@ O detalhamento histórico permanece em [`PLANO_MESTRE_SIGOV_PLUS.md`](PLANO_MEST
   FUNC13, FUNC15, FUNC17 e FUNC19.
 - [ ] Consolidar o núcleo transversal de fiscalização, evidências, campo e
   sincronização offline após a promoção da RC50.68.
-- [ ] Fechar as expansões LicitaPro IA, Fiscaliza360, Obras360, DefesaCivil360,
-  Ativos360, Cidadão360 e Jurídico360 nas FUNCs existentes.
+- [ ] Fechar as expansões LicitaPro IA, Fiscaliza360, Obras360, Ativos360,
+  Cidadão360 e Jurídico360 nas FUNCs existentes.
+- [x] EXP19 DefesaCivil360 implementada dentro do FUNC19; homologação depende dos gates de ambiente.
 - [ ] Implementar FUNC21 SST 360.
 - [ ] Implementar FUNC22 Carbono360.
 - [ ] Implementar FUNC23 Energia360.

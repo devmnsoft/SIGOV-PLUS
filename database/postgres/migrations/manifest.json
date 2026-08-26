@@ -1433,6 +1433,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_corr13_medicao_saldos') and to_regclass('sigov.ix_corr13_ocorrencia_contexto_prazo') is not null"
+    },
+    {
+      "version": "20260826180000",
+      "description": "EXP19 DefesaCivil360 operacional no FUNC19",
+      "category": "functional",
+      "file": "20260826180000_exp19_defesacivil360_func19.sql",
+      "checksum": "b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.defesa_civil_ocorrencia') is not null and to_regclass('sigov.defesa_civil_alerta') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_CIVIL_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
