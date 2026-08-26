@@ -1403,6 +1403,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento') is not null and exists(select 1 from pg_constraint where conname='ck_clp_fonte_endpoint_url')"
+    },
+    {
+      "version": "20260826150000",
+      "description": "EXP-FISCALIZA360 núcleo transversal de fiscalização e campo",
+      "category": "functional",
+      "file": "20260826150000_exp_fiscaliza360_transversal.sql",
+      "checksum": "c63d78093ff2c1bff13a347434e758d8c4aedbe19c8b6e597c4085068246ed9c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.fiscalizacao_ordem') is not null and to_regclass('sigov.fiscalizacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='FISCALIZACAO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
