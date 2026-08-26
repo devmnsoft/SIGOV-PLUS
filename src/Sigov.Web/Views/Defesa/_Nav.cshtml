@@ -1,0 +1,6 @@
+<nav class="navbar navbar-expand-lg bg-body-tertiary rounded mb-4" aria-label="Navegação da Defesa Civil e Guarda Municipal">
+ <div class="container-fluid"><a class="navbar-brand" href="/Defesa/Dashboard">Defesa Civil e Guarda</a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#defesaNav" aria-controls="defesaNav" aria-expanded="false" aria-label="Abrir navegação"><span class="navbar-toggler-icon"></span></button>
+ <div class="collapse navbar-collapse" id="defesaNav"><ul class="navbar-nav flex-wrap"><li class="nav-item"><a class="nav-link" href="/Defesa/Dashboard">Dashboard</a></li>
+ @foreach(var grupo in new[]{("Cadastros",new[]{"Agentes","Equipes","Recursos","AreasRisco","Abrigos"}),("Operação",new[]{"Ocorrencias","Acionamentos","Vistorias","Atendimentos","Rondas","OrdensServico"}),("Prevenção",new[]{"Notificacoes","PlanosContingencia"})}){<li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">@grupo.Item1</a><ul class="dropdown-menu">@foreach(var item in grupo.Item2){<li><a class="dropdown-item" href="/Defesa/@item">@item</a></li>}</ul></li>}
+ <li class="nav-item"><a class="nav-link" href="/Defesa/Relatorios">Relatórios</a></li><li class="nav-item"><a class="nav-link" href="/Defesa/Auditoria">Auditoria</a></li></ul></div></div>
+</nav>

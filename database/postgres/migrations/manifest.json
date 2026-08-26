@@ -1333,6 +1333,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_transito_sinalizacao_datas')"
+    },
+    {
+      "version": "20260825130000",
+      "description": "FUNC19 Defesa Civil, Guarda Municipal e Segurança Pública Municipal",
+      "category": "functional",
+      "file": "20260825130000_func19_defesa_civil_guarda_municipal.sql",
+      "checksum": "703f387d0dc86235913f370d67ec41b058503242724e4b83b9533137fc0bf154",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.defesa_ocorrencia') is not null and to_regclass('sigov.defesa_auditoria') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
