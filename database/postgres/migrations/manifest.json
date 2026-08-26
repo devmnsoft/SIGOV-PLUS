@@ -1343,6 +1343,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.defesa_ocorrencia') is not null and to_regclass('sigov.defesa_auditoria') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260825131000",
+      "description": "CORR19 índices e unicidade de recursos da Defesa Civil",
+      "category": "corrective",
+      "file": "20260825131000_corr19_defesa_indices.sql",
+      "checksum": "14cbd64ba464fc000e0d86a9fd864f43fea95b6d5665e00b53d2628b8a74f607",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.ix_defesa_vistoria_status_data') is not null and to_regclass('sigov.ix_defesa_auditoria_tenant_entity_data') is not null"
     }
   ],
   "compatibilityAfterAll": [

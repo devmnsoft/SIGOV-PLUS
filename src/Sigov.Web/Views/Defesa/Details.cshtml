@@ -1,0 +1,14 @@
+@model Sigov.Web.Models.Defesa.DefesaDetailsViewModel
+@{ ViewData["Title"] = $"{Model.Titulo} — detalhes"; }
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h1 class="h3">@Model.Titulo — detalhes</h1>
+    <div><a class="btn btn-primary" href="/Defesa/@Model.Recurso/@Model.Id/Editar">Editar</a> <a class="btn btn-outline-secondary" href="/Defesa/@Model.Recurso">Voltar</a></div>
+</div>
+<partial name="_Nav" />
+<div class="card shadow-sm"><div class="card-body"><dl class="row mb-0">
+    <dt class="col-sm-3">Identificação</dt><dd class="col-sm-9">@Model.Registro.Codigo</dd>
+    <dt class="col-sm-3">Descrição</dt><dd class="col-sm-9">@Model.Registro.Descricao</dd>
+    <dt class="col-sm-3">Status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary">@Model.Registro.Status</span></dd>
+    @foreach (var campo in Model.Registro.Campos.Where(x => !x.Key.EndsWith("_id", StringComparison.Ordinal)))
+    {<dt class="col-sm-3">@campo.Key.Replace('_', ' ')</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(campo.Value) ? "—" : campo.Value)</dd>}
+</dl></div></div>
