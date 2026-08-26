@@ -207,3 +207,7 @@ Entregue como expansão de Compras, Licitações, Contratos e Atas: fonte oficia
 ### CORR03 — LicitaPro IA / FUNC03
 
 Fechamento técnico concluído no escopo do FUNC03: validações, MVC/Razor responsivo, filtros, CSV seguro, auditoria e integridade PostgreSQL. Fiscaliza360 e FUNC21–FUNC24 permanecem fora desta entrega.
+
+## EXP-FISCALIZA360 transversal
+
+Núcleo transversal de fiscalização e campo estruturado para FUNC13, FUNC14, FUNC18 e FUNC19, com ordens, vistorias, checklists, equipes, roteiros, autos, evidências, outbox, auditoria e relatórios. Integração externa offline permanece bloqueada até existir adaptador oficial.

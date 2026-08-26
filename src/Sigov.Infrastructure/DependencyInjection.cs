@@ -717,6 +717,7 @@ services.AddScoped<IJuridicoRepository, JuridicoRepository>();
 services.AddScoped<Sigov.Application.Transito.ITransitoRepository, Sigov.Infrastructure.Transito.TransitoRepository>();
 services.AddScoped<Sigov.Application.Defesa.IDefesaRepository, Sigov.Infrastructure.Defesa.DefesaRepository>();
 services.AddScoped<Sigov.Application.Convenios.IConvenioRepository, Sigov.Infrastructure.Convenios.ConvenioRepository>();
+services.AddScoped<Sigov.Application.Fiscalizacao.IFiscalizacaoRepository, Sigov.Infrastructure.Fiscalizacao.FiscalizacaoRepository>();
         return services;
     }
 }

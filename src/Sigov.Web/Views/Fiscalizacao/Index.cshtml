@@ -1,0 +1,6 @@
+@model Sigov.Application.Fiscalizacao.FiscalizacaoDashboard
+@{ViewData["Title"]="Fiscaliza360";}
+<partial name="_Nav"/><h1>Fiscaliza360</h1><p class="text-muted">Fiscalização transversal integrada a Obras, Meio Ambiente, Trânsito e Defesa Civil.</p>
+<div class="row g-3">
+@foreach(var card in new[]{("Ordens abertas",Model.OrdensAbertas,"Ordens"),("Vistorias agendadas",Model.VistoriasAgendadas,"Vistorias"),("Vistorias concluídas",Model.VistoriasConcluidas,"Vistorias"),("Autos emitidos",Model.AutosEmitidos,"Autos"),("Pendências de sincronização",Model.SincronizacoesPendentes,"Sincronizacao"),("Evidências coletadas",Model.Evidencias,"Evidencias")}){<div class="col-12 col-sm-6 col-xl-4"><a class="card card-body h-100 text-decoration-none" asp-action="@card.Item3"><span class="text-muted">@card.Item1</span><strong class="display-6">@card.Item2</strong></a></div>}
+</div>
