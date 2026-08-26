@@ -275,3 +275,6 @@ O SIGOV-PLUS inclui gestão persistente de trânsito, fiscalização e transport
 
 ### FUNC19 — Defesa Civil e Guarda Municipal
 O módulo persistente está disponível em `/Defesa`, com operação municipal, isolamento tenant/entidade, RBAC, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC19-DEFESA-CIVIL-GUARDA-MUNICIPAL.md).
+
+### FUNC20 — Convênios, Emendas e Prestação de Contas
+O módulo persistente está disponível em `/Convenios`, com instrumentos, projetos, execução financeira, prestação de contas, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC20-CONVENIOS-EMENDAS-PRESTACAO-CONTAS.md).

@@ -1353,6 +1353,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.ix_defesa_vistoria_status_data') is not null and to_regclass('sigov.ix_defesa_auditoria_tenant_entity_data') is not null"
+    },
+    {
+      "version": "20260826100000",
+      "description": "FUNC20 Convênios, Emendas Parlamentares, Projetos e Prestação de Contas",
+      "category": "functional",
+      "file": "20260826100000_func20_convenios_emendas_prestacao_contas.sql",
+      "checksum": "6f961883b8b6e8bc5fdb5339b03236ce26ed7e34874395bfe176383b64a16912",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.convenio_instrumento') is not null and to_regclass('sigov.convenio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='CONVENIO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
