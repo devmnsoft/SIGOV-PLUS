@@ -39,3 +39,7 @@ FUNC18 não foi iniciado. InovaGED, GED e Protocolo não tiveram regra de negóc
 
 ## FUNC18 — Trânsito e Mobilidade
 As telas responsivas em `Views/Transito` usam cards, tabelas, estados vazios, badges, ValidationSummary, validação por campo, antiforgery e selects relacionais carregados do PostgreSQL. A inspeção obrigatória confirma que IDs de agente, condutor, veículo, infração, auto, notificação, recurso, linha, ponto e autorização não são digitáveis.
+
+## FUNC19 — fechamento CORR19
+
+As telas de Defesa Civil foram verificadas para não solicitar IDs relacionais: vínculos usam selects rotulados e integrantes usam checkboxes. Os POSTs de salvar e excluir usam antiforgery; falhas recompõem as opções reais do banco. Listagem, detalhes, criação, edição e exclusão lógica usam ações padronizadas e tabelas responsivas. O dashboard e os nove CSVs permanecem alimentados exclusivamente por consultas Dapper isoladas por tenant/entidade.

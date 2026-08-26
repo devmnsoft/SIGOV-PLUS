@@ -20,8 +20,9 @@ public interface IDefesaRepository
 {
     Task<DefesaDashboard> DashboardAsync(DefesaContexto contexto,CancellationToken ct);
     Task<DefesaPagina> ListarAsync(DefesaContexto contexto,string recurso,DefesaFiltro filtro,CancellationToken ct);
+    Task<DefesaRegistroRequest?> ObterAsync(DefesaContexto contexto,string recurso,long id,CancellationToken ct);
     Task<IReadOnlyList<DefesaOpcao>> OpcoesAsync(DefesaContexto contexto,string tipo,bool somenteAtivos,CancellationToken ct);
-    Task<long> SalvarAsync(DefesaContexto contexto,string recurso,DefesaRegistroRequest request,CancellationToken ct);
+    Task<long> SalvarAsync(DefesaContexto contexto,string recurso,DefesaRegistroRequest request,long? id,CancellationToken ct);
     Task ExcluirAsync(DefesaContexto contexto,string recurso,long id,CancellationToken ct);
     Task<byte[]> CsvAsync(DefesaContexto contexto,string recurso,DefesaFiltro filtro,CancellationToken ct);
 }

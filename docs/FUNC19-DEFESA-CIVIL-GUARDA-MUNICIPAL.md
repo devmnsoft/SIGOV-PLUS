@@ -35,3 +35,7 @@ Todos os cards executam agregações reais no PostgreSQL: ocorrências abertas/c
 - `dotnet restore` e `dotnet build`: **BLOCKED**, pois `dotnet` não está instalado no ambiente.
 - aplicação local da migration: **BLOCKED**, pois `psql` não está instalado no ambiente.
 - smoke manual servido: **BLOCKED**, pois depende do runtime .NET e do PostgreSQL ausentes.
+
+## Fechamento CORR19
+
+O fechamento acrescenta leitura contextual para detalhes e edição, atualização transacional com auditoria, conversão explícita dos tipos PostgreSQL e catálogo fechado de status/campos. A identificação técnica gerada deixou de ser solicitada nos recursos sem número de negócio. A migration corretiva `20260825131000_corr19_defesa_indices.sql` preserva a migration publicada e adiciona índices idempotentes para os filtros operacionais e unicidade de patrimônio ativo.
