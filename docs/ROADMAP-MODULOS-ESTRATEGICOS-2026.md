@@ -203,3 +203,7 @@ Nenhuma FUNC é concluída apenas por documentação ou por presença de rota.
 ## EXP03 — LicitaPro IA integrado ao FUNC03
 
 Entregue como expansão de Compras, Licitações, Contratos e Atas: fonte oficial configurável, importação versionada, radar, habilitação documental, análise assistida explicável, agenda, alertas, contrato conquistado, relatórios e auditoria. Integração externa permanece indisponível/não configurada até configuração operacional válida, sem simulação.
+
+### CORR03 — LicitaPro IA / FUNC03
+
+Fechamento técnico concluído no escopo do FUNC03: validações, MVC/Razor responsivo, filtros, CSV seguro, auditoria e integridade PostgreSQL. Fiscaliza360 e FUNC21–FUNC24 permanecem fora desta entrega.

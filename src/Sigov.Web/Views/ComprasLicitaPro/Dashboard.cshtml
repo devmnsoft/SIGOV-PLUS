@@ -1,5 +1,12 @@
 @model Sigov.Application.Compras.LicitaProDashboard
-@{ ViewData["Title"]="Dashboard LicitaPro"; }
-<link rel="stylesheet" href="~/css/licitapro.css" /><partial name="_Nav" />
-<header class="lp-hero"><div><span>FUNC03 · inteligência assistida</span><h1>LicitaPro IA</h1><p>Radar, habilitação, proposta e contrato conquistado com decisões humanas e dados persistidos.</p></div><a class="btn btn-primary" href="/Compras/LicitaPro/Oportunidades/Nova">Registrar oportunidade</a></header>
-<section class="lp-cards"><article><strong>@Model.Abertas</strong><span>Abertas</span></article><article><strong>@Model.Vencendo</strong><span>Vencendo</span></article><article><strong>@Model.Vencidas</strong><span>Vencidas</span></article><article><strong>@Model.Vinculadas</strong><span>Vinculadas</span></article><article><strong>@Model.FornecedoresDocumentoVencido</strong><span>Fornecedores com documento vencido</span></article><article><strong>@Model.ChecklistsPendentes</strong><span>Checklists pendentes</span></article><article><strong>@Model.PropostasPreparacao</strong><span>Propostas em preparação</span></article><article><strong>@Model.ContratosConquistados</strong><span>Contratos conquistados</span></article><article><strong>@Model.AderenciaMedia.ToString("N1")%</strong><span>Aderência média explicável</span></article></section>
+@{ ViewData["Title"] = "LicitaPro IA"; }
+<link rel="stylesheet" href="~/css/licitapro.css" asp-append-version="true" />
+<partial name="_Nav" />
+<header class="lp-hero">
+    <div><span>FUNC03 · inteligência assistida</span><h1>LicitaPro IA</h1><p>Radar, habilitação, proposta e contratos com decisões humanas e dados persistidos.</p></div>
+    <a class="btn btn-primary" href="/Compras/LicitaPro/Oportunidades/Nova">Registrar oportunidade</a>
+</header>
+<section class="lp-cards" aria-label="Indicadores do LicitaPro">
+@foreach (var card in new[] { (Model.Abertas.ToString(), "Abertas"), (Model.Vencendo.ToString(), "Vencendo"), (Model.Vencidas.ToString(), "Vencidas"), (Model.Vinculadas.ToString(), "Vinculadas"), (Model.FornecedoresDocumentoVencido.ToString(), "Fornecedores com documento vencido"), (Model.ChecklistsPendentes.ToString(), "Checklists pendentes"), (Model.PropostasPreparacao.ToString(), "Propostas em preparação"), (Model.ContratosConquistados.ToString(), "Contratos conquistados"), ($"{Model.AderenciaMedia:N1}%", "Aderência média explicável") })
+{ <article><strong>@card.Item1</strong><span>@card.Item2</span></article> }
+</section>

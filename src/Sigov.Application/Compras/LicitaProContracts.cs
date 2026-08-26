@@ -25,7 +25,18 @@ public sealed record LicitaProFonte(long Id,string Nome,string Tipo,bool Configu
 public sealed record LicitaProOportunidade(long Id,string Numero,string Objeto,string Modalidade,string Fonte,DateOnly DataPublicacao,DateOnly? DataLimite,string Status,long? ProcessoId);
 public sealed record LicitaProLinha(long Id,string Titulo,string Contexto,string Status,DateTimeOffset? Prazo=null);
 public sealed record LicitaProOpcao(long Id,string Texto);
-public sealed record LicitaProWorkspace(string Titulo,string Descricao,IReadOnlyList<LicitaProLinha> Linhas,IReadOnlyList<LicitaProOpcao>? Fornecedores=null,IReadOnlyList<LicitaProOpcao>? Processos=null,IReadOnlyList<LicitaProOpcao>? Oportunidades=null);
+public sealed record LicitaProWorkspace(
+    string Area,
+    string Titulo,
+    string Descricao,
+    LicitaProFiltro Filtro,
+    IReadOnlyList<LicitaProLinha> Linhas,
+    IReadOnlyList<LicitaProOpcao>? Fornecedores = null,
+    IReadOnlyList<LicitaProOpcao>? Processos = null,
+    IReadOnlyList<LicitaProOpcao>? Oportunidades = null,
+    IReadOnlyList<LicitaProOpcao>? Contratos = null,
+    DocumentoFornecedorInput? Documento = null,
+    AgendaPropostaInput? Agenda = null);
 public sealed record LicitaProFiltro(string? Busca=null,string? Status=null,long? FonteId=null,DateOnly? De=null,DateOnly? Ate=null);
 
 public sealed class OportunidadeInput : IValidatableObject
@@ -40,19 +51,27 @@ public sealed class OportunidadeInput : IValidatableObject
     public IEnumerable<ValidationResult> Validate(ValidationContext _) { if (DataLimite < DataPublicacao) yield return new("A data limite não pode ser anterior à publicação.", [nameof(DataLimite)]); }
 }
 public sealed class VinculoOportunidadeInput { [Required] public long? ProcessoId { get; set; } }
-public sealed class DocumentoFornecedorInput
+public sealed class DocumentoFornecedorInput : IValidatableObject
 {
     [Required] public long? FornecedorId { get; set; }
     [Required, StringLength(80)] public string Tipo { get; set; } = "";
     [Required, StringLength(180)] public string Titulo { get; set; } = "";
     public DateOnly? Validade { get; set; }
     [StringLength(1000)] public string? ReferenciaDocumental { get; set; }
+    [Required] public string Status { get; set; } = "PENDENTE";
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext _)
+    {
+        if (Status == "APROVADO" && (Validade is null || string.IsNullOrWhiteSpace(ReferenciaDocumental)))
+            yield return new("Documento aprovado exige validade e referência documental.", [nameof(Status), nameof(Validade), nameof(ReferenciaDocumental)]);
+    }
 }
 public sealed class AgendaPropostaInput
 {
     [Required] public long? OportunidadeId { get; set; }
     [Required] public long? ProcessoId { get; set; }
     [Required] public long? FornecedorId { get; set; }
+    public long? ContratoId { get; set; }
     [Required, StringLength(180)] public string Titulo { get; set; } = "";
     [Required] public DateTimeOffset? PrazoAt { get; set; }
 }
