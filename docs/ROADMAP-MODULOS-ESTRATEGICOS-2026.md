@@ -221,3 +221,7 @@ Obras360 foi promovido a expansão operacional: cronograma físico-financeiro, d
 ### CORR13 — fechamento do Obras360
 
 Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por recurso, formulários sem identificador técnico/JSON manual, estados de negócio controlados, CSV filtrado e migration corretiva sincronizada. Integrações permanecem dependentes de dados oficiais, sem fallback. Os módulos posteriores continuam fora deste incremento.
+
+## CORR19 — DefesaCivil360/FUNC19
+
+**Status técnico:** fechado para validação em ambiente dotnet/PostgreSQL. A correção consolida schema, validações operacionais, RBAC, LGPD, CSV seguro e formulários relacionais do DefesaCivil360. A entrega não avança outros módulos estratégicos e mantém integrações somente por referências canônicas reais. Evidências e comandos bloqueados estão registrados em `docs/entregas/CORR19-DEFESACIVIL360.md`.

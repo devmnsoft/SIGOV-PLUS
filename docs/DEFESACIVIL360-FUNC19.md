@@ -21,3 +21,16 @@ População vulnerável e ocupação de abrigos guardam apenas vínculo com a pe
 ## Regras e rotas
 
 Constraints impedem quantidades, capacidade, vagas, estoque ou doação negativos, validam coordenadas e períodos e limitam severidade, nível e status. O ponto de entrada é `/DefesaCivil`; `/Defesa` continua como alias compatível. CSVs neutralizam fórmulas e exigem `DEFESA_CIVIL_RELATORIO_EXPORT`.
+
+## Fechamento CORR19
+
+A CORR19 consolidou as telas expandidas sobre as tabelas `defesa_civil_*`, eliminando a mistura de identificadores do legado. Áreas, cenários, planos, rotas, ocorrências, respostas, equipes, abrigos, recursos, estoque, doações, alertas, fontes, comunicações, evidências e ocupação usam seletores contextuais e revalidação no servidor. Pessoas aparecem mascaradas no seletor e não são emitidas nos CSVs operacionais.
+
+A migration corretiva `20260826210000_corr19_defesacivil360_integridade.sql` acrescenta domínios de status, unicidade contextual e gatilhos fail-closed para vínculo entre tenant/entidade/exercício, publicação de plano/alerta, encerramento com evidência, sobreposição de equipe/recurso e lotação do abrigo. Saídas de estoque continuam protegidas pelo saldo não negativo; movimentações devem atualizar o saldo na mesma transação.
+
+### Operação e validação
+
+- conexão: exclusivamente `ConnectionStrings__DefaultConnection`;
+- publicação e exportação: permissões persistidas `DEFESA_CIVIL_*`;
+- ausência de SDK, PostgreSQL ou credenciais é `BLOCKED`, nunca sucesso simulado;
+- smoke autenticado exige banco migrado, usuário real e claims de tenant/entidade.
