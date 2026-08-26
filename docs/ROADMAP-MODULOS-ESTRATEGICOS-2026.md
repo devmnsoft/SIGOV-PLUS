@@ -215,3 +215,7 @@ Núcleo transversal de fiscalização e campo estruturado para FUNC13, FUNC14, F
 ## EXP13 — Obras360 / FUNC13
 
 Obras360 foi promovido a expansão operacional: cronograma físico-financeiro, diário, geoevidências transversais, medições e aprovação, eventos contratuais, conformidade, ordens, transparência e rastreabilidade financeira. Detalhes e limites estão em `docs/OBRAS360-FUNC13.md`. As expansões DefesaCivil360, Ativos360, Cidadão360, Jurídico360 e FUNC21–FUNC24 permanecem fora deste incremento.
+
+### CORR13 — fechamento do Obras360
+
+Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por recurso, formulários sem identificador técnico/JSON manual, estados de negócio controlados, CSV filtrado e migration corretiva sincronizada. Integrações permanecem dependentes de dados oficiais, sem fallback. Os módulos posteriores continuam fora deste incremento.

@@ -14,6 +14,7 @@ public sealed class ObrasRegistroFormViewModel
  public string DadosJson { get; set; }="{}";
  public IReadOnlyList<ObraOpcao> Obras { get; set; }=[];
  public string Recurso { get; set; }="";
+ public IReadOnlyList<string> StatusPermitidos { get; set; }=[];
  public long? Id { get; set; }
  public ObrasRegistroRequest ToRequest()=>new(ObraId,Codigo,Descricao,Status,Valor,Data,Justificativa,DadosJson);
 }

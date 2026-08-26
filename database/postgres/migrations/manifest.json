@@ -1423,6 +1423,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.obras_medicao_aprovacao') is not null and to_regclass('sigov.obras_transparencia_publicacao') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_MEDICAO_APPROVE')"
+    },
+    {
+      "version": "20260826170000",
+      "description": "CORR13 Obras360 validações defensivas e índices contextuais",
+      "category": "corrective",
+      "file": "20260826170000_corr13_obras360_validacoes.sql",
+      "checksum": "2ebc8a069d82319703eb0a7e3beb0fde4064fb64b558dec44a6bb8d6492b3c0c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_corr13_medicao_saldos') and to_regclass('sigov.ix_corr13_ocorrencia_contexto_prazo') is not null"
     }
   ],
   "compatibilityAfterAll": [
