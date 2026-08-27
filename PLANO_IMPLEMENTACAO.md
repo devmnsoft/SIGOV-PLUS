@@ -121,3 +121,7 @@ Fechamento técnico concluído no código e nos artefatos SQL: validações de d
 ## EXP06 — Jurídico360
 
 Implementado sobre o FUNC17 e contratos oficiais: persistência complementar idempotente, carteira e contencioso, execução fiscal/CDA, consultivo, prazos, agenda, acordos, precatórios/RPV, documentos, publicações, permissões, auditoria, CSV seguro e design responsivo. Validação PostgreSQL e build permanecem condicionados às ferramentas registradas na entrega.
+
+### EXP09 — SST360
+
+Implementado o núcleo integrado de Saúde e Segurança do Trabalho: banco idempotente e baselines sincronizados, autorização persistida, dashboard contextual, rotas funcionais e CRUD MVC de ASO com validações server-side e proteção LGPD.

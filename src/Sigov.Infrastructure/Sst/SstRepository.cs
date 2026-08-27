@@ -1,0 +1,26 @@
+using Dapper;
+using Sigov.Application.Sst;
+using Sigov.Infrastructure.Persistence.Dapper;
+
+namespace Sigov.Infrastructure.Sst;
+
+public sealed class SstRepository(DapperContext context) : ISstRepository
+{
+ public async Task<SstDashboard> DashboardAsync(long t,long e,CancellationToken ct){using var c=context.CreateConnection(); const string q="""
+select (select count(distinct servidor_id) from sigov.sst_exposicao_servidor where tenant_id=@t and entidade_id=@e and (fim_em is null or fim_em>=current_date)) as ServidoresMonitorados,
+(select count(*) from sigov.sst_aso where tenant_id=@t and entidade_id=@e and (validade_em is null or validade_em<=current_date+30)) as AsosCriticos,
+(select count(*) from sigov.sst_exame_ocupacional where tenant_id=@t and entidade_id=@e and status in ('PENDENTE','VENCIDO')) as ExamesCriticos,
+(select count(*) from sigov.sst_exposicao_servidor where tenant_id=@t and entidade_id=@e and (fim_em is null or fim_em>=current_date)) as ExposicoesAtivas,
+(select count(*) from sigov.sst_epi_entrega where tenant_id=@t and entidade_id=@e and (validade_em is null or validade_em<=current_date)) as EpisCriticos,
+(select count(*) from sigov.sst_cat where tenant_id=@t and entidade_id=@e and status='ABERTA') as CatsAbertas,
+(select count(*) from sigov.sst_acidente_trabalho where tenant_id=@t and entidade_id=@e and data_acidente>=current_date-interval '12 months') as Acidentes,
+(select count(*) from sigov.afastamento a where a.tenant_id=@t and not a.is_deleted and a.dados->>'ocupacional'='true') as AfastamentosOcupacionais,
+(select count(*) from sigov.sst_treinamento where tenant_id=@t and entidade_id=@e and validade_em<current_date) as TreinamentosVencidos,
+(select count(*) from sigov.sst_evento_esocial where tenant_id=@t and entidade_id=@e and status in ('PENDENTE','PENDENTE_INTEGRACAO')) as EsocialPendente,
+(select count(*) from sigov.sst_evento_esocial where tenant_id=@t and entidade_id=@e and status='REJEITADO') as EsocialRejeitado
+""";return await c.QuerySingleAsync<SstDashboard>(new CommandDefinition(q,new{t,e},cancellationToken:ct));}
+ public async Task<IReadOnlyList<SstAso>> ListarAsosAsync(long t,long e,CancellationToken ct){using var c=context.CreateConnection();var x=await c.QueryAsync<SstAso>(new CommandDefinition("select a.id,a.servidor_id as ServidorId,coalesce(s.dados->>'nome',s.dados->>'matricula','Servidor') Servidor,a.tipo,a.data_aso as DataAso,a.medico,a.resultado,a.restricao,a.validade_em as Validade from sigov.sst_aso a join sigov.servidor s on s.id=a.servidor_id and s.tenant_id=a.tenant_id where a.tenant_id=@t and a.entidade_id=@e order by a.data_aso desc",new{t,e},cancellationToken:ct));return x.AsList();}
+ public async Task<SstAso?> ObterAsoAsync(long t,long e,long id,CancellationToken ct){using var c=context.CreateConnection();return await c.QuerySingleOrDefaultAsync<SstAso>(new CommandDefinition("select a.id,a.servidor_id as ServidorId,coalesce(s.dados->>'nome',s.dados->>'matricula','Servidor') Servidor,a.tipo,a.data_aso as DataAso,a.medico,a.resultado,a.restricao,a.validade_em as Validade from sigov.sst_aso a join sigov.servidor s on s.id=a.servidor_id and s.tenant_id=a.tenant_id where a.tenant_id=@t and a.entidade_id=@e and a.id=@id",new{t,e,id},cancellationToken:ct));}
+ public async Task<IReadOnlyList<SstOption>> ServidoresAsync(long t,long e,CancellationToken ct){using var c=context.CreateConnection();var x=await c.QueryAsync<SstOption>(new CommandDefinition("select id,coalesce(dados->>'nome',dados->>'matricula','Servidor '||id) label from sigov.servidor where tenant_id=@t and ativo and not is_deleted order by label",new{t,e},cancellationToken:ct));return x.AsList();}
+ public async Task<long> SalvarAsoAsync(long t,long e,long? ex,long? id,SstAsoInput i,long? u,CancellationToken ct){using var c=context.CreateConnection();const string insert="insert into sigov.sst_aso(tenant_id,entidade_id,exercicio_id,servidor_id,tipo,data_aso,medico,resultado,restricao,validade_em,created_by) values(@t,@e,@ex,@ServidorId,@Tipo,@DataAso,@Medico,@Resultado,@Restricao,@Validade,@u) returning id";const string update="update sigov.sst_aso set servidor_id=@ServidorId,tipo=@Tipo,data_aso=@DataAso,medico=@Medico,resultado=@Resultado,restricao=@Restricao,validade_em=@Validade,updated_at=now(),updated_by=@u where id=@id and tenant_id=@t and entidade_id=@e returning id";var p=new{t,e,ex,id,i.ServidorId,i.Tipo,i.DataAso,i.Medico,i.Resultado,i.Restricao,Validade=i.Validade,u};var saved=await c.ExecuteScalarAsync<long>(new CommandDefinition(id.HasValue?update:insert,p,cancellationToken:ct));await c.ExecuteAsync(new CommandDefinition("insert into sigov.trilha_auditoria(tenant_id,entidade_id,exercicio_id,usuario_id,tabela,registro_id,acao,valores_novos,created_by) values(@t,@e,@ex,@u,'sst_aso',cast(@saved as text),@acao,jsonb_build_object('tipo',@Tipo,'resultado',@Resultado,'servidorId',@ServidorId),@u)",new{t,e,ex,u,saved,acao=id.HasValue?"ALTERAR":"CRIAR",i.Tipo,i.Resultado,i.ServidorId},cancellationToken:ct));if(i.Resultado=="inapto")await c.ExecuteAsync(new CommandDefinition("insert into sigov.sst_alerta(tenant_id,entidade_id,tipo,severidade,origem_tipo,origem_id,mensagem,status) values(@t,@e,'ASO_INAPTO','CRITICO','ASO',@saved,'ASO com resultado inapto','ABERTO')",new{t,e,saved},cancellationToken:ct));return saved;}
+}

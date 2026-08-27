@@ -1,0 +1,6 @@
+@model Sigov.Web.Models.Sst.SstAsoIndex
+@{ViewData["Title"]="ASOs";}<link rel="stylesheet" href="~/css/sst360.css" />
+<div class="sst-page-head"><div><span class="sst-kicker">Dado médico protegido</span><h1>Atestados de Saúde Ocupacional</h1></div><a class="btn btn-primary" href="/SST/ASO/Create">Novo ASO</a></div>
+@if(TempData["Success"] is string ok){<div class="alert alert-success">@ok</div>}
+<div class="table-responsive sst-table"><table class="table align-middle"><thead><tr><th>Servidor</th><th>Tipo</th><th>Data</th><th>Resultado</th><th>Validade</th><th></th></tr></thead><tbody>
+@if(Model.Itens.Count==0){<tr><td colspan="6" class="sst-empty">Nenhum ASO no contexto atual. Registre o primeiro para iniciar o monitoramento.</td></tr>}else foreach(var x in Model.Itens){<tr><td>@x.Servidor</td><td>@x.Tipo.Replace('_',' ')</td><td>@x.DataAso.ToString("dd/MM/yyyy")</td><td><span class="sst-status sst-@x.Resultado">@x.Resultado.Replace('_',' ')</span></td><td>@x.Validade?.ToString("dd/MM/yyyy")</td><td><a href="/SST/ASO/Details/@x.Id">Detalhes</a> · <a href="/SST/ASO/Edit/@x.Id">Editar</a></td></tr>}</tbody></table></div>
