@@ -1,0 +1,5 @@
+@{ ViewData["Title"] = "Relatórios Ativos360"; }
+<link rel="stylesheet" href="~/css/ativos360.css" asp-append-version="true" />
+<main class="ativos-shell"><header class="ativos-hero"><div><span class="ativos-kicker">DADOS SEGUROS</span><h1>Central de relatórios</h1><p>Exporte registros oficiais com neutralização de fórmulas em células CSV.</p></div></header><section class="ativos-grid">
+@foreach(var r in new[]{("Estoque atual","/Almoxarifado/Exportar?tipo=estoque"),("Movimentações","/Almoxarifado/Exportar?tipo=movimentacoes"),("Requisições","/Almoxarifado/Exportar?tipo=requisicoes"),("Bens patrimoniais","/Patrimonio/Exportar"),("Veículos e frota","/Frotas/Veiculos")}){<article><span>@r.Item1</span><strong>CSV</strong><a href="@r.Item2">Exportar arquivo</a></article>}
+</section></main>

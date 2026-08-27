@@ -1,0 +1,4 @@
+@model Sigov.Web.Controllers.AtivosCatalogoViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<link rel="stylesheet" href="~/css/ativos360.css" asp-append-version="true" />
+<main class="ativos-shell"><header class="ativos-hero"><div><span class="ativos-kicker">ATIVOS360</span><h1>@Model.Titulo</h1><p>@Model.Descricao</p></div></header><section class="ativos-panels"><article><div class="ativos-empty">Não há ocorrências para os filtros atuais. Os dados serão exibidos assim que forem registrados nos fluxos oficiais.</div><a class="btn btn-primary mt-3" href="@Model.Retorno">Voltar</a></article></section></main>

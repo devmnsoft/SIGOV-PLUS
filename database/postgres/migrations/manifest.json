@@ -1453,6 +1453,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_corr19_plano_publicacao') and to_regclass('sigov.ux_corr19_ocupacao_pessoa') is not null"
+    },
+    {
+      "version": "20260826220000",
+      "description": "EXP08 Ativos360 integrado: patrimônio, almoxarifado, estoque e frotas",
+      "category": "functional",
+      "file": "20260826220000_exp08_ativos360_integrado.sql",
+      "checksum": "b56aeb80754344edea1525ec65573d73fe6da09ab8d603c2dda06d98bf46048e",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.ativo_transferencia_estoque') is not null and to_regclass('sigov.ativo_alerta_operacional') is not null and exists(select 1 from sigov.permissao where chave='ATIVOS_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
