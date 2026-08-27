@@ -110,3 +110,10 @@ Fechamento técnico concluído no código e nos artefatos SQL: validações de d
 - [x] Bloquear operações de frota inativa/baixada e valores negativos no PostgreSQL.
 - [x] Persistir permissões ATIVOS_* e sincronizar migration, manifest e scripts completos.
 - [x] Entregar experiência responsiva, estados vazios e central de relatórios sem ID manual.
+
+## EXP04 — Cidadão360
+
+- [x] Portal, catálogo persistido, abertura e consulta segura de protocolos.
+- [x] Integração com Atendimento, Ouvidoria, workflow, pessoa, documentos, agenda e avaliação.
+- [x] Migration, permissões, scripts completos, LGPD e documentação.
+- [ ] Homologar adaptadores externos e upload GED quando contratos oficiais estiverem configurados.

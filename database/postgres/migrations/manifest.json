@@ -1463,6 +1463,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.ativo_transferencia_estoque') is not null and to_regclass('sigov.ativo_alerta_operacional') is not null and exists(select 1 from sigov.permissao where chave='ATIVOS_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260827100000",
+      "description": "EXP04 Cidadão360: portal, serviços digitais, protocolo e atendimento integrado",
+      "category": "functional",
+      "file": "20260827100000_exp04_cidadao360_portal_servicos.sql",
+      "checksum": "33c687629eae15da672c8b561291a0a5bf161bdf4a204c1be3a19526a6774385",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.cidadao_solicitacao_servico') is not null and to_regclass('sigov.cidadao_agendamento') is not null and exists(select 1 from sigov.permissao where chave='CIDADAO_PORTAL_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
