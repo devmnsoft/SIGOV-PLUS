@@ -1,15 +1,19 @@
 @model Sigov.Application.Juridico.JuridicoRegistroRequest
+<link rel="stylesheet" href="~/css/juridico360.css" asp-append-version="true" />
+<div class="j360-shell">
 @{ var recurso = Convert.ToString(ViewData["Recurso"]) ?? ""; ViewData["Title"] = $"Novo - {ViewData["Titulo"]}"; }
 <partial name="_Nav" />
 <h1>@ViewData["Titulo"]</h1>
 <div asp-validation-summary="All" class="alert alert-danger"></div>
-<form method="post" asp-controller="Juridico" asp-action="Salvar" asp-route-recurso="@recurso">
+<form class="j360-form" method="post" asp-controller="Juridico" asp-action="Salvar" asp-route-recurso="@recurso">
     @Html.AntiForgeryToken()
-    <div class="mb-3"><label asp-for="Codigo" class="form-label">Código</label><input asp-for="Codigo" class="form-control" /></div>
-    <div class="mb-3"><label asp-for="Descricao" class="form-label">Descrição</label><input asp-for="Descricao" class="form-control" required /></div>
-    <div class="mb-3"><label asp-for="Status" class="form-label">Status</label><input asp-for="Status" class="form-control" required /></div>
-    <div class="mb-3"><label asp-for="DadosJson" class="form-label">Dados complementares (JSON)</label><textarea asp-for="DadosJson" class="form-control" rows="6"></textarea><small class="text-muted">Informe um objeto JSON válido com os campos específicos do recurso.</small></div>
-    <div class="mb-3"><label asp-for="Justificativa" class="form-label">Justificativa</label><textarea asp-for="Justificativa" class="form-control"></textarea></div>
+    <div class="mb-3"><label asp-for="Codigo" class="form-label">Código</label><input asp-for="Codigo" class="form-control" /><span asp-validation-for="Codigo" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="Descricao" class="form-label">Descrição</label><input asp-for="Descricao" class="form-control" required /><span asp-validation-for="Descricao" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="Status" class="form-label">Status</label><input asp-for="Status" class="form-control" required /><span asp-validation-for="Status" class="text-danger"></span></div>
+    <div class="mb-3"><label asp-for="DadosJson" class="form-label">Dados complementares (JSON)</label><textarea asp-for="DadosJson" class="form-control" rows="6"></textarea><span asp-validation-for="DadosJson" class="text-danger"></span><small class="text-muted">Informe um objeto JSON válido com os campos específicos do recurso.</small></div>
+    <div class="mb-3"><label asp-for="Justificativa" class="form-label">Justificativa</label><textarea asp-for="Justificativa" class="form-control"></textarea><span asp-validation-for="Justificativa" class="text-danger"></span></div>
     <button type="submit" class="btn btn-primary">Salvar</button>
     <a asp-controller="Juridico" asp-action="Lista" asp-route-recurso="@recurso" class="btn btn-outline-secondary">Cancelar</a>
 </form>
+
+</div>

@@ -233,3 +233,7 @@ Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por rec
 ## EXP04 — Cidadão360 integrado
 
 **Status técnico:** implementado para validação. O portal `/Cidadao` evolui o FUNC15 e os contratos reais de processos, protocolo, Ouvidoria, pessoas e documentos. Entrega catálogo público persistido, solicitação autenticada, protocolo/verificador, timeline, área do cidadão, dashboard e design mobile-first. Upload, Gov.br, SMS e WhatsApp não são simulados sem adaptador oficial. Consulte `docs/CIDADAO360-FUNC04.md` e `docs/entregas/EXP04-CIDADAO360.md`.
+
+## EXP06 — Jurídico360 integrado
+
+**Status técnico:** implementado para validação. O FUNC17 foi ampliado com carteira, execução fiscal vinculada à dívida ativa/CDA, prazos, agenda, consultivo, documentos, acordos, precatórios/RPV, publicações, risco, auditoria, permissões e interface responsiva. Integrações judiciais externas permanecem explicitamente não configuradas sem adaptador oficial. Consulte `docs/JURIDICO360-FUNC06.md` e `docs/entregas/EXP06-JURIDICO360.md`.
