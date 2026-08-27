@@ -1,0 +1,31 @@
+@model Sigov.Web.Models.Ativos.AtivosDashboardViewModel
+@{ ViewData["Title"] = "Ativos360"; }
+<link rel="stylesheet" href="~/css/ativos360.css" asp-append-version="true" />
+<main class="ativos-shell">
+  <header class="ativos-hero">
+    <div><span class="ativos-kicker">GESTÃO INTEGRADA</span><h1>Ativos360</h1><p>Patrimônio, estoque e mobilidade em uma visão operacional única.</p></div>
+    <nav aria-label="Ações rápidas"><a class="btn btn-light" href="/Ativos/Patrimonio/Create">Tombar bem</a><a class="btn btn-outline-light" href="/Ativos/Frotas/Create">Cadastrar veículo</a></nav>
+  </header>
+  <form class="ativos-filtros" method="get" aria-label="Filtros do painel">
+    <label>Período<select name="periodo"><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option></select></label>
+    <label>Status<select name="status"><option value="">Todos</option><option>ATIVO</option><option>EM_MANUTENCAO</option><option>BAIXADO</option></select></label>
+    <label>Categoria<input name="categoria" type="search" placeholder="Todas as categorias" /></label>
+    <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+  </form>
+  <section class="ativos-grid" aria-label="Indicadores">
+    <article><span>Bens patrimoniais</span><strong>@Model.Patrimonio.TotalBens</strong><a href="/Ativos/Patrimonio">Ver patrimônio</a></article>
+    <article><span>Inventários em andamento</span><strong>@Model.Patrimonio.InventariosAbertos</strong><a href="/Ativos/Inventarios">Conferir inventários</a></article>
+    <article class="is-warning"><span>Estoque crítico</span><strong>@Model.Almoxarifado.AbaixoMinimo</strong><a href="/Ativos/Estoque">Analisar saldos</a></article>
+    <article><span>Requisições pendentes</span><strong>@Model.Almoxarifado.RequisicoesPendentes</strong><a href="/Ativos/Requisicoes">Abrir fila</a></article>
+    <article><span>Veículos ativos</span><strong>@Model.Frotas.VeiculosAtivos</strong><a href="/Ativos/Frotas">Ver frota</a></article>
+    <article class="is-danger"><span>Em manutenção</span><strong>@Model.Frotas.VeiculosEmManutencao</strong><a href="/Ativos/Frotas/Manutencoes">Ver manutenções</a></article>
+    <article><span>Abastecimentos do mês</span><strong>@Model.Frotas.AbastecimentosMes</strong><a href="/Ativos/Frotas/Abastecimentos">Ver consumo</a></article>
+    <article><span>Custo mensal da frota</span><strong>@Model.Frotas.CustoMensal.ToString("C")</strong><a href="/Ativos/Relatorios">Exportar dados</a></article>
+  </section>
+  <section class="ativos-panels">
+    <article><header><h2>Estoque que exige atenção</h2><span class="badge text-bg-warning">CRÍTICO</span></header>
+      @if(Model.Almoxarifado.BaixoEstoque.Count == 0){<div class="ativos-empty">Nenhum item abaixo do estoque mínimo.</div>}else{<div class="table-responsive"><table><thead><tr><th>Produto</th><th>Almoxarifado</th><th>Saldo</th><th>Mínimo</th></tr></thead><tbody>@foreach(var item in Model.Almoxarifado.BaixoEstoque.Take(6)){<tr><td>@item.MaterialDescricao</td><td>@item.LocalNome</td><td>@item.Quantidade</td><td>@item.EstoqueMinimo</td></tr>}</tbody></table></div>}
+    </article>
+    <article><header><h2>Conformidade da frota</h2><a href="/Ativos/Alertas">Todos os alertas</a></header><div class="ativos-alert"><strong>@Model.Frotas.DocumentosVencidos</strong><span>documentos vencidos</span></div><div class="ativos-alert"><strong>@Model.Frotas.ManutencoesAbertas</strong><span>manutenções abertas</span></div><div class="ativos-alert"><strong>@Model.Frotas.CnhAVencer</strong><span>CNHs próximas do vencimento</span></div></article>
+  </section>
+</main>
