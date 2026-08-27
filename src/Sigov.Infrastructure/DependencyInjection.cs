@@ -652,6 +652,7 @@ public static class DependencyInjection
         services.AddScoped<IObrasEngenhariaRepository, ObrasEngenhariaRepository>();
         services.AddScoped<Sigov.Application.Ambiental.IAmbientalRepository, AmbientalRepository>();
         services.AddScoped<Sigov.Application.Atendimento.IAtendimentoRepository, AtendimentoRepository>();
+        services.AddScoped<Sigov.Application.Cidadao.ICidadaoRepository, Sigov.Infrastructure.Cidadao.CidadaoRepository>();
         services.AddScoped<IFrotasService, Sigov.Infrastructure.Frotas.FrotasService>();
         services.AddScoped<IObrasService, ObrasService>();
                 services.AddScoped<Bloco8Repository>();

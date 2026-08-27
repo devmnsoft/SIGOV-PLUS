@@ -229,3 +229,7 @@ Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por rec
 ## EXP08 — Ativos360 integrado
 
 **Status técnico:** implementado para validação. O portal `/Ativos` consolida os módulos reais FUNC01, FUNC02 e FUNC04, com dashboard, navegação responsiva, complementos de ciclo de vida, RBAC persistido e integridade PostgreSQL. Não foram criados catálogos paralelos nem dados de fallback. Consulte `docs/ATIVOS360-FUNC08.md` e `docs/entregas/EXP08-ATIVOS360.md`.
+
+## EXP04 — Cidadão360 integrado
+
+**Status técnico:** implementado para validação. O portal `/Cidadao` evolui o FUNC15 e os contratos reais de processos, protocolo, Ouvidoria, pessoas e documentos. Entrega catálogo público persistido, solicitação autenticada, protocolo/verificador, timeline, área do cidadão, dashboard e design mobile-first. Upload, Gov.br, SMS e WhatsApp não são simulados sem adaptador oficial. Consulte `docs/CIDADAO360-FUNC04.md` e `docs/entregas/EXP04-CIDADAO360.md`.

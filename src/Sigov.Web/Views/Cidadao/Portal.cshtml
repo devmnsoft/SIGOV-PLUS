@@ -1,0 +1,14 @@
+@model Sigov.Web.Models.Cidadao.CidadaoPortalViewModel
+@{ ViewData["Title"]="Cidadão360"; }
+<partial name="_PortalHead" />
+<main class="cidadao-shell">
+ <section class="cidadao-hero" aria-labelledby="portal-title">
+  <div><span class="cidadao-kicker">Serviços públicos digitais</span><h1 id="portal-title">A prefeitura mais perto de você</h1><p>Encontre serviços, faça solicitações e acompanhe cada etapa com transparência.</p></div>
+  <form method="get" action="/Cidadao/Servicos" class="cidadao-search" role="search"><label for="q">O que você precisa?</label><div><input id="q" name="q" value="@Model.Busca" placeholder="Ex.: certidão, matrícula ou protocolo" /><button type="submit">Buscar serviços</button></div></form>
+ </section>
+ <nav class="cidadao-actions" aria-label="Acesso rápido"><a href="/Cidadao/Servicos">Explorar serviços</a><a href="/Cidadao/Solicitar">Nova solicitação</a><a href="/Cidadao/Protocolo">Consultar protocolo</a><a href="/Cidadao/Ouvidoria">Falar com a Ouvidoria</a></nav>
+ <section class="cidadao-section"><div class="cidadao-section-title"><div><span>Em destaque</span><h2>Serviços para resolver sem complicação</h2></div><a href="/Cidadao/Servicos">Ver catálogo completo →</a></div>
+  @if(Model.Destaques.Count==0){<div class="cidadao-empty"><strong>Nenhum serviço publicado.</strong><p>O catálogo desta entidade ainda não possui serviços disponíveis.</p></div>}
+  else {<div class="service-grid">@foreach(var item in Model.Destaques.Take(6)){<article class="service-card"><span class="service-category">@item.Categoria.Replace('_',' ')</span><h3><a asp-action="Details" asp-route-id="@item.Id">@item.Nome</a></h3><p>@item.Descricao</p><dl><div><dt>Prazo</dt><dd>Até @item.PrazoDias dias</dd></div><div><dt>Canal</dt><dd>@item.Canal</dd></div></dl><a class="service-cta" asp-action="Solicitar" asp-route-servico="@item.Id">Solicitar agora</a></article>}</div>}
+ </section>
+</main>
