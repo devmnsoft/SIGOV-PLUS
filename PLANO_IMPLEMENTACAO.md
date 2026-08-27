@@ -117,3 +117,7 @@ Fechamento técnico concluído no código e nos artefatos SQL: validações de d
 - [x] Integração com Atendimento, Ouvidoria, workflow, pessoa, documentos, agenda e avaliação.
 - [x] Migration, permissões, scripts completos, LGPD e documentação.
 - [ ] Homologar adaptadores externos e upload GED quando contratos oficiais estiverem configurados.
+
+## EXP06 — Jurídico360
+
+Implementado sobre o FUNC17 e contratos oficiais: persistência complementar idempotente, carteira e contencioso, execução fiscal/CDA, consultivo, prazos, agenda, acordos, precatórios/RPV, documentos, publicações, permissões, auditoria, CSV seguro e design responsivo. Validação PostgreSQL e build permanecem condicionados às ferramentas registradas na entrega.

@@ -14,7 +14,7 @@ public sealed class JuridicoController(
 {
     private static readonly IReadOnlyDictionary<string, (string Title, string View, string Manage)> Resources = new Dictionary<string, (string, string, string)>(StringComparer.OrdinalIgnoreCase)
     {
-        ["advogados"]=("Advogados e procuradores","JURIDICO_ADVOGADO_VIEW","JURIDICO_ADVOGADO_MANAGE"), ["partes"]=("Partes","JURIDICO_PARTE_VIEW","JURIDICO_PARTE_MANAGE"), ["processos"]=("Processos jurídicos","JURIDICO_PROCESSO_VIEW","JURIDICO_PROCESSO_MANAGE"), ["movimentacoes"]=("Movimentações","JURIDICO_MOVIMENTACAO_VIEW","JURIDICO_MOVIMENTACAO_MANAGE"), ["prazos"]=("Prazos","JURIDICO_PRAZO_VIEW","JURIDICO_PRAZO_MANAGE"), ["intimacoes"]=("Intimações","JURIDICO_INTIMACAO_VIEW","JURIDICO_INTIMACAO_MANAGE"), ["audiencias"]=("Audiências","JURIDICO_AUDIENCIA_VIEW","JURIDICO_AUDIENCIA_MANAGE"), ["pareceres"]=("Pareceres","JURIDICO_PARECER_VIEW","JURIDICO_PARECER_MANAGE"), ["consultas"]=("Consultas jurídicas","JURIDICO_CONSULTA_VIEW","JURIDICO_CONSULTA_MANAGE"), ["acordos"]=("Acordos","JURIDICO_ACORDO_VIEW","JURIDICO_ACORDO_MANAGE"), ["dividaativa"]=("Dívida ativa judicial","JURIDICO_DIVIDA_ATIVA_VIEW","JURIDICO_DIVIDA_ATIVA_MANAGE"), ["custas"]=("Custas","JURIDICO_PROCESSO_VIEW","JURIDICO_PROCESSO_MANAGE"), ["auditoria"]=("Auditoria","JURIDICO_AUDITORIA_VIEW",string.Empty)
+        ["advogados"]=("Advogados e procuradores","JURIDICO_ADVOGADO_VIEW","JURIDICO_ADVOGADO_MANAGE"), ["partes"]=("Partes","JURIDICO_PARTE_VIEW","JURIDICO_PARTE_MANAGE"), ["processos"]=("Processos jurídicos","JURIDICO_PROCESSO_VIEW","JURIDICO_PROCESSO_MANAGE"), ["movimentacoes"]=("Movimentações","JURIDICO_MOVIMENTACAO_VIEW","JURIDICO_MOVIMENTACAO_MANAGE"), ["prazos"]=("Prazos","JURIDICO_PRAZO_VIEW","JURIDICO_PRAZO_MANAGE"), ["intimacoes"]=("Intimações","JURIDICO_INTIMACAO_VIEW","JURIDICO_INTIMACAO_MANAGE"), ["audiencias"]=("Audiências","JURIDICO_AUDIENCIA_VIEW","JURIDICO_AUDIENCIA_MANAGE"), ["pareceres"]=("Pareceres","JURIDICO_PARECER_VIEW","JURIDICO_PARECER_MANAGE"), ["consultas"]=("Consultas jurídicas","JURIDICO_CONSULTA_VIEW","JURIDICO_CONSULTA_MANAGE"), ["acordos"]=("Acordos","JURIDICO_ACORDO_VIEW","JURIDICO_ACORDO_MANAGE"), ["dividaativa"]=("Dívida ativa judicial","JURIDICO_DIVIDA_ATIVA_VIEW","JURIDICO_DIVIDA_ATIVA_MANAGE"), ["custas"]=("Custas","JURIDICO_PROCESSO_VIEW","JURIDICO_PROCESSO_MANAGE"), ["execucoesfiscais"]=("Execuções fiscais","JURIDICO_EXECUCAO_FISCAL_VIEW","JURIDICO_EXECUCAO_FISCAL_MANAGE"), ["tarefas"]=("Tarefas e alertas","JURIDICO_PRAZO_VIEW","JURIDICO_PRAZO_MANAGE"), ["precatorios"]=("Precatórios e RPV","JURIDICO_PRECATORIO_VIEW","JURIDICO_PRECATORIO_MANAGE"), ["publicacoes"]=("Publicações","JURIDICO_PROCESSO_VIEW","JURIDICO_PUBLICACAO_MANAGE"), ["documentos"]=("Petições e documentos","JURIDICO_PROCESSO_VIEW","JURIDICO_DOCUMENTO_MANAGE"), ["modelos"]=("Modelos jurídicos","JURIDICO_PROCESSO_VIEW","JURIDICO_DOCUMENTO_MANAGE"), ["auditoria"]=("Auditoria","JURIDICO_AUDITORIA_VIEW",string.Empty)
     };
 
     [HttpGet("")]
@@ -26,7 +26,7 @@ public sealed class JuridicoController(
         catch (Exception ex) { return FunctionalError(ex, "carregar o dashboard"); }
     }
 
-    [HttpGet("{recurso:regex(^Advogados|Partes|Processos|Movimentacoes|Prazos|Intimacoes|Audiencias|Pareceres|Consultas|Acordos|DividaAtiva|Custas|Auditoria$)}")]
+    [HttpGet("{recurso:regex(^Advogados|Partes|Processos|Movimentacoes|Prazos|Intimacoes|Audiencias|Pareceres|Consultas|Acordos|DividaAtiva|Custas|ExecucoesFiscais|Tarefas|Precatorios|Publicacoes|Documentos|Modelos|Auditoria$)}")]
     public async Task<IActionResult> Lista(string recurso, string? busca, string? status, int pagina, CancellationToken ct)
     {
         if (!TryMeta(recurso, out var key, out var meta)) return NotFound();
@@ -41,6 +41,7 @@ public sealed class JuridicoController(
     }
 
     [HttpGet("{recurso}/Novo")]
+    [HttpGet("{recurso}/Create")]
     public async Task<IActionResult> Novo(string recurso)
     {
         if (!TryMeta(recurso, out var key, out var meta)) return NotFound();
