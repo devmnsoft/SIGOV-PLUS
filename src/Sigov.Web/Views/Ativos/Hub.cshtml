@@ -1,0 +1,4 @@
+@model System.ValueTuple<string,string,string>
+@{ ViewData["Title"] = Model.Item1; }
+<link rel="stylesheet" href="~/css/ativos360.css" asp-append-version="true" />
+<main class="ativos-shell"><header class="ativos-hero"><div><span class="ativos-kicker">ATIVOS360</span><h1>@Model.Item1</h1><p>@Model.Item2</p></div></header><section class="ativos-panel mt-4"><div class="empty-state"><p>Use os registros persistidos e os filtros operacionais para continuar.</p><a class="btn btn-primary" href="@Model.Item3">Acessar operação</a></div></section></main>

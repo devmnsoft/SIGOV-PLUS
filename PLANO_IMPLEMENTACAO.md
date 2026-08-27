@@ -102,3 +102,10 @@ Implementação do fechamento operacional do FUNC13 entregue por migration corre
 ### CORR13 — Obras360
 
 Fechamento técnico concluído no código e nos artefatos SQL: validações de domínio, autorização fail-closed, read models Dapper, formulários Razor e exportações CSV revisados. A execução de build, PostgreSQL e smoke ficou registrada como `BLOCKED` por ausência das ferramentas no ambiente, sem simulação de sucesso.
+
+### EXP08 — Ativos360
+
+- [x] Dashboard integrado de patrimônio, estoque e frota.
+- [x] Navegação unificada sem duplicar módulos ou catálogos.
+- [x] Extensões PostgreSQL aditivas, permissões e índices.
+- [x] Scripts completos, manifesto e documentação sincronizados.

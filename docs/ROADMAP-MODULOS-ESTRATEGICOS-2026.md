@@ -225,3 +225,7 @@ Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por rec
 ## CORR19 — DefesaCivil360/FUNC19
 
 **Status técnico:** fechado para validação em ambiente dotnet/PostgreSQL. A correção consolida schema, validações operacionais, RBAC, LGPD, CSV seguro e formulários relacionais do DefesaCivil360. A entrega não avança outros módulos estratégicos e mantém integrações somente por referências canônicas reais. Evidências e comandos bloqueados estão registrados em `docs/entregas/CORR19-DEFESACIVIL360.md`.
+
+## EXP08 — Ativos360 (concluído)
+
+Ativos360 consolidado sobre os módulos reais de almoxarifado, patrimônio e frotas, com dashboard integrado, extensões de inventário/depreciação/documentos/alertas, design responsivo e scripts PostgreSQL sincronizados. Detalhes em [ATIVOS360-FUNC08](ATIVOS360-FUNC08.md).
