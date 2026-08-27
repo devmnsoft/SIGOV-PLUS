@@ -1483,6 +1483,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.juridico_execucao_fiscal') is not null and to_regclass('sigov.juridico_precatorio_rpv') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_PROCESSO_SIGILOSO_VIEW')"
+    },
+    {
+      "version": "20260827150000",
+      "description": "EXP09 SST360: saúde ocupacional, segurança do trabalho e eSocial",
+      "category": "functional",
+      "file": "20260827150000_exp09_sst360.sql",
+      "checksum": "ae14c7f27643124d4b3543c701c9f218113f596fc70289746ffdd98c0e6a0810",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.sst_aso') is not null and to_regclass('sigov.sst_evento_esocial') is not null and exists(select 1 from sigov.permissao where chave='SST_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

@@ -1,0 +1,2 @@
+@model Sigov.Web.Models.Sst.SstModulePage
+@{ViewData["Title"]=Model.Titulo;}<link rel="stylesheet" href="~/css/sst360.css" /><div class="sst-page-head"><div><span class="sst-kicker">@Model.Badge</span><h1>@Model.Titulo</h1><p>@Model.Descricao</p></div></div><section class="sst-empty-panel"><strong>Nenhum registro no contexto selecionado</strong><p>Os dados serão carregados do PostgreSQL. Cadastros dependem das permissões específicas e das referências oficiais de RH.</p><a href="/SST/Dashboard" class="btn btn-outline-primary">Voltar ao dashboard</a></section>

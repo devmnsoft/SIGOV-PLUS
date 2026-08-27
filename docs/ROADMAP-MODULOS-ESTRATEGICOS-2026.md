@@ -237,3 +237,7 @@ Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por rec
 ## EXP06 — Jurídico360 integrado
 
 **Status técnico:** implementado para validação. O FUNC17 foi ampliado com carteira, execução fiscal vinculada à dívida ativa/CDA, prazos, agenda, consultivo, documentos, acordos, precatórios/RPV, publicações, risco, auditoria, permissões e interface responsiva. Integrações judiciais externas permanecem explicitamente não configuradas sem adaptador oficial. Consulte `docs/JURIDICO360-FUNC06.md` e `docs/entregas/EXP06-JURIDICO360.md`.
+
+## EXP09 — SST360 (entregue)
+
+Saúde ocupacional e segurança do trabalho integradas ao RH, com ASO, riscos, programas legais, EPIs, treinamentos, CAT, investigação, PPP e monitor eSocial SST. Persistência, permissões LGPD, dashboard e experiência MVC/Razor entregues na migration `20260827150000`.

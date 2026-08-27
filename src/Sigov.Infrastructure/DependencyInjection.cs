@@ -393,6 +393,8 @@ public static class DependencyInjection
         services.AddScoped<IOperationalImportStore, OperationalImportStore>();
         services.AddScoped<IRhService, RhService>();
         services.AddScoped<IRhTypedService, RhTypedService>();
+        services.AddScoped<Sigov.Application.Sst.ISstRepository, Sigov.Infrastructure.Sst.SstRepository>();
+        services.AddScoped<Sigov.Application.Sst.SstService>();
         services.AddScoped<IPessoaCadastroService, PessoaCadastroService>();
         services.AddScoped<IModuleParameterRepository, ModuleParameterRepository>();
         services.AddScoped<IModuleParameterService, ModuleParameterService>();
