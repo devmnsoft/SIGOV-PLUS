@@ -1493,6 +1493,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.sst_aso') is not null and to_regclass('sigov.sst_evento_esocial') is not null and exists(select 1 from sigov.permissao where chave='SST_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260828100000",
+      "description": "EXP23 Energia360 consumo, iluminação, geração e eficiência",
+      "category": "functional",
+      "file": "20260828100000_exp23_energia360.sql",
+      "checksum": "a6f8df8a73dd6a0636d416dfa26e9792b9822fd88dda25e5d7754211bbb5cb74",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.energia_unidade_consumidora') is not null and to_regclass('sigov.energia_integracao_carbono') is not null and exists(select 1 from sigov.permissao where chave='ENERGIA_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

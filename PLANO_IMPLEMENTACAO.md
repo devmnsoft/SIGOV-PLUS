@@ -125,3 +125,10 @@ Implementado sobre o FUNC17 e contratos oficiais: persistência complementar ide
 ### EXP09 — SST360
 
 Implementado o núcleo integrado de Saúde e Segurança do Trabalho: banco idempotente e baselines sincronizados, autorização persistida, dashboard contextual, rotas funcionais e CRUD MVC de ASO com validações server-side e proteção LGPD.
+
+### EXP23 — Energia360
+
+- [x] Persistência PostgreSQL idempotente, permissões e baselines sincronizados.
+- [x] Dashboard e operações MVC/Razor com Dapper, contexto multiempresa e validação no servidor.
+- [x] Iluminação, geração, créditos, eficiência, alertas transparentes e CSV seguro.
+- [ ] Homologar integrações externas somente quando adaptadores e cadastros oficiais estiverem configurados.

@@ -241,3 +241,7 @@ Concluída a revisão defensiva do FUNC13: materialização Dapper, RBAC por rec
 ## EXP09 — SST360 (entregue)
 
 Saúde ocupacional e segurança do trabalho integradas ao RH, com ASO, riscos, programas legais, EPIs, treinamentos, CAT, investigação, PPP e monitor eSocial SST. Persistência, permissões LGPD, dashboard e experiência MVC/Razor entregues na migration `20260827150000`.
+
+## EXP23 — Energia360 / FUNC23
+
+**Status técnico:** implementado para validação. Gestão energética contextual com UCs, medição, faturas, contratos/demanda, iluminação, geração distribuída, créditos, eficiência, alertas, CSV protegido e integração Carbono360 baseada exclusivamente em fator persistido. Consulte `docs/ENERGIA360-FUNC23.md` e `docs/entregas/EXP23-ENERGIA360.md`.
