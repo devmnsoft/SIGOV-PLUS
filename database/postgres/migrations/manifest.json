@@ -1513,6 +1513,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.royalties_parametro_normativo') is not null and to_regclass('sigov.royalties_projeto') is not null and exists(select 1 from sigov.permissao where chave='ROYALTIES_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260829100000",
+      "description": "EXP13 Saneamento360/SIGCOS comercial, operacional, qualidade e governança",
+      "category": "functional",
+      "file": "20260829100000_exp13_saneamento360_sigcos.sql",
+      "checksum": "f15578a8a66c3b957280f8bef5549cf08feea44bb9fe78d295160f2cb9b3eb8b",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.saneamento_revisao_consumo') is not null and to_regclass('sigov.saneamento_alerta_operacional') is not null and exists(select 1 from sigov.permissao where chave='SANEAMENTO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

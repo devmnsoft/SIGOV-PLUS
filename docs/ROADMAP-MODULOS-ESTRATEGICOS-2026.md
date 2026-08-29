@@ -249,3 +249,7 @@ Saúde ocupacional e segurança do trabalho integradas ao RH, com ASO, riscos, p
 ## EXP24 — Royalties360 / FUNC24
 
 **Status técnico:** implementado para validação. Governança de parâmetros normativos versionados, origens, previsão e realização, repasses e conciliação, planos de aplicação, projetos integrados, execução financeira referenciada, transparência aprovada, alertas e CSV seguro. Consulte `docs/ROYALTIES360-FUNC24.md` e `docs/entregas/EXP24-ROYALTIES360.md`.
+
+## EXP13 — Saneamento360 / SIGCOS
+
+Evolução comercial e operacional concluída em 2026-08-29: rotas MVC canônicas, governança LGPD, hidrômetros, revisão, faixas tarifárias, cobrança, campo, GIS tabular e qualidade da água. Integrações financeiras, patrimoniais, de protocolo e mapa permanecem condicionadas aos provedores reais configurados. Detalhes em [SANEAMENTO360-FUNC13](SANEAMENTO360-FUNC13.md).

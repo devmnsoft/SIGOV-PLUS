@@ -140,3 +140,7 @@ Implementado o núcleo integrado de Saúde e Segurança do Trabalho: banco idemp
 - [x] MVC/Razor para dashboard, normas, receitas, aplicação, projetos, transparência e governança.
 - [x] CSV seguro, documentação e scripts consolidados sincronizados.
 - [ ] Homologar integrações externas somente após disponibilização de adaptadores reais.
+
+### EXP13 — Saneamento360/SIGCOS
+
+Implementado de forma evolutiva sobre as entidades `sigov.saneamento_*`, com migration idempotente, permissões no banco, rotas MVC/Razor, Dapper/Npgsql, auditoria LGPD e integrações reais condicionais. Não foram criados dados ou provedores de fallback.
