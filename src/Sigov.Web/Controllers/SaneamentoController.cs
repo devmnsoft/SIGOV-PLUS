@@ -61,6 +61,34 @@ public sealed class SaneamentoController : Controller
 
     [Route("/Saneamento/Relatorios")] public IActionResult Relatorios() => Tela("Relatórios CSV", "comercial", "relatorios");
 
+    // Endereços canônicos do SIGCOS. As telas compartilham o workspace real e cada
+    // recurso consulta sua API persistida; os aliases preservam os links legados.
+    [HttpGet("/Saneamento/Consumidores/Create"), HttpGet("/Saneamento/Consumidores/Edit")]
+    public IActionResult ConsumidorForm() => View("Consumidores", new SaneamentoConsumidorFormViewModel());
+    [HttpGet("/Saneamento/Consumidores/Details")] public IActionResult ConsumidorDetails(long id) => ConsumidorDetalhe(id);
+    [HttpGet("/Saneamento/UnidadesConsumidoras")] public IActionResult Unidades() => UnidadesConsumidoras();
+    [HttpGet("/Saneamento/Ligacoes/Create"), HttpGet("/Saneamento/Ligacoes/Edit"), HttpGet("/Saneamento/Ligacoes/Details"), HttpGet("/Saneamento/Ligacoes/Cortar"), HttpGet("/Saneamento/Ligacoes/Religar")]
+    public IActionResult LigacaoFluxo() => Ligacoes();
+    [HttpGet("/Saneamento/Hidrometros/Create"), HttpGet("/Saneamento/Hidrometros/Edit"), HttpGet("/Saneamento/Hidrometros/Details"), HttpGet("/Saneamento/Hidrometros/Substituir"), HttpGet("/Saneamento/Hidrometros/Afericoes")]
+    public IActionResult HidrometroFluxo() => Hidrometros();
+    [HttpGet("/Saneamento/Rotas")] public IActionResult Rotas() => Tela("Rotas e setores", "faturamento", "rotas-leitura");
+    [HttpGet("/Saneamento/Leituras/Create"), HttpGet("/Saneamento/Leituras/Importar"), HttpGet("/Saneamento/Leituras/Criticas")]
+    public IActionResult LeituraFluxo() => Leituras();
+    [HttpGet("/Saneamento/RevisoesConsumo")] public IActionResult RevisoesConsumo() => Tela("Revisões de consumo", "faturamento", "revisoes");
+    [HttpGet("/Saneamento/Tarifas")] public IActionResult Tarifas() => Tela("Tabelas tarifárias", "comercial", "tarifas");
+    [HttpGet("/Saneamento/Faturas/Details"), HttpGet("/Saneamento/Faturas/SegundaVia"), HttpGet("/Saneamento/Faturas/Cancelar")]
+    public IActionResult FaturaFluxo() => Faturas();
+    [HttpGet("/Saneamento/Inadimplencia")] public IActionResult Inadimplencia() => Tela("Inadimplência", "faturamento", "inadimplencia");
+    [HttpGet("/Saneamento/Cobranca")] public IActionResult Cobranca() => Tela("Cobrança", "faturamento", "cobrancas");
+    [HttpGet("/Saneamento/Parcelamentos/Create"), HttpGet("/Saneamento/Parcelamentos/Details")] public IActionResult ParcelamentoFluxo() => Parcelamentos();
+    [HttpGet("/Saneamento/OrdensServico/Create"), HttpGet("/Saneamento/OrdensServico/Edit"), HttpGet("/Saneamento/OrdensServico/Details"), HttpGet("/Saneamento/OrdensServico/Executar")]
+    public IActionResult OrdemServicoFluxo() => OrdensServico();
+    [HttpGet("/Saneamento/MateriaisCampo")] public IActionResult MateriaisCampo() => Tela("Materiais de campo", "operacao", "materiais");
+    [HttpGet("/Saneamento/Redes"), HttpGet("/Saneamento/Trechos")] public IActionResult Redes() => Rede();
+    [HttpGet("/Saneamento/UnidadesOperacionais")] public IActionResult UnidadesOperacionais() => Tela("Unidades operacionais", "gis-qualidade", "unidades-operacionais");
+    [HttpGet("/Saneamento/Laboratorio/Amostras"), HttpGet("/Saneamento/Laboratorio/Parametros"), HttpGet("/Saneamento/Laboratorio/Resultados"), HttpGet("/Saneamento/Laboratorio/Conformidade")]
+    public IActionResult LaboratorioFluxo() => Laboratorio();
+
     private IActionResult Tela(string titulo, string modulo, string recurso)
     {
         ViewData["Titulo"] = titulo;
