@@ -253,3 +253,7 @@ Saúde ocupacional e segurança do trabalho integradas ao RH, com ASO, riscos, p
 ## EXP13 — Saneamento360 / SIGCOS
 
 Evolução comercial e operacional concluída em 2026-08-29: rotas MVC canônicas, governança LGPD, hidrômetros, revisão, faixas tarifárias, cobrança, campo, GIS tabular e qualidade da água. Integrações financeiras, patrimoniais, de protocolo e mapa permanecem condicionadas aos provedores reais configurados. Detalhes em [SANEAMENTO360-FUNC13](SANEAMENTO360-FUNC13.md).
+
+## EXP11 — Saúde360 + ACS360 (2026-08-29)
+
+Entregue o núcleo territorial e de campo do FUNC11: ACS, domicílios, famílias, indivíduos, visitas, produtividade, offline idempotente, ocorrências, riscos, staging e-SUS/SISAB e quatro vigilâncias. Permanecem bloqueados o app Android/câmera antifraude e a transmissão ministerial por ausência dos contratos oficiais versionados.

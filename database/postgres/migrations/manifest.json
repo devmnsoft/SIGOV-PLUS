@@ -1523,6 +1523,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.saneamento_revisao_consumo') is not null and to_regclass('sigov.saneamento_alerta_operacional') is not null and exists(select 1 from sigov.permissao where chave='SANEAMENTO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260829120000",
+      "description": "EXP11 Saúde360 + ACS360: território, campo, offline, e-SUS e vigilâncias",
+      "category": "functional",
+      "file": "20260829120000_exp11_saude360_acs360_func11.sql",
+      "checksum": "e7def5cdb39deecba61f6587b67a64eae4386d5176f9ea42cff3d2572aa53fda",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.acs_sync_conflito') is not null and to_regclass('sigov.saude_vigilancia_evento') is not null and exists(select 1 from sigov.permissao where chave='ACS_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

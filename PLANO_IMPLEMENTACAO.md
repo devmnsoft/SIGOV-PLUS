@@ -144,3 +144,7 @@ Implementado o núcleo integrado de Saúde e Segurança do Trabalho: banco idemp
 ### EXP13 — Saneamento360/SIGCOS
 
 Implementado de forma evolutiva sobre as entidades `sigov.saneamento_*`, com migration idempotente, permissões no banco, rotas MVC/Razor, Dapper/Npgsql, auditoria LGPD e integrações reais condicionais. Não foram criados dados ou provedores de fallback.
+
+## EXP11 Saúde360 + ACS360
+
+Implementação funcional adicionada em 2026-08-29: schema territorial/ACS, sincronização offline, staging e-SUS, vigilâncias, rotas MVC e formulários validados. A autoridade continua no PostgreSQL e nas permissões persistidas. Integração ministerial e recursos nativos de câmera permanecem bloqueados até disponibilização de contrato/layout e aplicativo móvel real.

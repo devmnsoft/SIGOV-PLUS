@@ -90,6 +90,25 @@ public sealed class SaudeController : Controller
     public IActionResult AcsVisitas() => View(new AcsVisitaFormViewModel());
     public IActionResult AcsSync() => View();
 
+    [HttpGet("/Saude/ACS/Domicilios/Create")]
+    public IActionResult AcsDomicilioCreate() => View("AcsDomicilios", new AcsDomicilioFormViewModel());
+    [HttpGet("/Saude/ACS/Domicilios/Edit/{id:long}")]
+    public IActionResult AcsDomicilioEdit(long id) { ViewData["RegistroId"] = id; return View("AcsDomicilios", new AcsDomicilioFormViewModel()); }
+    [HttpGet("/Saude/ACS/Domicilios/Details/{id:long}")]
+    public IActionResult AcsDomicilioDetails(long id) { ViewData["RegistroId"] = id; return View("AcsDomicilios", new AcsDomicilioFormViewModel()); }
+    [HttpGet("/Saude/ACS/Individuos/Create")]
+    public IActionResult AcsIndividuoCreate() => View("AcsIndividuos", new AcsIndividuoFormViewModel());
+    [HttpGet("/Saude/ACS/Individuos/Edit/{id:long}")]
+    public IActionResult AcsIndividuoEdit(long id) { ViewData["RegistroId"] = id; return View("AcsIndividuos", new AcsIndividuoFormViewModel()); }
+    [HttpGet("/Saude/ACS/Individuos/Details/{id:long}")]
+    public IActionResult AcsIndividuoDetails(long id) { ViewData["RegistroId"] = id; return View("AcsIndividuos", new AcsIndividuoFormViewModel()); }
+    [HttpGet("/Saude/ACS/Visitas/Create")]
+    public IActionResult AcsVisitaCreate() => View("AcsVisitas", new AcsVisitaFormViewModel());
+    [HttpGet("/Saude/ACS/Visitas/Edit/{id:long}")]
+    public IActionResult AcsVisitaEdit(long id) { ViewData["RegistroId"] = id; return View("AcsVisitas", new AcsVisitaFormViewModel()); }
+    [HttpGet("/Saude/ACS/Visitas/Details/{id:long}")]
+    public IActionResult AcsVisitaDetails(long id) { ViewData["RegistroId"] = id; return View("AcsVisitas", new AcsVisitaFormViewModel()); }
+
     private IActionResult Operacao(string titulo, string endpoint, string descricao)
     {
         ViewData["Title"] = titulo;
