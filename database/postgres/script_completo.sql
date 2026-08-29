@@ -22977,7 +22977,7 @@ create trigger trg_clp_criterio_contexto before insert or update on sigov.compra
 for each row execute function sigov.compras_licitapro_validar_relacoes();
 
 -- MIGRATION: 20260826150000_exp_fiscaliza360_transversal.sql
--- CHECKSUM_SHA256: c63d78093ff2c1bff13a347434e758d8c4aedbe19c8b6e597c4085068246ed9c
+-- CHECKSUM_SHA256: aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4
 -- EXP-FISCALIZA360: núcleo transversal de fiscalização e campo.
 create schema if not exists sigov;
 
@@ -23260,7 +23260,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260826210000_corr19_defesacivil360_integridade.sql
 -- CATEGORY: corrective
--- CHECKSUM_SHA256: 48ca18ced7eba9ab34fab7934e889b4bf8a3b9f2ab6b1fbe69d9b3c1028c87ee
+-- CHECKSUM_SHA256: e3784f95cd33b338228ac35b7b0174fffdf66397731175590182e4adce5c7d60
 -- ==================================================
 -- CORR19 DefesaCivil360: integridade operacional, isolamento contextual e fechamento fail-closed.
 create schema if not exists sigov;
@@ -23328,7 +23328,7 @@ create unique index if not exists ux_corr19_codigo_ocorrencia on sigov.defesa_ci
 create unique index if not exists ux_corr19_codigo_plano on sigov.defesa_civil_plano_contingencia(tenant_id,entity_id,exercicio_id,codigo,versao) where deleted_at is null;
 create unique index if not exists ux_corr19_ocupacao_pessoa on sigov.defesa_civil_abrigo_ocupacao(tenant_id,entity_id,exercicio_id,pessoa_id) where deleted_at is null and status='ABRIGADA' and saida_em is null;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826210000', 'CORR19 fechamento DefesaCivil360 com integridade operacional', '48ca18ced7eba9ab34fab7934e889b4bf8a3b9f2ab6b1fbe69d9b3c1028c87ee', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826210000', 'CORR19 fechamento DefesaCivil360 com integridade operacional', 'e3784f95cd33b338228ac35b7b0174fffdf66397731175590182e4adce5c7d60', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

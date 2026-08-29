@@ -69,6 +69,14 @@ Implementados fornecedores, solicitações, processos e fases, cotações, julga
 - [x] Unidades, pacientes, profissionais/equipes, agenda, acolhimento, prontuário, vacinação, farmácia, regulação, dashboard e CSV entregues sobre PostgreSQL/Dapper e RBAC persistente.
 - [x] Regras críticas defendidas no banco, com auditoria/LGPD e integração de saldo do Almoxarifado quando existe vínculo seguro.
 - [ ] Homologação PostgreSQL 16 e smoke autenticado dependem do ambiente oficial. RC50.68 continua **BLOCKED**; RC50.69 não foi iniciada; GED/InovaGED segue adiado.
+
+# RC50.80 — fechamento geral (29/08/2026)
+
+- [x] Consolidar escopo, contratos de segurança, LGPD, CSV e critérios de promoção.
+- [x] Adicionar gate determinístico de manifest, checksums, baselines e antiforgery.
+- [x] Registrar a entrega e o roteiro de homologação sem simular integrações.
+- [ ] BLOCKED: build .NET 10, PostgreSQL 16 e smoke autenticado dependem das
+  ferramentas e do ambiente de homologação indisponíveis neste checkout.
 # RC50.68 — desbloqueio e fundação transversal (26/08/2026)
 
 - Baseline, manifest e scripts distribuíveis foram sincronizados com a migration corretiva `20260826120000`.

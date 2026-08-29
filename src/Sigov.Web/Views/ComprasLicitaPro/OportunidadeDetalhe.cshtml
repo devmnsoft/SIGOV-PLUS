@@ -26,6 +26,7 @@
     <h2>Vincular ao processo licitatório</h2>
     <p>Selecione um processo persistido do FUNC03; identificadores técnicos não são solicitados.</p>
     <form method="post" asp-action="Vincular" asp-route-id="@Model.Id">
+    @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <label for="ProcessoId">Processo</label>
         <select id="ProcessoId" name="ProcessoId" class="form-select" required>

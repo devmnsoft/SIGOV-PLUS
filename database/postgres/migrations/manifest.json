@@ -1409,7 +1409,7 @@
       "description": "EXP-FISCALIZA360 núcleo transversal de fiscalização e campo",
       "category": "functional",
       "file": "20260826150000_exp_fiscaliza360_transversal.sql",
-      "checksum": "c63d78093ff2c1bff13a347434e758d8c4aedbe19c8b6e597c4085068246ed9c",
+      "checksum": "aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.fiscalizacao_ordem') is not null and to_regclass('sigov.fiscalizacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='FISCALIZACAO_DASHBOARD_VIEW')"
@@ -1449,7 +1449,7 @@
       "description": "CORR19 fechamento DefesaCivil360 com integridade operacional",
       "category": "corrective",
       "file": "20260826210000_corr19_defesacivil360_integridade.sql",
-      "checksum": "48ca18ced7eba9ab34fab7934e889b4bf8a3b9f2ab6b1fbe69d9b3c1028c87ee",
+      "checksum": "e3784f95cd33b338228ac35b7b0174fffdf66397731175590182e4adce5c7d60",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_corr19_plano_publicacao') and to_regclass('sigov.ux_corr19_ocupacao_pessoa') is not null"
