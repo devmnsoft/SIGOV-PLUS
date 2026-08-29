@@ -1533,6 +1533,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.acs_sync_conflito') is not null and to_regclass('sigov.saude_vigilancia_evento') is not null and exists(select 1 from sigov.permissao where chave='ACS_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260829140000",
+      "description": "EXP25 GED360/InovaGED inteligente",
+      "category": "functional",
+      "file": "20260829140000_exp25_ged360_inovaged.sql",
+      "checksum": "bad5e86f75925fb350a27b492fc7573b5058cd1753aaee6b14e7541db7a09bf3",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.ged_ocr_job') is not null and to_regclass('sigov.ged_integracao_vinculo') is not null and exists(select 1 from sigov.permissao where chave='GED_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

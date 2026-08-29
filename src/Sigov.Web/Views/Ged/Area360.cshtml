@@ -1,0 +1,4 @@
+@{ var area = Convert.ToString(ViewBag.Area) ?? "Revisão OCR"; ViewData["Title"] = $"{area} — GED360"; }
+<link rel="stylesheet" href="~/css/ged360.css" asp-append-version="true" />
+<header class="ged-hero compact"><div><span class="ged-kicker">GED360</span><h1>@area</h1><p>Área conectada ao cadastro documental, ao tenant ativo e à trilha de auditoria.</p></div><a class="btn btn-light" href="/GED/Dashboard">Visão geral</a></header>
+<section class="ged-empty-panel"><h2>Sem registros para exibir</h2><p>A operação depende de registros persistidos e configuração real. Nenhum resultado artificial será apresentado.</p><a href="/GED/Documentos" class="btn btn-outline-primary">Consultar documentos</a></section>

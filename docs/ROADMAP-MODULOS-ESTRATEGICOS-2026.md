@@ -262,3 +262,7 @@ Evolução comercial e operacional concluída em 2026-08-29: rotas MVC canônica
 ## EXP11 — Saúde360 + ACS360 (2026-08-29)
 
 Entregue o núcleo territorial e de campo do FUNC11: ACS, domicílios, famílias, indivíduos, visitas, produtividade, offline idempotente, ocorrências, riscos, staging e-SUS/SISAB e quatro vigilâncias. Permanecem bloqueados o app Android/câmera antifraude e a transmissão ministerial por ausência dos contratos oficiais versionados.
+
+## EXP25 — GED360 / InovaGED Inteligente
+
+Núcleo entregue: governança documental e arquivística, protocolo, OCR rastreável, busca PostgreSQL, workflow, temporalidade, acervo físico, eliminação controlada, auditoria LGPD e vínculos transversais. Ativação de OCR e assinatura depende de provedores reais configurados; nenhuma resposta é simulada.

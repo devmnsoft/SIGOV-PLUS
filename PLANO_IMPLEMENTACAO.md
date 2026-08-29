@@ -156,3 +156,11 @@ Implementado de forma evolutiva sobre as entidades `sigov.saneamento_*`, com mig
 ## EXP11 Saúde360 + ACS360
 
 Implementação funcional adicionada em 2026-08-29: schema territorial/ACS, sincronização offline, staging e-SUS, vigilâncias, rotas MVC e formulários validados. A autoridade continua no PostgreSQL e nas permissões persistidas. Integração ministerial e recursos nativos de câmera permanecem bloqueados até disponibilização de contrato/layout e aplicativo móvel real.
+
+## EXP25 — GED360 / InovaGED Inteligente
+
+- [x] Estrutura PostgreSQL idempotente, índices, checks e permissões.
+- [x] Dashboard e busca documental MVC/Razor sob `/GED`.
+- [x] Fluxos rastreáveis de OCR, assinatura, temporalidade, eliminação e acervo.
+- [x] Auditoria LGPD e vínculo único com módulos de origem.
+- [ ] Homologar motor OCR e provedor de assinatura no ambiente integrado.
