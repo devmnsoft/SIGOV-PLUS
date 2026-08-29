@@ -46,8 +46,13 @@ count(*) filter(where d.ativo and d.classificacao_id is null) as PendentesClassi
 (select count(*) from sigov.ged_evento_temporalidade t where t.tenant_id=@TenantId and not t.suspenso and t.prazo_final between current_date and current_date+90) as TemporalidadeProxima,
 (select count(*) from sigov.ged_eliminacao_lote l where l.tenant_id=@TenantId and l.status='AGUARDANDO_APROVACAO') as EliminacoesPendentes,
 (select count(*) from sigov.ged_auditoria_acesso a where a.tenant_id=@TenantId and a.dado_sensivel and a.ocorrido_em>now()-interval '7 days') as AcessosSensiveis
-from sigov.ged_documento d where d.tenant_id=@TenantId";
-        var model = await cn.QuerySingleAsync<Sigov.Web.Models.Ged360.GedDashboardViewModel>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken));
+from sigov.ged_documento d where d.tenant_id=@TenantId
+and (@PodeVerSensivel or d.confidencialidade not in ('RESTRITO','SIGILOSO'))";
+        var model = await cn.QuerySingleAsync<Sigov.Web.Models.Ged360.GedDashboardViewModel>(new CommandDefinition(sql, new
+        {
+            TenantId = tenantId,
+            PodeVerSensivel = Can("GED_DOCUMENTO_SENSIVEL_VIEW")
+        }, cancellationToken: cancellationToken));
         return View("~/Views/Ged/Dashboard360.cshtml", model);
     }
 
@@ -61,15 +66,49 @@ from sigov.ged_documento d where d.tenant_id=@TenantId";
 coalesce(t.nome,'Não classificado') as Tipo,coalesce(c.codigo||' — '||c.titulo,'Pendente') as Classificacao
 from sigov.ged_documento d left join sigov.ged_tipo_documental t on t.id=d.tipo_documental_id and t.tenant_id=d.tenant_id
 left join sigov.ged_plano_classificacao c on c.id=d.classificacao_id and c.tenant_id=d.tenant_id
-where d.tenant_id=@TenantId and d.ativo and (@Q is null or d.titulo ilike '%'||@Q||'%' or d.texto_busca @@ websearch_to_tsquery('portuguese',@Q))
+where d.tenant_id=@TenantId and d.ativo
+and (@PodeVerSensivel or d.confidencialidade not in ('RESTRITO','SIGILOSO'))
+and (@Q is null or d.titulo ilike '%'||@Q||'%' or d.texto_busca @@ websearch_to_tsquery('portuguese',@Q))
 and (@Status is null or d.status=@Status) and (@Sigilo is null or d.confidencialidade=@Sigilo) order by d.created_at desc limit 200";
-        var rows = await cn.QueryAsync<Sigov.Web.Models.Ged360.GedDocumentoListItem>(new CommandDefinition(sql, new { TenantId = TenantId(), Q = string.IsNullOrWhiteSpace(q) ? null : q.Trim(), Status = status, Sigilo = sigilo }, cancellationToken: cancellationToken));
+        var rows = await cn.QueryAsync<Sigov.Web.Models.Ged360.GedDocumentoListItem>(new CommandDefinition(sql, new
+        {
+            TenantId = TenantId(),
+            Q = string.IsNullOrWhiteSpace(q) ? null : q.Trim(),
+            Status = NormalizeFilter(status, "RECEBIDO", "INDEXADO", "ARQUIVADO"),
+            Sigilo = NormalizeFilter(sigilo, "PUBLICO", "INTERNO", "RESTRITO", "SIGILOSO"),
+            PodeVerSensivel = Can("GED_DOCUMENTO_SENSIVEL_VIEW")
+        }, cancellationToken: cancellationToken));
         ViewBag.Query = q; return View("~/Views/Ged/Documentos360.cshtml", rows.AsList());
     }
 
     [HttpGet("/GED/{area:regex(Importacoes|OCR|Classificacao|Temporalidade|Protocolos|Tramitacoes|Workflows|Assinaturas|AcervoFisico|Caixas|Emprestimos|Eliminacoes|Integracoes|Auditoria|Relatorios)}")]
     [HttpGet("/GED/OCR/Revisao")]
-    public IActionResult Area(string area) { if (!CanAny("GED_DOCUMENTO_VIEW", "ged.visualizar")) return Forbid(); ViewBag.Area = area; return View("~/Views/Ged/Area360.cshtml"); }
+    public IActionResult Area(string? area)
+    {
+        var effectiveArea = string.IsNullOrWhiteSpace(area) ? "OCR" : area;
+        var permission = effectiveArea.ToUpperInvariant() switch
+        {
+            "IMPORTACOES" => "GED_IMPORTACAO_MANAGE",
+            "OCR" => Request.Path.Value?.EndsWith("/Revisao", StringComparison.OrdinalIgnoreCase) == true ? "GED_OCR_REVIEW" : "GED_OCR_VIEW",
+            "CLASSIFICACAO" => "GED_CLASSIFICACAO_MANAGE",
+            "TEMPORALIDADE" => "GED_TEMPORALIDADE_MANAGE",
+            "PROTOCOLOS" => "GED_PROTOCOLO_VIEW",
+            "TRAMITACOES" => "GED_TRAMITACAO_MANAGE",
+            "WORKFLOWS" => "GED_WORKFLOW_MANAGE",
+            "ASSINATURAS" => "GED_ASSINATURA_MANAGE",
+            "ACERVOFISICO" or "CAIXAS" => "GED_ACERVO_VIEW",
+            "EMPRESTIMOS" => "GED_EMPRESTIMO_MANAGE",
+            "ELIMINACOES" => "GED_ELIMINACAO_VIEW",
+            "AUDITORIA" => "GED_AUDITORIA_VIEW",
+            "RELATORIOS" => "GED_RELATORIO_EXPORT",
+            _ => "GED_DOCUMENTO_VIEW"
+        };
+        if (!Can(permission)) return Forbid();
+        ViewBag.Area = Request.Path.Value?.EndsWith("/Revisao", StringComparison.OrdinalIgnoreCase) == true
+            ? "Revisão OCR"
+            : effectiveArea;
+        return View("~/Views/Ged/Area360.cshtml");
+    }
 
     [HttpGet("/Ged/NovoDocumento")]
     [HttpGet("/Ged/Novo")]
@@ -120,6 +159,12 @@ and (@Status is null or d.status=@Status) and (@Sigilo is null or d.confidencial
     private bool Can(string permission) => User.Identity?.IsAuthenticated == true && _permissions.HasPermission(User, permission);
     private bool CanAny(params string[] permissions) => permissions.Any(Can);
     private long TenantId() => _tenantContext.Resolve().TenantId ?? throw new InvalidOperationException("tenant_id obrigatório para acessar o GED360.");
+    private static string? NormalizeFilter(string? value, params string[] allowed)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var normalized = value.Trim().ToUpperInvariant();
+        return allowed.Contains(normalized, StringComparer.Ordinal) ? normalized : null;
+    }
     private Task Audit(string acao, string? id, CancellationToken ct) => _auditTrail.RegistrarAsync(null, null, acao, "documento", id, null, new { acao, id }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct);
     private async Task TryExecuteAsync(System.Data.IDbConnection cn, string sql, object args, CancellationToken ct)
     {

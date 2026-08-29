@@ -25,3 +25,7 @@ Rotas sob `/GED` oferecem dashboard, documentos, busca e áreas de importação,
 ## Busca
 
 `ged_documento.texto_busca` usa `tsvector` e índice GIN. A pesquisa usa `websearch_to_tsquery('portuguese', ...)`, além de filtros parametrizados por status e confidencialidade. `unaccent`/`pg_trgm` não são requisitos e não são instaladas silenciosamente.
+
+## Fechamento CORR25
+
+A CORR25 reforça autorização fail-closed para documentos restritos/sigilosos e para cada área operacional. A migration corretiva valida hashes, coerência temporal, assinatura real e aprovação de eliminação, além de bloquear no PostgreSQL qualquer execução com hold ou item não elegível. O relatório detalhado e os limites do ambiente estão em `docs/entregas/CORR25-GED360-INOVAGED.md`.

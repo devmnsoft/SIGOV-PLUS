@@ -164,3 +164,7 @@ Implementação funcional adicionada em 2026-08-29: schema territorial/ACS, sinc
 - [x] Fluxos rastreáveis de OCR, assinatura, temporalidade, eliminação e acervo.
 - [x] Auditoria LGPD e vínculo único com módulos de origem.
 - [ ] Homologar motor OCR e provedor de assinatura no ambiente integrado.
+
+## CORR25 — fechamento GED360/InovaGED
+
+Fechamento técnico incorporado sem expansão de escopo: segurança de consulta e rotas, integridade PostgreSQL, LGPD e artefatos SQL sincronizados. Build e smoke autenticado devem ser confirmados em ambiente com .NET 10 e PostgreSQL 16 antes da promoção.
