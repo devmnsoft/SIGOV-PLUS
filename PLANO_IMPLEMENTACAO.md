@@ -132,3 +132,11 @@ Implementado o núcleo integrado de Saúde e Segurança do Trabalho: banco idemp
 - [x] Dashboard e operações MVC/Razor com Dapper, contexto multiempresa e validação no servidor.
 - [x] Iluminação, geração, créditos, eficiência, alertas transparentes e CSV seguro.
 - [ ] Homologar integrações externas somente quando adaptadores e cadastros oficiais estiverem configurados.
+
+### EXP24 — Royalties360
+
+- [x] Persistência PostgreSQL idempotente e catálogo de permissões.
+- [x] Dapper parametrizado com isolamento por tenant e entidade.
+- [x] MVC/Razor para dashboard, normas, receitas, aplicação, projetos, transparência e governança.
+- [x] CSV seguro, documentação e scripts consolidados sincronizados.
+- [ ] Homologar integrações externas somente após disponibilização de adaptadores reais.

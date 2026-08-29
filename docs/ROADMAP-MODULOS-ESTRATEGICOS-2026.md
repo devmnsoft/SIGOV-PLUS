@@ -245,3 +245,7 @@ Saúde ocupacional e segurança do trabalho integradas ao RH, com ASO, riscos, p
 ## EXP23 — Energia360 / FUNC23
 
 **Status técnico:** implementado para validação. Gestão energética contextual com UCs, medição, faturas, contratos/demanda, iluminação, geração distribuída, créditos, eficiência, alertas, CSV protegido e integração Carbono360 baseada exclusivamente em fator persistido. Consulte `docs/ENERGIA360-FUNC23.md` e `docs/entregas/EXP23-ENERGIA360.md`.
+
+## EXP24 — Royalties360 / FUNC24
+
+**Status técnico:** implementado para validação. Governança de parâmetros normativos versionados, origens, previsão e realização, repasses e conciliação, planos de aplicação, projetos integrados, execução financeira referenciada, transparência aprovada, alertas e CSV seguro. Consulte `docs/ROYALTIES360-FUNC24.md` e `docs/entregas/EXP24-ROYALTIES360.md`.

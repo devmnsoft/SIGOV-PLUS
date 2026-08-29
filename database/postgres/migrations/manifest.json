@@ -1503,6 +1503,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.energia_unidade_consumidora') is not null and to_regclass('sigov.energia_integracao_carbono') is not null and exists(select 1 from sigov.permissao where chave='ENERGIA_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260828120000",
+      "description": "EXP24 Royalties360: receitas, pré-sal, aplicação e transparência",
+      "category": "functional",
+      "file": "20260828120000_exp24_royalties360.sql",
+      "checksum": "4fcb530a70993cf564ad436cafeb626ab84c291c18a7b425dce0c455ce1baade",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.royalties_parametro_normativo') is not null and to_regclass('sigov.royalties_projeto') is not null and exists(select 1 from sigov.permissao where chave='ROYALTIES_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

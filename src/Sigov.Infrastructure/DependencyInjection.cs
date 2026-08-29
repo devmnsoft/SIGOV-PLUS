@@ -654,6 +654,7 @@ public static class DependencyInjection
         services.AddScoped<IObrasEngenhariaRepository, ObrasEngenhariaRepository>();
         services.AddScoped<Sigov.Application.Ambiental.IAmbientalRepository, AmbientalRepository>();
         services.AddScoped<Sigov.Application.Energia.IEnergiaRepository, Sigov.Infrastructure.Energia.EnergiaRepository>();
+        services.AddScoped<Sigov.Application.Royalties.IRoyaltiesRepository, Sigov.Infrastructure.Royalties.RoyaltiesRepository>();
         services.AddScoped<Sigov.Application.Atendimento.IAtendimentoRepository, AtendimentoRepository>();
         services.AddScoped<Sigov.Application.Cidadao.ICidadaoRepository, Sigov.Infrastructure.Cidadao.CidadaoRepository>();
         services.AddScoped<IFrotasService, Sigov.Infrastructure.Frotas.FrotasService>();

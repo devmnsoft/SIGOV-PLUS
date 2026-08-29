@@ -23473,3 +23473,6 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 \echo [EXP23] Energia360
 \ir database/postgres/migrations/20260828100000_exp23_energia360.sql
+
+\echo [EXP24] Royalties360
+\ir database/postgres/migrations/20260828120000_exp24_royalties360.sql
