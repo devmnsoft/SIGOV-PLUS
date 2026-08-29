@@ -1,5 +1,10 @@
 # Roadmap de módulos estratégicos 2026
 
+> **Marco RC50.80 (29/08/2026):** o ciclo dos módulos abaixo entrou em
+> fechamento integrado. Promoção permanece condicionada ao gate estático
+> `scripts/validate-rc50-80.py`, build .NET 10, PostgreSQL 16 e smoke autenticado;
+> indisponibilidade ambiental deve ser registrada como BLOCKED.
+
 ## Objetivo
 
 Integrar ao SIGOV PLUS os produtos estratégicos SST 360, LicitaPro IA,

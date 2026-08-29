@@ -4,6 +4,7 @@
 <h1>@ViewData["Titulo"]</h1>
 <div asp-validation-summary="All" class="alert alert-danger"></div>
 <form method="post" asp-controller="Habitacao" asp-action="Salvar" asp-route-recurso="@recurso">
+    @Html.AntiForgeryToken()
     <div class="mb-3"><label asp-for="Codigo" class="form-label">Código</label><input asp-for="Codigo" class="form-control" /></div>
     <div class="mb-3"><label asp-for="Descricao" class="form-label">Descrição</label><input asp-for="Descricao" class="form-control" required /></div>
     <div class="mb-3"><label asp-for="Status" class="form-label">Status</label><input asp-for="Status" class="form-control" required /></div>

@@ -5,6 +5,7 @@
 <partial name="_Nav" />
 <header class="lp-hero"><div><span>Origem rastreável</span><h1>Registrar oportunidade</h1><p>Cadastre dados publicados por uma fonte oficial.</p></div></header>
 <form method="post" class="lp-form">
+    @Html.AntiForgeryToken()
     <div asp-validation-summary="ModelOnly" class="alert alert-danger wide"></div>
     <label asp-for="FonteId">Fonte oficial<select asp-for="FonteId" class="form-select"><option value="">Selecione uma fonte</option>@foreach (var x in fontes) { <option value="@x.Id">@x.Nome — @x.Estado</option> }</select><span asp-validation-for="FonteId"></span></label>
     <label asp-for="IdentificadorExterno">Identificador publicado pela fonte<input asp-for="IdentificadorExterno" class="form-control" /><span asp-validation-for="IdentificadorExterno"></span></label>
