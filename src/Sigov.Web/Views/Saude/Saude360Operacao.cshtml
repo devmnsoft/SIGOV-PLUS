@@ -1,0 +1,13 @@
+@model Sigov.Web.Models.Saude.Saude360OperacaoViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div><span class="badge text-bg-success mb-2">Saúde360</span><h1 class="h2 mb-1">@Model.Titulo</h1><p class="text-muted mb-0">@Model.Descricao</p></div>
+  @if (Model.ExportacaoApi is not null) { <a class="btn btn-outline-success" href="@Model.ExportacaoApi"><i class="bi bi-download me-1"></i>Exportar CSV</a> }
+</div>
+@if (Model.DadoSensivel) { <div class="alert alert-info"><strong>LGPD:</strong> dados nominais são minimizados e cada visualização/exportação é auditável e sujeita à permissão.</div> }
+<div class="card shadow-sm border-0">
+ <div class="card-header bg-body d-flex flex-wrap gap-2 align-items-center"><input id="saude360-busca" class="form-control" style="max-width:28rem" type="search" placeholder="Buscar por código, nome ou status" aria-label="Buscar" /><button id="saude360-filtrar" class="btn btn-primary">Aplicar filtro</button></div>
+ <div class="card-body"><div id="saude360-status" class="text-muted" role="status">Carregando dados do contexto atual…</div><div class="table-responsive d-none" id="saude360-wrap"><table class="table table-hover align-middle"><thead><tr><th>Registro</th><th>Descrição</th><th>Situação</th></tr></thead><tbody id="saude360-itens"></tbody></table></div></div>
+</div>
+<div class="alert alert-secondary mt-3 mb-0"><i class="bi bi-wifi me-1"></i>O backend de sincronização opera pela rede. Este checkout não contém aplicativo Android nativo; não há simulação de câmera ou bloqueio de galeria.</div>
+@section Scripts { <script>window.saude360Config = { api: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Api)) };</script><script src="~/js/modules/saude360.operacao.js"></script> }

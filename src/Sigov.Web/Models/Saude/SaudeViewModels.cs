@@ -13,7 +13,45 @@ public sealed class VacinacaoFormViewModel { public long UnidadeSaudeId { get; s
 public sealed class LaboratorioExameFormViewModel { public long PacienteId { get; set; } public long? UnidadeSaudeId { get; set; } public string TipoExame { get; set; } = string.Empty; public string? Observacao { get; set; } }
 public sealed class RegulacaoFormViewModel { public long PacienteId { get; set; } public string TipoSolicitacao { get; set; } = "CONSULTA_ESPECIALIZADA"; public string Prioridade { get; set; } = "MEDIA"; public string Justificativa { get; set; } = string.Empty; public string? Especialidade { get; set; } }
 public sealed class AcsMicroareaFormViewModel { public long UnidadeSaudeId { get; set; } public string Codigo { get; set; } = string.Empty; public string Nome { get; set; } = string.Empty; public long? ProfissionalAcsId { get; set; } }
-public sealed class AcsDomicilioFormViewModel { public string CodigoDomicilio { get; set; } = string.Empty; public long? AcsMicroareaId { get; set; } public decimal? Latitude { get; set; } public decimal? Longitude { get; set; } public decimal? PrecisaoMetros { get; set; } public string Status { get; set; } = "ATIVO"; }
-public sealed class AcsIndividuoFormViewModel { public long PessoaId { get; set; } public long? PacienteId { get; set; } public long? AcsCadastroDomiciliarId { get; set; } public string Status { get; set; } = "ATIVO"; }
-public sealed class AcsVisitaFormViewModel { public long ProfissionalAcsId { get; set; } public long? AcsCadastroDomiciliarId { get; set; } public long? AcsCadastroIndividualId { get; set; } public long? PacienteId { get; set; } public string TipoVisita { get; set; } = "ROTINA"; public string Desfecho { get; set; } = "REALIZADA"; public decimal? Latitude { get; set; } public decimal? Longitude { get; set; } public decimal? PrecisaoMetros { get; set; } public string? Observacao { get; set; } }
+public sealed class AcsDomicilioFormViewModel
+{
+    [Required, Display(Name = "Código do domicílio")] public string CodigoDomicilio { get; set; } = string.Empty;
+    [Required, Display(Name = "Microárea")] public long? AcsMicroareaId { get; set; }
+    [Required, Display(Name = "Endereço ou referência de localização"), StringLength(500)] public string EnderecoDescricao { get; set; } = string.Empty;
+    [Range(-90, 90)] public decimal? Latitude { get; set; }
+    [Range(-180, 180)] public decimal? Longitude { get; set; }
+    [Range(0, 10000), Display(Name = "Precisão (m)")] public decimal? PrecisaoMetros { get; set; }
+    public string Status { get; set; } = "ATIVO";
+}
+public sealed class AcsIndividuoFormViewModel
+{
+    [Required, Display(Name = "Pessoa/cidadão")] public long? PessoaId { get; set; }
+    [Display(Name = "Cadastro de paciente")] public long? PacienteId { get; set; }
+    [Required, Display(Name = "Domicílio/família")] public long? AcsCadastroDomiciliarId { get; set; }
+    [Display(Name = "Condições acompanhadas")] public string[] CondicoesSaude { get; set; } = [];
+    public string Status { get; set; } = "ATIVO";
+}
+public sealed class AcsVisitaFormViewModel
+{
+    [Required, Display(Name = "Agente comunitário")] public long? ProfissionalAcsId { get; set; }
+    [Required, Display(Name = "Microárea")] public long? AcsMicroareaId { get; set; }
+    [Display(Name = "Domicílio")] public long? AcsCadastroDomiciliarId { get; set; }
+    [Display(Name = "Indivíduo")] public long? AcsCadastroIndividualId { get; set; }
+    [Required, Display(Name = "Data e hora")] public DateTimeOffset DataVisita { get; set; } = DateTimeOffset.Now;
+    [Required] public string Turno { get; set; } = "MANHA";
+    [Required, Display(Name = "Tipo de visita")] public string TipoVisita { get; set; } = "ROTINA";
+    [Required] public string Desfecho { get; set; } = "REALIZADA";
+    [Range(-90, 90)] public decimal? Latitude { get; set; }
+    [Range(-180, 180)] public decimal? Longitude { get; set; }
+    [Range(0, 10000), Display(Name = "Precisão (m)")] public decimal? PrecisaoMetros { get; set; }
+    [StringLength(2000)] public string? Observacao { get; set; }
+}
+public sealed class Saude360OperacaoViewModel
+{
+    public required string Titulo { get; init; }
+    public required string Descricao { get; init; }
+    public required string Api { get; init; }
+    public string? ExportacaoApi { get; init; }
+    public bool DadoSensivel { get; init; }
+}
 public sealed class SaudeDashboardViewModel { public string Titulo { get; set; } = "Dashboard Saúde/ACS"; }
