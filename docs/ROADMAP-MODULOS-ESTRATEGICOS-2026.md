@@ -266,3 +266,7 @@ Entregue o núcleo territorial e de campo do FUNC11: ACS, domicílios, famílias
 ## EXP25 — GED360 / InovaGED Inteligente
 
 Núcleo entregue: governança documental e arquivística, protocolo, OCR rastreável, busca PostgreSQL, workflow, temporalidade, acervo físico, eliminação controlada, auditoria LGPD e vínculos transversais. Ativação de OCR e assinatura depende de provedores reais configurados; nenhuma resposta é simulada.
+
+## CORR25 — GED360 / InovaGED
+
+Fechamento corretivo concluído na base local: autorização documental fail-closed, integridade de hashes/datas/assinatura, bloqueio de eliminação indevida e baselines PostgreSQL sincronizados. A validação executável de build e banco permanece gate obrigatório de CI/homologação conforme `docs/entregas/CORR25-GED360-INOVAGED.md`; este fechamento não inicia módulo novo.
