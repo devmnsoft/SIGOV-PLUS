@@ -1553,6 +1553,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.ged_eliminacao_lote') is not null and exists(select 1 from pg_trigger where tgname='tr_ged_validar_eliminacao_lote') and exists(select 1 from sigov.permissao where chave='GED_DOCUMENTO_SENSIVEL_VIEW')"
+    },
+    {
+      "version": "20260829180000",
+      "description": "RC50.81 homologação enterprise, auditoria operacional e permissões SaaS",
+      "category": "functional",
+      "file": "20260829180000_rc50_81_homologacao_enterprise.sql",
+      "checksum": "260fc916adb1b9edb553806567cc906e5290c2b69678b20f5a166f5da7aba193",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.homologacao_item') is not null and to_regclass('sigov.operacao_evento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HOMOLOGACAO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

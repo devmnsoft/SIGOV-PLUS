@@ -168,3 +168,7 @@ Implementação funcional adicionada em 2026-08-29: schema territorial/ACS, sinc
 ## CORR25 — fechamento GED360/InovaGED
 
 Fechamento técnico incorporado sem expansão de escopo: segurança de consulta e rotas, integridade PostgreSQL, LGPD e artefatos SQL sincronizados. Build e smoke autenticado devem ser confirmados em ambiente com .NET 10 e PostgreSQL 16 antes da promoção.
+
+## RC50.81 — Homologação Enterprise
+
+A fundação persistente de checklist, histórico, auditoria operacional e permissões transversais foi adicionada pela migration `20260829180000_rc50_81_homologacao_enterprise.sql`. Próximas etapas devem implementar as centrais MVC sobre esses contratos reais, sem fallback decorativo, e executar o baseline em PostgreSQL 16+ antes da homologação comercial.
