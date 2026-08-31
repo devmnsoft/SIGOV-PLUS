@@ -22,3 +22,18 @@
 19. YAML, JSON, shell e PowerShell alterados devem passar validação sintática disponível.
 20. Mudanças P0/P1, avaliador de autorização, troca de contexto e dashboard SuperAdmin
     exigem RC própria e estão fora da RC50.68A.
+21. O SIGOV PLUS atende a administração pública municipal, estadual e federal;
+    regras, telas, relatórios e nomenclaturas não podem ser limitados a prefeituras.
+22. Modele todas as funcionalidades de forma multi-esfera, contemplando:
+    - municípios: prefeituras, secretarias, autarquias, fundações, câmaras e
+      unidades executoras;
+    - estados: governos estaduais, secretarias estaduais, regionais, hospitais,
+      escolas, órgãos, autarquias e empresas públicas;
+    - União: ministérios, autarquias federais, fundações, institutos,
+      superintendências, unidades descentralizadas e programas federais.
+23. Toda entidade deve possuir `esfera_governo` (`municipal`, `estadual` ou
+    `federal`), `tipo_entidade`, órgão superior quando aplicável, unidade gestora,
+    unidade executora, hierarquia administrativa, abrangência territorial e UF,
+    município, região ou jurisdição quando aplicável.
+24. Parametrize as regras de negócio por esfera de governo; não introduza
+    comportamento municipal hardcoded.
