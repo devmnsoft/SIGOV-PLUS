@@ -25,6 +25,11 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         ["ferias-programacoes"] = "sigov.rh_ferias_programacao", ["ferias-historicos"] = "sigov.rh_ferias_historico", ["afastamento-tipos"] = "sigov.rh_afastamento_tipo",
         ["afastamento-historicos"] = "sigov.rh_afastamento_historico", ["portal-solicitacoes"] = "sigov.rh_portal_solicitacao",
         ["portal-atualizacoes"] = "sigov.rh_portal_atualizacao_cadastral", ["portal-mensagens"] = "sigov.rh_portal_mensagem"
+        , ["atos"] = "sigov.rh_ato_funcional", ["licencas"] = "sigov.rh_licenca", ["banco-horas"] = "sigov.rh_banco_horas"
+        , ["ocorrencias-frequencia"] = "sigov.rh_frequencia", ["quadro-pessoal"] = "sigov.rh_vinculo_funcional"
+        , ["pericias"] = "sigov.rh_afastamento", ["previdencia"] = "sigov.rh_previdencia_parametro"
+        , ["consignacoes"] = "sigov.rh_consignacao"
+        , ["servidor-documentos"] = "sigov.rh_servidor_documento", ["historico-funcional"] = "sigov.rh_movimentacao"
     };
 
     public RhRepository(DapperContext context) => _context = context;

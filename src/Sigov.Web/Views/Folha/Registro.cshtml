@@ -1,0 +1,7 @@
+@model Sigov.Web.Models.Rh.RhRegistroViewModel
+@{ ViewData["Title"] = Model.Titulo; }
+<h1>@Model.Titulo</h1>
+<div class="alert alert-info"><strong>Como usar esta tela</strong><br />Use os filtros de contexto institucional e competência. Registros fechados somente mudam após reabertura formal e auditada.</div>
+<div class="alert alert-secondary">Os dados são carregados da base oficial do cliente. Se o schema ou a configuração estiver indisponível, a operação informará a falha explicitamente.</div>
+<div class="table-responsive" data-rh-resource="@Model.Recurso"><table class="table"><thead><tr><th>Registro</th><th>Status</th><th>Ações</th></tr></thead><tbody data-grid-body></tbody></table></div>
+@section Scripts { <script src="~/js/modules/rh.js"></script> }

@@ -10,6 +10,7 @@
     <a class="btn btn-outline-secondary" href="/api/rh/export/@(Model.Recurso).json">JSON</a>
   </div>
 </div>
+<div class="alert alert-info"><strong>Como usar esta tela</strong><br />Selecione o contexto institucional, preencha os campos funcionais e confira a validação antes de salvar. Identificadores técnicos são resolvidos pelas listas oficiais do tenant.</div>
 <form id="rh-form" class="card mb-3 needs-validation" data-recurso="@Model.Recurso" novalidate>
   @Html.AntiForgeryToken()
   <div class="card-body">
