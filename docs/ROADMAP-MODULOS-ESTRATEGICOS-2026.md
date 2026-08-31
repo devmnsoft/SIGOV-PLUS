@@ -25,3 +25,7 @@ por esfera, entidade, órgão, unidade e exercício.
 # RC50.85 — Compras e contratos multi-esfera
 
 Base de dados do ciclo completo de contratação, licitação, atas e fiscalização entregue na migration `20260831230000`. Próximo incremento: serviços Dapper e jornadas MVC/Razor reais sobre o novo modelo, seguido de homologação das integrações canônicas Financeiro, GED, Obras360, Ativos360 e Almoxarifado. Integrações externas permanecem desativadas até existir adaptador oficial.
+
+## RC50.86 — Financeiro, orçamento, contabilidade e tesouraria multi-esfera
+
+Modelo canônico multi-esfera entregue para PPA/LDO/LOA, execução de receitas e despesas, tesouraria, conciliação, restos a pagar e prestação de contas. Próximos incrementos devem migrar cada fluxo Dapper legado transacionalmente e habilitar integrações somente quando houver adaptador real homologado.

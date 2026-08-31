@@ -1603,6 +1603,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.compras_plano_contratacao_anual') is not null and to_regclass('sigov.compras_licitacao') is not null and to_regclass('sigov.contrato_administrativo') is not null and exists(select 1 from sigov.permissao where chave='COMPRAS_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901000000",
+      "description": "RC50.86 financeiro, orçamento, contabilidade e tesouraria multi-esfera",
+      "category": "functional",
+      "file": "20260901000000_rc50_86_financeiro_orcamento_contabilidade_multiesfera.sql",
+      "checksum": "376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.financeiro_dotacao') is not null and to_regclass('sigov.contabilidade_lancamento') is not null and exists(select 1 from sigov.permissao where chave='FINANCEIRO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

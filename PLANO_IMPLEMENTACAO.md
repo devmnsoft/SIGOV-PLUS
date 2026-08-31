@@ -195,3 +195,10 @@ Implementada a camada executiva transversal sobre dados reais, com schema idempo
 - [x] Regras estruturais de valores, percentuais, vigências, decisões e saldos.
 - [ ] Serviços Dapper do novo núcleo e telas MVC/Razor completas.
 - [ ] Homologação de integrações reais com Financeiro, GED, Obras360, Ativos360 e Almoxarifado.
+
+## RC50.86 — Financeiro, orçamento e contabilidade multi-esfera
+
+- [x] Modelo PostgreSQL canônico, idempotente e sincronizado.
+- [x] Checks financeiros, escopo multi-esfera, índices e permissões persistidas.
+- [x] Limites de integrações de tesouraria documentados sem simulação.
+- [ ] Adoção incremental do modelo canônico por todos os fluxos MVC/Dapper legados.
