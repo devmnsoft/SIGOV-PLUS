@@ -180,3 +180,11 @@ Central de Qualidade implementada com persistência PostgreSQL/Dapper, telas MVC
 ## RC50.83 — Central Executiva 360
 
 Implementada a camada executiva transversal sobre dados reais, com schema idempotente, Dapper contextual, MVC/Razor, permissões persistidas e CSV seguro.
+
+## RC50.84 — módulos estruturantes multi-esfera
+
+- [x] Criar contratos idempotentes de fluxo/histórico com contexto institucional.
+- [x] Sincronizar migration, manifesto e baselines SQL.
+- [x] Documentar modelo municipal, estadual e federal e critérios de operação.
+- [ ] Executar build .NET 10 e homologação PostgreSQL 16 no ambiente integrado.
+- [ ] Concluir smoke autenticado e matriz de permissões das superfícies estruturantes.
