@@ -1593,6 +1593,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.governanca_entidade_hierarquia') is not null and to_regclass('sigov.protocolo_movimentacao') is not null and to_regclass('sigov.financeiro_execucao_orcamentaria') is not null and exists(select 1 from sigov.permissao where chave='ESTRUTURANTES_RELATORIO_EXPORT')"
+    },
+    {
+      "version": "20260831230000",
+      "description": "RC50.85 compras, licitações, contratos, atas e fiscalização multi-esfera",
+      "category": "functional",
+      "file": "20260831230000_rc50_85_compras_contratos_multiesfera.sql",
+      "checksum": "db04600545e254e229b40724a535633627d1ebf4e6032389590ef13d2f70ca46",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.compras_plano_contratacao_anual') is not null and to_regclass('sigov.compras_licitacao') is not null and to_regclass('sigov.contrato_administrativo') is not null and exists(select 1 from sigov.permissao where chave='COMPRAS_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
