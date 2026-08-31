@@ -29,3 +29,7 @@ Base de dados do ciclo completo de contratação, licitação, atas e fiscaliza�
 ## RC50.86 — Financeiro, orçamento, contabilidade e tesouraria multi-esfera
 
 Modelo canônico multi-esfera entregue para PPA/LDO/LOA, execução de receitas e despesas, tesouraria, conciliação, restos a pagar e prestação de contas. Próximos incrementos devem migrar cada fluxo Dapper legado transacionalmente e habilitar integrações somente quando houver adaptador real homologado.
+
+## RC50.87 — SaaS MNSOFT, IAM e Tributos multi-esfera
+
+Núcleo persistente entregue para clientes, planos, cobrança, bloqueios, perfis e sessões, com precedência de bloqueio global e contexto multi-esfera. Tributos avança com parametrização por esfera/exercício e trilha de lançamento até dívida ativa e certidão. Próxima etapa: adoção transacional pelos serviços Dapper existentes, aliases de navegação somente quando funcionais e homologação PostgreSQL 16/.NET 10.
