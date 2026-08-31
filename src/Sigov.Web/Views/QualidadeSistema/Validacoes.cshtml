@@ -1,0 +1,4 @@
+@model IReadOnlyList<Sigov.Web.Models.QualidadeSistema.QualidadeValidacaoItem>
+@{ViewData["Title"]="Validações de qualidade";}
+<div class="qs-shell"><header class="qs-page-head"><div><h1>Validações técnicas</h1><p>Origem: @ViewBag.Area. Registros persistidos e isolados pelo contexto operacional.</p></div><a asp-action="Dashboard" class="btn btn-outline-secondary">Dashboard</a></header><div class="qs-panel table-responsive"><table class="table"><thead><tr><th>Módulo</th><th>Referência</th><th>Status</th><th>Validado em</th></tr></thead><tbody>@if(Model.Count==0){<tr><td colspan="4" class="qs-empty">Ainda não há validações registradas nesta área.</td></tr>}@foreach(var x in Model){<tr><td>@x.Modulo</td><td>@x.Referencia</td><td><span class="qs-badge">@x.Status</span></td><td>@x.ValidadoEm?.ToString("g")</td></tr>}</tbody></table></div></div>
+@section Styles { <link rel="stylesheet" href="~/css/qualidade-sistema.css" asp-append-version="true" /> }
