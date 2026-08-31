@@ -1623,6 +1623,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.saas_cliente') is not null and to_regclass('sigov.identidade_perfil_cliente') is not null and to_regclass('sigov.tributo_divida_ativa') is not null and exists(select 1 from sigov.permissao where chave='MNSOFT_SUPERADMIN_ACCESS')"
+    },
+    {
+      "version": "20260901060000",
+      "description": "RC50.88 RH360, folha e Portal do Servidor multi-esfera",
+      "category": "functional",
+      "file": "20260901060000_rc50_88_rh360_folha_portal.sql",
+      "checksum": "40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.rh_servidor') is not null and to_regclass('sigov.folha_competencia') is not null and to_regclass('sigov.rh_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='RH_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

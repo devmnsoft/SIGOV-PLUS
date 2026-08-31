@@ -1,0 +1,8 @@
+@{ ViewData["Title"] = "Portal do Servidor"; }
+<h1>Portal do Servidor</h1>
+<p class="text-muted">Área pessoal protegida para informações funcionais, financeiras e requerimentos.</p>
+<div class="alert alert-info"><strong>Como usar esta tela</strong><br />Consulte somente seus próprios dados. Downloads e visualizações sensíveis são auditados segundo a LGPD.</div>
+<div class="row g-3">
+@foreach (var item in new[]{("Meus dados","/PortalServidor/MeusDados"),("Contracheques","/PortalServidor/Contracheques"),("Informe de rendimentos","/PortalServidor/InformeRendimentos"),("Férias","/PortalServidor/Ferias"),("Requerimentos","/PortalServidor/Requerimentos"),("Documentos","/PortalServidor/Documentos"),("Segurança","/PortalServidor/Seguranca")})
+{ <div class="col-12 col-sm-6 col-lg-4"><a class="card card-body h-100 text-decoration-none" href="@item.Item2"><strong>@item.Item1</strong></a></div> }
+</div>

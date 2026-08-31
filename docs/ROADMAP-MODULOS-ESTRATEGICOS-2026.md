@@ -33,3 +33,7 @@ Modelo canônico multi-esfera entregue para PPA/LDO/LOA, execução de receitas 
 ## RC50.87 — SaaS MNSOFT, IAM e Tributos multi-esfera
 
 Núcleo persistente entregue para clientes, planos, cobrança, bloqueios, perfis e sessões, com precedência de bloqueio global e contexto multi-esfera. Tributos avança com parametrização por esfera/exercício e trilha de lançamento até dívida ativa e certidão. Próxima etapa: adoção transacional pelos serviços Dapper existentes, aliases de navegação somente quando funcionais e homologação PostgreSQL 16/.NET 10.
+
+## RC50.88 — RH360, Folha e Portal do Servidor
+
+Núcleo multi-esfera de servidores, vínculos, atos, frequência, férias, licenças, afastamentos, folha, eSocial, previdência, consignações e auditoria LGPD, com portal pessoal e integrações condicionadas a contrato técnico real.

@@ -1,0 +1,8 @@
+@{ ViewData["Title"] = "Folha de Pagamento"; }
+<h1>Folha de Pagamento</h1>
+<p class="text-muted">Operação por competência, entidade, órgão e unidade, com rastreabilidade do cálculo ao fechamento.</p>
+<div class="alert alert-info"><strong>Como usar esta tela</strong><br />Selecione a competência e confira pendências de cadastro, frequência e eSocial antes de calcular ou fechar. A reabertura depende de permissão e justificativa auditada.</div>
+<div class="row g-3">
+@foreach (var item in new[]{("Competências","/Folha/Competencias"),("Eventos","/Folha/Eventos"),("Cálculo","/Folha/Calculo"),("Contracheques","/Folha/ContraCheques"),("Fechamento","/Folha/Fechamento"),("Integração financeira","/Folha/EmpenhoIntegracao"),("Relatórios","/Folha/Relatorios")})
+{ <div class="col-12 col-sm-6 col-lg-4"><a class="card card-body h-100 text-decoration-none" href="@item.Item2"><strong>@item.Item1</strong></a></div> }
+</div>

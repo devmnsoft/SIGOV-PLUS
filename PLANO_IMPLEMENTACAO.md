@@ -211,3 +211,7 @@ Implementada a camada executiva transversal sobre dados reais, com schema idempo
 - [ ] Homologar migration e reexecução no PostgreSQL 16 com conexão institucional.
 - [ ] Conectar jornadas novas aos serviços Dapper e ao avaliador fail-closed em RC autorizada.
 - [ ] Executar build .NET 10 e smoke autenticado em ambiente com SDK oficial.
+
+## RC50.88 — RH360 / Folha / Portal
+
+Implementado o schema aditivo multi-tenant e multi-esfera, permissões no banco, rotas MVC operacionais e documentação de LGPD, folha, portal e obrigações. Integrações externas permanecem bloqueadas sem adaptador real.
