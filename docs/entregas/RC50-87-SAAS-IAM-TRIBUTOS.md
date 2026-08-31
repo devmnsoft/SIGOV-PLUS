@@ -7,6 +7,9 @@
 - Núcleo tributário contextualizado e controles de lançamento, pagamento, baixa, parcelamento, dívida ativa e certidão.
 - Catálogo mínimo de 30 permissões MNSOFT, cliente e Tributos.
 - Baselines SQL e manifesto sincronizados; documentação operacional e limites atualizados.
+- Rotas canônicas `/AdminMNSOFT` e `/AdminMNSOFT/Dashboard`, além dos aliases funcionais de clientes, planos, módulos, funcionalidades, cobranças, bloqueios, auditoria, sessões e relatórios, reaproveitam as superfícies reais existentes.
+- Todas as páginas administrativas alcançadas pelos aliases passaram a consultar o avaliador persistido antes de renderizar; autenticação isolada não concede mais acesso administrativo.
+- Dashboard SuperAdmin recebeu orientação curta e acessível de uso, permissões, filtros e sensibilidade dos dados.
 
 ## Integrações reais e limites
 
