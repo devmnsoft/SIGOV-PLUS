@@ -1613,6 +1613,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.financeiro_dotacao') is not null and to_regclass('sigov.contabilidade_lancamento') is not null and exists(select 1 from sigov.permissao where chave='FINANCEIRO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901030000",
+      "description": "RC50.87 SaaS MNSOFT, IAM por cliente e tributos multi-esfera",
+      "category": "functional",
+      "file": "20260901030000_rc50_87_saas_iam_tributos_multiesfera.sql",
+      "checksum": "324d4bac90745f2b87238701aa750ad52d821449cfcfc73afbc76c4d25cc3487",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.saas_cliente') is not null and to_regclass('sigov.identidade_perfil_cliente') is not null and to_regclass('sigov.tributo_divida_ativa') is not null and exists(select 1 from sigov.permissao where chave='MNSOFT_SUPERADMIN_ACCESS')"
     }
   ],
   "compatibilityAfterAll": [

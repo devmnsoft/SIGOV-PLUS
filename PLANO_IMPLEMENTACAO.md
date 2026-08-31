@@ -202,3 +202,12 @@ Implementada a camada executiva transversal sobre dados reais, com schema idempo
 - [x] Checks financeiros, escopo multi-esfera, índices e permissões persistidas.
 - [x] Limites de integrações de tesouraria documentados sem simulação.
 - [ ] Adoção incremental do modelo canônico por todos os fluxos MVC/Dapper legados.
+
+## RC50.87 — SaaS, IAM e Tributos
+
+- [x] Contratos PostgreSQL idempotentes e permissões persistidas.
+- [x] Contexto multi-esfera e regras estruturais de cobrança, bloqueio e arrecadação.
+- [x] Manifesto, baselines e documentação sincronizados.
+- [ ] Homologar migration e reexecução no PostgreSQL 16 com conexão institucional.
+- [ ] Conectar jornadas novas aos serviços Dapper e ao avaliador fail-closed em RC autorizada.
+- [ ] Executar build .NET 10 e smoke autenticado em ambiente com SDK oficial.
