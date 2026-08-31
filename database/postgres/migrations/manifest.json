@@ -1563,6 +1563,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.homologacao_item') is not null and to_regclass('sigov.operacao_evento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HOMOLOGACAO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260831120000",
+      "description": "RC50.82 Central de Qualidade e Consistência",
+      "category": "functional",
+      "file": "20260831120000_rc50_82_qualidade_sistema.sql",
+      "checksum": "fefd677795e2d1525f9c94ee0d7593958c24dedc32b7fa80d8d0ad57ba3672a2",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.qualidade_inconsistencia') is not null and to_regclass('sigov.qualidade_validacao_sql') is not null and exists(select 1 from sigov.permissao where chave='QUALIDADE_SISTEMA_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

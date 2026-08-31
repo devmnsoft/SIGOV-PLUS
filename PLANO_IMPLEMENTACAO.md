@@ -172,3 +172,7 @@ Fechamento técnico incorporado sem expansão de escopo: segurança de consulta 
 ## RC50.81 — Homologação Enterprise
 
 A fundação persistente de checklist, histórico, auditoria operacional e permissões transversais foi adicionada pela migration `20260829180000_rc50_81_homologacao_enterprise.sql`. Próximas etapas devem implementar as centrais MVC sobre esses contratos reais, sem fallback decorativo, e executar o baseline em PostgreSQL 16+ antes da homologação comercial.
+
+## RC50.82 — auditoria sistêmica e evolução funcional
+
+Central de Qualidade implementada com persistência PostgreSQL/Dapper, telas MVC/Razor, autorização por permissões, histórico transacional e CSV seguro. A execução automatizada do build permanece condicionada à disponibilidade do SDK 10.0.100 definido em `global.json`.
