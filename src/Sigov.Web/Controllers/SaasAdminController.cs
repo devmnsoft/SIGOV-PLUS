@@ -11,11 +11,13 @@ namespace Sigov.Web.Controllers;
 
 [Authorize]
 [Route("SaasAdmin")]
+[Route("AdminMNSOFT")]
 public sealed class SaasAdminController(ISuperAdminOperationalDashboardService dashboard, IAuthorizationEvaluator authorization,
     IAuthorizationAdminService authorizationAdmin) : Controller
 {
     [HttpGet("Dashboard")]
     [HttpGet("Operacional")]
+    [HttpGet("")]
     public async Task<IActionResult> Dashboard(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, string? status, CancellationToken ct)
     {
         if (!await Allowed("visualizar", tenantId, ct)) return Forbid();
@@ -41,14 +43,29 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "sigov-operacional.csv");
     }
 
-    [HttpGet("Tenants")] public IActionResult Tenants() => View();
-    [HttpGet("TenantDetalhe")] public IActionResult TenantDetalhe() => View();
-    [HttpGet("NovoTenant")] public IActionResult NovoTenant() => View();
-    [HttpGet("Planos")] public IActionResult Planos() => View();
-    [HttpGet("Modulos")] public IActionResult Modulos() => View();
-    [HttpGet("Assinaturas")] public IActionResult Assinaturas() => View();
-    [HttpGet("FeatureFlags")] public IActionResult FeatureFlags() => View();
-    [HttpGet("Uso")] public IActionResult Uso() => View();
+    [HttpGet("Tenants"), HttpGet("Clientes")]
+    public async Task<IActionResult> Tenants(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
+
+    [HttpGet("TenantDetalhe"), HttpGet("Clientes/Details"), HttpGet("Clientes/Edit")]
+    public async Task<IActionResult> TenantDetalhe(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
+
+    [HttpGet("NovoTenant"), HttpGet("Clientes/Create")]
+    public async Task<IActionResult> NovoTenant(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+
+    [HttpGet("Planos")]
+    public async Task<IActionResult> Planos(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+
+    [HttpGet("Modulos"), HttpGet("Funcionalidades"), HttpGet("Bloqueios")]
+    public async Task<IActionResult> Modulos(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+
+    [HttpGet("Assinaturas"), HttpGet("Cobrancas")]
+    public async Task<IActionResult> Assinaturas(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+
+    [HttpGet("FeatureFlags")]
+    public async Task<IActionResult> FeatureFlags(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+
+    [HttpGet("Uso"), HttpGet("Relatorios"), HttpGet("Auditoria"), HttpGet("Sessoes"), HttpGet("Usuarios"), HttpGet("PerfisGlobais")]
+    public async Task<IActionResult> Uso(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
     [HttpGet("Autorizacao")]
     public async Task<IActionResult> Autorizacao(CancellationToken ct)
     {
