@@ -1,6 +1,13 @@
-@model Sigov.Application.Executive.ExecutiveDashboardResponse
-@{ ViewData["Title"] = "Painel executivo"; }
-@await Component.InvokeAsync("PageHeader", new Sigov.Web.Models.Ui.PageHeaderViewModel("Painel executivo", "Visão comercial e operacional para demonstração e acompanhamento do tenant.", new[] { new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Início", "/"), new Sigov.Web.Models.Ui.BreadcrumbItemViewModel("Executivo", "/Executivo", true) }))
-<div class="row g-3 mb-4"><div class="col-md-4"><div class="sigov-dashboard-card p-4"><span class="text-muted">Entidade</span><h2 class="h5">@Model.EntityName</h2></div></div><div class="col-md-4"><div class="sigov-dashboard-card p-4"><span class="text-muted">Exercício</span><h2 class="h5">@Model.FiscalYear</h2></div></div><div class="col-md-4"><div class="sigov-dashboard-card p-4"><span class="text-muted">Módulos contratados</span><h2 class="h5">@Model.ContractedModules</h2></div></div></div>
-<div class="row g-3">@foreach (var indicator in Model.Indicators) { <div class="col-md-6 col-xl-3"><div class="card sigov-kpi p-3 h-100"><span class="text-muted">@indicator.Name</span><strong class="fs-4">@indicator.Value</strong><small>@indicator.Status</small></div></div> }</div>
-@section Scripts { <script src="~/js/modules/executivo.dashboard.js"></script> }
+@model Sigov.Application.Executive.ExecutivoDashboard
+@{ ViewData["Title"]="Central Executiva 360"; }
+<div class="executivo-hero"><div><span class="sigov-eyebrow">Central Executiva 360</span><h1>Decisão municipal em tempo real</h1><p>Metas, riscos e ações consolidados exclusivamente de registros operacionais autorizados.</p></div><span class="executivo-live">Atualizado @Model.AtualizadoEm.ToLocalTime().ToString("HH:mm")</span></div>
+<partial name="_Filtro" />
+<div class="executivo-kpis">
+ <a href="/Executivo/Metas"><span>Metas ativas</span><strong>@Model.Resumo.MetasAtivas</strong><small>@Model.Resumo.MetasAtrasadas atrasadas</small></a>
+ <a href="/Executivo/Pendencias"><span>Pendências vencidas</span><strong>@Model.Resumo.PendenciasVencidas</strong><small>exigem encaminhamento</small></a>
+ <a href="/Executivo/Alertas"><span>Alertas críticos</span><strong>@Model.Resumo.AlertasCriticos</strong><small>origem rastreável</small></a>
+ <a href="/Executivo/Aprovacoes"><span>Aprovações</span><strong>@Model.Resumo.AprovacoesPendentes</strong><small>aguardando decisão</small></a>
+ <a href="/IntegracoesInternas"><span>Falhas de integração</span><strong>@Model.Resumo.IntegracoesFalhas</strong><small>eventos reais</small></a>
+</div>
+<div class="row g-4 mt-1"><section class="col-xl-7"><div class="executivo-panel"><h2>Prioridades imediatas</h2><partial name="_Tabela" model="Model.Itens" /></div></section><section class="col-xl-5"><div class="executivo-panel"><h2>Indicadores por módulo</h2><partial name="_Tabela" model="Model.Indicadores" /></div></section></div>
+<nav class="executivo-nav" aria-label="Áreas executivas"><a href="/Executivo/SalaSituacao">Sala de Situação</a><a href="/Executivo/Metas">Metas</a><a href="/Executivo/Pendencias">Pendências</a><a href="/Executivo/Briefing">Briefing</a><a href="/Executivo/Relatorios">Relatórios</a></nav>

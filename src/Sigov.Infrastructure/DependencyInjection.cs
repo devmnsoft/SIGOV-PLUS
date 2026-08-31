@@ -1,3 +1,5 @@
+using Sigov.Application.Executive;
+using Sigov.Infrastructure.ExecutiveOperations;
 using Sigov.Application.Ia;
 using Sigov.Infrastructure.Ia;
 using Microsoft.Extensions.DependencyInjection;
@@ -198,6 +200,8 @@ public static class DependencyInjection
         services.AddScoped<IRequisicaoCompraApplicationService, RequisicaoCompraApplicationService>();
         services.AddScoped<IComprasDashboardApplicationService, ComprasDashboardApplicationService>();
         services.AddScoped<IExecutiveOperationsRepository, ExecutiveOperationsRepository>();
+        services.AddScoped<ICentralExecutivaRepository, CentralExecutivaRepository>();
+        services.AddScoped<ICentralExecutivaService, CentralExecutivaService>();
         services.AddScoped<IGovernancaOperacionalService, GovernancaOperacionalService>();
         services.AddSingleton<IDocumentTemplateRenderer, SafeDocumentTemplateRenderer>();
         services.AddScoped<ITarefaRepository, TarefaRepository>();

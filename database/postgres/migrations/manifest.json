@@ -1573,6 +1573,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.qualidade_inconsistencia') is not null and to_regclass('sigov.qualidade_validacao_sql') is not null and exists(select 1 from sigov.permissao where chave='QUALIDADE_SISTEMA_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260831180000",
+      "description": "RC50.83 Central Executiva 360 e Sala de Situação Municipal",
+      "category": "functional",
+      "file": "20260831180000_rc50_83_central_executiva_360.sql",
+      "checksum": "73413158b125b94917e55a9b769bd5670cd2335ce443b5db0e29ad8f7c210cf0",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.executivo_painel') is not null and to_regclass('sigov.executivo_sala_situacao') is not null and exists(select 1 from sigov.permissao where chave='EXECUTIVO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [
