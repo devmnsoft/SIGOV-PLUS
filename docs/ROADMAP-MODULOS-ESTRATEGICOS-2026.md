@@ -11,3 +11,7 @@ Cada módulo somente avança quando não houver pendência crítica, suas rotas 
 - Central de Qualidade e Consistência com fila, evidência, atribuição e histórico: **entregue**.
 - Validações persistidas de rotas, Razor, permissões, migrations e integrações: **entregue**.
 - Cobertura operacional progressiva dos módulos estratégicos por checklist: **em evolução contínua**, sem catálogos hardcoded.
+
+## RC50.83 — Central Executiva 360
+
+Central decisória integrada ao BI360 e aos módulos operacionais, com Sala de Situação, plano de governo, alertas rastreáveis, pendências, aprovações, briefing e exportações auditadas. Entregue sem catálogos paralelos ou dados simulados.

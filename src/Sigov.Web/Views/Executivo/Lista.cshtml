@@ -1,0 +1,4 @@
+@model IReadOnlyList<Sigov.Application.Executive.ExecutivoItem>
+@{ var recurso=(string)ViewData["Recurso"]!; }
+<div class="executivo-hero executivo-hero--compact"><div><span class="sigov-eyebrow">Central Executiva 360</span><h1>@ViewData["Title"]</h1><p>Registros reais, segmentados pelo contexto municipal e trilha auditável.</p></div><a class="btn btn-outline-light" asp-action="Exportar" asp-route-recurso="@recurso">Exportar CSV seguro</a></div>
+<partial name="_Filtro" /><div class="executivo-panel mt-4">@if(TempData["Erro"] is string erro){<div class="alert alert-danger">@erro</div>}<partial name="_Tabela" model="Model" /></div>

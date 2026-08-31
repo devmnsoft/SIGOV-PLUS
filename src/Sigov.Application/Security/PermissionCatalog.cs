@@ -22,6 +22,21 @@ public static class PermissionCatalog
 
     public static IReadOnlyList<PermissionDefinition> All { get; } =
     [
+        Permission("EXECUTIVO_DASHBOARD_VIEW", "executivo", "executivo_dashboard_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_SALA_VIEW", "executivo", "executivo_sala_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_SALA_MANAGE", "executivo", "executivo_sala_manage", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_META_VIEW", "executivo", "executivo_meta_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_META_MANAGE", "executivo", "executivo_meta_manage", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_PENDENCIA_VIEW", "executivo", "executivo_pendencia_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_PENDENCIA_MANAGE", "executivo", "executivo_pendencia_manage", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_ALERTA_VIEW", "executivo", "executivo_alerta_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_ALERTA_MANAGE", "executivo", "executivo_alerta_manage", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_APROVACAO_VIEW", "executivo", "executivo_aprovacao_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_APROVACAO_MANAGE", "executivo", "executivo_aprovacao_manage", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_DECISAO_VIEW", "executivo", "executivo_decisao_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_DECISAO_MANAGE", "executivo", "executivo_decisao_manage", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_BRIEFING_VIEW", "executivo", "executivo_briefing_view", "visualizar", isAdministrative: true),
+        Permission("EXECUTIVO_RELATORIO_EXPORT", "executivo", "executivo_relatorio_export", "visualizar", isAdministrative: true),
         Permission("HOMOLOGACAO_DASHBOARD_VIEW", "homologacao", "dashboard", "visualizar", isAdministrative: true),
         Permission("HOMOLOGACAO_CHECKLIST_MANAGE", "homologacao", "checklist", "gerenciar", isAdministrative: true),
         Permission("HOMOLOGACAO_RELATORIO_EXPORT", "homologacao", "relatorio", "exportar", isAdministrative: true),

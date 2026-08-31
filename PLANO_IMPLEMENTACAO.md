@@ -176,3 +176,7 @@ A fundação persistente de checklist, histórico, auditoria operacional e permi
 ## RC50.82 — auditoria sistêmica e evolução funcional
 
 Central de Qualidade implementada com persistência PostgreSQL/Dapper, telas MVC/Razor, autorização por permissões, histórico transacional e CSV seguro. A execução automatizada do build permanece condicionada à disponibilidade do SDK 10.0.100 definido em `global.json`.
+
+## RC50.83 — Central Executiva 360
+
+Implementada a camada executiva transversal sobre dados reais, com schema idempotente, Dapper contextual, MVC/Razor, permissões persistidas e CSV seguro.
