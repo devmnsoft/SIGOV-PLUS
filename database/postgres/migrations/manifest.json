@@ -1583,6 +1583,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.executivo_painel') is not null and to_regclass('sigov.executivo_sala_situacao') is not null and exists(select 1 from sigov.permissao where chave='EXECUTIVO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260831210000",
+      "description": "RC50.84 retomada dos módulos estruturantes multi-esfera",
+      "category": "functional",
+      "file": "20260831210000_rc50_84_modulos_estruturantes_multiesfera.sql",
+      "checksum": "daa1c395e69fd32c0889da47cfc74e87657cc15f74f137ff0069d0a0ab208989",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.governanca_entidade_hierarquia') is not null and to_regclass('sigov.protocolo_movimentacao') is not null and to_regclass('sigov.financeiro_execucao_orcamentaria') is not null and exists(select 1 from sigov.permissao where chave='ESTRUTURANTES_RELATORIO_EXPORT')"
     }
   ],
   "compatibilityAfterAll": [

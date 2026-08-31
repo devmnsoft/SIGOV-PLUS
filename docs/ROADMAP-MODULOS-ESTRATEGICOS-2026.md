@@ -15,3 +15,10 @@ Cada módulo somente avança quando não houver pendência crítica, suas rotas 
 ## RC50.83 — Central Executiva 360
 
 Central decisória integrada ao BI360 e aos módulos operacionais, com Sala de Situação, plano de governo, alertas rastreáveis, pendências, aprovações, briefing e exportações auditadas. Entregue sem catálogos paralelos ou dados simulados.
+
+## RC50.84 — retomada dos módulos estruturantes multi-esfera
+
+Fundação de contexto e histórico entregue para Governança, Protocolo/Ouvidoria/SIC,
+Compras/Contratos, Financeiro/Orçamento, Tributos e RH. A próxima promoção exige
+homologação no PostgreSQL 16 e build com .NET 10, seguida de validação funcional
+por esfera, entidade, órgão, unidade e exercício.
