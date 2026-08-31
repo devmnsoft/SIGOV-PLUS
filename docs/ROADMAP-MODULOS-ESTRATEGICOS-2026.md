@@ -22,3 +22,6 @@ Fundação de contexto e histórico entregue para Governança, Protocolo/Ouvidor
 Compras/Contratos, Financeiro/Orçamento, Tributos e RH. A próxima promoção exige
 homologação no PostgreSQL 16 e build com .NET 10, seguida de validação funcional
 por esfera, entidade, órgão, unidade e exercício.
+# RC50.85 — Compras e contratos multi-esfera
+
+Base de dados do ciclo completo de contratação, licitação, atas e fiscalização entregue na migration `20260831230000`. Próximo incremento: serviços Dapper e jornadas MVC/Razor reais sobre o novo modelo, seguido de homologação das integrações canônicas Financeiro, GED, Obras360, Ativos360 e Almoxarifado. Integrações externas permanecem desativadas até existir adaptador oficial.

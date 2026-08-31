@@ -188,3 +188,10 @@ Implementada a camada executiva transversal sobre dados reais, com schema idempo
 - [x] Documentar modelo municipal, estadual e federal e critérios de operação.
 - [ ] Executar build .NET 10 e homologação PostgreSQL 16 no ambiente integrado.
 - [ ] Concluir smoke autenticado e matriz de permissões das superfícies estruturantes.
+# RC50.85 — avanço de compras, licitações e contratos
+
+- [x] Modelo PostgreSQL multi-esfera, idempotente e aditivo.
+- [x] Permissões persistidas e scripts/manifesto sincronizados.
+- [x] Regras estruturais de valores, percentuais, vigências, decisões e saldos.
+- [ ] Serviços Dapper do novo núcleo e telas MVC/Razor completas.
+- [ ] Homologação de integrações reais com Financeiro, GED, Obras360, Ativos360 e Almoxarifado.
