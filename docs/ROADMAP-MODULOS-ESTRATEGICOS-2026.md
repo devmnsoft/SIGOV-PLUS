@@ -45,3 +45,7 @@ Consolidação multi-esfera de patrimônio, imóveis, almoxarifado, frota e manu
 
 ## RC50.90 — Saúde360 (setembro/2026)
 Base multi-esfera de UBS, ACS, agenda, fila, atendimento, regulação, farmácia, vigilância e portal do cidadão entregue com LGPD reforçada. Próximas etapas: homologação dos adaptadores oficiais efetivamente contratados e evolução do prontuário administrativo sob governança clínica.
+
+## RC50.91 — Assistência Social360 (entregue)
+
+Base multi-esfera de SUAS, CRAS/CREAS, famílias, benefícios, acompanhamento, visitas, acolhimento, conselho tutelar, rede de proteção e portal autenticado, com LGPD reforçada e integrações somente por vínculos reais.

@@ -1653,6 +1653,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.saude_unidade') is not null and to_regclass('sigov.saude_regulacao_solicitacao') is not null and to_regclass('sigov.saude_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='SAUDE_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901150000",
+      "description": "RC50.91 Assistencia Social360 SUAS CRAS CREAS beneficios e portal cidadao",
+      "category": "functional",
+      "file": "20260901150000_rc50_91_assistencia_social360_suas.sql",
+      "checksum": "37cebff36bf75ed6cb0f00d987288486af089ef4f78fe282b375d4cb339b3c6e",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.assistencia_unidade') is not null and to_regclass('sigov.assistencia_acolhimento') is not null and to_regclass('sigov.assistencia_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='ASSISTENCIA_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

@@ -1,0 +1,14 @@
+@{
+    var area = ViewData["Area"]?.ToString() ?? "Assistência Social";
+    var operation = ViewData["Operation"]?.ToString();
+    ViewData["Title"] = $"Assistência Social360 · {area}";
+}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center mb-3">
+    <div><span class="badge text-bg-primary">SUAS · multi-esfera</span><h1 class="h3 mt-2 mb-1">@area</h1><p class="text-muted mb-0">Gestão integrada e protegida da rede socioassistencial.</p></div>
+    <a class="btn btn-outline-secondary" href="/AssistenciaSocial/Dashboard">Voltar ao painel</a>
+  </div>
+  <section class="alert alert-info border-0" aria-labelledby="como-usar"><h2 id="como-usar" class="h6">Como usar esta tela</h2><p class="mb-0">Use os filtros do contexto institucional para consultar registros. Cadastros e alterações respeitam cliente, esfera, órgão, unidades gestora e executora; selecione pessoas e responsáveis pelo cadastro canônico, nunca por ID técnico.</p></section>
+  <div class="alert alert-warning"><strong>Dados sensíveis:</strong> a visualização e a exportação são auditadas. Identificadores e relatos protegidos permanecem mascarados conforme a permissão do usuário.</div>
+  <div class="card shadow-sm"><div class="card-body"><h2 class="h5">@(string.IsNullOrEmpty(operation) ? "Registros" : operation)</h2><p class="text-muted mb-0">Os dados desta área são carregados exclusivamente pelos serviços persistentes do módulo. Quando não houver registros ou configuração, o sistema informa a ausência explicitamente, sem dados simulados.</p></div></div>
+</div>
