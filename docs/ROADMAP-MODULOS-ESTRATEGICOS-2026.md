@@ -49,3 +49,7 @@ Base multi-esfera de UBS, ACS, agenda, fila, atendimento, regulação, farmácia
 ## RC50.91 — Assistência Social360 (entregue)
 
 Base multi-esfera de SUAS, CRAS/CREAS, famílias, benefícios, acompanhamento, visitas, acolhimento, conselho tutelar, rede de proteção e portal autenticado, com LGPD reforçada e integrações somente por vínculos reais.
+
+## RC50.92 — Saneamento360 e Meio Ambiente360
+
+Consolidação multi-esfera de água, esgoto, drenagem, resíduos, coleta, licenciamento, fiscalização, denúncias, indicadores e transparência, com integrações por referência real ao Cidadão360 e módulos canônicos. Entrega estruturada para municípios, estados, União, autarquias, consórcios, agências e fundos ambientais.

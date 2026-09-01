@@ -1663,6 +1663,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.assistencia_unidade') is not null and to_regclass('sigov.assistencia_acolhimento') is not null and to_regclass('sigov.assistencia_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='ASSISTENCIA_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901180000",
+      "description": "RC50.92 Saneamento360 e Meio Ambiente360 multi-esfera",
+      "category": "functional",
+      "file": "20260901180000_rc50_92_saneamento_meio_ambiente360.sql",
+      "checksum": "8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.saneamento_ocorrencia') is not null and to_regclass('sigov.meio_ambiente_licenca') is not null and exists(select 1 from sigov.permissao where chave='MEIO_AMBIENTE_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

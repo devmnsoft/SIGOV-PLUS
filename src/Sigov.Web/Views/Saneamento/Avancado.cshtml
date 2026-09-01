@@ -4,6 +4,7 @@
     var recurso = Convert.ToString(ViewData["Recurso"]) ?? "dashboard";
     ViewData["Title"] = $"Saneamento — {titulo}";
 }
+<details class="card card-body mb-3 sigov-screen-guide"><summary class="fw-semibold">Como usar esta tela</summary><div class="small text-muted mt-2">Consulte e filtre os registros da esfera, órgão, unidades e território do contexto ativo. Cadastros e alterações exigem a permissão do recurso; campos obrigatórios são validados no fluxo de edição. Dados pessoais só aparecem a usuários autorizados. Depois de salvar, aprovar, rejeitar ou cancelar, a operação é confirmada e auditada.</div></details>
 <section class="sanitation-workspace" data-sanitation-module="@modulo" data-sanitation-resource="@recurso">
     <header class="sanitation-hero">
         <div><span class="lgpd-badge"><i class="bi bi-shield-lock"></i> LGPD e auditoria habilitadas</span><p class="sanitation-eyebrow">SIGOV+ · Saneamento Avançado</p><h1>@titulo</h1><p>Operação multi-tenant de água e esgoto com dados persistidos, rastreabilidade e integrações externas preparatórias.</p></div>
