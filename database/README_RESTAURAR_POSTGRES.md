@@ -1,4 +1,4 @@
-# Restaurar a base PostgreSQL completa — RC50.95
+# Restaurar a base PostgreSQL completa — RC50.96
 
 > **Somente local/desenvolvimento.** O pacote contém dados institucionais fictícios e uma credencial inicial que deve ser trocada no primeiro acesso. Não aplique os seeds em produção.
 
@@ -10,7 +10,7 @@ PostgreSQL 16 ou superior e banco vazio em UTF-8. A aplicação usa `ConnectionS
 
 ```bash
 createdb -U postgres sigov_plus
-psql -v ON_ERROR_STOP=1 -U postgres -d sigov_plus -f database/SIGOV_PLUS_BASE_COMPLETA_RESTAURAVEL.sql
+psql -h localhost -p 5432 -U postgres -d sigov_plus -f database/SIGOV_PLUS_BASE_COMPLETA_RESTAURAVEL.sql
 ```
 
 Para aplicar apenas os dados locais sobre uma base estrutural já atualizada:
@@ -25,10 +25,13 @@ Crie um banco UTF-8 vazio, abra **Query Tool**, carregue `SIGOV_PLUS_BASE_COMPLE
 
 ## pg_restore
 
+Se aparecer `pg_restore: input file does not appear to be a valid archive`, foi selecionado um arquivo `.sql`. Use `psql` ou o Query Tool do pgAdmin para SQL plain; use `pg_restore` ou **Restore** do pgAdmin exclusivamente para o arquivo `.backup` custom.
+
+
 O artefato `.backup` somente existe quando `pg_dump` está instalado e há uma instância temporária validada. Quando disponível:
 
 ```bash
-pg_restore -U postgres -d sigov_plus database/SIGOV_PLUS_BASE_COMPLETA_RESTAURAVEL.backup
+pg_restore -h localhost -p 5432 -U postgres -d sigov_plus --verbose database/SIGOV_PLUS_BASE_COMPLETA_RESTAURAVEL.backup
 ```
 
 ## Acesso local/dev
@@ -51,3 +54,7 @@ select conname from pg_constraint where conname='ck_entidade_esfera_governo';
 ```
 
 A restauração transacional dos seeds falha explicitamente se o schema oficial não estiver presente. O arquivo não elimina objetos existentes e usa `ON CONFLICT`/`NOT EXISTS` para reexecução segura.
+
+## Automação
+
+Os scripts `restore-sigov-plus.sh` e `restore-sigov-plus.ps1` aceitam as variáveis `PGHOST`, `PGPORT`, `PGUSER` e `PGDATABASE`, interrompem no primeiro erro e executam consultas mínimas de integridade. A senha do PostgreSQL deve vir de mecanismo seguro do cliente (por exemplo, prompt ou arquivo de senhas), nunca do script.
