@@ -37,3 +37,7 @@ Núcleo persistente entregue para clientes, planos, cobrança, bloqueios, perfis
 ## RC50.88 — RH360, Folha e Portal do Servidor
 
 Núcleo multi-esfera de servidores, vínculos, atos, frequência, férias, licenças, afastamentos, folha, eSocial, previdência, consignações e auditoria LGPD, com portal pessoal e integrações condicionadas a contrato técnico real.
+
+## RC50.89 — Patrimônio360 e Gestão de Ativos
+
+Consolidação multi-esfera de patrimônio, imóveis, almoxarifado, frota e manutenção, com depreciação, inventário, transferências, alertas, auditoria e referências reais aos módulos transversais. Entrega técnica documentada em `docs/entregas/RC50-89-PATRIMONIO-ALMOXARIFADO-FROTAS.md`.

@@ -215,3 +215,7 @@ Implementada a camada executiva transversal sobre dados reais, com schema idempo
 ## RC50.88 — RH360 / Folha / Portal
 
 Implementado o schema aditivo multi-tenant e multi-esfera, permissões no banco, rotas MVC operacionais e documentação de LGPD, folha, portal e obrigações. Integrações externas permanecem bloqueadas sem adaptador real.
+
+## RC50.89 — Patrimônio360 (concluída)
+
+Consolidar Patrimônio, Almoxarifado, Frotas e Manutenção em rotas canônicas, schema multi-esfera, autorização persistida, auditoria e integrações referenciais reais. Consulte `docs/PATRIMONIO360-ALMOXARIFADO-FROTAS.md`.
