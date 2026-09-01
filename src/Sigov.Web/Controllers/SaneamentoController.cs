@@ -89,6 +89,19 @@ public sealed class SaneamentoController : Controller
     [HttpGet("/Saneamento/Laboratorio/Amostras"), HttpGet("/Saneamento/Laboratorio/Parametros"), HttpGet("/Saneamento/Laboratorio/Resultados"), HttpGet("/Saneamento/Laboratorio/Conformidade")]
     public IActionResult LaboratorioFluxo() => Laboratorio();
 
+    [HttpGet("/Saneamento/LigacoesAgua")] public IActionResult LigacoesAgua() => Tela("Ligações de água", "comercial", "ligacoes");
+    [HttpGet("/Saneamento/LigacoesEsgoto")] public IActionResult LigacoesEsgoto() => Tela("Ligações de esgoto", "comercial", "ligacoes");
+    [HttpGet("/Saneamento/Ocorrencias")] public IActionResult Ocorrencias() => Tela("Ocorrências de saneamento", "operacao", "atendimentos");
+    [HttpGet("/Saneamento/Drenagem")] public IActionResult Drenagem() => Tela("Drenagem urbana e territorial", "gis-qualidade", "gis");
+    [HttpGet("/Saneamento/PontosCriticos")] public IActionResult PontosCriticos() => Tela("Pontos críticos", "gis-qualidade", "gis");
+    [HttpGet("/Saneamento/Indicadores")] public IActionResult Indicadores() => Tela("Indicadores de saneamento", "comercial", "dashboard");
+    [HttpGet("/Saneamento/Residuos")] public IActionResult Residuos() => Tela("Tipos de resíduos sólidos", "operacao", "residuos");
+    [HttpGet("/Saneamento/Coletas")] public IActionResult Coletas() => Tela("Coletas realizadas", "operacao", "coletas");
+    [HttpGet("/Saneamento/RotasColeta")] public IActionResult RotasColeta() => Tela("Rotas de coleta", "operacao", "rotas-coleta");
+    [HttpGet("/Saneamento/Ecopontos")] public IActionResult Ecopontos() => Tela("Ecopontos", "operacao", "ecopontos");
+    [HttpGet("/Saneamento/Destinacao")] public IActionResult Destinacao() => Tela("Destinação de resíduos", "operacao", "destinacoes");
+    [HttpGet("/Saneamento/RelatoriosResiduos")] public IActionResult RelatoriosResiduos() => Tela("Relatórios de resíduos", "operacao", "relatorios");
+
     private IActionResult Tela(string titulo, string modulo, string recurso)
     {
         ViewData["Titulo"] = titulo;

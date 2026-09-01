@@ -227,3 +227,7 @@ Implementar e homologar por ondas: cadastros canônicos; atenção básica/ACS; 
 ## RC50.91 — Assistência Social360
 
 Concluída a fundação multi-esfera para SUAS, unidades, famílias, vulnerabilidades, benefícios, visitas, acolhimento, conselho tutelar, auditoria sensível e portal do cidadão. Evoluções de integrações oficiais dependem de adaptadores reais e homologados.
+
+## RC50.92
+
+Saneamento360 e Meio Ambiente360 evoluídos com contexto SaaS multi-esfera, schema idempotente, permissões no banco, rotas MVC, auditoria sensível e integrações exclusivamente reais. Consulte `docs/entregas/RC50-92-SANEAMENTO-MEIO-AMBIENTE360.md`.
