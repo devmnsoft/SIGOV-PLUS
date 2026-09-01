@@ -237,3 +237,11 @@ Saneamento360 e Meio Ambiente360 evoluídos com contexto SaaS multi-esfera, sche
 - [x] Corrigir o delimitador inválido na transição de ordem de serviço de Frotas.
 - [x] Publicar padrão de formulários, mensagens, confirmações e mini manuais.
 - [ ] Reexecutar build, banco, smoke e revisão visual em agente com SDK .NET 10 e PostgreSQL.
+
+## RC50.94 — correção CSV Razor
+
+- [x] Normalizar links CSV ambíguos nas views afetadas e validar a existência das actions.
+- [x] Preservar filtros aplicáveis, autorização, contexto institucional e proteção contra CSV injection.
+- [x] Revisar formulários LicitaPro e adicionar mini manual às páginas alteradas.
+- [x] Publicar o padrão de exportação e o relatório da entrega.
+- [ ] Homologar build e smoke autenticado: **BLOCKED** sem SDK .NET 10 e aplicação executável no ambiente atual.
