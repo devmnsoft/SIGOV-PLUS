@@ -1643,6 +1643,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.patrimonio_depreciacao') is not null and to_regclass('sigov.patrimonio_imovel') is not null and to_regclass('sigov.manutencao_ordem_servico') is not null and exists(select 1 from sigov.permissao where chave='PATRIMONIO_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901120000",
+      "description": "RC50.90 Saude360 UBS ACS regulacao farmacia vigilancia e portal cidadao",
+      "category": "functional",
+      "file": "20260901120000_rc50_90_saude360_ubs_acs_regulacao.sql",
+      "checksum": "1600232d2b536459b9dd9b2c71c18d97adb94edb196023a2c37d97f6b560c213",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.saude_unidade') is not null and to_regclass('sigov.saude_regulacao_solicitacao') is not null and to_regclass('sigov.saude_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='SAUDE_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

@@ -8,7 +8,7 @@ namespace Sigov.Web.Controllers;
 public sealed class SaudeController : Controller
 {
     [HttpGet("/Saude")]
-    public IActionResult Index() => View("Dashboard", new SaudeDashboardViewModel { Titulo = "Saúde Pública Municipal" });
+    public IActionResult Index() => View("Dashboard", new SaudeDashboardViewModel { Titulo = "Saúde360 — Gestão Pública Multi-esfera" });
 
     [HttpGet("/Saude/Dashboard")]
     public IActionResult Dashboard() => Index();
@@ -108,6 +108,27 @@ public sealed class SaudeController : Controller
     public IActionResult AcsVisitaEdit(long id) { ViewData["RegistroId"] = id; return View("AcsVisitas", new AcsVisitaFormViewModel()); }
     [HttpGet("/Saude/ACS/Visitas/Details/{id:long}")]
     public IActionResult AcsVisitaDetails(long id) { ViewData["RegistroId"] = id; return View("AcsVisitas", new AcsVisitaFormViewModel()); }
+
+    [HttpGet("/Saude/Unidades/Create")] public IActionResult UnidadeCreate() => UnidadeNova();
+    [HttpGet("/Saude/Unidades/Edit/{id:long}")] public IActionResult UnidadeEdit(long id) { ViewData["RegistroId"] = id; return Unidades(); }
+    [HttpGet("/Saude/Unidades/Details/{id:long}")] public IActionResult UnidadeDetails(long id) { ViewData["RegistroId"] = id; return Unidades(); }
+    [HttpGet("/Saude/Unidades/Equipes")] public IActionResult UnidadeEquipes() => Equipes();
+    [HttpGet("/Saude/Unidades/Servicos")] public IActionResult UnidadeServicos() => Operacao("Serviços das unidades", "/api/saude/unidades/servicos", "Configure serviços somente para unidades ativas no contexto institucional selecionado.");
+    [HttpGet("/Saude/Pacientes/Create")] public IActionResult PacienteCreate() => PacienteNovo();
+    [HttpGet("/Saude/Pacientes/Edit/{id:long}")] public IActionResult PacienteEdit(long id) => PacienteDetalhe(id);
+    [HttpGet("/Saude/Pacientes/Details/{id:long}")] public IActionResult PacienteDetails(long id) => PacienteDetalhe(id);
+    [HttpGet("/Saude/Pacientes/Historico/{id:long}")] public IActionResult PacienteHistorico(long id) => PacienteDetalhe(id);
+    [HttpGet("/Saude/Pacientes/Documentos/{id:long}")] public IActionResult PacienteDocumentos(long id) => PacienteDetalhe(id);
+    [HttpGet("/Saude/ACS")] public IActionResult Acs() => Operacao("ACS360", "/api/saude/acs/visitas", "Selecione território, microárea, equipe e unidade; acessos sensíveis são auditados.");
+    [HttpGet("/Saude/ACS/Territorios")] public IActionResult AcsTerritorios() => Operacao("Territórios ACS", "/api/saude/acs/microareas", "Territórios respeitam esfera, jurisdição e contexto institucional.");
+    [HttpGet("/Saude/ACS/Visitas")] public IActionResult VisitasAcs() => AcsVisitas();
+    [HttpGet("/Saude/ACS/Relatorios")] public IActionResult RelatoriosAcs() => Operacao("Relatórios ACS", "/api/saude/exportacoes/visitas-acs", "Exportações públicas são agregadas e arquivos identificáveis exigem permissão.");
+    [HttpGet("/Saude/Fila")] public IActionResult Fila() => Operacao("Fila assistencial", "/api/saude/filas", "A ordem considera prioridade configurada e data de entrada.");
+    [HttpGet("/Saude/Encaminhamentos")] public IActionResult Encaminhamentos() => Operacao("Encaminhamentos", "/api/saude/encaminhamentos", "Acompanhe origem, destino, prioridade e justificativa minimizada.");
+    [HttpGet("/Saude/Regulacao/{area:regex(^(Solicitacoes|Fila|Prioridades|Autorizacoes|Relatorios)$)}")] public IActionResult RegulacaoArea(string area) => Operacao($"Regulação — {area}", $"/api/saude/regulacao/{area.ToLowerInvariant()}", "Dados clínicos são minimizados e o acesso é auditado.");
+    [HttpGet("/Saude/Farmacia/{area:regex(^(Medicamentos|Estoque|Entradas|Dispensacoes|Lotes|Relatorios)$)}")] public IActionResult FarmaciaArea(string area) => Operacao($"Farmácia — {area}", $"/api/saude/farmacia/{area.ToLowerInvariant()}", "Movimentações são persistidas por lote e saldo negativo é bloqueado.");
+    [HttpGet("/Saude/Vigilancia")] public IActionResult Vigilancia() => Operacao("Vigilância em Saúde", "/api/saude/vigilancia/notificacoes", "Informações públicas são agregadas; casos identificáveis exigem permissão específica.");
+    [HttpGet("/Saude/Vigilancia/{area:regex(^(Notificacoes|Casos|Inspecoes|Campanhas|Relatorios)$)}")] public IActionResult VigilanciaArea(string area) => Operacao($"Vigilância — {area}", $"/api/saude/vigilancia/{area.ToLowerInvariant()}", "Use filtros territoriais sem expor informação clínica identificável.");
 
     private IActionResult Operacao(string titulo, string endpoint, string descricao)
     {

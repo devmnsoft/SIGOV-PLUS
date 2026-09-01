@@ -41,3 +41,7 @@ Núcleo multi-esfera de servidores, vínculos, atos, frequência, férias, licen
 ## RC50.89 — Patrimônio360 e Gestão de Ativos
 
 Consolidação multi-esfera de patrimônio, imóveis, almoxarifado, frota e manutenção, com depreciação, inventário, transferências, alertas, auditoria e referências reais aos módulos transversais. Entrega técnica documentada em `docs/entregas/RC50-89-PATRIMONIO-ALMOXARIFADO-FROTAS.md`.
+
+
+## RC50.90 — Saúde360 (setembro/2026)
+Base multi-esfera de UBS, ACS, agenda, fila, atendimento, regulação, farmácia, vigilância e portal do cidadão entregue com LGPD reforçada. Próximas etapas: homologação dos adaptadores oficiais efetivamente contratados e evolução do prontuário administrativo sob governança clínica.

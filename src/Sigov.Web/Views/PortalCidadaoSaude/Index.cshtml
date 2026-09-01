@@ -1,0 +1,7 @@
+@{ ViewData["Title"] = "Minha Saúde"; var area = ViewData["Area"]?.ToString(); }
+<div class="container py-4">
+  <div class="alert alert-info"><strong>Como usar esta tela</strong><br />Consulte apenas seus agendamentos, solicitações, medicamentos disponibilizados, vacinação e posição individual na fila. Informações clínicas sensíveis não são exibidas neste portal.</div>
+  <header class="mb-4"><span class="badge text-bg-success">Portal do Cidadão</span><h1 class="h2 mt-2">Minha Saúde — @area</h1><p class="text-muted">O vínculo com o cadastro canônico do cidadão e o contexto habilitado pelo órgão são validados em cada acesso.</p></header>
+  <nav class="nav nav-pills gap-2 mb-4" aria-label="Áreas de saúde"><a class="nav-link" href="/PortalCidadao/Saude/Agendamentos">Agendamentos</a><a class="nav-link" href="/PortalCidadao/Saude/Solicitacoes">Solicitações</a><a class="nav-link" href="/PortalCidadao/Saude/Medicamentos">Medicamentos</a><a class="nav-link" href="/PortalCidadao/Saude/Vacinacao">Vacinação</a><a class="nav-link" href="/PortalCidadao/Saude/MinhaFila">Minha fila</a></nav>
+  <div class="card shadow-sm"><div class="card-body"><h2 class="h5">Nenhum registro disponível</h2><p class="mb-0 text-muted">Os dados serão apresentados quando existirem registros persistidos e liberados pelo cliente. O portal não cria resultados simulados.</p></div></div>
+</div>

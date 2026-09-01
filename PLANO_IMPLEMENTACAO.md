@@ -219,3 +219,7 @@ Implementado o schema aditivo multi-tenant e multi-esfera, permissões no banco,
 ## RC50.89 — Patrimônio360 (concluída)
 
 Consolidar Patrimônio, Almoxarifado, Frotas e Manutenção em rotas canônicas, schema multi-esfera, autorização persistida, auditoria e integrações referenciais reais. Consulte `docs/PATRIMONIO360-ALMOXARIFADO-FROTAS.md`.
+
+
+## RC50.90 — Saúde360
+Implementar e homologar por ondas: cadastros canônicos; atenção básica/ACS; agenda e filas; regulação; farmácia; vigilância; portal. Cada onda exige isolamento contextual, autorização no banco, auditoria LGPD e validação PostgreSQL idempotente.
