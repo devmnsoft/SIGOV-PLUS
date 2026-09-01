@@ -231,3 +231,9 @@ Concluída a fundação multi-esfera para SUAS, unidades, famílias, vulnerabili
 ## RC50.92
 
 Saneamento360 e Meio Ambiente360 evoluídos com contexto SaaS multi-esfera, schema idempotente, permissões no banco, rotas MVC, auditoria sensível e integrações exclusivamente reais. Consulte `docs/entregas/RC50-92-SANEAMENTO-MEIO-AMBIENTE360.md`.
+# RC50.93 — correção e estabilização
+
+- [x] Fixar explicitamente o avaliador de autorização do domínio SIGOV nos pontos ambíguos.
+- [x] Corrigir o delimitador inválido na transição de ordem de serviço de Frotas.
+- [x] Publicar padrão de formulários, mensagens, confirmações e mini manuais.
+- [ ] Reexecutar build, banco, smoke e revisão visual em agente com SDK .NET 10 e PostgreSQL.

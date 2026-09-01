@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;using Sigov.Api.Contracts;using Sigov.Application.Abstractions;using Sigov.Application.Authorization;using Sigov.Application.Compras;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 namespace Sigov.Api.Controllers;
 [ApiController,Authorize,Route("api/compras")]
 public sealed class ComprasController(IComprasService s,ICurrentTenant tenant,ICurrentUser user,IAuthorizationEvaluator auth):ControllerBase

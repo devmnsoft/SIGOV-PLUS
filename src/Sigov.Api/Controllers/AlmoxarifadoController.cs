@@ -4,6 +4,7 @@ using Sigov.Api.Contracts;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Almoxarifado;
 using Sigov.Application.Authorization;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 
 namespace Sigov.Api.Controllers;
 [ApiController,Authorize,Route("api/almoxarifado")]

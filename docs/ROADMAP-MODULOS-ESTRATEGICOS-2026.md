@@ -53,3 +53,10 @@ Base multi-esfera de SUAS, CRAS/CREAS, famílias, benefícios, acompanhamento, v
 ## RC50.92 — Saneamento360 e Meio Ambiente360
 
 Consolidação multi-esfera de água, esgoto, drenagem, resíduos, coleta, licenciamento, fiscalização, denúncias, indicadores e transparência, com integrações por referência real ao Cidadão360 e módulos canônicos. Entrega estruturada para municípios, estados, União, autarquias, consórcios, agências e fundos ambientais.
+# RC50.93 — estabilização transversal
+
+- Ambiguidade do avaliador de autorização resolvida por alias explícito, preservando fail-closed.
+- Padrões transversais de formulário, mensagens, confirmação e mini manual formalizados em
+  `docs/PADRAO-FORMULARIOS-MENSAGENS-MANUAIS.md`.
+- Validação executável de build, banco e interface permanece condicionada a ambiente com .NET 10
+  e PostgreSQL; bloqueios estão registrados na entrega RC50.93.

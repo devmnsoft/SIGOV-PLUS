@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 
 namespace Sigov.Web.Services;
 

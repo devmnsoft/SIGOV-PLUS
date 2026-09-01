@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;using Sigov.Application.Abstractions;using Sigov.Application.Authorization;using Sigov.Application.Compras;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 namespace Sigov.Web.Controllers;
 [Authorize]public sealed class ComprasController(IComprasService s,ICurrentTenant tenant,ICurrentUser user,IAuthorizationEvaluator auth):Controller
 {
