@@ -223,3 +223,7 @@ Consolidar Patrimônio, Almoxarifado, Frotas e Manutenção em rotas canônicas,
 
 ## RC50.90 — Saúde360
 Implementar e homologar por ondas: cadastros canônicos; atenção básica/ACS; agenda e filas; regulação; farmácia; vigilância; portal. Cada onda exige isolamento contextual, autorização no banco, auditoria LGPD e validação PostgreSQL idempotente.
+
+## RC50.91 — Assistência Social360
+
+Concluída a fundação multi-esfera para SUAS, unidades, famílias, vulnerabilidades, benefícios, visitas, acolhimento, conselho tutelar, auditoria sensível e portal do cidadão. Evoluções de integrações oficiais dependem de adaptadores reais e homologados.

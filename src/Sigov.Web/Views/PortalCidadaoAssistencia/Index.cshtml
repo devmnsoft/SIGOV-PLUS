@@ -1,0 +1,7 @@
+@{ var area = ViewData["Area"]?.ToString() ?? "Resumo"; ViewData["Title"] = $"Portal do Cidadão · Assistência Social · {area}"; }
+<div class="container py-4">
+  <h1 class="h3">Minha Assistência Social</h1><p class="lead">Acompanhe com segurança as suas solicitações, benefícios, agendamentos e encaminhamentos.</p>
+  <section class="alert alert-info" aria-labelledby="como-usar"><h2 id="como-usar" class="h6">Como usar esta tela</h2><p class="mb-0">Escolha uma opção abaixo. Você verá somente informações vinculadas à sua identidade autenticada; pareceres técnicos protegidos não são exibidos.</p></section>
+  <nav class="nav nav-pills gap-2" aria-label="Áreas da assistência social"><a class="nav-link" href="/PortalCidadao/AssistenciaSocial/Solicitacoes">Solicitações</a><a class="nav-link" href="/PortalCidadao/AssistenciaSocial/Beneficios">Benefícios</a><a class="nav-link" href="/PortalCidadao/AssistenciaSocial/Agendamentos">Agendamentos</a><a class="nav-link" href="/PortalCidadao/AssistenciaSocial/Encaminhamentos">Encaminhamentos</a></nav>
+  <div class="card shadow-sm mt-3"><div class="card-body"><h2 class="h5">@area</h2><p class="text-muted mb-0">Não há informação disponível para este contexto. Se você precisa de atendimento imediato, procure a unidade da rede indicada pelo seu órgão responsável.</p></div></div>
+</div>
