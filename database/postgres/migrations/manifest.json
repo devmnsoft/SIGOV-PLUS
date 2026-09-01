@@ -1633,6 +1633,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.rh_servidor') is not null and to_regclass('sigov.folha_competencia') is not null and to_regclass('sigov.rh_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='RH_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901090000",
+      "description": "RC50.89 Patrimonio360, almoxarifado, frotas e manutencao multi-esfera",
+      "category": "functional",
+      "file": "20260901090000_rc50_89_patrimonio_almoxarifado_frotas.sql",
+      "checksum": "8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.patrimonio_depreciacao') is not null and to_regclass('sigov.patrimonio_imovel') is not null and to_regclass('sigov.manutencao_ordem_servico') is not null and exists(select 1 from sigov.permissao where chave='PATRIMONIO_DASHBOARD_VIEW')"
     }
   ],
   "compatibilityAfterAll": [

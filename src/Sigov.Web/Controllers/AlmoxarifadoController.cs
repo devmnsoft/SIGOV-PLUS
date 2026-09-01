@@ -7,7 +7,15 @@ namespace Sigov.Web.Controllers;
 [Authorize]
 public sealed class AlmoxarifadoController(IAlmoxarifadoService service,ICurrentTenant tenant,ICurrentUser user,IAuthorizationEvaluator auth):Controller
 {
- [HttpGet("/Almoxarifado")]public async Task<IActionResult> Dashboard(CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.DashboardVisualizar,ct)?View(await service.ObterDashboardAsync(T(),E(),ct)):Forbid();
+ [HttpGet("/Almoxarifado"),HttpGet("/Almoxarifado/Dashboard")]public async Task<IActionResult> Dashboard(CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.DashboardVisualizar,ct)?View(await service.ObterDashboardAsync(T(),E(),ct)):Forbid();
+ [HttpGet("/Almoxarifado/Itens")]public IActionResult Itens()=>Redirect("/Almoxarifado/Materiais");
+ [HttpGet("/Almoxarifado/Entradas")]public IActionResult Entradas()=>Redirect("/Almoxarifado/Movimentacoes/NovaEntrada");
+ [HttpGet("/Almoxarifado/Saidas")]public IActionResult Saidas()=>Redirect("/Almoxarifado/Movimentacoes/NovaSaida");
+ [HttpGet("/Almoxarifado/Atendimento")]public IActionResult Atendimento()=>Redirect("/Almoxarifado/Requisicoes");
+ [HttpGet("/Almoxarifado/Transferencias")]public IActionResult Transferencias()=>Redirect("/Almoxarifado/Estoque");
+ [HttpGet("/Almoxarifado/Inventario")]public IActionResult Inventario()=>Redirect("/Almoxarifado/Estoque");
+ [HttpGet("/Almoxarifado/EstoqueCritico")]public IActionResult EstoqueCritico()=>Redirect("/Almoxarifado/Estoque");
+ [HttpGet("/Almoxarifado/Relatorios")]public IActionResult Relatorios()=>Redirect("/Ativos/Relatorios");
  [HttpGet("/Almoxarifado/Materiais")]public async Task<IActionResult> Materiais([FromQuery]AlmoxarifadoFiltro f,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialVisualizar,ct))return Forbid();ViewBag.Exportar=await Allowed(AlmoxarifadoPermissoes.Exportar,ct);return View(await service.ListarMateriaisAsync(T(),E(),f,ct));}
  [HttpGet("/Almoxarifado/Materiais/Novo")]public async Task<IActionResult> NovoMaterial(CancellationToken ct)=>await Allowed(AlmoxarifadoPermissoes.MaterialCriar,ct)?View("MaterialForm",new MaterialInput(E(),"","","CONSUMO","UN",null,0,null,false,false)):Forbid();
  [HttpPost("/Almoxarifado/Materiais/Novo"),ValidateAntiForgeryToken]public async Task<IActionResult> NovoMaterial(MaterialInput i,CancellationToken ct){if(!await Allowed(AlmoxarifadoPermissoes.MaterialCriar,ct))return Forbid();try{await service.CriarMaterialAsync(T(),U(),Trace(),i with{EntidadeId=E()},ct);TempData["Success"]="Material cadastrado.";return Redirect("/Almoxarifado/Materiais");}catch(Exception x)when(x is ArgumentException or InvalidOperationException){ModelState.AddModelError("",x.Message);return View("MaterialForm",i);}}
