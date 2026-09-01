@@ -37,7 +37,18 @@ public sealed class SaneamentoAvancadoRepository : ISaneamentoComercialRepositor
     public async Task<long> CriarAsync(SaneamentoAvancadoContext contexto, string recurso, SaneamentoAvancadoOperacaoRequest request, CancellationToken ct)
     {
         recurso = Recurso(recurso); Validar(recurso, request); var correlationId = Guid.TryParse(contexto.CorrelationId, out var parsed) ? parsed : Guid.NewGuid();
-        var dados = (request.Dados ?? new Dictionary<string, object?>()).ToDictionary(x => x.Key, x => x.Value) { ["consumidorId"] = request.ConsumidorId, ["ligacaoId"] = request.LigacaoId, ["hidrometroId"] = request.HidrometroId, ["unidadeOperacionalId"] = request.UnidadeOperacionalId, ["ordemServicoId"] = request.OrdemServicoId, ["referenciaId"] = request.ReferenciaId, ["dataReferencia"] = request.DataReferencia, ["competencia"] = request.Competencia, ["latitude"] = request.Latitude, ["longitude"] = request.Longitude, ["quantidade"] = request.Quantidade };
+        var dados = (request.Dados ?? new Dictionary<string, object?>()).ToDictionary(x => x.Key, x => x.Value);
+        dados["consumidorId"] = request.ConsumidorId;
+        dados["ligacaoId"] = request.LigacaoId;
+        dados["hidrometroId"] = request.HidrometroId;
+        dados["unidadeOperacionalId"] = request.UnidadeOperacionalId;
+        dados["ordemServicoId"] = request.OrdemServicoId;
+        dados["referenciaId"] = request.ReferenciaId;
+        dados["dataReferencia"] = request.DataReferencia;
+        dados["competencia"] = request.Competencia;
+        dados["latitude"] = request.Latitude;
+        dados["longitude"] = request.Longitude;
+        dados["quantidade"] = request.Quantidade;
         using var connection = _context.CreateConnection();
         var sql = $"insert into sigov.{recurso}(tenant_id,entidade_id,consumidor_id,ligacao_id,hidrometro_id,unidade_operacional_id,ordem_servico_id,codigo,numero,tipo,status,descricao,data_referencia,valor,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ConsumidorId,@LigacaoId,@HidrometroId,@UnidadeOperacionalId,@OrdemServicoId,@Codigo,@Numero,@Tipo,@Status,@Descricao,@DataReferencia,@Valor,jsonb_build_object('acao','CRIAR','em',now(),'usuario',@UsuarioId,'dados',cast(@Dados as jsonb)),@CorrelationId,@UsuarioId) returning id";
         return await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { contexto.TenantId, contexto.EntidadeId, request.ConsumidorId, request.LigacaoId, request.HidrometroId, request.UnidadeOperacionalId, request.OrdemServicoId, request.Codigo, request.Numero, request.Tipo, request.Status, request.Descricao, request.DataReferencia, request.Valor, Dados = JsonSerializer.Serialize(dados), CorrelationId = correlationId, contexto.UsuarioId }, cancellationToken: ct));

@@ -46,7 +46,7 @@ public sealed class LicitaProService(NpgsqlConnectionFactory factory) : ILicitaP
         string[] headers;
         IEnumerable<string[]> rows;
         if(area=="oportunidades") { headers=["Número","Objeto","Modalidade","Fonte","Status","Data limite"]; rows=(await OportunidadesAsync(t,e,f,ct)).Select(x=>new[]{x.Numero,x.Objeto,x.Modalidade,x.Fonte,x.Status,x.DataLimite?.ToString("yyyy-MM-dd")??""}); }
-        else { headers=["Registro","Contexto","Status","Prazo"]; rows=(await WorkspaceAsync(t,e,area switch{"documentos"=>"Documentos","checklists"=>"Checklists","agenda"=>"Agenda","auditoria"=>"Auditoria",_=>"Alertas"},f,ct)).Linhas.Select(x=>new[]{x.Titulo,x.Contexto,x.Status,x.Prazo?.ToString("O")??""}); }
+        else { headers=["Registro","Contexto","Status","Prazo"]; var workspaceArea = area switch{"documentos"=>"Documentos","checklists"=>"Checklists","agenda"=>"Agenda","auditoria"=>"Auditoria",_=>"Alertas"}; rows=(await WorkspaceAsync(t,e,workspaceArea,f,ct)).Linhas.Select(x=>new[]{x.Titulo,x.Contexto,x.Status,x.Prazo?.ToString("O")??""}); }
         var sb=new StringBuilder().AppendLine(string.Join(';',headers.Select(Csv))); foreach(var row in rows)sb.AppendLine(string.Join(';',row.Select(Csv))); await using var c=factory.CreateConnection(); await Audit(c,t,e,"RELATORIO",null,"EXPORTAR_CSV",u,corr,new{area},ct); return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray(); }
     static string Csv(string? value) { var s=value??""; if(s.Length>0&&"=+-@".Contains(s[0]))s="'"+s; return '"'+s.Replace("\"","\"\"")+'"'; }
     static string? N(string? x)=>string.IsNullOrWhiteSpace(x)?null:x.Trim();

@@ -64,3 +64,7 @@ Consolidação multi-esfera de água, esgoto, drenagem, resíduos, coleta, licen
 ## RC50.94 — estabilização de exportações CSV Razor
 
 Links CSV das páginas estratégicas foram normalizados para actions reais, com parâmetros de rota explícitos, preservação de filtros e mini manuais operacionais. O padrão transversal de proteção contra CSV injection, autorização, isolamento institucional e mensagens está documentado em `docs/PADRAO-EXPORTACAO-CSV-SIGOV.md`. A homologação executável continua condicionada ao SDK .NET 10 e ao ambiente autenticado.
+
+## RC50.95 — fundação restaurável
+
+A base consolidada PostgreSQL 16 passa a incluir contexto institucional multi-esfera e seeds locais para validação integrada dos módulos existentes. A continuidade exige executar build .NET 10 e restauração temporária nos gates dotados das ferramentas oficiais.

@@ -1673,6 +1673,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.saneamento_ocorrencia') is not null and to_regclass('sigov.meio_ambiente_licenca') is not null and exists(select 1 from sigov.permissao where chave='MEIO_AMBIENTE_DASHBOARD_VIEW')"
+    },
+    {
+      "version": "20260901210000",
+      "description": "RC50.95 contexto institucional da base restaurável",
+      "category": "schema",
+      "file": "20260901210000_rc50_95_base_restauravel.sql",
+      "checksum": "a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='entidade' and column_name='esfera_governo')"
     }
   ],
   "compatibilityAfterAll": [

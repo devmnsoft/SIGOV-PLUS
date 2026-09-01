@@ -245,3 +245,9 @@ Saneamento360 e Meio Ambiente360 evoluídos com contexto SaaS multi-esfera, sche
 - [x] Revisar formulários LicitaPro e adicionar mini manual às páginas alteradas.
 - [x] Publicar o padrão de exportação e o relatório da entrega.
 - [ ] Homologar build e smoke autenticado: **BLOCKED** sem SDK .NET 10 e aplicação executável no ambiente atual.
+
+## RC50.95 — base PostgreSQL restaurável
+
+- Corrigir sintaxe C#/Razor reportada e validar build quando o SDK .NET 10 estiver disponível.
+- Entregar baseline plain, seed local idempotente, migration multi-esfera, manifest e checksums sincronizados.
+- Validar restauração temporária e gerar custom backup quando as ferramentas PostgreSQL estiverem disponíveis.
