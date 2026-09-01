@@ -68,3 +68,7 @@ Links CSV das páginas estratégicas foram normalizados para actions reais, com 
 ## RC50.95 — fundação restaurável
 
 A base consolidada PostgreSQL 16 passa a incluir contexto institucional multi-esfera e seeds locais para validação integrada dos módulos existentes. A continuidade exige executar build .NET 10 e restauração temporária nos gates dotados das ferramentas oficiais.
+
+## RC50.96 — qualidade transversal
+
+Estabilização de Razor/CSV e do pacote PostgreSQL restaurável precede novas funcionalidades. A homologação executável permanece condicionada a ambiente com SDK .NET 10 e PostgreSQL 16+ reais.

@@ -86,5 +86,10 @@ public sealed class SaneamentoAvancadoRepository : ISaneamentoComercialRepositor
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Novo status é obrigatório."); if ((status is "CANCELADA" or "CANCELADO" or "REPROVADA") && string.IsNullOrWhiteSpace(justificativa)) throw new ArgumentException("Cancelamento ou reprovação exige justificativa."); if (recurso == "saneamento_ordem_servico" && status == "CONCLUIDA" && string.IsNullOrWhiteSpace(justificativa)) throw new ArgumentException("Conclusão da OS exige desfecho.");
     }
     private static string Recurso(string recurso) => Recursos.Contains(recurso) ? recurso : throw new ArgumentException("Recurso de Saneamento Avançado inválido.");
-    private static string Limpar(string? valor) => (valor ?? string.Empty).Replace(";", string.Empty, StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+    private static string Limpar(string? valor)
+    {
+        var seguro = (valor ?? string.Empty).Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
+        if (seguro.Length > 0 && "=+-@\t".Contains(seguro[0])) seguro = "'" + seguro;
+        return '"' + seguro.Replace("\"", "\"\"") + '"';
+    }
 }

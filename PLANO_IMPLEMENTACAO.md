@@ -251,3 +251,10 @@ Saneamento360 e Meio Ambiente360 evoluídos com contexto SaaS multi-esfera, sche
 - Corrigir sintaxe C#/Razor reportada e validar build quando o SDK .NET 10 estiver disponível.
 - Entregar baseline plain, seed local idempotente, migration multi-esfera, manifest e checksums sincronizados.
 - Validar restauração temporária e gerar custom backup quando as ferramentas PostgreSQL estiverem disponíveis.
+
+## RC50.96 — estabilização final de build e restauração
+
+- [x] Eliminar expressão Razor ambígua remanescente em link `.csv` e reforçar CSV injection.
+- [x] Entregar automação e padrão operacional para restauração plain/custom PostgreSQL.
+- [x] Registrar validações disponíveis e impedimentos reais do ambiente sem simular sucesso.
+- [ ] Reexecutar build, restauração, backup custom e smoke MVC em ambiente com .NET 10 e PostgreSQL 16+.

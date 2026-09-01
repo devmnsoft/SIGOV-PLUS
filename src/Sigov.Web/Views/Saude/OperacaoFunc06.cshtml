@@ -3,7 +3,7 @@
 }
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div><h1 class="h3 mb-1">@ViewData["Title"]</h1><p class="text-muted mb-0">@ViewData["Descricao"]</p></div>
-    <a class="btn btn-outline-success" href="@endpoint/export.csv">Exportar CSV (LGPD)</a>
+    <a class="btn btn-outline-success" href="@($"{endpoint}/export.csv")">Exportar CSV (LGPD)</a>
 </div>
 <div class="card" data-saude-endpoint="@endpoint">
     <div class="card-header fw-semibold">Registros persistidos</div>
