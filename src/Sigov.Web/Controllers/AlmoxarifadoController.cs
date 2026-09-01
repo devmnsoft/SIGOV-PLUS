@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Almoxarifado;
 using Sigov.Application.Authorization;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 namespace Sigov.Web.Controllers;
 [Authorize]
 public sealed class AlmoxarifadoController(IAlmoxarifadoService service,ICurrentTenant tenant,ICurrentUser user,IAuthorizationEvaluator auth):Controller

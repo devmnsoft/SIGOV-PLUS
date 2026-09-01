@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Common;
 using Sigov.Application.Authorization;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Api.Controllers;
