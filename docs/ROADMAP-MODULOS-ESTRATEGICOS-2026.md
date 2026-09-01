@@ -60,3 +60,7 @@ Consolidação multi-esfera de água, esgoto, drenagem, resíduos, coleta, licen
   `docs/PADRAO-FORMULARIOS-MENSAGENS-MANUAIS.md`.
 - Validação executável de build, banco e interface permanece condicionada a ambiente com .NET 10
   e PostgreSQL; bloqueios estão registrados na entrega RC50.93.
+
+## RC50.94 — estabilização de exportações CSV Razor
+
+Links CSV das páginas estratégicas foram normalizados para actions reais, com parâmetros de rota explícitos, preservação de filtros e mini manuais operacionais. O padrão transversal de proteção contra CSV injection, autorização, isolamento institucional e mensagens está documentado em `docs/PADRAO-EXPORTACAO-CSV-SIGOV.md`. A homologação executável continua condicionada ao SDK .NET 10 e ao ambiente autenticado.
