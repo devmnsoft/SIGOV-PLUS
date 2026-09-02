@@ -1683,6 +1683,16 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='entidade' and column_name='esfera_governo')"
+    },
+    {
+      "version": "20260902000000",
+      "description": "RC50.98 GED Smart Workflow e metadados seguros de logo",
+      "category": "schema",
+      "file": "20260902000000_rc50_98_ged_workflow_branding_logo.sql",
+      "checksum": "f5a4370460581e6b3e78a1f0ab30e2487fc272e66c53634be46541d470e8b007",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('ged.smart_workflow_task') is not null and to_regclass('ged.smart_workflow_event') is not null and to_regclass('ged.smart_workflow_rule') is not null and to_regclass('ged.smart_workflow_dashboard_snapshot') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saas_tenant_branding' and column_name='logo_fit')"
     }
   ],
   "compatibilityAfterAll": [
