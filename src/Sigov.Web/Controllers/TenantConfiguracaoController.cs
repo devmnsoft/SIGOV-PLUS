@@ -1,7 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Saas.WhiteLabel;
 
@@ -181,7 +184,7 @@ public sealed class TenantBrandingFormViewModel
     [Range(32, 180, ErrorMessage = "A altura da logo deve ficar entre 32 e 180 px.")]
     public int LogoHeightPx { get; set; } = 72;
 
-    [RegularExpression("contain|cover|fill", ErrorMessage = "Selecione contain, cover ou fill.")]
+    [RegularExpression("^(contain|cover|fill)$", ErrorMessage = "Selecione contain, cover ou fill.")]
     public string LogoFit { get; set; } = "contain";
 
     [RegularExpression("^#[0-9A-Fa-f]{6}$", ErrorMessage = "A cor primaria deve estar no formato #RRGGBB.")]
