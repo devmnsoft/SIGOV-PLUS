@@ -802,8 +802,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83",
-      "postConditionSql": "select to_regclass('sigov.emp_comercial_cliente') is not null"
+      "checksum": "c73ac0207d7a12c625391bda98f60da76f8229c69520bfed01dd6a22052f0a4e",
+      "postConditionSql": "select to_regclass('sigov.emp_comercial_cliente') is not null",
+      "knownChecksums": [
+        "cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83"
+      ]
     },
     {
       "version": "20260817131000",
