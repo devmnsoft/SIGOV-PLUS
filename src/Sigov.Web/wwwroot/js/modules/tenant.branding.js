@@ -130,8 +130,8 @@
                     if (!context) throw new Error('Canvas indisponivel.');
 
                     context.clearRect(0, 0, targetWidth, targetHeight);
-                    const source = calculateSourceRect(image.width, image.height, targetWidth, targetHeight, fit);
-                    context.drawImage(image, source.sx, source.sy, source.sw, source.sh, 0, 0, targetWidth, targetHeight);
+                    const rect = calculateDrawRect(image.width, image.height, targetWidth, targetHeight, fit);
+                    context.drawImage(image, rect.sx, rect.sy, rect.sw, rect.sh, rect.dx, rect.dy, rect.dw, rect.dh);
 
                     canvas.toBlob(blob => {
                         URL.revokeObjectURL(url);
@@ -153,21 +153,30 @@
         });
     }
 
-    function calculateSourceRect(sourceWidth, sourceHeight, targetWidth, targetHeight, fit) {
+    function calculateDrawRect(sourceWidth, sourceHeight, targetWidth, targetHeight, fit) {
         if (fit === 'fill') {
-            return { sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight };
+            return { sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight, dx: 0, dy: 0, dw: targetWidth, dh: targetHeight };
         }
 
         const sourceRatio = sourceWidth / sourceHeight;
         const targetRatio = targetWidth / targetHeight;
-        const useFullWidth = fit === 'cover' ? sourceRatio <= targetRatio : sourceRatio >= targetRatio;
 
-        if (useFullWidth) {
-            const sourceSliceHeight = fit === 'cover' ? sourceWidth / targetRatio : sourceHeight;
-            return { sx: 0, sy: Math.max((sourceHeight - sourceSliceHeight) / 2, 0), sw: sourceWidth, sh: Math.min(sourceSliceHeight, sourceHeight) };
+        if (fit === 'cover') {
+            if (sourceRatio > targetRatio) {
+                const sw = sourceHeight * targetRatio;
+                return { sx: (sourceWidth - sw) / 2, sy: 0, sw, sh: sourceHeight, dx: 0, dy: 0, dw: targetWidth, dh: targetHeight };
+            }
+
+            const sh = sourceWidth / targetRatio;
+            return { sx: 0, sy: (sourceHeight - sh) / 2, sw: sourceWidth, sh, dx: 0, dy: 0, dw: targetWidth, dh: targetHeight };
         }
 
-        const sourceSliceWidth = fit === 'cover' ? sourceHeight * targetRatio : sourceWidth;
-        return { sx: Math.max((sourceWidth - sourceSliceWidth) / 2, 0), sy: 0, sw: Math.min(sourceSliceWidth, sourceWidth), sh: sourceHeight };
+        if (sourceRatio > targetRatio) {
+            const dh = targetWidth / sourceRatio;
+            return { sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight, dx: 0, dy: (targetHeight - dh) / 2, dw: targetWidth, dh };
+        }
+
+        const dw = targetHeight * sourceRatio;
+        return { sx: 0, sy: 0, sw: sourceWidth, sh: sourceHeight, dx: (targetWidth - dw) / 2, dy: 0, dw, dh: targetHeight };
     }
 })();
