@@ -1,17 +1,57 @@
 @model Sigov.Web.Models.Convenios.ConvenioFormViewModel
 @using Sigov.Application.Convenios
-@{ViewData["Title"]=Model.Titulo;
-var fields=Model.Recurso switch{
-"Orgaos"=>new[]{"cnpj","esfera","sigla","contato_nome","contato_email","contato_telefone"},"Programas"=>new[]{"orgao_concedente_id","finalidade","area","data_inicio","data_fim"},"Emendas"=>new[]{"parlamentar_partido","esfera","ano","area","valor_previsto","valor_aprovado","observacao"},"Instrumentos"=>new[]{"tipo","orgao_concedente_id","programa_id","emenda_id","valor_global","valor_repasse","valor_contrapartida","data_assinatura","vigencia_inicio","vigencia_fim","responsavel_nome","responsavel_cpf","observacao"},"Projetos"=>new[]{"instrumento_id","justificativa","publico_alvo","local_execucao","unidade_responsavel","data_inicio","data_fim_prevista","data_fim_real","percentual_execucao"},"Metas"=>new[]{"projeto_id","indicador","unidade_medida","quantidade_prevista","quantidade_executada"},"Etapas"=>new[]{"meta_id","data_inicio","data_fim_prevista","data_fim_real","valor_previsto","valor_executado","observacao"},"ContasBancarias"=>new[]{"instrumento_id","banco","agencia","tipo_conta","saldo_inicial","saldo_atual","observacao"},"Repasses"=>new[]{"instrumento_id","conta_bancaria_id","data_repasse","valor","observacao"},"Despesas"=>new[]{"instrumento_id","projeto_id","etapa_id","conta_bancaria_id","fornecedor_nome","fornecedor_documento","descricao","data_despesa","data_pagamento","valor","natureza_despesa","observacao"},"Contrapartidas"=>new[]{"instrumento_id","valor_previsto","valor_realizado","data_realizacao"},"Acompanhamentos"=>new[]{"projeto_id","data_acompanhamento","responsavel_nome","percentual_fisico","percentual_financeiro","risco","providencias"},"PrestacoesContas"=>new[]{"instrumento_id","periodo_inicio","periodo_fim","data_envio","valor_prestado","valor_aprovado","parecer_resumo"},"Diligencias"=>new[]{"prestacao_contas_id","data_recebimento","prazo_resposta","data_resposta","resposta"},"Documentos"=>new[]{"instrumento_id","projeto_id","prestacao_contas_id","tipo_documento","data_documento","observacao"},_=>Array.Empty<string>()};
+@{
+    ViewData["Title"] = Model.Titulo;
+    var fields = Model.Recurso switch
+    {
+        "Orgaos" => new[] { "cnpj", "esfera", "sigla", "contato_nome", "contato_email", "contato_telefone" },
+        "Programas" => new[] { "orgao_concedente_id", "finalidade", "area", "data_inicio", "data_fim" },
+        "Emendas" => new[] { "parlamentar_partido", "esfera", "ano", "area", "valor_previsto", "valor_aprovado", "observacao" },
+        "Instrumentos" => new[] { "tipo", "orgao_concedente_id", "programa_id", "emenda_id", "valor_global", "valor_repasse", "valor_contrapartida", "data_assinatura", "vigencia_inicio", "vigencia_fim", "responsavel_nome", "responsavel_cpf", "observacao" },
+        "Projetos" => new[] { "instrumento_id", "justificativa", "publico_alvo", "local_execucao", "unidade_responsavel", "data_inicio", "data_fim_prevista", "data_fim_real", "percentual_execucao" },
+        "Metas" => new[] { "projeto_id", "indicador", "unidade_medida", "quantidade_prevista", "quantidade_executada" },
+        "Etapas" => new[] { "meta_id", "data_inicio", "data_fim_prevista", "data_fim_real", "valor_previsto", "valor_executado", "observacao" },
+        "ContasBancarias" => new[] { "instrumento_id", "banco", "agencia", "tipo_conta", "saldo_inicial", "saldo_atual", "observacao" },
+        "Repasses" => new[] { "instrumento_id", "conta_bancaria_id", "data_repasse", "valor", "observacao" },
+        "Despesas" => new[] { "instrumento_id", "projeto_id", "etapa_id", "conta_bancaria_id", "fornecedor_nome", "fornecedor_documento", "descricao", "data_despesa", "data_pagamento", "valor", "natureza_despesa", "observacao" },
+        "Contrapartidas" => new[] { "instrumento_id", "valor_previsto", "valor_realizado", "data_realizacao" },
+        "Acompanhamentos" => new[] { "projeto_id", "data_acompanhamento", "responsavel_nome", "percentual_fisico", "percentual_financeiro", "risco", "providencias" },
+        "PrestacoesContas" => new[] { "instrumento_id", "periodo_inicio", "periodo_fim", "data_envio", "valor_prestado", "valor_aprovado", "parecer_resumo" },
+        "Diligencias" => new[] { "prestacao_contas_id", "data_recebimento", "prazo_resposta", "data_resposta", "resposta" },
+        "Documentos" => new[] { "instrumento_id", "projeto_id", "prestacao_contas_id", "tipo_documento", "data_documento", "observacao" },
+        _ => Array.Empty<string>()
+    };
 string Label(string x)
 {
     var label = x.EndsWith("_id", StringComparison.Ordinal) ? x[..^3] : x;
     return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(label.Replace('_',' '));
 }
-string Type(string x)=>x.StartsWith("data_")||x.StartsWith("vigencia_")||x.StartsWith("periodo_")?"date":x.StartsWith("valor_")||x.StartsWith("saldo_")||x.StartsWith("percentual_")||x.StartsWith("quantidade_")?"number":x.Contains("email")?"email":"text";
-var statuses=Model.Recurso switch{
-"Orgaos"=>new[]{"ATIVO","INATIVO"},"Programas"=>new[]{"ATIVO","INATIVO","ENCERRADO","CANCELADO"},"Emendas"=>new[]{"CADASTRADA","APROVADA","EMPENHADA","PAGA","CANCELADA"},"Instrumentos"=>new[]{"RASCUNHO","ATIVO","SUSPENSO","ENCERRADO","CANCELADO"},"Projetos"=>new[]{"PLANEJADO","EM_EXECUCAO","CONCLUIDO","SUSPENSO","CANCELADO"},"Metas" or "Etapas"=>new[]{"PENDENTE","EM_EXECUCAO","CONCLUIDA","CANCELADA"},"ContasBancarias"=>new[]{"ATIVA","INATIVA","ENCERRADA","AJUSTE"},"Repasses"=>new[]{"PREVISTO","RECEBIDO","ESTORNADO","CANCELADO"},"Despesas"=>new[]{"PENDENTE","LIQUIDADA","PAGA","ESTORNADA","CANCELADA"},"Contrapartidas"=>new[]{"PREVISTA","REALIZADA","PARCIAL","CANCELADA"},"Acompanhamentos"=>new[]{"REGULAR","ATENCAO","CRITICO","ENCERRADO"},"PrestacoesContas"=>new[]{"RASCUNHO","ENVIADA","EM_ANALISE","DILIGENCIA","APROVADA","REJEITADA","CANCELADA"},"Diligencias"=>new[]{"ABERTA","EM_RESPOSTA","RESPONDIDA","ENCERRADA","CANCELADA"},"Documentos"=>new[]{"ATIVO","INATIVO","CANCELADO"},_=>Array.Empty<string>()};
-var catalogs=new Dictionary<string,string[]>{{"status",statuses},{"esfera",new[]{"FEDERAL","ESTADUAL","MUNICIPAL","OUTRA"}},{"area",new[]{"SAUDE","EDUCACAO","INFRAESTRUTURA","ASSISTENCIA","MEIO_AMBIENTE","CULTURA","ESPORTE","OUTRA"}},{"tipo",Model.Recurso=="Instrumentos"?new[]{"CONVENIO","CONTRATO_REPASSE","TERMO_FOMENTO","TERMO_COLABORACAO","TRANSFERENCIA_ESPECIAL","OUTRO"}:Model.Recurso=="PrestacoesContas"?new[]{"PARCIAL","FINAL","COMPLEMENTAR"}:new[]{"FINANCEIRA","BENS","SERVICOS","PESSOAL","OUTRA"}};
+    string Type(string x) => x.StartsWith("data_") || x.StartsWith("vigencia_") || x.StartsWith("periodo_") ? "date" : x.StartsWith("valor_") || x.StartsWith("saldo_") || x.StartsWith("percentual_") || x.StartsWith("quantidade_") ? "number" : x.Contains("email") ? "email" : "text";
+    var statuses = Model.Recurso switch
+    {
+        "Orgaos" => new[] { "ATIVO", "INATIVO" },
+        "Programas" => new[] { "ATIVO", "INATIVO", "ENCERRADO", "CANCELADO" },
+        "Emendas" => new[] { "CADASTRADA", "APROVADA", "EMPENHADA", "PAGA", "CANCELADA" },
+        "Instrumentos" => new[] { "RASCUNHO", "ATIVO", "SUSPENSO", "ENCERRADO", "CANCELADO" },
+        "Projetos" => new[] { "PLANEJADO", "EM_EXECUCAO", "CONCLUIDO", "SUSPENSO", "CANCELADO" },
+        "Metas" or "Etapas" => new[] { "PENDENTE", "EM_EXECUCAO", "CONCLUIDA", "CANCELADA" },
+        "ContasBancarias" => new[] { "ATIVA", "INATIVA", "ENCERRADA", "AJUSTE" },
+        "Repasses" => new[] { "PREVISTO", "RECEBIDO", "ESTORNADO", "CANCELADO" },
+        "Despesas" => new[] { "PENDENTE", "LIQUIDADA", "PAGA", "ESTORNADA", "CANCELADA" },
+        "Contrapartidas" => new[] { "PREVISTA", "REALIZADA", "PARCIAL", "CANCELADA" },
+        "Acompanhamentos" => new[] { "REGULAR", "ATENCAO", "CRITICO", "ENCERRADO" },
+        "PrestacoesContas" => new[] { "RASCUNHO", "ENVIADA", "EM_ANALISE", "DILIGENCIA", "APROVADA", "REJEITADA", "CANCELADA" },
+        "Diligencias" => new[] { "ABERTA", "EM_RESPOSTA", "RESPONDIDA", "ENCERRADA", "CANCELADA" },
+        "Documentos" => new[] { "ATIVO", "INATIVO", "CANCELADO" },
+        _ => Array.Empty<string>()
+    };
+    var catalogs = new Dictionary<string, string[]>
+    {
+        { "status", statuses },
+        { "esfera", new[] { "FEDERAL", "ESTADUAL", "MUNICIPAL", "OUTRA" } },
+        { "area", new[] { "SAUDE", "EDUCACAO", "INFRAESTRUTURA", "ASSISTENCIA", "MEIO_AMBIENTE", "CULTURA", "ESPORTE", "OUTRA" } },
+        { "tipo", Model.Recurso == "Instrumentos" ? new[] { "CONVENIO", "CONTRATO_REPASSE", "TERMO_FOMENTO", "TERMO_COLABORACAO", "TRANSFERENCIA_ESPECIAL", "OUTRO" } : Model.Recurso == "PrestacoesContas" ? new[] { "PARCIAL", "FINAL", "COMPLEMENTAR" } : new[] { "FINANCEIRA", "BENS", "SERVICOS", "PESSOAL", "OUTRA" } }
+    };
 }
 <h1 class="h3">@Model.Titulo</h1><partial name="_Nav"/><form method="post" action="/Convenios/@Model.Recurso/Salvar" class="card card-body shadow-sm">@Html.AntiForgeryToken()@if(Model.Id.HasValue){<input type="hidden" name="id" value="@Model.Id"/>}<div asp-validation-summary="All" class="text-danger" role="alert"></div><p class="text-secondary"><span class="text-danger">*</span> campos obrigatórios. Relacionamentos são escolhidos pelo nome; nenhum ID é solicitado.</p><div class="row g-3"><div class="col-md-6"><label asp-for="Registro.Codigo" class="form-label">Identificação <span class="text-danger">*</span></label><input asp-for="Registro.Codigo" class="form-control"/><span asp-validation-for="Registro.Codigo" class="text-danger"></span></div><div class="col-md-6"><label asp-for="Registro.Descricao" class="form-label">Nome ou descrição <span class="text-danger">*</span></label><input asp-for="Registro.Descricao" class="form-control"/><span asp-validation-for="Registro.Descricao" class="text-danger"></span></div><div class="col-md-4"><label asp-for="Registro.Status" class="form-label">Status <span class="text-danger">*</span></label><select asp-for="Registro.Status" class="form-select"><option value="">Selecione...</option>@foreach(var o in catalogs["status"]){<option value="@o">@o.Replace('_',' ')</option>}</select><span asp-validation-for="Registro.Status" class="text-danger"></span></div>
 @foreach(var f in fields){var value=Model.Registro.Campos.GetValueOrDefault(f);<div class="col-md-6"> <label class="form-label" for="campo_@f">@Label(f)</label>@if(Model.Opcoes.TryGetValue(f,out var options)){<select class="form-select" id="campo_@f" name="Registro.Campos[@f]"><option value="">Selecione...</option>@foreach(var o in options){<option value="@o.Id" selected="@(value==o.Id.ToString())">@o.Rotulo</option>}</select>}else if(catalogs.TryGetValue(f,out var opts)){<select class="form-select" id="campo_@f" name="Registro.Campos[@f]"><option value="">Selecione...</option>@foreach(var o in opts){<option value="@o" selected="@(value==o)">@o.Replace('_',' ')</option>}</select>}else{<input class="form-control" id="campo_@f" name="Registro.Campos[@f]" value="@value" type="@Type(f)" step="@(Type(f)=="number"?"0.01":null)"/>}<span class="field-validation-valid text-danger" data-valmsg-for="Registro.Campos[@f]" data-valmsg-replace="true"></span></div>}</div><div class="mt-4"><button class="btn btn-primary">Salvar e auditar</button><a class="btn btn-link" href="/Convenios/@Model.Recurso">Cancelar</a></div></form><partial name="_ValidationScriptsPartial"/>
