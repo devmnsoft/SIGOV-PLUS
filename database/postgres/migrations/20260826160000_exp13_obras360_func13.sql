@@ -35,6 +35,6 @@ create index if not exists ix_obra_diario_contexto_data on sigov.obras_diario(te
 create index if not exists ix_obra_nc_contexto_prazo on sigov.obras_nao_conformidade(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo);
 create index if not exists ix_obra_transp_contexto on sigov.obras_transparencia_publicacao(tenant_id,entidade_id,exercicio_id,obra_id,status,data_publicacao);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values
 ('OBRAS_MEDICAO_APPROVE','Obras360: aprovar medição','obras',true,now()),('OBRAS_ADITIVO_MANAGE','Obras360: gerir aditivos e equilíbrio','obras',true,now()),('OBRAS_OCORRENCIA_MANAGE','Obras360: gerir ocorrências','obras',true,now()),('OBRAS_NAO_CONFORMIDADE_MANAGE','Obras360: gerir não conformidades','obras',true,now()),('OBRAS_TRANSPARENCIA_VIEW','Obras360: consultar transparência','obras',true,now())
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;

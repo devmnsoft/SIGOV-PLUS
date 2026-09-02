@@ -811,8 +811,8 @@ END $$;
 CREATE INDEX IF NOT EXISTS ix_assistencia_integracao_almoxarifado_contexto ON sigov.assistencia_integracao_almoxarifado(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
 CREATE INDEX IF NOT EXISTS ix_assistencia_integracao_almoxarifado_social ON sigov.assistencia_integracao_almoxarifado(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
 
-INSERT INTO sigov.permissao (chave, nome, modulo, descricao, ativo)
-SELECT p.chave, p.nome, 'assistencia_social', p.nome, true FROM (VALUES
+INSERT INTO sigov.permissao (chave, modulo, descricao, ativo)
+SELECT p.chave, 'assistencia_social', p.nome, true FROM (VALUES
   ('ASSISTENCIA_DASHBOARD_VIEW','Assistencia Dashboard View')
   ,('ASSISTENCIA_UNIDADE_VIEW','Assistencia Unidade View')
   ,('ASSISTENCIA_UNIDADE_MANAGE','Assistencia Unidade Manage')

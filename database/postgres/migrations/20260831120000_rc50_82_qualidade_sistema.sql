@@ -61,10 +61,10 @@ create index if not exists ix_qualidade_checklist_contexto on sigov.qualidade_ch
 create index if not exists ix_qualidade_rota_contexto on sigov.qualidade_smoke_rota(tenant_id,entidade_id,modulo,status);
 create index if not exists ix_qualidade_sql_contexto on sigov.qualidade_validacao_sql(tenant_id,entidade_id,status,validado_em desc);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select chave,nome,'qualidade_sistema',true,now() from(values
  ('QUALIDADE_SISTEMA_DASHBOARD_VIEW','Qualidade: visualizar dashboard'),('QUALIDADE_SISTEMA_CHECKLIST_VIEW','Qualidade: visualizar checklist'),('QUALIDADE_SISTEMA_CHECKLIST_MANAGE','Qualidade: gerenciar checklist'),
  ('QUALIDADE_SISTEMA_INCONSISTENCIA_VIEW','Qualidade: visualizar inconsistências'),('QUALIDADE_SISTEMA_INCONSISTENCIA_MANAGE','Qualidade: gerenciar inconsistências'),('QUALIDADE_SISTEMA_SQL_VIEW','Qualidade: visualizar SQL'),
  ('QUALIDADE_SISTEMA_ROTA_VIEW','Qualidade: visualizar rotas'),('QUALIDADE_SISTEMA_FORMULARIO_VIEW','Qualidade: visualizar formulários'),('QUALIDADE_SISTEMA_PERMISSAO_VIEW','Qualidade: visualizar permissões'),
  ('QUALIDADE_SISTEMA_RELATORIO_EXPORT','Qualidade: exportar relatórios'),('AUDITORIA_CODIGO_VIEW','Auditoria de código: visualizar'),('AUDITORIA_CODIGO_MANAGE','Auditoria de código: gerenciar')) p(chave,nome)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;

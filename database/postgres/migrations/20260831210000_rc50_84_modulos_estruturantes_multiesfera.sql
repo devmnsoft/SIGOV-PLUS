@@ -79,7 +79,7 @@ do $$ declare t text; begin
   end loop;
 end $$;
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select chave,nome,modulo,true,now() from (values
  ('ESTRUTURANTES_GOVERNANCA_VIEW','Estruturantes: visualizar governança','governanca'),
  ('ESTRUTURANTES_PROTOCOLO_MANAGE','Estruturantes: gerenciar protocolo, Ouvidoria e SIC','protocolo'),
@@ -89,4 +89,4 @@ select chave,nome,modulo,true,now() from (values
  ('ESTRUTURANTES_RH_MANAGE','Estruturantes: gerenciar RH e folha','rh'),
  ('ESTRUTURANTES_RELATORIO_EXPORT','Estruturantes: exportar relatórios multi-esfera','relatorios')
 ) p(chave,nome,modulo)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;

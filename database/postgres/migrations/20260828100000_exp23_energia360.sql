@@ -52,6 +52,6 @@ alter table sigov.energia_integracao_carbono add column if not exists emissoes_e
 alter table sigov.energia_integracao_carbono add column if not exists fator_carbono_id bigint;
 
 -- Catálogo é autoridade no banco; nenhuma permissão é simulada na aplicação.
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select p,'Energia360: '||replace(p,'_',' '),'energia',true,now() from unnest(array['ENERGIA_DASHBOARD_VIEW','ENERGIA_UNIDADE_VIEW','ENERGIA_UNIDADE_MANAGE','ENERGIA_MEDIDOR_MANAGE','ENERGIA_LEITURA_MANAGE','ENERGIA_FATURA_VIEW','ENERGIA_FATURA_MANAGE','ENERGIA_FATURA_CONFERIR','ENERGIA_CONTRATO_VIEW','ENERGIA_CONTRATO_MANAGE','ENERGIA_DEMANDA_VIEW','ENERGIA_ILUMINACAO_VIEW','ENERGIA_ILUMINACAO_MANAGE','ENERGIA_GERACAO_VIEW','ENERGIA_GERACAO_MANAGE','ENERGIA_CREDITO_MANAGE','ENERGIA_EFICIENCIA_MANAGE','ENERGIA_ALERTA_VIEW','ENERGIA_ALERTA_MANAGE','ENERGIA_RELATORIO_EXPORT']) p
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
