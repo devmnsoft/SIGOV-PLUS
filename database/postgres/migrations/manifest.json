@@ -462,7 +462,6 @@
     {
       "version": "20260721120000",
       "file": "20260721120000_pos_rc_17_runtime_nucleo_operacional.sql",
-      "legacyTransactionWrapper": true,
       "description": "pos_rc_17_runtime_nucleo_operacional",
       "category": "schema",
       "includeInBaseline": true,
@@ -632,7 +631,6 @@
     {
       "version": "20260809160000",
       "file": "20260809160000_rc49_workflow_platform.sql",
-      "legacyTransactionWrapper": true,
       "description": "rc49_workflow_platform",
       "category": "schema",
       "includeInBaseline": true,
