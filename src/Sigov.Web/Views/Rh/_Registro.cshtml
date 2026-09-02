@@ -6,7 +6,7 @@
     <p class="text-muted">CRUD com isolamento por tenant, auditoria e exportacao.</p>
   </div>
   <div class="btn-group">
-    <a class="btn btn-outline-secondary" href="/api/rh/export/@(Model.Recurso).csv">CSV</a>
+    <a class="btn btn-outline-secondary" href="@($"/api/rh/export/{Model.Recurso}.csv")">CSV</a>
     <a class="btn btn-outline-secondary" href="/api/rh/export/@(Model.Recurso).json">JSON</a>
   </div>
 </div>
