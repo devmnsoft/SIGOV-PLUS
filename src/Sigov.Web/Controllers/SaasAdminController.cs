@@ -115,7 +115,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue("usuario_id");
         if (!long.TryParse(raw, CultureInfo.InvariantCulture, out var userId)) return null;
         var decision = await authorization.EvaluateAsync(new(userId, "saas", "saas.superadmin.autorizacao", "administrar",
-            CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_AUTORIZACAO"), ct);
+            TenantId: null, CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_AUTORIZACAO"), ct);
         return decision.Permitido ? userId : null;
     }
     private async Task<bool> Allowed(string action, long? tenantId, CancellationToken ct)

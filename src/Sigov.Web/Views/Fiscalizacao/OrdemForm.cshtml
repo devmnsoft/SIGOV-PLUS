@@ -8,4 +8,8 @@
  <div class="col-md-6"><label asp-for="Ordem.Tipo" class="form-label">Tipo de fiscalização</label><input asp-for="Ordem.Tipo" class="form-control"/><span asp-validation-for="Ordem.Tipo" class="text-danger"></span></div><div class="col-md-3"><label asp-for="Ordem.Prioridade" class="form-label">Prioridade</label><select asp-for="Ordem.Prioridade" class="form-select"><option>BAIXA</option><option>NORMAL</option><option>ALTA</option><option>URGENTE</option></select><span asp-validation-for="Ordem.Prioridade" class="text-danger"></span></div>
  <div class="col-md-3"><label asp-for="Ordem.AgendadaEm" class="form-label">Agendamento</label><input asp-for="Ordem.AgendadaEm" type="datetime-local" class="form-control"/><span asp-validation-for="Ordem.AgendadaEm" class="text-danger"></span></div><div class="col-md-6"><label asp-for="Ordem.EquipeId" class="form-label">Equipe responsável</label><select asp-for="Ordem.EquipeId" class="form-select"><option value="">Selecione</option>@foreach(var x in Model.Equipes){<option value="@x.Id">@x.Rotulo</option>}</select><span asp-validation-for="Ordem.EquipeId" class="text-danger"></span></div>
  <div class="col-12"><label asp-for="Ordem.Motivo" class="form-label">Motivo</label><textarea asp-for="Ordem.Motivo" class="form-control" rows="3"></textarea><span asp-validation-for="Ordem.Motivo" class="text-danger"></span></div><div class="col-12"><label asp-for="Ordem.Observacoes" class="form-label">Observações</label><textarea asp-for="Ordem.Observacoes" class="form-control" rows="3"></textarea><span asp-validation-for="Ordem.Observacoes" class="text-danger"></span></div></div><button class="btn btn-primary mt-4" type="submit">Salvar ordem</button>
-</form>@section Scripts{<partial name="_ValidationScriptsPartial"/>}
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial"/>
+}

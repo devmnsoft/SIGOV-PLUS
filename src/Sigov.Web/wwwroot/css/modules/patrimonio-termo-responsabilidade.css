@@ -1,0 +1,21 @@
+body {
+    color: #172b3a;
+    font: 15px Arial, sans-serif;
+    line-height: 1.55;
+    margin: 45px auto;
+    max-width: 800px;
+}
+
+header { border-bottom: 2px solid #172b3a; margin-bottom: 35px; text-align: center; }
+h1 { font-size: 22px; }
+.box { border: 1px solid #bac5ce; border-radius: 8px; padding: 18px; }
+dl { display: grid; gap: 8px; grid-template-columns: 180px 1fr; }
+dt { font-weight: bold; }
+.signatures { display: grid; gap: 60px; grid-template-columns: 1fr 1fr; margin-top: 100px; }
+.line { border-top: 1px solid; padding-top: 8px; text-align: center; }
+.actions { position: fixed; right: 20px; top: 20px; }
+
+@media print {
+    .actions { display: none; }
+    body { margin: 20px auto; }
+}
