@@ -1,1 +1,182 @@
-<section class="container py-4"><h1>Branding do tenant</h1><div class="alert alert-info" id="brandingAviso">White label depende do plano ou addon contratado.</div><form id="formTenantBranding" class="row g-3"><div class="col-md-6"><label class="form-label">Nome de exibição</label><input class="form-control" name="nomeExibicao" required /></div><div class="col-md-6"><label class="form-label">Logo URL</label><input class="form-control" name="logoUrl" /></div><div class="col-md-4"><label class="form-label">Cor primária</label><input class="form-control form-control-color" name="corPrimaria" value="#0d6efd" /></div><div class="col-md-4"><label class="form-label">Cor secundária</label><input class="form-control form-control-color" name="corSecundaria" value="#6c757d" /></div><div class="col-md-4"><label class="form-label">Cor acento</label><input class="form-control form-control-color" name="corAcento" value="#198754" /></div><div class="col-md-6"><label class="form-label">Tema</label><select class="form-select" name="tema"><option>SIGOV</option><option>CLARO</option><option>ESCURO</option><option>CUSTOMIZADO</option></select></div><div class="col-md-6 form-check mt-5"><input class="form-check-input" type="checkbox" name="whiteLabelAtivo" id="whiteLabelAtivo" /><label class="form-check-label" for="whiteLabelAtivo">Ativar white label</label></div><div class="col-12"><label class="form-label">CSS customizado limitado</label><textarea class="form-control" name="cssCustomizado" rows="4" maxlength="4000"></textarea></div><div class="col-12"><button class="btn btn-primary">Salvar</button></div></form><div id="brandingPreview" class="border rounded p-4 mt-4">Preview</div></section><script src="~/lib/jquery/dist/jquery.min.js"></script><script src="~/js/modules/tenant.branding.js"></script>
+@model Sigov.Web.Controllers.TenantBrandingFormViewModel
+@{
+    ViewData["Title"] = "Branding do tenant";
+}
+
+<link rel="stylesheet" href="~/css/modules/tenant.branding.css" asp-append-version="true" />
+
+<section class="container py-4 tenant-branding-page">
+    <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between mb-4">
+        <div>
+            <span class="badge text-bg-primary mb-2">Identidade visual</span>
+            <h1 class="h3 mb-1">Branding do tenant</h1>
+            <p class="text-muted mb-0">Configure a marca externa exibida para usuarios do cliente, com upload real da logo, redimensionamento e preview antes de salvar.</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-action="MinhaAssinatura">Ver assinatura</a>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    @if (!Model.PlanoPermiteWhiteLabel)
+    {
+        <div class="alert alert-info" id="brandingAviso" role="alert">
+            White label depende do plano contratado ou do addon WHITE_LABEL ativo. As cores podem ser preparadas, mas a ativacao final fica bloqueada pelo plano.
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <form asp-action="Branding" method="post" enctype="multipart/form-data" id="formTenantBranding" class="sigov-panel p-4" novalidate>
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+                <div class="mb-4">
+                    <h2 class="h5 mb-1">Dados da marca</h2>
+                    <p class="text-muted mb-0">Use o nome oficial do cliente e escolha se a logo vira arquivo da plataforma ou URL externa segura.</p>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="NomeExibicao" class="form-label">Nome de exibicao <span class="text-danger">*</span></label>
+                        <input asp-for="NomeExibicao" class="form-control" autocomplete="organization" />
+                        <span asp-validation-for="NomeExibicao" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Tema" class="form-label">Tema <span class="text-danger">*</span></label>
+                        <select asp-for="Tema" class="form-select">
+                            <option value="SIGOV">SIGOV padrao</option>
+                            <option value="CLARO">Claro institucional</option>
+                            <option value="ESCURO">Escuro operacional</option>
+                            <option value="CUSTOMIZADO">Customizado</option>
+                        </select>
+                        <span asp-validation-for="Tema" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="LogoArquivo" class="form-label">Enviar logo externa</label>
+                        <input asp-for="LogoArquivo" class="form-control" type="file" accept="image/png,image/jpeg,image/webp" />
+                        <div class="form-text">PNG, JPG ou WebP ate 2 MB. O navegador redimensiona a imagem para o tamanho selecionado antes do envio.</div>
+                        <span asp-validation-for="LogoArquivo" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="LogoUrl" class="form-label">URL externa da logo</label>
+                        <input asp-for="LogoUrl" class="form-control" placeholder="https://cliente.gov.br/logo.png" />
+                        <div class="form-text">Use quando o cliente ja hospeda a logo. Arquivo enviado tem prioridade sobre URL.</div>
+                        <span asp-validation-for="LogoUrl" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="LogoWidthPx" class="form-label">Largura da logo</label>
+                        <input asp-for="LogoWidthPx" class="form-range" type="range" min="80" max="480" step="4" />
+                        <output id="logoWidthValue" class="small text-muted"></output>
+                        <span asp-validation-for="LogoWidthPx" class="text-danger d-block"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="LogoHeightPx" class="form-label">Altura da logo</label>
+                        <input asp-for="LogoHeightPx" class="form-range" type="range" min="32" max="180" step="4" />
+                        <output id="logoHeightValue" class="small text-muted"></output>
+                        <span asp-validation-for="LogoHeightPx" class="text-danger d-block"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="LogoFit" class="form-label">Encaixe</label>
+                        <select asp-for="LogoFit" class="form-select">
+                            <option value="contain">Conter sem cortar</option>
+                            <option value="cover">Preencher cortando bordas</option>
+                            <option value="fill">Esticar para o quadro</option>
+                        </select>
+                        <span asp-validation-for="LogoFit" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="mb-4">
+                    <h2 class="h5 mb-1">Cores e acabamento</h2>
+                    <p class="text-muted mb-0">As cores orientam menus, cabecalhos, botoes e sinalizacoes visuais do tenant.</p>
+                </div>
+
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label asp-for="CorPrimaria" class="form-label">Cor primaria</label>
+                        <input asp-for="CorPrimaria" class="form-control form-control-color" type="color" />
+                        <span asp-validation-for="CorPrimaria" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="CorSecundaria" class="form-label">Cor secundaria</label>
+                        <input asp-for="CorSecundaria" class="form-control form-control-color" type="color" />
+                        <span asp-validation-for="CorSecundaria" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="CorAcento" class="form-label">Cor de destaque</label>
+                        <input asp-for="CorAcento" class="form-control form-control-color" type="color" />
+                        <span asp-validation-for="CorAcento" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-8">
+                        <label asp-for="FaviconUrl" class="form-label">Favicon externo</label>
+                        <input asp-for="FaviconUrl" class="form-control" placeholder="https://cliente.gov.br/favicon.ico" />
+                        <span asp-validation-for="FaviconUrl" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check branding-check">
+                            <input asp-for="WhiteLabelAtivo" class="form-check-input" disabled="@(!Model.PlanoPermiteWhiteLabel)" />
+                            <label asp-for="WhiteLabelAtivo" class="form-check-label">Ativar white label</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="CssCustomizado" class="form-label">CSS customizado limitado</label>
+                        <textarea asp-for="CssCustomizado" class="form-control" rows="5" maxlength="4000" placeholder="Use apenas ajustes pequenos de identidade visual."></textarea>
+                        <span asp-validation-for="CssCustomizado" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column flex-md-row gap-2 justify-content-end mt-4">
+                    <a class="btn btn-outline-secondary" asp-action="MeusModulos">Cancelar</a>
+                    <button type="submit" class="btn btn-primary" id="brandingSubmit">Salvar branding</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-lg-4">
+            <aside class="sigov-panel p-4 mb-4">
+                <h2 class="h5">Preview</h2>
+                <div id="brandingPreview" class="branding-preview" data-logo-url="@Model.LogoUrl" data-logo-width="@Model.LogoWidthPx" data-logo-height="@Model.LogoHeightPx" data-logo-fit="@Model.LogoFit">
+                    <div class="branding-preview__bar">
+                        <img id="brandingPreviewLogo" alt="Logo do tenant" class="branding-preview__logo" />
+                        <strong id="brandingPreviewName">@Model.NomeExibicao</strong>
+                    </div>
+                    <div class="branding-preview__content">
+                        <span class="branding-chip">Modulo</span>
+                        <span class="branding-chip branding-chip--accent">Acao principal</span>
+                    </div>
+                </div>
+            </aside>
+
+            <aside class="sigov-panel p-4">
+                <h2 class="h5">Como usar esta pagina</h2>
+                <ol class="small text-muted mb-0 ps-3">
+                    <li>Informe o nome exibido para o cliente, como prefeitura, SEFAZ, secretaria estadual ou orgao federal.</li>
+                    <li>Envie uma logo ou informe uma URL externa segura.</li>
+                    <li>Ajuste largura, altura e encaixe ate o preview ficar adequado.</li>
+                    <li>Salve. A mudanca passa a valer nas proximas telas carregadas pelo tenant.</li>
+                </ol>
+            </aside>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/modules/tenant.branding.js" asp-append-version="true"></script>
+}
