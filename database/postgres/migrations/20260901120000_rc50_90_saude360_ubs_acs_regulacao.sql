@@ -642,8 +642,8 @@ CREATE INDEX IF NOT EXISTS ix_saude_auditoria_sensivel_operacao ON sigov.saude_a
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_saude_farmacia_estoque_saldo' AND conrelid='sigov.saude_farmacia_estoque'::regclass) THEN ALTER TABLE sigov.saude_farmacia_estoque ADD CONSTRAINT ck_saude_farmacia_estoque_saldo CHECK (quantidade >= 0); END IF; END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_saude_unidade_cnes_tenant ON sigov.saude_unidade(tenant_id, codigo) WHERE codigo IS NOT NULL AND NOT is_deleted;
 
-INSERT INTO sigov.permissao (chave, nome, modulo, descricao, ativo)
-SELECT p.chave, p.nome, 'saude', p.nome, true FROM (VALUES
+INSERT INTO sigov.permissao (chave, modulo, descricao, ativo)
+SELECT p.chave, 'saude', p.nome, true FROM (VALUES
   ('SAUDE_DASHBOARD_VIEW','Saude Dashboard View'),
   ('SAUDE_UNIDADE_VIEW','Saude Unidade View'),
   ('SAUDE_UNIDADE_MANAGE','Saude Unidade Manage'),

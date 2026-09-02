@@ -80,11 +80,11 @@ create index if not exists ix_fv_contexto_data on sigov.fiscalizacao_vistoria(te
 create index if not exists ix_fan_contexto_status on sigov.fiscalizacao_auto_notificacao(tenant_id,entidade_id,status,emitido_em desc);
 create index if not exists ix_fa_registro on sigov.fiscalizacao_auditoria(tenant_id,entidade_id,tabela,registro_id,created_at desc);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values
  ('FISCALIZACAO_DASHBOARD_VIEW','Visualizar dashboard Fiscaliza360','fiscalizacao',true,now()),('FISCALIZACAO_ORDEM_VIEW','Visualizar ordens de fiscalização','fiscalizacao',true,now()),
  ('FISCALIZACAO_ORDEM_MANAGE','Gerenciar ordens de fiscalização','fiscalizacao',true,now()),('FISCALIZACAO_VISTORIA_VIEW','Visualizar vistorias','fiscalizacao',true,now()),
  ('FISCALIZACAO_VISTORIA_MANAGE','Gerenciar vistorias','fiscalizacao',true,now()),('FISCALIZACAO_CHECKLIST_MANAGE','Gerenciar checklists','fiscalizacao',true,now()),
  ('FISCALIZACAO_AUTO_MANAGE','Emitir autos e notificações','fiscalizacao',true,now()),('FISCALIZACAO_RELATORIO_EXPORT','Exportar relatórios de fiscalização','fiscalizacao',true,now()),
- ('FISCALIZACAO_SINCRONIZACAO_VIEW','Visualizar sincronização de campo','fiscalizacao',true,now()) on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+ ('FISCALIZACAO_SINCRONIZACAO_VIEW','Visualizar sincronização de campo','fiscalizacao',true,now()) on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
 comment on table sigov.fiscalizacao_sincronizacao_item is 'Controle local da outbox; o processamento externo permanece BLOCKED até existir adaptador/worker oficial.';

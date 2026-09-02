@@ -1331,32 +1331,39 @@
       "description": "FUNC13 Obras Públicas, Engenharia e Fiscalização",
       "category": "functional",
       "file": "20260825070000_func13_obras_engenharia_fiscalizacao.sql",
-      "checksum": "9cef4d24362ff713397ba5bc61eb718666546e23895956eb8102f087b607556b",
+      "checksum": "b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.obras_obra') is not null and to_regclass('sigov.obras_auditoria') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.obras_obra') is not null and to_regclass('sigov.obras_auditoria') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "9cef4d24362ff713397ba5bc61eb718666546e23895956eb8102f087b607556b"
+      ]
     },
     {
       "version": "20260825080000",
       "description": "FUNC14 Meio Ambiente, Licenciamento e Fiscalização",
       "category": "functional",
       "file": "20260825080000_func14_meio_ambiente_licenciamento_fiscalizacao.sql",
-      "checksum": "664ed3d4f1151fb92f1d6abfd9832ece34353f9302b7b5f5709135859788b2ab",
+      "checksum": "c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.ambiental_requerimento') is not null and to_regclass('sigov.ambiental_auditoria') is not null and exists(select 1 from sigov.permissao where chave='AMBIENTAL_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.ambiental_requerimento') is not null and to_regclass('sigov.ambiental_auditoria') is not null and exists(select 1 from sigov.permissao where chave='AMBIENTAL_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "664ed3d4f1151fb92f1d6abfd9832ece34353f9302b7b5f5709135859788b2ab"
+      ]
     },
     {
       "version": "20260825090000",
       "description": "FUNC15 Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços",
       "category": "functional",
       "file": "20260825090000_func15_ouvidoria_atendimento_esic.sql",
-      "checksum": "dc9993f706641fd0d538e2a92bc0de0c3fb0e1ff8ff776e5f0ca268752db1b93",
+      "checksum": "f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.atendimento_demanda') is not null and to_regclass('sigov.atendimento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='ATENDIMENTO_DASHBOARD_VIEW')",
       "knownChecksums": [
-        "568b1f57531c05c45c21fcb10054e874a8dc3b5b5022c16cc12517242d949641"
+        "568b1f57531c05c45c21fcb10054e874a8dc3b5b5022c16cc12517242d949641",
+        "dc9993f706641fd0d538e2a92bc0de0c3fb0e1ff8ff776e5f0ca268752db1b93"
       ]
     },
     {
@@ -1364,12 +1371,13 @@
       "description": "FUNC16 Habitação, Regularização Fundiária e Programas Habitacionais",
       "category": "functional",
       "file": "20260825100000_func16_habitacao_regularizacao_fundiaria.sql",
-      "checksum": "6762e4006ed6f3a4240916a3964b911cfc6ea44a3a2b89964d4e285327d14299",
+      "checksum": "e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.habitacao_familia') is not null and to_regclass('sigov.habitacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HABITACAO_DASHBOARD_VIEW')",
       "knownChecksums": [
-        "c38ae4b1bffe412acaadb37c94693cc2093ad70f78fb891836deb502bee6e53d"
+        "c38ae4b1bffe412acaadb37c94693cc2093ad70f78fb891836deb502bee6e53d",
+        "6762e4006ed6f3a4240916a3964b911cfc6ea44a3a2b89964d4e285327d14299"
       ]
     },
     {
@@ -1377,12 +1385,13 @@
       "description": "FUNC17 Procuradoria Jurídica, Contencioso e Dívida Ativa Judicial",
       "category": "functional",
       "file": "20260825110000_func17_procuradoria_juridica_contencioso.sql",
-      "checksum": "0ae9cfcbc6325920d054a48d2887e4401e2b51de0b9bba4b743309aac64ddc12",
+      "checksum": "4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.juridico_processo') is not null and to_regclass('sigov.juridico_auditoria') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_DASHBOARD_VIEW')",
       "knownChecksums": [
-        "52b30af5bac763cd6903de92c80740996407e873c2e7fd6a170880ffeac35116"
+        "52b30af5bac763cd6903de92c80740996407e873c2e7fd6a170880ffeac35116",
+        "0ae9cfcbc6325920d054a48d2887e4401e2b51de0b9bba4b743309aac64ddc12"
       ]
     },
     {
@@ -1390,12 +1399,13 @@
       "description": "FUNC18 Trânsito, Mobilidade Urbana e Fiscalização de Transporte",
       "category": "functional",
       "file": "20260825120000_func18_transito_mobilidade_fiscalizacao.sql",
-      "checksum": "e02f3c53ccb4cde363f5834bec0582bff006bacb2f6cdd9fd59d52e7b30fd4a9",
+      "checksum": "e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.transito_auto_infracao') is not null and to_regclass('sigov.transito_auditoria') is not null and exists(select 1 from sigov.permissao where chave='TRANSITO_DASHBOARD_VIEW')",
       "knownChecksums": [
-        "f862b25c2e1b93a09542ba242db81b42190e5bbca062430a6a11f9d8c27621ee"
+        "f862b25c2e1b93a09542ba242db81b42190e5bbca062430a6a11f9d8c27621ee",
+        "e02f3c53ccb4cde363f5834bec0582bff006bacb2f6cdd9fd59d52e7b30fd4a9"
       ]
     },
     {
@@ -1416,10 +1426,13 @@
       "description": "FUNC19 Defesa Civil, Guarda Municipal e Segurança Pública Municipal",
       "category": "functional",
       "file": "20260825130000_func19_defesa_civil_guarda_municipal.sql",
-      "checksum": "703f387d0dc86235913f370d67ec41b058503242724e4b83b9533137fc0bf154",
+      "checksum": "22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.defesa_ocorrencia') is not null and to_regclass('sigov.defesa_auditoria') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.defesa_ocorrencia') is not null and to_regclass('sigov.defesa_auditoria') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "703f387d0dc86235913f370d67ec41b058503242724e4b83b9533137fc0bf154"
+      ]
     },
     {
       "version": "20260825131000",
@@ -1439,12 +1452,13 @@
       "description": "FUNC20 Convênios, Emendas Parlamentares, Projetos e Prestação de Contas",
       "category": "functional",
       "file": "20260826100000_func20_convenios_emendas_prestacao_contas.sql",
-      "checksum": "24f0fc52151b555f7ca1b691b56f5ac64b73716d44a4f06761e8b67296629ec8",
+      "checksum": "1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.convenio_instrumento') is not null and to_regclass('sigov.convenio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='CONVENIO_DASHBOARD_VIEW')",
       "knownChecksums": [
-        "6f961883b8b6e8bc5fdb5339b03236ce26ed7e34874395bfe176383b64a16912"
+        "6f961883b8b6e8bc5fdb5339b03236ce26ed7e34874395bfe176383b64a16912",
+        "24f0fc52151b555f7ca1b691b56f5ac64b73716d44a4f06761e8b67296629ec8"
       ]
     },
     {
@@ -1495,20 +1509,26 @@
       "description": "EXP-FISCALIZA360 núcleo transversal de fiscalização e campo",
       "category": "functional",
       "file": "20260826150000_exp_fiscaliza360_transversal.sql",
-      "checksum": "aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4",
+      "checksum": "a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.fiscalizacao_ordem') is not null and to_regclass('sigov.fiscalizacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='FISCALIZACAO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.fiscalizacao_ordem') is not null and to_regclass('sigov.fiscalizacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='FISCALIZACAO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4"
+      ]
     },
     {
       "version": "20260826160000",
       "description": "EXP13 Obras360 operacional no FUNC13",
       "category": "functional",
       "file": "20260826160000_exp13_obras360_func13.sql",
-      "checksum": "c269ca4a5e5fc9836f52f9552e7b80342679117d304eee3538117787c7624dc1",
+      "checksum": "1dae1d0fbff3a7129faa68d47d9260387ca9d96b315d33a453142f8e4b3c114d",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.obras_medicao_aprovacao') is not null and to_regclass('sigov.obras_transparencia_publicacao') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_MEDICAO_APPROVE')"
+      "postConditionSql": "select to_regclass('sigov.obras_medicao_aprovacao') is not null and to_regclass('sigov.obras_transparencia_publicacao') is not null and exists(select 1 from sigov.permissao where chave='OBRAS_MEDICAO_APPROVE')",
+      "knownChecksums": [
+        "c269ca4a5e5fc9836f52f9552e7b80342679117d304eee3538117787c7624dc1"
+      ]
     },
     {
       "version": "20260826170000",
@@ -1525,10 +1545,13 @@
       "description": "EXP19 DefesaCivil360 operacional no FUNC19",
       "category": "functional",
       "file": "20260826180000_exp19_defesacivil360_func19.sql",
-      "checksum": "b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa",
+      "checksum": "f98bf85a739f3d01c653be3e8b1a4f92be0c66dd2b8838ffa662e6f1045b5af6",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.defesa_civil_ocorrencia') is not null and to_regclass('sigov.defesa_civil_alerta') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_CIVIL_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.defesa_civil_ocorrencia') is not null and to_regclass('sigov.defesa_civil_alerta') is not null and exists(select 1 from sigov.permissao where chave='DEFESA_CIVIL_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa"
+      ]
     },
     {
       "version": "20260826210000",
@@ -1565,12 +1588,13 @@
       "description": "EXP06 Jurídico360: procuradoria, dívida ativa judicial, prazos e consultivo",
       "category": "functional",
       "file": "20260827120000_exp06_juridico360_integrado.sql",
-      "checksum": "e42939d4aa152afc85ac9298afeae84e4158189fddec1c5a363ad8ed3eeab0e6",
+      "checksum": "8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.juridico_execucao_fiscal') is not null and to_regclass('sigov.juridico_precatorio_rpv') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_PROCESSO_SIGILOSO_VIEW')",
       "knownChecksums": [
-        "845878bd470c312b697eb36d5d18541c5083e1a79e9d3cee2e28f17ac484dedd"
+        "845878bd470c312b697eb36d5d18541c5083e1a79e9d3cee2e28f17ac484dedd",
+        "e42939d4aa152afc85ac9298afeae84e4158189fddec1c5a363ad8ed3eeab0e6"
       ]
     },
     {
@@ -1588,10 +1612,13 @@
       "description": "EXP23 Energia360 consumo, iluminação, geração e eficiência",
       "category": "functional",
       "file": "20260828100000_exp23_energia360.sql",
-      "checksum": "a6f8df8a73dd6a0636d416dfa26e9792b9822fd88dda25e5d7754211bbb5cb74",
+      "checksum": "f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.energia_unidade_consumidora') is not null and to_regclass('sigov.energia_integracao_carbono') is not null and exists(select 1 from sigov.permissao where chave='ENERGIA_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.energia_unidade_consumidora') is not null and to_regclass('sigov.energia_integracao_carbono') is not null and exists(select 1 from sigov.permissao where chave='ENERGIA_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "a6f8df8a73dd6a0636d416dfa26e9792b9822fd88dda25e5d7754211bbb5cb74"
+      ]
     },
     {
       "version": "20260828120000",
@@ -1648,40 +1675,52 @@
       "description": "RC50.81 homologação enterprise, auditoria operacional e permissões SaaS",
       "category": "functional",
       "file": "20260829180000_rc50_81_homologacao_enterprise.sql",
-      "checksum": "260fc916adb1b9edb553806567cc906e5290c2b69678b20f5a166f5da7aba193",
+      "checksum": "db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.homologacao_item') is not null and to_regclass('sigov.operacao_evento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HOMOLOGACAO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.homologacao_item') is not null and to_regclass('sigov.operacao_evento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HOMOLOGACAO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "260fc916adb1b9edb553806567cc906e5290c2b69678b20f5a166f5da7aba193"
+      ]
     },
     {
       "version": "20260831120000",
       "description": "RC50.82 Central de Qualidade e Consistência",
       "category": "functional",
       "file": "20260831120000_rc50_82_qualidade_sistema.sql",
-      "checksum": "fefd677795e2d1525f9c94ee0d7593958c24dedc32b7fa80d8d0ad57ba3672a2",
+      "checksum": "300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.qualidade_inconsistencia') is not null and to_regclass('sigov.qualidade_validacao_sql') is not null and exists(select 1 from sigov.permissao where chave='QUALIDADE_SISTEMA_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.qualidade_inconsistencia') is not null and to_regclass('sigov.qualidade_validacao_sql') is not null and exists(select 1 from sigov.permissao where chave='QUALIDADE_SISTEMA_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "fefd677795e2d1525f9c94ee0d7593958c24dedc32b7fa80d8d0ad57ba3672a2"
+      ]
     },
     {
       "version": "20260831180000",
       "description": "RC50.83 Central Executiva 360 e Sala de Situação Municipal",
       "category": "functional",
       "file": "20260831180000_rc50_83_central_executiva_360.sql",
-      "checksum": "73413158b125b94917e55a9b769bd5670cd2335ce443b5db0e29ad8f7c210cf0",
+      "checksum": "07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.executivo_painel') is not null and to_regclass('sigov.executivo_sala_situacao') is not null and exists(select 1 from sigov.permissao where chave='EXECUTIVO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.executivo_painel') is not null and to_regclass('sigov.executivo_sala_situacao') is not null and exists(select 1 from sigov.permissao where chave='EXECUTIVO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "73413158b125b94917e55a9b769bd5670cd2335ce443b5db0e29ad8f7c210cf0"
+      ]
     },
     {
       "version": "20260831210000",
       "description": "RC50.84 retomada dos módulos estruturantes multi-esfera",
       "category": "functional",
       "file": "20260831210000_rc50_84_modulos_estruturantes_multiesfera.sql",
-      "checksum": "daa1c395e69fd32c0889da47cfc74e87657cc15f74f137ff0069d0a0ab208989",
+      "checksum": "cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.governanca_entidade_hierarquia') is not null and to_regclass('sigov.protocolo_movimentacao') is not null and to_regclass('sigov.financeiro_execucao_orcamentaria') is not null and exists(select 1 from sigov.permissao where chave='ESTRUTURANTES_RELATORIO_EXPORT')"
+      "postConditionSql": "select to_regclass('sigov.governanca_entidade_hierarquia') is not null and to_regclass('sigov.protocolo_movimentacao') is not null and to_regclass('sigov.financeiro_execucao_orcamentaria') is not null and exists(select 1 from sigov.permissao where chave='ESTRUTURANTES_RELATORIO_EXPORT')",
+      "knownChecksums": [
+        "daa1c395e69fd32c0889da47cfc74e87657cc15f74f137ff0069d0a0ab208989"
+      ]
     },
     {
       "version": "20260831230000",
@@ -1738,20 +1777,26 @@
       "description": "RC50.90 Saude360 UBS ACS regulacao farmacia vigilancia e portal cidadao",
       "category": "functional",
       "file": "20260901120000_rc50_90_saude360_ubs_acs_regulacao.sql",
-      "checksum": "1600232d2b536459b9dd9b2c71c18d97adb94edb196023a2c37d97f6b560c213",
+      "checksum": "79994e71582be89f98a632ba41e58a2a28f566d819376896550761dc95b579c0",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.saude_unidade') is not null and to_regclass('sigov.saude_regulacao_solicitacao') is not null and to_regclass('sigov.saude_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='SAUDE_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.saude_unidade') is not null and to_regclass('sigov.saude_regulacao_solicitacao') is not null and to_regclass('sigov.saude_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='SAUDE_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "1600232d2b536459b9dd9b2c71c18d97adb94edb196023a2c37d97f6b560c213"
+      ]
     },
     {
       "version": "20260901150000",
       "description": "RC50.91 Assistencia Social360 SUAS CRAS CREAS beneficios e portal cidadao",
       "category": "functional",
       "file": "20260901150000_rc50_91_assistencia_social360_suas.sql",
-      "checksum": "37cebff36bf75ed6cb0f00d987288486af089ef4f78fe282b375d4cb339b3c6e",
+      "checksum": "b7fae30e648b53ba82ebc71a8f9778ed0f9942d8cf054dc8a1c06a4b80c938c1",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.assistencia_unidade') is not null and to_regclass('sigov.assistencia_acolhimento') is not null and to_regclass('sigov.assistencia_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='ASSISTENCIA_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.assistencia_unidade') is not null and to_regclass('sigov.assistencia_acolhimento') is not null and to_regclass('sigov.assistencia_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='ASSISTENCIA_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "37cebff36bf75ed6cb0f00d987288486af089ef4f78fe282b375d4cb339b3c6e"
+      ]
     },
     {
       "version": "20260901180000",

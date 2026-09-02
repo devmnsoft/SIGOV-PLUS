@@ -21552,7 +21552,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825070000_func13_obras_engenharia_fiscalizacao.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 9cef4d24362ff713397ba5bc61eb718666546e23895956eb8102f087b607556b
+-- CHECKSUM_SHA256: b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111
 -- ==================================================
 -- FUNC13 Obras Públicas, Engenharia, Medições, Diário e Fiscalização
 create schema if not exists sigov;
@@ -21602,9 +21602,9 @@ create index if not exists ix_obras_orcamento_item_contexto on sigov.obras_orcam
 create index if not exists ix_obras_medicao_item_contexto on sigov.obras_medicao_item(tenant_id,entidade_id,is_deleted);
 create index if not exists ix_obras_auditoria_contexto on sigov.obras_auditoria(tenant_id,entidade_id,is_deleted);
 create unique index if not exists ux_obras_integracao_medicao on sigov.obras_integracao_financeira(medicao_id) where medicao_id is not null;
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values ('OBRAS_DASHBOARD_VIEW','Obras: Obras Dashboard View','obras',true,now()),('OBRAS_OBRA_VIEW','Obras: Obras Obra View','obras',true,now()),('OBRAS_OBRA_MANAGE','Obras: Obras Obra Manage','obras',true,now()),('OBRAS_PROJETO_VIEW','Obras: Obras Projeto View','obras',true,now()),('OBRAS_PROJETO_MANAGE','Obras: Obras Projeto Manage','obras',true,now()),('OBRAS_ORCAMENTO_VIEW','Obras: Obras Orcamento View','obras',true,now()),('OBRAS_ORCAMENTO_MANAGE','Obras: Obras Orcamento Manage','obras',true,now()),('OBRAS_CRONOGRAMA_VIEW','Obras: Obras Cronograma View','obras',true,now()),('OBRAS_CRONOGRAMA_MANAGE','Obras: Obras Cronograma Manage','obras',true,now()),('OBRAS_MEDICAO_VIEW','Obras: Obras Medicao View','obras',true,now()),('OBRAS_MEDICAO_MANAGE','Obras: Obras Medicao Manage','obras',true,now()),('OBRAS_MEDICAO_HOMOLOGAR','Obras: Obras Medicao Homologar','obras',true,now()),('OBRAS_DIARIO_VIEW','Obras: Obras Diario View','obras',true,now()),('OBRAS_DIARIO_MANAGE','Obras: Obras Diario Manage','obras',true,now()),('OBRAS_FISCALIZACAO_VIEW','Obras: Obras Fiscalizacao View','obras',true,now()),('OBRAS_FISCALIZACAO_MANAGE','Obras: Obras Fiscalizacao Manage','obras',true,now()),('OBRAS_ORDEM_SERVICO_VIEW','Obras: Obras Ordem Servico View','obras',true,now()),('OBRAS_ORDEM_SERVICO_MANAGE','Obras: Obras Ordem Servico Manage','obras',true,now()),('OBRAS_CONVENIO_VIEW','Obras: Obras Convenio View','obras',true,now()),('OBRAS_CONVENIO_MANAGE','Obras: Obras Convenio Manage','obras',true,now()),('OBRAS_DOCUMENTO_VIEW','Obras: Obras Documento View','obras',true,now()),('OBRAS_DOCUMENTO_MANAGE','Obras: Obras Documento Manage','obras',true,now()),('OBRAS_INTEGRACAO_FINANCEIRA_VIEW','Obras: Obras Integracao Financeira View','obras',true,now()),('OBRAS_INTEGRACAO_FINANCEIRA_MANAGE','Obras: Obras Integracao Financeira Manage','obras',true,now()),('OBRAS_RELATORIO_EXPORT','Obras: Obras Relatorio Export','obras',true,now()),('OBRAS_AUDITORIA_VIEW','Obras: Obras Auditoria View','obras',true,now()) on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values ('OBRAS_DASHBOARD_VIEW','Obras: Obras Dashboard View','obras',true,now()),('OBRAS_OBRA_VIEW','Obras: Obras Obra View','obras',true,now()),('OBRAS_OBRA_MANAGE','Obras: Obras Obra Manage','obras',true,now()),('OBRAS_PROJETO_VIEW','Obras: Obras Projeto View','obras',true,now()),('OBRAS_PROJETO_MANAGE','Obras: Obras Projeto Manage','obras',true,now()),('OBRAS_ORCAMENTO_VIEW','Obras: Obras Orcamento View','obras',true,now()),('OBRAS_ORCAMENTO_MANAGE','Obras: Obras Orcamento Manage','obras',true,now()),('OBRAS_CRONOGRAMA_VIEW','Obras: Obras Cronograma View','obras',true,now()),('OBRAS_CRONOGRAMA_MANAGE','Obras: Obras Cronograma Manage','obras',true,now()),('OBRAS_MEDICAO_VIEW','Obras: Obras Medicao View','obras',true,now()),('OBRAS_MEDICAO_MANAGE','Obras: Obras Medicao Manage','obras',true,now()),('OBRAS_MEDICAO_HOMOLOGAR','Obras: Obras Medicao Homologar','obras',true,now()),('OBRAS_DIARIO_VIEW','Obras: Obras Diario View','obras',true,now()),('OBRAS_DIARIO_MANAGE','Obras: Obras Diario Manage','obras',true,now()),('OBRAS_FISCALIZACAO_VIEW','Obras: Obras Fiscalizacao View','obras',true,now()),('OBRAS_FISCALIZACAO_MANAGE','Obras: Obras Fiscalizacao Manage','obras',true,now()),('OBRAS_ORDEM_SERVICO_VIEW','Obras: Obras Ordem Servico View','obras',true,now()),('OBRAS_ORDEM_SERVICO_MANAGE','Obras: Obras Ordem Servico Manage','obras',true,now()),('OBRAS_CONVENIO_VIEW','Obras: Obras Convenio View','obras',true,now()),('OBRAS_CONVENIO_MANAGE','Obras: Obras Convenio Manage','obras',true,now()),('OBRAS_DOCUMENTO_VIEW','Obras: Obras Documento View','obras',true,now()),('OBRAS_DOCUMENTO_MANAGE','Obras: Obras Documento Manage','obras',true,now()),('OBRAS_INTEGRACAO_FINANCEIRA_VIEW','Obras: Obras Integracao Financeira View','obras',true,now()),('OBRAS_INTEGRACAO_FINANCEIRA_MANAGE','Obras: Obras Integracao Financeira Manage','obras',true,now()),('OBRAS_RELATORIO_EXPORT','Obras: Obras Relatorio Export','obras',true,now()),('OBRAS_AUDITORIA_VIEW','Obras: Obras Auditoria View','obras',true,now()) on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825070000', 'FUNC13 Obras Públicas, Engenharia e Fiscalização', '9cef4d24362ff713397ba5bc61eb718666546e23895956eb8102f087b607556b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825070000', 'FUNC13 Obras Públicas, Engenharia e Fiscalização', 'b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21614,7 +21614,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825080000_func14_meio_ambiente_licenciamento_fiscalizacao.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 664ed3d4f1151fb92f1d6abfd9832ece34353f9302b7b5f5709135859788b2ab
+-- CHECKSUM_SHA256: c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64
 -- ==================================================
 -- FUNC14 - Meio Ambiente. PostgreSQL 16+. Idempotente; executar com psql -v ON_ERROR_STOP=1.
 
@@ -21806,9 +21806,9 @@ create unique index if not exists ux_ambiental_licenca_numero on sigov.ambiental
 
 create unique index if not exists ux_ambiental_auto_numero on sigov.ambiental_auto(tenant_id,entidade_id,numero) where not is_deleted;
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values ('AMBIENTAL_DASHBOARD_VIEW','Meio Ambiente: Ambiental Dashboard View','ambiental',true,now()),('AMBIENTAL_EMPREENDEDOR_VIEW','Meio Ambiente: Ambiental Empreendedor View','ambiental',true,now()),('AMBIENTAL_EMPREENDEDOR_MANAGE','Meio Ambiente: Ambiental Empreendedor Manage','ambiental',true,now()),('AMBIENTAL_EMPREENDIMENTO_VIEW','Meio Ambiente: Ambiental Empreendimento View','ambiental',true,now()),('AMBIENTAL_EMPREENDIMENTO_MANAGE','Meio Ambiente: Ambiental Empreendimento Manage','ambiental',true,now()),('AMBIENTAL_PARAMETRO_VIEW','Meio Ambiente: Ambiental Parametro View','ambiental',true,now()),('AMBIENTAL_PARAMETRO_MANAGE','Meio Ambiente: Ambiental Parametro Manage','ambiental',true,now()),('AMBIENTAL_REQUERIMENTO_VIEW','Meio Ambiente: Ambiental Requerimento View','ambiental',true,now()),('AMBIENTAL_REQUERIMENTO_MANAGE','Meio Ambiente: Ambiental Requerimento Manage','ambiental',true,now()),('AMBIENTAL_DOCUMENTO_VIEW','Meio Ambiente: Ambiental Documento View','ambiental',true,now()),('AMBIENTAL_DOCUMENTO_MANAGE','Meio Ambiente: Ambiental Documento Manage','ambiental',true,now()),('AMBIENTAL_ANALISE_VIEW','Meio Ambiente: Ambiental Analise View','ambiental',true,now()),('AMBIENTAL_ANALISE_MANAGE','Meio Ambiente: Ambiental Analise Manage','ambiental',true,now()),('AMBIENTAL_LICENCA_VIEW','Meio Ambiente: Ambiental Licenca View','ambiental',true,now()),('AMBIENTAL_LICENCA_MANAGE','Meio Ambiente: Ambiental Licenca Manage','ambiental',true,now()),('AMBIENTAL_CONDICIONANTE_VIEW','Meio Ambiente: Ambiental Condicionante View','ambiental',true,now()),('AMBIENTAL_CONDICIONANTE_MANAGE','Meio Ambiente: Ambiental Condicionante Manage','ambiental',true,now()),('AMBIENTAL_VISTORIA_VIEW','Meio Ambiente: Ambiental Vistoria View','ambiental',true,now()),('AMBIENTAL_VISTORIA_MANAGE','Meio Ambiente: Ambiental Vistoria Manage','ambiental',true,now()),('AMBIENTAL_DENUNCIA_VIEW','Meio Ambiente: Ambiental Denuncia View','ambiental',true,now()),('AMBIENTAL_DENUNCIA_MANAGE','Meio Ambiente: Ambiental Denuncia Manage','ambiental',true,now()),('AMBIENTAL_AUTO_VIEW','Meio Ambiente: Ambiental Auto View','ambiental',true,now()),('AMBIENTAL_AUTO_MANAGE','Meio Ambiente: Ambiental Auto Manage','ambiental',true,now()),('AMBIENTAL_TAXA_VIEW','Meio Ambiente: Ambiental Taxa View','ambiental',true,now()),('AMBIENTAL_TAXA_MANAGE','Meio Ambiente: Ambiental Taxa Manage','ambiental',true,now()),('AMBIENTAL_RELATORIO_EXPORT','Meio Ambiente: Ambiental Relatorio Export','ambiental',true,now()),('AMBIENTAL_AUDITORIA_VIEW','Meio Ambiente: Ambiental Auditoria View','ambiental',true,now()) on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values ('AMBIENTAL_DASHBOARD_VIEW','Meio Ambiente: Ambiental Dashboard View','ambiental',true,now()),('AMBIENTAL_EMPREENDEDOR_VIEW','Meio Ambiente: Ambiental Empreendedor View','ambiental',true,now()),('AMBIENTAL_EMPREENDEDOR_MANAGE','Meio Ambiente: Ambiental Empreendedor Manage','ambiental',true,now()),('AMBIENTAL_EMPREENDIMENTO_VIEW','Meio Ambiente: Ambiental Empreendimento View','ambiental',true,now()),('AMBIENTAL_EMPREENDIMENTO_MANAGE','Meio Ambiente: Ambiental Empreendimento Manage','ambiental',true,now()),('AMBIENTAL_PARAMETRO_VIEW','Meio Ambiente: Ambiental Parametro View','ambiental',true,now()),('AMBIENTAL_PARAMETRO_MANAGE','Meio Ambiente: Ambiental Parametro Manage','ambiental',true,now()),('AMBIENTAL_REQUERIMENTO_VIEW','Meio Ambiente: Ambiental Requerimento View','ambiental',true,now()),('AMBIENTAL_REQUERIMENTO_MANAGE','Meio Ambiente: Ambiental Requerimento Manage','ambiental',true,now()),('AMBIENTAL_DOCUMENTO_VIEW','Meio Ambiente: Ambiental Documento View','ambiental',true,now()),('AMBIENTAL_DOCUMENTO_MANAGE','Meio Ambiente: Ambiental Documento Manage','ambiental',true,now()),('AMBIENTAL_ANALISE_VIEW','Meio Ambiente: Ambiental Analise View','ambiental',true,now()),('AMBIENTAL_ANALISE_MANAGE','Meio Ambiente: Ambiental Analise Manage','ambiental',true,now()),('AMBIENTAL_LICENCA_VIEW','Meio Ambiente: Ambiental Licenca View','ambiental',true,now()),('AMBIENTAL_LICENCA_MANAGE','Meio Ambiente: Ambiental Licenca Manage','ambiental',true,now()),('AMBIENTAL_CONDICIONANTE_VIEW','Meio Ambiente: Ambiental Condicionante View','ambiental',true,now()),('AMBIENTAL_CONDICIONANTE_MANAGE','Meio Ambiente: Ambiental Condicionante Manage','ambiental',true,now()),('AMBIENTAL_VISTORIA_VIEW','Meio Ambiente: Ambiental Vistoria View','ambiental',true,now()),('AMBIENTAL_VISTORIA_MANAGE','Meio Ambiente: Ambiental Vistoria Manage','ambiental',true,now()),('AMBIENTAL_DENUNCIA_VIEW','Meio Ambiente: Ambiental Denuncia View','ambiental',true,now()),('AMBIENTAL_DENUNCIA_MANAGE','Meio Ambiente: Ambiental Denuncia Manage','ambiental',true,now()),('AMBIENTAL_AUTO_VIEW','Meio Ambiente: Ambiental Auto View','ambiental',true,now()),('AMBIENTAL_AUTO_MANAGE','Meio Ambiente: Ambiental Auto Manage','ambiental',true,now()),('AMBIENTAL_TAXA_VIEW','Meio Ambiente: Ambiental Taxa View','ambiental',true,now()),('AMBIENTAL_TAXA_MANAGE','Meio Ambiente: Ambiental Taxa Manage','ambiental',true,now()),('AMBIENTAL_RELATORIO_EXPORT','Meio Ambiente: Ambiental Relatorio Export','ambiental',true,now()),('AMBIENTAL_AUDITORIA_VIEW','Meio Ambiente: Ambiental Auditoria View','ambiental',true,now()) on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825080000', 'FUNC14 Meio Ambiente, Licenciamento e Fiscalização', '664ed3d4f1151fb92f1d6abfd9832ece34353f9302b7b5f5709135859788b2ab', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825080000', 'FUNC14 Meio Ambiente, Licenciamento e Fiscalização', 'c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21818,7 +21818,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825090000_func15_ouvidoria_atendimento_esic.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: dc9993f706641fd0d538e2a92bc0de0c3fb0e1ff8ff776e5f0ca268752db1b93
+-- CHECKSUM_SHA256: f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364
 -- ==================================================
 -- FUNC15: Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços
 -- Idempotente; executar com psql -v ON_ERROR_STOP=1.
@@ -21980,10 +21980,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_atendimento_cidadao_documento ON sigov.aten
 CREATE INDEX IF NOT EXISTS ix_atendimento_demanda_prazo ON sigov.atendimento_demanda(tenant_id,entidade_id,prazo) WHERE NOT is_deleted;
 CREATE INDEX IF NOT EXISTS ix_atendimento_agendamento_inicio ON sigov.atendimento_agendamento(tenant_id,entidade_id,inicio) WHERE NOT is_deleted;
 DO $func15$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['ATENDIMENTO_DASHBOARD_VIEW','ATENDIMENTO_CIDADAO_VIEW','ATENDIMENTO_CIDADAO_MANAGE','ATENDIMENTO_SERVICO_VIEW','ATENDIMENTO_SERVICO_MANAGE','ATENDIMENTO_DEMANDA_VIEW','ATENDIMENTO_DEMANDA_MANAGE','OUVIDORIA_MANIFESTACAO_VIEW','OUVIDORIA_MANIFESTACAO_MANAGE','OUVIDORIA_SIGILO_VIEW','ESIC_PEDIDO_VIEW','ESIC_PEDIDO_MANAGE','ATENDIMENTO_ENCAMINHAMENTO_VIEW','ATENDIMENTO_ENCAMINHAMENTO_MANAGE','ATENDIMENTO_AGENDA_VIEW','ATENDIMENTO_AGENDA_MANAGE','ATENDIMENTO_AGENDAMENTO_VIEW','ATENDIMENTO_AGENDAMENTO_MANAGE','ATENDIMENTO_SLA_VIEW','ATENDIMENTO_SLA_MANAGE','ATENDIMENTO_SATISFACAO_VIEW','ATENDIMENTO_BASE_CONHECIMENTO_VIEW','ATENDIMENTO_BASE_CONHECIMENTO_MANAGE','ATENDIMENTO_RELATORIO_EXPORT','ATENDIMENTO_AUDITORIA_VIEW'] LOOP
- INSERT INTO sigov.permissao(chave,nome,descricao,modulo,ativo) VALUES(p,replace(initcap(replace(lower(p),'_',' ')),'Esic','e-SIC'),'Permissão persistida do FUNC15','ATENDIMENTO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='ATENDIMENTO';
+ INSERT INTO sigov.permissao(chave,descricao,modulo,ativo) VALUES(p,replace(initcap(replace(lower(p),'_',' ')),'Esic','e-SIC'),'ATENDIMENTO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='ATENDIMENTO';
  END LOOP; END $func15$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825090000', 'FUNC15 Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços', 'dc9993f706641fd0d538e2a92bc0de0c3fb0e1ff8ff776e5f0ca268752db1b93', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825090000', 'FUNC15 Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços', 'f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21993,7 +21993,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825100000_func16_habitacao_regularizacao_fundiaria.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 6762e4006ed6f3a4240916a3964b911cfc6ea44a3a2b89964d4e285327d14299
+-- CHECKSUM_SHA256: e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82
 -- ==================================================
 CREATE SCHEMA IF NOT EXISTS sigov;
 CREATE TABLE IF NOT EXISTS sigov.habitacao_familia (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(80), descricao text not null, status varchar(40) not null default 'ATIVO', dados jsonb not null default '{}'::jsonb, justificativa text, ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, responsavel_nome varchar(200) not null, cpf varchar(14), nis varchar(20), renda_total numeric(14,2) not null default 0, faixa_renda varchar(40), situacao_habitacional varchar(60), vulnerabilidade varchar(20), vulnerabilidades jsonb not null default '[]', atendimento_cidadao_id bigint, consentimento_lgpd boolean not null default false, observacoes_internas text, constraint ck_habitacao_familia_exclusao check ((not is_deleted and deleted_at is null and deleted_by is null) or (is_deleted and deleted_at is not null)), constraint ck_habitacao_familia_json check(jsonb_typeof(dados)='object'));
@@ -22063,9 +22063,9 @@ CREATE INDEX IF NOT EXISTS ix_habitacao_unidade_habitacional_vinculos ON sigov.h
 CREATE INDEX IF NOT EXISTS ix_habitacao_regularizacao_fundiaria_vinculos ON sigov.habitacao_regularizacao_fundiaria(nucleo_id,lote_id,familia_id) WHERE not is_deleted;
 CREATE INDEX IF NOT EXISTS ix_habitacao_beneficiario_vinculos ON sigov.habitacao_beneficiario(programa_id,familia_id) WHERE not is_deleted;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_habitacao_inscricao_ativa ON sigov.habitacao_inscricao(tenant_id,entidade_id,familia_id,programa_id) WHERE not is_deleted and status not in ('CANCELADA','INABILITADA');
-DO $func16$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['HABITACAO_DASHBOARD_VIEW','HABITACAO_FAMILIA_VIEW','HABITACAO_FAMILIA_MANAGE','HABITACAO_DOMICILIO_VIEW','HABITACAO_DOMICILIO_MANAGE','HABITACAO_PROGRAMA_VIEW','HABITACAO_PROGRAMA_MANAGE','HABITACAO_INSCRICAO_VIEW','HABITACAO_INSCRICAO_MANAGE','HABITACAO_CLASSIFICACAO_VIEW','HABITACAO_CLASSIFICACAO_MANAGE','HABITACAO_VISITA_VIEW','HABITACAO_VISITA_MANAGE','HABITACAO_REGULARIZACAO_VIEW','HABITACAO_REGULARIZACAO_MANAGE','HABITACAO_LOTE_VIEW','HABITACAO_LOTE_MANAGE','HABITACAO_UNIDADE_VIEW','HABITACAO_UNIDADE_MANAGE','HABITACAO_BENEFICIARIO_VIEW','HABITACAO_BENEFICIARIO_MANAGE','HABITACAO_RELATORIO_EXPORT','HABITACAO_AUDITORIA_VIEW'] LOOP INSERT INTO sigov.permissao(chave,nome,descricao,modulo,ativo) VALUES(p,initcap(replace(lower(p),'_',' ')),'Permissão persistida do FUNC16','HABITACAO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='HABITACAO'; END LOOP; END $func16$;
+DO $func16$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['HABITACAO_DASHBOARD_VIEW','HABITACAO_FAMILIA_VIEW','HABITACAO_FAMILIA_MANAGE','HABITACAO_DOMICILIO_VIEW','HABITACAO_DOMICILIO_MANAGE','HABITACAO_PROGRAMA_VIEW','HABITACAO_PROGRAMA_MANAGE','HABITACAO_INSCRICAO_VIEW','HABITACAO_INSCRICAO_MANAGE','HABITACAO_CLASSIFICACAO_VIEW','HABITACAO_CLASSIFICACAO_MANAGE','HABITACAO_VISITA_VIEW','HABITACAO_VISITA_MANAGE','HABITACAO_REGULARIZACAO_VIEW','HABITACAO_REGULARIZACAO_MANAGE','HABITACAO_LOTE_VIEW','HABITACAO_LOTE_MANAGE','HABITACAO_UNIDADE_VIEW','HABITACAO_UNIDADE_MANAGE','HABITACAO_BENEFICIARIO_VIEW','HABITACAO_BENEFICIARIO_MANAGE','HABITACAO_RELATORIO_EXPORT','HABITACAO_AUDITORIA_VIEW'] LOOP INSERT INTO sigov.permissao(chave,descricao,modulo,ativo) VALUES(p,initcap(replace(lower(p),'_',' ')),'HABITACAO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='HABITACAO'; END LOOP; END $func16$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825100000', 'FUNC16 Habitação, Regularização Fundiária e Programas Habitacionais', '6762e4006ed6f3a4240916a3964b911cfc6ea44a3a2b89964d4e285327d14299', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825100000', 'FUNC16 Habitação, Regularização Fundiária e Programas Habitacionais', 'e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22075,7 +22075,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825110000_func17_procuradoria_juridica_contencioso.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 0ae9cfcbc6325920d054a48d2887e4401e2b51de0b9bba4b743309aac64ddc12
+-- CHECKSUM_SHA256: 4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab
 -- ==================================================
 CREATE SCHEMA IF NOT EXISTS sigov;
 CREATE TABLE IF NOT EXISTS sigov.juridico_advogado (id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, codigo varchar(100), descricao text not null, status varchar(40) not null, dados jsonb not null default '{}'::jsonb, justificativa text, ativo boolean not null default true, is_deleted boolean not null default false, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), deleted_at timestamptz, created_by bigint, updated_by bigint, deleted_by bigint, nome varchar(200) not null, oab varchar(30) not null, uf_oab char(2) not null, email varchar(200), telefone varchar(30), area varchar(40), constraint ck_juridico_advogado_exclusao check ((not is_deleted and deleted_at is null) or (is_deleted and deleted_at is not null)), constraint ck_juridico_advogado_json check(jsonb_typeof(dados)='object'), constraint ck_juridico_advogado_regra check(status in ('ATIVO','INATIVO') and (status<>'INATIVO' or nullif(trim(justificativa),'') is not null)));
@@ -22147,9 +22147,9 @@ CREATE INDEX IF NOT EXISTS ix_juridico_obrigacao_acordo_vinculos ON sigov.juridi
 CREATE INDEX IF NOT EXISTS ix_juridico_divida_ativa_judicial_vinculos ON sigov.juridico_divida_ativa_judicial(processo_id,parte_id) WHERE ativo and not is_deleted;
 CREATE INDEX IF NOT EXISTS ix_juridico_custas_vinculos ON sigov.juridico_custas(processo_id,tipo,vencimento) WHERE ativo and not is_deleted;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_juridico_processo_numero ON sigov.juridico_processo(tenant_id,entidade_id,numero_interno) WHERE ativo and not is_deleted;
-DO $func17$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['JURIDICO_DASHBOARD_VIEW','JURIDICO_ADVOGADO_VIEW','JURIDICO_ADVOGADO_MANAGE','JURIDICO_PARTE_VIEW','JURIDICO_PARTE_MANAGE','JURIDICO_PROCESSO_VIEW','JURIDICO_PROCESSO_MANAGE','JURIDICO_MOVIMENTACAO_VIEW','JURIDICO_MOVIMENTACAO_MANAGE','JURIDICO_PRAZO_VIEW','JURIDICO_PRAZO_MANAGE','JURIDICO_INTIMACAO_VIEW','JURIDICO_INTIMACAO_MANAGE','JURIDICO_AUDIENCIA_VIEW','JURIDICO_AUDIENCIA_MANAGE','JURIDICO_PARECER_VIEW','JURIDICO_PARECER_MANAGE','JURIDICO_CONSULTA_VIEW','JURIDICO_CONSULTA_MANAGE','JURIDICO_ACORDO_VIEW','JURIDICO_ACORDO_MANAGE','JURIDICO_DIVIDA_ATIVA_VIEW','JURIDICO_DIVIDA_ATIVA_MANAGE','JURIDICO_RELATORIO_EXPORT','JURIDICO_AUDITORIA_VIEW'] LOOP INSERT INTO sigov.permissao(chave,nome,descricao,modulo,ativo) VALUES(p,initcap(replace(lower(p),'_',' ')),'Permissão persistida do FUNC17','JURIDICO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='JURIDICO'; END LOOP; END $func17$;
+DO $func17$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['JURIDICO_DASHBOARD_VIEW','JURIDICO_ADVOGADO_VIEW','JURIDICO_ADVOGADO_MANAGE','JURIDICO_PARTE_VIEW','JURIDICO_PARTE_MANAGE','JURIDICO_PROCESSO_VIEW','JURIDICO_PROCESSO_MANAGE','JURIDICO_MOVIMENTACAO_VIEW','JURIDICO_MOVIMENTACAO_MANAGE','JURIDICO_PRAZO_VIEW','JURIDICO_PRAZO_MANAGE','JURIDICO_INTIMACAO_VIEW','JURIDICO_INTIMACAO_MANAGE','JURIDICO_AUDIENCIA_VIEW','JURIDICO_AUDIENCIA_MANAGE','JURIDICO_PARECER_VIEW','JURIDICO_PARECER_MANAGE','JURIDICO_CONSULTA_VIEW','JURIDICO_CONSULTA_MANAGE','JURIDICO_ACORDO_VIEW','JURIDICO_ACORDO_MANAGE','JURIDICO_DIVIDA_ATIVA_VIEW','JURIDICO_DIVIDA_ATIVA_MANAGE','JURIDICO_RELATORIO_EXPORT','JURIDICO_AUDITORIA_VIEW'] LOOP INSERT INTO sigov.permissao(chave,descricao,modulo,ativo) VALUES(p,initcap(replace(lower(p),'_',' ')),'JURIDICO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='JURIDICO'; END LOOP; END $func17$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825110000', 'FUNC17 Procuradoria Jurídica, Contencioso e Dívida Ativa Judicial', '0ae9cfcbc6325920d054a48d2887e4401e2b51de0b9bba4b743309aac64ddc12', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825110000', 'FUNC17 Procuradoria Jurídica, Contencioso e Dívida Ativa Judicial', '4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22159,7 +22159,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825120000_func18_transito_mobilidade_fiscalizacao.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: e02f3c53ccb4cde363f5834bec0582bff006bacb2f6cdd9fd59d52e7b30fd4a9
+-- CHECKSUM_SHA256: e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397
 -- ==================================================
 create schema if not exists sigov;
 
@@ -22183,9 +22183,9 @@ create table if not exists sigov.transito_vistoria_transporte (id bigint generat
 create table if not exists sigov.transito_credencial (id bigint generated by default as identity primary key,tenant_id bigint not null,entity_id bigint not null,numero_credencial varchar(50) not null,tipo varchar(50) not null,beneficiario_nome varchar(200) not null,beneficiario_documento varchar(20) not null,data_emissao date not null,data_validade date not null,status varchar(30) not null,justificativa_cancelamento text,observacao text,created_at timestamptz not null default now(),updated_at timestamptz not null default now(),deleted_at timestamptz,unique(tenant_id,entity_id,numero_credencial),check(data_validade>=data_emissao),check(status<>'CANCELADA' or nullif(trim(justificativa_cancelamento),'') is not null));
 create table if not exists sigov.transito_auditoria (id bigint generated by default as identity primary key,tenant_id bigint not null,entity_id bigint not null,tabela varchar(100) not null,registro_id bigint,acao varchar(30) not null,usuario varchar(200) not null,dados_anteriores jsonb,dados_novos jsonb,created_at timestamptz not null default now());
 create index if not exists ix_transito_agente_cpf on sigov.transito_agente(tenant_id,entity_id,cpf); create index if not exists ix_transito_condutor_cpf on sigov.transito_condutor(tenant_id,entity_id,cpf); create index if not exists ix_transito_veiculo_placa on sigov.transito_veiculo(tenant_id,entity_id,placa); create index if not exists ix_transito_veiculo_documento on sigov.transito_veiculo(tenant_id,entity_id,proprietario_documento); create index if not exists ix_transito_notificacao_documento on sigov.transito_notificacao(tenant_id,entity_id,destinatario_documento); create index if not exists ix_transito_recurso_documento on sigov.transito_recurso(tenant_id,entity_id,requerente_documento); create index if not exists ix_transito_autorizacao_documento on sigov.transito_autorizacao_transporte(tenant_id,entity_id,titular_documento); create index if not exists ix_transito_credencial_documento on sigov.transito_credencial(tenant_id,entity_id,beneficiario_documento);
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) select p,'Trânsito: '||replace(p,'_',' '),'transito',true,now() from unnest(array['TRANSITO_DASHBOARD_VIEW','TRANSITO_AGENTE_VIEW','TRANSITO_AGENTE_MANAGE','TRANSITO_CONDUTOR_VIEW','TRANSITO_CONDUTOR_MANAGE','TRANSITO_VEICULO_VIEW','TRANSITO_VEICULO_MANAGE','TRANSITO_INFRACAO_VIEW','TRANSITO_INFRACAO_MANAGE','TRANSITO_AUTO_VIEW','TRANSITO_AUTO_MANAGE','TRANSITO_NOTIFICACAO_VIEW','TRANSITO_NOTIFICACAO_MANAGE','TRANSITO_RECURSO_VIEW','TRANSITO_RECURSO_MANAGE','TRANSITO_OCORRENCIA_VIEW','TRANSITO_OCORRENCIA_MANAGE','TRANSITO_SINALIZACAO_VIEW','TRANSITO_SINALIZACAO_MANAGE','TRANSITO_INTERVENCAO_VIEW','TRANSITO_INTERVENCAO_MANAGE','TRANSITO_TRANSPORTE_VIEW','TRANSITO_TRANSPORTE_MANAGE','TRANSITO_VISTORIA_VIEW','TRANSITO_VISTORIA_MANAGE','TRANSITO_CREDENCIAL_VIEW','TRANSITO_CREDENCIAL_MANAGE','TRANSITO_RELATORIO_EXPORT','TRANSITO_AUDITORIA_VIEW']) p on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) select p,'Trânsito: '||replace(p,'_',' '),'transito',true,now() from unnest(array['TRANSITO_DASHBOARD_VIEW','TRANSITO_AGENTE_VIEW','TRANSITO_AGENTE_MANAGE','TRANSITO_CONDUTOR_VIEW','TRANSITO_CONDUTOR_MANAGE','TRANSITO_VEICULO_VIEW','TRANSITO_VEICULO_MANAGE','TRANSITO_INFRACAO_VIEW','TRANSITO_INFRACAO_MANAGE','TRANSITO_AUTO_VIEW','TRANSITO_AUTO_MANAGE','TRANSITO_NOTIFICACAO_VIEW','TRANSITO_NOTIFICACAO_MANAGE','TRANSITO_RECURSO_VIEW','TRANSITO_RECURSO_MANAGE','TRANSITO_OCORRENCIA_VIEW','TRANSITO_OCORRENCIA_MANAGE','TRANSITO_SINALIZACAO_VIEW','TRANSITO_SINALIZACAO_MANAGE','TRANSITO_INTERVENCAO_VIEW','TRANSITO_INTERVENCAO_MANAGE','TRANSITO_TRANSPORTE_VIEW','TRANSITO_TRANSPORTE_MANAGE','TRANSITO_VISTORIA_VIEW','TRANSITO_VISTORIA_MANAGE','TRANSITO_CREDENCIAL_VIEW','TRANSITO_CREDENCIAL_MANAGE','TRANSITO_RELATORIO_EXPORT','TRANSITO_AUDITORIA_VIEW']) p on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825120000', 'FUNC18 Trânsito, Mobilidade Urbana e Fiscalização de Transporte', 'e02f3c53ccb4cde363f5834bec0582bff006bacb2f6cdd9fd59d52e7b30fd4a9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825120000', 'FUNC18 Trânsito, Mobilidade Urbana e Fiscalização de Transporte', 'e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22233,7 +22233,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260825130000_func19_defesa_civil_guarda_municipal.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 703f387d0dc86235913f370d67ec41b058503242724e4b83b9533137fc0bf154
+-- CHECKSUM_SHA256: 22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1
 -- ==================================================
 -- FUNC19 - Defesa Civil, Guarda Municipal e Seguranca Publica Municipal
 create schema if not exists sigov;
@@ -22258,12 +22258,12 @@ create index if not exists ix_defesa_ocorrencia_contexto on sigov.defesa_ocorren
 create index if not exists ix_defesa_acionamento_contexto on sigov.defesa_acionamento(tenant_id,entity_id,status) where deleted_at is null;
 create index if not exists ix_defesa_auditoria_contexto on sigov.defesa_auditoria(tenant_id,entity_id,created_at desc);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select p.chave,p.nome,'defesa',true,now() from(values
 ('DEFESA_DASHBOARD_VIEW','Visualizar dashboard de Defesa'),('DEFESA_AGENTE_VIEW','Visualizar agentes'),('DEFESA_AGENTE_MANAGE','Gerenciar agentes'),('DEFESA_EQUIPE_VIEW','Visualizar equipes'),('DEFESA_EQUIPE_MANAGE','Gerenciar equipes'),('DEFESA_RECURSO_VIEW','Visualizar recursos'),('DEFESA_RECURSO_MANAGE','Gerenciar recursos'),('DEFESA_AREA_RISCO_VIEW','Visualizar areas de risco'),('DEFESA_AREA_RISCO_MANAGE','Gerenciar areas de risco'),('DEFESA_OCORRENCIA_VIEW','Visualizar ocorrencias'),('DEFESA_OCORRENCIA_MANAGE','Gerenciar ocorrencias'),('DEFESA_ACIONAMENTO_VIEW','Visualizar acionamentos'),('DEFESA_ACIONAMENTO_MANAGE','Gerenciar acionamentos'),('DEFESA_VISTORIA_VIEW','Visualizar vistorias'),('DEFESA_VISTORIA_MANAGE','Gerenciar vistorias'),('DEFESA_ABRIGO_VIEW','Visualizar abrigos'),('DEFESA_ABRIGO_MANAGE','Gerenciar abrigos'),('DEFESA_ATENDIMENTO_VIEW','Visualizar atendimentos'),('DEFESA_ATENDIMENTO_MANAGE','Gerenciar atendimentos'),('DEFESA_RONDA_VIEW','Visualizar rondas'),('DEFESA_RONDA_MANAGE','Gerenciar rondas'),('DEFESA_OS_VIEW','Visualizar ordens de servico'),('DEFESA_OS_MANAGE','Gerenciar ordens de servico'),('DEFESA_NOTIFICACAO_VIEW','Visualizar notificacoes'),('DEFESA_NOTIFICACAO_MANAGE','Gerenciar notificacoes'),('DEFESA_PLANO_VIEW','Visualizar planos'),('DEFESA_PLANO_MANAGE','Gerenciar planos'),('DEFESA_RELATORIO_EXPORT','Exportar relatorios de Defesa'),('DEFESA_AUDITORIA_VIEW','Visualizar auditoria de Defesa'))p(chave,nome)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825130000', 'FUNC19 Defesa Civil, Guarda Municipal e Segurança Pública Municipal', '703f387d0dc86235913f370d67ec41b058503242724e4b83b9533137fc0bf154', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825130000', 'FUNC19 Defesa Civil, Guarda Municipal e Segurança Pública Municipal', '22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22323,7 +22323,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260826100000_func20_convenios_emendas_prestacao_contas.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 24f0fc52151b555f7ca1b691b56f5ac64b73716d44a4f06761e8b67296629ec8
+-- CHECKSUM_SHA256: 1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d
 -- ==================================================
 create schema if not exists sigov;
 
@@ -22350,12 +22350,12 @@ create index if not exists ix_convenio_despesa_contexto on sigov.convenio_despes
 create index if not exists ix_convenio_diligencia_contexto on sigov.convenio_diligencia(tenant_id,entity_id,prazo_resposta,status) where deleted_at is null;
 create index if not exists ix_convenio_auditoria_contexto on sigov.convenio_auditoria(tenant_id,entity_id,created_at desc);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select p.chave,p.nome,'convenios',true,now() from(values
 ('CONVENIO_DASHBOARD_VIEW','Visualizar dashboard de convênios'),('CONVENIO_ORGAO_VIEW','Visualizar órgãos concedentes'),('CONVENIO_ORGAO_MANAGE','Gerenciar órgãos concedentes'),('CONVENIO_PROGRAMA_VIEW','Visualizar programas'),('CONVENIO_PROGRAMA_MANAGE','Gerenciar programas'),('CONVENIO_EMENDA_VIEW','Visualizar emendas'),('CONVENIO_EMENDA_MANAGE','Gerenciar emendas'),('CONVENIO_INSTRUMENTO_VIEW','Visualizar instrumentos'),('CONVENIO_INSTRUMENTO_MANAGE','Gerenciar instrumentos'),('CONVENIO_PROJETO_VIEW','Visualizar projetos'),('CONVENIO_PROJETO_MANAGE','Gerenciar projetos'),('CONVENIO_META_VIEW','Visualizar metas'),('CONVENIO_META_MANAGE','Gerenciar metas'),('CONVENIO_ETAPA_VIEW','Visualizar etapas'),('CONVENIO_ETAPA_MANAGE','Gerenciar etapas'),('CONVENIO_FINANCEIRO_VIEW','Visualizar financeiro de convênios'),('CONVENIO_FINANCEIRO_MANAGE','Gerenciar financeiro de convênios'),('CONVENIO_PRESTACAO_VIEW','Visualizar prestações de contas'),('CONVENIO_PRESTACAO_MANAGE','Gerenciar prestações de contas'),('CONVENIO_DILIGENCIA_VIEW','Visualizar diligências'),('CONVENIO_DILIGENCIA_MANAGE','Gerenciar diligências'),('CONVENIO_RELATORIO_EXPORT','Exportar relatórios de convênios'),('CONVENIO_AUDITORIA_VIEW','Visualizar auditoria de convênios'))p(chave,nome)
 where not exists(select 1 from sigov.permissao x where x.chave=p.chave);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826100000', 'FUNC20 Convênios, Emendas Parlamentares, Projetos e Prestação de Contas', '24f0fc52151b555f7ca1b691b56f5ac64b73716d44a4f06761e8b67296629ec8', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826100000', 'FUNC20 Convênios, Emendas Parlamentares, Projetos e Prestação de Contas', '1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22698,7 +22698,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260826150000_exp_fiscaliza360_transversal.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4
+-- CHECKSUM_SHA256: a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967
 -- ==================================================
 -- EXP-FISCALIZA360: núcleo transversal de fiscalização e campo.
 create schema if not exists sigov;
@@ -22782,16 +22782,16 @@ create index if not exists ix_fv_contexto_data on sigov.fiscalizacao_vistoria(te
 create index if not exists ix_fan_contexto_status on sigov.fiscalizacao_auto_notificacao(tenant_id,entidade_id,status,emitido_em desc);
 create index if not exists ix_fa_registro on sigov.fiscalizacao_auditoria(tenant_id,entidade_id,tabela,registro_id,created_at desc);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values
  ('FISCALIZACAO_DASHBOARD_VIEW','Visualizar dashboard Fiscaliza360','fiscalizacao',true,now()),('FISCALIZACAO_ORDEM_VIEW','Visualizar ordens de fiscalização','fiscalizacao',true,now()),
  ('FISCALIZACAO_ORDEM_MANAGE','Gerenciar ordens de fiscalização','fiscalizacao',true,now()),('FISCALIZACAO_VISTORIA_VIEW','Visualizar vistorias','fiscalizacao',true,now()),
  ('FISCALIZACAO_VISTORIA_MANAGE','Gerenciar vistorias','fiscalizacao',true,now()),('FISCALIZACAO_CHECKLIST_MANAGE','Gerenciar checklists','fiscalizacao',true,now()),
  ('FISCALIZACAO_AUTO_MANAGE','Emitir autos e notificações','fiscalizacao',true,now()),('FISCALIZACAO_RELATORIO_EXPORT','Exportar relatórios de fiscalização','fiscalizacao',true,now()),
- ('FISCALIZACAO_SINCRONIZACAO_VIEW','Visualizar sincronização de campo','fiscalizacao',true,now()) on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+ ('FISCALIZACAO_SINCRONIZACAO_VIEW','Visualizar sincronização de campo','fiscalizacao',true,now()) on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
 comment on table sigov.fiscalizacao_sincronizacao_item is 'Controle local da outbox; o processamento externo permanece BLOCKED até existir adaptador/worker oficial.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826150000', 'EXP-FISCALIZA360 núcleo transversal de fiscalização e campo', 'aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826150000', 'EXP-FISCALIZA360 núcleo transversal de fiscalização e campo', 'a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22801,7 +22801,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260826160000_exp13_obras360_func13.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: c269ca4a5e5fc9836f52f9552e7b80342679117d304eee3538117787c7624dc1
+-- CHECKSUM_SHA256: 1dae1d0fbff3a7129faa68d47d9260387ca9d96b315d33a453142f8e4b3c114d
 -- ==================================================
 -- EXP13 Obras360: fechamento operacional do FUNC13
 create schema if not exists sigov;
@@ -22840,11 +22840,11 @@ create index if not exists ix_obra_diario_contexto_data on sigov.obras_diario(te
 create index if not exists ix_obra_nc_contexto_prazo on sigov.obras_nao_conformidade(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo);
 create index if not exists ix_obra_transp_contexto on sigov.obras_transparencia_publicacao(tenant_id,entidade_id,exercicio_id,obra_id,status,data_publicacao);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values
 ('OBRAS_MEDICAO_APPROVE','Obras360: aprovar medição','obras',true,now()),('OBRAS_ADITIVO_MANAGE','Obras360: gerir aditivos e equilíbrio','obras',true,now()),('OBRAS_OCORRENCIA_MANAGE','Obras360: gerir ocorrências','obras',true,now()),('OBRAS_NAO_CONFORMIDADE_MANAGE','Obras360: gerir não conformidades','obras',true,now()),('OBRAS_TRANSPARENCIA_VIEW','Obras360: consultar transparência','obras',true,now())
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826160000', 'EXP13 Obras360 operacional no FUNC13', 'c269ca4a5e5fc9836f52f9552e7b80342679117d304eee3538117787c7624dc1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826160000', 'EXP13 Obras360 operacional no FUNC13', '1dae1d0fbff3a7129faa68d47d9260387ca9d96b315d33a453142f8e4b3c114d', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22897,7 +22897,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260826180000_exp19_defesacivil360_func19.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa
+-- CHECKSUM_SHA256: f98bf85a739f3d01c653be3e8b1a4f92be0c66dd2b8838ffa662e6f1045b5af6
 -- ==================================================
 -- EXP19 DefesaCivil360: expansão operacional do FUNC19
 create schema if not exists sigov;
@@ -22932,11 +22932,11 @@ create index if not exists ix_dc_ocupacao_contexto on sigov.defesa_civil_abrigo_
 create index if not exists ix_dc_alerta_contexto on sigov.defesa_civil_alerta(tenant_id,entidade_id,exercicio_id,area_risco_id,status,severidade,valido_ate);
 create index if not exists ix_dc_estoque_contexto on sigov.defesa_civil_estoque(tenant_id,entidade_id,exercicio_id,abrigo_id,status);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at) values
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values
 ('DEFESA_CIVIL_DASHBOARD_VIEW','DefesaCivil360: visualizar dashboard','defesa',true,now()),('DEFESA_CIVIL_RISCO_VIEW','DefesaCivil360: visualizar riscos','defesa',true,now()),('DEFESA_CIVIL_RISCO_MANAGE','DefesaCivil360: gerenciar riscos','defesa',true,now()),('DEFESA_CIVIL_PLANO_VIEW','DefesaCivil360: visualizar planos','defesa',true,now()),('DEFESA_CIVIL_PLANO_MANAGE','DefesaCivil360: gerenciar planos','defesa',true,now()),('DEFESA_CIVIL_OCORRENCIA_VIEW','DefesaCivil360: visualizar ocorrências','defesa',true,now()),('DEFESA_CIVIL_OCORRENCIA_MANAGE','DefesaCivil360: gerenciar ocorrências','defesa',true,now()),('DEFESA_CIVIL_RESPOSTA_MANAGE','DefesaCivil360: gerenciar resposta','defesa',true,now()),('DEFESA_CIVIL_ABRIGO_VIEW','DefesaCivil360: visualizar abrigos','defesa',true,now()),('DEFESA_CIVIL_ABRIGO_MANAGE','DefesaCivil360: gerenciar abrigos','defesa',true,now()),('DEFESA_CIVIL_DADO_SENSIVEL_VIEW','DefesaCivil360: visualizar dados sensíveis','defesa',true,now()),('DEFESA_CIVIL_DADO_SENSIVEL_EXPORT','DefesaCivil360: exportar dados sensíveis','defesa',true,now()),('DEFESA_CIVIL_RECURSO_MANAGE','DefesaCivil360: gerenciar recursos','defesa',true,now()),('DEFESA_CIVIL_ESTOQUE_MANAGE','DefesaCivil360: gerenciar estoque','defesa',true,now()),('DEFESA_CIVIL_ALERTA_MANAGE','DefesaCivil360: gerenciar alertas','defesa',true,now()),('DEFESA_CIVIL_ALERTA_PUBLISH','DefesaCivil360: publicar alertas','defesa',true,now()),('DEFESA_CIVIL_RELATORIO_EXPORT','DefesaCivil360: exportar relatórios','defesa',true,now())
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826180000', 'EXP19 DefesaCivil360 operacional no FUNC19', 'b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826180000', 'EXP19 DefesaCivil360 operacional no FUNC19', 'f98bf85a739f3d01c653be3e8b1a4f92be0c66dd2b8838ffa662e6f1045b5af6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23152,7 +23152,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260827120000_exp06_juridico360_integrado.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: e42939d4aa152afc85ac9298afeae84e4158189fddec1c5a363ad8ed3eeab0e6
+-- CHECKSUM_SHA256: 8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c
 -- ==================================================
 create schema if not exists sigov;
 alter table sigov.juridico_processo add column if not exists fase varchar(30) not null default 'INICIAL', add column if not exists grau varchar(20) not null default 'PRIMEIRO', add column if not exists risco varchar(20) not null default 'NAO_AVALIADO', add column if not exists sigiloso boolean not null default false, add column if not exists valor_atualizado numeric(18,2) not null default 0, add column if not exists processo_digital_id bigint, add column if not exists resultado text, add column if not exists encerrado_em timestamptz;
@@ -23178,9 +23178,9 @@ create index if not exists ix_j360_audiencia_busca on sigov.juridico_audiencia(t
 create index if not exists ix_j360_execucao_fiscal_busca on sigov.juridico_execucao_fiscal(tenant_id,entidade_id,processo_id,situacao,devedor_pessoa_id) where ativo and not is_deleted;
 create index if not exists ix_j360_precatorio_rpv_busca on sigov.juridico_precatorio_rpv(tenant_id,entidade_id,processo_id,status,exercicio_id) where ativo and not is_deleted;
 create index if not exists ix_j360_publicacao_busca on sigov.juridico_publicacao(tenant_id,entidade_id,processo_id,status,publicada_em) where ativo and not is_deleted;
-insert into sigov.permissao(chave,nome,descricao,modulo,ativo) select p,initcap(replace(lower(p),'_',' ')),'Permissão persistida Jurídico360','JURIDICO',true from unnest(array['JURIDICO_DASHBOARD_VIEW','JURIDICO_PROCESSO_VIEW','JURIDICO_PROCESSO_MANAGE','JURIDICO_PROCESSO_SIGILOSO_VIEW','JURIDICO_EXECUCAO_FISCAL_VIEW','JURIDICO_EXECUCAO_FISCAL_MANAGE','JURIDICO_CDA_AJUIZAR','JURIDICO_PRAZO_VIEW','JURIDICO_PRAZO_MANAGE','JURIDICO_AUDIENCIA_MANAGE','JURIDICO_PARECER_VIEW','JURIDICO_PARECER_MANAGE','JURIDICO_PARECER_REVIEW','JURIDICO_PARECER_SIGN','JURIDICO_DOCUMENTO_MANAGE','JURIDICO_ACORDO_VIEW','JURIDICO_ACORDO_MANAGE','JURIDICO_ACORDO_DESCONTO','JURIDICO_PRECATORIO_VIEW','JURIDICO_PRECATORIO_MANAGE','JURIDICO_PUBLICACAO_MANAGE','JURIDICO_RELATORIO_EXPORT','JURIDICO_DADO_SENSIVEL_VIEW','JURIDICO_DADO_SENSIVEL_EXPORT']) p on conflict(chave) do update set ativo=true,modulo='JURIDICO';
+insert into sigov.permissao(chave,descricao,modulo,ativo) select p,initcap(replace(lower(p),'_',' ')),'JURIDICO',true from unnest(array['JURIDICO_DASHBOARD_VIEW','JURIDICO_PROCESSO_VIEW','JURIDICO_PROCESSO_MANAGE','JURIDICO_PROCESSO_SIGILOSO_VIEW','JURIDICO_EXECUCAO_FISCAL_VIEW','JURIDICO_EXECUCAO_FISCAL_MANAGE','JURIDICO_CDA_AJUIZAR','JURIDICO_PRAZO_VIEW','JURIDICO_PRAZO_MANAGE','JURIDICO_AUDIENCIA_MANAGE','JURIDICO_PARECER_VIEW','JURIDICO_PARECER_MANAGE','JURIDICO_PARECER_REVIEW','JURIDICO_PARECER_SIGN','JURIDICO_DOCUMENTO_MANAGE','JURIDICO_ACORDO_VIEW','JURIDICO_ACORDO_MANAGE','JURIDICO_ACORDO_DESCONTO','JURIDICO_PRECATORIO_VIEW','JURIDICO_PRECATORIO_MANAGE','JURIDICO_PUBLICACAO_MANAGE','JURIDICO_RELATORIO_EXPORT','JURIDICO_DADO_SENSIVEL_VIEW','JURIDICO_DADO_SENSIVEL_EXPORT']) p on conflict(chave) do update set ativo=true,modulo='JURIDICO';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827120000', 'EXP06 Jurídico360: procuradoria, dívida ativa judicial, prazos e consultivo', 'e42939d4aa152afc85ac9298afeae84e4158189fddec1c5a363ad8ed3eeab0e6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827120000', 'EXP06 Jurídico360: procuradoria, dívida ativa judicial, prazos e consultivo', '8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23239,7 +23239,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260828100000_exp23_energia360.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: a6f8df8a73dd6a0636d416dfa26e9792b9822fd88dda25e5d7754211bbb5cb74
+-- CHECKSUM_SHA256: f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e
 -- ==================================================
 -- EXP23 Energia360 - PostgreSQL 16+, idempotente e não destrutivo
 create schema if not exists sigov;
@@ -23295,11 +23295,11 @@ alter table sigov.energia_integracao_carbono add column if not exists emissoes_e
 alter table sigov.energia_integracao_carbono add column if not exists fator_carbono_id bigint;
 
 -- Catálogo é autoridade no banco; nenhuma permissão é simulada na aplicação.
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select p,'Energia360: '||replace(p,'_',' '),'energia',true,now() from unnest(array['ENERGIA_DASHBOARD_VIEW','ENERGIA_UNIDADE_VIEW','ENERGIA_UNIDADE_MANAGE','ENERGIA_MEDIDOR_MANAGE','ENERGIA_LEITURA_MANAGE','ENERGIA_FATURA_VIEW','ENERGIA_FATURA_MANAGE','ENERGIA_FATURA_CONFERIR','ENERGIA_CONTRATO_VIEW','ENERGIA_CONTRATO_MANAGE','ENERGIA_DEMANDA_VIEW','ENERGIA_ILUMINACAO_VIEW','ENERGIA_ILUMINACAO_MANAGE','ENERGIA_GERACAO_VIEW','ENERGIA_GERACAO_MANAGE','ENERGIA_CREDITO_MANAGE','ENERGIA_EFICIENCIA_MANAGE','ENERGIA_ALERTA_VIEW','ENERGIA_ALERTA_MANAGE','ENERGIA_RELATORIO_EXPORT']) p
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828100000', 'EXP23 Energia360 consumo, iluminação, geração e eficiência', 'a6f8df8a73dd6a0636d416dfa26e9792b9822fd88dda25e5d7754211bbb5cb74', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828100000', 'EXP23 Energia360 consumo, iluminação, geração e eficiência', 'f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24121,366 +24121,10 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
--- MIGRATION: 20260901090000_rc50_89_patrimonio_almoxarifado_frotas.sql
+-- MIGRATION: 20260829180000_rc50_81_homologacao_enterprise.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9
+-- CHECKSUM_SHA256: db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf
 -- ==================================================
--- RC50.89 - Patrimonio360, estoque publico, frotas e manutencao multi-esfera.
--- Corretiva aditiva e reexecutavel; preserva os cadastros legados FUNC01/FUNC02/FUNC04.
-create schema if not exists sigov;
-
-create table if not exists sigov.patrimonio_depreciacao (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
- exercicio_id bigint, esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
- bem_id bigint not null, competencia date not null, metodo varchar(24) not null, vida_util_meses integer not null,
- valor_base numeric(18,2) not null, valor_depreciado numeric(18,2) not null, depreciacao_acumulada numeric(18,2) not null,
- valor_liquido numeric(18,2) not null, created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_dep_esfera check(esfera_governo in ('municipal','estadual','federal')),
- constraint ck_rc5089_dep_valores check(vida_util_meses > 0 and valor_base >= 0 and valor_depreciado >= 0 and depreciacao_acumulada >= 0 and valor_liquido >= 0 and valor_liquido <= valor_base),
- constraint ux_rc5089_dep unique(tenant_id, entidade_id, bem_id, competencia));
-
-create table if not exists sigov.patrimonio_imovel (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
- esfera_governo varchar(10) not null, tipo_entidade varchar(80) not null, orgao_superior_id bigint, orgao_id bigint,
- unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa text, abrangencia_territorial varchar(120),
- uf char(2), municipio varchar(120), regiao_jurisdicao varchar(160), tipo varchar(40) not null, endereco text not null,
- inscricao varchar(100), matricula varchar(100), cartorio varchar(160), area_m2 numeric(18,4) not null, uso varchar(160) not null,
- unidade_responsavel_id bigint not null, origem varchar(40) not null, fundamento text not null, obra_id bigint, status varchar(24) not null default 'ATIVO',
- created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_imovel_esfera check(esfera_governo in ('municipal','estadual','federal')),
- constraint ck_rc5089_imovel_area check(area_m2 > 0), constraint ck_rc5089_imovel_status check(status in ('ATIVO','CEDIDO','ALUGADO','DESOCUPADO','EM_OBRA','BAIXADO')));
-
-create table if not exists sigov.patrimonio_imovel_ocupacao (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
- imovel_id bigint not null references sigov.patrimonio_imovel(id), orgao_id bigint, unidade_ocupante_id bigint not null,
- finalidade text not null, responsavel_id bigint not null, data_inicial date not null, data_final date,
- created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_ocupacao_datas check(data_final is null or data_final >= data_inicial));
-
-create table if not exists sigov.almoxarifado_transferencia (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
- esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
- almoxarifado_origem_id bigint not null, almoxarifado_destino_id bigint not null, status varchar(20) not null default 'PENDENTE',
- justificativa text not null, conferido_por bigint, conferido_em timestamptz, created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_transf_esfera check(esfera_governo in ('municipal','estadual','federal')),
- constraint ck_rc5089_transf_destino check(almoxarifado_origem_id <> almoxarifado_destino_id),
- constraint ck_rc5089_transf_status check(status in ('PENDENTE','EM_TRANSITO','CONFERIDA','CANCELADA')));
-create table if not exists sigov.almoxarifado_transferencia_item (
- id bigint generated by default as identity primary key, tenant_id bigint not null,
- transferencia_id bigint not null references sigov.almoxarifado_transferencia(id), item_id bigint not null,
- quantidade numeric(18,4) not null, quantidade_conferida numeric(18,4), lote varchar(100), validade date,
- constraint ck_rc5089_transf_item_qtd check(quantidade > 0 and (quantidade_conferida is null or quantidade_conferida >= 0)));
-
-create table if not exists sigov.frota_multa (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
- esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
- veiculo_id bigint not null, motorista_id bigint, auto_infracao varchar(100) not null, ocorrido_em timestamptz not null,
- descricao text not null, valor numeric(18,2) not null, pontos integer, status varchar(20) not null default 'PENDENTE', created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_multa_esfera check(esfera_governo in ('municipal','estadual','federal')),
- constraint ck_rc5089_multa_valor check(valor >= 0 and (pontos is null or pontos between 0 and 99)));
-create table if not exists sigov.frota_documento (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, veiculo_id bigint not null,
- tipo varchar(40) not null, referencia_documental varchar(160) not null, emitido_em date, vence_em date, status varchar(20) not null default 'VIGENTE',
- created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_documento_datas check(vence_em is null or emitido_em is null or vence_em >= emitido_em));
-
-create table if not exists sigov.manutencao_ordem_servico (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
- esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
- alvo_tipo varchar(24) not null, alvo_id bigint not null, solicitante_id bigint not null, unidade_id bigint not null,
- prioridade varchar(16) not null, descricao text not null, categoria varchar(80) not null, status varchar(24) not null default 'ABERTA', responsavel_id bigint,
- justificativa text, servico_realizado text, concluida_em timestamptz, evidencia_documental_id bigint,
- created_at timestamptz not null default now(), created_by bigint, updated_at timestamptz,
- constraint ck_rc5089_os_esfera check(esfera_governo in ('municipal','estadual','federal')),
- constraint ck_rc5089_os_alvo check(alvo_tipo in ('BEM','VEICULO','IMOVEL','EQUIPAMENTO','UNIDADE')),
- constraint ck_rc5089_os_status check(status in ('ABERTA','TRIADA','APROVADA','EM_EXECUCAO','AGUARDANDO_PECA','CONCLUIDA','RECUSADA','CANCELADA')),
- constraint ck_rc5089_os_fechamento check((status not in ('RECUSADA','CANCELADA') or nullif(trim(justificativa),'') is not null) and (status <> 'CONCLUIDA' or (nullif(trim(servico_realizado),'') is not null and concluida_em is not null and responsavel_id is not null))));
-create table if not exists sigov.manutencao_ordem_item (
- id bigint generated by default as identity primary key, tenant_id bigint not null, ordem_servico_id bigint not null references sigov.manutencao_ordem_servico(id),
- item_id bigint, descricao varchar(240) not null, quantidade numeric(18,4) not null, valor_unitario numeric(18,2),
- constraint ck_rc5089_os_item check(quantidade > 0 and (valor_unitario is null or valor_unitario >= 0)));
-create table if not exists sigov.manutencao_preventiva_agenda (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, ordem_servico_id bigint references sigov.manutencao_ordem_servico(id),
- alvo_tipo varchar(24) not null, alvo_id bigint not null, periodicidade_dias integer not null, proxima_execucao date not null, ativa boolean not null default true,
- created_at timestamptz not null default now(), created_by bigint, constraint ck_rc5089_preventiva_periodo check(periodicidade_dias > 0));
-
-create table if not exists sigov.patrimonio_integracao_contabil (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
- bem_id bigint not null, tipo varchar(24) not null, empenho_id bigint, liquidacao_id bigint, pagamento_id bigint,
- referencia_contabil varchar(160), valor numeric(18,2) not null, contabilizado_em timestamptz, created_at timestamptz not null default now(), created_by bigint,
- constraint ck_rc5089_integracao_valor check(valor >= 0));
-create table if not exists sigov.patrimonio_auditoria_operacional (
- id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
- esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
- recurso varchar(60) not null, recurso_id bigint not null, acao varchar(60) not null, usuario_id bigint not null,
- correlacao_id varchar(120) not null, ocorrido_em timestamptz not null default now(), detalhes jsonb not null default '{}'::jsonb,
- constraint ck_rc5089_auditoria_esfera check(esfera_governo in ('municipal','estadual','federal')));
-
-create index if not exists ix_rc5089_dep_contexto on sigov.patrimonio_depreciacao(tenant_id,entidade_id,exercicio_id,orgao_id,unidade_gestora_id,bem_id,competencia);
-create index if not exists ix_rc5089_imovel_contexto on sigov.patrimonio_imovel(tenant_id,entidade_id,esfera_governo,orgao_id,unidade_gestora_id,status);
-create index if not exists ix_rc5089_transf_contexto on sigov.almoxarifado_transferencia(tenant_id,entidade_id,orgao_id,unidade_gestora_id,status,created_at);
-create index if not exists ix_rc5089_multa_contexto on sigov.frota_multa(tenant_id,entidade_id,veiculo_id,status,ocorrido_em);
-create index if not exists ix_rc5089_doc_alerta on sigov.frota_documento(tenant_id,entidade_id,status,vence_em);
-create index if not exists ix_rc5089_os_contexto on sigov.manutencao_ordem_servico(tenant_id,entidade_id,exercicio_id,orgao_id,unidade_gestora_id,status,prioridade,created_at);
-create index if not exists ix_rc5089_auditoria_contexto on sigov.patrimonio_auditoria_operacional(tenant_id,entidade_id,recurso,recurso_id,ocorrido_em);
-
-insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
-select v.modulo,v.chave,v.recurso,v.acao,v.descricao,true,false from(values
- ('patrimonio','PATRIMONIO_DASHBOARD_VIEW','dashboard','view','Visualizar dashboard Patrimonio360'),('patrimonio','PATRIMONIO_BEM_VIEW','bem','view','Visualizar bens'),('patrimonio','PATRIMONIO_BEM_MANAGE','bem','manage','Gerenciar bens'),('patrimonio','PATRIMONIO_MOVIMENTACAO_MANAGE','movimentacao','manage','Gerenciar movimentacoes'),('patrimonio','PATRIMONIO_BAIXA_MANAGE','baixa','manage','Autorizar baixas'),('patrimonio','PATRIMONIO_INVENTARIO_MANAGE','inventario','manage','Gerenciar inventarios'),('patrimonio','PATRIMONIO_DEPRECIACAO_VIEW','depreciacao','view','Visualizar depreciacao'),('patrimonio','PATRIMONIO_IMOVEL_VIEW','imovel','view','Visualizar imoveis'),('patrimonio','PATRIMONIO_IMOVEL_MANAGE','imovel','manage','Gerenciar imoveis'),
- ('almoxarifado','ALMOXARIFADO_DASHBOARD_VIEW','dashboard','view','Visualizar dashboard'),('almoxarifado','ALMOXARIFADO_ITEM_MANAGE','item','manage','Gerenciar itens'),('almoxarifado','ALMOXARIFADO_ESTOQUE_VIEW','estoque','view','Visualizar estoque'),('almoxarifado','ALMOXARIFADO_MOVIMENTO_MANAGE','movimento','manage','Gerenciar movimentos'),('almoxarifado','ALMOXARIFADO_REQUISICAO_VIEW','requisicao','view','Visualizar requisicoes'),('almoxarifado','ALMOXARIFADO_REQUISICAO_MANAGE','requisicao','manage','Gerenciar requisicoes'),('almoxarifado','ALMOXARIFADO_REQUISICAO_APPROVE','requisicao','approve','Aprovar requisicoes'),
- ('frotas','FROTAS_DASHBOARD_VIEW','dashboard','view','Visualizar dashboard'),('frotas','FROTAS_VEICULO_MANAGE','veiculo','manage','Gerenciar veiculos'),('frotas','FROTAS_MOTORISTA_MANAGE','motorista','manage','Gerenciar motoristas'),('frotas','FROTAS_VIAGEM_MANAGE','viagem','manage','Gerenciar viagens'),('frotas','FROTAS_ABASTECIMENTO_MANAGE','abastecimento','manage','Gerenciar abastecimentos'),('frotas','FROTAS_MANUTENCAO_MANAGE','manutencao','manage','Gerenciar manutencoes'),('manutencao','MANUTENCAO_OS_VIEW','ordem_servico','view','Visualizar ordens'),('manutencao','MANUTENCAO_OS_MANAGE','ordem_servico','manage','Gerenciar ordens'),
- ('patrimonio','PATRIMONIO_RELATORIO_EXPORT','relatorio','export','Exportar relatorios'),('almoxarifado','ALMOXARIFADO_RELATORIO_EXPORT','relatorio','export','Exportar relatorios'),('frotas','FROTAS_RELATORIO_EXPORT','relatorio','export','Exportar relatorios'))v(modulo,chave,recurso,acao,descricao)
-where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
-
-insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
-select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p
-where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
-and p.chave in ('PATRIMONIO_DASHBOARD_VIEW','PATRIMONIO_BEM_VIEW','PATRIMONIO_BEM_MANAGE','PATRIMONIO_MOVIMENTACAO_MANAGE','PATRIMONIO_BAIXA_MANAGE','PATRIMONIO_INVENTARIO_MANAGE','PATRIMONIO_DEPRECIACAO_VIEW','PATRIMONIO_IMOVEL_VIEW','PATRIMONIO_IMOVEL_MANAGE','ALMOXARIFADO_DASHBOARD_VIEW','ALMOXARIFADO_ITEM_MANAGE','ALMOXARIFADO_ESTOQUE_VIEW','ALMOXARIFADO_MOVIMENTO_MANAGE','ALMOXARIFADO_REQUISICAO_VIEW','ALMOXARIFADO_REQUISICAO_MANAGE','ALMOXARIFADO_REQUISICAO_APPROVE','FROTAS_DASHBOARD_VIEW','FROTAS_VEICULO_MANAGE','FROTAS_MOTORISTA_MANAGE','FROTAS_VIAGEM_MANAGE','FROTAS_ABASTECIMENTO_MANAGE','FROTAS_MANUTENCAO_MANAGE','MANUTENCAO_OS_VIEW','MANUTENCAO_OS_MANAGE','PATRIMONIO_RELATORIO_EXPORT','ALMOXARIFADO_RELATORIO_EXPORT','FROTAS_RELATORIO_EXPORT')
-on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
-
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901090000', 'RC50.89 Patrimonio360, almoxarifado, frotas e manutencao multi-esfera', '8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
-
--- Reset de helpers temporários entre migrations concatenadas.
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
-drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
-
--- ==================================================
--- COMPATIBILITY: 850_post_migration_compatibility.sql
--- STAGE: AFTER ALL MIGRATIONS
--- ==================================================
--- SIGOV+ RC38E
--- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
-
-create extension if not exists pgcrypto;
-
-alter table sigov.usuario add column if not exists tenant_id bigint null;
-alter table sigov.usuario add column if not exists nome varchar(200) null;
-alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
-alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
-alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
-alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
-alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
-alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
-
-alter table sigov.entidade add column if not exists tenant_id bigint null;
-alter table sigov.exercicio add column if not exists tenant_id bigint null;
-alter table sigov.pessoa add column if not exists tenant_id bigint null;
-alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
-alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
-alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
-alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
-alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
-alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
-alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
-alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
-alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
-alter table sigov.politica_senha add column if not exists tenant_id bigint null;
-
-alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
-alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
-alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
-alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
-
-alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
-alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
-alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
-
--- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
--- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
--- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
--- seus checksums e sem criar vínculos fora do tenant correto.
-create or replace function sigov.fn_preencher_tenant_vinculo()
-returns trigger
-language plpgsql
-as $$
-begin
-    if new.tenant_id is not null then
-        return new;
-    end if;
-
-    case tg_table_name
-        when 'usuario_entidade' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select e.tenant_id into new.tenant_id
-                  from sigov.entidade e
-                 where e.id = new.entidade_id;
-            end if;
-
-        when 'usuario_exercicio' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select x.tenant_id into new.tenant_id
-                  from sigov.exercicio x
-                 where x.id = new.exercicio_id;
-            end if;
-
-        when 'usuario_grupo' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select g.tenant_id into new.tenant_id
-                  from sigov.grupo_acesso g
-                 where g.id = new.grupo_acesso_id;
-            end if;
-
-        when 'grupo_perfil' then
-            select g.tenant_id into new.tenant_id
-              from sigov.grupo_acesso g
-             where g.id = new.grupo_acesso_id;
-            if new.tenant_id is null then
-                select p.tenant_id into new.tenant_id
-                  from sigov.perfil_acesso p
-                 where p.id = new.perfil_acesso_id;
-            end if;
-
-        when 'perfil_permissao' then
-            select p.tenant_id into new.tenant_id
-              from sigov.perfil_acesso p
-             where p.id = new.perfil_acesso_id;
-    end case;
-
-    if new.tenant_id is null then
-        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
-            using errcode = '23502';
-    end if;
-
-    return new;
-end $$;
-
-drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
-create trigger trg_usuario_entidade_tenant
-before insert or update on sigov.usuario_entidade
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
-create trigger trg_usuario_exercicio_tenant
-before insert or update on sigov.usuario_exercicio
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
-create trigger trg_usuario_grupo_tenant
-before insert or update on sigov.usuario_grupo
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
-create trigger trg_grupo_perfil_tenant
-before insert or update on sigov.grupo_perfil
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
-create trigger trg_perfil_permissao_tenant
-before insert or update on sigov.perfil_permissao
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
--- Bancos que já foram executados parcialmente podem possuir perfis e grupos
--- duplicados por tenant. Antes de criar os índices únicos usados pelo bootstrap,
--- preservamos todos os registros e seus vínculos, mantendo como canônico o item
--- com maior uso em relacionamentos e renomeando apenas a chave/nome dos legados.
-do $$
-begin
-    if to_regclass('sigov.perfil_acesso') is not null then
-        with perfil_uso as (
-            select p.id,
-                   count(distinct gp.grupo_acesso_id) + count(distinct pp.permissao_id) as total_vinculos
-              from sigov.perfil_acesso p
-              left join sigov.grupo_perfil gp on gp.perfil_acesso_id = p.id
-              left join sigov.perfil_permissao pp on pp.perfil_acesso_id = p.id
-             group by p.id
-        ), perfil_rank as (
-            select p.id,
-                   p.codigo_externo,
-                   row_number() over (
-                       partition by p.tenant_id, p.codigo_externo
-                       order by coalesce(u.total_vinculos, 0) desc,
-                                case when p.ativo then 0 else 1 end,
-                                p.created_at nulls last,
-                                p.id
-                   ) as rn
-              from sigov.perfil_acesso p
-              left join perfil_uso u on u.id = p.id
-             where p.tenant_id is not null
-               and nullif(p.codigo_externo, '') is not null
-               and p.is_deleted = false
-        )
-        update sigov.perfil_acesso p
-           set codigo_externo = concat(
-                   left(r.codigo_externo, greatest(1, 100 - length('_LEGACY_' || p.id::text))),
-                   '_LEGACY_',
-                   p.id::text
-               ),
-               observacao = concat_ws(E'\n',
-                   nullif(p.observacao, ''),
-                   'Código externo legado ajustado para remover duplicidade antes do índice ux_bootstrap_perfil_codigo_tenant. Código anterior: ' || r.codigo_externo
-               ),
-               updated_at = now()
-          from perfil_rank r
-         where p.id = r.id
-           and r.rn > 1;
-    end if;
-
-    if to_regclass('sigov.grupo_acesso') is not null then
-        with grupo_uso as (
-            select g.id,
-                   count(distinct ug.usuario_id) + count(distinct gp.perfil_acesso_id) as total_vinculos
-              from sigov.grupo_acesso g
-              left join sigov.usuario_grupo ug on ug.grupo_acesso_id = g.id
-              left join sigov.grupo_perfil gp on gp.grupo_acesso_id = g.id
-             group by g.id
-        ), grupo_rank as (
-            select g.id,
-                   g.nome,
-                   row_number() over (
-                       partition by g.tenant_id, g.nome
-                       order by coalesce(u.total_vinculos, 0) desc,
-                                case when g.ativo then 0 else 1 end,
-                                g.created_at nulls last,
-                                g.id
-                   ) as rn
-              from sigov.grupo_acesso g
-              left join grupo_uso u on u.id = g.id
-             where g.tenant_id is not null
-               and nullif(g.nome, '') is not null
-               and g.is_deleted = false
-        )
-        update sigov.grupo_acesso g
-           set nome = concat(
-                   left(r.nome, greatest(1, 150 - length(' (legado ' || g.id::text || ')'))),
-                   ' (legado ',
-                   g.id::text,
-                   ')'
-               ),
-               observacao = concat_ws(E'\n',
-                   nullif(g.observacao, ''),
-                   'Nome legado ajustado para remover duplicidade antes do índice ux_bootstrap_grupo_nome_tenant. Nome anterior: ' || r.nome
-               ),
-               updated_at = now()
-          from grupo_rank r
-         where g.id = r.id
-           and r.rn > 1;
-    end if;
-end $$;
-
-create unique index if not exists ux_bootstrap_usuario_login_tenant
-    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
-create unique index if not exists ux_bootstrap_usuario_email_tenant
-    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
-create unique index if not exists ux_bootstrap_perfil_codigo_tenant
-    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
-create unique index if not exists ux_bootstrap_grupo_nome_tenant
-    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
-
--- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
--- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
-
-
--- BEGIN MIGRATION 20260829180000_rc50_81_homologacao_enterprise.sql
 -- RC50.81 - governança de homologação enterprise, segurança e operação SaaS.
 -- Estruturas idempotentes, isoladas por tenant e sem dados demonstrativos.
 
@@ -24544,7 +24188,7 @@ create index if not exists ix_homologacao_historico_item
 create index if not exists ix_operacao_evento_consulta
     on sigov.operacao_evento_auditoria (tenant_id, categoria, criado_em desc);
 
-insert into sigov.permissao (chave, nome, modulo, ativo, created_at)
+insert into sigov.permissao (chave, descricao, modulo, ativo, created_at)
 select p.chave, p.nome, p.modulo, true, now()
 from (values
  ('HOMOLOGACAO_DASHBOARD_VIEW','Homologação: visualizar dashboard','homologacao'),
@@ -24566,12 +24210,20 @@ from (values
  ('RELATORIO_CENTRAL_VIEW','Relatórios: visualizar central','relatorios'),
  ('RELATORIO_CENTRAL_EXPORT','Relatórios: exportar pela central','relatorios')
 ) as p(chave,nome,modulo)
-on conflict (chave) do update set nome=excluded.nome, modulo=excluded.modulo, ativo=true;
+on conflict (chave) do update set descricao=excluded.descricao, modulo=excluded.modulo, ativo=true;
 
--- END MIGRATION 20260829180000_rc50_81_homologacao_enterprise.sql
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829180000', 'RC50.81 homologação enterprise, auditoria operacional e permissões SaaS', 'db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
--- BEGIN 20260831120000_rc50_82_qualidade_sistema.sql
+-- ==================================================
+-- MIGRATION: 20260831120000_rc50_82_qualidade_sistema.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369
+-- ==================================================
 -- RC50.82 - Central de Qualidade e Consistência. Idempotente e sem operação destrutiva.
 do $$ begin
   if to_regclass('sigov.tenant') is null then raise exception 'Schema obrigatório ausente: sigov.tenant'; end if;
@@ -24635,17 +24287,26 @@ create index if not exists ix_qualidade_checklist_contexto on sigov.qualidade_ch
 create index if not exists ix_qualidade_rota_contexto on sigov.qualidade_smoke_rota(tenant_id,entidade_id,modulo,status);
 create index if not exists ix_qualidade_sql_contexto on sigov.qualidade_validacao_sql(tenant_id,entidade_id,status,validado_em desc);
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select chave,nome,'qualidade_sistema',true,now() from(values
  ('QUALIDADE_SISTEMA_DASHBOARD_VIEW','Qualidade: visualizar dashboard'),('QUALIDADE_SISTEMA_CHECKLIST_VIEW','Qualidade: visualizar checklist'),('QUALIDADE_SISTEMA_CHECKLIST_MANAGE','Qualidade: gerenciar checklist'),
  ('QUALIDADE_SISTEMA_INCONSISTENCIA_VIEW','Qualidade: visualizar inconsistências'),('QUALIDADE_SISTEMA_INCONSISTENCIA_MANAGE','Qualidade: gerenciar inconsistências'),('QUALIDADE_SISTEMA_SQL_VIEW','Qualidade: visualizar SQL'),
  ('QUALIDADE_SISTEMA_ROTA_VIEW','Qualidade: visualizar rotas'),('QUALIDADE_SISTEMA_FORMULARIO_VIEW','Qualidade: visualizar formulários'),('QUALIDADE_SISTEMA_PERMISSAO_VIEW','Qualidade: visualizar permissões'),
  ('QUALIDADE_SISTEMA_RELATORIO_EXPORT','Qualidade: exportar relatórios'),('AUDITORIA_CODIGO_VIEW','Auditoria de código: visualizar'),('AUDITORIA_CODIGO_MANAGE','Auditoria de código: gerenciar')) p(chave,nome)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
--- END 20260831120000_rc50_82_qualidade_sistema.sql
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831120000', 'RC50.82 Central de Qualidade e Consistência', '300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- MIGRATION: 20260831180000_rc50_83_central_executiva_360.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c
+-- ==================================================
 -- RC50.83 - Central Executiva 360 e Sala de Situação Municipal. Idempotente, sem dados simulados.
 do $$ begin
  if to_regclass('sigov.tenant') is null then raise exception 'Schema obrigatório ausente: sigov.tenant'; end if;
@@ -24688,12 +24349,23 @@ do $$ begin
  if not exists(select 1 from pg_constraint where conname='ck_executivo_alerta_origem') then alter table sigov.executivo_alerta add constraint ck_executivo_alerta_origem check(regra_origem is not null and origem_tipo is not null); end if;
 end $$;
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select chave,nome,'executivo',true,now() from(values
  ('EXECUTIVO_DASHBOARD_VIEW','Executivo: visualizar dashboard'),('EXECUTIVO_SALA_VIEW','Executivo: visualizar sala'),('EXECUTIVO_SALA_MANAGE','Executivo: gerenciar sala'),('EXECUTIVO_META_VIEW','Executivo: visualizar metas'),('EXECUTIVO_META_MANAGE','Executivo: gerenciar metas'),('EXECUTIVO_PENDENCIA_VIEW','Executivo: visualizar pendências'),('EXECUTIVO_PENDENCIA_MANAGE','Executivo: gerenciar pendências'),('EXECUTIVO_ALERTA_VIEW','Executivo: visualizar alertas'),('EXECUTIVO_ALERTA_MANAGE','Executivo: gerenciar alertas'),('EXECUTIVO_APROVACAO_VIEW','Executivo: visualizar aprovações'),('EXECUTIVO_APROVACAO_MANAGE','Executivo: gerenciar aprovações'),('EXECUTIVO_DECISAO_VIEW','Executivo: visualizar decisões'),('EXECUTIVO_DECISAO_MANAGE','Executivo: gerenciar decisões'),('EXECUTIVO_BRIEFING_VIEW','Executivo: visualizar briefing'),('EXECUTIVO_RELATORIO_EXPORT','Executivo: exportar relatórios')) p(chave,nome)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
--- Migration 20260831210000_rc50_84_modulos_estruturantes_multiesfera.sql
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831180000', 'RC50.83 Central Executiva 360 e Sala de Situação Municipal', '07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260831210000_rc50_84_modulos_estruturantes_multiesfera.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9
+-- ==================================================
 -- RC50.84 - retomada dos módulos estruturantes multi-esfera.
 -- Complemento idempotente e sem dados demonstrativos.
 do $$ begin
@@ -24775,7 +24447,7 @@ do $$ declare t text; begin
   end loop;
 end $$;
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select chave,nome,modulo,true,now() from (values
  ('ESTRUTURANTES_GOVERNANCA_VIEW','Estruturantes: visualizar governança','governanca'),
  ('ESTRUTURANTES_PROTOCOLO_MANAGE','Estruturantes: gerenciar protocolo, Ouvidoria e SIC','protocolo'),
@@ -24785,10 +24457,20 @@ select chave,nome,modulo,true,now() from (values
  ('ESTRUTURANTES_RH_MANAGE','Estruturantes: gerenciar RH e folha','rh'),
  ('ESTRUTURANTES_RELATORIO_EXPORT','Estruturantes: exportar relatórios multi-esfera','relatorios')
 ) p(chave,nome,modulo)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831210000', 'RC50.84 retomada dos módulos estruturantes multi-esfera', 'cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- BEGIN RC50.85 20260831230000
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260831230000_rc50_85_compras_contratos_multiesfera.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: db04600545e254e229b40724a535633627d1ebf4e6032389590ef13d2f70ca46
+-- ==================================================
 -- RC50.85: núcleo multi-esfera de planejamento, licitação, atas e fiscalização contratual.
 -- Corretiva aditiva e reexecutável: preserva as estruturas legadas do FUNC03.
 CREATE SCHEMA IF NOT EXISTS sigov;
@@ -24975,9 +24657,18 @@ FROM (VALUES
  ('ATA_REGISTRO_PRECO_MANAGE','Gerenciar atas de registro de preço'),('COMPRAS_RELATORIO_EXPORT','Exportar relatórios de compras e contratos')) v(chave,descricao)
 WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao p WHERE p.chave=v.chave);
 
--- END RC50.85 20260831230000
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831230000', 'RC50.85 compras, licitações, contratos, atas e fiscalização multi-esfera', 'db04600545e254e229b40724a535633627d1ebf4e6032389590ef13d2f70ca46', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- BEGIN 20260901000000_rc50_86_financeiro_orcamento_contabilidade_multiesfera.sql
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901000000_rc50_86_financeiro_orcamento_contabilidade_multiesfera.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16
+-- ==================================================
 -- RC50.86: financeiro, orçamento, contabilidade e tesouraria multi-esfera.
 -- Migration aditiva, idempotente e sem integração externa simulada.
 CREATE SCHEMA IF NOT EXISTS sigov;
@@ -25431,10 +25122,19 @@ FROM (VALUES
  ('CONTABILIDADE_PRESTACAO_CONTAS_MANAGE','Contabilidade Prestacao Contas Manage'),
  ('FINANCEIRO_RELATORIO_EXPORT','Financeiro Relatorio Export')) v(chave,descricao)
 WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao p WHERE p.chave=v.chave);
--- END 20260901000000_rc50_86_financeiro_orcamento_contabilidade_multiesfera.sql
 
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901000000', 'RC50.86 financeiro, orçamento, contabilidade e tesouraria multi-esfera', '376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- BEGIN RC50.87 20260901030000
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901030000_rc50_87_saas_iam_tributos_multiesfera.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 324d4bac90745f2b87238701aa750ad52d821449cfcfc73afbc76c4d25cc3487
+-- ==================================================
 -- RC50.87: núcleo SaaS MNSOFT, IAM por cliente e tributos multi-esfera.
 -- Aditiva, idempotente e sem integrações financeiras ou judiciais simuladas.
 CREATE SCHEMA IF NOT EXISTS sigov;
@@ -25631,10 +25331,18 @@ SELECT CASE WHEN p.chave LIKE 'TRIBUTOS_%' THEN 'tributario' WHEN p.chave LIKE '
 ) p(chave,nome)
 WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao existente WHERE existente.chave=p.chave);
 
--- END RC50.87 20260901030000
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901030000', 'RC50.87 SaaS MNSOFT, IAM por cliente e tributos multi-esfera', '324d4bac90745f2b87238701aa750ad52d821449cfcfc73afbc76c4d25cc3487', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
--- BEGIN RC50.88 20260901060000
+-- ==================================================
+-- MIGRATION: 20260901060000_rc50_88_rh360_folha_portal.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a
+-- ==================================================
 -- RC50.88: RH360, folha e Portal do Servidor multi-tenant e multi-esfera.
 -- Aditiva, idempotente; integrações externas somente mediante adaptador contratado.
 CREATE SCHEMA IF NOT EXISTS sigov;
@@ -26134,7 +25842,1682 @@ SELECT CASE WHEN p.chave LIKE 'FOLHA_%' THEN 'folha' WHEN p.chave LIKE 'PORTAL_%
 FROM (VALUES ('RH_DASHBOARD_VIEW','Rh Dashboard View'),('RH_SERVIDOR_VIEW','Rh Servidor View'),('RH_SERVIDOR_MANAGE','Rh Servidor Manage'),('RH_DADO_SENSIVEL_VIEW','Rh Dado Sensivel View'),('RH_DADO_SENSIVEL_EXPORT','Rh Dado Sensivel Export'),('RH_CARGO_MANAGE','Rh Cargo Manage'),('RH_LOTACAO_MANAGE','Rh Lotacao Manage'),('RH_ATO_VIEW','Rh Ato View'),('RH_ATO_MANAGE','Rh Ato Manage'),('RH_FREQUENCIA_VIEW','Rh Frequencia View'),('RH_FREQUENCIA_MANAGE','Rh Frequencia Manage'),('RH_FERIAS_MANAGE','Rh Ferias Manage'),('RH_LICENCA_MANAGE','Rh Licenca Manage'),('RH_AFASTAMENTO_MANAGE','Rh Afastamento Manage'),('FOLHA_DASHBOARD_VIEW','Folha Dashboard View'),('FOLHA_EVENTO_MANAGE','Folha Evento Manage'),('FOLHA_CALCULAR','Folha Calcular'),('FOLHA_FECHAR','Folha Fechar'),('FOLHA_REABRIR','Folha Reabrir'),('FOLHA_CONTRACHEQUE_VIEW','Folha Contracheque View'),('FOLHA_RELATORIO_EXPORT','Folha Relatorio Export'),('PORTAL_SERVIDOR_ACCESS','Portal Servidor Access'),('PORTAL_SERVIDOR_REQUERIMENTO_CREATE','Portal Servidor Requerimento Create'),('RH_ESOCIAL_VIEW','Rh Esocial View'),('RH_ESOCIAL_MANAGE','Rh Esocial Manage')) p(chave,nome) WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao x WHERE x.chave=p.chave);
 
 -- END RC50.88 20260901060000
--- BEGIN RC50.92 20260901180000
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901060000', 'RC50.88 RH360, folha e Portal do Servidor multi-esfera', '40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901090000_rc50_89_patrimonio_almoxarifado_frotas.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9
+-- ==================================================
+-- RC50.89 - Patrimonio360, estoque publico, frotas e manutencao multi-esfera.
+-- Corretiva aditiva e reexecutavel; preserva os cadastros legados FUNC01/FUNC02/FUNC04.
+create schema if not exists sigov;
+
+create table if not exists sigov.patrimonio_depreciacao (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ exercicio_id bigint, esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+ bem_id bigint not null, competencia date not null, metodo varchar(24) not null, vida_util_meses integer not null,
+ valor_base numeric(18,2) not null, valor_depreciado numeric(18,2) not null, depreciacao_acumulada numeric(18,2) not null,
+ valor_liquido numeric(18,2) not null, created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_dep_esfera check(esfera_governo in ('municipal','estadual','federal')),
+ constraint ck_rc5089_dep_valores check(vida_util_meses > 0 and valor_base >= 0 and valor_depreciado >= 0 and depreciacao_acumulada >= 0 and valor_liquido >= 0 and valor_liquido <= valor_base),
+ constraint ux_rc5089_dep unique(tenant_id, entidade_id, bem_id, competencia));
+
+create table if not exists sigov.patrimonio_imovel (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
+ esfera_governo varchar(10) not null, tipo_entidade varchar(80) not null, orgao_superior_id bigint, orgao_id bigint,
+ unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa text, abrangencia_territorial varchar(120),
+ uf char(2), municipio varchar(120), regiao_jurisdicao varchar(160), tipo varchar(40) not null, endereco text not null,
+ inscricao varchar(100), matricula varchar(100), cartorio varchar(160), area_m2 numeric(18,4) not null, uso varchar(160) not null,
+ unidade_responsavel_id bigint not null, origem varchar(40) not null, fundamento text not null, obra_id bigint, status varchar(24) not null default 'ATIVO',
+ created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_imovel_esfera check(esfera_governo in ('municipal','estadual','federal')),
+ constraint ck_rc5089_imovel_area check(area_m2 > 0), constraint ck_rc5089_imovel_status check(status in ('ATIVO','CEDIDO','ALUGADO','DESOCUPADO','EM_OBRA','BAIXADO')));
+
+create table if not exists sigov.patrimonio_imovel_ocupacao (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ imovel_id bigint not null references sigov.patrimonio_imovel(id), orgao_id bigint, unidade_ocupante_id bigint not null,
+ finalidade text not null, responsavel_id bigint not null, data_inicial date not null, data_final date,
+ created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_ocupacao_datas check(data_final is null or data_final >= data_inicial));
+
+create table if not exists sigov.almoxarifado_transferencia (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
+ esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+ almoxarifado_origem_id bigint not null, almoxarifado_destino_id bigint not null, status varchar(20) not null default 'PENDENTE',
+ justificativa text not null, conferido_por bigint, conferido_em timestamptz, created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_transf_esfera check(esfera_governo in ('municipal','estadual','federal')),
+ constraint ck_rc5089_transf_destino check(almoxarifado_origem_id <> almoxarifado_destino_id),
+ constraint ck_rc5089_transf_status check(status in ('PENDENTE','EM_TRANSITO','CONFERIDA','CANCELADA')));
+create table if not exists sigov.almoxarifado_transferencia_item (
+ id bigint generated by default as identity primary key, tenant_id bigint not null,
+ transferencia_id bigint not null references sigov.almoxarifado_transferencia(id), item_id bigint not null,
+ quantidade numeric(18,4) not null, quantidade_conferida numeric(18,4), lote varchar(100), validade date,
+ constraint ck_rc5089_transf_item_qtd check(quantidade > 0 and (quantidade_conferida is null or quantidade_conferida >= 0)));
+
+create table if not exists sigov.frota_multa (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
+ esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+ veiculo_id bigint not null, motorista_id bigint, auto_infracao varchar(100) not null, ocorrido_em timestamptz not null,
+ descricao text not null, valor numeric(18,2) not null, pontos integer, status varchar(20) not null default 'PENDENTE', created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_multa_esfera check(esfera_governo in ('municipal','estadual','federal')),
+ constraint ck_rc5089_multa_valor check(valor >= 0 and (pontos is null or pontos between 0 and 99)));
+create table if not exists sigov.frota_documento (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, veiculo_id bigint not null,
+ tipo varchar(40) not null, referencia_documental varchar(160) not null, emitido_em date, vence_em date, status varchar(20) not null default 'VIGENTE',
+ created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_documento_datas check(vence_em is null or emitido_em is null or vence_em >= emitido_em));
+
+create table if not exists sigov.manutencao_ordem_servico (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
+ esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+ alvo_tipo varchar(24) not null, alvo_id bigint not null, solicitante_id bigint not null, unidade_id bigint not null,
+ prioridade varchar(16) not null, descricao text not null, categoria varchar(80) not null, status varchar(24) not null default 'ABERTA', responsavel_id bigint,
+ justificativa text, servico_realizado text, concluida_em timestamptz, evidencia_documental_id bigint,
+ created_at timestamptz not null default now(), created_by bigint, updated_at timestamptz,
+ constraint ck_rc5089_os_esfera check(esfera_governo in ('municipal','estadual','federal')),
+ constraint ck_rc5089_os_alvo check(alvo_tipo in ('BEM','VEICULO','IMOVEL','EQUIPAMENTO','UNIDADE')),
+ constraint ck_rc5089_os_status check(status in ('ABERTA','TRIADA','APROVADA','EM_EXECUCAO','AGUARDANDO_PECA','CONCLUIDA','RECUSADA','CANCELADA')),
+ constraint ck_rc5089_os_fechamento check((status not in ('RECUSADA','CANCELADA') or nullif(trim(justificativa),'') is not null) and (status <> 'CONCLUIDA' or (nullif(trim(servico_realizado),'') is not null and concluida_em is not null and responsavel_id is not null))));
+create table if not exists sigov.manutencao_ordem_item (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, ordem_servico_id bigint not null references sigov.manutencao_ordem_servico(id),
+ item_id bigint, descricao varchar(240) not null, quantidade numeric(18,4) not null, valor_unitario numeric(18,2),
+ constraint ck_rc5089_os_item check(quantidade > 0 and (valor_unitario is null or valor_unitario >= 0)));
+create table if not exists sigov.manutencao_preventiva_agenda (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, ordem_servico_id bigint references sigov.manutencao_ordem_servico(id),
+ alvo_tipo varchar(24) not null, alvo_id bigint not null, periodicidade_dias integer not null, proxima_execucao date not null, ativa boolean not null default true,
+ created_at timestamptz not null default now(), created_by bigint, constraint ck_rc5089_preventiva_periodo check(periodicidade_dias > 0));
+
+create table if not exists sigov.patrimonio_integracao_contabil (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
+ bem_id bigint not null, tipo varchar(24) not null, empenho_id bigint, liquidacao_id bigint, pagamento_id bigint,
+ referencia_contabil varchar(160), valor numeric(18,2) not null, contabilizado_em timestamptz, created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_rc5089_integracao_valor check(valor >= 0));
+create table if not exists sigov.patrimonio_auditoria_operacional (
+ id bigint generated by default as identity primary key, tenant_id bigint not null, entidade_id bigint not null, exercicio_id bigint,
+ esfera_governo varchar(10) not null, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+ recurso varchar(60) not null, recurso_id bigint not null, acao varchar(60) not null, usuario_id bigint not null,
+ correlacao_id varchar(120) not null, ocorrido_em timestamptz not null default now(), detalhes jsonb not null default '{}'::jsonb,
+ constraint ck_rc5089_auditoria_esfera check(esfera_governo in ('municipal','estadual','federal')));
+
+create index if not exists ix_rc5089_dep_contexto on sigov.patrimonio_depreciacao(tenant_id,entidade_id,exercicio_id,orgao_id,unidade_gestora_id,bem_id,competencia);
+create index if not exists ix_rc5089_imovel_contexto on sigov.patrimonio_imovel(tenant_id,entidade_id,esfera_governo,orgao_id,unidade_gestora_id,status);
+create index if not exists ix_rc5089_transf_contexto on sigov.almoxarifado_transferencia(tenant_id,entidade_id,orgao_id,unidade_gestora_id,status,created_at);
+create index if not exists ix_rc5089_multa_contexto on sigov.frota_multa(tenant_id,entidade_id,veiculo_id,status,ocorrido_em);
+create index if not exists ix_rc5089_doc_alerta on sigov.frota_documento(tenant_id,entidade_id,status,vence_em);
+create index if not exists ix_rc5089_os_contexto on sigov.manutencao_ordem_servico(tenant_id,entidade_id,exercicio_id,orgao_id,unidade_gestora_id,status,prioridade,created_at);
+create index if not exists ix_rc5089_auditoria_contexto on sigov.patrimonio_auditoria_operacional(tenant_id,entidade_id,recurso,recurso_id,ocorrido_em);
+
+insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
+select v.modulo,v.chave,v.recurso,v.acao,v.descricao,true,false from(values
+ ('patrimonio','PATRIMONIO_DASHBOARD_VIEW','dashboard','view','Visualizar dashboard Patrimonio360'),('patrimonio','PATRIMONIO_BEM_VIEW','bem','view','Visualizar bens'),('patrimonio','PATRIMONIO_BEM_MANAGE','bem','manage','Gerenciar bens'),('patrimonio','PATRIMONIO_MOVIMENTACAO_MANAGE','movimentacao','manage','Gerenciar movimentacoes'),('patrimonio','PATRIMONIO_BAIXA_MANAGE','baixa','manage','Autorizar baixas'),('patrimonio','PATRIMONIO_INVENTARIO_MANAGE','inventario','manage','Gerenciar inventarios'),('patrimonio','PATRIMONIO_DEPRECIACAO_VIEW','depreciacao','view','Visualizar depreciacao'),('patrimonio','PATRIMONIO_IMOVEL_VIEW','imovel','view','Visualizar imoveis'),('patrimonio','PATRIMONIO_IMOVEL_MANAGE','imovel','manage','Gerenciar imoveis'),
+ ('almoxarifado','ALMOXARIFADO_DASHBOARD_VIEW','dashboard','view','Visualizar dashboard'),('almoxarifado','ALMOXARIFADO_ITEM_MANAGE','item','manage','Gerenciar itens'),('almoxarifado','ALMOXARIFADO_ESTOQUE_VIEW','estoque','view','Visualizar estoque'),('almoxarifado','ALMOXARIFADO_MOVIMENTO_MANAGE','movimento','manage','Gerenciar movimentos'),('almoxarifado','ALMOXARIFADO_REQUISICAO_VIEW','requisicao','view','Visualizar requisicoes'),('almoxarifado','ALMOXARIFADO_REQUISICAO_MANAGE','requisicao','manage','Gerenciar requisicoes'),('almoxarifado','ALMOXARIFADO_REQUISICAO_APPROVE','requisicao','approve','Aprovar requisicoes'),
+ ('frotas','FROTAS_DASHBOARD_VIEW','dashboard','view','Visualizar dashboard'),('frotas','FROTAS_VEICULO_MANAGE','veiculo','manage','Gerenciar veiculos'),('frotas','FROTAS_MOTORISTA_MANAGE','motorista','manage','Gerenciar motoristas'),('frotas','FROTAS_VIAGEM_MANAGE','viagem','manage','Gerenciar viagens'),('frotas','FROTAS_ABASTECIMENTO_MANAGE','abastecimento','manage','Gerenciar abastecimentos'),('frotas','FROTAS_MANUTENCAO_MANAGE','manutencao','manage','Gerenciar manutencoes'),('manutencao','MANUTENCAO_OS_VIEW','ordem_servico','view','Visualizar ordens'),('manutencao','MANUTENCAO_OS_MANAGE','ordem_servico','manage','Gerenciar ordens'),
+ ('patrimonio','PATRIMONIO_RELATORIO_EXPORT','relatorio','export','Exportar relatorios'),('almoxarifado','ALMOXARIFADO_RELATORIO_EXPORT','relatorio','export','Exportar relatorios'),('frotas','FROTAS_RELATORIO_EXPORT','relatorio','export','Exportar relatorios'))v(modulo,chave,recurso,acao,descricao)
+where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
+
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
+select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
+and p.chave in ('PATRIMONIO_DASHBOARD_VIEW','PATRIMONIO_BEM_VIEW','PATRIMONIO_BEM_MANAGE','PATRIMONIO_MOVIMENTACAO_MANAGE','PATRIMONIO_BAIXA_MANAGE','PATRIMONIO_INVENTARIO_MANAGE','PATRIMONIO_DEPRECIACAO_VIEW','PATRIMONIO_IMOVEL_VIEW','PATRIMONIO_IMOVEL_MANAGE','ALMOXARIFADO_DASHBOARD_VIEW','ALMOXARIFADO_ITEM_MANAGE','ALMOXARIFADO_ESTOQUE_VIEW','ALMOXARIFADO_MOVIMENTO_MANAGE','ALMOXARIFADO_REQUISICAO_VIEW','ALMOXARIFADO_REQUISICAO_MANAGE','ALMOXARIFADO_REQUISICAO_APPROVE','FROTAS_DASHBOARD_VIEW','FROTAS_VEICULO_MANAGE','FROTAS_MOTORISTA_MANAGE','FROTAS_VIAGEM_MANAGE','FROTAS_ABASTECIMENTO_MANAGE','FROTAS_MANUTENCAO_MANAGE','MANUTENCAO_OS_VIEW','MANUTENCAO_OS_MANAGE','PATRIMONIO_RELATORIO_EXPORT','ALMOXARIFADO_RELATORIO_EXPORT','FROTAS_RELATORIO_EXPORT')
+on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901090000', 'RC50.89 Patrimonio360, almoxarifado, frotas e manutencao multi-esfera', '8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901120000_rc50_90_saude360_ubs_acs_regulacao.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 79994e71582be89f98a632ba41e58a2a28f566d819376896550761dc95b579c0
+-- ==================================================
+-- RC50.90 - Saúde360 multi-tenant e multi-esfera. Migration aditiva e idempotente.
+CREATE SCHEMA IF NOT EXISTS sigov;
+
+CREATE TABLE IF NOT EXISTS sigov.saude_unidade (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_unidade_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_unidade_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_unidade_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_unidade_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_unidade_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_unidade_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_unidade_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_unidade_contexto ON sigov.saude_unidade(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_unidade_operacao ON sigov.saude_unidade(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_unidade_servico (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_unidade_servico_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_unidade_servico_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_unidade_servico_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_unidade_servico_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_unidade_servico_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_unidade_servico_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_unidade_servico_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_unidade_servico_contexto ON sigov.saude_unidade_servico(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_unidade_servico_operacao ON sigov.saude_unidade_servico(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_paciente (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_paciente_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_paciente_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_paciente_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_paciente_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_paciente_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_paciente_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_paciente_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_paciente_contexto ON sigov.saude_paciente(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_paciente_operacao ON sigov.saude_paciente(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_paciente_documento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_paciente_documento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_paciente_documento_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_paciente_documento_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_paciente_documento_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_paciente_documento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_paciente_documento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_paciente_documento_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_paciente_documento_contexto ON sigov.saude_paciente_documento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_paciente_documento_operacao ON sigov.saude_paciente_documento(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_profissional (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_profissional_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_profissional_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_profissional_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_profissional_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_profissional_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_profissional_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_profissional_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_profissional_contexto ON sigov.saude_profissional(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_profissional_operacao ON sigov.saude_profissional(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_equipe (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_equipe_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_equipe_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_equipe_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_equipe_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_equipe_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_equipe_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_equipe_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_equipe_contexto ON sigov.saude_equipe(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_equipe_operacao ON sigov.saude_equipe(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_equipe_membro (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_equipe_membro_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_equipe_membro_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_equipe_membro_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_equipe_membro_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_equipe_membro_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_equipe_membro_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_equipe_membro_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_equipe_membro_contexto ON sigov.saude_equipe_membro(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_equipe_membro_operacao ON sigov.saude_equipe_membro(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_acs_territorio (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_acs_territorio_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_acs_territorio_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_acs_territorio_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_acs_territorio_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_acs_territorio_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_acs_territorio_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_acs_territorio_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_acs_territorio_contexto ON sigov.saude_acs_territorio(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_acs_territorio_operacao ON sigov.saude_acs_territorio(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_acs_microarea (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_acs_microarea_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_acs_microarea_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_acs_microarea_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_acs_microarea_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_acs_microarea_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_acs_microarea_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_acs_microarea_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_acs_microarea_contexto ON sigov.saude_acs_microarea(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_acs_microarea_operacao ON sigov.saude_acs_microarea(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_acs_visita (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_acs_visita_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_acs_visita_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_acs_visita_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_acs_visita_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_acs_visita_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_acs_visita_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_acs_visita_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_acs_visita_contexto ON sigov.saude_acs_visita(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_acs_visita_operacao ON sigov.saude_acs_visita(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_agenda (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_agenda_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_agenda_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_agenda_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_agenda_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_agenda_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_agenda_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_agenda_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_agenda_contexto ON sigov.saude_agenda(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_agenda_operacao ON sigov.saude_agenda(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_atendimento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_atendimento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_atendimento_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_atendimento_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_atendimento_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_atendimento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_atendimento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_atendimento_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_atendimento_contexto ON sigov.saude_atendimento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_atendimento_operacao ON sigov.saude_atendimento(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_fila (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_fila_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_fila_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_fila_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_fila_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_fila_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_fila_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_fila_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_fila_contexto ON sigov.saude_fila(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_fila_operacao ON sigov.saude_fila(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_encaminhamento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_encaminhamento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_encaminhamento_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_encaminhamento_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_encaminhamento_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_encaminhamento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_encaminhamento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_encaminhamento_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_encaminhamento_contexto ON sigov.saude_encaminhamento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_encaminhamento_operacao ON sigov.saude_encaminhamento(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_regulacao_solicitacao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_regulacao_solicitacao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_regulacao_solicitacao_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_regulacao_solicitacao_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_regulacao_solicitacao_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_regulacao_solicitacao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_regulacao_solicitacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_regulacao_solicitacao_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_regulacao_solicitacao_contexto ON sigov.saude_regulacao_solicitacao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_regulacao_solicitacao_operacao ON sigov.saude_regulacao_solicitacao(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_regulacao_autorizacao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_regulacao_autorizacao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_regulacao_autorizacao_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_regulacao_autorizacao_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_regulacao_autorizacao_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_regulacao_autorizacao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_regulacao_autorizacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_regulacao_autorizacao_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_regulacao_autorizacao_contexto ON sigov.saude_regulacao_autorizacao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_regulacao_autorizacao_operacao ON sigov.saude_regulacao_autorizacao(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_procedimento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_procedimento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_procedimento_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_procedimento_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_procedimento_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_procedimento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_procedimento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_procedimento_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_procedimento_contexto ON sigov.saude_procedimento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_procedimento_operacao ON sigov.saude_procedimento(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_farmacia_medicamento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_farmacia_medicamento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_farmacia_medicamento_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_farmacia_medicamento_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_farmacia_medicamento_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_farmacia_medicamento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_farmacia_medicamento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_farmacia_medicamento_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_medicamento_contexto ON sigov.saude_farmacia_medicamento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_medicamento_operacao ON sigov.saude_farmacia_medicamento(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_farmacia_lote (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_farmacia_lote_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_farmacia_lote_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_farmacia_lote_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_farmacia_lote_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_farmacia_lote_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_farmacia_lote_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_farmacia_lote_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_lote_contexto ON sigov.saude_farmacia_lote(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_lote_operacao ON sigov.saude_farmacia_lote(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_farmacia_estoque (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_farmacia_estoque_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_farmacia_estoque_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_farmacia_estoque_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_farmacia_estoque_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_farmacia_estoque_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_farmacia_estoque_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_farmacia_estoque_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_estoque_contexto ON sigov.saude_farmacia_estoque(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_estoque_operacao ON sigov.saude_farmacia_estoque(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_farmacia_movimento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_farmacia_movimento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_farmacia_movimento_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_farmacia_movimento_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_farmacia_movimento_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_farmacia_movimento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_farmacia_movimento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_farmacia_movimento_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_movimento_contexto ON sigov.saude_farmacia_movimento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_movimento_operacao ON sigov.saude_farmacia_movimento(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_farmacia_dispensacao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_farmacia_dispensacao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_farmacia_dispensacao_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_farmacia_dispensacao_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_farmacia_dispensacao_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_farmacia_dispensacao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_farmacia_dispensacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_farmacia_dispensacao_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_dispensacao_contexto ON sigov.saude_farmacia_dispensacao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_farmacia_dispensacao_operacao ON sigov.saude_farmacia_dispensacao(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_vigilancia_notificacao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_vigilancia_notificacao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_vigilancia_notificacao_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_vigilancia_notificacao_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_vigilancia_notificacao_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_vigilancia_notificacao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_vigilancia_notificacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_vigilancia_notificacao_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_notificacao_contexto ON sigov.saude_vigilancia_notificacao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_notificacao_operacao ON sigov.saude_vigilancia_notificacao(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_vigilancia_caso (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_vigilancia_caso_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_vigilancia_caso_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_vigilancia_caso_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_vigilancia_caso_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_vigilancia_caso_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_vigilancia_caso_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_vigilancia_caso_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_caso_contexto ON sigov.saude_vigilancia_caso(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_caso_operacao ON sigov.saude_vigilancia_caso(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_vigilancia_campanha (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_vigilancia_campanha_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_vigilancia_campanha_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_vigilancia_campanha_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_vigilancia_campanha_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_vigilancia_campanha_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_vigilancia_campanha_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_vigilancia_campanha_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_campanha_contexto ON sigov.saude_vigilancia_campanha(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_campanha_operacao ON sigov.saude_vigilancia_campanha(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_vigilancia_indicador (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_vigilancia_indicador_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_vigilancia_indicador_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_vigilancia_indicador_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_vigilancia_indicador_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_vigilancia_indicador_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_vigilancia_indicador_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_vigilancia_indicador_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_indicador_contexto ON sigov.saude_vigilancia_indicador(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_vigilancia_indicador_operacao ON sigov.saude_vigilancia_indicador(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_integracao_almoxarifado (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_integracao_almoxarifado_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_integracao_almoxarifado_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_integracao_almoxarifado_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_integracao_almoxarifado_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_integracao_almoxarifado_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_integracao_almoxarifado_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_integracao_almoxarifado_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_integracao_almoxarifado_contexto ON sigov.saude_integracao_almoxarifado(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_integracao_almoxarifado_operacao ON sigov.saude_integracao_almoxarifado(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_integracao_financeira (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_integracao_financeira_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_integracao_financeira_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_integracao_financeira_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_integracao_financeira_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_integracao_financeira_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_integracao_financeira_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_integracao_financeira_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_integracao_financeira_contexto ON sigov.saude_integracao_financeira(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_integracao_financeira_operacao ON sigov.saude_integracao_financeira(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.saude_auditoria_sensivel (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL, tipo_entidade varchar(60) NOT NULL, orgao_superior_id bigint, orgao_id bigint,
+  unidade_gestora_id bigint, unidade_executora_id bigint, hierarquia_administrativa varchar(200),
+  abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_saude_id bigint, paciente_id bigint, profissional_id bigint, equipe_id bigint, territorio_id bigint, procedimento_id bigint,
+  codigo varchar(80), nome varchar(200), status varchar(30) NOT NULL DEFAULT 'ativo', prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), percentual numeric(7,4),
+  latitude numeric(9,6), longitude numeric(9,6), validade date, dados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint,
+  CONSTRAINT ck_saude_auditoria_sensivel_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')),
+  CONSTRAINT ck_saude_auditoria_sensivel_quantidade CHECK (quantidade IS NULL OR quantidade >= 0), CONSTRAINT ck_saude_auditoria_sensivel_valor CHECK (valor IS NULL OR valor >= 0),
+  CONSTRAINT ck_saude_auditoria_sensivel_percentual CHECK (percentual IS NULL OR percentual BETWEEN 0 AND 100),
+  CONSTRAINT ck_saude_auditoria_sensivel_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)),
+  CONSTRAINT ck_saude_auditoria_sensivel_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  CONSTRAINT ck_saude_auditoria_sensivel_prioridade CHECK (prioridade IS NULL OR prioridade IN ('baixa','normal','alta','urgente','emergencia'))
+);
+CREATE INDEX IF NOT EXISTS ix_saude_auditoria_sensivel_contexto ON sigov.saude_auditoria_sensivel(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_saude_auditoria_sensivel_operacao ON sigov.saude_auditoria_sensivel(tenant_id, unidade_saude_id, paciente_id, profissional_id, equipe_id, territorio_id, procedimento_id, prioridade, data_inicio);
+
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_saude_farmacia_estoque_saldo' AND conrelid='sigov.saude_farmacia_estoque'::regclass) THEN ALTER TABLE sigov.saude_farmacia_estoque ADD CONSTRAINT ck_saude_farmacia_estoque_saldo CHECK (quantidade >= 0); END IF; END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_saude_unidade_cnes_tenant ON sigov.saude_unidade(tenant_id, codigo) WHERE codigo IS NOT NULL AND NOT is_deleted;
+
+INSERT INTO sigov.permissao (chave, modulo, descricao, ativo)
+SELECT p.chave, 'saude', p.nome, true FROM (VALUES
+  ('SAUDE_DASHBOARD_VIEW','Saude Dashboard View'),
+  ('SAUDE_UNIDADE_VIEW','Saude Unidade View'),
+  ('SAUDE_UNIDADE_MANAGE','Saude Unidade Manage'),
+  ('SAUDE_PACIENTE_VIEW','Saude Paciente View'),
+  ('SAUDE_PACIENTE_MANAGE','Saude Paciente Manage'),
+  ('SAUDE_DADO_SENSIVEL_VIEW','Saude Dado Sensivel View'),
+  ('SAUDE_DADO_SENSIVEL_EXPORT','Saude Dado Sensivel Export'),
+  ('SAUDE_PROFISSIONAL_MANAGE','Saude Profissional Manage'),
+  ('SAUDE_EQUIPE_MANAGE','Saude Equipe Manage'),
+  ('SAUDE_ACS_VIEW','Saude Acs View'),
+  ('SAUDE_ACS_MANAGE','Saude Acs Manage'),
+  ('SAUDE_AGENDA_VIEW','Saude Agenda View'),
+  ('SAUDE_AGENDA_MANAGE','Saude Agenda Manage'),
+  ('SAUDE_ATENDIMENTO_MANAGE','Saude Atendimento Manage'),
+  ('SAUDE_REGULACAO_VIEW','Saude Regulacao View'),
+  ('SAUDE_REGULACAO_MANAGE','Saude Regulacao Manage'),
+  ('SAUDE_REGULACAO_AUTHORIZE','Saude Regulacao Authorize'),
+  ('SAUDE_FARMACIA_VIEW','Saude Farmacia View'),
+  ('SAUDE_FARMACIA_MANAGE','Saude Farmacia Manage'),
+  ('SAUDE_FARMACIA_DISPENSAR','Saude Farmacia Dispensar'),
+  ('SAUDE_VIGILANCIA_VIEW','Saude Vigilancia View'),
+  ('SAUDE_VIGILANCIA_MANAGE','Saude Vigilancia Manage'),
+  ('SAUDE_RELATORIO_EXPORT','Saude Relatorio Export'),
+  ('PORTAL_CIDADAO_SAUDE_ACCESS','Portal Cidadao Saude Access')) AS p(chave,nome) WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao existente WHERE existente.chave=p.chave);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901120000', 'RC50.90 Saude360 UBS ACS regulacao farmacia vigilancia e portal cidadao', '79994e71582be89f98a632ba41e58a2a28f566d819376896550761dc95b579c0', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901150000_rc50_91_assistencia_social360_suas.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: b7fae30e648b53ba82ebc71a8f9778ed0f9942d8cf054dc8a1c06a4b80c938c1
+-- ==================================================
+-- RC50.91 - Assistencia Social360/SUAS multi-esfera, aditiva e idempotente.
+CREATE SCHEMA IF NOT EXISTS sigov;
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_unidade (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_unidade
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_unidade_esfera') THEN ALTER TABLE sigov.assistencia_unidade ADD CONSTRAINT ck_assistencia_unidade_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_unidade_valores') THEN ALTER TABLE sigov.assistencia_unidade ADD CONSTRAINT ck_assistencia_unidade_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_unidade_datas') THEN ALTER TABLE sigov.assistencia_unidade ADD CONSTRAINT ck_assistencia_unidade_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_unidade_geo') THEN ALTER TABLE sigov.assistencia_unidade ADD CONSTRAINT ck_assistencia_unidade_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_unidade_prioridade') THEN ALTER TABLE sigov.assistencia_unidade ADD CONSTRAINT ck_assistencia_unidade_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_unidade_severidade') THEN ALTER TABLE sigov.assistencia_unidade ADD CONSTRAINT ck_assistencia_unidade_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_unidade_contexto ON sigov.assistencia_unidade(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_unidade_social ON sigov.assistencia_unidade(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_servico (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_servico
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_servico_esfera') THEN ALTER TABLE sigov.assistencia_servico ADD CONSTRAINT ck_assistencia_servico_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_servico_valores') THEN ALTER TABLE sigov.assistencia_servico ADD CONSTRAINT ck_assistencia_servico_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_servico_datas') THEN ALTER TABLE sigov.assistencia_servico ADD CONSTRAINT ck_assistencia_servico_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_servico_geo') THEN ALTER TABLE sigov.assistencia_servico ADD CONSTRAINT ck_assistencia_servico_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_servico_prioridade') THEN ALTER TABLE sigov.assistencia_servico ADD CONSTRAINT ck_assistencia_servico_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_servico_severidade') THEN ALTER TABLE sigov.assistencia_servico ADD CONSTRAINT ck_assistencia_servico_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_servico_contexto ON sigov.assistencia_servico(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_servico_social ON sigov.assistencia_servico(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_equipe (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_equipe
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_esfera') THEN ALTER TABLE sigov.assistencia_equipe ADD CONSTRAINT ck_assistencia_equipe_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_valores') THEN ALTER TABLE sigov.assistencia_equipe ADD CONSTRAINT ck_assistencia_equipe_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_datas') THEN ALTER TABLE sigov.assistencia_equipe ADD CONSTRAINT ck_assistencia_equipe_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_geo') THEN ALTER TABLE sigov.assistencia_equipe ADD CONSTRAINT ck_assistencia_equipe_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_prioridade') THEN ALTER TABLE sigov.assistencia_equipe ADD CONSTRAINT ck_assistencia_equipe_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_severidade') THEN ALTER TABLE sigov.assistencia_equipe ADD CONSTRAINT ck_assistencia_equipe_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_equipe_contexto ON sigov.assistencia_equipe(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_equipe_social ON sigov.assistencia_equipe(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_equipe_membro (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_equipe_membro
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_membro_esfera') THEN ALTER TABLE sigov.assistencia_equipe_membro ADD CONSTRAINT ck_assistencia_equipe_membro_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_membro_valores') THEN ALTER TABLE sigov.assistencia_equipe_membro ADD CONSTRAINT ck_assistencia_equipe_membro_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_membro_datas') THEN ALTER TABLE sigov.assistencia_equipe_membro ADD CONSTRAINT ck_assistencia_equipe_membro_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_membro_geo') THEN ALTER TABLE sigov.assistencia_equipe_membro ADD CONSTRAINT ck_assistencia_equipe_membro_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_membro_prioridade') THEN ALTER TABLE sigov.assistencia_equipe_membro ADD CONSTRAINT ck_assistencia_equipe_membro_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_equipe_membro_severidade') THEN ALTER TABLE sigov.assistencia_equipe_membro ADD CONSTRAINT ck_assistencia_equipe_membro_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_equipe_membro_contexto ON sigov.assistencia_equipe_membro(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_equipe_membro_social ON sigov.assistencia_equipe_membro(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_familia (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_familia
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_esfera') THEN ALTER TABLE sigov.assistencia_familia ADD CONSTRAINT ck_assistencia_familia_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_valores') THEN ALTER TABLE sigov.assistencia_familia ADD CONSTRAINT ck_assistencia_familia_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_datas') THEN ALTER TABLE sigov.assistencia_familia ADD CONSTRAINT ck_assistencia_familia_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_geo') THEN ALTER TABLE sigov.assistencia_familia ADD CONSTRAINT ck_assistencia_familia_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_prioridade') THEN ALTER TABLE sigov.assistencia_familia ADD CONSTRAINT ck_assistencia_familia_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_severidade') THEN ALTER TABLE sigov.assistencia_familia ADD CONSTRAINT ck_assistencia_familia_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_familia_contexto ON sigov.assistencia_familia(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_familia_social ON sigov.assistencia_familia(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_familia_membro (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_familia_membro
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_membro_esfera') THEN ALTER TABLE sigov.assistencia_familia_membro ADD CONSTRAINT ck_assistencia_familia_membro_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_membro_valores') THEN ALTER TABLE sigov.assistencia_familia_membro ADD CONSTRAINT ck_assistencia_familia_membro_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_membro_datas') THEN ALTER TABLE sigov.assistencia_familia_membro ADD CONSTRAINT ck_assistencia_familia_membro_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_membro_geo') THEN ALTER TABLE sigov.assistencia_familia_membro ADD CONSTRAINT ck_assistencia_familia_membro_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_membro_prioridade') THEN ALTER TABLE sigov.assistencia_familia_membro ADD CONSTRAINT ck_assistencia_familia_membro_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_familia_membro_severidade') THEN ALTER TABLE sigov.assistencia_familia_membro ADD CONSTRAINT ck_assistencia_familia_membro_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_familia_membro_contexto ON sigov.assistencia_familia_membro(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_familia_membro_social ON sigov.assistencia_familia_membro(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_pessoa_vinculo_social (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_pessoa_vinculo_social
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_pessoa_vinculo_social_esfera') THEN ALTER TABLE sigov.assistencia_pessoa_vinculo_social ADD CONSTRAINT ck_assistencia_pessoa_vinculo_social_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_pessoa_vinculo_social_valores') THEN ALTER TABLE sigov.assistencia_pessoa_vinculo_social ADD CONSTRAINT ck_assistencia_pessoa_vinculo_social_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_pessoa_vinculo_social_datas') THEN ALTER TABLE sigov.assistencia_pessoa_vinculo_social ADD CONSTRAINT ck_assistencia_pessoa_vinculo_social_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_pessoa_vinculo_social_geo') THEN ALTER TABLE sigov.assistencia_pessoa_vinculo_social ADD CONSTRAINT ck_assistencia_pessoa_vinculo_social_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_pessoa_vinculo_social_prioridade') THEN ALTER TABLE sigov.assistencia_pessoa_vinculo_social ADD CONSTRAINT ck_assistencia_pessoa_vinculo_social_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_pessoa_vinculo_social_severidade') THEN ALTER TABLE sigov.assistencia_pessoa_vinculo_social ADD CONSTRAINT ck_assistencia_pessoa_vinculo_social_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_pessoa_vinculo_social_contexto ON sigov.assistencia_pessoa_vinculo_social(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_pessoa_vinculo_social_social ON sigov.assistencia_pessoa_vinculo_social(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_atendimento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_atendimento
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_atendimento_esfera') THEN ALTER TABLE sigov.assistencia_atendimento ADD CONSTRAINT ck_assistencia_atendimento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_atendimento_valores') THEN ALTER TABLE sigov.assistencia_atendimento ADD CONSTRAINT ck_assistencia_atendimento_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_atendimento_datas') THEN ALTER TABLE sigov.assistencia_atendimento ADD CONSTRAINT ck_assistencia_atendimento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_atendimento_geo') THEN ALTER TABLE sigov.assistencia_atendimento ADD CONSTRAINT ck_assistencia_atendimento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_atendimento_prioridade') THEN ALTER TABLE sigov.assistencia_atendimento ADD CONSTRAINT ck_assistencia_atendimento_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_atendimento_severidade') THEN ALTER TABLE sigov.assistencia_atendimento ADD CONSTRAINT ck_assistencia_atendimento_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_atendimento_contexto ON sigov.assistencia_atendimento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_atendimento_social ON sigov.assistencia_atendimento(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_acompanhamento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_acompanhamento
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acompanhamento_esfera') THEN ALTER TABLE sigov.assistencia_acompanhamento ADD CONSTRAINT ck_assistencia_acompanhamento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acompanhamento_valores') THEN ALTER TABLE sigov.assistencia_acompanhamento ADD CONSTRAINT ck_assistencia_acompanhamento_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acompanhamento_datas') THEN ALTER TABLE sigov.assistencia_acompanhamento ADD CONSTRAINT ck_assistencia_acompanhamento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acompanhamento_geo') THEN ALTER TABLE sigov.assistencia_acompanhamento ADD CONSTRAINT ck_assistencia_acompanhamento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acompanhamento_prioridade') THEN ALTER TABLE sigov.assistencia_acompanhamento ADD CONSTRAINT ck_assistencia_acompanhamento_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acompanhamento_severidade') THEN ALTER TABLE sigov.assistencia_acompanhamento ADD CONSTRAINT ck_assistencia_acompanhamento_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_acompanhamento_contexto ON sigov.assistencia_acompanhamento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_acompanhamento_social ON sigov.assistencia_acompanhamento(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_plano_acompanhamento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_plano_acompanhamento
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_plano_acompanhamento_esfera') THEN ALTER TABLE sigov.assistencia_plano_acompanhamento ADD CONSTRAINT ck_assistencia_plano_acompanhamento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_plano_acompanhamento_valores') THEN ALTER TABLE sigov.assistencia_plano_acompanhamento ADD CONSTRAINT ck_assistencia_plano_acompanhamento_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_plano_acompanhamento_datas') THEN ALTER TABLE sigov.assistencia_plano_acompanhamento ADD CONSTRAINT ck_assistencia_plano_acompanhamento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_plano_acompanhamento_geo') THEN ALTER TABLE sigov.assistencia_plano_acompanhamento ADD CONSTRAINT ck_assistencia_plano_acompanhamento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_plano_acompanhamento_prioridade') THEN ALTER TABLE sigov.assistencia_plano_acompanhamento ADD CONSTRAINT ck_assistencia_plano_acompanhamento_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_plano_acompanhamento_severidade') THEN ALTER TABLE sigov.assistencia_plano_acompanhamento ADD CONSTRAINT ck_assistencia_plano_acompanhamento_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_plano_acompanhamento_contexto ON sigov.assistencia_plano_acompanhamento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_plano_acompanhamento_social ON sigov.assistencia_plano_acompanhamento(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_encaminhamento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_encaminhamento
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_encaminhamento_esfera') THEN ALTER TABLE sigov.assistencia_encaminhamento ADD CONSTRAINT ck_assistencia_encaminhamento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_encaminhamento_valores') THEN ALTER TABLE sigov.assistencia_encaminhamento ADD CONSTRAINT ck_assistencia_encaminhamento_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_encaminhamento_datas') THEN ALTER TABLE sigov.assistencia_encaminhamento ADD CONSTRAINT ck_assistencia_encaminhamento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_encaminhamento_geo') THEN ALTER TABLE sigov.assistencia_encaminhamento ADD CONSTRAINT ck_assistencia_encaminhamento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_encaminhamento_prioridade') THEN ALTER TABLE sigov.assistencia_encaminhamento ADD CONSTRAINT ck_assistencia_encaminhamento_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_encaminhamento_severidade') THEN ALTER TABLE sigov.assistencia_encaminhamento ADD CONSTRAINT ck_assistencia_encaminhamento_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_encaminhamento_contexto ON sigov.assistencia_encaminhamento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_encaminhamento_social ON sigov.assistencia_encaminhamento(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_vulnerabilidade (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_vulnerabilidade
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_vulnerabilidade_esfera') THEN ALTER TABLE sigov.assistencia_vulnerabilidade ADD CONSTRAINT ck_assistencia_vulnerabilidade_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_vulnerabilidade_valores') THEN ALTER TABLE sigov.assistencia_vulnerabilidade ADD CONSTRAINT ck_assistencia_vulnerabilidade_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_vulnerabilidade_datas') THEN ALTER TABLE sigov.assistencia_vulnerabilidade ADD CONSTRAINT ck_assistencia_vulnerabilidade_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_vulnerabilidade_geo') THEN ALTER TABLE sigov.assistencia_vulnerabilidade ADD CONSTRAINT ck_assistencia_vulnerabilidade_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_vulnerabilidade_prioridade') THEN ALTER TABLE sigov.assistencia_vulnerabilidade ADD CONSTRAINT ck_assistencia_vulnerabilidade_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_vulnerabilidade_severidade') THEN ALTER TABLE sigov.assistencia_vulnerabilidade ADD CONSTRAINT ck_assistencia_vulnerabilidade_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_vulnerabilidade_contexto ON sigov.assistencia_vulnerabilidade(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_vulnerabilidade_social ON sigov.assistencia_vulnerabilidade(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_risco_social (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_risco_social
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_risco_social_esfera') THEN ALTER TABLE sigov.assistencia_risco_social ADD CONSTRAINT ck_assistencia_risco_social_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_risco_social_valores') THEN ALTER TABLE sigov.assistencia_risco_social ADD CONSTRAINT ck_assistencia_risco_social_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_risco_social_datas') THEN ALTER TABLE sigov.assistencia_risco_social ADD CONSTRAINT ck_assistencia_risco_social_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_risco_social_geo') THEN ALTER TABLE sigov.assistencia_risco_social ADD CONSTRAINT ck_assistencia_risco_social_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_risco_social_prioridade') THEN ALTER TABLE sigov.assistencia_risco_social ADD CONSTRAINT ck_assistencia_risco_social_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_risco_social_severidade') THEN ALTER TABLE sigov.assistencia_risco_social ADD CONSTRAINT ck_assistencia_risco_social_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_risco_social_contexto ON sigov.assistencia_risco_social(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_risco_social_social ON sigov.assistencia_risco_social(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_beneficio_tipo (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_beneficio_tipo
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_tipo_esfera') THEN ALTER TABLE sigov.assistencia_beneficio_tipo ADD CONSTRAINT ck_assistencia_beneficio_tipo_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_tipo_valores') THEN ALTER TABLE sigov.assistencia_beneficio_tipo ADD CONSTRAINT ck_assistencia_beneficio_tipo_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_tipo_datas') THEN ALTER TABLE sigov.assistencia_beneficio_tipo ADD CONSTRAINT ck_assistencia_beneficio_tipo_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_tipo_geo') THEN ALTER TABLE sigov.assistencia_beneficio_tipo ADD CONSTRAINT ck_assistencia_beneficio_tipo_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_tipo_prioridade') THEN ALTER TABLE sigov.assistencia_beneficio_tipo ADD CONSTRAINT ck_assistencia_beneficio_tipo_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_tipo_severidade') THEN ALTER TABLE sigov.assistencia_beneficio_tipo ADD CONSTRAINT ck_assistencia_beneficio_tipo_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_beneficio_tipo_contexto ON sigov.assistencia_beneficio_tipo(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_beneficio_tipo_social ON sigov.assistencia_beneficio_tipo(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_beneficio_solicitacao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_beneficio_solicitacao
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_solicitacao_esfera') THEN ALTER TABLE sigov.assistencia_beneficio_solicitacao ADD CONSTRAINT ck_assistencia_beneficio_solicitacao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_solicitacao_valores') THEN ALTER TABLE sigov.assistencia_beneficio_solicitacao ADD CONSTRAINT ck_assistencia_beneficio_solicitacao_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_solicitacao_datas') THEN ALTER TABLE sigov.assistencia_beneficio_solicitacao ADD CONSTRAINT ck_assistencia_beneficio_solicitacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_solicitacao_geo') THEN ALTER TABLE sigov.assistencia_beneficio_solicitacao ADD CONSTRAINT ck_assistencia_beneficio_solicitacao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_solicitacao_prioridade') THEN ALTER TABLE sigov.assistencia_beneficio_solicitacao ADD CONSTRAINT ck_assistencia_beneficio_solicitacao_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_solicitacao_severidade') THEN ALTER TABLE sigov.assistencia_beneficio_solicitacao ADD CONSTRAINT ck_assistencia_beneficio_solicitacao_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_beneficio_solicitacao_contexto ON sigov.assistencia_beneficio_solicitacao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_beneficio_solicitacao_social ON sigov.assistencia_beneficio_solicitacao(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_beneficio_concessao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_beneficio_concessao
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_concessao_esfera') THEN ALTER TABLE sigov.assistencia_beneficio_concessao ADD CONSTRAINT ck_assistencia_beneficio_concessao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_concessao_valores') THEN ALTER TABLE sigov.assistencia_beneficio_concessao ADD CONSTRAINT ck_assistencia_beneficio_concessao_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_concessao_datas') THEN ALTER TABLE sigov.assistencia_beneficio_concessao ADD CONSTRAINT ck_assistencia_beneficio_concessao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_concessao_geo') THEN ALTER TABLE sigov.assistencia_beneficio_concessao ADD CONSTRAINT ck_assistencia_beneficio_concessao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_concessao_prioridade') THEN ALTER TABLE sigov.assistencia_beneficio_concessao ADD CONSTRAINT ck_assistencia_beneficio_concessao_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_beneficio_concessao_severidade') THEN ALTER TABLE sigov.assistencia_beneficio_concessao ADD CONSTRAINT ck_assistencia_beneficio_concessao_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_beneficio_concessao_contexto ON sigov.assistencia_beneficio_concessao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_beneficio_concessao_social ON sigov.assistencia_beneficio_concessao(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_programa (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_programa
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_esfera') THEN ALTER TABLE sigov.assistencia_programa ADD CONSTRAINT ck_assistencia_programa_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_valores') THEN ALTER TABLE sigov.assistencia_programa ADD CONSTRAINT ck_assistencia_programa_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_datas') THEN ALTER TABLE sigov.assistencia_programa ADD CONSTRAINT ck_assistencia_programa_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_geo') THEN ALTER TABLE sigov.assistencia_programa ADD CONSTRAINT ck_assistencia_programa_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_prioridade') THEN ALTER TABLE sigov.assistencia_programa ADD CONSTRAINT ck_assistencia_programa_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_severidade') THEN ALTER TABLE sigov.assistencia_programa ADD CONSTRAINT ck_assistencia_programa_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_programa_contexto ON sigov.assistencia_programa(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_programa_social ON sigov.assistencia_programa(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_programa_inscricao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_programa_inscricao
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_inscricao_esfera') THEN ALTER TABLE sigov.assistencia_programa_inscricao ADD CONSTRAINT ck_assistencia_programa_inscricao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_inscricao_valores') THEN ALTER TABLE sigov.assistencia_programa_inscricao ADD CONSTRAINT ck_assistencia_programa_inscricao_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_inscricao_datas') THEN ALTER TABLE sigov.assistencia_programa_inscricao ADD CONSTRAINT ck_assistencia_programa_inscricao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_inscricao_geo') THEN ALTER TABLE sigov.assistencia_programa_inscricao ADD CONSTRAINT ck_assistencia_programa_inscricao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_inscricao_prioridade') THEN ALTER TABLE sigov.assistencia_programa_inscricao ADD CONSTRAINT ck_assistencia_programa_inscricao_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_programa_inscricao_severidade') THEN ALTER TABLE sigov.assistencia_programa_inscricao ADD CONSTRAINT ck_assistencia_programa_inscricao_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_programa_inscricao_contexto ON sigov.assistencia_programa_inscricao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_programa_inscricao_social ON sigov.assistencia_programa_inscricao(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_visita (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_visita
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_visita_esfera') THEN ALTER TABLE sigov.assistencia_visita ADD CONSTRAINT ck_assistencia_visita_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_visita_valores') THEN ALTER TABLE sigov.assistencia_visita ADD CONSTRAINT ck_assistencia_visita_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_visita_datas') THEN ALTER TABLE sigov.assistencia_visita ADD CONSTRAINT ck_assistencia_visita_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_visita_geo') THEN ALTER TABLE sigov.assistencia_visita ADD CONSTRAINT ck_assistencia_visita_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_visita_prioridade') THEN ALTER TABLE sigov.assistencia_visita ADD CONSTRAINT ck_assistencia_visita_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_visita_severidade') THEN ALTER TABLE sigov.assistencia_visita ADD CONSTRAINT ck_assistencia_visita_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_visita_contexto ON sigov.assistencia_visita(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_visita_social ON sigov.assistencia_visita(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_acolhimento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_acolhimento
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_esfera') THEN ALTER TABLE sigov.assistencia_acolhimento ADD CONSTRAINT ck_assistencia_acolhimento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_valores') THEN ALTER TABLE sigov.assistencia_acolhimento ADD CONSTRAINT ck_assistencia_acolhimento_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_datas') THEN ALTER TABLE sigov.assistencia_acolhimento ADD CONSTRAINT ck_assistencia_acolhimento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_geo') THEN ALTER TABLE sigov.assistencia_acolhimento ADD CONSTRAINT ck_assistencia_acolhimento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_prioridade') THEN ALTER TABLE sigov.assistencia_acolhimento ADD CONSTRAINT ck_assistencia_acolhimento_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_severidade') THEN ALTER TABLE sigov.assistencia_acolhimento ADD CONSTRAINT ck_assistencia_acolhimento_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_acolhimento_contexto ON sigov.assistencia_acolhimento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_acolhimento_social ON sigov.assistencia_acolhimento(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_acolhimento_movimento (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_acolhimento_movimento
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_movimento_esfera') THEN ALTER TABLE sigov.assistencia_acolhimento_movimento ADD CONSTRAINT ck_assistencia_acolhimento_movimento_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_movimento_valores') THEN ALTER TABLE sigov.assistencia_acolhimento_movimento ADD CONSTRAINT ck_assistencia_acolhimento_movimento_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_movimento_datas') THEN ALTER TABLE sigov.assistencia_acolhimento_movimento ADD CONSTRAINT ck_assistencia_acolhimento_movimento_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_movimento_geo') THEN ALTER TABLE sigov.assistencia_acolhimento_movimento ADD CONSTRAINT ck_assistencia_acolhimento_movimento_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_movimento_prioridade') THEN ALTER TABLE sigov.assistencia_acolhimento_movimento ADD CONSTRAINT ck_assistencia_acolhimento_movimento_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_acolhimento_movimento_severidade') THEN ALTER TABLE sigov.assistencia_acolhimento_movimento ADD CONSTRAINT ck_assistencia_acolhimento_movimento_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_acolhimento_movimento_contexto ON sigov.assistencia_acolhimento_movimento(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_acolhimento_movimento_social ON sigov.assistencia_acolhimento_movimento(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_conselho_tutelar_registro (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_conselho_tutelar_registro
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_conselho_tutelar_registro_esfera') THEN ALTER TABLE sigov.assistencia_conselho_tutelar_registro ADD CONSTRAINT ck_assistencia_conselho_tutelar_registro_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_conselho_tutelar_registro_valores') THEN ALTER TABLE sigov.assistencia_conselho_tutelar_registro ADD CONSTRAINT ck_assistencia_conselho_tutelar_registro_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_conselho_tutelar_registro_datas') THEN ALTER TABLE sigov.assistencia_conselho_tutelar_registro ADD CONSTRAINT ck_assistencia_conselho_tutelar_registro_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_conselho_tutelar_registro_geo') THEN ALTER TABLE sigov.assistencia_conselho_tutelar_registro ADD CONSTRAINT ck_assistencia_conselho_tutelar_registro_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_conselho_tutelar_registro_prioridade') THEN ALTER TABLE sigov.assistencia_conselho_tutelar_registro ADD CONSTRAINT ck_assistencia_conselho_tutelar_registro_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_conselho_tutelar_registro_severidade') THEN ALTER TABLE sigov.assistencia_conselho_tutelar_registro ADD CONSTRAINT ck_assistencia_conselho_tutelar_registro_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_conselho_tutelar_registro_contexto ON sigov.assistencia_conselho_tutelar_registro(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_conselho_tutelar_registro_social ON sigov.assistencia_conselho_tutelar_registro(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_medida_protecao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_medida_protecao
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_medida_protecao_esfera') THEN ALTER TABLE sigov.assistencia_medida_protecao ADD CONSTRAINT ck_assistencia_medida_protecao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_medida_protecao_valores') THEN ALTER TABLE sigov.assistencia_medida_protecao ADD CONSTRAINT ck_assistencia_medida_protecao_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_medida_protecao_datas') THEN ALTER TABLE sigov.assistencia_medida_protecao ADD CONSTRAINT ck_assistencia_medida_protecao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_medida_protecao_geo') THEN ALTER TABLE sigov.assistencia_medida_protecao ADD CONSTRAINT ck_assistencia_medida_protecao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_medida_protecao_prioridade') THEN ALTER TABLE sigov.assistencia_medida_protecao ADD CONSTRAINT ck_assistencia_medida_protecao_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_medida_protecao_severidade') THEN ALTER TABLE sigov.assistencia_medida_protecao ADD CONSTRAINT ck_assistencia_medida_protecao_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_medida_protecao_contexto ON sigov.assistencia_medida_protecao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_medida_protecao_social ON sigov.assistencia_medida_protecao(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_rede_protecao (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_rede_protecao
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_rede_protecao_esfera') THEN ALTER TABLE sigov.assistencia_rede_protecao ADD CONSTRAINT ck_assistencia_rede_protecao_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_rede_protecao_valores') THEN ALTER TABLE sigov.assistencia_rede_protecao ADD CONSTRAINT ck_assistencia_rede_protecao_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_rede_protecao_datas') THEN ALTER TABLE sigov.assistencia_rede_protecao ADD CONSTRAINT ck_assistencia_rede_protecao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_rede_protecao_geo') THEN ALTER TABLE sigov.assistencia_rede_protecao ADD CONSTRAINT ck_assistencia_rede_protecao_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_rede_protecao_prioridade') THEN ALTER TABLE sigov.assistencia_rede_protecao ADD CONSTRAINT ck_assistencia_rede_protecao_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_rede_protecao_severidade') THEN ALTER TABLE sigov.assistencia_rede_protecao ADD CONSTRAINT ck_assistencia_rede_protecao_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_rede_protecao_contexto ON sigov.assistencia_rede_protecao(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_rede_protecao_social ON sigov.assistencia_rede_protecao(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_auditoria_sensivel (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_auditoria_sensivel
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_auditoria_sensivel_esfera') THEN ALTER TABLE sigov.assistencia_auditoria_sensivel ADD CONSTRAINT ck_assistencia_auditoria_sensivel_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_auditoria_sensivel_valores') THEN ALTER TABLE sigov.assistencia_auditoria_sensivel ADD CONSTRAINT ck_assistencia_auditoria_sensivel_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_auditoria_sensivel_datas') THEN ALTER TABLE sigov.assistencia_auditoria_sensivel ADD CONSTRAINT ck_assistencia_auditoria_sensivel_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_auditoria_sensivel_geo') THEN ALTER TABLE sigov.assistencia_auditoria_sensivel ADD CONSTRAINT ck_assistencia_auditoria_sensivel_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_auditoria_sensivel_prioridade') THEN ALTER TABLE sigov.assistencia_auditoria_sensivel ADD CONSTRAINT ck_assistencia_auditoria_sensivel_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_auditoria_sensivel_severidade') THEN ALTER TABLE sigov.assistencia_auditoria_sensivel ADD CONSTRAINT ck_assistencia_auditoria_sensivel_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_auditoria_sensivel_contexto ON sigov.assistencia_auditoria_sensivel(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_auditoria_sensivel_social ON sigov.assistencia_auditoria_sensivel(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_integracao_financeira (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_integracao_financeira
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_financeira_esfera') THEN ALTER TABLE sigov.assistencia_integracao_financeira ADD CONSTRAINT ck_assistencia_integracao_financeira_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_financeira_valores') THEN ALTER TABLE sigov.assistencia_integracao_financeira ADD CONSTRAINT ck_assistencia_integracao_financeira_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_financeira_datas') THEN ALTER TABLE sigov.assistencia_integracao_financeira ADD CONSTRAINT ck_assistencia_integracao_financeira_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_financeira_geo') THEN ALTER TABLE sigov.assistencia_integracao_financeira ADD CONSTRAINT ck_assistencia_integracao_financeira_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_financeira_prioridade') THEN ALTER TABLE sigov.assistencia_integracao_financeira ADD CONSTRAINT ck_assistencia_integracao_financeira_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_financeira_severidade') THEN ALTER TABLE sigov.assistencia_integracao_financeira ADD CONSTRAINT ck_assistencia_integracao_financeira_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_integracao_financeira_contexto ON sigov.assistencia_integracao_financeira(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_integracao_financeira_social ON sigov.assistencia_integracao_financeira(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+CREATE TABLE IF NOT EXISTS sigov.assistencia_integracao_almoxarifado (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  tenant_id bigint NOT NULL, entidade_id bigint NOT NULL, exercicio_id bigint,
+  esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  orgao_superior_id bigint, orgao_id bigint, unidade_gestora_id bigint, unidade_executora_id bigint,
+  hierarquia_administrativa varchar(200), abrangencia_territorial varchar(160), uf char(2), municipio varchar(160), regiao varchar(120), jurisdicao varchar(160),
+  unidade_id bigint, territorio_id bigint, familia_id bigint, pessoa_id bigint, responsavel_id bigint, beneficio_id bigint, programa_id bigint,
+  codigo varchar(80), nome varchar(250), tipo varchar(80), status varchar(30) NOT NULL DEFAULT 'ativo', severidade varchar(20), prioridade varchar(20),
+  data_inicio timestamptz, data_fim timestamptz, quantidade numeric(18,4), valor numeric(18,2), latitude numeric(9,6), longitude numeric(9,6),
+  motivo text, justificativa text, parecer_tecnico text, dados_protegidos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true, is_deleted boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), created_by bigint, updated_by bigint
+);
+ALTER TABLE sigov.assistencia_integracao_almoxarifado
+  ADD COLUMN IF NOT EXISTS esfera_governo varchar(12) NOT NULL DEFAULT 'municipal', ADD COLUMN IF NOT EXISTS tipo_entidade varchar(60) NOT NULL DEFAULT 'orgao_publico',
+  ADD COLUMN IF NOT EXISTS orgao_superior_id bigint, ADD COLUMN IF NOT EXISTS orgao_id bigint, ADD COLUMN IF NOT EXISTS unidade_gestora_id bigint, ADD COLUMN IF NOT EXISTS unidade_executora_id bigint,
+  ADD COLUMN IF NOT EXISTS hierarquia_administrativa varchar(200), ADD COLUMN IF NOT EXISTS abrangencia_territorial varchar(160), ADD COLUMN IF NOT EXISTS uf char(2), ADD COLUMN IF NOT EXISTS municipio varchar(160), ADD COLUMN IF NOT EXISTS regiao varchar(120), ADD COLUMN IF NOT EXISTS jurisdicao varchar(160),
+  ADD COLUMN IF NOT EXISTS territorio_id bigint, ADD COLUMN IF NOT EXISTS responsavel_id bigint, ADD COLUMN IF NOT EXISTS beneficio_id bigint, ADD COLUMN IF NOT EXISTS programa_id bigint,
+  ADD COLUMN IF NOT EXISTS severidade varchar(20), ADD COLUMN IF NOT EXISTS latitude numeric(9,6), ADD COLUMN IF NOT EXISTS longitude numeric(9,6), ADD COLUMN IF NOT EXISTS motivo text, ADD COLUMN IF NOT EXISTS parecer_tecnico text;
+DO $$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_almoxarifado_esfera') THEN ALTER TABLE sigov.assistencia_integracao_almoxarifado ADD CONSTRAINT ck_assistencia_integracao_almoxarifado_esfera CHECK (esfera_governo IN ('municipal','estadual','federal')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_almoxarifado_valores') THEN ALTER TABLE sigov.assistencia_integracao_almoxarifado ADD CONSTRAINT ck_assistencia_integracao_almoxarifado_valores CHECK ((quantidade IS NULL OR quantidade >= 0) AND (valor IS NULL OR valor >= 0)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_almoxarifado_datas') THEN ALTER TABLE sigov.assistencia_integracao_almoxarifado ADD CONSTRAINT ck_assistencia_integracao_almoxarifado_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_almoxarifado_geo') THEN ALTER TABLE sigov.assistencia_integracao_almoxarifado ADD CONSTRAINT ck_assistencia_integracao_almoxarifado_geo CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_almoxarifado_prioridade') THEN ALTER TABLE sigov.assistencia_integracao_almoxarifado ADD CONSTRAINT ck_assistencia_integracao_almoxarifado_prioridade CHECK (prioridade IS NULL OR lower(prioridade) IN ('baixa','normal','media','alta','urgente','emergencia')) NOT VALID; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_assistencia_integracao_almoxarifado_severidade') THEN ALTER TABLE sigov.assistencia_integracao_almoxarifado ADD CONSTRAINT ck_assistencia_integracao_almoxarifado_severidade CHECK (severidade IS NULL OR lower(severidade) IN ('baixa','media','alta','critica')) NOT VALID; END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_assistencia_integracao_almoxarifado_contexto ON sigov.assistencia_integracao_almoxarifado(tenant_id, entidade_id, exercicio_id, orgao_id, unidade_gestora_id, unidade_executora_id, status);
+CREATE INDEX IF NOT EXISTS ix_assistencia_integracao_almoxarifado_social ON sigov.assistencia_integracao_almoxarifado(tenant_id, territorio_id, familia_id, pessoa_id, responsavel_id, beneficio_id, programa_id, severidade, data_inicio);
+
+INSERT INTO sigov.permissao (chave, modulo, descricao, ativo)
+SELECT p.chave, 'assistencia_social', p.nome, true FROM (VALUES
+  ('ASSISTENCIA_DASHBOARD_VIEW','Assistencia Dashboard View')
+  ,('ASSISTENCIA_UNIDADE_VIEW','Assistencia Unidade View')
+  ,('ASSISTENCIA_UNIDADE_MANAGE','Assistencia Unidade Manage')
+  ,('ASSISTENCIA_FAMILIA_VIEW','Assistencia Familia View')
+  ,('ASSISTENCIA_FAMILIA_MANAGE','Assistencia Familia Manage')
+  ,('ASSISTENCIA_PESSOA_VIEW','Assistencia Pessoa View')
+  ,('ASSISTENCIA_DADO_SENSIVEL_VIEW','Assistencia Dado Sensivel View')
+  ,('ASSISTENCIA_DADO_SENSIVEL_EXPORT','Assistencia Dado Sensivel Export')
+  ,('ASSISTENCIA_ATENDIMENTO_VIEW','Assistencia Atendimento View')
+  ,('ASSISTENCIA_ATENDIMENTO_MANAGE','Assistencia Atendimento Manage')
+  ,('ASSISTENCIA_ACOMPANHAMENTO_MANAGE','Assistencia Acompanhamento Manage')
+  ,('ASSISTENCIA_VULNERABILIDADE_VIEW','Assistencia Vulnerabilidade View')
+  ,('ASSISTENCIA_VULNERABILIDADE_MANAGE','Assistencia Vulnerabilidade Manage')
+  ,('ASSISTENCIA_BENEFICIO_VIEW','Assistencia Beneficio View')
+  ,('ASSISTENCIA_BENEFICIO_MANAGE','Assistencia Beneficio Manage')
+  ,('ASSISTENCIA_BENEFICIO_APPROVE','Assistencia Beneficio Approve')
+  ,('ASSISTENCIA_VISITA_VIEW','Assistencia Visita View')
+  ,('ASSISTENCIA_VISITA_MANAGE','Assistencia Visita Manage')
+  ,('ASSISTENCIA_ACOLHIMENTO_VIEW','Assistencia Acolhimento View')
+  ,('ASSISTENCIA_ACOLHIMENTO_MANAGE','Assistencia Acolhimento Manage')
+  ,('ASSISTENCIA_CONSELHO_TUTELAR_VIEW','Assistencia Conselho Tutelar View')
+  ,('ASSISTENCIA_CONSELHO_TUTELAR_MANAGE','Assistencia Conselho Tutelar Manage')
+  ,('ASSISTENCIA_RELATORIO_EXPORT','Assistencia Relatorio Export')
+  ,('PORTAL_CIDADAO_ASSISTENCIA_ACCESS','Portal Cidadao Assistencia Access')
+) AS p(chave,nome) WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao existente WHERE existente.chave=p.chave);
+
+COMMENT ON SCHEMA sigov IS 'SIGOV PLUS: dados sociais protegidos; integracoes somente por referencia real e autorizada.';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901150000', 'RC50.91 Assistencia Social360 SUAS CRAS CREAS beneficios e portal cidadao', 'b7fae30e648b53ba82ebc71a8f9778ed0f9942d8cf054dc8a1c06a4b80c938c1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901180000_rc50_92_saneamento_meio_ambiente360.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282
+-- ==================================================
 -- RC50.92 Saneamento360 e Meio Ambiente360 multi-esfera
 -- PostgreSQL 16+, aditiva, idempotente e sem dados artificiais.
 create schema if not exists sigov;
@@ -26517,9 +27900,53 @@ create index if not exists ix_meio_ambiente_licenca_gestao on sigov.meio_ambient
 create index if not exists ix_meio_ambiente_fiscalizacao_gestao on sigov.meio_ambiente_fiscalizacao(tenant_id,entidade_id,status,prioridade,responsavel_id,created_at);
 create index if not exists ix_meio_ambiente_denuncia_gestao on sigov.meio_ambiente_denuncia(tenant_id,entidade_id,status,responsavel_id,data_denuncia);
 create index if not exists ix_meio_ambiente_indicador_competencia on sigov.meio_ambiente_indicador(tenant_id,entidade_id,territorio_id,competencia,status);
--- END RC50.92 20260901180000
 
--- BEGIN 20260902000000_rc50_98_ged_workflow_branding_logo.sql
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901180000', 'RC50.92 Saneamento360 e Meio Ambiente360 multi-esfera', '8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260901210000_rc50_95_base_restauravel.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd
+-- ==================================================
+-- RC50.95 - contexto institucional multi-esfera para a base restaurável.
+alter table sigov.entidade add column if not exists esfera_governo varchar(12);
+alter table sigov.entidade add column if not exists tipo_entidade varchar(80);
+alter table sigov.entidade add column if not exists orgao_superior_id bigint references sigov.entidade(id);
+alter table sigov.entidade add column if not exists unidade_gestora_id bigint;
+alter table sigov.entidade add column if not exists unidade_executora_id bigint;
+alter table sigov.entidade add column if not exists hierarquia_administrativa text;
+alter table sigov.entidade add column if not exists abrangencia_territorial text;
+alter table sigov.entidade add column if not exists uf char(2);
+alter table sigov.entidade add column if not exists municipio text;
+alter table sigov.entidade add column if not exists regiao_jurisdicao text;
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname='ck_entidade_esfera_governo') then
+    alter table sigov.entidade add constraint ck_entidade_esfera_governo
+      check (esfera_governo is null or esfera_governo in ('municipal','estadual','federal'));
+  end if;
+end $$;
+
+create index if not exists ix_entidade_contexto_institucional
+  on sigov.entidade(tenant_id, esfera_governo, tipo_entidade, uf);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901210000', 'RC50.95 contexto institucional da base restaurável', 'a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260902000000_rc50_98_ged_workflow_branding_logo.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: f5a4370460581e6b3e78a1f0ab30e2487fc272e66c53634be46541d470e8b007
+-- ==================================================
 -- RC50.98: corrige o schema obrigatório do GED Smart Workflow e os metadados da logo.
 -- Idempotente e não destrutiva.
 CREATE SCHEMA IF NOT EXISTS ged;
@@ -26638,4 +28065,243 @@ DO $$ BEGIN
  END IF;
 END $$;
 
--- END 20260902000000_rc50_98_ged_workflow_branding_logo.sql
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260902000000', 'RC50.98 GED Smart Workflow e metadados seguros de logo', 'f5a4370460581e6b3e78a1f0ab30e2487fc272e66c53634be46541d470e8b007', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 850_post_migration_compatibility.sql
+-- STAGE: AFTER ALL MIGRATIONS
+-- ==================================================
+-- SIGOV+ RC38E
+-- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
+
+create extension if not exists pgcrypto;
+
+alter table sigov.usuario add column if not exists tenant_id bigint null;
+alter table sigov.usuario add column if not exists nome varchar(200) null;
+alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
+alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
+alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
+alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
+alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
+alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
+
+alter table sigov.entidade add column if not exists tenant_id bigint null;
+alter table sigov.exercicio add column if not exists tenant_id bigint null;
+alter table sigov.pessoa add column if not exists tenant_id bigint null;
+alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
+alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
+alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
+alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
+alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
+alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
+alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
+alter table sigov.politica_senha add column if not exists tenant_id bigint null;
+
+alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
+alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
+alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
+
+alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
+alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
+
+-- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
+-- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
+-- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
+-- seus checksums e sem criar vínculos fora do tenant correto.
+create or replace function sigov.fn_preencher_tenant_vinculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.tenant_id is not null then
+        return new;
+    end if;
+
+    case tg_table_name
+        when 'usuario_entidade' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select e.tenant_id into new.tenant_id
+                  from sigov.entidade e
+                 where e.id = new.entidade_id;
+            end if;
+
+        when 'usuario_exercicio' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select x.tenant_id into new.tenant_id
+                  from sigov.exercicio x
+                 where x.id = new.exercicio_id;
+            end if;
+
+        when 'usuario_grupo' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select g.tenant_id into new.tenant_id
+                  from sigov.grupo_acesso g
+                 where g.id = new.grupo_acesso_id;
+            end if;
+
+        when 'grupo_perfil' then
+            select g.tenant_id into new.tenant_id
+              from sigov.grupo_acesso g
+             where g.id = new.grupo_acesso_id;
+            if new.tenant_id is null then
+                select p.tenant_id into new.tenant_id
+                  from sigov.perfil_acesso p
+                 where p.id = new.perfil_acesso_id;
+            end if;
+
+        when 'perfil_permissao' then
+            select p.tenant_id into new.tenant_id
+              from sigov.perfil_acesso p
+             where p.id = new.perfil_acesso_id;
+    end case;
+
+    if new.tenant_id is null then
+        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
+            using errcode = '23502';
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
+create trigger trg_usuario_entidade_tenant
+before insert or update on sigov.usuario_entidade
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
+create trigger trg_usuario_exercicio_tenant
+before insert or update on sigov.usuario_exercicio
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
+create trigger trg_usuario_grupo_tenant
+before insert or update on sigov.usuario_grupo
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
+create trigger trg_grupo_perfil_tenant
+before insert or update on sigov.grupo_perfil
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
+create trigger trg_perfil_permissao_tenant
+before insert or update on sigov.perfil_permissao
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+-- Bancos que já foram executados parcialmente podem possuir perfis e grupos
+-- duplicados por tenant. Antes de criar os índices únicos usados pelo bootstrap,
+-- preservamos todos os registros e seus vínculos, mantendo como canônico o item
+-- com maior uso em relacionamentos e renomeando apenas a chave/nome dos legados.
+do $$
+begin
+    if to_regclass('sigov.perfil_acesso') is not null then
+        with perfil_uso as (
+            select p.id,
+                   count(distinct gp.grupo_acesso_id) + count(distinct pp.permissao_id) as total_vinculos
+              from sigov.perfil_acesso p
+              left join sigov.grupo_perfil gp on gp.perfil_acesso_id = p.id
+              left join sigov.perfil_permissao pp on pp.perfil_acesso_id = p.id
+             group by p.id
+        ), perfil_rank as (
+            select p.id,
+                   p.codigo_externo,
+                   row_number() over (
+                       partition by p.tenant_id, p.codigo_externo
+                       order by coalesce(u.total_vinculos, 0) desc,
+                                case when p.ativo then 0 else 1 end,
+                                p.created_at nulls last,
+                                p.id
+                   ) as rn
+              from sigov.perfil_acesso p
+              left join perfil_uso u on u.id = p.id
+             where p.tenant_id is not null
+               and nullif(p.codigo_externo, '') is not null
+               and p.is_deleted = false
+        )
+        update sigov.perfil_acesso p
+           set codigo_externo = concat(
+                   left(r.codigo_externo, greatest(1, 100 - length('_LEGACY_' || p.id::text))),
+                   '_LEGACY_',
+                   p.id::text
+               ),
+               observacao = concat_ws(E'\n',
+                   nullif(p.observacao, ''),
+                   'Código externo legado ajustado para remover duplicidade antes do índice ux_bootstrap_perfil_codigo_tenant. Código anterior: ' || r.codigo_externo
+               ),
+               updated_at = now()
+          from perfil_rank r
+         where p.id = r.id
+           and r.rn > 1;
+    end if;
+
+    if to_regclass('sigov.grupo_acesso') is not null then
+        with grupo_uso as (
+            select g.id,
+                   count(distinct ug.usuario_id) + count(distinct gp.perfil_acesso_id) as total_vinculos
+              from sigov.grupo_acesso g
+              left join sigov.usuario_grupo ug on ug.grupo_acesso_id = g.id
+              left join sigov.grupo_perfil gp on gp.grupo_acesso_id = g.id
+             group by g.id
+        ), grupo_rank as (
+            select g.id,
+                   g.nome,
+                   row_number() over (
+                       partition by g.tenant_id, g.nome
+                       order by coalesce(u.total_vinculos, 0) desc,
+                                case when g.ativo then 0 else 1 end,
+                                g.created_at nulls last,
+                                g.id
+                   ) as rn
+              from sigov.grupo_acesso g
+              left join grupo_uso u on u.id = g.id
+             where g.tenant_id is not null
+               and nullif(g.nome, '') is not null
+               and g.is_deleted = false
+        )
+        update sigov.grupo_acesso g
+           set nome = concat(
+                   left(r.nome, greatest(1, 150 - length(' (legado ' || g.id::text || ')'))),
+                   ' (legado ',
+                   g.id::text,
+                   ')'
+               ),
+               observacao = concat_ws(E'\n',
+                   nullif(g.observacao, ''),
+                   'Nome legado ajustado para remover duplicidade antes do índice ux_bootstrap_grupo_nome_tenant. Nome anterior: ' || r.nome
+               ),
+               updated_at = now()
+          from grupo_rank r
+         where g.id = r.id
+           and r.rn > 1;
+    end if;
+end $$;
+
+create unique index if not exists ux_bootstrap_usuario_login_tenant
+    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_usuario_email_tenant
+    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_perfil_codigo_tenant
+    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
+create unique index if not exists ux_bootstrap_grupo_nome_tenant
+    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
+
+-- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
+-- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]

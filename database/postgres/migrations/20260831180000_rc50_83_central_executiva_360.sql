@@ -40,7 +40,7 @@ do $$ begin
  if not exists(select 1 from pg_constraint where conname='ck_executivo_alerta_origem') then alter table sigov.executivo_alerta add constraint ck_executivo_alerta_origem check(regra_origem is not null and origem_tipo is not null); end if;
 end $$;
 
-insert into sigov.permissao(chave,nome,modulo,ativo,created_at)
+insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select chave,nome,'executivo',true,now() from(values
  ('EXECUTIVO_DASHBOARD_VIEW','Executivo: visualizar dashboard'),('EXECUTIVO_SALA_VIEW','Executivo: visualizar sala'),('EXECUTIVO_SALA_MANAGE','Executivo: gerenciar sala'),('EXECUTIVO_META_VIEW','Executivo: visualizar metas'),('EXECUTIVO_META_MANAGE','Executivo: gerenciar metas'),('EXECUTIVO_PENDENCIA_VIEW','Executivo: visualizar pendências'),('EXECUTIVO_PENDENCIA_MANAGE','Executivo: gerenciar pendências'),('EXECUTIVO_ALERTA_VIEW','Executivo: visualizar alertas'),('EXECUTIVO_ALERTA_MANAGE','Executivo: gerenciar alertas'),('EXECUTIVO_APROVACAO_VIEW','Executivo: visualizar aprovações'),('EXECUTIVO_APROVACAO_MANAGE','Executivo: gerenciar aprovações'),('EXECUTIVO_DECISAO_VIEW','Executivo: visualizar decisões'),('EXECUTIVO_DECISAO_MANAGE','Executivo: gerenciar decisões'),('EXECUTIVO_BRIEFING_VIEW','Executivo: visualizar briefing'),('EXECUTIVO_RELATORIO_EXPORT','Executivo: exportar relatórios')) p(chave,nome)
-on conflict(chave) do update set nome=excluded.nome,modulo=excluded.modulo,ativo=true;
+on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;

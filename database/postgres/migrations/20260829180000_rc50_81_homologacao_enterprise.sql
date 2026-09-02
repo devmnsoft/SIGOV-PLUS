@@ -61,7 +61,7 @@ create index if not exists ix_homologacao_historico_item
 create index if not exists ix_operacao_evento_consulta
     on sigov.operacao_evento_auditoria (tenant_id, categoria, criado_em desc);
 
-insert into sigov.permissao (chave, nome, modulo, ativo, created_at)
+insert into sigov.permissao (chave, descricao, modulo, ativo, created_at)
 select p.chave, p.nome, p.modulo, true, now()
 from (values
  ('HOMOLOGACAO_DASHBOARD_VIEW','Homologação: visualizar dashboard','homologacao'),
@@ -83,4 +83,4 @@ from (values
  ('RELATORIO_CENTRAL_VIEW','Relatórios: visualizar central','relatorios'),
  ('RELATORIO_CENTRAL_EXPORT','Relatórios: exportar pela central','relatorios')
 ) as p(chave,nome,modulo)
-on conflict (chave) do update set nome=excluded.nome, modulo=excluded.modulo, ativo=true;
+on conflict (chave) do update set descricao=excluded.descricao, modulo=excluded.modulo, ativo=true;
