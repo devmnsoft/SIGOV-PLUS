@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Sigov.Application.Compras;
 using Sigov.Infrastructure.Persistence.Dapper;
