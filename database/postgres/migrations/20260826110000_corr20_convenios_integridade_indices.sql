@@ -1,4 +1,3 @@
-begin;
 
 -- CORR20: regras publicadas em migration corretiva; a migration FUNC20 permanece imutável.
 alter table sigov.convenio_orgao_concedente drop constraint if exists ck_convenio_orgao_status;
@@ -58,5 +57,3 @@ create index if not exists ix_convenio_prestacao_instrumento_status on sigov.con
 create index if not exists ix_convenio_diligencia_prestacao_status on sigov.convenio_diligencia(tenant_id,entity_id,prestacao_contas_id,status,prazo_resposta) where deleted_at is null;
 create index if not exists ix_convenio_documento_vinculos on sigov.convenio_documento_referencia(tenant_id,entity_id,instrumento_id,projeto_id,prestacao_contas_id) where deleted_at is null;
 create index if not exists ix_convenio_auditoria_registro on sigov.convenio_auditoria(tenant_id,entity_id,tabela,registro_id,created_at desc);
-
-commit;

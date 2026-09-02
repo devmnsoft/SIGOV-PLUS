@@ -1,4 +1,3 @@
-begin;
 set search_path to sigov;
 
 -- Catálogo granular do eixo documental e institucional. A autorização efetiva
@@ -105,5 +104,3 @@ where not exists (
  select 1 from sigov.perfil_acesso atual
  where atual.codigo_externo = p.codigo and atual.is_deleted = false
 );
-
-commit;

@@ -22,6 +22,8 @@ public sealed class MigrationSqlPolicyTests
     [InlineData("begin; select 1; commit;")]
     [InlineData("select 1; rollback;")]
     [InlineData("savepoint unsafe; select 1;")]
+    [InlineData("start transaction; select 1;")]
+    [InlineData("end transaction;")]
     public void Undeclared_transaction_control_is_rejected(string sql)
     {
         var action = () => MigrationSqlPolicy.PrepareForExecution("new", sql, legacyTransactionWrapper: false);
@@ -32,9 +34,30 @@ public sealed class MigrationSqlPolicyTests
     [Fact]
     public void Transaction_words_inside_comments_literals_and_plpgsql_are_preserved()
     {
-        const string sql = "-- begin;\nselect 'commit;';\ndo $$ begin perform 1; end $$;";
+        const string sql = """
+            -- begin;
+            /* rollback; */
+            select 'commit;';
+            do $$ begin perform 1; end $$;
+            create function example() returns void language plpgsql as $function$
+            begin
+                perform 'savepoint hidden;';
+            end
+            $function$;
+            """;
 
         MigrationSqlPolicy.PrepareForExecution("safe", sql, legacyTransactionWrapper: false).Should().Be(sql);
+    }
+
+    [Fact]
+    public void Rejection_identifies_version_command_line_and_safe_excerpt()
+    {
+        const string sql = "-- harmless\nselect 1;\nrollback to savepoint secret_name;";
+
+        var action = () => MigrationSqlPolicy.PrepareForExecution("20260817131000", sql, legacyTransactionWrapper: false);
+
+        action.Should().Throw<MigrationTransactionException>()
+            .WithMessage("*20260817131000*ROLLBACK*linha 3*Trecho seguro: \"ROLLBACK TO SAVEPOINT SECRET_NAME;\"*");
     }
 
     [Fact]

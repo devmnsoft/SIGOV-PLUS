@@ -1,5 +1,4 @@
 -- CORR19 - índices operacionais idempotentes do FUNC19
-begin;
 
 create index if not exists ix_defesa_agente_matricula_cpf
     on sigov.defesa_agente (tenant_id, entity_id, matricula, cpf)
@@ -36,5 +35,3 @@ create index if not exists ix_defesa_ordem_status_prioridade
     where deleted_at is null;
 create index if not exists ix_defesa_auditoria_tenant_entity_data
     on sigov.defesa_auditoria (tenant_id, entity_id, created_at desc);
-
-commit;

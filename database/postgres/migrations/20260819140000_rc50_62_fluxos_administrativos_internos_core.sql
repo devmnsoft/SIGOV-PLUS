@@ -1,4 +1,3 @@
-begin;
 set search_path to sigov;
 
 -- Catálogo administrativo granular. O vínculo efetivo continua por tenant,
@@ -36,5 +35,3 @@ from (values
 ('Funcionário Financeiro','Operação financeira segregada das origens','FUNCIONARIO_FINANCEIRO')
 ) p(nome,descricao,codigo)
 where not exists (select 1 from sigov.perfil_acesso atual where atual.codigo_externo=p.codigo and atual.is_deleted=false);
-
-commit;

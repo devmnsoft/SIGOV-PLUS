@@ -1,5 +1,4 @@
 -- RC50.63: núcleo persistente das centrais transversais.
-begin;
 set search_path to sigov;
 create table if not exists sigov.pendencia_operacional (
     id bigserial primary key, tenant_id bigint not null, modulo varchar(80) not null,
@@ -62,5 +61,3 @@ values
  ('governanca.integracoes.visualizar','governanca','Visualizar integrações internas'),
  ('governanca.status_funcional.visualizar','governanca','Visualizar status funcional')
 on conflict (chave) do update set descricao=excluded.descricao;
-
-commit;

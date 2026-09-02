@@ -18,8 +18,13 @@ internal static class MigrationSqlPolicy
         {
             if (controls.Length > 0)
             {
+                var control = controls[0];
+                var command = GetTransactionCommand(control.Text)!;
+                var line = GetLineNumber(rawSql, control.Start);
+                var safeExcerpt = GetSafeExcerpt(control.Text);
                 throw new MigrationTransactionException(
-                    $"Migration {version} contém controle transacional explícito não suportado pelo runner. " +
+                    $"Migration {version} contém o comando transacional proibido {command} " +
+                    $"próximo à linha {line}. Trecho seguro: \"{safeExcerpt}\". " +
                     "Remova BEGIN/COMMIT/ROLLBACK/SAVEPOINT; a transação pertence ao MigrationRunner.");
             }
 
@@ -42,14 +47,43 @@ internal static class MigrationSqlPolicy
     private static bool IsCommit(string statement) => Normalize(statement) is "COMMIT" or "COMMIT TRANSACTION" or "COMMIT WORK" or "END" or "END TRANSACTION" or "END WORK";
 
     private static bool IsTransactionControl(string statement)
+        => GetTransactionCommand(statement) is not null;
+
+    private static string? GetTransactionCommand(string statement)
     {
         var normalized = Normalize(statement);
-        return normalized == "BEGIN" || normalized.StartsWith("BEGIN ", StringComparison.Ordinal) ||
-            normalized.StartsWith("START TRANSACTION", StringComparison.Ordinal) ||
-            normalized == "COMMIT" || normalized.StartsWith("COMMIT ", StringComparison.Ordinal) ||
-            normalized == "END" || normalized.StartsWith("END ", StringComparison.Ordinal) || normalized.StartsWith("ROLLBACK", StringComparison.Ordinal) ||
-            normalized.StartsWith("SAVEPOINT ", StringComparison.Ordinal) || normalized.StartsWith("RELEASE SAVEPOINT ", StringComparison.Ordinal) ||
-            normalized.StartsWith("PREPARE TRANSACTION ", StringComparison.Ordinal);
+        if (normalized == "BEGIN" || normalized.StartsWith("BEGIN ", StringComparison.Ordinal)) return "BEGIN";
+        if (normalized.StartsWith("START TRANSACTION", StringComparison.Ordinal)) return "START TRANSACTION";
+        if (normalized == "COMMIT" || normalized.StartsWith("COMMIT ", StringComparison.Ordinal)) return "COMMIT";
+        if (normalized == "END" || normalized.StartsWith("END ", StringComparison.Ordinal)) return "END TRANSACTION";
+        if (normalized.StartsWith("ROLLBACK", StringComparison.Ordinal)) return "ROLLBACK";
+        if (normalized.StartsWith("SAVEPOINT ", StringComparison.Ordinal)) return "SAVEPOINT";
+        if (normalized.StartsWith("RELEASE SAVEPOINT ", StringComparison.Ordinal)) return "RELEASE SAVEPOINT";
+        if (normalized.StartsWith("PREPARE TRANSACTION ", StringComparison.Ordinal)) return "PREPARE TRANSACTION";
+        return null;
+    }
+
+    private static int GetLineNumber(string sql, int statementStart)
+    {
+        var contentStart = statementStart;
+        SkipTrivia(sql, ref contentStart);
+        var line = 1;
+        for (var index = 0; index < contentStart; index++)
+        {
+            if (sql[index] == '\n') line++;
+        }
+
+        return line;
+    }
+
+    private static string GetSafeExcerpt(string statement)
+    {
+        // Normalize retains only SQL keywords/identifiers. Literals, quoted values and
+        // comments are therefore never included in diagnostics.
+        var excerpt = Normalize(statement);
+        const int maximumLength = 120;
+        if (excerpt.Length > maximumLength) excerpt = excerpt[..maximumLength] + "…";
+        return excerpt + ";";
     }
 
     private static string Normalize(string statement)
