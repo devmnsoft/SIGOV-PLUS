@@ -1,1 +1,20 @@
-(function ($) { 'use strict'; $(function () { $.getJSON('/api/tenant/branding').done(r => { const b = r.data; $('[name=nomeExibicao]').val(b.nomeExibicao); $('[name=logoUrl]').val(b.logoUrl); $('[name=corPrimaria]').val(b.corPrimaria || '#0d6efd'); $('[name=corSecundaria]').val(b.corSecundaria || '#6c757d'); $('[name=corAcento]').val(b.corAcento || '#198754'); $('[name=whiteLabelAtivo]').prop('checked', b.whiteLabelAtivo).prop('disabled', !b.planoPermiteWhiteLabel); $('#brandingAviso').toggle(!b.planoPermiteWhiteLabel); }); $('#formTenantBranding').on('input', function () { $('#brandingPreview').css({ backgroundColor: $('[name=corPrimaria]').val(), color: '#fff' }).text($('[name=nomeExibicao]').val() || 'Preview'); }); $('#formTenantBranding').on('submit', function (e) { e.preventDefault(); const data = Object.fromEntries(new FormData(this).entries()); data.whiteLabelAtivo = $('[name=whiteLabelAtivo]').is(':checked'); $.ajax({ url: '/api/tenant/branding', method: 'PUT', contentType: 'application/json', data: JSON.stringify(data) }).done(() => alert('Branding salvo.')).fail(() => alert('Plano não permite white label ou dados inválidos.')); }); }); })(jQuery);
+(() => {
+  'use strict';
+  const file = document.getElementById('logo');
+  const image = document.getElementById('logoPreview');
+  const empty = document.getElementById('emptyPreview');
+  const width = document.getElementById('LogoWidthPx');
+  const height = document.getElementById('LogoHeightPx');
+  const fit = document.getElementById('LogoFit');
+  if (!file || !image) return;
+  const update = () => { image.style.width = `${width.value}px`; image.style.height = `${height.value}px`; image.style.objectFit = fit.value; };
+  [width, height, fit].forEach(x => x.addEventListener('input', update));
+  document.getElementById('resetLogoSize').addEventListener('click', () => { width.value = 240; height.value = 80; fit.value = 'contain'; update(); });
+  file.addEventListener('change', () => {
+    const selected = file.files[0]; if (!selected) return;
+    if (selected.size > 2 * 1024 * 1024 || !['image/png','image/jpeg','image/webp'].includes(selected.type)) { file.setCustomValidity('Selecione PNG, JPG/JPEG ou WEBP com até 2 MB.'); file.reportValidity(); return; }
+    file.setCustomValidity(''); const source = new Image();
+    source.onload = () => { const scale = Math.min(1, 1200/source.width, 600/source.height); const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(source.width*scale)); canvas.height = Math.max(1, Math.round(source.height*scale)); canvas.getContext('2d').drawImage(source,0,0,canvas.width,canvas.height); canvas.toBlob(blob => { if (!blob) return; const transfer = new DataTransfer(); transfer.items.add(new File([blob], selected.name, {type:selected.type,lastModified:Date.now()})); file.files=transfer.files; image.src=URL.createObjectURL(blob); image.classList.remove('d-none'); empty.classList.add('d-none'); update(); }, selected.type, .9); };
+    source.src = URL.createObjectURL(selected);
+  }); update();
+})();
