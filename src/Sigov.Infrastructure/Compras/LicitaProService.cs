@@ -10,7 +10,9 @@ public sealed class LicitaProService(NpgsqlConnectionFactory factory) : ILicitaP
 {
     public async Task<LicitaProDashboard> DashboardAsync(long t,long e,CancellationToken ct)
     {
-        const string sql = """select count(*) filter(where status='ABERTA' and (data_limite is null or data_limite>=current_date)) Abertas,count(*) filter(where status='ABERTA' and data_limite between current_date and current_date+7) Vencendo,count(*) filter(where status='VENCIDA' or data_limite<current_date) Vencidas,count(*) filter(where processo_id is not null) Vinculadas,(select count(distinct fornecedor_id) from sigov.compras_licitapro_documento where tenant_id=@t and entidade_id=@e and validade<current_date) FornecedoresDocumentoVencido,(select count(*) from sigov.compras_licitapro_checklist where tenant_id=@t and entidade_id=@e and status in('PENDENTE','EM_ANALISE')) ChecklistsPendentes,(select count(*) from sigov.compras_licitapro_agenda where tenant_id=@t and entidade_id=@e and status='PREPARACAO') PropostasPreparacao,(select count(*) from sigov.compras_licitapro_agenda where tenant_id=@t and entidade_id=@e and status='CONQUISTADA' and contrato_id is not null) ContratosConquistados,coalesce((select avg(aderencia_percentual) from sigov.compras_licitapro_criterio where tenant_id=@t and entidade_id=@e),0) AderenciaMedia from sigov.compras_licitapro_oportunidade where tenant_id=@t and entidade_id=@e""";
+        const string sql = """
+select count(*) filter(where status='ABERTA' and (data_limite is null or data_limite>=current_date)) Abertas,count(*) filter(where status='ABERTA' and data_limite between current_date and current_date+7) Vencendo,count(*) filter(where status='VENCIDA' or data_limite<current_date) Vencidas,count(*) filter(where processo_id is not null) Vinculadas,(select count(distinct fornecedor_id) from sigov.compras_licitapro_documento where tenant_id=@t and entidade_id=@e and validade<current_date) FornecedoresDocumentoVencido,(select count(*) from sigov.compras_licitapro_checklist where tenant_id=@t and entidade_id=@e and status in('PENDENTE','EM_ANALISE')) ChecklistsPendentes,(select count(*) from sigov.compras_licitapro_agenda where tenant_id=@t and entidade_id=@e and status='PREPARACAO') PropostasPreparacao,(select count(*) from sigov.compras_licitapro_agenda where tenant_id=@t and entidade_id=@e and status='CONQUISTADA' and contrato_id is not null) ContratosConquistados,coalesce((select avg(aderencia_percentual) from sigov.compras_licitapro_criterio where tenant_id=@t and entidade_id=@e),0) AderenciaMedia from sigov.compras_licitapro_oportunidade where tenant_id=@t and entidade_id=@e
+""";
         await using var c=factory.CreateConnection(); return await c.QuerySingleAsync<LicitaProDashboard>(new CommandDefinition(sql,new{t,e},cancellationToken:ct));
     }
     public async Task<IReadOnlyList<LicitaProFonte>> FontesAsync(long t,long e,CancellationToken ct) { await using var c=factory.CreateConnection(); return (await c.QueryAsync<LicitaProFonte>(new CommandDefinition("select id,nome,tipo,configurada,ativa,ultima_sincronizacao_at UltimaSincronizacaoAt,case when not configurada then 'Fonte não configurada' when not ativa then 'Indisponível' else 'Disponível' end Estado from sigov.compras_licitapro_fonte where tenant_id=@t and entidade_id=@e order by nome",new{t,e},cancellationToken:ct))).AsList(); }
@@ -23,14 +25,16 @@ public sealed class LicitaProService(NpgsqlConnectionFactory factory) : ILicitaP
         var dateColumn=area switch { "Agenda"=>"prazo_at", "Importacoes"=>"iniciada_at", "Auditoria"=>"ocorrido_at", _=>"created_at" };
         var statusColumn=area=="Auditoria" ? "'REGISTRADO'" : "status";
         // Table and expression come exclusively from the closed switch above. User input is never interpolated.
-        var sql=$"""select id,{config.Item4} Titulo,'' Contexto,{statusColumn} Status,{dateColumn} Prazo
+        var sql= $"""
+select id,{config.Item4} Titulo,'' Contexto,{statusColumn} Status,{dateColumn} Prazo
             from sigov.{config.Item3}
             where tenant_id=@t and entidade_id=@e
               and (@status is null or {statusColumn}=@status)
               and (@busca is null or ({config.Item4}) ilike '%'||@busca||'%')
               and (@de is null or {dateColumn}::date>=@de)
               and (@ate is null or {dateColumn}::date<=@ate)
-            order by id desc limit 200""";
+            order by id desc limit 200
+""";
         var rows=(await c.QueryAsync<LicitaProLinha>(new CommandDefinition(sql,new{t,e,status=N(f.Status),busca=N(f.Busca),de=f.De,ate=f.Ate},cancellationToken:ct))).AsList();
         var fornecedores=(await c.QueryAsync<LicitaProOpcao>(new CommandDefinition("select id,nome Texto from sigov.compras_fornecedor where tenant_id=@t and entidade_id=@e and status='ATIVO' order by nome",new{t,e},cancellationToken:ct))).AsList();
         var processos=(await c.QueryAsync<LicitaProOpcao>(new CommandDefinition("select id,numero||'/'||exercicio||' — '||objeto Texto from sigov.compras_processo where tenant_id=@t and entidade_id=@e order by exercicio desc,numero",new{t,e},cancellationToken:ct))).AsList();
