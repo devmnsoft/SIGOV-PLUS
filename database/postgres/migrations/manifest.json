@@ -1727,7 +1727,7 @@
       "description": "RC50.85 compras, licitações, contratos, atas e fiscalização multi-esfera",
       "category": "functional",
       "file": "20260831230000_rc50_85_compras_contratos_multiesfera.sql",
-      "checksum": "913cbb2bb539324d8593990c4f4b1510dfe377e6de4aed2a2b5227f7148e9bbf",
+      "checksum": "bf9bc005b5455e4cb086d41c72e7165af7cf1b725101e8d7bfd073b67f666c39",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.compras_plano_contratacao_anual') is not null and to_regclass('sigov.compras_licitacao') is not null and to_regclass('sigov.contrato_administrativo') is not null and exists(select 1 from sigov.permissao where chave='COMPRAS_DASHBOARD_VIEW')"

@@ -168,7 +168,7 @@ CREATE INDEX IF NOT EXISTS ix_compras_pesquisa_demanda ON sigov.compras_pesquisa
 CREATE INDEX IF NOT EXISTS ix_compras_licitacao_contexto ON sigov.compras_licitacao(tenant_id,entidade_id,esfera_governo,orgao_id,unidade_gestora_id,unidade_executora_id,status,data_disputa);
 CREATE INDEX IF NOT EXISTS ix_compras_proposta_fornecedor ON sigov.compras_proposta(tenant_id,entidade_id,licitacao_id,fornecedor_id,status);
 CREATE INDEX IF NOT EXISTS ix_contrato_contexto ON sigov.contrato_administrativo(tenant_id,entidade_id,esfera_governo,orgao_id,unidade_gestora_id,unidade_executora_id,fornecedor_id,status,fim_vigencia);
-CREATE INDEX IF NOT EXISTS ix_contrato_fiscal_ativo ON sigov.contrato_fiscal(tenant_id,entidade_id,contrato_id,ativo);
+CREATE INDEX IF NOT EXISTS ix_contrato_fiscal_ativo ON sigov.contrato_fiscal(tenant_id,contrato_id,ativo);
 CREATE INDEX IF NOT EXISTS ix_contrato_sancao_status ON sigov.contrato_sancao(tenant_id,entidade_id,fornecedor_id,status,inicio_em);
 
 INSERT INTO sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
