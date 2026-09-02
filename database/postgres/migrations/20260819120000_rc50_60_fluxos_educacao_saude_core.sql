@@ -1,4 +1,3 @@
-begin;
 set search_path to sigov;
 
 -- Catálogo funcional granular usado pelo backend e pelos menus.
@@ -84,5 +83,3 @@ create unique index if not exists ux_matricula_aluno_ano_ativa
 create unique index if not exists ux_diario_frequencia_turma_aluno_data
  on sigov.diario_frequencia (tenant_id, entidade_id, turma_id, aluno_id, data_aula)
  where is_deleted = false and ativo = true;
-
-commit;

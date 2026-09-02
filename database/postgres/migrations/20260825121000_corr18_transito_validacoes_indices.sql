@@ -1,4 +1,3 @@
-begin;
 
 -- Migration corretiva: a migration FUNC18 publicada permanece imutável.
 do $$
@@ -25,5 +24,3 @@ create index if not exists ix_transito_vistoria_contexto_resultado
   on sigov.transito_vistoria_transporte(tenant_id, entity_id, resultado) where deleted_at is null;
 create index if not exists ix_transito_credencial_contexto_validade
   on sigov.transito_credencial(tenant_id, entity_id, data_validade) where deleted_at is null;
-
-commit;

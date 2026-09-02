@@ -1,4 +1,3 @@
-begin;
 create schema if not exists sigov;
 create extension if not exists pgcrypto;
 
@@ -133,4 +132,3 @@ select pg_temp.create_index_when_columns_exist('sigov', 'prazo_operacional', 'ix
 select pg_temp.create_index_when_columns_exist('sigov', 'notificacao_usuario', 'ix_notificacao_usuario_lida', array['tenant_id', 'usuario_id', 'lida'], 'tenant_id, usuario_id, lida');
 select pg_temp.create_index_when_columns_exist('sigov', 'kanban_card', 'ix_kanban_filtros', array['tenant_id', 'origem', 'responsavel_id', 'sla', 'coluna'], 'tenant_id, origem, responsavel_id, sla, coluna');
 select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_status', array['status', 'next_attempt_at'], 'status, next_attempt_at');
-commit;

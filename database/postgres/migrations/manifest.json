@@ -467,10 +467,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e",
+      "checksum": "3a6e2e05531dd3d6a725a2a31c86592d6ce1c8ad5f06142ce0d9bec4e55b387f",
       "knownChecksums": [
         "5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06",
-        "ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d"
+        "ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d",
+        "0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e"
       ],
       "postConditionSql": "select to_regclass('sigov.tarefa') is not null and to_regclass('sigov.outbox_evento') is not null and not exists (select 1 from sigov.outbox_evento where event_id is null or event_type is null or aggregate_type is null or aggregate_id is null or attempts is null)"
     },
@@ -636,13 +637,16 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735",
+      "checksum": "c9879e5a853fe2b42ccd38e756fa8b4cdae858ead423faf3c0eb46fbe9d907ae",
       "postConditionSql": "select to_regclass('sigov.workflow_definicao') is not null and to_regclass('sigov.workflow_versao') is not null and to_regclass('sigov.workflow_etapa') is not null and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_etapa' and column_name='workflow_definicao_id') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_etapa' and column_name='tipo') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_etapa' and column_name='ordem') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_transicao' and column_name='workflow_definicao_id') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_transicao' and column_name='de_etapa_id') and exists (select 1 from information_schema.columns where table_schema='sigov' and table_name='workflow_transicao' and column_name='para_etapa_id') and to_regclass('sigov.workflow_transicao') is not null and to_regclass('sigov.workflow_evento') is not null and to_regclass('sigov.ix_workflow_definicao_tenant_status') is not null and to_regclass('sigov.ix_workflow_etapa_tenant_workflow') is not null and to_regclass('sigov.ix_workflow_evento_tenant_instancia') is not null and not exists (select required.chave from (values ('WORKFLOW_CONSULTA'),('WORKFLOW_GERENCIAR')) required(chave) where not exists (select 1 from sigov.permissao p where p.chave = required.chave))",
       "compatibilityBefore": [
         {
           "file": "060_pre_rc49_workflow_compatibility.sql",
           "checksum": "c9e3e89cca8aa059dbb7d36ec4c01f025bb72580d3f8ce5a90c1fda94a5b8349"
         }
+      ],
+      "knownChecksums": [
+        "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735"
       ]
     },
     {
@@ -815,8 +819,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08",
-      "postConditionSql": "select to_regclass('sigov.emp_os_ordem') is not null"
+      "checksum": "44340d33b6b58b501d86871748cf00ea803d68d8336e3f21d03fcd930e6bf9d8",
+      "postConditionSql": "select to_regclass('sigov.emp_os_ordem') is not null",
+      "knownChecksums": [
+        "1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08"
+      ]
     },
     {
       "version": "20260817132000",
@@ -825,8 +832,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d",
-      "postConditionSql": "select to_regclass('sigov.emp_estoque_produto') is not null"
+      "checksum": "80bb1e2e18ae68c0999c077983aebdc819f24a3d1a96798eea2663cf5423e658",
+      "postConditionSql": "select to_regclass('sigov.emp_estoque_produto') is not null",
+      "knownChecksums": [
+        "b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d"
+      ]
     },
     {
       "version": "20260817133000",
@@ -835,8 +845,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9",
-      "postConditionSql": "select to_regclass('sigov.emp_industrial_ativo') is not null"
+      "checksum": "f851b5d3855a6aed8fdd78692b8f50395fab52f19b588e83c704d9e31824faf4",
+      "postConditionSql": "select to_regclass('sigov.emp_industrial_ativo') is not null",
+      "knownChecksums": [
+        "61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9"
+      ]
     },
     {
       "version": "20260817140000",
@@ -885,8 +898,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41",
-      "postConditionSql": "select to_regclass('sigov.tributario_carne_emissao') is not null"
+      "checksum": "c422ba944d98fedecd96874d095c9c066f946c1414aecdfa84fa6e5010c81783",
+      "postConditionSql": "select to_regclass('sigov.tributario_carne_emissao') is not null",
+      "knownChecksums": [
+        "554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41"
+      ]
     },
     {
       "version": "20260817151000",
@@ -895,8 +911,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c",
-      "postConditionSql": "select to_regclass('sigov.portal_contribuinte_protocolo') is not null"
+      "checksum": "fc7c6f223c6b8b6299101edc48a6140a19292945f182f2fa453cfc2b505688b7",
+      "postConditionSql": "select to_regclass('sigov.portal_contribuinte_protocolo') is not null",
+      "knownChecksums": [
+        "f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c"
+      ]
     },
     {
       "version": "20260817152000",
@@ -905,8 +924,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc",
-      "postConditionSql": "select to_regclass('sigov.tributario_fiscalizacao_ordem') is not null"
+      "checksum": "97fcd4df32ab7237ad2e0008f45540cb4b43738ddad974bbb5d4198bdc069ba9",
+      "postConditionSql": "select to_regclass('sigov.tributario_fiscalizacao_ordem') is not null",
+      "knownChecksums": [
+        "ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc"
+      ]
     },
     {
       "version": "20260817153000",
@@ -915,8 +937,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23",
-      "postConditionSql": "select to_regclass('sigov.tributario_nfse_nota') is not null"
+      "checksum": "99f7a3aea02ffe6beb69b9ce0571206dde7967dbf873c885439586a5ef973b8f",
+      "postConditionSql": "select to_regclass('sigov.tributario_nfse_nota') is not null",
+      "knownChecksums": [
+        "2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23"
+      ]
     },
     {
       "version": "20260818120000",
@@ -925,8 +950,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c",
-      "postConditionSql": "select to_regclass('sigov.educacao_transporte_rota') is not null"
+      "checksum": "5b79e8564806fbee9d9644920157c638ad686c5631b2a7eb61e2b1957430c99f",
+      "postConditionSql": "select to_regclass('sigov.educacao_transporte_rota') is not null",
+      "knownChecksums": [
+        "a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c"
+      ]
     },
     {
       "version": "20260818121000",
@@ -935,8 +963,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7",
-      "postConditionSql": "select to_regclass('sigov.educacao_merenda_produto') is not null"
+      "checksum": "1ec8fd32b0eb99fd632772c4d0a34234f1861b7d969a2aeb0f562393eba7377f",
+      "postConditionSql": "select to_regclass('sigov.educacao_merenda_produto') is not null",
+      "knownChecksums": [
+        "693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7"
+      ]
     },
     {
       "version": "20260818122000",
@@ -945,8 +976,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3",
-      "postConditionSql": "select to_regclass('sigov.educacao_biblioteca_acervo') is not null"
+      "checksum": "3acf39181f7f1da2075dcd57a932336a783657eb8b9ba71ddd0b267af788c38f",
+      "postConditionSql": "select to_regclass('sigov.educacao_biblioteca_acervo') is not null",
+      "knownChecksums": [
+        "b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3"
+      ]
     },
     {
       "version": "20260818123000",
@@ -955,8 +989,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad",
-      "postConditionSql": "select to_regclass('sigov.educacao_educacenso_lote') is not null"
+      "checksum": "1e891bd1ab0a5b5a88c38d4923afb0ac394e9fbffc12c4bb8cf5fad74d173bd3",
+      "postConditionSql": "select to_regclass('sigov.educacao_educacenso_lote') is not null",
+      "knownChecksums": [
+        "c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad"
+      ]
     },
     {
       "version": "20260818130000",
@@ -965,8 +1002,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a",
-      "postConditionSql": "select to_regclass('sigov.saude_acs_dispositivo') is not null"
+      "checksum": "646efcef3c105612a6f4a5f2889338f979e96dfcb1c97a0fe53264cf20f1c1a0",
+      "postConditionSql": "select to_regclass('sigov.saude_acs_dispositivo') is not null",
+      "knownChecksums": [
+        "3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a"
+      ]
     },
     {
       "version": "20260818131000",
@@ -975,8 +1015,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623",
-      "postConditionSql": "select to_regclass('sigov.saude_domicilio') is not null"
+      "checksum": "0904e625ab3de379c1868f8ea35c8f309b0ebae44a2f43470f7a015502983d2e",
+      "postConditionSql": "select to_regclass('sigov.saude_domicilio') is not null",
+      "knownChecksums": [
+        "49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623"
+      ]
     },
     {
       "version": "20260818132000",
@@ -985,8 +1028,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa",
-      "postConditionSql": "select to_regclass('sigov.saude_vacina_calendario') is not null"
+      "checksum": "5397cbc32104bf1c11c2b51b29eab374e1a3208b7ed3cd69fb2f07a14a0f9a49",
+      "postConditionSql": "select to_regclass('sigov.saude_vacina_calendario') is not null",
+      "knownChecksums": [
+        "61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa"
+      ]
     },
     {
       "version": "20260818133000",
@@ -995,8 +1041,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a",
-      "postConditionSql": "select to_regclass('sigov.saude_retaguarda_indicador') is not null"
+      "checksum": "600ab03eb8ddb0df813e1018c37670852ce3a0d951a3c72ba1f187e09d149842",
+      "postConditionSql": "select to_regclass('sigov.saude_retaguarda_indicador') is not null",
+      "knownChecksums": [
+        "657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a"
+      ]
     },
     {
       "version": "20260818140000",
@@ -1065,8 +1114,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c",
-      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar')"
+      "checksum": "5c4a26e582e967309c817bebecf3c089d69059d1a219c38a30aee8f56e94e41d",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar')",
+      "knownChecksums": [
+        "93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c"
+      ]
     },
     {
       "version": "20260819130000",
@@ -1075,8 +1127,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "c82d37cad431124b6de33fa399e1b1bdf0329f595f84edd3ec7df8344ea7566e",
-      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='ged.documento.definir_sigilo')"
+      "checksum": "0892a363f7cd04eb5e6231eb8afcdf25770fb243a78cfbd6d495dbd650193617",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='ged.documento.definir_sigilo')",
+      "knownChecksums": [
+        "c82d37cad431124b6de33fa399e1b1bdf0329f595f84edd3ec7df8344ea7566e"
+      ]
     },
     {
       "version": "20260819140000",
@@ -1085,8 +1140,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "19843e03bcab2cfe86cd45b4a5ed1f10c976f479c95f3163f51188f21b2cb78a",
-      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='obras.encerramento.registrar')"
+      "checksum": "6880555e3aceb537dc6ebc94a68ae81e060a63ff761a66a76381befc0923f926",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='obras.encerramento.registrar')",
+      "knownChecksums": [
+        "19843e03bcab2cfe86cd45b4a5ed1f10c976f479c95f3163f51188f21b2cb78a"
+      ]
     },
     {
       "version": "20260819150000",
@@ -1095,8 +1153,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "dd6d8fd38e1ede277a30a01385fb9a7a012ed9c0d2ee84525fc9c10f554f8e1b",
-      "postConditionSql": "select to_regclass('sigov.pendencia_operacional') is not null and to_regclass('sigov.alerta_operacional') is not null"
+      "checksum": "136f95b3fd388e640ec0312e8da7d4fb618bf45916a1207f1fc6365a2fcd74be",
+      "postConditionSql": "select to_regclass('sigov.pendencia_operacional') is not null and to_regclass('sigov.alerta_operacional') is not null",
+      "knownChecksums": [
+        "dd6d8fd38e1ede277a30a01385fb9a7a012ed9c0d2ee84525fc9c10f554f8e1b"
+      ]
     },
     {
       "version": "20260820120000",
@@ -1292,50 +1353,65 @@
       "description": "FUNC15 Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços",
       "category": "functional",
       "file": "20260825090000_func15_ouvidoria_atendimento_esic.sql",
-      "checksum": "568b1f57531c05c45c21fcb10054e874a8dc3b5b5022c16cc12517242d949641",
+      "checksum": "dc9993f706641fd0d538e2a92bc0de0c3fb0e1ff8ff776e5f0ca268752db1b93",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.atendimento_demanda') is not null and to_regclass('sigov.atendimento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='ATENDIMENTO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.atendimento_demanda') is not null and to_regclass('sigov.atendimento_auditoria') is not null and exists(select 1 from sigov.permissao where chave='ATENDIMENTO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "568b1f57531c05c45c21fcb10054e874a8dc3b5b5022c16cc12517242d949641"
+      ]
     },
     {
       "version": "20260825100000",
       "description": "FUNC16 Habitação, Regularização Fundiária e Programas Habitacionais",
       "category": "functional",
       "file": "20260825100000_func16_habitacao_regularizacao_fundiaria.sql",
-      "checksum": "c38ae4b1bffe412acaadb37c94693cc2093ad70f78fb891836deb502bee6e53d",
+      "checksum": "6762e4006ed6f3a4240916a3964b911cfc6ea44a3a2b89964d4e285327d14299",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.habitacao_familia') is not null and to_regclass('sigov.habitacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HABITACAO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.habitacao_familia') is not null and to_regclass('sigov.habitacao_auditoria') is not null and exists(select 1 from sigov.permissao where chave='HABITACAO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "c38ae4b1bffe412acaadb37c94693cc2093ad70f78fb891836deb502bee6e53d"
+      ]
     },
     {
       "version": "20260825110000",
       "description": "FUNC17 Procuradoria Jurídica, Contencioso e Dívida Ativa Judicial",
       "category": "functional",
       "file": "20260825110000_func17_procuradoria_juridica_contencioso.sql",
-      "checksum": "52b30af5bac763cd6903de92c80740996407e873c2e7fd6a170880ffeac35116",
+      "checksum": "0ae9cfcbc6325920d054a48d2887e4401e2b51de0b9bba4b743309aac64ddc12",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.juridico_processo') is not null and to_regclass('sigov.juridico_auditoria') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.juridico_processo') is not null and to_regclass('sigov.juridico_auditoria') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "52b30af5bac763cd6903de92c80740996407e873c2e7fd6a170880ffeac35116"
+      ]
     },
     {
       "version": "20260825120000",
       "description": "FUNC18 Trânsito, Mobilidade Urbana e Fiscalização de Transporte",
       "category": "functional",
       "file": "20260825120000_func18_transito_mobilidade_fiscalizacao.sql",
-      "checksum": "f862b25c2e1b93a09542ba242db81b42190e5bbca062430a6a11f9d8c27621ee",
+      "checksum": "e02f3c53ccb4cde363f5834bec0582bff006bacb2f6cdd9fd59d52e7b30fd4a9",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.transito_auto_infracao') is not null and to_regclass('sigov.transito_auditoria') is not null and exists(select 1 from sigov.permissao where chave='TRANSITO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.transito_auto_infracao') is not null and to_regclass('sigov.transito_auditoria') is not null and exists(select 1 from sigov.permissao where chave='TRANSITO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "f862b25c2e1b93a09542ba242db81b42190e5bbca062430a6a11f9d8c27621ee"
+      ]
     },
     {
       "version": "20260825121000",
       "description": "CORR18 validações e índices de Trânsito",
       "category": "corrective",
       "file": "20260825121000_corr18_transito_validacoes_indices.sql",
-      "checksum": "7d54ae2884409857f5dab616f6d883fff52f3f8100bfcdb9f25206d76179cd1a",
+      "checksum": "d26ede93088c94c26405f02297f93404ab2e64f8e3593826ce1559697ef36c60",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_transito_sinalizacao_datas')"
+      "postConditionSql": "select exists(select 1 from pg_constraint where conname='ck_transito_sinalizacao_datas')",
+      "knownChecksums": [
+        "7d54ae2884409857f5dab616f6d883fff52f3f8100bfcdb9f25206d76179cd1a"
+      ]
     },
     {
       "version": "20260825130000",
@@ -1352,30 +1428,39 @@
       "description": "CORR19 índices e unicidade de recursos da Defesa Civil",
       "category": "corrective",
       "file": "20260825131000_corr19_defesa_indices.sql",
-      "checksum": "14cbd64ba464fc000e0d86a9fd864f43fea95b6d5665e00b53d2628b8a74f607",
+      "checksum": "49478a74cc5411268608c4a45f5021ebe1156e5ba3b7a6e0b38a7b23f5ae7a32",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.ix_defesa_vistoria_status_data') is not null and to_regclass('sigov.ix_defesa_auditoria_tenant_entity_data') is not null"
+      "postConditionSql": "select to_regclass('sigov.ix_defesa_vistoria_status_data') is not null and to_regclass('sigov.ix_defesa_auditoria_tenant_entity_data') is not null",
+      "knownChecksums": [
+        "14cbd64ba464fc000e0d86a9fd864f43fea95b6d5665e00b53d2628b8a74f607"
+      ]
     },
     {
       "version": "20260826100000",
       "description": "FUNC20 Convênios, Emendas Parlamentares, Projetos e Prestação de Contas",
       "category": "functional",
       "file": "20260826100000_func20_convenios_emendas_prestacao_contas.sql",
-      "checksum": "6f961883b8b6e8bc5fdb5339b03236ce26ed7e34874395bfe176383b64a16912",
+      "checksum": "24f0fc52151b555f7ca1b691b56f5ac64b73716d44a4f06761e8b67296629ec8",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.convenio_instrumento') is not null and to_regclass('sigov.convenio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='CONVENIO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.convenio_instrumento') is not null and to_regclass('sigov.convenio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='CONVENIO_DASHBOARD_VIEW')",
+      "knownChecksums": [
+        "6f961883b8b6e8bc5fdb5339b03236ce26ed7e34874395bfe176383b64a16912"
+      ]
     },
     {
       "version": "20260826110000",
       "description": "CORR20 integridade e índices de Convênios",
       "category": "corrective",
       "file": "20260826110000_corr20_convenios_integridade_indices.sql",
-      "checksum": "825a60b39b5eadb63bf13e3c127947120467c86b39f18b8dacd11e968d496f6b",
+      "checksum": "785151a081efcac02a48502696352e17ad3cde39a2982ec2c8a49e982b243bb2",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.ix_convenio_prestacao_instrumento_status') is not null and to_regclass('sigov.ix_convenio_auditoria_registro') is not null"
+      "postConditionSql": "select to_regclass('sigov.ix_convenio_prestacao_instrumento_status') is not null and to_regclass('sigov.ix_convenio_auditoria_registro') is not null",
+      "knownChecksums": [
+        "825a60b39b5eadb63bf13e3c127947120467c86b39f18b8dacd11e968d496f6b"
+      ]
     },
     {
       "version": "20260826120000",
@@ -1482,10 +1567,13 @@
       "description": "EXP06 Jurídico360: procuradoria, dívida ativa judicial, prazos e consultivo",
       "category": "functional",
       "file": "20260827120000_exp06_juridico360_integrado.sql",
-      "checksum": "845878bd470c312b697eb36d5d18541c5083e1a79e9d3cee2e28f17ac484dedd",
+      "checksum": "e42939d4aa152afc85ac9298afeae84e4158189fddec1c5a363ad8ed3eeab0e6",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.juridico_execucao_fiscal') is not null and to_regclass('sigov.juridico_precatorio_rpv') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_PROCESSO_SIGILOSO_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.juridico_execucao_fiscal') is not null and to_regclass('sigov.juridico_precatorio_rpv') is not null and exists(select 1 from sigov.permissao where chave='JURIDICO_PROCESSO_SIGILOSO_VIEW')",
+      "knownChecksums": [
+        "845878bd470c312b697eb36d5d18541c5083e1a79e9d3cee2e28f17ac484dedd"
+      ]
     },
     {
       "version": "20260827150000",
