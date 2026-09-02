@@ -62,7 +62,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization(options =>
 {
     foreach (var (policyName, permission) in PermissionCatalog.Policies)
-        options.AddPolicy(policyName, policy => policy.Requirements.Add(new PersistedPermissionRequirement(permission)));
+        options.AddPolicy(policyName, policy => policy.Requirements.Add(new PersistedPermissionRequirement(permission.Code)));
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SigovBrandOptions>(builder.Configuration.GetSection("Sigov:Brand"));

@@ -17,11 +17,17 @@ public sealed class TenantContextController(IOperationalContextService service, 
 
     [HttpGet("atual")]
     public async Task<ActionResult<ApiResponse<OperationalContext?>>> Current(CancellationToken ct)
-        => Ok(ApiResponse<OperationalContext?>.Ok(await service.CurrentAsync(UserId(), SessionHash(create: true), ct).ConfigureAwait(false)));
+    {
+        var sessionHash = RequiredSessionHash();
+        return Ok(ApiResponse<OperationalContext?>.Ok(await service.CurrentAsync(UserId(), sessionHash, ct).ConfigureAwait(false)));
+    }
 
     [HttpGet("sessao/resumo")]
     public async Task<ActionResult<ApiResponse<OperationalContext?>>> Session(CancellationToken ct)
-        => Ok(ApiResponse<OperationalContext?>.Ok(await service.CurrentAsync(UserId(), SessionHash(create: true), ct).ConfigureAwait(false)));
+    {
+        var sessionHash = RequiredSessionHash();
+        return Ok(ApiResponse<OperationalContext?>.Ok(await service.CurrentAsync(UserId(), sessionHash, ct).ConfigureAwait(false)));
+    }
 
     [HttpGet("empresas")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<ContextOption>>>> Tenants([FromQuery] string? busca, [FromQuery] int pagina = 1, [FromQuery] int tamanho = 20, CancellationToken ct = default)
@@ -76,8 +82,11 @@ public sealed class TenantContextController(IOperationalContextService service, 
         return id;
     }
 
-    private ContextChange Change(ContextSelection? selection) => new(UserId(), SessionHash(create: true)!, selection, HttpContext.TraceIdentifier, RemoteIp(), Request.Headers.UserAgent.ToString()[..Math.Min(Request.Headers.UserAgent.ToString().Length, 500)], DateTimeOffset.UtcNow.AddHours(8));
+    private ContextChange Change(ContextSelection? selection) => new(UserId(), RequiredSessionHash(), selection, HttpContext.TraceIdentifier, RemoteIp(), Request.Headers.UserAgent.ToString()[..Math.Min(Request.Headers.UserAgent.ToString().Length, 500)], DateTimeOffset.UtcNow.AddHours(8));
     private string? RemoteIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    private string RequiredSessionHash() => SessionHash(create: true)
+        ?? throw new InvalidOperationException("Não foi possível estabelecer a sessão de contexto.");
 
     private string? SessionHash(bool create)
     {
