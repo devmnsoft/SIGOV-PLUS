@@ -161,6 +161,14 @@ public sealed class MigrationRunner
                         continue;
                     }
 
+                    var probeFailures = await EvaluateNamedProbesAsync(connection, migration, cancellationToken).ConfigureAwait(false);
+                    if (probeFailures.Count > 0)
+                    {
+                        validation.Failed.Add(migration.Version);
+                        validation.ChecksumReports.Add(FormatNamedProbeReport(migration, probeFailures));
+                        continue;
+                    }
+
                     if (!string.IsNullOrWhiteSpace(migration.PostConditionSql) &&
                         !await EvaluatePostConditionAsync(connection, migration, null, cancellationToken).ConfigureAwait(false))
                     {
@@ -380,6 +388,11 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
             var postConditionSql = item.TryGetProperty("postConditionSql", out var postCondition) && postCondition.ValueKind == System.Text.Json.JsonValueKind.String
                 ? postCondition.GetString()
                 : null;
+            var postConditionProbes = item.TryGetProperty("postConditionProbes", out var probes) && probes.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? probes.EnumerateArray().Select(probe => new PostConditionProbe(
+                    probe.GetProperty("name").GetString() ?? string.Empty,
+                    probe.GetProperty("sql").GetString() ?? string.Empty)).ToArray()
+                : Array.Empty<PostConditionProbe>();
             var legacyTransactionWrapper = item.TryGetProperty("legacyTransactionWrapper", out var legacyWrapper) && legacyWrapper.ValueKind == System.Text.Json.JsonValueKind.True;
             if (!versions.Add(version))
             {
@@ -405,7 +418,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
                 }
 
                 var compatibilityBefore = ReadCompatibilityScripts(item, "compatibilityBefore", bootstrapPath);
-                result.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums, postConditionSql, legacyTransactionWrapper, compatibilityBefore));
+                result.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums, postConditionSql, postConditionProbes, legacyTransactionWrapper, compatibilityBefore));
             }
         }
 
@@ -462,9 +475,11 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         string Checksum,
         IReadOnlyList<string> KnownChecksums,
         string? PostConditionSql,
+        IReadOnlyList<PostConditionProbe> PostConditionProbes,
         bool LegacyTransactionWrapper,
         IReadOnlyList<CompatibilityScript> CompatibilityBefore);
 
+    private sealed record PostConditionProbe(string Name, string Sql);
     private sealed record CompatibilityScript(string File, string FilePath, string Checksum);
     private sealed record ManifestDefinition(IReadOnlyList<ManifestMigration> Migrations, IReadOnlyList<CompatibilityScript> CompatibilityAfterAll);
 
@@ -534,6 +549,39 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
 
         return obtained;
     }
+
+    private static async Task<IReadOnlyList<string>> EvaluateNamedProbesAsync(
+        NpgsqlConnection connection,
+        ManifestMigration migration,
+        CancellationToken cancellationToken)
+    {
+        var failures = new List<string>();
+        foreach (var probe in migration.PostConditionProbes)
+        {
+            if (string.IsNullOrWhiteSpace(probe.Name) || string.IsNullOrWhiteSpace(probe.Sql))
+            {
+                failures.Add("invariante sem nome ou SQL no manifest");
+                continue;
+            }
+
+            // Contrato dos probes: NULL significa sucesso; texto descreve precisamente
+            // o valor obtido. Isso mantém postConditionSql boolean retrocompatível.
+            var failure = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                probe.Sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(failure)) failures.Add($"{probe.Name}: {failure}");
+        }
+
+        return failures;
+    }
+
+    private static string FormatNamedProbeReport(ManifestMigration migration, IReadOnlyList<string> failures) =>
+        string.Join(Environment.NewLine, new[]
+        {
+            "Named post-condition probes:",
+            $"Version={migration.Version}",
+            $"File={Path.GetFileName(migration.FilePath)}",
+            $"FailedInvariants={string.Join(" | ", failures)}"
+        });
 
     private static readonly Regex RegclassReference = new(@"to_regclass\s*\(\s*'(?<name>[^']+)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex CatalogReference = new(@"(?<kind>conname|tgname)\s*=\s*'(?<name>[^']+)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
