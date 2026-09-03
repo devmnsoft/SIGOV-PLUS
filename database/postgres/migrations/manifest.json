@@ -1856,7 +1856,7 @@
       "description": "Correção final dos objetos e pós-condições do LicitaPro",
       "category": "corrective",
       "file": "20260903130000_corr_licitapro_postconditions_schema.sql",
-      "checksum": "2ee4b77413f755230ad1bdaef456893c1f5f045866ea436e78d388a0b4f18364",
+      "checksum": "c237332d2878958e55a6a535208c77ded73521be5c805a52e06a01493b347a6b",
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select\n    to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento') is not null\n    and exists (\n        select 1\n        from pg_constraint c\n        where c.conrelid=to_regclass('sigov.compras_licitapro_fonte')\n          and c.conname='ck_clp_fonte_endpoint_url'\n          and c.contype='c'\n    )\n    and exists (\n        select 1\n        from pg_index i\n        join pg_class idx on idx.oid=i.indexrelid\n        join pg_namespace idx_ns on idx_ns.oid=idx.relnamespace\n        where i.indexrelid=to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento')\n          and i.indrelid=to_regclass('sigov.compras_licitapro_alerta')\n          and idx_ns.nspname='sigov'\n          and idx.relname='ix_clp_alerta_tenant_status_vencimento'\n          and i.indisvalid\n          and i.indnkeyatts=4 and i.indnatts=4\n          and i.indexprs is null and i.indpred is null\n          and (\n              select array_agg(a.attname order by keys.ordinality)\n              from unnest(i.indkey) with ordinality keys(attnum, ordinality)\n              join pg_attribute a on a.attrelid=i.indrelid and a.attnum=keys.attnum\n          ) = array['tenant_id','entidade_id','status','vencimento_at']::name[]\n    )"
