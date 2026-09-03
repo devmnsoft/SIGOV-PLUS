@@ -28073,6 +28073,91 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260902010000_corr_compras_checksum_schema.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 2eb8418b6e6a9262863f307d237c4a42b51e19bd620caf32a722e827392d2566
+-- ==================================================
+-- Correção aditiva para instalações que aplicaram a RC50.85 antes das correções
+-- de tipo das FKs de fornecedor e do índice de fiscalização contratual.
+-- A migration publicada 20260831230000 e o seu histórico permanecem imutáveis.
+
+DO $$
+DECLARE
+    tabela text;
+    tipo_fornecedor text;
+BEGIN
+    IF to_regclass('sigov.compras_fornecedor') IS NULL THEN
+        RAISE EXCEPTION 'Schema de Compras incompleto: sigov.compras_fornecedor não existe';
+    END IF;
+
+    SELECT a.atttypid::regtype::text
+      INTO tipo_fornecedor
+      FROM pg_attribute a
+     WHERE a.attrelid = 'sigov.compras_fornecedor'::regclass
+       AND a.attname = 'id'
+       AND NOT a.attisdropped;
+
+    IF tipo_fornecedor <> 'uuid' THEN
+        RAISE EXCEPTION 'Schema de Compras incompatível: compras_fornecedor.id possui tipo %, esperado uuid', tipo_fornecedor;
+    END IF;
+
+    FOREACH tabela IN ARRAY ARRAY[
+        'compras_fornecedor_cotacao', 'compras_proposta', 'compras_habilitacao',
+        'compras_recurso', 'contrato_administrativo', 'contrato_sancao'
+    ] LOOP
+        IF to_regclass('sigov.' || tabela) IS NULL THEN
+            RAISE EXCEPTION 'Schema de Compras incompleto: sigov.% não existe', tabela;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_attribute a
+             WHERE a.attrelid = to_regclass('sigov.' || tabela)
+               AND a.attname = 'fornecedor_id'
+               AND a.atttypid = 'uuid'::regtype
+               AND NOT a.attisdropped
+        ) THEN
+            RAISE EXCEPTION 'Schema de Compras incompatível: sigov.%.fornecedor_id não é uuid', tabela;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_constraint c
+             WHERE c.conrelid = to_regclass('sigov.' || tabela)
+               AND c.contype = 'f'
+               AND c.confrelid = 'sigov.compras_fornecedor'::regclass
+               AND c.conkey = ARRAY[(
+                   SELECT a.attnum
+                     FROM pg_attribute a
+                    WHERE a.attrelid = to_regclass('sigov.' || tabela)
+                      AND a.attname = 'fornecedor_id'
+                      AND NOT a.attisdropped
+               )]::smallint[]
+               AND c.confkey = ARRAY[(
+                   SELECT a.attnum
+                     FROM pg_attribute a
+                    WHERE a.attrelid = 'sigov.compras_fornecedor'::regclass
+                      AND a.attname = 'id'
+                      AND NOT a.attisdropped
+               )]::smallint[]
+               AND c.convalidated
+        ) THEN
+            RAISE EXCEPTION 'FK de fornecedor ausente ou não validada em sigov.%', tabela;
+        END IF;
+    END LOOP;
+END $$;
+
+CREATE INDEX IF NOT EXISTS ix_contrato_fiscal_ativo
+    ON sigov.contrato_fiscal (tenant_id, contrato_id, ativo);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260902010000', 'Correção aditiva do schema e da validação histórica do módulo Compras', '2eb8418b6e6a9262863f307d237c4a42b51e19bd620caf32a722e827392d2566', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================
