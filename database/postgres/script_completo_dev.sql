@@ -28075,7 +28075,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260902010000_corr_compras_checksum_schema.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 2eb8418b6e6a9262863f307d237c4a42b51e19bd620caf32a722e827392d2566
+-- CHECKSUM_SHA256: 19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f
 -- ==================================================
 -- Correção aditiva para instalações que aplicaram a RC50.85 antes das correções
 -- de tipo das FKs de fornecedor e do índice de fiscalização contratual.
@@ -28147,10 +28147,16 @@ BEGIN
     END LOOP;
 END $$;
 
+-- A definição legada de contrato_fiscal antecede a coluna que representa a
+-- vigência da designação no domínio de Compras. A RC50.85 usa CREATE TABLE IF
+-- NOT EXISTS e, portanto, não acrescenta a coluna em instalações já existentes.
+ALTER TABLE sigov.contrato_fiscal
+    ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
+
 CREATE INDEX IF NOT EXISTS ix_contrato_fiscal_ativo
     ON sigov.contrato_fiscal (tenant_id, contrato_id, ativo);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260902010000', 'Correção aditiva do schema e da validação histórica do módulo Compras', '2eb8418b6e6a9262863f307d237c4a42b51e19bd620caf32a722e827392d2566', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260902010000', 'Correção aditiva do schema e da validação histórica do módulo Compras', '19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

@@ -68,5 +68,11 @@ BEGIN
     END LOOP;
 END $$;
 
+-- A definição legada de contrato_fiscal antecede a coluna que representa a
+-- vigência da designação no domínio de Compras. A RC50.85 usa CREATE TABLE IF
+-- NOT EXISTS e, portanto, não acrescenta a coluna em instalações já existentes.
+ALTER TABLE sigov.contrato_fiscal
+    ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
+
 CREATE INDEX IF NOT EXISTS ix_contrato_fiscal_ativo
     ON sigov.contrato_fiscal (tenant_id, contrato_id, ativo);
