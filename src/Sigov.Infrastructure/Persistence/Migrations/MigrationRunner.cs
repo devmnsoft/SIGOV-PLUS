@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -138,11 +139,12 @@ public sealed class MigrationRunner
                             }
 
                             activeStage = "PostCondition";
-                            var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-                                migration.PostConditionSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                            var postConditionPassed = await EvaluatePostConditionAsync(connection, migration, null, cancellationToken).ConfigureAwait(false);
                             if (!postConditionPassed)
                             {
                                 validation.Failed.Add(version);
+                                validation.ChecksumReports.Add(FormatPostConditionReport(migration, false,
+                                    await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken).ConfigureAwait(false)));
                                 var report = FormatChecksumReport(migration, checksum, storedChecksum, true, false,
                                     "POSTCONDITION_FAILED: o estado atual do banco não comprova a migration histórica.");
                                 validation.ChecksumReports.Add(report);
@@ -157,12 +159,13 @@ public sealed class MigrationRunner
                         else if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
                         {
                             activeStage = "PostCondition";
-                            var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-                                migration.PostConditionSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                            var postConditionPassed = await EvaluatePostConditionAsync(connection, migration, null, cancellationToken).ConfigureAwait(false);
                             if (!postConditionPassed)
                             {
                                 validation.Failed.Add(version);
-                                _logger.LogError("Pós-condição reprovada para migration sigov {Version}.", version);
+                                var report = FormatPostConditionReport(migration, false, await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken).ConfigureAwait(false));
+                                validation.ChecksumReports.Add(report);
+                                _logger.LogError("{PostConditionReport}", report);
                             }
                         }
                         continue;
@@ -272,11 +275,12 @@ public sealed class MigrationRunner
             if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
             {
                 setActiveStage("PostCondition", null);
-                var postConditionPassed = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-                    migration.PostConditionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                var postConditionPassed = await EvaluatePostConditionAsync(connection, migration, transaction, cancellationToken).ConfigureAwait(false);
                 if (!postConditionPassed)
                 {
-                    throw new InvalidOperationException($"Pós-condição reprovada após aplicar migration {migration.Version}.");
+                    var report = FormatPostConditionReport(migration, false, await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken, transaction).ConfigureAwait(false));
+                    _logger.LogError("{PostConditionReport}", report);
+                    throw new InvalidOperationException($"Pós-condição reprovada após aplicar migration {migration.Version}.{Environment.NewLine}{report}");
                 }
             }
 
@@ -504,6 +508,76 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         return Convert.ToHexString(bytes);
     }
+
+    private async Task<bool> EvaluatePostConditionAsync(NpgsqlConnection connection, ManifestMigration migration, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
+    {
+        var obtained = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            migration.PostConditionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (!obtained)
+        {
+            var missing = await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql!, cancellationToken, transaction).ConfigureAwait(false);
+            _logger.LogError("{PostConditionReport}", FormatPostConditionReport(migration, obtained, missing));
+        }
+
+        return obtained;
+    }
+
+    private static readonly Regex RegclassReference = new(@"to_regclass\s*\(\s*'(?<name>[^']+)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex CatalogReference = new(@"(?<kind>conname|tgname)\s*=\s*'(?<name>[^']+)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex PermissionReference = new(@"\bchave\s*=\s*'(?<name>[^']+)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex ColumnReference = new(@"table_schema\s*=\s*'(?<schema>[^']+)'\s+and\s+(?:\w+\.)?table_name\s*=\s*'(?<table>[^']+)'[\s\S]{0,240}?(?:\w+\.)?column_name\s*=\s*'(?<column>[^']+)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static async Task<IReadOnlyList<string>> FindMissingExpectedObjectsAsync(NpgsqlConnection connection, string sql, CancellationToken cancellationToken, NpgsqlTransaction? transaction = null)
+    {
+        var missing = new List<string>();
+        foreach (Match match in RegclassReference.Matches(sql))
+        {
+            var name = match.Groups["name"].Value;
+            var exists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select to_regclass(@Name) is not null", new { Name = name }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!exists) missing.Add($"relation:{name}");
+        }
+
+        foreach (Match match in CatalogReference.Matches(sql))
+        {
+            var kind = match.Groups["kind"].Value.ToLowerInvariant();
+            var name = match.Groups["name"].Value;
+            var query = kind == "conname" ? "select exists(select 1 from pg_constraint where conname=@Name)" : "select exists(select 1 from pg_trigger where tgname=@Name and not tgisinternal)";
+            var exists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(query, new { Name = name }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!exists) missing.Add($"{(kind == "conname" ? "constraint" : "trigger")}:{name}");
+        }
+
+        foreach (Match match in PermissionReference.Matches(sql))
+        {
+            var name = match.Groups["name"].Value;
+            var exists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.permissao where chave=@Name)", new { Name = name }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!exists) missing.Add($"permission:{name}");
+        }
+
+        foreach (Match match in ColumnReference.Matches(sql))
+        {
+            var schema = match.Groups["schema"].Value;
+            var table = match.Groups["table"].Value;
+            var column = match.Groups["column"].Value;
+            var exists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from information_schema.columns where table_schema=@Schema and table_name=@Table and column_name=@Column)", new { Schema = schema, Table = table, Column = column }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!exists) missing.Add($"column:{schema}.{table}.{column}");
+        }
+
+        return missing.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static string FormatPostConditionReport(ManifestMigration migration, bool obtained, IReadOnlyList<string> missing) =>
+        string.Join(Environment.NewLine, new[]
+        {
+            "Post-condition validation:",
+            $"Version={migration.Version}",
+            $"Description={migration.Description}",
+            $"Identifier={Path.GetFileNameWithoutExtension(migration.FilePath)}:postConditionSql",
+            $"Sql={migration.PostConditionSql}",
+            "Expected=true",
+            $"Obtained={obtained.ToString().ToLowerInvariant()}",
+            $"MissingObjects={(missing.Count == 0 ? "not-detectable-by-catalog-probes" : string.Join(",", missing))}",
+            $"ExpectedTablesIndexesConstraintsPermissions={string.Join(",", RegclassReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value).Concat(CatalogReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value)).Concat(PermissionReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value)).Concat(ColumnReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => $"{match.Groups["schema"].Value}.{match.Groups["table"].Value}.{match.Groups["column"].Value}")).Distinct(StringComparer.OrdinalIgnoreCase))}"
+        });
 
     private static string FormatChecksumReport(
         ManifestMigration migration,
