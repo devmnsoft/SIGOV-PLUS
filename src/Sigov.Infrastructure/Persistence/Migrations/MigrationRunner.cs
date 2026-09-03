@@ -511,11 +511,27 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
 
     private async Task<bool> EvaluatePostConditionAsync(NpgsqlConnection connection, ManifestMigration migration, NpgsqlTransaction? transaction, CancellationToken cancellationToken)
     {
+        var commandText = migration.PostConditionSql;
+        if (string.IsNullOrWhiteSpace(commandText))
+        {
+            const string reason = "commandText da postcondition ausente, nulo ou vazio";
+            _logger.LogError(
+                "Postcondition inválida. Migration={Version}; File={MigrationFile}; PostCondition={PostCondition}; Description={Description}; Reason={Reason}",
+                migration.Version,
+                Path.GetFileName(migration.FilePath),
+                "postConditionSql",
+                migration.Description,
+                reason);
+            throw new InvalidOperationException(
+                $"Postcondition inválida para a migration {migration.Version} " +
+                $"(arquivo {Path.GetFileName(migration.FilePath)}, descrição '{migration.Description}', postcondition 'postConditionSql'): {reason}.");
+        }
+
         var obtained = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-            migration.PostConditionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            commandText, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (!obtained)
         {
-            var missing = await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql!, cancellationToken, transaction).ConfigureAwait(false);
+            var missing = await FindMissingExpectedObjectsAsync(connection, commandText, cancellationToken, transaction).ConfigureAwait(false);
             _logger.LogError("{PostConditionReport}", FormatPostConditionReport(migration, obtained, missing));
         }
 
