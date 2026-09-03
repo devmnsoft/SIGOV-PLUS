@@ -23,3 +23,7 @@ INSERT INTO sigov.docker_schema_migrations (name) VALUES ('20260902000000_rc50_9
 \echo 'Aplicando correção final das pós-condições do LicitaPro...'
 \i /database/postgres/migrations/20260903130000_corr_licitapro_postconditions_schema.sql
 INSERT INTO sigov.docker_schema_migrations (name) VALUES ('20260903130000_corr_licitapro_postconditions_schema') ON CONFLICT (name) DO NOTHING;
+
+\echo 'Aplicando convergência completa do schema LicitaPro...'
+\i /database/postgres/migrations/20260903173000_corr_licitapro_schema_history.sql
+INSERT INTO sigov.docker_schema_migrations (name) VALUES ('20260903173000_corr_licitapro_schema_history') ON CONFLICT (name) DO NOTHING;
