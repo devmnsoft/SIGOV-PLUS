@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentAssertions;
 using Xunit;
@@ -49,6 +52,51 @@ public sealed class DatabaseMigrationRegressionTests
             .ToArray();
 
         tableNames.Should().OnlyContain(table => table.StartsWith("sigov.", StringComparison.OrdinalIgnoreCase), "toda tabela criada pelas migrations deve ser qualificada como sigov.<tabela>");
+    }
+
+    [Fact]
+    public void Manifest_Deve_Estar_Ordenado_Com_Checksums_Normalizados_E_Historico_LicitaPro()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(MigrationsPath, "manifest.json")));
+        var entries = document.RootElement.GetProperty("migrations").EnumerateArray().ToArray();
+        entries.Select(entry => entry.GetProperty("version").GetString()).Should().BeInAscendingOrder().And.OnlyHaveUniqueItems();
+
+        foreach (var entry in entries.Where(entry => entry.GetProperty("applyAutomatically").GetBoolean()))
+        {
+            var contents = File.ReadAllText(Path.Combine(MigrationsPath, entry.GetProperty("file").GetString()!))
+                .TrimStart('\uFEFF').Replace("\r\n", "\n").Replace("\r", "\n");
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(contents))).ToLowerInvariant()
+                .Should().Be(entry.GetProperty("checksum").GetString());
+        }
+
+        var historical = entries.Single(entry => entry.GetProperty("version").GetString() == "20260903130000");
+        historical.GetProperty("knownChecksums").EnumerateArray().Select(value => value.GetString())
+            .Should().Contain("2ee4b77413f755230ad1bdaef456893c1f5f045866ea436e78d388a0b4f18364");
+    }
+
+    [Fact]
+    public void Correcao_LicitaPro_Deve_Ser_Aditiva_Idempotente_E_Validar_Catalogos_Fortes()
+    {
+        var sql = File.ReadAllText(Path.Combine(MigrationsPath, "20260903173000_corr_licitapro_schema_history.sql"));
+        sql.Should().Contain("conrelid=to_regclass('sigov.compras_licitapro_fonte')");
+        sql.Should().Contain("create index ix_clp_alerta_tenant_status_vencimento");
+        sql.Should().NotContain("create index sigov.ix_clp_alerta_tenant_status_vencimento");
+        sql.Should().Contain("pg_index").And.Contain("pg_class").And.Contain("pg_attribute");
+        sql.Should().Contain("array['tenant_id','entidade_id','status','vencimento_at']::name[]");
+        sql.Should().NotContain("concurrently");
+    }
+
+    [Fact]
+    public void Runner_Deve_Validar_Antes_Do_Ddl_E_Avaliar_PostConditions_Somente_Ao_Final()
+    {
+        var runner = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Persistence", "Migrations", "MigrationRunner.cs"));
+        runner.IndexOf("ThrowIfInvalid(validation);", StringComparison.Ordinal).Should()
+            .BeLessThan(runner.IndexOf("EnsureMigrationHistoryAsync(connection", StringComparison.Ordinal));
+        runner.IndexOf("// Fase 2:", StringComparison.Ordinal).Should()
+            .BeLessThan(runner.IndexOf("// Fase 3:", StringComparison.Ordinal));
+        runner.Should().Contain("if (!validateOnly)");
+        runner.Should().Contain("history = await ReadMigrationHistoryAsync");
+        runner.Should().Contain("pendentes=0; checksum=0; falhas=0");
     }
 
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));

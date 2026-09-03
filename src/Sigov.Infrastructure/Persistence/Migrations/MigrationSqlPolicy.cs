@@ -28,7 +28,7 @@ internal static class MigrationSqlPolicy
                     "Remova BEGIN/COMMIT/ROLLBACK/SAVEPOINT; a transação pertence ao MigrationRunner.");
             }
 
-            return rawSql;
+            return NormalizeLegacyIndexNames(rawSql);
         }
 
         if (statements.Count < 3 || !IsBegin(statements[0].Text) || !IsCommit(statements[^1].Text) || controls.Length != 2)
@@ -39,8 +39,15 @@ internal static class MigrationSqlPolicy
 
         // Preserve every byte between the wrapper statements. In particular, BEGIN/END in
         // dollar-quoted PL/pgSQL bodies are never tokenized as top-level statements.
-        return rawSql[statements[0].End..statements[^1].Start];
+        return NormalizeLegacyIndexNames(rawSql[statements[0].End..statements[^1].Start]);
     }
+
+    private static string NormalizeLegacyIndexNames(string sql) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            sql,
+            @"(?im)^(?<prefix>\s*create\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?)sigov\.(?<name>[a-z_][a-z0-9_$]*)",
+            "${prefix}${name}",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     private static bool IsBegin(string statement) => Normalize(statement) is "BEGIN" or "BEGIN TRANSACTION" or "BEGIN WORK";
 
