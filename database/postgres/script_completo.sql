@@ -28424,6 +28424,108 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260903173000_corr_licitapro_schema_history.sql
+-- CATEGORY: corrective
+-- CHECKSUM_SHA256: 1b8b9fbd9261ac7d8075cd890002d979cb9f2613230367f8c1fdd069cc339d94
+-- ==================================================
+-- Correção aditiva para bancos que aplicaram o conteúdo histórico de 20260903130000.
+-- O ledger permanece intocado: esta migration materializa os objetos faltantes no schema final.
+
+do $$
+begin
+    if to_regclass('sigov.compras_licitapro_fonte') is null then
+        raise exception 'LICITAPRO_SCHEMA_INCOMPLETE: tabela sigov.compras_licitapro_fonte ausente';
+    end if;
+    if to_regclass('sigov.compras_licitapro_alerta') is null then
+        raise exception 'LICITAPRO_SCHEMA_INCOMPLETE: tabela sigov.compras_licitapro_alerta ausente';
+    end if;
+    if exists (
+        select 1
+        from (values
+            ('compras_licitapro_fonte', 'configurada'),
+            ('compras_licitapro_fonte', 'endpoint_url'),
+            ('compras_licitapro_alerta', 'tenant_id'),
+            ('compras_licitapro_alerta', 'entidade_id'),
+            ('compras_licitapro_alerta', 'status'),
+            ('compras_licitapro_alerta', 'vencimento_at')
+        ) required(table_name, column_name)
+        where not exists (
+            select 1 from information_schema.columns c
+            where c.table_schema='sigov'
+              and c.table_name=required.table_name
+              and c.column_name=required.column_name
+        )
+    ) then
+        raise exception 'LICITAPRO_SCHEMA_INCOMPLETE: colunas necessárias para constraint ou índice ausentes';
+    end if;
+end $$;
+
+do $$
+declare
+    existing_type "char";
+    is_constraint_index boolean;
+    compatible boolean;
+begin
+    select c.relkind,
+           exists (select 1 from pg_constraint con where con.conindid=c.oid),
+           c.relkind='i' and i.indrelid=to_regclass('sigov.compras_licitapro_alerta')
+             and i.indisvalid and i.indnkeyatts=4 and i.indnatts=4
+             and i.indexprs is null and i.indpred is null
+             and (select array_agg(a.attname order by keys.ordinality)
+                  from unnest(i.indkey) with ordinality keys(attnum, ordinality)
+                  join pg_attribute a on a.attrelid=i.indrelid and a.attnum=keys.attnum)
+                 = array['tenant_id','entidade_id','status','vencimento_at']::name[]
+      into existing_type, is_constraint_index, compatible
+      from pg_class c
+      join pg_namespace n on n.oid=c.relnamespace
+      left join pg_index i on i.indexrelid=c.oid
+     where n.nspname='sigov' and c.relname='ix_clp_alerta_tenant_status_vencimento';
+
+    if existing_type is not null and not coalesce(compatible, false) then
+        if existing_type <> 'i' or is_constraint_index then
+            raise exception 'LICITAPRO_INDEX_CONFLICT: sigov.ix_clp_alerta_tenant_status_vencimento existe, relkind=%, constraint_index=%', existing_type, is_constraint_index;
+        end if;
+        drop index sigov.ix_clp_alerta_tenant_status_vencimento;
+        existing_type := null;
+    end if;
+
+    if existing_type is null then
+        create index ix_clp_alerta_tenant_status_vencimento
+            on sigov.compras_licitapro_alerta
+            (tenant_id, entidade_id, status, vencimento_at);
+    end if;
+end $$;
+
+do $$
+begin
+    if not exists (
+        select 1 from pg_constraint c
+        where c.conrelid=to_regclass('sigov.compras_licitapro_fonte')
+          and c.conname='ck_clp_fonte_endpoint_url'
+    ) then
+        alter table sigov.compras_licitapro_fonte
+            add constraint ck_clp_fonte_endpoint_url
+            check (not configurada or endpoint_url ~* '^https?://[^[:space:]]+$') not valid;
+    elsif not exists (
+        select 1 from pg_constraint c
+        where c.conrelid=to_regclass('sigov.compras_licitapro_fonte')
+          and c.conname='ck_clp_fonte_endpoint_url'
+          and c.contype='c'
+          and pg_get_constraintdef(c.oid) ilike '%configurada%'
+          and pg_get_constraintdef(c.oid) ilike '%endpoint_url%'
+    ) then
+        raise exception 'LICITAPRO_CONSTRAINT_CONFLICT: ck_clp_fonte_endpoint_url existe na tabela correta, mas possui definição incompatível';
+    end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903173000', 'Correção aditiva do histórico e dos objetos finais do LicitaPro', '1b8b9fbd9261ac7d8075cd890002d979cb9f2613230367f8c1fdd069cc339d94', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================

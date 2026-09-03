@@ -53,15 +53,15 @@ public sealed class MigrationRunner
         string? activeVersion = null;
         string? activeMigrationFile = null;
         string? activeCompatibilityFile = null;
-        var activeStage = "History";
+        var activeStage = "ManifestValidation";
         if (string.Equals(migrationMode, "Disabled", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("MigrationRunner desabilitado; nenhuma conexão será aberta.");
             return;
         }
 
-        if (!string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(migrationMode, "ApplyPending", StringComparison.OrdinalIgnoreCase))
+        var validateOnly = string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase);
+        if (!validateOnly && !string.Equals(migrationMode, "ApplyPending", StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException($"MigrationMode não suportado: {migrationMode}. Use Disabled, ValidateOnly ou ApplyPending.", nameof(migrationMode));
         }
@@ -70,132 +70,113 @@ public sealed class MigrationRunner
         {
             if (!Directory.Exists(_migrationsPath))
             {
-                _logger.LogWarning("Diretório de migrations sigov não encontrado: {MigrationsPath}", _migrationsPath);
-                return;
+                throw new DirectoryNotFoundException($"Diretório de migrations sigov não encontrado: {_migrationsPath}");
             }
+
+            // Fase 1a: toda a integridade em disco é comprovada antes de abrir a possibilidade de DDL.
+            var manifest = LoadManifestFiles();
+            var migrationFiles = new Dictionary<string, (string Sql, string Checksum)>(StringComparer.OrdinalIgnoreCase);
+            var validation = new MigrationValidationResult();
+            foreach (var migration in manifest.Migrations)
+            {
+                var sql = await File.ReadAllTextAsync(migration.FilePath, cancellationToken).ConfigureAwait(false);
+                var checksum = Checksum(sql);
+                migrationFiles.Add(migration.Version, (sql, checksum));
+                if (!string.Equals(migration.Checksum, checksum, StringComparison.OrdinalIgnoreCase))
+                {
+                    validation.ChecksumMismatch.Add(migration.Version);
+                    validation.ChecksumReports.Add(FormatChecksumReport(migration, checksum, null, false, null,
+                        "MANIFEST_OUTDATED: o checksum do arquivo normalizado difere do manifest; nenhum DDL foi executado."));
+                }
+            }
+            ThrowIfInvalid(validation);
 
             await using var connection = _connectionFactory.CreateConnection();
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await AcquireMigrationLockAsync(connection, cancellationToken).ConfigureAwait(false);
             try
             {
-                activeStage = "History";
-                await EnsureMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
+                // Fase 1b: o ledger é somente lido. Checksum desconhecido bloqueia antes de qualquer DDL.
+                activeStage = "HistoryValidation";
+                var history = await ReadMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
+                var manifestByVersion = manifest.Migrations.ToDictionary(m => m.Version, StringComparer.OrdinalIgnoreCase);
+                foreach (var (version, storedChecksum) in history)
+                {
+                    if (!manifestByVersion.TryGetValue(version, out var migration))
+                    {
+                        validation.ChecksumMismatch.Add(version);
+                        validation.ChecksumReports.Add($"Checksum mismatch:{Environment.NewLine}Version={version}{Environment.NewLine}DatabaseStored={storedChecksum}{Environment.NewLine}ProbableCause=DATABASE_HISTORY_INCONSISTENT: versão do banco ausente no manifest.");
+                        continue;
+                    }
 
-                var manifest = LoadManifestFiles();
-                var validateOnly = string.Equals(migrationMode, "ValidateOnly", StringComparison.OrdinalIgnoreCase);
-                var validation = new MigrationValidationResult();
+                    var currentChecksum = migrationFiles[version].Checksum;
+                    if (string.Equals(storedChecksum, currentChecksum, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!migration.KnownChecksums.Contains(storedChecksum, StringComparer.OrdinalIgnoreCase))
+                    {
+                        validation.ChecksumMismatch.Add(version);
+                        validation.ChecksumReports.Add(FormatChecksumReport(migration, currentChecksum, storedChecksum, false, null,
+                            "DATABASE_HISTORY_INCONSISTENT: checksum armazenado não corresponde ao atual nem consta em knownChecksums; nenhum DDL foi executado."));
+                    }
+                    else if (string.IsNullOrWhiteSpace(migration.PostConditionSql))
+                    {
+                        validation.ChecksumMismatch.Add(version);
+                        validation.ChecksumReports.Add(FormatChecksumReport(migration, currentChecksum, storedChecksum, true, null,
+                            "POSTCONDITION_MISSING: checksum histórico conhecido exige postConditionSql forte."));
+                    }
+                }
+                ThrowIfInvalid(validation);
+
+                // Fase 2: somente ApplyPending altera o banco; pós-condições são deliberadamente adiadas.
+                if (!validateOnly)
+                {
+                    await EnsureMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
+                    foreach (var migration in manifest.Migrations.Where(m => !history.ContainsKey(m.Version)))
+                    {
+                        activeVersion = migration.Version;
+                        activeMigrationFile = Path.GetFileName(migration.FilePath);
+                        var file = migrationFiles[migration.Version];
+                        var executionSql = MigrationSqlPolicy.PrepareForExecution(migration.Version, file.Sql, migration.LegacyTransactionWrapper);
+                        await ApplyMigrationAsync(connection, migration, executionSql, file.Checksum,
+                            (stage, compatibilityFile) => { activeStage = stage; activeCompatibilityFile = compatibilityFile; }, cancellationToken).ConfigureAwait(false);
+                        validation.Applied.Add(migration.Version);
+                        activeCompatibilityFile = null;
+                    }
+
+                    activeStage = "CompatibilityAfterAll";
+                    await ApplyCompatibilityAfterAllAsync(connection, manifest.CompatibilityAfterAll,
+                        file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
+                    activeCompatibilityFile = null;
+                }
+
+                // Fase 3: relê o ledger e avalia o contrato exclusivamente contra o estado final.
+                activeStage = "FinalValidation";
+                history = await ReadMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
                 foreach (var migration in manifest.Migrations)
                 {
                     activeVersion = migration.Version;
                     activeMigrationFile = Path.GetFileName(migration.FilePath);
-                    activeStage = "History";
-                    var file = migration.FilePath;
-                    var version = migration.Version;
-                    var description = migration.Description;
-                    var category = migration.Category;
-                    var expectedChecksum = migration.Checksum;
-                    var rawSql = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-                    var checksum = Checksum(rawSql);
-                    var storedChecksum = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
-                        "select checksum from sigov.schema_migrations where version = @Version;",
-                        new { Version = version }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                    var alreadyApplied = storedChecksum is not null;
-                    if (!string.Equals(expectedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
+                    if (!history.TryGetValue(migration.Version, out var storedChecksum))
                     {
-                        validation.ChecksumMismatch.Add(version);
-                        var report = FormatChecksumReport(migration, checksum, storedChecksum, false, null,
-                            "MANIFEST_OUTDATED: o checksum do arquivo normalizado difere do manifest; verifique alteração de conteúdo, encoding ou fim de linha.");
-                        validation.ChecksumReports.Add(report);
-                        _logger.LogError("{ChecksumReport}", report);
+                        validation.Pending.Add(migration.Version);
                         continue;
                     }
 
-                    var executionSql = MigrationSqlPolicy.PrepareForExecution(version, rawSql, migration.LegacyTransactionWrapper);
-
-                    if (alreadyApplied)
+                    if (!string.IsNullOrWhiteSpace(migration.PostConditionSql) &&
+                        !await EvaluatePostConditionAsync(connection, migration, null, cancellationToken).ConfigureAwait(false))
                     {
-                        if (!string.Equals(storedChecksum, checksum, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var isKnownHistoricalChecksum = migration.KnownChecksums.Contains(storedChecksum ?? string.Empty, StringComparer.OrdinalIgnoreCase);
-                            if (!isKnownHistoricalChecksum)
-                            {
-                                validation.ChecksumMismatch.Add(version);
-                                var report = FormatChecksumReport(migration, checksum, storedChecksum, false, null,
-                                    "DATABASE_HISTORY_INCONSISTENT: checksum armazenado não corresponde ao atual nem consta em knownChecksums.");
-                                validation.ChecksumReports.Add(report);
-                                _logger.LogError("{ChecksumReport}", report);
-                                continue;
-                            }
-
-                            if (string.IsNullOrWhiteSpace(migration.PostConditionSql))
-                            {
-                                validation.ChecksumMismatch.Add(version);
-                                var report = FormatChecksumReport(migration, checksum, storedChecksum, true, null,
-                                    "POSTCONDITION_MISSING: checksum histórico conhecido exige postConditionSql forte.");
-                                validation.ChecksumReports.Add(report);
-                                _logger.LogError("{ChecksumReport}", report);
-                                continue;
-                            }
-
-                            activeStage = "PostCondition";
-                            var postConditionPassed = await EvaluatePostConditionAsync(connection, migration, null, cancellationToken).ConfigureAwait(false);
-                            if (!postConditionPassed)
-                            {
-                                validation.Failed.Add(version);
-                                validation.ChecksumReports.Add(FormatPostConditionReport(migration, false,
-                                    await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken).ConfigureAwait(false)));
-                                var report = FormatChecksumReport(migration, checksum, storedChecksum, true, false,
-                                    "POSTCONDITION_FAILED: o estado atual do banco não comprova a migration histórica.");
-                                validation.ChecksumReports.Add(report);
-                                _logger.LogError("{ChecksumReport}", report);
-                                continue;
-                            }
-
-                            _logger.LogWarning(
-                                "Checksum histórico conhecido aceito para migration sigov {Version}, após pós-condição aprovada. Banco={StoredChecksum}; Atual={Checksum}. O checksum armazenado foi preservado.",
-                                version, storedChecksum, checksum);
-                        }
-                        else if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
-                        {
-                            activeStage = "PostCondition";
-                            var postConditionPassed = await EvaluatePostConditionAsync(connection, migration, null, cancellationToken).ConfigureAwait(false);
-                            if (!postConditionPassed)
-                            {
-                                validation.Failed.Add(version);
-                                var report = FormatPostConditionReport(migration, false, await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken).ConfigureAwait(false));
-                                validation.ChecksumReports.Add(report);
-                                _logger.LogError("{PostConditionReport}", report);
-                            }
-                        }
-                        continue;
+                        validation.Failed.Add(migration.Version);
+                        validation.ChecksumReports.Add(FormatPostConditionReport(migration, false,
+                            await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken).ConfigureAwait(false)));
                     }
-
-                    if (validateOnly)
+                    else if (!string.Equals(storedChecksum, migrationFiles[migration.Version].Checksum, StringComparison.OrdinalIgnoreCase))
                     {
-                        validation.Pending.Add(version);
-                        _logger.LogError("Migration pendente {Version} detectada em modo ValidateOnly.", version);
-                        continue;
+                        _logger.LogWarning("Checksum histórico conhecido preservado. Migration={Version}; Banco={StoredChecksum}; Atual={Checksum}.",
+                            migration.Version, storedChecksum, migrationFiles[migration.Version].Checksum);
                     }
-
-                    await ApplyMigrationAsync(connection, migration, executionSql, checksum, (stage, file) => { activeStage = stage; activeCompatibilityFile = file; }, cancellationToken).ConfigureAwait(false);
-                    activeCompatibilityFile = null;
-                    validation.Applied.Add(version);
                 }
 
-                if (!validation.IsValid)
-                {
-                    var details = validation.ChecksumReports.Count == 0
-                        ? string.Empty
-                        : Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, validation.ChecksumReports);
-                    throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.{details}");
-                }
-
-                if (!validateOnly && validation.Applied.Count > 0 && manifest.CompatibilityAfterAll.Count > 0)
-                {
-                    await ApplyCompatibilityAfterAllAsync(connection, manifest.CompatibilityAfterAll, file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
-                    activeCompatibilityFile = null;
-                }
+                ThrowIfInvalid(validation);
+                _logger.LogInformation("Validação de migrations concluída: pendentes=0; checksum=0; falhas=0.");
             }
             finally
             {
@@ -207,23 +188,39 @@ public sealed class MigrationRunner
             var connection = _connectionFactory.CreateConnection();
             var hint = ex.SqlState switch
             {
-                PostgresErrorCodes.InvalidPassword => $"Senha do usuário PostgreSQL '{connection.UserName}' inválida. Execute ./scripts/provision-sigov-db-user.ps1 e confira ConnectionStrings__DefaultConnection e .env.local.",
+                PostgresErrorCodes.InvalidPassword => $"Senha do usuário PostgreSQL '{connection.UserName}' inválida. Confira ConnectionStrings__DefaultConnection.",
                 PostgresErrorCodes.InvalidCatalogName => "Banco PostgreSQL não existe. Execute ./scripts/install-sigov-database.ps1.",
-                PostgresErrorCodes.InsufficientPrivilege => "Permissão insuficiente para o usuário runtime. Execute ./scripts/provision-sigov-db-user.ps1.",
-                PostgresErrorCodes.UndefinedTable => "Tabela obrigatória ausente. Execute diagnose-sigov-database.ps1 e validate-sigov-runtime.ps1.",
-                PostgresErrorCodes.UniqueViolation => "Duplicidade encontrada. Execute repair-sigov-database.ps1 e diagnose-sigov-database.ps1.",
+                PostgresErrorCodes.InsufficientPrivilege => "Permissão insuficiente para o usuário runtime.",
                 _ => "Falha PostgreSQL durante a validação de migrations; consulte o SQLSTATE e o diagnóstico operacional."
             };
-            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; MigrationFile={MigrationFile}; Stage={Stage}; CompatibilityFile={CompatibilityFile}; SqlState={SqlState}; ColumnName={ColumnName}; TableName={TableName}; SchemaName={SchemaName}; ConstraintName={ConstraintName}; Routine={Routine}; Detail={Detail}; Hint={Hint}; Position={Position}; DatabaseUser={DatabaseUser}; CorrelationId={CorrelationId}",
-                hint, activeVersion, activeMigrationFile, activeStage, activeCompatibilityFile, ex.SqlState, ex.ColumnName, ex.TableName, ex.SchemaName, ex.ConstraintName, ex.Routine, ex.Detail, ex.Hint, ex.Position, connection.UserName, System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+            _logger.LogError(ex, "{OperationalHint} Migration={Migration}; MigrationFile={MigrationFile}; Stage={Stage}; CompatibilityFile={CompatibilityFile}; SqlState={SqlState}; DatabaseUser={DatabaseUser}",
+                hint, activeVersion, activeMigrationFile, activeStage, activeCompatibilityFile, ex.SqlState, connection.UserName);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao executar migrations no schema sigov. CorrelationId={CorrelationId}",
-                System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
+            _logger.LogError(ex, "Erro ao executar migrations no schema sigov. Stage={Stage}; CorrelationId={CorrelationId}", activeStage,
+                Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"));
             throw;
         }
+    }
+
+    private static void ThrowIfInvalid(MigrationValidationResult validation)
+    {
+        if (validation.IsValid) return;
+        var details = validation.ChecksumReports.Count == 0 ? string.Empty : Environment.NewLine + string.Join(Environment.NewLine + Environment.NewLine, validation.ChecksumReports);
+        throw new InvalidOperationException($"Validação de migrations falhou: pendentes={validation.Pending.Count}; checksum={validation.ChecksumMismatch.Count}; falhas={validation.Failed.Count}.{details}");
+    }
+
+    private static async Task<Dictionary<string, string>> ReadMigrationHistoryAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
+    {
+        var exists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "select to_regclass('sigov.schema_migrations') is not null;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (!exists) return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var rows = await connection.QueryAsync<MigrationHistoryEntry>(new CommandDefinition(
+            "select version, checksum from sigov.schema_migrations;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.ToDictionary(row => row.Version, row => row.Checksum, StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task EnsureMigrationHistoryAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
@@ -272,18 +269,6 @@ public sealed class MigrationRunner
             setActiveStage("Migration", null);
             await connection.ExecuteAsync(new CommandDefinition(executionSql, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             _logger.LogInformation("Migration applied: {Version}; File={MigrationFile}; CorrelationId={CorrelationId}", migration.Version, Path.GetFileName(migration.FilePath), correlationId);
-            if (!string.IsNullOrWhiteSpace(migration.PostConditionSql))
-            {
-                setActiveStage("PostCondition", null);
-                var postConditionPassed = await EvaluatePostConditionAsync(connection, migration, transaction, cancellationToken).ConfigureAwait(false);
-                if (!postConditionPassed)
-                {
-                    var report = FormatPostConditionReport(migration, false, await FindMissingExpectedObjectsAsync(connection, migration.PostConditionSql, cancellationToken, transaction).ConfigureAwait(false));
-                    _logger.LogError("{PostConditionReport}", report);
-                    throw new InvalidOperationException($"Pós-condição reprovada após aplicar migration {migration.Version}.{Environment.NewLine}{report}");
-                }
-            }
-
             var executionMs = stopwatch.ElapsedMilliseconds;
             setActiveStage("History", null);
             await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.schema_migrations (version, description, checksum, category, source, success, execution_ms)
@@ -381,6 +366,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<ManifestMigration>();
+        string? previousVersion = null;
         foreach (var item in document.RootElement.GetProperty("migrations").EnumerateArray())
         {
             var version = item.GetProperty("version").GetString() ?? string.Empty;
@@ -399,6 +385,11 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
             {
                 throw new InvalidOperationException($"Versão duplicada no manifest de migrations: {version}.");
             }
+            if (previousVersion is not null && string.CompareOrdinal(previousVersion, version) >= 0)
+            {
+                throw new InvalidOperationException($"Versões fora de ordem no manifest: {previousVersion} deve preceder {version}.");
+            }
+            previousVersion = version;
 
             if (!files.Add(file))
             {
@@ -455,6 +446,12 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
             result.Add(new CompatibilityScript(file, filePath, expectedChecksum));
         }
         return result;
+    }
+
+    private sealed class MigrationHistoryEntry
+    {
+        public string Version { get; init; } = string.Empty;
+        public string Checksum { get; init; } = string.Empty;
     }
 
     private sealed record ManifestMigration(
