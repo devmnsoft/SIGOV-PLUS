@@ -1,6 +1,31 @@
 -- Diagnóstico reutilizável de contratos físicos (PostgreSQL 16+).
 -- O último result set deve retornar zero linhas para concluir a correção.
 \pset null '(null)'
+-- Cada consulta é deliberadamente independente: uma falha não é mascarada por
+-- uma expressão booleana composta.
+select format_type(a.atttypid,a.atttypmod) as compras_fornecedor_id_tipo
+from pg_attribute a where a.attrelid=to_regclass('sigov.compras_fornecedor') and a.attname='id' and not a.attisdropped;
+
+select c.relname as tabela,a.attname as coluna,format_type(a.atttypid,a.atttypmod) as tipo
+from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_attribute a on a.attrelid=c.oid
+where n.nspname='sigov' and c.relname in ('compras_fornecedor_cotacao','compras_proposta','compras_habilitacao','compras_recurso','contrato_administrativo','contrato_sancao')
+and a.attname in ('tenant_id','entidade_id','fornecedor_id') and not a.attisdropped order by c.relname,a.attname;
+
+select a.attname as coluna,format_type(a.atttypid,a.atttypmod) as tipo,a.attnotnull as not_null,
+ pg_get_expr(d.adbin,d.adrelid) as default_expr
+from pg_attribute a left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
+where a.attrelid=to_regclass('sigov.contrato_fiscal') and a.attname='ativo' and not a.attisdropped;
+
+select i.indisvalid,pg_get_indexdef(i.indexrelid) as definicao
+from pg_index i where i.indexrelid=to_regclass('sigov.ix_contrato_fiscal_ativo');
+
+do $$ declare t text; n bigint; begin
+ foreach t in array array['compras_fornecedor','compras_fornecedor_cotacao','compras_proposta','compras_habilitacao','compras_recurso','contrato_administrativo','contrato_sancao','contrato_fiscal'] loop
+  if to_regclass('sigov.'||t) is null then raise notice 'contagem tabela=sigov.% resultado=ausente',t;
+  else execute format('select count(*) from sigov.%I',t) into n; raise notice 'contagem tabela=sigov.% registros=%',t,n; end if;
+ end loop;
+end $$;
+
 select c.relname as tabela, format_type(id.atttypid,id.atttypmod) as tipo_id,
  format_type(tenant.atttypid,tenant.atttypmod) as tipo_tenant_id,
  format_type(entidade.atttypid,entidade.atttypmod) as tipo_entidade_id,

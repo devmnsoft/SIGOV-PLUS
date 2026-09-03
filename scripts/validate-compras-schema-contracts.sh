@@ -26,6 +26,9 @@ for version in ('20260824200000','20260903173000'):
     m=next(x for x in d['migrations'] if x['version']==version)
     if not any(x['file']=='070_separate_compras_uuid_contracts.sql' for x in m.get('compatibilityBefore',[])):
         errors.append('separação UUID ausente antes de '+version)
+legacy=next(x for x in d['migrations'] if x['version']=='20260831230000')
+if not any(x['file']=='072_prepare_rc50_85_compras_bigint.sql' for x in legacy.get('compatibilityBefore',[])):
+    errors.append('preparo bigint ausente antes de 20260831230000')
 if errors:
     print('\n'.join('FAIL: '+e for e in errors),file=sys.stderr); sys.exit(1)
 PY
