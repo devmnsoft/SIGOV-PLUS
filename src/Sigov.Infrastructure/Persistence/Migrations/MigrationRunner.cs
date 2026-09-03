@@ -549,6 +549,11 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         foreach (Match match in RegclassReference.Matches(sql))
         {
             var name = match.Groups["name"].Value;
+            // Expressões como to_regclass('sigov.' || required.table_name)
+            // não são referências concretas. Sondar "sigov." gerava um falso
+            // MissingObjects e escondia o diagnóstico produzido pela própria
+            // pós-condição dinâmica.
+            if (name.EndsWith('.', StringComparison.Ordinal)) continue;
             var exists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select to_regclass(@Name) is not null", new { Name = name }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             if (!exists) missing.Add($"relation:{name}");
         }
@@ -592,7 +597,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
             "Expected=true",
             $"Obtained={obtained.ToString().ToLowerInvariant()}",
             $"MissingObjects={(missing.Count == 0 ? "not-detectable-by-catalog-probes" : string.Join(",", missing))}",
-            $"ExpectedTablesIndexesConstraintsPermissions={string.Join(",", RegclassReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value).Concat(CatalogReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value)).Concat(PermissionReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value)).Concat(ColumnReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => $"{match.Groups["schema"].Value}.{match.Groups["table"].Value}.{match.Groups["column"].Value}")).Distinct(StringComparer.OrdinalIgnoreCase))}"
+            $"ExpectedTablesIndexesConstraintsPermissions={string.Join(",", RegclassReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value).Where(name => !name.EndsWith('.', StringComparison.Ordinal)).Concat(CatalogReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value)).Concat(PermissionReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => match.Groups["name"].Value)).Concat(ColumnReference.Matches(migration.PostConditionSql ?? string.Empty).Cast<Match>().Select(match => $"{match.Groups["schema"].Value}.{match.Groups["table"].Value}.{match.Groups["column"].Value}")).Distinct(StringComparer.OrdinalIgnoreCase))}"
         });
 
     private static string FormatChecksumReport(
