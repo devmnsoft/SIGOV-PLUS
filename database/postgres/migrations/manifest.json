@@ -594,7 +594,7 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331",
-      "postConditionSql": "select to_regclass('sigov.compras_fornecedor') is not null and to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_idempotencia') is not null",
+      "postConditionSql": "select to_regclass('sigov.compras_empresarial_fornecedor') is not null and to_regclass('sigov.compras_empresarial_fatura') is not null and to_regclass('sigov.compras_empresarial_idempotencia') is not null",
       "compatibilityBefore": [
         {
           "file": "020_pre_rc37b_compras_compatibility.sql",
@@ -1235,7 +1235,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0",
-      "postConditionSql": "select to_regclass('sigov.compras_recebimento') is not null and exists(select 1 from sigov.permissao where chave='compras.fornecedor.visualizar')"
+      "postConditionSql": "select to_regclass('sigov.compras_recebimento') is not null and exists(select 1 from sigov.permissao where chave='compras.fornecedor.visualizar')",
+      "compatibilityBefore": [
+        {
+          "file": "070_separate_compras_uuid_contracts.sql",
+          "checksum": "eb1af853bef90e200f21e7b7a01f79ea8a66e500de3ef325eb6b5826935d0730"
+        }
+      ]
     },
     {
       "version": "20260824220000",
@@ -1872,7 +1878,17 @@
       "checksum": "ea2e34fb9909c44f2e2a66a9e80de887d31717ca9fe20bbed0a714242bfbc528",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select\n    not exists (select 1 from (values ('fonte'),('importacao'),('oportunidade'),('documento'),('checklist'),('checklist_item'),('analise'),('criterio'),('agenda'),('alerta'),('sincronizacao'),('auditoria')) required(table_name) where to_regclass('sigov.compras_licitapro_'||required.table_name) is null)\n    and not exists (select 1 from (values ('fonte'),('importacao'),('oportunidade'),('documento'),('checklist'),('checklist_item'),('analise'),('criterio'),('agenda'),('alerta'),('sincronizacao'),('auditoria')) required(table_name) where not exists (select 1 from pg_constraint c where c.conrelid=to_regclass('sigov.compras_licitapro_'||required.table_name) and c.contype='p'))\n    and exists (select 1 from pg_constraint c where c.conrelid=to_regclass('sigov.compras_licitapro_fonte') and c.conname='ck_clp_fonte_endpoint_url' and c.contype='c')\n    and exists (select 1 from pg_constraint c where c.conrelid=to_regclass('sigov.compras_licitapro_alerta') and c.conname='ck_clp_alerta_status' and c.contype='c')\n    and exists (select 1 from pg_index i join pg_class idx on idx.oid=i.indexrelid where i.indexrelid=to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento') and i.indrelid=to_regclass('sigov.compras_licitapro_alerta') and i.indisvalid and i.indnkeyatts=4 and i.indnatts=4 and i.indexprs is null and i.indpred is null and (select array_agg(a.attname order by keys.ordinality) from unnest(i.indkey) with ordinality keys(attnum,ordinality) join pg_attribute a on a.attrelid=i.indrelid and a.attnum=keys.attnum)=array['tenant_id','entidade_id','status','vencimento_at']::name[])\n    and to_regprocedure('sigov.compras_licitapro_validar_relacoes()') is not null\n    and exists (select 1 from pg_trigger where tgrelid=to_regclass('sigov.compras_licitapro_checklist_item') and tgname='trg_clp_checklist_item_contexto' and not tgisinternal)\n    and exists (select 1 from pg_trigger where tgrelid=to_regclass('sigov.compras_licitapro_criterio') and tgname='trg_clp_criterio_contexto' and not tgisinternal)\n    and not exists (select 1 from (values ('COMPRAS_LICITAPRO_DASHBOARD_VIEW'),('COMPRAS_LICITAPRO_FONTE_VIEW'),('COMPRAS_LICITAPRO_FONTE_MANAGE'),('COMPRAS_LICITAPRO_OPORTUNIDADE_VIEW'),('COMPRAS_LICITAPRO_OPORTUNIDADE_MANAGE'),('COMPRAS_LICITAPRO_FORNECEDOR_PORTAL_VIEW'),('COMPRAS_LICITAPRO_FORNECEDOR_PORTAL_MANAGE'),('COMPRAS_LICITAPRO_DOCUMENTO_VIEW'),('COMPRAS_LICITAPRO_DOCUMENTO_MANAGE'),('COMPRAS_LICITAPRO_CHECKLIST_VIEW'),('COMPRAS_LICITAPRO_CHECKLIST_MANAGE'),('COMPRAS_LICITAPRO_ANALISE_VIEW'),('COMPRAS_LICITAPRO_ANALISE_MANAGE'),('COMPRAS_LICITAPRO_AGENDA_VIEW'),('COMPRAS_LICITAPRO_AGENDA_MANAGE'),('COMPRAS_LICITAPRO_RELATORIO_EXPORT'),('COMPRAS_LICITAPRO_AUDITORIA_VIEW')) required(chave) where not exists (select 1 from sigov.permissao p where p.chave=required.chave and p.ativo and not p.is_deleted))"
+      "postConditionSql": "select\n    not exists (select 1 from (values ('fonte'),('importacao'),('oportunidade'),('documento'),('checklist'),('checklist_item'),('analise'),('criterio'),('agenda'),('alerta'),('sincronizacao'),('auditoria')) required(table_name) where to_regclass('sigov.compras_licitapro_'||required.table_name) is null)\n    and not exists (select 1 from (values ('fonte'),('importacao'),('oportunidade'),('documento'),('checklist'),('checklist_item'),('analise'),('criterio'),('agenda'),('alerta'),('sincronizacao'),('auditoria')) required(table_name) where not exists (select 1 from pg_constraint c where c.conrelid=to_regclass('sigov.compras_licitapro_'||required.table_name) and c.contype='p'))\n    and exists (select 1 from pg_constraint c where c.conrelid=to_regclass('sigov.compras_licitapro_fonte') and c.conname='ck_clp_fonte_endpoint_url' and c.contype='c')\n    and exists (select 1 from pg_constraint c where c.conrelid=to_regclass('sigov.compras_licitapro_alerta') and c.conname='ck_clp_alerta_status' and c.contype='c')\n    and exists (select 1 from pg_index i join pg_class idx on idx.oid=i.indexrelid where i.indexrelid=to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento') and i.indrelid=to_regclass('sigov.compras_licitapro_alerta') and i.indisvalid and i.indnkeyatts=4 and i.indnatts=4 and i.indexprs is null and i.indpred is null and (select array_agg(a.attname order by keys.ordinality) from unnest(i.indkey) with ordinality keys(attnum,ordinality) join pg_attribute a on a.attrelid=i.indrelid and a.attnum=keys.attnum)=array['tenant_id','entidade_id','status','vencimento_at']::name[])\n    and to_regprocedure('sigov.compras_licitapro_validar_relacoes()') is not null\n    and exists (select 1 from pg_trigger where tgrelid=to_regclass('sigov.compras_licitapro_checklist_item') and tgname='trg_clp_checklist_item_contexto' and not tgisinternal)\n    and exists (select 1 from pg_trigger where tgrelid=to_regclass('sigov.compras_licitapro_criterio') and tgname='trg_clp_criterio_contexto' and not tgisinternal)\n    and not exists (select 1 from (values ('COMPRAS_LICITAPRO_DASHBOARD_VIEW'),('COMPRAS_LICITAPRO_FONTE_VIEW'),('COMPRAS_LICITAPRO_FONTE_MANAGE'),('COMPRAS_LICITAPRO_OPORTUNIDADE_VIEW'),('COMPRAS_LICITAPRO_OPORTUNIDADE_MANAGE'),('COMPRAS_LICITAPRO_FORNECEDOR_PORTAL_VIEW'),('COMPRAS_LICITAPRO_FORNECEDOR_PORTAL_MANAGE'),('COMPRAS_LICITAPRO_DOCUMENTO_VIEW'),('COMPRAS_LICITAPRO_DOCUMENTO_MANAGE'),('COMPRAS_LICITAPRO_CHECKLIST_VIEW'),('COMPRAS_LICITAPRO_CHECKLIST_MANAGE'),('COMPRAS_LICITAPRO_ANALISE_VIEW'),('COMPRAS_LICITAPRO_ANALISE_MANAGE'),('COMPRAS_LICITAPRO_AGENDA_VIEW'),('COMPRAS_LICITAPRO_AGENDA_MANAGE'),('COMPRAS_LICITAPRO_RELATORIO_EXPORT'),('COMPRAS_LICITAPRO_AUDITORIA_VIEW')) required(chave) where not exists (select 1 from sigov.permissao p where p.chave=required.chave and p.ativo and not p.is_deleted))",
+      "compatibilityBefore": [
+        {
+          "file": "070_separate_compras_uuid_contracts.sql",
+          "checksum": "eb1af853bef90e200f21e7b7a01f79ea8a66e500de3ef325eb6b5826935d0730"
+        },
+        {
+          "file": "071_create_compras_governamental_core.sql",
+          "checksum": "407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0"
+        }
+      ]
     }
   ],
   "compatibilityAfterAll": [
