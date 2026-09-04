@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text.Json;
 using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Api.Contracts;
 using Sigov.Api.Middlewares;
@@ -10,6 +11,7 @@ using Sigov.Infrastructure.Persistence.Dapper;
 namespace Sigov.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/tributario")]
 [RequireModule("tributario")]
 public sealed class TributarioController : ControllerBase
@@ -311,6 +313,8 @@ on conflict(tenant_id,inscricao_municipal,rps_numero) do update set nfse_numero=
         try
         {
             var tenantId = RequireTenant();
+            if (!_currentUser.UsuarioId.HasValue)
+                return Unauthorized(ApiResponse<object>.Fail("Usuário autenticado é obrigatório para gerar o livro eletrônico.", cid));
             if (!await TemPermissao("livro_eletronico", "gerar")) return Forbid();
             using var c = _context.CreateConnection();
             var totalLancado = await ScalarDecimal(c, "select coalesce((select sum(valor_lancado) from sigov.iptu where tenant_id=@TenantId and date_trunc('month', data_vencimento)=date_trunc('month', cast(@Competencia as date))),0) + coalesce((select sum(valor_lancado) from sigov.iss where tenant_id=@TenantId and date_trunc('month', competencia)=date_trunc('month', cast(@Competencia as date))),0) + coalesce((select sum(valor) from sigov.taxas_municipais where tenant_id=@TenantId and date_trunc('month', competencia)=date_trunc('month', cast(@Competencia as date))),0)", tenantId, request.Competencia);
@@ -736,7 +740,7 @@ order by nome limit @PageSize offset @Offset", new { TenantId = tenantId, Busca 
 
     private async Task<bool> TemPermissao(string recurso, string acao)
     {
-        if (!_currentUser.UsuarioId.HasValue) return true;
+        if (!_currentUser.UsuarioId.HasValue) return false;
         return await _permissions.HasPermissionAsync(_currentUser.UsuarioId.Value, "tributario", recurso, acao, HttpContext.RequestAborted).ConfigureAwait(false);
     }
 

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -113,6 +114,47 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
         operations.Count(operation => operation.Key == "GET api/bloco6/almoxarifado/dashboard").Should().Be(1);
         operations.Count(operation => operation.Key == "GET api/integracoes-internas").Should().Be(1);
         operations.Count(operation => operation.Key == "GET api/governanca-transversal/integracoes-internas").Should().Be(1);
+        operations.Count(operation => operation.Key == "POST api/tributario/livro-eletronico/gerar").Should().Be(1);
+        operations.Count(operation => operation.Key == "POST api/tributario/nfse/livro-eletronico/gerar").Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData("api/tributario/livro-eletronico/gerar", typeof(Sigov.Api.Controllers.TributarioController), "GerarLivro", typeof(Sigov.Api.Controllers.GerarLivroRequest))]
+    [InlineData("api/tributario/nfse/livro-eletronico/gerar", typeof(Sigov.Api.Controllers.TributarioNfseController), "Livro", typeof(Sigov.Application.Tributario.TributarioAvancado.TributarioOperacaoRequest))]
+    public void Rotas_De_Livro_Eletronico_Devem_Resolver_Para_Action_E_Dto_Corretos(
+        string path,
+        Type expectedController,
+        string expectedAction,
+        Type expectedBodyType)
+    {
+        var descriptions = ApiDescriptions("POST", path);
+
+        descriptions.Should().ContainSingle();
+        var description = descriptions.Single();
+        var action = description.ActionDescriptor.Should().BeOfType<ControllerActionDescriptor>().Subject;
+        action.ControllerTypeInfo.AsType().Should().Be(expectedController);
+        action.ActionName.Should().Be(expectedAction);
+        description.ParameterDescriptions.Should().ContainSingle(parameter =>
+            parameter.Source?.Id == "Body" && parameter.ModelMetadata?.ModelType == expectedBodyType);
+    }
+
+    [Fact]
+    public void Actions_Tributarias_Nao_Devem_Permitir_Acesso_Anonimo()
+    {
+        var actions = _factory.Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
+            .ApiDescriptionGroups.Items.SelectMany(group => group.Items)
+            .Select(description => description.ActionDescriptor)
+            .OfType<ControllerActionDescriptor>()
+            .Where(action => action.ControllerTypeInfo.Namespace == "Sigov.Api.Controllers"
+                && action.ControllerName.StartsWith("Tributario", StringComparison.Ordinal))
+            .Distinct()
+            .ToArray();
+
+        actions.Should().NotBeEmpty();
+        actions.Should().OnlyContain(action =>
+            !action.EndpointMetadata.OfType<IAllowAnonymous>().Any()
+            && action.EndpointMetadata.OfType<IAuthorizeData>().Any(),
+            "toda action tributária deve exigir autenticação e nenhuma pode ser anônima");
     }
 
     [Theory]
@@ -157,7 +199,21 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
         if (description.ActionDescriptor is not ControllerActionDescriptor action)
             return $"  action={ActionName(description)}; template={description.RelativePath}; assembly=desconhecido";
 
+        var routeParameters = description.ParameterDescriptions
+            .Where(parameter => parameter.Source?.Id == "Path")
+            .Select(parameter => $"{parameter.Name}:{parameter.ModelMetadata?.ModelType.FullName ?? "tipo desconhecido"}");
+
         return $"  controller={action.ControllerName}; action={action.ActionName}; "
-            + $"template={description.RelativePath}; assembly={action.ControllerTypeInfo.Assembly.GetName().Name}";
+            + $"originalTemplate={action.AttributeRouteInfo?.Template ?? description.RelativePath}; "
+            + $"apiTemplate={description.RelativePath}; normalized={NormalizePath(description.RelativePath)}; "
+            + $"routeParameters=[{string.Join(", ", routeParameters)}]; "
+            + $"assembly={action.ControllerTypeInfo.Assembly.GetName().Name}";
     }
+
+    private ApiDescription[] ApiDescriptions(string method, string path) =>
+        _factory.Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
+            .ApiDescriptionGroups.Items.SelectMany(group => group.Items)
+            .Where(description => string.Equals(description.HttpMethod, method, StringComparison.OrdinalIgnoreCase)
+                && NormalizePath(description.RelativePath) == NormalizePath(path))
+            .ToArray();
 }

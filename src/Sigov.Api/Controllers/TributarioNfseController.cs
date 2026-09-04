@@ -12,8 +12,8 @@ public sealed class TributarioNfseController:TributarioAvancadoControllerBase { 
 [HttpPost("nfse/notas/{id:long}/cancelar")]public Task<ActionResult<ApiResponse<bool>>>Cancelar(long id,TributarioNfseCancelarRequest r,CancellationToken ct)=>Status("tributario_nfse_nota",id,"CANCELADA",r.Justificativa,ct);
 [HttpPost("nfse/notas/{id:long}/substituir")]public Task<ActionResult<ApiResponse<bool>>>Substituir(long id,CancellationToken ct)=>Status("tributario_nfse_nota",id,"SUBSTITUIDA","Substituição preparatória registrada",ct);
 [HttpGet("nfse/validar/{codigo}")]public async Task<ActionResult<ApiResponse<TributarioRegistroDto?>>>Validar(string codigo,CancellationToken ct)=>Resposta(await _s.ObterAsync(TenantId(),"tributario_nfse_nota",long.TryParse(codigo,out var id)?id:0,ct));
-[HttpGet("livro-eletronico")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Livro(CancellationToken ct)=>Lista("tributario_livro_eletronico",ct);
-[HttpPost("livro-eletronico/gerar")]public Task<ActionResult<ApiResponse<long>>>Livro(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_livro_eletronico",r with{Status="PREPARATORIO"},ct);
+[HttpGet("nfse/livro-eletronico")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Livro(CancellationToken ct)=>Lista("tributario_livro_eletronico",ct);
+[HttpPost("nfse/livro-eletronico/gerar")]public Task<ActionResult<ApiResponse<long>>>Livro(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_livro_eletronico",r with{Status="PREPARATORIO"},ct);
 [HttpGet("desif/declaracoes")]public Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>>Desif(CancellationToken ct)=>Lista("tributario_desif_declaracao",ct);
 [HttpPost("desif/declaracoes")]public Task<ActionResult<ApiResponse<long>>>Desif(TributarioOperacaoRequest r,CancellationToken ct)=>Criar("tributario_desif_declaracao",r with{Status="RASCUNHO"},ct);
 [HttpGet("desif/declaracoes/{id:long}")]public async Task<ActionResult<ApiResponse<TributarioRegistroDto?>>>Desif(long id,CancellationToken ct)=>Resposta(await _s.ObterAsync(TenantId(),"tributario_desif_declaracao",id,ct));
