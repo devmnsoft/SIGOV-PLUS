@@ -34,7 +34,7 @@ public sealed class GovernancaTransversalController : ControllerBase
         [FromQuery] string? modulo, [FromQuery] string? severidade, [FromQuery] int pagina = 1, [FromQuery] int tamanho = 50, CancellationToken ct = default)
         => Ok(ApiResponse<IReadOnlyCollection<QualidadeDadosDto>>.Ok(await _service.ListarQualidadeAsync(modulo, severidade, pagina, tamanho, ct).ConfigureAwait(false)));
 
-    [HttpGet("api/integracoes-internas")]
+    [HttpGet("api/governanca-transversal/integracoes-internas")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<IntegracaoInternaDto>>>> Integracoes(CancellationToken ct)
         => Ok(ApiResponse<IReadOnlyCollection<IntegracaoInternaDto>>.Ok(await _service.ListarIntegracoesAsync(ct).ConfigureAwait(false)));
 

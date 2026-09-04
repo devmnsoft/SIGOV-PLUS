@@ -79,7 +79,7 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
         var duplicates = descriptions
             .GroupBy(description => $"{description.HttpMethod?.ToUpperInvariant()} {NormalizePath(description.RelativePath)}")
             .Where(group => group.Count() > 1)
-            .Select(group => $"{group.Key}: {string.Join(", ", group.Select(ActionName))}")
+            .Select(group => $"{group.Key}:{Environment.NewLine}{string.Join(Environment.NewLine, group.Select(ActionDetails))}")
             .ToArray();
 
         duplicates.Should().BeEmpty("cada combinação método/caminho OpenAPI deve possuir uma única action");
@@ -92,6 +92,7 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
         using var response = await client.GetAsync("/swagger/v1/swagger.json");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
         await using var stream = await response.Content.ReadAsStreamAsync();
         using var document = await JsonDocument.ParseAsync(stream);
         document.RootElement.GetProperty("openapi").GetString().Should().NotBeNullOrWhiteSpace();
@@ -110,6 +111,28 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
         operations.Select(operation => operation.OperationId).Should().NotContainNulls().And.OnlyHaveUniqueItems();
         operations.Count(operation => operation.Key == "GET api/almoxarifado/dashboard").Should().Be(1);
         operations.Count(operation => operation.Key == "GET api/bloco6/almoxarifado/dashboard").Should().Be(1);
+        operations.Count(operation => operation.Key == "GET api/integracoes-internas").Should().Be(1);
+        operations.Count(operation => operation.Key == "GET api/governanca-transversal/integracoes-internas").Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData("api/integracoes-internas", typeof(Sigov.Api.Controllers.InternalIntegrationsController), "List")]
+    [InlineData("api/governanca-transversal/integracoes-internas", typeof(Sigov.Api.Controllers.GovernancaTransversalController), "Integracoes")]
+    public void Rotas_De_Integracoes_Devem_Resolver_Para_Uma_Unica_Action(
+        string path,
+        Type expectedController,
+        string expectedAction)
+    {
+        var descriptions = _factory.Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
+            .ApiDescriptionGroups.Items.SelectMany(group => group.Items)
+            .Where(description => string.Equals(description.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
+                && NormalizePath(description.RelativePath) == NormalizePath(path))
+            .ToArray();
+
+        descriptions.Should().ContainSingle();
+        var action = descriptions.Single().ActionDescriptor.Should().BeOfType<ControllerActionDescriptor>().Subject;
+        action.ControllerTypeInfo.AsType().Should().Be(expectedController);
+        action.ActionName.Should().Be(expectedAction);
     }
 
     private static readonly HashSet<string> HttpMethods = new(StringComparer.OrdinalIgnoreCase)
@@ -119,12 +142,22 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
 
     private static string NormalizePath(string? path)
     {
-        var withoutQuery = (path ?? string.Empty).Split('?', 2)[0].Trim('/').ToLowerInvariant();
-        return Regex.Replace(withoutQuery, @"\{([^}:]+)(?::[^}]+)?\}", "{$1}");
+        var withoutQuery = (path ?? string.Empty).Split('?', 2)[0].Trim().ToLowerInvariant();
+        var withoutDuplicateSlashes = Regex.Replace(withoutQuery, "/+", "/").Trim('/');
+        return Regex.Replace(withoutDuplicateSlashes, @"\{([^}:]+)(?::[^}]+)?\}", "{$1}");
     }
 
     private static string ActionName(ApiDescription description) =>
         description.ActionDescriptor is ControllerActionDescriptor action
             ? $"{action.ControllerTypeInfo.FullName}.{action.ActionName}"
             : description.ActionDescriptor.DisplayName ?? "action desconhecida";
+
+    private static string ActionDetails(ApiDescription description)
+    {
+        if (description.ActionDescriptor is not ControllerActionDescriptor action)
+            return $"  action={ActionName(description)}; template={description.RelativePath}; assembly=desconhecido";
+
+        return $"  controller={action.ControllerName}; action={action.ActionName}; "
+            + $"template={description.RelativePath}; assembly={action.ControllerTypeInfo.Assembly.GetName().Name}";
+    }
 }
