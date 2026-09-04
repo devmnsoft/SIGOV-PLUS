@@ -38,7 +38,7 @@
 | `MobileCampoController.cs` | `(atributo/local)` | 47 |
 | `AgroPainelComercialController.cs` | `(atributo/local)` | 0 |
 | `AssinaturasController.cs` | `(atributo/local)` | 3 |
-| `Bloco6Controllers.cs` | `api/compras, api/contratos, api/almoxarifado, api/patrimonio` | 15 |
+| `Bloco6Controllers.cs` | `api/bloco6/compras, api/bloco6/contratos, api/bloco6/almoxarifado, api/bloco6/patrimonio` | 15 |
 | `AgroProdutoresController.cs` | `(atributo/local)` | 5 |
 | `SaasAssinaturasController.cs` | `(atributo/local)` | 9 |
 | `AgroBiController.cs` | `(atributo/local)` | 4 |

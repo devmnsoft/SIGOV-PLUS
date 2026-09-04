@@ -59,7 +59,8 @@ builder.Services.AddSwaggerGen(options =>
     {
         var controller = api.ActionDescriptor.RouteValues.TryGetValue("controller", out var c) ? c : "Sigov";
         var action = api.ActionDescriptor.RouteValues.TryGetValue("action", out var a) ? a : api.HttpMethod;
-        return $"{controller}_{action}_{api.HttpMethod}".Replace("-", "_", StringComparison.Ordinal);
+        var path = api.RelativePath ?? "root";
+        return SanitizeOperationId($"{controller}_{action}_{api.HttpMethod}_{path}");
     });
     options.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.RouteValues["controller"] ?? "SIGOV" });
     options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
@@ -123,7 +124,7 @@ if (!string.Equals(migrationMode, "Disabled", StringComparison.OrdinalIgnoreCase
     await runner.RunAsync(migrationMode).ConfigureAwait(false);
 }
 
-if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInProduction)
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing") || sigovOptions.Security.SwaggerEnabledInProduction)
 {
     if (app.Environment.IsProduction())
     {
@@ -147,6 +148,15 @@ if (app.Environment.IsDevelopment() || sigovOptions.Security.SwaggerEnabledInPro
 app.MapControllers();
 
 app.Run();
+
+static string SanitizeOperationId(string value)
+{
+    var result = new System.Text.StringBuilder(value.Length);
+    foreach (var character in value)
+        result.Append(char.IsLetterOrDigit(character) ? character : '_');
+
+    return result.ToString().Trim('_');
+}
 
 static string SwaggerSchemaId(Type type)
 {

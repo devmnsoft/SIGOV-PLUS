@@ -4,7 +4,7 @@ using Sigov.Application.Saas;
 
 namespace Sigov.Api.Middlewares;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
 public sealed class RequireModuleAttribute : Attribute, IAsyncActionFilter
 {
     private readonly string _moduleCode;
