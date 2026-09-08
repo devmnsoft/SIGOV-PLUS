@@ -26,6 +26,7 @@ public interface IAuthenticationRepository
 {
     Task<AuthenticationUser?> FindForLoginAsync(string loginOrEmail, CancellationToken cancellationToken);
     Task<AuthenticationAccess> GetAccessAsync(long userId, CancellationToken cancellationToken);
+    Task<AuthenticationAccess> GetRequestAccessAsync(long userId, long? tenantId, long? entidadeId, long? exercicioId, CancellationToken cancellationToken);
     Task<AccountReference?> FindActiveAccountAsync(string loginOrEmail, CancellationToken cancellationToken);
     Task<bool> StorePasswordResetTokenAsync(AccountReference account, string tokenHash, Guid correlationId, CancellationToken cancellationToken);
     Task RevokePasswordResetTokenAsync(string tokenHash, CancellationToken cancellationToken);
