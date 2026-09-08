@@ -43,6 +43,35 @@ public sealed class AuthPermissionRegressionTests
         }
     }
 
+    [Fact]
+    public void Web_Deve_Manter_Permissoes_Fora_Do_Ticket_E_Carrega_Las_Uma_Vez_Por_Requisicao()
+    {
+        var controller = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Web", "Controllers", "AuthController.cs"));
+        var program = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Web", "Program.cs"));
+        var transformation = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Web", "Services", "RequestPermissionClaimsTransformation.cs"));
+
+        controller.Should().NotContain("access.Permissions.Select(permission => new Claim(\"permission\"");
+        controller.Should().Contain("TicketDataFormat.Protect(ticket)");
+        controller.Should().Contain("protectedTicketSize");
+        program.Should().Contain("AddScoped<IClaimsTransformation, RequestPermissionClaimsTransformation>");
+        transformation.Should().Contain("principal.Clone()");
+        transformation.Should().Contain("_permissions ??=");
+        transformation.Should().Contain("GetRequestAccessAsync");
+        transformation.Should().NotContain("SignInAsync");
+        transformation.Should().NotContain("GetAwaiter().GetResult()");
+    }
+
+    [Fact]
+    public void Web_Deve_Limpar_Cookie_Base_E_Chunks_Legados_Com_Limite_Defensivo()
+    {
+        var controller = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Web", "Controllers", "AuthController.cs"));
+
+        controller.Should().Contain("DeleteLegacyAuthenticationChunks()");
+        controller.Should().Contain("DeleteLegacyAuthenticationChunks(includeBaseCookie: true)");
+        controller.Should().Contain("maximumChunksToDelete = 64");
+        controller.Should().Contain("Response.Cookies.Delete(key, options)");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

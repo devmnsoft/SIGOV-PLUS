@@ -8,29 +8,14 @@ namespace Sigov.Web.Services;
 
 public interface IUserPermissionService { bool HasPermission(ClaimsPrincipal user, string permission); }
 
-/// <summary>Adapter síncrono legado para views; não interpreta roles nem claims de permissão.</summary>
+/// <summary>Adapter síncrono legado para views; usa o snapshot server-side carregado uma vez na requisição.</summary>
 public sealed class UserPermissionService : IUserPermissionService
 {
-    private readonly IAuthorizationEvaluator _evaluator;
-    private readonly ICurrentTenant _tenant;
-    public UserPermissionService(IAuthorizationEvaluator evaluator, ICurrentTenant tenant) => (_evaluator, _tenant) = (evaluator, tenant);
-
     public bool HasPermission(ClaimsPrincipal user, string permission)
     {
-        if (user?.Identity?.IsAuthenticated != true || !TryUserId(user, out var userId) || string.IsNullOrWhiteSpace(permission)) return false;
-        var separator = permission.LastIndexOf('.');
-        var resource = separator > 0 ? permission[..separator] : permission;
-        var action = separator > 0 ? permission[(separator + 1)..] : "acessar";
-        var moduleSeparator = resource.IndexOf('.');
-        var module = moduleSeparator > 0 ? resource[..moduleSeparator] : resource;
-        return _evaluator.EvaluateAsync(new AuthorizationRequest(userId, module, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId,
-            CorrelationId: null, Origem: "WEB_LEGACY_ADAPTER")).GetAwaiter().GetResult().Permitido;
-    }
-
-    private static bool TryUserId(ClaimsPrincipal user, out long id)
-    {
-        var value = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("usuario_id") ?? user.FindFirstValue("user_id");
-        return long.TryParse(value, out id);
+        return user?.Identity?.IsAuthenticated == true && !string.IsNullOrWhiteSpace(permission) &&
+               user.HasClaim(claim => claim.Type == "permission" &&
+                   string.Equals(claim.Value, permission, StringComparison.OrdinalIgnoreCase));
     }
 }
 

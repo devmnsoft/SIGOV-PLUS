@@ -24,21 +24,41 @@ limit 1;";
     }
 
     public async Task<AuthenticationAccess> GetAccessAsync(long userId, CancellationToken cancellationToken)
+        => await GetAccessCoreAsync(userId, null, null, null, false, cancellationToken).ConfigureAwait(false);
+
+    public async Task<AuthenticationAccess> GetRequestAccessAsync(long userId, long? tenantId, long? entidadeId, long? exercicioId, CancellationToken cancellationToken)
+        => await GetAccessCoreAsync(userId, tenantId, entidadeId, exercicioId, true, cancellationToken).ConfigureAwait(false);
+
+    private async Task<AuthenticationAccess> GetAccessCoreAsync(long userId, long? tenantId, long? entidadeId, long? exercicioId, bool restrictContext, CancellationToken cancellationToken)
     {
         const string sql = @"select distinct access_value from (
- select pn.codigo as access_value from sigov.usuario u join sigov.perfil_nivel pn on pn.codigo=upper(trim(u.tipo_usuario)) and pn.ativo where u.id=@UserId
- union select pn.codigo from sigov.usuario_grupo ug join sigov.grupo_perfil gp on gp.grupo_acesso_id=ug.grupo_acesso_id and not gp.is_deleted
+ select pn.codigo as access_value from sigov.usuario u left join sigov.tenant t on t.id=u.tenant_id join sigov.perfil_nivel pn on pn.codigo=upper(trim(u.tipo_usuario)) and pn.ativo where u.id=@UserId and u.ativo and not u.bloqueado and not u.is_deleted and (u.tenant_id is null or (t.ativo and not t.is_deleted))
+ union select pn.codigo from sigov.usuario_grupo ug join sigov.grupo_perfil gp on gp.grupo_acesso_id=ug.grupo_acesso_id and gp.ativo and not gp.is_deleted
  join sigov.perfil_acesso pa on pa.id=gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
- join sigov.perfil_nivel pn on pn.codigo=upper(trim(pa.codigo_externo)) and pn.ativo where ug.usuario_id=@UserId and not ug.is_deleted
+ join sigov.perfil_nivel pn on pn.codigo=upper(trim(pa.codigo_externo)) and pn.ativo where ug.usuario_id=@UserId and ug.ativo and not ug.is_deleted
+ and (ug.vigencia_inicio is null or ug.vigencia_inicio<=now()) and (ug.vigencia_fim is null or ug.vigencia_fim>=now())
+ and (gp.vigencia_inicio is null or gp.vigencia_inicio<=now()) and (gp.vigencia_fim is null or gp.vigencia_fim>=now())
 ) roles where access_value is not null;
 select distinct p.chave from sigov.usuario_grupo ug
- join sigov.grupo_perfil gp on gp.grupo_acesso_id=ug.grupo_acesso_id and not gp.is_deleted
+ join sigov.usuario u on u.id=ug.usuario_id and u.ativo and not u.bloqueado and not u.is_deleted
+ left join sigov.tenant t on t.id=u.tenant_id
+ join sigov.grupo_acesso ga on ga.id=ug.grupo_acesso_id and ga.ativo and not ga.is_deleted
+ join sigov.grupo_perfil gp on gp.grupo_acesso_id=ug.grupo_acesso_id and gp.ativo and not gp.is_deleted
  join sigov.perfil_acesso pa on pa.id=gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
- join sigov.perfil_permissao pp on pp.perfil_acesso_id=pa.id
+ join sigov.perfil_permissao pp on pp.perfil_acesso_id=pa.id and pp.ativo and not pp.is_deleted and pp.efeito='PERMITIR'
  join sigov.permissao p on p.id=pp.permissao_id and p.ativo and not p.is_deleted
- where ug.usuario_id=@UserId and not ug.is_deleted;";
+ where ug.usuario_id=@UserId and ug.ativo and not ug.is_deleted and (u.tenant_id is null or (t.ativo and not t.is_deleted))
+ and (ug.vigencia_inicio is null or ug.vigencia_inicio<=now()) and (ug.vigencia_fim is null or ug.vigencia_fim>=now())
+ and (gp.vigencia_inicio is null or gp.vigencia_inicio<=now()) and (gp.vigencia_fim is null or gp.vigencia_fim>=now())
+ and (pp.vigencia_inicio is null or pp.vigencia_inicio<=now()) and (pp.vigencia_fim is null or pp.vigencia_fim>=now())
+ and (not @RestrictContext or ((ug.tenant_id is null or ug.tenant_id=@TenantId) and (gp.tenant_id is null or gp.tenant_id=@TenantId) and (pp.tenant_id is null or pp.tenant_id=@TenantId)
+   and (ug.entidade_id is null or ug.entidade_id=@EntidadeId) and (gp.entidade_id is null or gp.entidade_id=@EntidadeId) and (pp.entidade_id is null or pp.entidade_id=@EntidadeId)
+   and (ug.exercicio_id is null or ug.exercicio_id=@ExercicioId) and (gp.exercicio_id is null or gp.exercicio_id=@ExercicioId) and (pp.exercicio_id is null or pp.exercicio_id=@ExercicioId)))
+ and not exists (select 1 from sigov.perfil_permissao deny where deny.perfil_acesso_id=pa.id and deny.permissao_id=p.id
+   and deny.ativo and not deny.is_deleted and deny.efeito='NEGAR'
+   and (deny.vigencia_inicio is null or deny.vigencia_inicio<=now()) and (deny.vigencia_fim is null or deny.vigencia_fim>=now()));";
         using var connection = connectionFactory.CreateConnection();
-        using var result = await connection.QueryMultipleAsync(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        using var result = await connection.QueryMultipleAsync(new CommandDefinition(sql, new { UserId = userId, TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, RestrictContext = restrictContext }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         var roles = (await result.ReadAsync<string>().ConfigureAwait(false)).Where(IsSafeClaimValue).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var permissions = (await result.ReadAsync<string>().ConfigureAwait(false)).Where(IsSafeClaimValue).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         return new(roles, permissions);

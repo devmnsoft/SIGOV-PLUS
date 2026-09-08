@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Security;
@@ -24,8 +25,9 @@ public sealed class AuthController : Controller
     private readonly IPasswordRecoveryService _passwordRecoveryService;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
+    private readonly IOptionsMonitor<CookieAuthenticationOptions> _cookieOptions;
 
-    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger, IOptionsMonitor<CookieAuthenticationOptions> cookieOptions)
     {
         _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
@@ -36,6 +38,7 @@ public sealed class AuthController : Controller
         _configuration = configuration;
         _environment = environment;
         _logger = logger;
+        _cookieOptions = cookieOptions;
     }
 
     [HttpGet]
@@ -117,13 +120,21 @@ public sealed class AuthController : Controller
             if (!string.IsNullOrWhiteSpace(user.TenantName)) claims.Add(new Claim("tenant_name", user.TenantName));
             if (user.DeveAlterarSenha) claims.Add(new Claim("password_change_required", "true"));
             claims.AddRange(access.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
-            claims.AddRange(access.Permissions.Select(permission => new Claim("permission", permission)));
-            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)), new AuthenticationProperties
+            var properties = new AuthenticationProperties
             {
                 IsPersistent = model.LembrarLogin,
                 AllowRefresh = true,
                 ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
-            }).ConfigureAwait(false);
+            };
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+            var ticket = new AuthenticationTicket(principal, properties, CookieAuthenticationDefaults.AuthenticationScheme);
+            var protectedTicketSize = System.Text.Encoding.UTF8.GetByteCount(
+                _cookieOptions.Get(CookieAuthenticationDefaults.AuthenticationScheme).TicketDataFormat.Protect(ticket));
+            _logger.LogInformation(
+                "Ticket de autenticação compacto. Roles={RoleCount}; PermissionsLoaded={PermissionCount}; ProtectedTicketBytes={ProtectedTicketBytes}; EstimatedChunks={EstimatedChunks}; CorrelationId={CorrelationId}",
+                access.Roles.Count, access.Permissions.Count, protectedTicketSize, Math.Max(1, (int)Math.Ceiling(protectedTicketSize / 4050d)), correlationId);
+            DeleteLegacyAuthenticationChunks();
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, properties).ConfigureAwait(false);
 
             if (user.DeveAlterarSenha) return RedirectToAction(nameof(TrocarSenhaInicial));
             return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) || !Url.IsLocalUrl(returnUrl) ? "/MinhaCentral" : returnUrl);
@@ -322,6 +333,23 @@ public sealed class AuthController : Controller
             _logger.LogError(ex, "Falha ao auditar logout de {Login}.", login);
         }
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+        DeleteLegacyAuthenticationChunks(includeBaseCookie: true);
         return RedirectToAction(nameof(Login));
+    }
+
+    private void DeleteLegacyAuthenticationChunks(bool includeBaseCookie = false)
+    {
+        const string cookieName = "SIGOV.AUTH";
+        const int maximumChunksToDelete = 64;
+        var options = _cookieOptions.Get(CookieAuthenticationDefaults.AuthenticationScheme).Cookie.Build(HttpContext);
+        var deleted = 0;
+        foreach (var key in Request.Cookies.Keys)
+        {
+            var isBase = string.Equals(key, cookieName, StringComparison.Ordinal);
+            var suffix = key.StartsWith(cookieName + "C", StringComparison.Ordinal) ? key[(cookieName.Length + 1)..] : string.Empty;
+            if ((!includeBaseCookie || !isBase) && (!int.TryParse(suffix, out var chunk) || chunk is < 1 or > maximumChunksToDelete)) continue;
+            Response.Cookies.Delete(key, options);
+            if (++deleted >= maximumChunksToDelete + (includeBaseCookie ? 1 : 0)) break;
+        }
     }
 }
