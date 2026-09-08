@@ -135,7 +135,8 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
         action.ControllerTypeInfo.AsType().Should().Be(expectedController);
         action.ActionName.Should().Be(expectedAction);
         description.ParameterDescriptions.Should().ContainSingle(parameter =>
-            parameter.Source?.Id == "Body" && parameter.ModelMetadata?.ModelType == expectedBodyType);
+            parameter.Source != null && parameter.Source.Id == "Body" &&
+            parameter.ModelMetadata != null && parameter.ModelMetadata.ModelType == expectedBodyType);
     }
 
     [Fact]

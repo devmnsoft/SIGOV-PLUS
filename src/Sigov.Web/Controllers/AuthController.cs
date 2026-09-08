@@ -67,40 +67,50 @@ public sealed class AuthController : Controller
         var correlationId = HttpContext.TraceIdentifier;
         try
         {
-            var login = model.Login ?? string.Empty;
+            var identifier = AuthenticationIdentifierNormalizer.Normalize(model.Login);
             var senha = model.Senha ?? string.Empty;
-            var user = await _authenticationRepository.FindForLoginAsync(login, cancellationToken).ConfigureAwait(false);
-            var hashHasValidFormat = user is not null && IsSupportedPasswordHash(user.PasswordHash);
-            var passwordMatches = hashHasValidFormat && _passwordHashService.VerifyPassword(senha, user!.PasswordHash);
-            var access = user is not null && passwordMatches
-                ? await _authenticationRepository.GetAccessAsync(user.Id, cancellationToken).ConfigureAwait(false)
-                : new AuthenticationAccess(Array.Empty<string>(), Array.Empty<string>());
-            var valid = user is not null && user.Ativo && !user.Bloqueado && !user.IsDeleted &&
-                        user.TenantAtivo && !user.TenantIsDeleted && passwordMatches &&
-                        access.Roles.Count > 0 && access.Permissions.Count > 0;
+            var candidates = identifier.IsValid
+                ? await _authenticationRepository.FindLoginCandidatesAsync(identifier, cancellationToken).ConfigureAwait(false)
+                : Array.Empty<AuthenticationUser>();
+            var authenticated = new List<(AuthenticationUser User, AuthenticationAccess Access)>();
+            foreach (var candidate in candidates)
+            {
+                if (!IsSupportedPasswordHash(candidate.PasswordHash) ||
+                    !_passwordHashService.VerifyPassword(senha, candidate.PasswordHash) ||
+                    !IsActive(candidate)) continue;
+
+                var candidateAccess = await _authenticationRepository.GetAccessAsync(candidate.Id, cancellationToken).ConfigureAwait(false);
+                if (candidateAccess.Roles.Count > 0 && candidateAccess.Permissions.Count > 0)
+                    authenticated.Add((candidate, candidateAccess));
+            }
+
+            var tenantOptions = authenticated
+                .Where(item => item.User.TenantId.HasValue)
+                .GroupBy(item => item.User.TenantId!.Value)
+                .Select(group => new LoginTenantOption(group.Key, group.First().User.TenantName))
+                .OrderBy(option => option.Nome, StringComparer.CurrentCultureIgnoreCase)
+                .ToArray();
+            if (!model.TenantId.HasValue && tenantOptions.Length > 1)
+            {
+                model.Organizacoes = tenantOptions;
+                model.Senha = string.Empty;
+                model.MensagemErro = "Credenciais validadas. Selecione a organização e confirme a senha para continuar.";
+                return View(model);
+            }
+
+            if (model.TenantId.HasValue)
+                authenticated = authenticated.Where(item => item.User.TenantId == model.TenantId).ToList();
+
+            var valid = authenticated.Count == 1;
+            var user = valid ? authenticated[0].User : null;
+            var access = valid ? authenticated[0].Access : new AuthenticationAccess(Array.Empty<string>(), Array.Empty<string>());
             if (_environment.IsDevelopment() && !valid)
             {
-                var reason = user switch
-                {
-                    null => "LOGIN_NOT_FOUND",
-                    { IsDeleted: true } => "USER_DELETED",
-                    { Ativo: false } => "USER_INACTIVE",
-                    { Bloqueado: true } => "USER_BLOCKED",
-                    { TenantIsDeleted: true } => "TENANT_DELETED",
-                    { TenantAtivo: false } => "TENANT_INACTIVE",
-                    _ when string.IsNullOrWhiteSpace(user.PasswordHash) => "PASSWORD_HASH_MISSING",
-                    _ when !hashHasValidFormat => "PASSWORD_HASH_INVALID_FORMAT",
-                    _ when !passwordMatches => "PASSWORD_MISMATCH",
-                    _ when access.Roles.Count == 0 => "NO_PROFILE",
-                    _ => "NO_PERMISSIONS"
-                };
-                _logger.LogWarning("Falha de login Development. Reason={Reason}; Login={Login}; UserId={UserId}; TenantId={TenantId}; MatchingUsers={MatchingUsers}; CorrelationId={CorrelationId}", reason, login, user?.Id, user?.TenantId, user?.MatchingUsers ?? 0, correlationId);
+                _logger.LogWarning("Falha de login Development. Reason=INVALID_OR_AMBIGUOUS_CREDENTIAL; IdentifierKind={IdentifierKind}; CandidateCount={CandidateCount}; CorrelationId={CorrelationId}", identifier.Kind, candidates.Count, correlationId);
             }
-            else if (_environment.IsDevelopment() && user is { MatchingUsers: > 1 })
-            {
-                _logger.LogWarning("Login duplicado resolvido deterministicamente. Reason=DUPLICATE_LOGIN; Login={Login}; UserId={UserId}; TenantId={TenantId}; MatchingUsers={MatchingUsers}; CorrelationId={CorrelationId}", login, user.Id, user.TenantId, user.MatchingUsers, correlationId);
-            }
-            await _auditTrail.RegistrarAsync(user?.TenantId, user?.Id, valid ? "LOGIN_SUCESSO" : "LOGIN_FALHA", "sigov.usuario", user?.Id.ToString(), null, new { login = model.Login }, ip, Request.Headers["User-Agent"].ToString(), correlationId, cancellationToken).ConfigureAwait(false);
+            await _auditTrail.RegistrarAsync(user?.TenantId, user?.Id, valid ? "LOGIN_SUCESSO" : "LOGIN_FALHA", "sigov.usuario", user?.Id.ToString(), null,
+                new { identificador_tipo = identifier.Kind.ToString(), identificador_hash = HashIdentifier(identifier.Value) },
+                ip, Request.Headers["User-Agent"].ToString(), correlationId, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Tentativa de login SIGOV: {Resultado}. CorrelationId={CorrelationId}", valid ? "sucesso" : "falha", correlationId);
 
             if (!valid || user is null)
@@ -115,7 +125,9 @@ public sealed class AuthController : Controller
                 new(ClaimTypes.Name, user.Nome),
                 new(ClaimTypes.Email, user.Email),
                 new("login", user.Login),
-                new("tenant_id", user.TenantId?.ToString() ?? string.Empty)
+                new("tenant_id", user.TenantId?.ToString() ?? string.Empty),
+                new("auth_version", "1"),
+                new("session_id", Guid.NewGuid().ToString("N"))
             };
             if (!string.IsNullOrWhiteSpace(user.TenantName)) claims.Add(new Claim("tenant_name", user.TenantName));
             if (user.DeveAlterarSenha) claims.Add(new Claim("password_change_required", "true"));
@@ -171,6 +183,12 @@ public sealed class AuthController : Controller
         return parts.Length == 4 && parts[0] == "SIGOV_PBKDF2_V1" &&
                int.TryParse(parts[1], out var iterations) && iterations is >= 100000 and <= 1000000;
     }
+
+    private static bool IsActive(AuthenticationUser user) => user.Ativo && !user.Bloqueado && !user.IsDeleted &&
+        user.TenantAtivo && !user.TenantIsDeleted;
+
+    private static string HashIdentifier(string value) => Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
 
     private void PrepareLoginView(string? returnUrl)
     {

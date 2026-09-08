@@ -54,13 +54,31 @@
         <div asp-validation-summary="ModelOnly" class="login-validation-summary" role="alert"></div>
 
         <div class="login-field">
-          <label asp-for="Login">Login ou e-mail <span aria-hidden="true">*</span></label>
+          <label asp-for="Login">CPF, CNPJ, e-mail institucional ou login <span aria-hidden="true">*</span></label>
           <div class="login-input-wrap">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" /></svg>
-            <input asp-for="Login" autocomplete="username" autofocus placeholder="Ex.: admin" aria-describedby="Login-error" />
+            <input asp-for="Login" autocomplete="username" autofocus placeholder="Ex.: usuario@orgao.gov.br" aria-describedby="Login-error" />
           </div>
           <span asp-validation-for="Login" id="Login-error" class="login-field-error"></span>
         </div>
+
+        @if (Model.Organizacoes.Count > 1)
+        {
+          <div class="login-field">
+            <label asp-for="TenantId">Organização autorizada <span aria-hidden="true">*</span></label>
+            <div class="login-input-wrap">
+              <select asp-for="TenantId" required aria-describedby="TenantId-error">
+                <option value="">Selecione a organização</option>
+                @foreach (var organizacao in Model.Organizacoes)
+                {
+                  <option value="@organizacao.TenantId">@organizacao.Nome</option>
+                }
+              </select>
+            </div>
+            <span asp-validation-for="TenantId" id="TenantId-error" class="login-field-error"></span>
+            <small>Por segurança, confirme a senha novamente após selecionar.</small>
+          </div>
+        }
 
         <div class="login-field">
           <div class="login-label-row"><label asp-for="Senha">Senha <span aria-hidden="true">*</span></label><a href="/Auth/EsqueciSenha">Esqueci minha senha</a></div>

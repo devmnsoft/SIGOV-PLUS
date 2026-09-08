@@ -7,9 +7,11 @@ namespace Sigov.ApiTests;
 public class PostBuild06IndustriaTests
 {
     private static readonly string Migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260610150000_pos_build_06_industria_producao.sql"));
+    private static readonly string EvolutionMigration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260908120000_evolucao_saas_industria_360.sql"));
     private static readonly string IndustriaApi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/IndustriaController.cs"));
     private static readonly string ComercialIntegracaoApi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/IndustriaComercialController.cs"));
     private static readonly string Sidebar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_Sidebar.cshtml"));
+    private static readonly string ModulePage = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Industria/ModulePage.cshtml"));
 
     [Fact]
     public void Migration_DeveCriarTabelasIndustriaisComTenantId()
@@ -30,6 +32,20 @@ public class PostBuild06IndustriaTests
         Migration.Should().Contain("FACTORY_FULL");
         Migration.Should().Contain("industria.chao_fabrica.acessar");
         Migration.Should().Contain("GERENTE_INDUSTRIAL");
+        EvolutionMigration.Should().Contain("tenant_modulo_contratado_historico");
+        EvolutionMigration.Should().Contain("Indústria 360");
+        EvolutionMigration.Should().Contain("valor_contratado numeric(18,2)");
+    }
+
+    [Fact]
+    public void Api_E_Tela_Industriais_Devem_Ser_FailClosed_E_Sem_Dados_Demo()
+    {
+        IndustriaApi.Should().Contain("IAuthorizationEvaluator");
+        IndustriaApi.Should().Contain("ReadPermission");
+        IndustriaApi.Should().NotContain("=> User.Identity?.IsAuthenticated != true ||");
+        ComercialIntegracaoApi.Should().NotContain("=> User.Identity?.IsAuthenticated != true ||");
+        ModulePage.Should().Contain("data-industria-page");
+        ModulePage.Should().NotContain(">DEMO<");
     }
 
     [Fact]

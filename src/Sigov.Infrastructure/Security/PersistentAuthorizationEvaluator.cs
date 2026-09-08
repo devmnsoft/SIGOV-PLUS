@@ -104,7 +104,9 @@ public sealed class PersistentAuthorizationEvaluator : IAuthorizationEvaluator
     private const string Sql = """
 select exists(select 1 from sigov.usuario u where u.id=@UsuarioId and u.ativo and not u.is_deleted) as UsuarioValido,
        exists(select 1 from sigov.permissao p where p.ativo and not p.is_deleted
-          and (p.modulo=@Modulo or p.modulo='*') and (p.recurso=@Recurso or p.recurso='*') and (p.acao=@Acao or p.acao='*')) as RecursoValido;
+          and (p.modulo=@Modulo or p.modulo='*')
+          and (p.recurso=@Recurso or p.recurso=@Modulo||'.'||@Recurso or @Recurso=@Modulo||'.'||p.recurso or p.recurso='*')
+          and (p.acao=@Acao or p.acao='*')) as RecursoValido;
 
 select pa.id as PerfilId, p.id as PermissaoId, pp.efeito as Efeito, pp.alcada_valor as AlcadaValor
 from sigov.usuario u
@@ -115,7 +117,9 @@ join sigov.perfil_acesso pa on pa.id=gp.perfil_acesso_id and pa.ativo and not pa
 join sigov.perfil_permissao pp on pp.perfil_acesso_id=pa.id and pp.ativo and not pp.is_deleted
 join sigov.permissao p on p.id=pp.permissao_id and p.ativo and not p.is_deleted
 where u.id=@UsuarioId and u.ativo and not u.is_deleted
- and (p.modulo=@Modulo or p.modulo='*') and (p.recurso=@Recurso or p.recurso='*') and (p.acao=@Acao or p.acao='*')
+ and (p.modulo=@Modulo or p.modulo='*')
+ and (p.recurso=@Recurso or p.recurso=@Modulo||'.'||@Recurso or @Recurso=@Modulo||'.'||p.recurso or p.recurso='*')
+ and (p.acao=@Acao or p.acao='*')
  and (ug.vigencia_inicio is null or ug.vigencia_inicio<=@Agora) and (ug.vigencia_fim is null or ug.vigencia_fim>=@Agora)
  and (gp.vigencia_inicio is null or gp.vigencia_inicio<=@Agora) and (gp.vigencia_fim is null or gp.vigencia_fim>=@Agora)
  and (pp.vigencia_inicio is null or pp.vigencia_inicio<=@Agora) and (pp.vigencia_fim is null or pp.vigencia_fim>=@Agora)

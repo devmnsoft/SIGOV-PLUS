@@ -1,39 +1,127 @@
 @model Sigov.Web.Controllers.EnterprisePageViewModel
 @{
     ViewData["Title"] = Model.Title;
-    var isChao = Model.Title.Contains("Chão", StringComparison.OrdinalIgnoreCase);
 }
-<section class="container-fluid py-3" data-module="industria_producao" data-permission="@Model.Permission">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+<section class="container-fluid py-3" data-industria-page data-api-route="@Model.ApiRoute" data-module="industria_producao" data-permission="@Model.Permission">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
         <div>
-            <p class="text-uppercase text-primary fw-semibold small mb-1">Indústria</p>
+            <p class="text-uppercase text-primary fw-semibold small mb-1">Indústria 360</p>
             <h1 class="h3 mb-1">@Model.Title</h1>
-            <p class="text-muted mb-0">Endpoint: <code>@Model.ApiRoute</code></p>
+            <p class="text-muted mb-0">Dados isolados pela organização ativa e protegidos por <code>@Model.Permission</code>.</p>
         </div>
-        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmModal">Ação crítica</button>
+        <button type="button" class="btn btn-outline-primary" data-refresh>Atualizar</button>
     </div>
-    <div class="alert alert-info" role="alert"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Carregando dados e validando permissões...</div>
-    <div class="alert alert-success" role="alert">Tela responsiva com Bootstrap, mensagens de operação e confirmação para ações críticas.</div>
-    @if (isChao)
-    {
-        <div class="row g-3">
-            @foreach (var acao in new[] { "Iniciar", "Pausar", "Retomar", "Produzir", "Refugo", "Consumir material", "Encerrar operação", "Concluir OP" })
-            {
-                <div class="col-6 col-md-3"><button class="btn btn-primary btn-lg w-100 py-4">@acao</button></div>
-            }
+
+    <form class="card card-body mb-3" data-filter-form>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-7">
+                <label class="form-label" for="industriaBusca">Buscar</label>
+                <input id="industriaBusca" class="form-control" name="busca" maxlength="120" autocomplete="off" placeholder="Código, descrição ou status" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label" for="industriaPageSize">Por página</label>
+                <select id="industriaPageSize" class="form-select" name="pageSize"><option>20</option><option>50</option><option>100</option></select>
+            </div>
+            <div class="col-6 col-md-3"><button class="btn btn-primary w-100" type="submit">Consultar</button></div>
         </div>
-        <div class="card mt-3"><div class="card-body"><strong>Status visual:</strong> OP liberada • Operador logado • Centro de trabalho • planejado x produzido.</div></div>
-    }
-    else
-    {
-        <div class="card shadow-sm">
-            <div class="card-header bg-white d-flex justify-content-between"><strong>Registros</strong><span class="badge text-bg-primary">tenant_id obrigatório</span></div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead><tr><th>Código</th><th>Descrição</th><th>Status</th><th class="text-end">Ações</th></tr></thead>
-                    <tbody><tr><td>DEMO</td><td>Dados carregados via API industrial</td><td><span class="badge text-bg-success">Ativo</span></td><td class="text-end"><button class="btn btn-sm btn-outline-primary">Editar</button></td></tr></tbody>
-                </table>
+    </form>
+
+    <div class="alert alert-info" role="status" aria-live="polite" data-status>Carregando registros...</div>
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light" data-head><tr><th>Carregando</th></tr></thead>
+                <tbody data-body><tr><td class="text-muted py-4">A consulta está em andamento.</td></tr></tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+            <span class="small text-muted" data-page-label>Página 1</span>
+            <div class="btn-group" role="group" aria-label="Paginação">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-previous disabled>Anterior</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-next>Próxima</button>
             </div>
         </div>
-    }
+    </div>
 </section>
+
+@section Scripts {
+<script>
+(() => {
+    const root = document.querySelector('[data-industria-page]');
+    if (!root) return;
+    const status = root.querySelector('[data-status]');
+    const head = root.querySelector('[data-head]');
+    const body = root.querySelector('[data-body]');
+    const form = root.querySelector('[data-filter-form]');
+    const previous = root.querySelector('[data-previous]');
+    const next = root.querySelector('[data-next]');
+    const pageLabel = root.querySelector('[data-page-label]');
+    let page = 1;
+
+    const label = value => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const valueText = value => value === null || value === undefined ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+    const normalizeRows = payload => {
+        const data = payload?.data ?? payload;
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data?.items)) return data.items;
+        if (data?.cards && typeof data.cards === 'object') return [data.cards];
+        return data && typeof data === 'object' ? [data] : [];
+    };
+
+    function render(rows) {
+        head.replaceChildren();
+        body.replaceChildren();
+        if (!rows.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.className = 'text-center text-muted py-5';
+            cell.textContent = 'Nenhum registro encontrado para os filtros informados.';
+            row.append(cell); body.append(row);
+            return;
+        }
+        const columns = [...new Set(rows.flatMap(item => Object.keys(item ?? {})))].filter(key => key !== 'tenant_id').slice(0, 10);
+        const headerRow = document.createElement('tr');
+        columns.forEach(column => { const th = document.createElement('th'); th.textContent = label(column); headerRow.append(th); });
+        head.append(headerRow);
+        rows.forEach(item => {
+            const row = document.createElement('tr');
+            columns.forEach(column => { const cell = document.createElement('td'); cell.textContent = valueText(item?.[column]); row.append(cell); });
+            body.append(row);
+        });
+    }
+
+    async function load() {
+        status.className = 'alert alert-info';
+        status.textContent = 'Carregando registros e validando o acesso...';
+        const query = new URLSearchParams({ page: String(page), pageSize: form.pageSize.value });
+        if (form.busca.value.trim()) query.set('busca', form.busca.value.trim());
+        try {
+            const response = await fetch(`${root.dataset.apiRoute}?${query}`, {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-Correlation-Id': crypto.randomUUID() }
+            });
+            if (response.status === 401 || response.status === 403) throw new Error('Seu perfil, organização ou contratação não autoriza esta consulta.');
+            if (!response.ok) throw new Error('Não foi possível consultar a operação industrial.');
+            const rows = normalizeRows(await response.json());
+            render(rows);
+            status.className = 'alert alert-success';
+            status.textContent = `${rows.length} registro(s) carregado(s).`;
+            next.disabled = rows.length < Number(form.pageSize.value);
+        } catch (error) {
+            render([]);
+            status.className = 'alert alert-danger';
+            status.textContent = error instanceof Error ? error.message : 'Falha inesperada ao consultar os dados.';
+            next.disabled = true;
+        }
+        previous.disabled = page === 1;
+        pageLabel.textContent = `Página ${page}`;
+    }
+
+    form.addEventListener('submit', event => { event.preventDefault(); page = 1; load(); });
+    root.querySelector('[data-refresh]').addEventListener('click', load);
+    previous.addEventListener('click', () => { if (page > 1) { page--; load(); } });
+    next.addEventListener('click', () => { page++; load(); });
+    load();
+})();
+</script>
+}

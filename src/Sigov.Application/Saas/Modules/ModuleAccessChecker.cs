@@ -55,6 +55,17 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
             return ModuleAccessResult.Forbidden("Módulo não contratado para o tenant.");
         }
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (contract.EffectiveFrom.HasValue && contract.EffectiveFrom.Value > today)
+        {
+            return ModuleAccessResult.Forbidden("Vigência do módulo ainda não iniciada.");
+        }
+
+        if (contract.EffectiveUntil.HasValue && contract.EffectiveUntil.Value < today)
+        {
+            return ModuleAccessResult.Forbidden("Módulo expirado para o tenant.");
+        }
+
         if (string.Equals(contract.Status, "SUSPENSO", StringComparison.OrdinalIgnoreCase))
         {
             return ModuleAccessResult.Forbidden("Módulo suspenso para o tenant.");
@@ -63,6 +74,12 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
         if (string.Equals(contract.Status, "CANCELADO", StringComparison.OrdinalIgnoreCase))
         {
             return ModuleAccessResult.Forbidden("Módulo cancelado para o tenant.");
+        }
+
+        if (string.Equals(contract.Status, "INADIMPLENTE", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(contract.Status, "EXPIRADO", StringComparison.OrdinalIgnoreCase))
+        {
+            return ModuleAccessResult.Forbidden("Módulo indisponível por situação comercial.");
         }
 
         if (string.Equals(contract.Status, "EM_IMPLANTACAO", StringComparison.OrdinalIgnoreCase) && !request.ProfileCodes.Any(ImplantacaoProfiles.Contains))
@@ -78,7 +95,7 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
         foreach (var dependency in module.Dependencias)
         {
             var dependencyContract = await _repository.GetTenantModuleAsync(request.TenantId.Value, dependency, cancellationToken).ConfigureAwait(false);
-            if (dependencyContract is null || !dependencyContract.Active || !IsEnabledStatus(dependencyContract.Status))
+            if (dependencyContract is null || !IsEffectiveContract(dependencyContract, today))
             {
                 return ModuleAccessResult.Forbidden($"Dependência de módulo não atendida: {dependency}.");
             }
@@ -106,6 +123,15 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
 
     private static bool IsEnabledStatus(string status) => string.Equals(status, "HABILITADO", StringComparison.OrdinalIgnoreCase)
         || string.Equals(status, "CONTRATADO", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "ATIVO", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "TRIAL", StringComparison.OrdinalIgnoreCase)
         || string.Equals(status, "BETA", StringComparison.OrdinalIgnoreCase)
         || string.Equals(status, "EM_IMPLANTACAO", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsEffectiveContract(TenantModuleContract contract, DateOnly today) =>
+        contract.Active && IsEnabledStatus(contract.Status) &&
+        !string.Equals(contract.Status, "INADIMPLENTE", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(contract.Status, "EXPIRADO", StringComparison.OrdinalIgnoreCase) &&
+        (!contract.EffectiveFrom.HasValue || contract.EffectiveFrom.Value <= today) &&
+        (!contract.EffectiveUntil.HasValue || contract.EffectiveUntil.Value >= today);
 }

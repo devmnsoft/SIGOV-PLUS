@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Api.Contracts;
 using Sigov.Api.Middlewares;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Authorization;
 using Sigov.Application.Industria;
 using Sigov.Infrastructure.Persistence.Dapper;
 using System.Globalization;
-using System.Security.Claims;
 using System.Text.Json;
 
 namespace Sigov.Api.Controllers;
@@ -20,14 +20,16 @@ public sealed class IndustriaController : ControllerBase
     private readonly ICurrentTenant _tenant;
     private readonly ICurrentUser _user;
     private readonly IIndustriaEstoqueService _estoque;
+    private readonly IAuthorizationEvaluator _authorization;
     private readonly ILogger<IndustriaController> _logger;
 
-    public IndustriaController(DapperContext context, ICurrentTenant tenant, ICurrentUser user, IIndustriaEstoqueService estoque, ILogger<IndustriaController> logger)
+    public IndustriaController(DapperContext context, ICurrentTenant tenant, ICurrentUser user, IIndustriaEstoqueService estoque, IAuthorizationEvaluator authorization, ILogger<IndustriaController> logger)
     {
         _context = context;
         _tenant = tenant;
         _user = user;
         _estoque = estoque;
+        _authorization = authorization;
         _logger = logger;
     }
 
@@ -172,8 +174,14 @@ public sealed class IndustriaController : ControllerBase
     [HttpPost("paradas")]
     public Task<ActionResult<ApiResponse<object>>> CriarParada([FromBody] ParadaRequest request) => ParadaAsync(request);
 
+    [HttpGet("paradas")]
+    public Task<ActionResult<ApiResponse<object>>> Paradas([FromQuery] int page = 1, [FromQuery] int pageSize = 20) => Listar("sigov.industria_parada_producao", null, page, pageSize, "inicio_at desc");
+
     [HttpPost("paradas/{id:long}/gerar-os")]
     public Task<ActionResult<ApiResponse<object>>> GerarOs(long id) => GerarOsAsync(id);
+
+    [HttpGet("custos")]
+    public Task<ActionResult<ApiResponse<object>>> Custos([FromQuery] int page = 1, [FromQuery] int pageSize = 20) => Listar("sigov.industria_custo_ordem", null, page, pageSize, "calculado_at desc");
 
     [HttpGet("dashboard")]
     public Task<ActionResult<ApiResponse<object>>> Dashboard() => DashboardAsync();
@@ -183,7 +191,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission(id.HasValue ? "industria.centros.editar" : "industria.centros.criar")) return Forbid();
+            if (!await HasPermission(id.HasValue ? "industria.centros.editar" : "industria.centros.criar")) return Forbid();
             if (string.IsNullOrWhiteSpace(r.Codigo) || string.IsNullOrWhiteSpace(r.Nome)) return BadRequest(ApiResponse<object>.Fail("Código e nome são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var resultId = id.HasValue
@@ -200,7 +208,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission(id.HasValue ? "industria.recursos.editar" : "industria.recursos.criar")) return Forbid();
+            if (!await HasPermission(id.HasValue ? "industria.recursos.editar" : "industria.recursos.criar")) return Forbid();
             if (string.IsNullOrWhiteSpace(r.Codigo) || string.IsNullOrWhiteSpace(r.Nome)) return BadRequest(ApiResponse<object>.Fail("Código e nome são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var resultId = id.HasValue
@@ -217,7 +225,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission(id.HasValue ? "industria.produtos.editar" : "industria.produtos.criar")) return Forbid();
+            if (!await HasPermission(id.HasValue ? "industria.produtos.editar" : "industria.produtos.criar")) return Forbid();
             if (string.IsNullOrWhiteSpace(r.Codigo) || string.IsNullOrWhiteSpace(r.Nome)) return BadRequest(ApiResponse<object>.Fail("Código e nome são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var resultId = id.HasValue
@@ -234,7 +242,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission(id.HasValue ? "industria.fichas.editar" : "industria.fichas.criar")) return Forbid();
+            if (!await HasPermission(id.HasValue ? "industria.fichas.editar" : "industria.fichas.criar")) return Forbid();
             if (string.IsNullOrWhiteSpace(r.Codigo) || r.ProdutoId <= 0) return BadRequest(ApiResponse<object>.Fail("Produto e código são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await ExisteProduto(c, tenantId, r.ProdutoId)) return BadRequest(ApiResponse<object>.Fail("Produto industrial inválido para o tenant.", cid));
@@ -252,7 +260,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.fichas.editar")) return Forbid();
+            if (!await HasPermission("industria.fichas.editar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await Existe(c, "sigov.industria_ficha_tecnica", tenantId, id)) return NotFound(ApiResponse<object>.Fail("Ficha técnica não encontrada.", cid));
             foreach (var item in itens) if (!await ExisteProduto(c, tenantId, item.ComponenteProdutoId)) return BadRequest(ApiResponse<object>.Fail("Componente inválido para o tenant.", cid));
@@ -269,7 +277,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission(id.HasValue ? "industria.roteiros.editar" : "industria.roteiros.criar")) return Forbid();
+            if (!await HasPermission(id.HasValue ? "industria.roteiros.editar" : "industria.roteiros.criar")) return Forbid();
             if (string.IsNullOrWhiteSpace(r.Codigo) || string.IsNullOrWhiteSpace(r.Nome) || r.ProdutoId <= 0) return BadRequest(ApiResponse<object>.Fail("Produto, código e nome são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await ExisteProduto(c, tenantId, r.ProdutoId)) return BadRequest(ApiResponse<object>.Fail("Produto industrial inválido.", cid));
@@ -287,7 +295,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.roteiros.editar")) return Forbid();
+            if (!await HasPermission("industria.roteiros.editar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await Existe(c, "sigov.industria_roteiro", tenantId, id)) return NotFound(ApiResponse<object>.Fail("Roteiro não encontrado.", cid));
             await c.ExecuteAsync("delete from sigov.industria_roteiro_operacao where roteiro_id=@Id", new { Id = id });
@@ -303,7 +311,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.ordens.criar")) return Forbid();
+            if (!await HasPermission("industria.ordens.criar")) return Forbid();
             if (r.ProdutoId <= 0 || r.QuantidadePlanejada <= 0) return BadRequest(ApiResponse<object>.Fail("Produto e quantidade planejada são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var produto = await c.QuerySingleOrDefaultAsync<ProdutoOrdemValidacao>("select ativo as Ativo, exige_ficha_tecnica as ExigeFichaTecnica from sigov.industria_produto where id=@ProdutoId and tenant_id=@TenantId", new { r.ProdutoId, TenantId = tenantId });
@@ -323,9 +331,11 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (status is "LIBERADA" && !HasPermission("industria.ordens.liberar")) return Forbid();
-            if (status is "EM_PRODUCAO" && !HasPermission("industria.ordens.iniciar")) return Forbid();
-            if (status is "CONCLUIDA" && !HasPermission("industria.ordens.concluir")) return Forbid();
+            if (status is "LIBERADA" && !await HasPermission("industria.ordens.liberar")) return Forbid();
+            if (status is "EM_PRODUCAO" && !await HasPermission("industria.ordens.iniciar")) return Forbid();
+            if (status is "PAUSADA" && !await HasPermission("industria.ordens.iniciar")) return Forbid();
+            if (status is "CONCLUIDA" && !await HasPermission("industria.ordens.concluir")) return Forbid();
+            if (status is "CANCELADA" && !await HasPermission("industria.ordens.concluir")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var ordem = await c.QuerySingleOrDefaultAsync<dynamic>("select op.status, op.ficha_tecnica_id, p.exige_ficha_tecnica, p.inspecao_obrigatoria from sigov.industria_ordem_producao op join sigov.industria_produto p on p.id=op.produto_id where op.id=@Id and op.tenant_id=@TenantId", new { Id = id, TenantId = tenantId });
             if (ordem is null) return NotFound(ApiResponse<object>.Fail("Ordem não encontrada.", cid));
@@ -354,7 +364,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.apontamentos.criar")) return Forbid();
+            if (!await HasPermission("industria.apontamentos.criar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await Existe(c, "sigov.industria_ordem_producao", tenantId, id)) return NotFound(ApiResponse<object>.Fail("OP inválida para apontamento.", cid));
             var apontamentoId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_apontamento(tenant_id,ordem_id,ordem_operacao_id,usuario_id,tipo,origem,inicio_at,fim_at,quantidade_boas,quantidade_refugo,observacao) values(@TenantId,@OrdemId,@OrdemOperacaoId,@UsuarioId,@Tipo,@Origem,@InicioAt,@FimAt,@QuantidadeBoas,@QuantidadeRefugo,@Observacao) returning id", new { TenantId = tenantId, OrdemId = id, r.OrdemOperacaoId, UsuarioId = _user.UsuarioId, r.Tipo, Origem = r.Origem ?? "CHAO_FABRICA", InicioAt = r.InicioAt ?? DateTimeOffset.UtcNow, r.FimAt, r.QuantidadeBoas, r.QuantidadeRefugo, r.Observacao });
@@ -370,7 +380,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.materiais.consumir")) return Forbid();
+            if (!await HasPermission("industria.materiais.consumir")) return Forbid();
             if (r.ProdutoId <= 0 || r.Quantidade <= 0) return BadRequest(ApiResponse<object>.Fail("Produto e quantidade são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await Existe(c, "sigov.industria_ordem_producao", tenantId, id)) return NotFound(ApiResponse<object>.Fail("OP inválida.", cid));
@@ -389,7 +399,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.producao.registrar")) return Forbid();
+            if (!await HasPermission("industria.producao.registrar")) return Forbid();
             if (r.ProdutoId <= 0 || r.Quantidade <= 0) return BadRequest(ApiResponse<object>.Fail("Produto e quantidade são obrigatórios.", cid));
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             if (!await Existe(c, "sigov.industria_ordem_producao", tenantId, id)) return NotFound(ApiResponse<object>.Fail("OP inválida.", cid));
@@ -407,7 +417,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.refugo.registrar")) return Forbid();
+            if (!await HasPermission("industria.refugo.registrar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var refugoId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_refugo(tenant_id,ordem_id,produto_id,quantidade,motivo,causa,usuario_id) values(@TenantId,@OrdemId,@ProdutoId,@Quantidade,@Motivo,@Causa,@UsuarioId) returning id", new { TenantId = tenantId, OrdemId = id, r.ProdutoId, r.Quantidade, r.Motivo, r.Causa, UsuarioId = _user.UsuarioId });
             await c.ExecuteAsync("update sigov.industria_ordem_producao set quantidade_refugada=quantidade_refugada+@Quantidade, quantidade_produzida=greatest(quantidade_produzida-@Quantidade,0), updated_at=now() where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, r.Quantidade });
@@ -422,7 +432,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.qualidade.inspecionar")) return Forbid();
+            if (!await HasPermission("industria.qualidade.inspecionar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var inspecaoId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_inspecao_qualidade(tenant_id,ordem_id,produto_id,status,resultado,observacao,inspecionado_por,inspecionado_at) values(@TenantId,@OrdemId,@ProdutoId,@Status,@Resultado,@Observacao,@UsuarioId,@InspecionadoAt) returning id", new { TenantId = tenantId, OrdemId = id, r.ProdutoId, Status = r.Status ?? "PENDENTE", r.Resultado, r.Observacao, UsuarioId = _user.UsuarioId, InspecionadoAt = r.Resultado is null ? (DateTimeOffset?)null : DateTimeOffset.UtcNow });
             await Auditar(c, tenantId, "INSPECAO_QUALIDADE_REGISTRADA", "industria_inspecao_qualidade", inspecaoId, r, cid);
@@ -434,7 +444,7 @@ public sealed class IndustriaController : ControllerBase
     private async Task<ActionResult<ApiResponse<object>>> JulgarInspecao(long id, string resultado)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); await c.ExecuteAsync("update sigov.industria_inspecao_qualidade set status='CONCLUIDA', resultado=@Resultado, inspecionado_por=@UsuarioId, inspecionado_at=now() where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, Resultado = resultado, UsuarioId = _user.UsuarioId }); await Auditar(c, tenantId, "INSPECAO_QUALIDADE_REGISTRADA", "industria_inspecao_qualidade", id, new { resultado }, cid); return Ok(ApiResponse<object>.Ok(new { id, resultado }, correlationId: cid)); }
+        try { if (!await HasPermission("industria.qualidade.inspecionar")) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); await c.ExecuteAsync("update sigov.industria_inspecao_qualidade set status='CONCLUIDA', resultado=@Resultado, inspecionado_por=@UsuarioId, inspecionado_at=now() where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, Resultado = resultado, UsuarioId = _user.UsuarioId }); await Auditar(c, tenantId, "INSPECAO_QUALIDADE_REGISTRADA", "industria_inspecao_qualidade", id, new { resultado }, cid); return Ok(ApiResponse<object>.Ok(new { id, resultado }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao julgar inspeção. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao julgar inspeção.", cid)); }
     }
 
@@ -443,7 +453,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.paradas.criar")) return Forbid();
+            if (!await HasPermission("industria.paradas.criar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var paradaId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_parada_producao(tenant_id,ordem_id,recurso_id,motivo,inicio_at,fim_at,impacto_minutos) values(@TenantId,@OrdemId,@RecursoId,@Motivo,@InicioAt,@FimAt,@ImpactoMinutos) returning id", new { TenantId = tenantId, r.OrdemId, r.RecursoId, r.Motivo, r.InicioAt, r.FimAt, r.ImpactoMinutos });
             await Auditar(c, tenantId, "PARADA_PRODUCAO_REGISTRADA", "industria_parada_producao", paradaId, r, cid);
@@ -457,6 +467,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
+            if (!await HasPermission("industria.paradas.criar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var osAtivo = await c.ExecuteScalarAsync<bool>("select exists(select 1 from sigov.tenant_modulo_contratado where tenant_id=@TenantId and modulo_codigo='ordem_servico' and ativo=true and status in ('CONTRATADO','HABILITADO','EM_IMPLANTACAO','BETA'))", new { TenantId = tenantId });
             if (!osAtivo) return StatusCode(403, ApiResponse<object>.Fail("Módulo ordem_servico não contratado.", cid));
@@ -473,7 +484,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.custos.calcular")) return Forbid();
+            if (!await HasPermission("industria.custos.calcular")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var custoMaterial = await c.ExecuteScalarAsync<decimal?>("select coalesce(sum(quantidade*coalesce(custo_unitario,0)),0) from sigov.industria_consumo_material where tenant_id=@TenantId and ordem_id=@Id", new { TenantId = tenantId, Id = id }) ?? 0m;
             var custoMaquina = await c.ExecuteScalarAsync<decimal?>(@"select coalesce(sum(extract(epoch from (coalesce(a.fim_at, now())-a.inicio_at))/3600 * coalesce(r.custo_hora,0)),0) from sigov.industria_apontamento a left join sigov.industria_ordem_operacao oo on oo.id=a.ordem_operacao_id left join sigov.industria_recurso r on r.id=oo.recurso_id where a.tenant_id=@TenantId and a.ordem_id=@Id", new { TenantId = tenantId, Id = id }) ?? 0m;
@@ -492,7 +503,7 @@ public sealed class IndustriaController : ControllerBase
         var cid = CorrelationId();
         try
         {
-            if (!HasPermission("industria.dashboard.visualizar")) return Forbid();
+            if (!await HasPermission("industria.dashboard.visualizar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
             var cards = await c.QuerySingleAsync<object>(@"select
 count(*) filter(where status='PLANEJADA') as ops_planejadas,
@@ -514,49 +525,49 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     private async Task<ActionResult<ApiResponse<object>>> Listar(string tabela, string? busca, int page, int pageSize, string order)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} t where t.tenant_id=@TenantId and (@Busca is null or t::text ilike '%'||@Busca||'%') order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
+        try { if (!await HasPermission(ReadPermission(tabela))) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} t where t.tenant_id=@TenantId and (@Busca is null or t::text ilike '%'||@Busca||'%') order by {order} offset @Offset limit @Limit", new { TenantId = tenantId, Busca = busca, Offset = Offset(page, pageSize), Limit = Limit(pageSize) }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao listar indústria. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao listar registros.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> Obter(string tabela, long id)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
+        try { if (!await HasPermission(ReadPermission(tabela))) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); return row is null ? NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)) : Ok(ApiResponse<object>.Ok(row, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter indústria. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter registro.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ObterComFilhos(string tabela, string tabelaFilho, string fk, long id, string nomeFilho)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (row is null) return NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)); var filhos = await c.QueryAsync<object>($"select {Projection(tabelaFilho)} from {tabelaFilho} where {fk}=@Id order by id", new { Id = id }); return Ok(ApiResponse<object>.Ok(new Dictionary<string, object?> { ["registro"] = row, [nomeFilho] = filhos }, correlationId: cid)); }
+        try { if (!await HasPermission(ReadPermission(tabela))) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var row = await c.QuerySingleOrDefaultAsync<object>($"select {Projection(tabela)} from {tabela} where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (row is null) return NotFound(ApiResponse<object>.Fail("Registro não encontrado.", cid)); var filhos = await c.QueryAsync<object>($"select {Projection(tabelaFilho)} from {tabelaFilho} where {fk}=@Id order by id", new { Id = id }); return Ok(ApiResponse<object>.Ok(new Dictionary<string, object?> { ["registro"] = row, [nomeFilho] = filhos }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter composição indústria. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter registro.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ObterOrdem(long id)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var ordem = await c.QuerySingleOrDefaultAsync<object>("select id, tenant_id, numero, produto_id, ficha_tecnica_id, roteiro_id, pedido_id, os_id, status, quantidade_planejada, quantidade_produzida, quantidade_refugada, data_previsao_inicio, data_previsao_fim, inicio_at, fim_at, observacao, created_at, updated_at from sigov.industria_ordem_producao where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (ordem is null) return NotFound(ApiResponse<object>.Fail("OP não encontrada.", cid)); var materiais = await c.QueryAsync<object>("select id, ordem_id, produto_id, quantidade_planejada, quantidade_consumida, unidade from sigov.industria_ordem_material where ordem_id=@Id", new { Id = id }); var operacoes = await c.QueryAsync<object>("select id, ordem_id, operacao_codigo, descricao, centro_trabalho_id, recurso_id, status, inicio_at, fim_at, ordem from sigov.industria_ordem_operacao where ordem_id=@Id", new { Id = id }); var historico = await c.QueryAsync<object>("select id, tenant_id, ordem_id, status_anterior, status_novo, usuario_id, origem, observacao, correlation_id, created_at from sigov.industria_ordem_historico where ordem_id=@Id and tenant_id=@TenantId order by created_at", new { Id = id, TenantId = tenantId }); return Ok(ApiResponse<object>.Ok(new { ordem, materiais, operacoes, historico }, correlationId: cid)); }
+        try { if (!await HasPermission("industria.ordens.visualizar")) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var ordem = await c.QuerySingleOrDefaultAsync<object>("select id, tenant_id, numero, produto_id, ficha_tecnica_id, roteiro_id, pedido_id, os_id, status, quantidade_planejada, quantidade_produzida, quantidade_refugada, data_previsao_inicio, data_previsao_fim, inicio_at, fim_at, observacao, created_at, updated_at from sigov.industria_ordem_producao where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId }); if (ordem is null) return NotFound(ApiResponse<object>.Fail("OP não encontrada.", cid)); var materiais = await c.QueryAsync<object>("select id, ordem_id, produto_id, quantidade_planejada, quantidade_consumida, unidade from sigov.industria_ordem_material where ordem_id=@Id", new { Id = id }); var operacoes = await c.QueryAsync<object>("select id, ordem_id, operacao_codigo, descricao, centro_trabalho_id, recurso_id, status, inicio_at, fim_at, ordem from sigov.industria_ordem_operacao where ordem_id=@Id", new { Id = id }); var historico = await c.QueryAsync<object>("select id, tenant_id, ordem_id, status_anterior, status_novo, usuario_id, origem, observacao, correlation_id, created_at from sigov.industria_ordem_historico where ordem_id=@Id and tenant_id=@TenantId order by created_at", new { Id = id, TenantId = tenantId }); return Ok(ApiResponse<object>.Ok(new { ordem, materiais, operacoes, historico }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter OP. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao obter OP.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> ListarPorOrdem(string tabela, long ordemId)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} where tenant_id=@TenantId and ordem_id=@OrdemId order by id", new { TenantId = tenantId, OrdemId = ordemId }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
+        try { if (!await HasPermission(ReadPermission(tabela))) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); var rows = await c.QueryAsync<object>($"select {Projection(tabela)} from {tabela} where tenant_id=@TenantId and ordem_id=@OrdemId order by id", new { TenantId = tenantId, OrdemId = ordemId }); return Ok(ApiResponse<object>.Ok(rows, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao listar por OP. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao listar por OP.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> AlterarAtivo(string tabela, long id, bool ativo, string evento)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); await c.ExecuteAsync($"update {tabela} set ativo=@Ativo, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Ativo = ativo, Id = id, TenantId = tenantId }); await Auditar(c, tenantId, evento, tabela.Split('.').Last(), id, new { ativo }, cid); return Ok(ApiResponse<object>.Ok(new { id, ativo }, correlationId: cid)); }
+        try { if (!await HasPermission(EditPermission(tabela))) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); await c.ExecuteAsync($"update {tabela} set ativo=@Ativo, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Ativo = ativo, Id = id, TenantId = tenantId }); await Auditar(c, tenantId, evento, tabela.Split('.').Last(), id, new { ativo }, cid); return Ok(ApiResponse<object>.Ok(new { id, ativo }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao alterar ativo. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao alterar status.", cid)); }
     }
 
     private async Task<ActionResult<ApiResponse<object>>> AlterarStatus(string tabela, long id, string status, string evento)
     {
         var cid = CorrelationId();
-        try { var tenantId = RequireTenant(); using var c = _context.CreateConnection(); await c.ExecuteAsync($"update {tabela} set status=@Status, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Status = status, Id = id, TenantId = tenantId }); await Auditar(c, tenantId, evento, tabela.Split('.').Last(), id, new { status }, cid); return Ok(ApiResponse<object>.Ok(new { id, status }, correlationId: cid)); }
+        try { if (!await HasPermission(EditPermission(tabela))) return Forbid(); var tenantId = RequireTenant(); using var c = _context.CreateConnection(); await c.ExecuteAsync($"update {tabela} set status=@Status, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Status = status, Id = id, TenantId = tenantId }); await Auditar(c, tenantId, evento, tabela.Split('.').Last(), id, new { status }, cid); return Ok(ApiResponse<object>.Ok(new { id, status }, correlationId: cid)); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao alterar status. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao alterar status.", cid)); }
     }
 
@@ -574,17 +585,62 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
         "sigov.industria_ficha_tecnica_item" => "id, ficha_tecnica_id, componente_produto_id, quantidade, perda_percentual, unidade, obrigatorio, ordem",
         "sigov.industria_inspecao_qualidade" => "id, tenant_id, ordem_id, produto_id, status, resultado, observacao, inspecionado_por, inspecionado_at, created_at",
         "sigov.industria_ordem_producao" => "id, tenant_id, numero, produto_id, ficha_tecnica_id, roteiro_id, pedido_id, os_id, status, quantidade_planejada, quantidade_produzida, quantidade_refugada, data_previsao_inicio, data_previsao_fim, inicio_at, fim_at, observacao, created_at, updated_at",
+        "sigov.industria_parada_producao" => "id, tenant_id, ordem_id, recurso_id, motivo, inicio_at, fim_at, impacto_minutos, gerou_os, os_id, created_at",
         "sigov.industria_produto" => "id, tenant_id, produto_id, codigo, nome, tipo, unidade, controla_lote, controla_validade, exige_ficha_tecnica, inspecao_obrigatoria, ativo, created_at, updated_at",
         "sigov.industria_recurso" => "id, tenant_id, centro_trabalho_id, codigo, nome, tipo, custo_hora, capacidade_hora, ativo, created_at, updated_at",
         "sigov.industria_roteiro" => "id, tenant_id, produto_id, codigo, nome, versao, status, created_at, updated_at",
         "sigov.industria_roteiro_operacao" => "id, roteiro_id, centro_trabalho_id, recurso_id, codigo, descricao, tempo_setup_min, tempo_execucao_min, ordem",
         _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela fora da allowlist de projeções.")
     };
+    private static string ReadPermission(string table) => table switch
+    {
+        "sigov.industria_centro_trabalho" => "industria.centros.visualizar",
+        "sigov.industria_recurso" => "industria.recursos.visualizar",
+        "sigov.industria_produto" => "industria.produtos.visualizar",
+        "sigov.industria_ficha_tecnica" or "sigov.industria_ficha_tecnica_item" => "industria.fichas.visualizar",
+        "sigov.industria_roteiro" or "sigov.industria_roteiro_operacao" => "industria.roteiros.visualizar",
+        "sigov.industria_ordem_producao" or "sigov.industria_apontamento" => "industria.ordens.visualizar",
+        "sigov.industria_inspecao_qualidade" => "industria.qualidade.visualizar",
+        "sigov.industria_parada_producao" => "industria.paradas.visualizar",
+        "sigov.industria_custo_ordem" => "industria.custos.visualizar",
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela sem permissão de leitura mapeada.")
+    };
+    private static string EditPermission(string table) => table switch
+    {
+        "sigov.industria_centro_trabalho" => "industria.centros.editar",
+        "sigov.industria_recurso" => "industria.recursos.editar",
+        "sigov.industria_ficha_tecnica" => "industria.fichas.editar",
+        _ => throw new ArgumentOutOfRangeException(nameof(table), table, "Tabela sem permissão de edição mapeada.")
+    };
     private long RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("tenant_id obrigatório para operação industrial.");
     private string CorrelationId() => HttpContext.TraceIdentifier;
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);
     private static int Offset(int page, int pageSize) => (Math.Max(1, page) - 1) * Limit(pageSize);
-    private bool HasPermission(string permission) => User.Identity?.IsAuthenticated != true || User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.Claims.Any(c => (c.Type == "permission" || c.Type == ClaimTypes.Role) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
+    private async Task<bool> HasPermission(string permission)
+    {
+        if (User.Identity?.IsAuthenticated != true || !_user.UsuarioId.HasValue || !_tenant.TenantId.HasValue)
+            return false;
+
+        var separator = permission.LastIndexOf('.');
+        if (separator <= 0 || separator == permission.Length - 1)
+            return false;
+
+        var qualifiedResource = permission[..separator];
+        var moduleSeparator = qualifiedResource.IndexOf('.');
+        var module = moduleSeparator > 0 ? qualifiedResource[..moduleSeparator] : "industria";
+        var resource = moduleSeparator > 0 ? qualifiedResource[(moduleSeparator + 1)..] : qualifiedResource;
+        var decision = await _authorization.EvaluateAsync(new AuthorizationRequest(
+            _user.UsuarioId.Value,
+            module,
+            resource,
+            permission[(separator + 1)..],
+            _tenant.TenantId,
+            _tenant.EntidadeId,
+            _tenant.ExercicioId,
+            CorrelationId: CorrelationId(),
+            Origem: "API_INDUSTRIA"), HttpContext.RequestAborted).ConfigureAwait(false);
+        return decision.Permitido;
+    }
 
     private sealed record ProdutoOrdemValidacao(bool Ativo, bool ExigeFichaTecnica);
 }

@@ -49,7 +49,7 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("pdv", "PDV Web", "Ponto de venda web inicial com carrinho, pagamentos e fechamento não fiscal.", "Comércio", true, true, new[] { "comercial", "comercio_varejo", "caixa" }),
             Module("caixa", "Caixa Comercial", "Abertura, suprimento, sangria, fechamento e resumo por forma de pagamento.", "Comércio", true, true, new[] { "pdv" }),
             Module("comercio_atacado", "Comércio Atacadista", "Base comercial B2B atacadista integrada a pedidos e estoque.", "Comércio", true, true, new[] { "comercial", "estoque_compras" }),
-            Module("industria_producao", "Indústria e Produção", "Produção por ordem, BOM, roteiro, chão de fábrica, qualidade e custos integrados.", "Indústria", true, true, new[] { "core", "estoque_compras" }),
+            Module("industria_producao", "Indústria 360", "Produção por ordem, BOM e roteiro versionados, chão de fábrica, qualidade e custos integrados.", "Indústria", true, true, new[] { "core", "estoque_compras" }),
             Module("financeiro_empresarial", "Financeiro Empresarial", "Eventos financeiros futuros para vendas, OS e compras.", "Empresarial", true, true, new[] { "comercial" }),
             Module("mobile_pwa", "Mobile PWA", "PWA instalável, responsivo, offline e com navegação mobile-first.", "Campo e Mobilidade", true, true, new[] { "core", "seguranca", "lgpd" }),
             Module("campo_operacional", "Campo Operacional", "Atividades, visitas, checklists, evidências, assinaturas e equipes externas por tenant.", "Campo e Mobilidade", true, true, new[] { "mobile_pwa", "core" }),

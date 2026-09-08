@@ -24535,6 +24535,113 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 070_separate_compras_uuid_contracts.sql
+-- STAGE: BEFORE 20260831230000_rc50_85_compras_contratos_multiesfera.sql
+-- ==================================================
+-- Separa, sem conversão ou cópia, os contratos UUID históricos que ocuparam
+-- nomes reservados ao núcleo governamental bigint. ALTER TABLE preserva dados,
+-- OIDs, PKs, FKs, constraints e dependências; índices recebem nomes exclusivos.
+do $$
+declare
+    item record;
+    destination text;
+    index_item record;
+    new_index_name text;
+begin
+    for item in
+        select c.relname as source_name,
+               case
+                 when c.relname in ('compras_numeracao','compras_fornecedor','compras_fornecedor_contato',
+                    'compras_fornecedor_endereco','compras_fornecedor_documento','compras_requisicao',
+                    'compras_requisicao_item','compras_aprovacao','compras_cotacao','compras_cotacao_convite',
+                    'compras_cotacao_resposta_item','compras_pedido','compras_recebimento','compras_fatura',
+                    'compras_devolucao','compras_fornecedor_avaliacao','compras_historico','compras_idempotencia')
+                   and (c.relname <> 'compras_cotacao' or exists (
+                       select 1 from pg_attribute a where a.attrelid=c.oid and a.attname='requisicao_id' and not a.attisdropped))
+                   and (c.relname <> 'compras_recebimento' or exists (
+                       select 1 from pg_attribute a where a.attrelid=c.oid and a.attname='pedido_id' and not a.attisdropped))
+                 then 'compras_empresarial_' || substring(c.relname from 9)
+                 else 'bloco6_' || c.relname
+               end as destination_name
+        from pg_class c
+        join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='sigov' and c.relkind in ('r','p') and c.relname like 'compras\_%' escape '\'
+          and exists (
+              select 1 from pg_attribute a
+              where a.attrelid=c.oid and a.attname in ('id','tenant_id') and not a.attisdropped
+                and a.atttypid='uuid'::regtype)
+          and c.relname not like 'compras_empresarial\_%' escape '\'
+          and c.relname not like 'compras_licitapro\_%' escape '\'
+        order by case when c.relname='compras_fornecedor' then 0 else 1 end, c.relname
+    loop
+        destination := item.destination_name;
+        if to_regclass(format('sigov.%I', destination)) is not null then
+            raise exception using
+              errcode='55000',
+              message=format('Separação segura bloqueada: sigov.%I e sigov.%I coexistem; compare contratos e contagens antes de reconciliar.', item.source_name, destination);
+        end if;
+
+        -- Evita colisão dos nomes globais de índices quando o núcleo canônico for criado.
+        for index_item in
+            select idx.relname
+            from pg_index ix join pg_class tab on tab.oid=ix.indrelid
+            join pg_class idx on idx.oid=ix.indexrelid
+            join pg_namespace ns on ns.oid=tab.relnamespace
+            where ns.nspname='sigov' and tab.relname=item.source_name
+        loop
+            new_index_name := left(case when destination like 'compras_empresarial_%'
+                then 'ce_' || index_item.relname else 'b6_' || index_item.relname end, 63);
+            if to_regclass(format('sigov.%I',new_index_name)) is not null then
+                raise exception 'Separação segura bloqueada: índice destino sigov.% já existe.', new_index_name;
+            end if;
+            execute format('alter index sigov.%I rename to %I',index_item.relname,new_index_name);
+        end loop;
+
+        execute format('alter table sigov.%I rename to %I',item.source_name,destination);
+        raise notice 'Contrato UUID preservado por rename: sigov.% -> sigov.%',item.source_name,destination;
+    end loop;
+end $$;
+
+-- ==================================================
+-- COMPATIBILITY: 071_create_compras_governamental_core.sql
+-- STAGE: BEFORE 20260831230000_rc50_85_compras_contratos_multiesfera.sql
+-- ==================================================
+-- FUNC03: Compras Públicas, Licitações, Contratos, Atas, Fornecedores e recebimentos integrados.
+create table if not exists sigov.compras_parametro_modalidade(id bigint generated always as identity primary key,codigo varchar(40) not null unique,nome varchar(120) not null,ativo boolean not null default true);
+create table if not exists sigov.compras_parametro_criterio(id bigint generated always as identity primary key,codigo varchar(40) not null unique,nome varchar(120) not null,ativo boolean not null default true);
+create table if not exists sigov.compras_fornecedor(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,nome varchar(250) not null,tipo_pessoa varchar(10) not null,documento varchar(20) not null,email varchar(250),telefone varchar(40),endereco_resumido varchar(500),status varchar(12) not null default 'ATIVO',observacoes text,created_at timestamptz not null default now(),created_by bigint,updated_at timestamptz not null default now(),updated_by bigint,constraint ck_compras_fornecedor_tipo check(tipo_pessoa in('FISICA','JURIDICA')),constraint ck_compras_fornecedor_status check(status in('ATIVO','SUSPENSO','INATIVO')),constraint ux_compras_fornecedor_documento unique(tenant_id,entidade_id,documento));
+create table if not exists sigov.compras_solicitacao(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,unidade_solicitante varchar(200) not null,justificativa text not null,prioridade varchar(10) not null,origem varchar(20) not null,origem_referencia varchar(100),observacao text,status varchar(30) not null default 'RASCUNHO',created_at timestamptz not null default now(),created_by bigint,updated_at timestamptz not null default now(),updated_by bigint,constraint ck_compras_sol_prioridade check(prioridade in('BAIXA','NORMAL','ALTA','URGENTE')),constraint ck_compras_sol_origem check(origem in('MANUAL','ALMOXARIFADO','PATRIMONIO')),constraint ck_compras_sol_status check(status in('RASCUNHO','ENVIADA','EM_ANALISE','APROVADA','REJEITADA','CONVERTIDA_EM_PROCESSO','CANCELADA')));
+create unique index if not exists ux_compras_sol_origem on sigov.compras_solicitacao(tenant_id,entidade_id,origem,origem_referencia) where origem_referencia is not null;
+create table if not exists sigov.compras_solicitacao_item(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,solicitacao_id bigint not null references sigov.compras_solicitacao(id) on delete cascade,descricao varchar(500) not null,quantidade numeric(18,4) not null,unidade varchar(30) not null,tipo_material_servico varchar(20) not null,valor_estimado numeric(18,4) not null default 0,gera_pendencia_patrimonial boolean not null default false,constraint ck_compras_sol_item_qtd check(quantidade>0),constraint ck_compras_sol_item_valor check(valor_estimado>=0),constraint ck_compras_sol_item_tipo check(tipo_material_servico in('CONSUMO','PERMANENTE','SERVICO')));
+create table if not exists sigov.compras_solicitacao_historico(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,solicitacao_id bigint not null references sigov.compras_solicitacao(id),status_anterior varchar(30) not null,status_novo varchar(30) not null,justificativa text,usuario_id bigint,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now());
+create table if not exists sigov.compras_processo(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,exercicio integer not null,numero varchar(80) not null,modalidade_id bigint not null references sigov.compras_parametro_modalidade(id),criterio_id bigint not null references sigov.compras_parametro_criterio(id),objeto text not null,justificativa text not null,data_abertura date,data_limite date,valor_estimado numeric(18,4) not null default 0,status varchar(30) not null default 'PLANEJAMENTO',solicitacao_id bigint references sigov.compras_solicitacao(id),documentos_metadados jsonb not null default '[]'::jsonb,created_at timestamptz not null default now(),created_by bigint,updated_at timestamptz not null default now(),updated_by bigint,constraint ux_compras_processo_numero unique(tenant_id,entidade_id,exercicio,numero),constraint ux_compras_processo_solicitacao unique(solicitacao_id),constraint ck_compras_processo_datas check(data_limite is null or data_abertura is null or data_limite>=data_abertura),constraint ck_compras_processo_status check(status in('PLANEJAMENTO','PESQUISA_PRECO','EDITAL_TR','PUBLICADO','RECEBENDO_PROPOSTAS','JULGAMENTO','ADJUDICADO','HOMOLOGADO','CONTRATADO','FRACASSADO','DESERTO','CANCELADO')));
+create table if not exists sigov.compras_processo_item(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id) on delete cascade,numero integer not null,descricao varchar(500) not null,quantidade numeric(18,4) not null,unidade varchar(30) not null,tipo_material_servico varchar(20) not null,valor_estimado numeric(18,4) not null default 0,gera_pendencia_patrimonial boolean not null default false,status varchar(20) not null default 'PENDENTE',constraint ux_compras_processo_item unique(processo_id,numero),constraint ck_compras_proc_item_qtd check(quantidade>0),constraint ck_compras_proc_item_status check(status in('PENDENTE','JULGADO','FRACASSADO')));
+create table if not exists sigov.compras_processo_fase_historico(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id),status_anterior varchar(30) not null,status_novo varchar(30) not null,justificativa text,usuario_id bigint,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now());
+create table if not exists sigov.compras_cotacao(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id),processo_item_id bigint not null references sigov.compras_processo_item(id),fornecedor_id bigint not null references sigov.compras_fornecedor(id),valor_unitario numeric(18,4) not null,quantidade numeric(18,4) not null,prazo_entrega_dias integer,validade date not null,observacao text,status varchar(20) not null default 'RECEBIDA',justificativa_desclassificacao text,created_at timestamptz not null default now(),created_by bigint,constraint ck_compras_cotacao_valores check(valor_unitario>0 and quantidade>0),constraint ck_compras_cotacao_status check(status in('RECEBIDA','CLASSIFICADA','DESCLASSIFICADA')),constraint ck_compras_cotacao_just check(status<>'DESCLASSIFICADA' or nullif(trim(justificativa_desclassificacao),'') is not null),constraint ux_compras_cotacao unique(processo_item_id,fornecedor_id));
+create table if not exists sigov.compras_julgamento(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id),processo_item_id bigint not null references sigov.compras_processo_item(id),cotacao_id bigint references sigov.compras_cotacao(id),fornecedor_id bigint references sigov.compras_fornecedor(id),valor_final numeric(18,4),status varchar(20) not null,justificativa text not null,usuario_id bigint,julgado_em timestamptz not null default now(),constraint ux_compras_julgamento_item unique(processo_item_id),constraint ck_compras_julg_status check(status in('JULGADO','FRACASSADO')),constraint ck_compras_julg_valor check(valor_final is null or valor_final>0));
+create table if not exists sigov.compras_contrato(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id),fornecedor_id bigint not null references sigov.compras_fornecedor(id),numero varchar(80) not null,objeto text not null,valor_contratado numeric(18,4) not null,data_inicio date not null,data_fim date not null,status varchar(20) not null default 'VIGENTE',gestor varchar(200),fiscal varchar(200),observacoes text,created_at timestamptz not null default now(),created_by bigint,updated_at timestamptz not null default now(),updated_by bigint,constraint ux_compras_contrato_num unique(tenant_id,entidade_id,numero),constraint ck_compras_contrato_valor check(valor_contratado>0),constraint ck_compras_contrato_datas check(data_fim>data_inicio),constraint ck_compras_contrato_status check(status in('VIGENTE','SUSPENSO','ENCERRADO','RESCINDIDO','VENCIDO')));
+create table if not exists sigov.compras_contrato_historico(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,contrato_id bigint not null references sigov.compras_contrato(id),status_anterior varchar(20) not null,status_novo varchar(20) not null,justificativa text,usuario_id bigint,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now());
+create table if not exists sigov.compras_ata_registro_preco(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id),fornecedor_id bigint not null references sigov.compras_fornecedor(id),numero varchar(80) not null,objeto text not null,valor_global numeric(18,4) not null,data_inicio date not null,data_fim date not null,status varchar(20) not null default 'VIGENTE',created_at timestamptz not null default now(),created_by bigint,updated_at timestamptz not null default now(),updated_by bigint,constraint ux_compras_ata_num unique(tenant_id,entidade_id,numero),constraint ck_compras_ata_valor check(valor_global>0),constraint ck_compras_ata_datas check(data_fim>data_inicio),constraint ck_compras_ata_status check(status in('VIGENTE','SUSPENSA','ENCERRADA','CANCELADA','VENCIDA')));
+create table if not exists sigov.compras_ata_item(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,ata_id bigint not null references sigov.compras_ata_registro_preco(id) on delete cascade,processo_item_id bigint not null references sigov.compras_processo_item(id),quantidade_registrada numeric(18,4) not null,quantidade_utilizada numeric(18,4) not null default 0,valor_unitario numeric(18,4) not null,constraint ux_compras_ata_item unique(ata_id,processo_item_id),constraint ck_compras_ata_saldo check(quantidade_registrada>0 and quantidade_utilizada>=0 and quantidade_utilizada<=quantidade_registrada and valor_unitario>0));
+create table if not exists sigov.compras_ata_consumo_historico(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,ata_item_id bigint not null references sigov.compras_ata_item(id),quantidade numeric(18,4) not null,usuario_id bigint,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now(),constraint ck_compras_ata_consumo_qtd check(quantidade>0));
+create table if not exists sigov.compras_recebimento(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,processo_id bigint not null references sigov.compras_processo(id),contrato_id bigint references sigov.compras_contrato(id),ata_id bigint references sigov.compras_ata_registro_preco(id),documento varchar(100) not null,data_recebimento date not null,status varchar(20) not null default 'PENDENTE',almoxarifado_movimentacao_id bigint references sigov.almoxarifado_movimentacao(id),created_at timestamptz not null default now(),created_by bigint,constraint ck_compras_receb_origem check((contrato_id is not null)::int+(ata_id is not null)::int=1),constraint ck_compras_receb_status check(status in('PENDENTE','INTEGRADO','CANCELADO')),constraint ux_compras_receb_doc unique(tenant_id,entidade_id,documento));
+create table if not exists sigov.compras_recebimento_item(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,recebimento_id bigint not null references sigov.compras_recebimento(id) on delete cascade,processo_item_id bigint not null references sigov.compras_processo_item(id),material_id bigint references sigov.almoxarifado_material(id),quantidade numeric(18,4) not null,valor_unitario numeric(18,4) not null,tipo_material varchar(20) not null,pendencia_patrimonial_id bigint references sigov.almoxarifado_pendencia_patrimonial(id),constraint ux_compras_receb_item unique(recebimento_id,processo_item_id),constraint ck_compras_receb_item check(quantidade>0 and valor_unitario>=0 and tipo_material in('CONSUMO','PERMANENTE')));
+create table if not exists sigov.compras_auditoria(id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,entidade varchar(80) not null,registro_id bigint not null,operacao varchar(40) not null,antes jsonb,depois jsonb,usuario_id bigint,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now());
+create index if not exists ix_compras_fornecedor_status on sigov.compras_fornecedor(tenant_id,entidade_id,status);
+create index if not exists ix_compras_sol_status on sigov.compras_solicitacao(tenant_id,entidade_id,status,created_at desc);
+create index if not exists ix_compras_processo_status on sigov.compras_processo(tenant_id,entidade_id,exercicio,status,data_limite);
+create index if not exists ix_compras_cotacao_processo on sigov.compras_cotacao(tenant_id,entidade_id,processo_id,fornecedor_id,status,validade);
+create index if not exists ix_compras_contrato_datas on sigov.compras_contrato(tenant_id,entidade_id,fornecedor_id,status,data_fim);
+create index if not exists ix_compras_ata_datas on sigov.compras_ata_registro_preco(tenant_id,entidade_id,fornecedor_id,status,data_fim);
+create index if not exists ix_compras_recebimento on sigov.compras_recebimento(tenant_id,entidade_id,processo_id,status,data_recebimento);
+create index if not exists ix_compras_auditoria on sigov.compras_auditoria(tenant_id,entidade_id,ocorrido_em desc);
+insert into sigov.compras_parametro_modalidade(codigo,nome) values('PREGAO','Pregão'),('CONCORRENCIA','Concorrência'),('DISPENSA','Dispensa'),('INEXIGIBILIDADE','Inexigibilidade') on conflict(codigo) do nothing;
+insert into sigov.compras_parametro_criterio(codigo,nome) values('MENOR_PRECO','Menor preço'),('MAIOR_DESCONTO','Maior desconto'),('TECNICA_PRECO','Técnica e preço') on conflict(codigo) do nothing;
+insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted) select 'compras',v.chave,v.recurso,v.acao,v.descricao,true,false from(values
+('compras.dashboard.visualizar','compras.dashboard','visualizar','Visualizar dashboard'),('compras.fornecedor.visualizar','compras.fornecedor','visualizar','Visualizar fornecedores'),('compras.fornecedor.criar','compras.fornecedor','criar','Criar fornecedores'),('compras.fornecedor.editar','compras.fornecedor','editar','Editar fornecedores'),('compras.solicitacao.visualizar','compras.solicitacao','visualizar','Visualizar solicitações'),('compras.solicitacao.criar','compras.solicitacao','criar','Criar solicitações'),('compras.solicitacao.aprovar','compras.solicitacao','aprovar','Aprovar solicitações'),('compras.processo.visualizar','compras.processo','visualizar','Visualizar processos'),('compras.processo.criar','compras.processo','criar','Criar processos'),('compras.processo.avancar','compras.processo','avancar','Avançar fases'),('compras.cotacao.visualizar','compras.cotacao','visualizar','Visualizar cotações'),('compras.cotacao.criar','compras.cotacao','criar','Criar cotações'),('compras.julgamento.executar','compras.julgamento','executar','Executar julgamento'),('compras.contrato.visualizar','compras.contrato','visualizar','Visualizar contratos'),('compras.contrato.criar','compras.contrato','criar','Criar contratos'),('compras.ata.visualizar','compras.ata','visualizar','Visualizar atas'),('compras.ata.criar','compras.ata','criar','Criar atas'),('compras.recebimento.executar','compras.recebimento','executar','Executar recebimento'),('compras.exportar','compras','exportar','Exportar dados'))v(chave,recurso,acao,descricao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.modulo='compras' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+-- ==================================================
 -- COMPATIBILITY: 072_prepare_rc50_85_compras_bigint.sql
 -- STAGE: BEFORE 20260831230000_rc50_85_compras_contratos_multiesfera.sql
 -- ==================================================
@@ -29609,6 +29716,194 @@ end $$;
 create index if not exists ix_contrato_fiscal_ativo on sigov.contrato_fiscal(tenant_id,contrato_id,ativo);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903230000', 'Correção final dos contratos bigint e pós-condições de Compras', '2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260908120000_evolucao_saas_industria_360.sql
+-- CATEGORY: evolution
+-- CHECKSUM_SHA256: c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7
+-- ==================================================
+-- Evolução SaaS/Indústria 360: contrato canônico, catálogo comercial e histórico imutável.
+-- A tabela sigov.tenant_modulo_contratado é a autoridade; sigov.tenant_modulo permanece compatível.
+
+alter table sigov.modulo_saas
+    add column if not exists preco_mensal numeric(18,2),
+    add column if not exists preco_anual numeric(18,2),
+    add column if not exists taxa_implantacao numeric(18,2),
+    add column if not exists moeda char(3) not null default 'BRL',
+    add column if not exists limite_padrao_usuarios integer,
+    add column if not exists limite_armazenamento_mb bigint,
+    add column if not exists limite_requisicoes_mensais bigint,
+    add column if not exists periodo_trial_dias integer not null default 0,
+    add column if not exists recursos_incluidos jsonb not null default '[]'::jsonb,
+    add column if not exists dependencias jsonb not null default '[]'::jsonb,
+    add column if not exists incompatibilidades jsonb not null default '[]'::jsonb,
+    add column if not exists status_comercial varchar(24) not null default 'ATIVO',
+    add column if not exists versao varchar(30) not null default '1.0',
+    add column if not exists disponivel_contratacao boolean not null default true,
+    add column if not exists publico_alvo text;
+
+do $$
+begin
+    if not exists (select 1 from pg_constraint where conrelid='sigov.modulo_saas'::regclass and conname='ck_modulo_saas_precos') then
+        alter table sigov.modulo_saas add constraint ck_modulo_saas_precos
+            check (coalesce(preco_mensal,0)>=0 and coalesce(preco_anual,0)>=0 and coalesce(taxa_implantacao,0)>=0) not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conrelid='sigov.modulo_saas'::regclass and conname='ck_modulo_saas_limites') then
+        alter table sigov.modulo_saas add constraint ck_modulo_saas_limites
+            check (coalesce(limite_padrao_usuarios,0)>=0 and coalesce(limite_armazenamento_mb,0)>=0 and coalesce(limite_requisicoes_mensais,0)>=0 and periodo_trial_dias>=0) not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conrelid='sigov.modulo_saas'::regclass and conname='ck_modulo_saas_status_comercial') then
+        alter table sigov.modulo_saas add constraint ck_modulo_saas_status_comercial
+            check (status_comercial in ('ATIVO','INATIVO','EM_BREVE','DESCONTINUADO')) not valid;
+    end if;
+end $$;
+
+alter table sigov.tenant_modulo_contratado
+    add column if not exists plano_codigo varchar(80),
+    add column if not exists ciclo_cobranca varchar(12) not null default 'MENSAL',
+    add column if not exists valor_tabela numeric(18,2),
+    add column if not exists valor_contratado numeric(18,2),
+    add column if not exists desconto_percentual numeric(7,4) not null default 0,
+    add column if not exists moeda char(3) not null default 'BRL',
+    add column if not exists trial_inicio date,
+    add column if not exists trial_fim date,
+    add column if not exists limites_contratados jsonb not null default '{}'::jsonb,
+    add column if not exists recursos_adicionais jsonb not null default '[]'::jsonb,
+    add column if not exists renovacao_automatica boolean not null default true,
+    add column if not exists cancelamento_agendado_para date,
+    add column if not exists motivo_status text,
+    add column if not exists usuario_responsavel_id bigint;
+
+do $$
+begin
+    if exists (select 1 from pg_constraint where conrelid='sigov.tenant_modulo_contratado'::regclass and conname='ck_tenant_modulo_contratado_status') then
+        alter table sigov.tenant_modulo_contratado drop constraint ck_tenant_modulo_contratado_status;
+    end if;
+    if not exists (select 1 from pg_constraint where conrelid='sigov.tenant_modulo_contratado'::regclass and conname='ck_tenant_modulo_contratado_status_v2') then
+        alter table sigov.tenant_modulo_contratado add constraint ck_tenant_modulo_contratado_status_v2
+            check (status in ('DISPONIVEL','TRIAL','EM_IMPLANTACAO','CONTRATADO','HABILITADO','ATIVO','BETA','SUSPENSO','INADIMPLENTE','CANCELADO','EXPIRADO')) not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conrelid='sigov.tenant_modulo_contratado'::regclass and conname='ck_tenant_modulo_contratado_valores') then
+        alter table sigov.tenant_modulo_contratado add constraint ck_tenant_modulo_contratado_valores
+            check (coalesce(valor_tabela,0)>=0 and coalesce(valor_contratado,0)>=0 and desconto_percentual between 0 and 100) not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conrelid='sigov.tenant_modulo_contratado'::regclass and conname='ck_tenant_modulo_contratado_datas') then
+        alter table sigov.tenant_modulo_contratado add constraint ck_tenant_modulo_contratado_datas
+            check ((vigencia_fim is null or vigencia_inicio is null or vigencia_fim>=vigencia_inicio)
+               and (trial_fim is null or trial_inicio is null or trial_fim>=trial_inicio)) not valid;
+    end if;
+    if not exists (select 1 from pg_constraint where conrelid='sigov.tenant_modulo_contratado'::regclass and conname='fk_tenant_modulo_contratado_responsavel') then
+        alter table sigov.tenant_modulo_contratado add constraint fk_tenant_modulo_contratado_responsavel
+            foreign key (usuario_responsavel_id) references sigov.usuario(id) not valid;
+    end if;
+end $$;
+
+create index if not exists ix_tenant_modulo_contratado_vigencia
+    on sigov.tenant_modulo_contratado(tenant_id,status,vigencia_inicio,vigencia_fim) where ativo;
+create index if not exists ix_tenant_modulo_contratado_renovacao
+    on sigov.tenant_modulo_contratado(cancelamento_agendado_para) where ativo and cancelamento_agendado_para is not null;
+
+create table if not exists sigov.tenant_modulo_contratado_historico (
+    id bigint generated always as identity primary key,
+    tenant_id bigint not null references sigov.tenant(id),
+    tenant_modulo_contratado_id bigint not null references sigov.tenant_modulo_contratado(id),
+    modulo_codigo varchar(80) not null,
+    operacao varchar(12) not null,
+    status_anterior varchar(40),
+    status_novo varchar(40) not null,
+    dados_anteriores jsonb,
+    dados_novos jsonb not null,
+    usuario_id bigint,
+    correlation_id uuid,
+    ocorrido_at timestamptz not null default now(),
+    constraint ck_tenant_modulo_historico_operacao check (operacao in ('CRIACAO','ALTERACAO'))
+);
+create index if not exists ix_tenant_modulo_historico_tenant_data
+    on sigov.tenant_modulo_contratado_historico(tenant_id,ocorrido_at desc);
+
+create or replace function sigov.fn_tenant_modulo_contrato_auditar() returns trigger language plpgsql as $$
+begin
+    insert into sigov.tenant_modulo_contratado_historico
+        (tenant_id,tenant_modulo_contratado_id,modulo_codigo,operacao,status_anterior,status_novo,dados_anteriores,dados_novos,usuario_id,correlation_id)
+    values
+        (new.tenant_id,new.id,new.modulo_codigo,case when tg_op='INSERT' then 'CRIACAO' else 'ALTERACAO' end,
+         case when tg_op='UPDATE' then old.status end,new.status,case when tg_op='UPDATE' then to_jsonb(old) end,to_jsonb(new),
+         coalesce(new.usuario_responsavel_id,new.updated_by,new.created_by),new.correlation_id);
+    return new;
+end $$;
+
+do $$
+begin
+    if not exists (select 1 from pg_trigger where tgrelid='sigov.tenant_modulo_contratado'::regclass and tgname='trg_tenant_modulo_contrato_auditar' and not tgisinternal) then
+        create trigger trg_tenant_modulo_contrato_auditar after insert or update on sigov.tenant_modulo_contratado
+            for each row execute function sigov.fn_tenant_modulo_contrato_auditar();
+    end if;
+end $$;
+
+create or replace function sigov.fn_tenant_modulo_historico_imutavel() returns trigger language plpgsql as $$
+begin
+    raise exception 'Histórico de contratação de módulo é imutável';
+end $$;
+
+do $$
+begin
+    if not exists (select 1 from pg_trigger where tgrelid='sigov.tenant_modulo_contratado_historico'::regclass and tgname='trg_tenant_modulo_historico_imutavel' and not tgisinternal) then
+        create trigger trg_tenant_modulo_historico_imutavel before update or delete on sigov.tenant_modulo_contratado_historico
+            for each row execute function sigov.fn_tenant_modulo_historico_imutavel();
+    end if;
+end $$;
+
+-- Compatibilidade unidirecional: toda mudança na autoridade atualiza a estrutura legada.
+create or replace function sigov.fn_tenant_modulo_compatibilizar() returns trigger language plpgsql as $$
+declare v_modulo_id bigint;
+begin
+    select id into v_modulo_id from sigov.modulo_saas where codigo=new.modulo_codigo and ativo and not is_deleted limit 1;
+    if v_modulo_id is null then return new; end if;
+    insert into sigov.tenant_modulo(tenant_id,modulo_saas_id,habilitado,contratado,inicio_at,fim_at,configuracoes,ativo,created_by,updated_by,correlation_id)
+    values(new.tenant_id,v_modulo_id,new.status in ('TRIAL','EM_IMPLANTACAO','CONTRATADO','HABILITADO','ATIVO','BETA'),
+           new.status not in ('DISPONIVEL','CANCELADO','EXPIRADO'),coalesce(new.vigencia_inicio,current_date)::timestamptz,
+           new.vigencia_fim::timestamptz,new.parametros_json,new.ativo,new.created_by,new.updated_by,new.correlation_id)
+    on conflict(tenant_id,modulo_saas_id) do update set
+        habilitado=excluded.habilitado,contratado=excluded.contratado,inicio_at=excluded.inicio_at,fim_at=excluded.fim_at,
+        configuracoes=excluded.configuracoes,ativo=excluded.ativo,updated_at=now(),updated_by=excluded.updated_by,correlation_id=excluded.correlation_id;
+    return new;
+end $$;
+
+do $$
+begin
+    if not exists (select 1 from pg_trigger where tgrelid='sigov.tenant_modulo_contratado'::regclass and tgname='trg_tenant_modulo_compatibilizar' and not tgisinternal) then
+        create trigger trg_tenant_modulo_compatibilizar after insert or update on sigov.tenant_modulo_contratado
+            for each row execute function sigov.fn_tenant_modulo_compatibilizar();
+    end if;
+end $$;
+
+insert into sigov.tenant_modulo_contratado(tenant_id,modulo_codigo,status,contratado_em,vigencia_inicio,vigencia_fim,parametros_json,ativo,created_by,updated_by,correlation_id)
+select tm.tenant_id,ms.codigo,
+       case when tm.habilitado and tm.contratado then 'HABILITADO' when tm.contratado then 'CONTRATADO' else 'DISPONIVEL' end,
+       tm.created_at::date,tm.inicio_at::date,tm.fim_at::date,tm.configuracoes,tm.ativo,tm.created_by,tm.updated_by,tm.correlation_id
+from sigov.tenant_modulo tm join sigov.modulo_saas ms on ms.id=tm.modulo_saas_id
+where not exists(select 1 from sigov.tenant_modulo_contratado atual where atual.tenant_id=tm.tenant_id and atual.modulo_codigo=ms.codigo);
+
+update sigov.modulo_saas set
+    nome='Indústria 360',
+    descricao='Gestão industrial integrada: cadastros, BOM, roteiros, ordens, chão de fábrica, qualidade, custos e rastreabilidade.',
+    categoria='Indústria',
+    rota_base='/Industria/Dashboard',
+    icone='industry',
+    recursos_incluidos='["INDUSTRIA_CORE","CHAO_FABRICA","QUALIDADE_BASICA","CUSTOS_BASICOS"]'::jsonb,
+    dependencias='["core","estoque_compras"]'::jsonb,
+    publico_alvo='Indústrias e organizações produtivas privadas ou públicas das esferas municipal, estadual e federal',
+    status_comercial='ATIVO',
+    disponivel_contratacao=true,
+    updated_at=now()
+where codigo='industria_producao';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260908120000', 'Consolidação do contrato canônico SaaS e catálogo Indústria 360', 'c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7', 'evolution', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

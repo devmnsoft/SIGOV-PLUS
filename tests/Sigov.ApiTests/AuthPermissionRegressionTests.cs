@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Sigov.Application.Security;
 using Xunit;
 
 namespace Sigov.ApiTests;
@@ -55,10 +56,34 @@ public sealed class AuthPermissionRegressionTests
         controller.Should().Contain("protectedTicketSize");
         program.Should().Contain("AddScoped<IClaimsTransformation, RequestPermissionClaimsTransformation>");
         transformation.Should().Contain("principal.Clone()");
-        transformation.Should().Contain("_permissions ??=");
+        transformation.Should().Contain("_access ??=");
+        transformation.Should().Contain("_modules ??=");
         transformation.Should().Contain("GetRequestAccessAsync");
         transformation.Should().NotContain("SignInAsync");
         transformation.Should().NotContain("GetAwaiter().GetResult()");
+    }
+
+    [Theory]
+    [InlineData("529.982.247-25", AuthenticationIdentifierKind.Cpf, "52998224725")]
+    [InlineData("04.252.011/0001-10", AuthenticationIdentifierKind.Cnpj, "04252011000110")]
+    [InlineData(" USUARIO@ORGAO.GOV.BR ", AuthenticationIdentifierKind.Email, "usuario@orgao.gov.br")]
+    [InlineData("admin-legado", AuthenticationIdentifierKind.LegacyLogin, "admin-legado")]
+    public void Identificador_De_Login_Deve_Normalizar_Formatos_Suportados(string input, AuthenticationIdentifierKind kind, string expected)
+    {
+        var result = AuthenticationIdentifierNormalizer.Normalize(input);
+
+        result.IsValid.Should().BeTrue();
+        result.Kind.Should().Be(kind);
+        result.Value.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("111.111.111-11")]
+    [InlineData("00.000.000/0000-00")]
+    [InlineData("email-invalido@")]
+    public void Identificador_De_Login_Deve_Rejeitar_Documento_Ou_Email_Invalido(string input)
+    {
+        AuthenticationIdentifierNormalizer.Normalize(input).IsValid.Should().BeFalse();
     }
 
     [Fact]

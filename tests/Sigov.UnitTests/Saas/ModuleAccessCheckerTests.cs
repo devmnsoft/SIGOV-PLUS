@@ -31,6 +31,18 @@ public sealed class ModuleAccessCheckerTests
     }
 
     [Fact]
+    public async Task Modulo_com_vigencia_expirada_bloqueia()
+    {
+        var checker = CreateChecker(new TenantModuleContract(1, "core", null, "ATIVO", true,
+            DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-2)), DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1))));
+
+        var result = await checker.CheckModuleAsync(new ModuleAccessRequest(1, "core", new[] { "ADMINISTRADOR_TENANT" }), CancellationToken.None);
+
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Contain("expirado");
+    }
+
+    [Fact]
     public async Task Feature_desabilitada_bloqueia()
     {
         var checker = CreateChecker(new TenantModuleContract(1, "core", null, "HABILITADO", true));

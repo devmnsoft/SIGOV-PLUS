@@ -4,8 +4,8 @@ namespace Sigov.Web.Models.Auth;
 
 public sealed class LoginViewModel
 {
-    [Required(ErrorMessage = "Informe o login ou e-mail.")]
-    [Display(Name = "Login ou e-mail")]
+    [Required(ErrorMessage = "Informe CPF, CNPJ, e-mail institucional ou login.")]
+    [Display(Name = "CPF, CNPJ, e-mail ou login")]
     public string Login { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Informe a senha.")]
@@ -15,8 +15,15 @@ public sealed class LoginViewModel
 
     public bool LembrarLogin { get; set; }
 
+    [Display(Name = "Organização")]
+    public long? TenantId { get; set; }
+
+    public IReadOnlyCollection<LoginTenantOption> Organizacoes { get; set; } = Array.Empty<LoginTenantOption>();
+
     public string? MensagemErro { get; set; }
 }
+
+public sealed record LoginTenantOption(long TenantId, string Nome);
 
 public sealed class ForgotPasswordViewModel
 {

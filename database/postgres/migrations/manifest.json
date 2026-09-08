@@ -2109,6 +2109,16 @@
           "checksum": "407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0"
         }
       ]
+    },
+    {
+      "version": "20260908120000",
+      "description": "Consolidação do contrato canônico SaaS e catálogo Indústria 360",
+      "category": "evolution",
+      "file": "20260908120000_evolucao_saas_industria_360.sql",
+      "checksum": "c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "postConditionSql": "select to_regclass('sigov.tenant_modulo_contratado_historico') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='modulo_saas' and column_name='preco_mensal' and udt_name='numeric') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='tenant_modulo_contratado' and column_name='valor_contratado' and udt_name='numeric') and exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.tenant_modulo_contratado') and conname='ck_tenant_modulo_contratado_status_v2' and contype='c') and exists(select 1 from pg_trigger where tgrelid=to_regclass('sigov.tenant_modulo_contratado') and tgname='trg_tenant_modulo_contrato_auditar' and not tgisinternal) and exists(select 1 from pg_trigger where tgrelid=to_regclass('sigov.tenant_modulo_contratado') and tgname='trg_tenant_modulo_compatibilizar' and not tgisinternal) and exists(select 1 from sigov.modulo_saas where codigo='industria_producao' and nome='Indústria 360' and disponivel_contratacao)"
     }
   ],
   "compatibilityAfterAll": [
