@@ -31,6 +31,12 @@ public static class PerfilNivelCodigos
     {
         AdministradorGeral,
         "SIGOV_ADMIN",
-        "SUPER_ADMIN"
+        "SUPER_ADMIN",
+        "SUPERADMIN",
+        "ADMIN_GERAL"
     };
+
+    public static string Normalize(string? code) => GlobalAdminAliases.Contains(code ?? string.Empty)
+        ? AdministradorGeral
+        : (code ?? string.Empty).Trim().ToUpperInvariant();
 }

@@ -12,9 +12,11 @@ public sealed class ModuleAccessRepository : IModuleAccessRepository
 
     public async Task<TenantModuleContract?> GetTenantModuleAsync(long tenantId, string moduleCode, CancellationToken cancellationToken)
     {
-        const string sql = @"select tenant_id as TenantId, modulo_codigo as ModuleCode, pacote_codigo as PackageCode, status as Status, ativo as Active
-from sigov.tenant_modulo_contratado
-where tenant_id = @TenantId and modulo_codigo = @ModuleCode and ativo = true
+        const string sql = @"select tm.tenant_id as TenantId, tm.modulo_codigo as ModuleCode, tm.pacote_codigo as PackageCode, tm.status as Status,
+       tm.ativo as Active, tm.vigencia_inicio as EffectiveFrom, tm.vigencia_fim as EffectiveUntil
+from sigov.tenant_modulo_contratado tm
+join sigov.tenant t on t.id=tm.tenant_id and t.ativo and not t.is_deleted and upper(t.status) not in ('SUSPENSO','CANCELADO','EXCLUIDO')
+where tm.tenant_id = @TenantId and tm.modulo_codigo = @ModuleCode and tm.ativo = true
 limit 1;
 ";
         using var connection = _context.CreateConnection();
@@ -23,10 +25,12 @@ limit 1;
 
     public async Task<IReadOnlyCollection<TenantModuleContract>> GetTenantModulesAsync(long tenantId, CancellationToken cancellationToken)
     {
-        const string sql = @"select tenant_id as TenantId, modulo_codigo as ModuleCode, pacote_codigo as PackageCode, status as Status, ativo as Active
-from sigov.tenant_modulo_contratado
-where tenant_id = @TenantId and ativo = true
-order by modulo_codigo;
+        const string sql = @"select tm.tenant_id as TenantId, tm.modulo_codigo as ModuleCode, tm.pacote_codigo as PackageCode, tm.status as Status,
+       tm.ativo as Active, tm.vigencia_inicio as EffectiveFrom, tm.vigencia_fim as EffectiveUntil
+from sigov.tenant_modulo_contratado tm
+join sigov.tenant t on t.id=tm.tenant_id and t.ativo and not t.is_deleted and upper(t.status) not in ('SUSPENSO','CANCELADO','EXCLUIDO')
+where tm.tenant_id = @TenantId and tm.ativo = true
+order by tm.modulo_codigo;
 ";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<TenantModuleContract>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);

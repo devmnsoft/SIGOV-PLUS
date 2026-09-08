@@ -8,4 +8,11 @@ public interface IModuleAccessRepository
     Task UpsertTenantModuleStatusAsync(long tenantId, string moduleCode, string status, long? userId, Guid? correlationId, CancellationToken cancellationToken);
 }
 
-public sealed record TenantModuleContract(long TenantId, string ModuleCode, string? PackageCode, string Status, bool Active);
+public sealed record TenantModuleContract(
+    long TenantId,
+    string ModuleCode,
+    string? PackageCode,
+    string Status,
+    bool Active,
+    DateOnly? EffectiveFrom = null,
+    DateOnly? EffectiveUntil = null);

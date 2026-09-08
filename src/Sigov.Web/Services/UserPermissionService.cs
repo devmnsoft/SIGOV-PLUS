@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Sigov.Application.Abstractions;
 using Sigov.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
@@ -33,10 +32,8 @@ public sealed record PersistedPermissionRequirement(string Permission) : IAuthor
 public sealed class PersistedPermissionHandler : AuthorizationHandler<PersistedPermissionRequirement>
 {
     private readonly IAuthorizationEvaluator _evaluator;
-    private readonly ICurrentTenant _tenant;
 
-    public PersistedPermissionHandler(IAuthorizationEvaluator evaluator, ICurrentTenant tenant) =>
-        (_evaluator, _tenant) = (evaluator, tenant);
+    public PersistedPermissionHandler(IAuthorizationEvaluator evaluator) => _evaluator = evaluator;
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PersistedPermissionRequirement requirement)
     {
@@ -46,11 +43,17 @@ public sealed class PersistedPermissionHandler : AuthorizationHandler<PersistedP
         var action = separator > 0 ? requirement.Permission[(separator + 1)..] : "acessar";
         var moduleSeparator = resource.IndexOf('.');
         var module = moduleSeparator > 0 ? resource[..moduleSeparator] : resource;
+        resource = moduleSeparator > 0 ? resource[(moduleSeparator + 1)..] : resource;
+        var tenantId = PositiveLongClaim(context.User, "tenant_id");
         var decision = await _evaluator.EvaluateAsync(new AuthorizationRequest(userId, module, resource, action,
-            _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId, Origem: "WEB_POLICY")).ConfigureAwait(false);
+            tenantId, PositiveLongClaim(context.User, "entidade_id"), PositiveLongClaim(context.User, "exercicio_id"),
+            Origem: "WEB_POLICY")).ConfigureAwait(false);
         if (decision.Permitido) context.Succeed(requirement);
     }
 
     private static bool TryIdentity(ClaimsPrincipal user, out long userId) => long.TryParse(
         user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("usuario_id") ?? user.FindFirstValue("user_id"), out userId);
+
+    private static long? PositiveLongClaim(ClaimsPrincipal user, string type) =>
+        long.TryParse(user.FindFirstValue(type), out var value) && value > 0 ? value : null;
 }

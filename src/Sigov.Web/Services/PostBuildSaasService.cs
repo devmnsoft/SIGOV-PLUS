@@ -8,22 +8,6 @@ namespace Sigov.Web.Services;
 
 public sealed class PostBuildSaasService
 {
-    private static readonly IReadOnlyCollection<ModuleViewModel> DefaultModules = new[]
-    {
-        new ModuleViewModel("tributario", "Tributário", SigovFeatureStatus.Parcial, "Receitas, dívida ativa e arrecadação."),
-        new ModuleViewModel("rh", "RH", SigovFeatureStatus.Parcial, "Pessoas, vínculos e folha."),
-        new ModuleViewModel("juridico", "Jurídico", SigovFeatureStatus.EmImplantacao, "Processos e pareceres jurídicos."),
-        new ModuleViewModel("contratos", "Contratos", SigovFeatureStatus.EmImplantacao, "Gestão contratual."),
-        new ModuleViewModel("ged", "GED", SigovFeatureStatus.EmImplantacao, "Gestão eletrônica de documentos."),
-        new ModuleViewModel("protocolo", "Protocolo", SigovFeatureStatus.EmImplantacao, "Atendimento e processos digitais."),
-        new ModuleViewModel("saude", "Saúde", SigovFeatureStatus.Parcial, "Atenção básica e vigilância."),
-        new ModuleViewModel("educacao", "Educação", SigovFeatureStatus.Parcial, "Escolas, matrículas e frequência."),
-        new ModuleViewModel("agro", "Agro", SigovFeatureStatus.Parcial, "Produtores, propriedades e programas rurais."),
-        new ModuleViewModel("saneamento", "Saneamento", SigovFeatureStatus.Parcial, "Serviços e indicadores de saneamento."),
-        new ModuleViewModel("social", "Assistência Social", SigovFeatureStatus.Parcial, "Cadastros e atendimentos sociais."),
-        new ModuleViewModel("integracoes", "Integrações", SigovFeatureStatus.EmImplantacao, "APIs, webhooks e conectores.")
-    };
-
     private readonly NpgsqlConnectionFactory _connectionFactory;
     private readonly ILogger<PostBuildSaasService> _logger;
     private readonly IDatabaseSchemaInspector _schemaInspector;
@@ -72,21 +56,26 @@ limit 50;";
 
     public async Task<IReadOnlyCollection<ModuleViewModel>> ListarModulosAsync(long? tenantId, CancellationToken cancellationToken)
     {
-        const string sql = @"select modulo_codigo as Codigo, status
-from sigov.tenant_modulo_contratado
-where (@TenantId is null or tenant_id = @TenantId)
-order by modulo_codigo;";
         try
         {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant_modulo_contratado", cancellationToken).ConfigureAwait(false)) return DefaultModules;
+            if (!await _schemaInspector.TableExistsAsync("sigov", "tenant_modulo_contratado", cancellationToken).ConfigureAwait(false) ||
+                !await _schemaInspector.TableExistsAsync("sigov", "modulo_saas", cancellationToken).ConfigureAwait(false))
+                return Array.Empty<ModuleViewModel>();
             using var connection = _connectionFactory.CreateConnection();
-            var rows = (await connection.QueryAsync<ModuleStatusRow>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToDictionary(x => x.Codigo, x => x.Status, StringComparer.OrdinalIgnoreCase);
-            return DefaultModules.Select(m => m with { Status = rows.TryGetValue(m.Codigo, out var status) ? NormalizeStatus(status) : m.Status }).ToArray();
+            var sql = tenantId.HasValue
+                ? @"select tm.modulo_codigo as Codigo, coalesce(ms.nome,tm.modulo_codigo) as Nome, tm.status as Status, coalesce(ms.descricao,'') as Descricao
+from sigov.tenant_modulo_contratado tm left join sigov.modulo_saas ms on ms.codigo=tm.modulo_codigo and ms.ativo and not ms.is_deleted
+where tm.tenant_id=@TenantId and tm.ativo and (tm.vigencia_inicio is null or tm.vigencia_inicio<=current_date) and (tm.vigencia_fim is null or tm.vigencia_fim>=current_date)
+order by coalesce(ms.ordem,0),coalesce(ms.nome,tm.modulo_codigo);"
+                : @"select ms.codigo as Codigo, ms.nome as Nome, coalesce(ms.status_comercial,'DISPONIVEL') as Status, coalesce(ms.descricao,'') as Descricao
+from sigov.modulo_saas ms where ms.ativo and not ms.is_deleted order by ms.ordem,ms.nome;";
+            var rows = await connection.QueryAsync<ModuleCatalogRow>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return rows.Select(row => new ModuleViewModel(row.Codigo, row.Nome, NormalizeStatus(row.Status), row.Descricao)).ToArray();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha ao listar módulos contratados.");
-            return DefaultModules;
+            return Array.Empty<ModuleViewModel>();
         }
     }
 
@@ -374,7 +363,7 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha ao montar dashboard operacional.");
-            return new DashboardViewModel { Cards = FallbackCards(), Ambiente = CriarAmbiente(false), Modulos = DefaultModules, MensagemFallback = "Não foi possível consultar dados reais agora. Exibindo fallback honesto sem classificar dados como funcionais.", DataSource = "Fallback", IsGlobal = true, TenantNome = "Indisponível" };
+            return new DashboardViewModel { Cards = FallbackCards(), Ambiente = CriarAmbiente(false), Modulos = Array.Empty<ModuleViewModel>(), MensagemFallback = "Não foi possível consultar dados reais agora. Nenhum catálogo foi simulado como autoridade.", DataSource = "Fallback", IsGlobal = true, TenantNome = "Indisponível" };
         }
     }
 
@@ -448,7 +437,7 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
     {
         new DashboardCard("Clientes/Tenants ativos", "--", "Fallback sem conexão.", "secondary"),
         new DashboardCard("Usuários ativos", "--", "Fallback sem conexão.", "secondary"),
-        new DashboardCard("Módulos disponíveis", DefaultModules.Count.ToString(), "Catálogo local.", "info"),
+        new DashboardCard("Módulos disponíveis", "--", "Banco indisponível; catálogo não inferido.", "secondary"),
         new DashboardCard("Status da API", "Verificar", "Use /Operacao/Health.", "warning"),
         new DashboardCard("Status do banco", "Verificar", "Use scripts/check-local.ps1.", "warning"),
         new DashboardCard("Migrations", "Verificar", "Veja logs db-migrations.", "warning")
@@ -540,7 +529,7 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         if (tipo == "json") { try { System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(value) ? "{}" : value); } catch { return (false, "JSON inválido."); } }
         return (true, string.Empty);
     }
-    private sealed record ModuleStatusRow(string Codigo, string Status);
+    private sealed record ModuleCatalogRow(string Codigo, string Nome, string Status, string Descricao);
     private sealed record ParametroRow(long Id, string Chave, string Valor, string Tipo, string Descricao, bool Sensivel);
 
     public async Task<SaasPlanosViewModel> ListarPlanosAsync(CancellationToken cancellationToken)

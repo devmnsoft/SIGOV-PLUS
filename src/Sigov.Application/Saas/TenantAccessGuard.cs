@@ -2,7 +2,7 @@ namespace Sigov.Application.Saas;
 
 public sealed class TenantAccessGuard : ITenantAccessGuard
 {
-    private static readonly HashSet<string> AllowedStatuses = new(StringComparer.OrdinalIgnoreCase) { "ATIVO", "IMPLANTACAO", "HOMOLOGACAO" };
+    private static readonly HashSet<string> AllowedStatuses = new(StringComparer.OrdinalIgnoreCase) { "ATIVO", "TRIAL", "IMPLANTACAO", "EM_IMPLANTACAO", "HOMOLOGACAO" };
     private readonly Func<long, CancellationToken, Task<string?>> _tenantStatusProvider;
     private readonly IModuloLicenciamentoService _moduloLicenciamentoService;
     private readonly IFeatureFlagService _featureFlagService;

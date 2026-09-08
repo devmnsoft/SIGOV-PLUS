@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Api.Contracts;
 using Sigov.Api.Middlewares;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Authorization;
 using Sigov.Application.Industria;
-using System.Security.Claims;
 
 namespace Sigov.Api.Controllers;
 
@@ -15,13 +15,15 @@ public sealed class IndustriaComercialController : ControllerBase
     private readonly ICurrentTenant _tenant;
     private readonly ICurrentUser _user;
     private readonly IIndustriaComercialService _industriaComercial;
+    private readonly IAuthorizationEvaluator _authorization;
     private readonly ILogger<IndustriaComercialController> _logger;
 
-    public IndustriaComercialController(ICurrentTenant tenant, ICurrentUser user, IIndustriaComercialService industriaComercial, ILogger<IndustriaComercialController> logger)
+    public IndustriaComercialController(ICurrentTenant tenant, ICurrentUser user, IIndustriaComercialService industriaComercial, IAuthorizationEvaluator authorization, ILogger<IndustriaComercialController> logger)
     {
         _tenant = tenant;
         _user = user;
         _industriaComercial = industriaComercial;
+        _authorization = authorization;
         _logger = logger;
     }
 
@@ -31,7 +33,7 @@ public sealed class IndustriaComercialController : ControllerBase
         var cid = HttpContext.TraceIdentifier;
         try
         {
-            if (!HasPermission("industria.ordens.criar")) return Forbid();
+            if (!await HasPermission("industria.ordens.criar")) return Forbid();
             var tenantId = _tenant.TenantId ?? throw new InvalidOperationException("tenant_id obrigatório para gerar OP.");
             var ordemId = await _industriaComercial.GerarOrdemProducaoDoPedidoAsync(tenantId, id, _user.UsuarioId, cid, HttpContext.RequestAborted);
             return Ok(ApiResponse<object>.Ok(new { pedidoId = id, ordemId }, "Pedido gerou ordem de produção.", cid));
@@ -48,5 +50,29 @@ public sealed class IndustriaComercialController : ControllerBase
         }
     }
 
-    private bool HasPermission(string permission) => User.Identity?.IsAuthenticated != true || User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.Claims.Any(c => (c.Type == "permission" || c.Type == ClaimTypes.Role) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
+    private async Task<bool> HasPermission(string permission)
+    {
+        if (User.Identity?.IsAuthenticated != true || !_user.UsuarioId.HasValue || !_tenant.TenantId.HasValue)
+            return false;
+
+        var separator = permission.LastIndexOf('.');
+        if (separator <= 0 || separator == permission.Length - 1)
+            return false;
+
+        var qualifiedResource = permission[..separator];
+        var moduleSeparator = qualifiedResource.IndexOf('.');
+        var module = moduleSeparator > 0 ? qualifiedResource[..moduleSeparator] : "industria";
+        var resource = moduleSeparator > 0 ? qualifiedResource[(moduleSeparator + 1)..] : qualifiedResource;
+        var decision = await _authorization.EvaluateAsync(new AuthorizationRequest(
+            _user.UsuarioId.Value,
+            module,
+            resource,
+            permission[(separator + 1)..],
+            _tenant.TenantId,
+            _tenant.EntidadeId,
+            _tenant.ExercicioId,
+            CorrelationId: HttpContext.TraceIdentifier,
+            Origem: "API_INDUSTRIA_COMERCIAL"), HttpContext.RequestAborted).ConfigureAwait(false);
+        return decision.Permitido;
+    }
 }

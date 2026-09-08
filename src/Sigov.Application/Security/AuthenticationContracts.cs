@@ -25,6 +25,7 @@ public sealed record AccountReference(long Id, long? TenantId, string Nome, stri
 public interface IAuthenticationRepository
 {
     Task<AuthenticationUser?> FindForLoginAsync(string loginOrEmail, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<AuthenticationUser>> FindLoginCandidatesAsync(AuthenticationIdentifier identifier, CancellationToken cancellationToken);
     Task<AuthenticationAccess> GetAccessAsync(long userId, CancellationToken cancellationToken);
     Task<AuthenticationAccess> GetRequestAccessAsync(long userId, long? tenantId, long? entidadeId, long? exercicioId, CancellationToken cancellationToken);
     Task<AccountReference?> FindActiveAccountAsync(string loginOrEmail, CancellationToken cancellationToken);

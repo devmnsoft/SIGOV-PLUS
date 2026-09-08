@@ -8,7 +8,6 @@ namespace Sigov.Web.Controllers;
 [Authorize]
 public abstract class EnterprisePageControllerBase : Controller
 {
-    private static readonly Guid DevelopmentFallbackTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IEnterpriseModuleService _service;
     private readonly ITenantContextAccessor _tenantContext;
     private readonly IWebHostEnvironment _environment;
@@ -26,6 +25,11 @@ public abstract class EnterprisePageControllerBase : Controller
 
     protected async Task<IActionResult> ModulePage(string module, string title, string permission, string apiRoute)
     {
+        var moduleAccess = HttpContext.RequestServices.GetRequiredService<IMenuPermissionService>();
+        var permissionAccess = HttpContext.RequestServices.GetRequiredService<IUserPermissionService>();
+        if (!moduleAccess.CanSeeModule(User, module) || !permissionAccess.HasPermission(User, permission))
+            return Forbid();
+
         var tenantId = await ResolveTenantIdAsync(HttpContext.RequestAborted).ConfigureAwait(false);
         if (tenantId is null)
         {
@@ -44,7 +48,7 @@ public abstract class EnterprisePageControllerBase : Controller
         if (long.TryParse(Request.Headers["X-Tenant-Id"].FirstOrDefault(), out var coreTenantFromHeader)) return await _tenantMappingService.ResolveEnterpriseTenantAsync(coreTenantFromHeader, cancellationToken).ConfigureAwait(false);
         var contextTenant = _tenantContext.Resolve();
         if (contextTenant.TenantId.HasValue) return await _tenantMappingService.ResolveEnterpriseTenantAsync(contextTenant.TenantId.Value, cancellationToken).ConfigureAwait(false);
-        return _environment.IsDevelopment() && _configuration.GetValue<bool>("DemoMode:Enabled") ? DevelopmentFallbackTenantId : null;
+        return null;
     }
 
     private static bool TryReadEnterpriseTenant(string? value, out Guid tenantId)

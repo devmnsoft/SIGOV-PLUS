@@ -3,11 +3,18 @@
   var path = Context.Request.Path.Value ?? string.Empty;
   Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
   Func<string[], string> opened = urls => urls.Any(url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase)) ? "open" : string.Empty;
-  var claims = User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope").SelectMany(c => c.Value.Split(new[]{' ',',',';'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+  var claims = User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope").SelectMany(c => c.Value.Split(new[]{' ',',',';'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).ToArray();
+  Func<string, bool> hasPermission = permission => claims.Contains(permission, StringComparer.OrdinalIgnoreCase);
+  Func<string, bool> hasModule = module => User.Claims.Any(c => c.Type == "module" && string.Equals(c.Value, module, StringComparison.OrdinalIgnoreCase));
   var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || claims.Contains("compras_empresariais.dashboard.visualizar", StringComparer.OrdinalIgnoreCase);
   var canSeeSecurity = MenuPermissions.CanSeeModule(User, "seguranca");
   var canSeeAudit = MenuPermissions.CanSeeModule(User, "auditoria-lgpd");
   var canSeeGovernanca = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL") || User.IsInRole("AUDITOR") || claims.Any(c => c.StartsWith("governanca.", StringComparison.OrdinalIgnoreCase));
+  var canSeeIndustry = hasModule("industria_producao") && hasModule("core") && hasModule("estoque_compras") && claims.Any(c => c.StartsWith("industria.", StringComparison.OrdinalIgnoreCase));
+  var canSeeAnyEnterprise = canSeeIndustry || new[] { "comercial", "ordem_servico", "estoque_compras", "manutencao_industrial" }.Any(codigo => MenuPermissions.CanSeeModule(User, codigo));
+  var globalRoles = new[] { "ADMINISTRADOR_GERAL", "SIGOV_ADMIN", "SUPER_ADMIN", "SUPERADMIN", "ADMIN_GERAL" };
+  var isGlobalAdmin = User.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Any(c => globalRoles.Contains(c.Value, StringComparer.OrdinalIgnoreCase));
+  var hasTenantContext = User.Claims.Any(c => c.Type == "tenant_id" && long.TryParse(c.Value, out var tenantId) && tenantId > 0);
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
@@ -31,6 +38,55 @@
       }
       <a class="sigov-nav-link@(active("/BuscaGlobal"))" href="/BuscaGlobal"><sigov-icon name="search" size="18"/><span>Busca Global</span></a>
     </details>
+    @if (canSeeIndustry) {
+    <details class="sigov-nav-group" @opened(new[]{"/Industria"})><summary><sigov-icon name="industry" size="16" />Indústria 360</summary>
+      @if (hasPermission("industria.dashboard.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Dashboard"))" href="/Industria/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span></a>
+      }
+      @if (hasPermission("industria.centros.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/CentrosTrabalho"))" href="/Industria/CentrosTrabalho"><span>Centros de trabalho</span></a>
+      }
+      @if (hasPermission("industria.recursos.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Recursos"))" href="/Industria/Recursos"><span>Recursos</span></a>
+      }
+      @if (hasPermission("industria.produtos.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Produtos"))" href="/Industria/Produtos"><span>Produtos</span></a>
+      }
+      @if (hasPermission("industria.fichas.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/FichasTecnicas"))" href="/Industria/FichasTecnicas"><span>Fichas técnicas</span></a>
+      }
+      @if (hasPermission("industria.roteiros.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Roteiros"))" href="/Industria/Roteiros"><span>Roteiros</span></a>
+      }
+      @if (hasPermission("industria.ordens.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/OrdensProducao"))" href="/Industria/OrdensProducao"><span>Ordens de produção</span></a>
+      <a class="sigov-nav-link@(active("/Industria/Apontamentos"))" href="/Industria/Apontamentos"><span>Apontamentos</span></a>
+      }
+      @if (hasPermission("industria.chao_fabrica.acessar")) {
+      <a class="sigov-nav-link@(active("/Industria/ChaoFabrica"))" href="/Industria/ChaoFabrica"><span>Chão de fábrica</span></a>
+      }
+      @if (hasPermission("industria.qualidade.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Qualidade"))" href="/Industria/Qualidade"><span>Qualidade</span></a>
+      }
+      @if (hasPermission("industria.paradas.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Paradas"))" href="/Industria/Paradas"><span>Paradas</span></a>
+      }
+      @if (hasPermission("industria.custos.visualizar")) {
+      <a class="sigov-nav-link@(active("/Industria/Custos"))" href="/Industria/Custos"><span>Custos</span></a>
+      }
+    </details>
+    }
+    @if (isGlobalAdmin && !hasTenantContext) {
+    <details class="sigov-nav-group" @opened(new[]{"/SaasAdmin"})><summary><sigov-icon name="settings" size="16" />Administração SaaS</summary>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Dashboard"))" href="/SaasAdmin/Dashboard"><span>Visão geral</span></a>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Tenants"))" href="/SaasAdmin/Tenants"><span>Organizações</span></a>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Autorizacao"))" href="/SaasAdmin/Autorizacao"><span>Perfis e permissões</span></a>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Planos"))" href="/SaasAdmin/Planos"><span>Planos</span></a>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Modulos"))" href="/SaasAdmin/Modulos"><span>Módulos</span></a>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Assinaturas"))" href="/SaasAdmin/Assinaturas"><span>Assinaturas</span></a>
+      <a class="sigov-nav-link@(active("/SaasAdmin/Uso"))" href="/SaasAdmin/Uso"><span>Uso e limites</span></a>
+    </details>
+    }
     <details class="sigov-nav-group" @opened(new[]{"/Convenios"})><summary><sigov-icon name="finance" size="16" />Convênios e Emendas</summary>
       <a class="sigov-nav-link@(active("/Convenios"))" href="/Convenios/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span></a>
       <a class="sigov-nav-link" href="/Convenios/Instrumentos"><span>Instrumentos</span></a><a class="sigov-nav-link" href="/Convenios/Projetos"><span>Projetos</span></a><a class="sigov-nav-link" href="/Convenios/PrestacoesContas"><span>Prestação de contas</span></a><a class="sigov-nav-link" href="/Convenios/Relatorios"><span>Relatórios</span></a>
@@ -181,6 +237,7 @@
       <a class="sigov-nav-link@(active("/IA"))" href="/IA"><sigov-icon name="ai" size="18"/><span>IA</span></a>
       <a class="sigov-nav-link@(active("/Operacao/Health"))" href="/Operacao/Health"><sigov-icon name="active" size="18"/><span>Health</span></a>
     </details>
+    @if (canSeeAnyEnterprise) {
     <details class="sigov-nav-group" @opened(new[]{"/Empresarial"})><summary><sigov-icon name="commercial" size="16" />Empresarial SaaS</summary>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Dashboard"))" href="/Empresarial/Comercial/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Clientes"))" href="/Empresarial/Comercial/Clientes"><sigov-icon name="commercial" size="18"/><span>Clientes</span></a>
@@ -218,6 +275,7 @@
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Qualidade"))" href="/Empresarial/Industrial/Qualidade"><sigov-icon name="industry" size="18"/><span>Qualidade</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Relatorios"))" href="/Empresarial/Industrial/Relatorios"><sigov-icon name="industry" size="18"/><span>Relatorios</span></a>
     </details>
+    }
     <details class="sigov-nav-group" @opened(new[]{"/SystemHealth","/Observabilidade","/Seguranca","/Auditoria","/Lgpd"})><summary><sigov-icon name="shield" size="16" />Governança e Segurança</summary>
       <a class="sigov-nav-link@(active("/SystemHealth/ProjectStatus"))" href="/SystemHealth/ProjectStatus"><span>Project Status</span></a>
       <a class="sigov-nav-link@(active("/Observabilidade"))" href="/Observabilidade/Dashboard"><span>Observabilidade</span></a>

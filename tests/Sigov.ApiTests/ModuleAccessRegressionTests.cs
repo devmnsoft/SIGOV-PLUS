@@ -17,6 +17,10 @@ public sealed class ModuleAccessRegressionTests
         moduleAttribute.Should().Contain("IsModuleEnabledAsync");
         featureAttribute.Should().Contain("StatusCodes.Status403Forbidden");
         featureAttribute.Should().Contain("IsEnabledAsync");
+
+        var licensing = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Saas", "SaasServices.cs"));
+        licensing.Should().Contain("IModuleAccessRepository");
+        licensing.Should().NotContain("from sigov.tenant_modulo tm");
     }
 
     [Fact]

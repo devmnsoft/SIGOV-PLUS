@@ -1,5 +1,6 @@
 using Dapper;
 using Sigov.Application.Saas;
+using Sigov.Application.Saas.Modules;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Saas;
@@ -28,28 +29,34 @@ public sealed class FeatureFlagService : IFeatureFlagService
     }
 }
 
-public sealed class ModuloLicenciamentoService : IModuloLicenciamentoService
+public sealed class ModuloLicenciamentoService(IModuleAccessRepository repository, IModuleCatalogService catalog) : IModuloLicenciamentoService
 {
-    private readonly DapperContext _context;
-
-    public ModuloLicenciamentoService(DapperContext context) => _context = context;
+    private static readonly ISet<string> EnabledStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "CONTRATADO", "HABILITADO", "ATIVO", "TRIAL", "EM_IMPLANTACAO", "BETA"
+    };
 
     public async Task<bool> IsModuleEnabledAsync(long tenantId, string moduleCode, CancellationToken cancellationToken)
     {
-        const string sql = @"select exists (
-    select 1
-    from sigov.tenant_modulo tm
-    join sigov.modulo_saas ms on ms.id = tm.modulo_saas_id
-    where tm.tenant_id = @TenantId
-      and ms.codigo = @ModuleCode
-      and tm.habilitado = true
-      and tm.contratado = true
-      and tm.ativo = true
-      and ms.ativo = true
-);
-";
-        using var connection = _context.CreateConnection();
-        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(sql, new { TenantId = tenantId, ModuleCode = moduleCode }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var contract = await repository.GetTenantModuleAsync(tenantId, moduleCode, cancellationToken).ConfigureAwait(false);
+        if (!IsEnabled(contract)) return false;
+
+        var module = catalog.FindByCode(moduleCode);
+        if (module is null) return false;
+        foreach (var dependency in module.Dependencias)
+        {
+            if (!IsEnabled(await repository.GetTenantModuleAsync(tenantId, dependency, cancellationToken).ConfigureAwait(false)))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool IsEnabled(TenantModuleContract? contract)
+    {
+        if (contract is null || !contract.Active || !EnabledStatuses.Contains(contract.Status)) return false;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return (!contract.EffectiveFrom.HasValue || contract.EffectiveFrom <= today) &&
+               (!contract.EffectiveUntil.HasValue || contract.EffectiveUntil >= today);
     }
 }
 
