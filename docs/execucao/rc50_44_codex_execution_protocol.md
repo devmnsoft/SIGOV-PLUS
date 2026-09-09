@@ -11,6 +11,10 @@
 ## Comandos padrão
 ```bash
 git status
+dotnet --info
+dotnet restore sigov.sln --locked-mode
+dotnet build sigov.sln -c Release --no-restore -warnaserror
+dotnet test sigov.sln -c Release --no-build
 python -m json.tool database/postgres/migrations/manifest.json
 ./scripts/check-migration-partial-index-columns.sh database/postgres/migrations
 ./scripts/check-migration-index-columns.sh database/postgres/migrations
@@ -20,12 +24,11 @@ python -m json.tool database/postgres/migrations/manifest.json
 rg '"""' src -g '*.cs'
 rg "SELECT \\*" src database/postgres/migrations
 bash scripts/check-api-route-conflicts.sh
-dotnet build sigov.runtime.slnf --configuration Release --nologo -warnaserror
 psql -h localhost -p 5432 -U postgres -d postgres -v ON_ERROR_STOP=1 -f database/postgres/script_completo_dev.sql
 ```
 
 ## Guardrails
-- C# 10; não usar raw string literal, EF, `SELECT *` nem SQL concatenado. Identificadores dinâmicos exigem allowlist/validação anterior à interpolação.
+- SDK 10.0.100 conforme `global.json`, com `rollForward: latestFeature`; target `net10.0`, C# 14, nullable habilitado e warnings tratados como erros. Não introduzir EF, `SELECT *` nem SQL concatenado. Identificadores dinâmicos exigem allowlist/validação anterior à interpolação.
 - Não criar database `sigov`, não dropar tabela nem apagar dados. Banco é `postgres`; schema/search path é `sigov`.
 - Preservar login, Swagger, manifest e scripts completos. Após SQL: atualizar checksum, regenerar ambos os scripts pelos utilitários oficiais e repetir validação.
 - Em sprint funcional, entregar no mínimo estabilização, funcionalidade, regra/auditoria/LGPD e UX/relatório/menu.

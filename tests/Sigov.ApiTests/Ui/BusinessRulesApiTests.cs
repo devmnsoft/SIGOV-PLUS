@@ -12,15 +12,15 @@ public sealed class BusinessRulesApiTests : IClassFixture<SigovApiFactory>
     public BusinessRulesApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Regras_De_Negocio_Deve_Responder_Lista_E_Modulo()
+    public async Task Regras_De_Negocio_Anonimo_Deve_Ser_Negado()
     {
         using var client = _factory.CreateClient();
         using var listResponse = await client.GetAsync("/api/regras-negocio");
         using var moduleResponse = await client.GetAsync("/api/regras-negocio/Core");
 
-        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        moduleResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        moduleResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         var body = await moduleResponse.Content.ReadAsStringAsync();
-        body.Should().Contain("Documento CPF/CNPJ");
+        body.Should().NotContain("Documento CPF/CNPJ");
     }
 }

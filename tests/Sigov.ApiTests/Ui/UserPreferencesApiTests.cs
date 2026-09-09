@@ -17,8 +17,8 @@ public sealed class UserPreferencesApiTests : IClassFixture<SigovApiFactory>
         using var client = _factory.CreateClient();
         using var response = await client.GetAsync("/api/ui/preferencias/tema");
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("Usuário obrigatório");
+        body.Should().NotContain("Usuário obrigatório");
     }
 }

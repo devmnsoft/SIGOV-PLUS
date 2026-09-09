@@ -251,8 +251,26 @@ jobs:
             psscriptanalyzer.log
             smoke-static.log
 
+  migration-governance-static:
+    needs: workflow-integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifest, classified orphans, SQL policy and generated baselines
+        shell: pwsh
+        run: ./scripts/check-migration-governance.ps1 -StaticOnly 2>&1 | Tee-Object -FilePath migration-governance-static.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-governance-static
+          path: |
+            migration-governance-static.log
+            artifacts/p0/migrations/inventory.json
+            artifacts/p0/migrations/inventory.md
+
   migrations-manifest:
-    needs: [database-secret-preflight, workflow-integrity, release-context]
+    needs: [database-secret-preflight, workflow-integrity, release-context, migration-governance-static]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:

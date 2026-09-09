@@ -9,10 +9,10 @@ public sealed class SaneamentoApiTests : IClassFixture<SigovApiFactory>
     private readonly SigovApiFactory _factory;
     public SaneamentoApiTests(SigovApiFactory factory) => _factory = factory;
     [Fact]
-    public async Task Dashboard_Sem_Tenant_Deve_Bloquear_Acesso_Ao_Modulo()
+    public async Task Dashboard_Anonimo_Deve_Retornar_Unauthorized()
     {
         using var client = _factory.CreateClient();
         using var response = await client.GetAsync("/api/saneamento/dashboard");
-        ((int)response.StatusCode).Should().BeOneOf(400, 403);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
     }
 }

@@ -726,7 +726,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7",
-      "postConditionSql": "select to_regclass('sigov.saude_paciente') is not null and to_regclass('sigov.saude_farmacia_movimento') is not null"
+      "postConditionSql": "select to_regclass('sigov.saude_paciente') is not null and to_regclass('sigov.saude_farmacia_movimento') is not null and to_regclass('sigov.integracao_interna_evento') is not null",
+      "compatibilityBefore": [
+        {
+          "file": "080_pre_rc50_38_integracao_interna_evento.sql",
+          "checksum": "33312afece4dd0dd3d6ccafeee524218746d3d3d8fb58be7265cb93fe20d70dd"
+        }
+      ]
     },
     {
       "version": "20260816121000",
@@ -756,7 +762,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa",
-      "postConditionSql": "select to_regclass('sigov.frota_veiculo') is not null and to_regclass('sigov.obra_medicao') is not null"
+      "postConditionSql": "select to_regclass('sigov.frota_veiculo') is not null and to_regclass('sigov.obra_medicao') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='obra' and column_name='codigo')",
+      "compatibilityBefore": [
+        {
+          "file": "081_pre_rc50_38_obra_compatibility.sql",
+          "checksum": "ddfa68452d6f6c73d42fcee2bbe23c1f802bdf9f20b9facb465eaf9d72971a8b"
+        }
+      ]
     },
     {
       "version": "20260817120000",
@@ -1114,7 +1126,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "5c4a26e582e967309c817bebecf3c089d69059d1a219c38a30aee8f56e94e41d",
-      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar')",
+      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id' and is_nullable='YES')",
+      "compatibilityBefore": [
+        {
+          "file": "082_pre_rc50_60_perfil_global_compatibility.sql",
+          "checksum": "c250ec67f979bf7cb70c7d2f2088cbcadc9c0db517333848330d05bc8c71268a"
+        }
+      ],
       "knownChecksums": [
         "93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c"
       ]
@@ -1186,7 +1204,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "b349733d0bbdbe6fbfdd33b90b87b703439e6aca417734b45cc03eca506abe09",
-      "postConditionSql": "select to_regclass('sigov.sessao_contexto_usuario') is not null and to_regclass('sigov.contexto_operacional_auditoria') is not null"
+      "postConditionSql": "select to_regclass('sigov.sessao_contexto_usuario') is not null and to_regclass('sigov.contexto_operacional_auditoria') is not null and to_regclass('sigov.permissao_chave_uidx') is not null and not exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.permissao') and conname='uk_sigov_permissao_modulo_recurso_acao')",
+      "compatibilityBefore": [
+        {
+          "file": "083_pre_rc50_68c_permissao_chave_compatibility.sql",
+          "checksum": "209c50f0526aa7f03098bde1ad884a34208ee9350f0170fc1848aa868a3016ec"
+        }
+      ]
     },
     {
       "version": "20260820230000",
@@ -1216,7 +1240,13 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "d1e705d8727ad182ce18d0820147edf47bc92c9a3af8d889943a69c59036373f",
-      "postConditionSql": "select to_regclass('sigov.patrimonio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='patrimonio.bem.visualizar')"
+      "postConditionSql": "select to_regclass('sigov.patrimonio_auditoria') is not null and exists(select 1 from sigov.permissao where chave='patrimonio.bem.visualizar') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='patrimonio_bem' and column_name='codigo_tombo' and is_nullable='NO') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='patrimonio_inventario' and column_name='codigo' and is_nullable='NO')",
+      "compatibilityBefore": [
+        {
+          "file": "084_pre_func01_patrimonio_compatibility.sql",
+          "checksum": "1ccb393fd79990c579c0f377e89e38587798685dac302c1934d2068cae6d3194"
+        }
+      ]
     },
     {
       "version": "20260824180000",
@@ -1261,7 +1291,14 @@
       "file": "20260824230000_func05_educacao_gestao_escolar.sql",
       "checksum": "f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86",
       "applyAutomatically": true,
-      "includeInBaseline": true
+      "includeInBaseline": true,
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_comunicado' and column_name='entidade_id') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_portal_vinculo' and column_name='entidade_id') and exists(select 1 from sigov.permissao where chave='educacao.escola.visualizar')",
+      "compatibilityBefore": [
+        {
+          "file": "085_pre_func05_educacao_portal_compatibility.sql",
+          "checksum": "8718da62d80bafa5af25c681d169661f03fbfaa769a77531cd7bf9855fbb797f"
+        }
+      ]
     },
     {
       "version": "20260825000000",
@@ -1281,7 +1318,13 @@
       "checksum": "2ed8027063d864eccd79b6524f6052acbcbe578187cc9c0cdd9cc2376ed5a90c",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.saneamento_unidade_consumidora') is not null and exists(select 1 from sigov.permissao where chave='SANEAMENTO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.saneamento_unidade_consumidora') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saneamento_unidade_consumidora' and column_name='matricula' and is_nullable='NO') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saneamento_unidade_consumidora' and column_name='categoria' and is_nullable='NO') and exists(select 1 from sigov.permissao where chave='SANEAMENTO_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "086_pre_func07_saneamento_uc_compatibility.sql",
+          "checksum": "3653d6b44e84dc510b90085b322208bcb8ad72d67067fb3900d4be62f9b395f3"
+        }
+      ]
     },
     {
       "version": "20260825020000",
@@ -1295,13 +1338,19 @@
     },
     {
       "version": "20260825030000",
-      "description": "FUNC09 Tributário e Receita Municipal",
+      "description": "FUNC09 Tributário e Receita Multi-esfera (arquivo histórico preservado)",
       "category": "functional",
       "file": "20260825030000_func09_tributario_receita_municipal.sql",
       "checksum": "f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_certidao') is not null and exists(select 1 from sigov.permissao where chave='TRIBUTARIO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.tributario_lancamento') is not null and to_regclass('sigov.tributario_certidao') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='tributario_contribuinte' and column_name='entidade_id') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='tributario_guia' and column_name='vencimento') and exists(select 1 from sigov.permissao where chave='TRIBUTARIO_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "087_pre_func09_tributario_compatibility.sql",
+          "checksum": "43cdf3512c6e9a5e35c84e8bc079fcf4be871ba31a395dae6bfc34721fbed252"
+        }
+      ]
     },
     {
       "version": "20260825040000",
@@ -1321,7 +1370,13 @@
       "checksum": "d5a269a1812ff2e0f04e9e61661fc8e89e4042653c341b0c71a1c43c341ced85",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.agro_produtor') is not null and to_regclass('sigov.agro_solicitacao') is not null and exists(select 1 from sigov.permissao where chave='AGRO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.agro_produtor') is not null and to_regclass('sigov.agro_solicitacao') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='agro_produtor' and column_name='cpf_cnpj') and exists(select 1 from sigov.permissao where chave='AGRO_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "088_pre_func11_agro_produtor_compatibility.sql",
+          "checksum": "134ba7e7450c42a869616c181be8615102b165fbe24d140630912150a348988b"
+        }
+      ]
     },
     {
       "version": "20260825060000",
@@ -1727,6 +1782,12 @@
       "postConditionSql": "select to_regclass('sigov.governanca_entidade_hierarquia') is not null and to_regclass('sigov.protocolo_movimentacao') is not null and to_regclass('sigov.financeiro_execucao_orcamentaria') is not null and exists(select 1 from sigov.permissao where chave='ESTRUTURANTES_RELATORIO_EXPORT')",
       "knownChecksums": [
         "daa1c395e69fd32c0889da47cfc74e87657cc15f74f137ff0069d0a0ab208989"
+      ],
+      "compatibilityBefore": [
+        {
+          "file": "089_pre_rc50_85_contrato_fiscal_compatibility.sql",
+          "checksum": "3d3b5bfd686214865f5f2ec315d2c641102eae9fb4c8ed3f1dd3a056e0ea4eb7"
+        }
       ]
     },
     {
@@ -1826,7 +1887,13 @@
       "checksum": "376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.financeiro_dotacao') is not null and to_regclass('sigov.contabilidade_lancamento') is not null and exists(select 1 from sigov.permissao where chave='FINANCEIRO_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.financeiro_dotacao') is not null and to_regclass('sigov.contabilidade_lancamento') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='financeiro_unidade_orcamentaria' and column_name='esfera_governo' and is_nullable='NO') and exists(select 1 from sigov.permissao where chave='FINANCEIRO_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "090_pre_rc50_86_financeiro_multiesfera_compatibility.sql",
+          "checksum": "46a3ca0fb5821ca9db9838acfd5887db60a84e916d97561a71bb6a62a9146e6a"
+        }
+      ]
     },
     {
       "version": "20260901030000",
@@ -1846,7 +1913,13 @@
       "checksum": "40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.rh_servidor') is not null and to_regclass('sigov.folha_competencia') is not null and to_regclass('sigov.rh_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='RH_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.rh_servidor') is not null and to_regclass('sigov.folha_competencia') is not null and to_regclass('sigov.rh_auditoria_sensivel') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='rh_frequencia' and column_name='servidor_id') and exists(select 1 from sigov.permissao where chave='RH_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "091_pre_rc50_88_rh_frequencia_compatibility.sql",
+          "checksum": "0a43d3c515ce25652f0b183f7e9e3350e052dd3a26a287cc6df433220aa3e5dd"
+        }
+      ]
     },
     {
       "version": "20260901090000",
@@ -1866,7 +1939,13 @@
       "checksum": "79994e71582be89f98a632ba41e58a2a28f566d819376896550761dc95b579c0",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.saude_unidade') is not null and to_regclass('sigov.saude_regulacao_solicitacao') is not null and to_regclass('sigov.saude_auditoria_sensivel') is not null and exists(select 1 from sigov.permissao where chave='SAUDE_DASHBOARD_VIEW')",
+      "postConditionSql": "select to_regclass('sigov.saude_unidade') is not null and to_regclass('sigov.saude_regulacao_solicitacao') is not null and to_regclass('sigov.saude_auditoria_sensivel') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saude_unidade' and column_name='orgao_id') and exists(select 1 from sigov.permissao where chave='SAUDE_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "092_pre_rc50_90_saude_unidade_compatibility.sql",
+          "checksum": "7fdc59f3f9d500753ac6784ec42f56e0b2b765baa3c11412013971c16ffc8c08"
+        }
+      ],
       "knownChecksums": [
         "1600232d2b536459b9dd9b2c71c18d97adb94edb196023a2c37d97f6b560c213"
       ]
@@ -1892,7 +1971,13 @@
       "checksum": "8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.saneamento_ocorrencia') is not null and to_regclass('sigov.meio_ambiente_licenca') is not null and exists(select 1 from sigov.permissao where chave='MEIO_AMBIENTE_DASHBOARD_VIEW')"
+      "postConditionSql": "select to_regclass('sigov.saneamento_ocorrencia') is not null and to_regclass('sigov.meio_ambiente_licenca') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saneamento_ordem_servico' and column_name='orgao_id') and exists(select 1 from sigov.permissao where chave='MEIO_AMBIENTE_DASHBOARD_VIEW')",
+      "compatibilityBefore": [
+        {
+          "file": "093_pre_rc50_92_saneamento_operacao_compatibility.sql",
+            "checksum": "edc15959c957153ab46b89279d53a5ce4906418d7f498bc53091856ec868b694"
+        }
+      ]
     },
     {
       "version": "20260901210000",
@@ -1916,12 +2001,12 @@
     },
     {
       "version": "20260902010000",
-      "description": "Correção aditiva do schema e da validação histórica do módulo Compras",
+      "description": "Validação histórica UUID de Compras preservada e substituída pelas correções bigint posteriores",
       "category": "schema",
       "file": "20260902010000_corr_compras_checksum_schema.sql",
       "checksum": "19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f",
-      "applyAutomatically": true,
-      "includeInBaseline": true,
+      "applyAutomatically": false,
+      "includeInBaseline": false,
       "postConditionSql": "select not exists (\n select 1 from (values ('compras_fornecedor_cotacao'),('compras_proposta'),('compras_habilitacao'),('compras_recurso'),('contrato_administrativo'),('contrato_sancao')) required(table_name)\n where to_regclass('sigov.'||required.table_name) is null\n or not exists(select 1 from information_schema.columns c where c.table_schema='sigov' and c.table_name=required.table_name and c.column_name='fornecedor_id' and c.udt_name='int8')\n or not exists(select 1 from pg_attribute s join pg_attribute target on target.attrelid=to_regclass('sigov.compras_fornecedor') and target.attname='id' and not target.attisdropped where s.attrelid=to_regclass('sigov.'||required.table_name) and s.attname='fornecedor_id' and not s.attisdropped and s.atttypid='int8'::regtype and s.atttypid=target.atttypid)\n or not exists(select 1 from pg_constraint fk cross join lateral unnest(fk.conkey) with ordinality sk(attnum,ord) join lateral unnest(fk.confkey) with ordinality tk(attnum,ord) using(ord) join pg_attribute sa on sa.attrelid=fk.conrelid and sa.attnum=sk.attnum join pg_attribute ta on ta.attrelid=fk.confrelid and ta.attnum=tk.attnum where fk.conrelid=to_regclass('sigov.'||required.table_name) and fk.confrelid=to_regclass('sigov.compras_fornecedor') and fk.contype='f' and sa.attname='fornecedor_id' and ta.attname='id' and fk.conkey=array[sa.attnum]::smallint[] and fk.confkey=array[ta.attnum]::smallint[] and sa.atttypid=ta.atttypid and fk.convalidated)\n) and exists(select 1 from pg_attribute a join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum where a.attrelid=to_regclass('sigov.contrato_fiscal') and a.attname='ativo' and not a.attisdropped and a.atttypid='bool'::regtype and a.attnotnull and pg_get_expr(d.adbin,d.adrelid) in ('true','true::boolean'))\nand exists(select 1 from pg_index i join pg_class idx on idx.oid=i.indexrelid join pg_class tbl on tbl.oid=i.indrelid join pg_namespace n on n.oid=tbl.relnamespace where n.nspname='sigov' and tbl.relname='contrato_fiscal' and idx.relname='ix_contrato_fiscal_ativo' and i.indisvalid and i.indnkeyatts=3 and i.indnatts=3 and i.indexprs is null and i.indpred is null and (select array_agg(a.attname order by k.ord) from unnest(i.indkey) with ordinality k(attnum,ord) join pg_attribute a on a.attrelid=i.indrelid and a.attnum=k.attnum)=array['tenant_id','contrato_id','ativo']::name[])",
       "postConditionProbes": [
         {
@@ -1998,15 +2083,15 @@
     },
     {
       "version": "20260903130000",
-      "description": "Correção final dos objetos e pós-condições do LicitaPro",
+      "description": "Correção histórica publicada do LicitaPro preservada e substituída pela migration forward-only 20260903173000",
       "category": "corrective",
       "file": "20260903130000_corr_licitapro_postconditions_schema.sql",
       "checksum": "c237332d2878958e55a6a535208c77ded73521be5c805a52e06a01493b347a6b",
       "knownChecksums": [
         "2ee4b77413f755230ad1bdaef456893c1f5f045866ea436e78d388a0b4f18364"
       ],
-      "applyAutomatically": true,
-      "includeInBaseline": true,
+      "applyAutomatically": false,
+      "includeInBaseline": false,
       "postConditionSql": "select\n    to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento') is not null\n    and exists (\n        select 1\n        from pg_constraint c\n        where c.conrelid=to_regclass('sigov.compras_licitapro_fonte')\n          and c.conname='ck_clp_fonte_endpoint_url'\n          and c.contype='c'\n    )\n    and exists (\n        select 1\n        from pg_index i\n        join pg_class idx on idx.oid=i.indexrelid\n        join pg_namespace idx_ns on idx_ns.oid=idx.relnamespace\n        where i.indexrelid=to_regclass('sigov.ix_clp_alerta_tenant_status_vencimento')\n          and i.indrelid=to_regclass('sigov.compras_licitapro_alerta')\n          and idx_ns.nspname='sigov'\n          and idx.relname='ix_clp_alerta_tenant_status_vencimento'\n          and i.indisvalid\n          and i.indnkeyatts=4 and i.indnatts=4\n          and i.indexprs is null and i.indpred is null\n          and (\n              select array_agg(a.attname order by keys.ordinality)\n              from unnest(i.indkey) with ordinality keys(attnum, ordinality)\n              join pg_attribute a on a.attrelid=i.indrelid and a.attnum=keys.attnum\n          ) = array['tenant_id','entidade_id','status','vencimento_at']::name[]\n    )"
     },
     {

@@ -12,11 +12,11 @@ public sealed class IntegracoesApiTests : IClassFixture<SigovApiFactory>
     public IntegracoesApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task DashboardSemTenant_RetornaBadRequestOuForbidden()
+    public async Task DashboardAnonimo_RetornaUnauthorized()
     {
         using var client = _factory.CreateClient();
         var response = await client.GetAsync("/api/integracoes/dashboard");
-        Assert.True(response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -24,6 +24,7 @@ public sealed class IntegracoesApiTests : IClassFixture<SigovApiFactory>
     {
         using var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync("/api/integracoes/webhooks/receber/dev", new WebhookReceberRequest("Ping", new { ok = true }, "idem-1"));
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.False(body.Contains("StackTrace", StringComparison.OrdinalIgnoreCase));
     }

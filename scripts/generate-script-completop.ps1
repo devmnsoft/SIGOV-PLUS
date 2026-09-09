@@ -8,6 +8,7 @@ $versionPath = Join-Path $root 'eng/version.json'
 $out = Join-Path $root 'database/postgres/script_completo.sql'
 $devOut = Join-Path $root 'database/postgres/script_completo_dev.sql'
 $devCompatibilityOut = Join-Path $root 'script_completo_dev.sql'
+$applyAllOut = Join-Path $root 'database/apply_all_required_migrations.sql'
 $developmentSeeds = @(
     (Join-Path $root 'database/postgres/seeds/development/999_super_admin_access_guard.sql'),
     (Join-Path $root 'database/postgres/seeds/rc50_68a_perfis_autorizacao.sql')
@@ -118,6 +119,32 @@ $sb = [System.Text.StringBuilder]::new()
 [void]$sb.AppendLine('    add column if not exists execution_ms bigint null;')
 [void]$sb.AppendLine()
 
+# O consolidado é executado pelo psql. Antes de reprocessar DDL histórico, usa o
+# ledger para distinguir uma reaplicação completa de uma instalação parcial. Os
+# knownChecksums publicados também são aceitos, conforme o contrato do manifest.
+$baselineRequirementRows = foreach ($entry in $included) {
+    $acceptedChecksums = @([string]$entry.checksum)
+    if ($null -ne $entry.knownChecksums) {
+        $acceptedChecksums += @($entry.knownChecksums | ForEach-Object { [string]$_ })
+    }
+    $quotedChecksums = @($acceptedChecksums | ForEach-Object { "'$(($_ -replace "'", "''"))'" })
+    $escapedVersion = ([string]$entry.version) -replace "'", "''"
+    "        ('$escapedVersion', array[$($quotedChecksums -join ',')]::text[])"
+}
+[void]$sb.AppendLine('select exists (')
+[void]$sb.AppendLine('    select 1')
+[void]$sb.AppendLine('    from (values')
+[void]$sb.AppendLine(($baselineRequirementRows -join ",`n"))
+[void]$sb.AppendLine('    ) required(version, accepted_checksums)')
+[void]$sb.AppendLine('    left join sigov.schema_migrations applied on applied.version = required.version')
+[void]$sb.AppendLine('    where applied.version is null')
+[void]$sb.AppendLine('       or not applied.success')
+[void]$sb.AppendLine('       or not (applied.checksum = any(required.accepted_checksums))')
+[void]$sb.AppendLine(') as sigov_baseline_pending')
+[void]$sb.AppendLine('\gset')
+[void]$sb.AppendLine('\if :sigov_baseline_pending')
+[void]$sb.AppendLine()
+
 foreach ($entry in $included) {
     $path = Join-Path $migrationsDir $entry.file
     $normalized = Get-NormalizedText $path
@@ -151,11 +178,34 @@ foreach ($compatibility in $compatibilityAfterAll) {
     Add-CompatibilityFile -Builder $sb -Compatibility $compatibility -Stage 'AFTER ALL MIGRATIONS'
 }
 
+[void]$sb.AppendLine('\else')
+[void]$sb.AppendLine("\echo 'Baseline canônico já registrado; nenhuma migration foi reaplicada.'")
+[void]$sb.AppendLine('\endif')
+[void]$sb.AppendLine()
+
 foreach ($entry in $excluded) {
     [void]$sb.AppendLine("-- EXCLUDED_FROM_BASELINE: $($entry.file) [$($entry.category)]")
 }
 
 $new = $sb.ToString().Replace("`r`n", "`n")
+$applyAllNew = @"
+\set ON_ERROR_STOP on
+\echo 'Aplicando baseline canônico SIGOV PLUS...'
+
+\i /database/script_completo.sql
+
+create table if not exists sigov.docker_schema_migrations (
+    id bigint generated always as identity primary key,
+    name text not null unique,
+    applied_at timestamptz not null default now()
+);
+
+insert into sigov.docker_schema_migrations (name)
+values ('00000000000000_script_completo_baseline')
+on conflict (name) do nothing;
+
+\echo 'Baseline canônico SIGOV PLUS aplicado com sucesso.'
+"@.Replace("`r`n", "`n")
 $devNew = $null
 if ($IncludeDevelopmentSeed) {
     $devNew = $new + "`n-- DEVELOPMENT ONLY: seeds fictícias idempotentes`n"
@@ -177,6 +227,9 @@ if ($Verify) {
         $compatibilityText = [System.IO.File]::ReadAllText($compatibilityOutput).Replace("`r`n", "`n")
         if ($compatibilityText -ne $new) { throw "Artefato de compatibilidade divergente: $compatibilityOutput" }
     }
+    if (-not (Test-Path $applyAllOut)) { throw "Artefato de aplicação ausente: $applyAllOut" }
+    $applyAllText = [System.IO.File]::ReadAllText($applyAllOut).Replace("`r`n", "`n")
+    if ($applyAllText -ne $applyAllNew) { throw "Artefato de aplicação divergente: $applyAllOut" }
     if ($IncludeDevelopmentSeed) {
         foreach ($developmentOutput in @($devOut, $devCompatibilityOut)) {
             if (-not (Test-Path $developmentOutput)) { throw "Artefato Development ausente: $developmentOutput" }
@@ -193,6 +246,7 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 foreach ($compatibilityOutput in $compatibilityOutputs) {
     [System.IO.File]::WriteAllText($compatibilityOutput, $new, $utf8NoBom)
 }
+[System.IO.File]::WriteAllText($applyAllOut, $applyAllNew, $utf8NoBom)
 if ($IncludeDevelopmentSeed) {
     foreach ($developmentOutput in @($devOut, $devCompatibilityOut)) {
         [System.IO.File]::WriteAllText($developmentOutput, $devNew, $utf8NoBom)
