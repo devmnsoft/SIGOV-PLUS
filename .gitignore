@@ -7,5 +7,31 @@ appsettings.Local.json
 .env
 .env.*
 !.env.example
+
+# Artefatos gerados por IDE, build, testes e publicacao local.
+.vs/
+bin/
+obj/
+artifacts/
+TestResults/
+*.trx
+*.pdb
+*.suo
+*.user
+*.cache
+*.vsidx
+*.db-shm
+*.db-wal
+*.binlog
+*.log
+
+# Backups locais e copias temporarias nao canonicas.
+*.bak
+*.backup
+*.backup.*
+*.backup_*
+*.tmp
+*temporario*
+*copia*
 # Evidências locais geradas pela homologação RC50.68 (podem conter metadados do ambiente).
 artifacts/rc50-68-local-promotion/
