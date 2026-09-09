@@ -1995,9 +1995,9 @@
       "category": "schema",
       "file": "20260902000000_rc50_98_ged_workflow_branding_logo.sql",
       "checksum": "f5a4370460581e6b3e78a1f0ab30e2487fc272e66c53634be46541d470e8b007",
-      "applyAutomatically": true,
-      "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('ged.smart_workflow_task') is not null and to_regclass('ged.smart_workflow_event') is not null and to_regclass('ged.smart_workflow_rule') is not null and to_regclass('ged.smart_workflow_dashboard_snapshot') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saas_tenant_branding' and column_name='logo_fit')"
+      "applyAutomatically": false,
+      "includeInBaseline": false,
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saas_tenant_branding' and column_name='logo_fit')"
     },
     {
       "version": "20260902010000",
@@ -2205,6 +2205,19 @@
       "applyAutomatically": true,
       "includeInBaseline": true,
       "postConditionSql": "select to_regclass('sigov.tenant_modulo_contratado_historico') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='modulo_saas' and column_name='preco_mensal' and udt_name='numeric') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='tenant_modulo_contratado' and column_name='valor_contratado' and udt_name='numeric') and exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.tenant_modulo_contratado') and conname='ck_tenant_modulo_contratado_status_v2' and contype='c') and exists(select 1 from pg_trigger where tgrelid=to_regclass('sigov.tenant_modulo_contratado') and tgname='trg_tenant_modulo_contrato_auditar' and not tgisinternal) and exists(select 1 from pg_trigger where tgrelid=to_regclass('sigov.tenant_modulo_contratado') and tgname='trg_tenant_modulo_compatibilizar' and not tgisinternal) and exists(select 1 from sigov.modulo_saas where codigo='industria_producao' and nome='Indústria 360' and disponivel_contratacao)"
+    },
+    {
+      "version": "20260909120000",
+      "description": "Sessão persistente de identidade com revogação e versão de autorização",
+      "category": "correction",
+      "file": "20260909120000_rc51_identidade_sessao_persistente.sql",
+      "checksum": "0dbe94d680f16fd4bb2d50c5215a96fab00a4d70278f28099eaa6d078d7df52e",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260901030000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.identidade_sessao') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='identidade_sessao' and column_name='auth_version' and udt_name='int8') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='identidade_sessao' and column_name='revogada_at' and udt_name='timestamptz') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='identidade_sessao' and column_name='is_deleted' and udt_name='bool') and exists(select 1 from pg_index where indexrelid=to_regclass('sigov.ix_identidade_sessao_token_hash_ativa') and indisvalid)"
     }
   ],
   "compatibilityAfterAll": [

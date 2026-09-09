@@ -25,6 +25,7 @@ public sealed class AuthPermissionRegressionTests
     public void Api_Deve_Autenticar_Antes_De_Autorizar_E_Usar_Fallback_FailClosed()
     {
         var program = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Program.cs"));
+        var authHandler = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Authentication", "SigovApiAuthenticationHandler.cs"));
         var apiKeyMiddleware = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Middlewares", "ApiKeyV1Middleware.cs"));
         var gedController = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Controllers", "GedController.cs"));
 
@@ -32,8 +33,16 @@ public sealed class AuthPermissionRegressionTests
         program.Should().Contain("options.FallbackPolicy");
         program.IndexOf("app.UseAuthentication();", StringComparison.Ordinal).Should()
             .BeLessThan(program.IndexOf("app.UseAuthorization();", StringComparison.Ordinal));
-        apiKeyMiddleware.Should().Contain("new ClaimsIdentity(claims, SigovApiAuthenticationHandler.SchemeName)");
-        apiKeyMiddleware.Should().Contain("new(\"tenant_id\", row.TenantId.ToString");
+        program.IndexOf("app.UseAuthentication();", StringComparison.Ordinal).Should()
+            .BeLessThan(program.IndexOf("app.UseMiddleware<ApiKeyV1Middleware>();", StringComparison.Ordinal));
+        authHandler.Should().Contain("new ClaimsIdentity(claims, SchemeName)");
+        authHandler.Should().Contain("X-Api-Key");
+        authHandler.Should().Contain("sigov.api_key_escopo");
+        authHandler.Should().Contain("AuthenticateBearerSessionAsync");
+        authHandler.Should().Contain("Context.RequestServices.GetRequiredService<DapperContext>()");
+        apiKeyMiddleware.Should().Contain("context.User.Identity?.IsAuthenticated");
+        apiKeyMiddleware.Should().Contain("FindFirst(\"api_key_id\")");
+        apiKeyMiddleware.Should().NotContain("new ClaimsIdentity");
         gedController.Should().Contain("User.Identity?.IsAuthenticated == true &&");
         gedController.Should().NotContain("User.Identity?.IsAuthenticated != true || User.IsInRole");
     }

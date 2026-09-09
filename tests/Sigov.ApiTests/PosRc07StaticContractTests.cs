@@ -12,11 +12,17 @@ public sealed class PosRc07StaticContractTests
     public void EnvExampleAndDockerComposeUseSigovDefaults()
     {
         var env = Read(".env.example");
-        env.Should().Contain("POSTGRES_DB=sigov").And.Contain("POSTGRES_USER=sigov").And.Contain("POSTGRES_PASSWORD=change_me_local_only");
+        env.Should().Contain("ConnectionStrings__DefaultConnection")
+            .And.Contain("Database=sigov")
+            .And.Contain("Username=sigov")
+            .And.Contain("Password=<injetar-localmente>");
         env.Should().NotContain("POSTGRES_PASSWORD=123456");
 
         var compose = Read("docker-compose.yml");
-        compose.Should().Contain("${POSTGRES_DB:-sigov}").And.Contain("${POSTGRES_USER:-sigov}").And.Contain("${POSTGRES_PASSWORD:-change_me_local_only}");
+        compose.Should().Contain("${POSTGRES_DB:-sigov}")
+            .And.Contain("${POSTGRES_USER:-sigov}")
+            .And.Contain("${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente}")
+            .And.NotContain("change_me_local_only");
     }
 
     [Fact]
@@ -32,7 +38,10 @@ public sealed class PosRc07StaticContractTests
     public void GoLiveCheckCiSmokeSeedAndPackageContractsArePresent()
     {
         Read("scripts/go-live-check.ps1").Should().Contain("docs/go-live-check-result.md").And.Contain("failedBlocking").And.Contain("releaseCandidateVersion");
-        Read(".github/workflows/ci.yml").Should().Contain("go-live-check:").And.Contain("docker-compose-e2e:");
+        Read(".github/workflows/ci.yml").Should().Contain("go-live-check:")
+            .And.Contain("migration-governance-static:")
+            .And.Contain("schema-equivalence:")
+            .And.Contain("standalone-postgres-runtime:");
         Read("scripts/smoke-test-sigov.ps1").Should().Contain("Mask").And.NotContain("Escape($env:SIGOV_SMOKE_API_KEY)");
         Read("database/postgres/seeds/pos_rc_homologacao_demo.sql").Should().Contain("fc86ee2b04157910a83296966cd5033de0f564cbe8dc64d1f3a54238fb32063a").And.Contain("protocolos.read").And.Contain("documentos.read").And.Contain("tarefas.read");
         Read("scripts/package-release.ps1").Should().Contain(".pfx").And.Contain(".pem").And.Contain(".key");

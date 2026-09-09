@@ -1,11 +1,11 @@
 # Status real dos módulos
 
-Corte: 2026-09-08; referência inicial 5ef7516c (main com PR #376).
+Corte: 2026-09-09; referência inicial 6159822b17e31950e4664eed898b2ddc62bde5d2 (origin/main).
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
 |---|---|---|
-| Core, identidade, segurança, permissões | PARCIAL | AuthenticationRepository, avaliador persistido e cookie compacto; revogação e isolamento ponta a ponta pendentes |
+| Core, identidade, segurança, permissões | PARCIAL | AuthenticationRepository, avaliador persistido, API key por hash/escopos e sessão persistente com revogação; prova runtime PostgreSQL 16 e isolamento ponta a ponta pendentes |
 | Auditoria e LGPD | PARCIAL | Serviços/tabelas/rotas existentes; trilha e segregação runtime pendentes |
 | SaaS, planos, contratação, administração global/cliente | PARCIAL | modulo_saas e tenant_modulo_contratado; catálogos duplicados e telas secundárias incompletas |
 | Indústria Core | PARCIAL | Application/Industria, Infrastructure/Industria, API/Web/Views/Industria; consulta real, fluxo mutável completo não homologado |
@@ -24,7 +24,7 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Agro e Campo/Geo | PARCIAL | Preservar serviços e UX existentes; falta evidência runtime atual dos 15 critérios |
 | Integrações, mobilidade/offline, observabilidade | PARCIAL | Outbox, adapters e rotas; providers/isolamento/runtime pendentes |
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
-| GED e assinaturas | PARCIAL | Estrutura histórica existente; implementação bloqueada até última fase |
+| GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
 
 Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO nesta execução. Esta matriz é inventário de evidências, não catálogo produtivo nem concessão de acesso.
 

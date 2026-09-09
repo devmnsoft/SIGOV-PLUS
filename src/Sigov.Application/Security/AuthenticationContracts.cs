@@ -14,7 +14,8 @@ public sealed record AuthenticationUser(
     bool IsDeleted,
     bool TenantAtivo,
     bool TenantIsDeleted,
-    int MatchingUsers);
+    int MatchingUsers,
+    long? EntidadeId = null);
 
 public sealed record AuthenticationAccess(
     IReadOnlyCollection<string> Roles,
@@ -44,6 +45,25 @@ public interface IPasswordRecoveryEmailSender
 public interface IPasswordRecoveryService
 {
     Task<PasswordRecoveryResult> RequestAsync(string loginOrEmail, Func<string, string> resetUrlFactory, CancellationToken cancellationToken);
+}
+
+public sealed record IssuedIdentitySession(long SessionId, string Token, long AuthVersion, DateTimeOffset ExpiresAt);
+
+public sealed record IdentitySessionValidation(
+    bool Valid,
+    long SessionId,
+    long UserId,
+    long TenantId,
+    long? EntidadeId,
+    long? ExercicioId,
+    long AuthVersion);
+
+public interface IIdentitySessionService
+{
+    Task<IssuedIdentitySession> CreateAsync(AuthenticationUser user, TimeSpan lifetime, string? ipAddress, string? userAgent, string correlationId, CancellationToken cancellationToken);
+    Task<IdentitySessionValidation?> ValidateAsync(long sessionId, long userId, long tenantId, string token, long authVersion, CancellationToken cancellationToken);
+    Task RevokeAsync(long sessionId, long userId, string reason, CancellationToken cancellationToken);
+    Task RevokeAllForUserAsync(long userId, string reason, CancellationToken cancellationToken);
 }
 
 public enum PasswordRecoveryResult { AccountNotFound, Cooldown, Sent }

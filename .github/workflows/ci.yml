@@ -13,6 +13,15 @@ permissions:
   contents: read
 
 jobs:
+  tracked-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject generated artifacts tracked by Git
+        shell: bash
+        run: bash scripts/check-tracked-artifacts.sh
+
   database-secret-preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 5

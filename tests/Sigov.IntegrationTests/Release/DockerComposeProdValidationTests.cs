@@ -14,7 +14,8 @@ public sealed class DockerComposeProdValidationTests
 
         content.Should().Contain("sigov-internal");
         content.Should().Contain("internal: true");
-        content.Should().Contain("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-REPLACE_WITH_SECRET}");
+        content.Should().Contain("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente de produção}");
+        content.Should().Contain("ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection:?Defina ConnectionStrings__DefaultConnection em produção}");
         content.Should().NotContain("5432:5432");
         content.Should().Contain("ASPNETCORE_ENVIRONMENT: Production");
     }

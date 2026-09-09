@@ -57,10 +57,10 @@ public sealed class ModuleCatalogService : IModuleCatalogService
             Module("offline_sync", "Offline Sync", "Lotes e itens de sincronização offline-first por dispositivo, usuário, tenant e correlationId.", "Campo e Mobilidade", true, true, new[] { "mobile_pwa" }),
             Module("assinatura_campo", "Assinatura em Campo", "Assinatura coletada em dispositivo com hash, evidência e auditoria.", "Campo e Mobilidade", true, true, new[] { "campo_operacional" }),
             Module("notificacoes_mobile", "Notificações Mobile", "Notificações internas simuladas para agenda, sync e campo sem push externo real.", "Campo e Mobilidade", true, true, new[] { "mobile_pwa" }),
-            Module("ged", "GED/OCR e Automação Documental", "GED completo com upload/download, OCR simulado, metadados, histórico e auditoria.", "Documentos", true, true, new[] { "core", "auditoria", "lgpd" }),
-            Module("ocr", "OCR Documental", "Indexação OCR simulada para documentos e anexos do GED.", "Documentos", true, true, new[] { "ged" }),
+            Module("ged", "GED/OCR e Automação Documental", "Estrutura histórica parcial; fora da RC51.00 até evidência runtime própria.", "Documentos", false, true, new[] { "core", "auditoria", "lgpd" }),
+            Module("ocr", "OCR Documental", "Estrutura histórica parcial; OCR não é promovido como funcional nesta sprint.", "Documentos", false, true, new[] { "ged" }),
             Module("contrato", "Contratos e Assinaturas", "Contratos, documentos jurídicos e assinatura digital simulada.", "Jurídico", true, true, new[] { "ged", "comercial", "financeiro_empresarial" }),
-            Module("fluxo", "Workflow e Tramitação", "Protocolos eletrônicos, workflow visual e tramitação automatizada.", "Automação", true, true, new[] { "ged" })
+            Module("fluxo", "Workflow e Tramitação", "Fluxos documentais históricos aguardam sprint própria para evidência runtime.", "Automação", false, true, new[] { "ged" })
         };
     }
 
