@@ -1,3 +1,8 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace Sigov.Infrastructure.Persistence.Migrations;
 
 internal sealed class MigrationTransactionException : InvalidOperationException
@@ -7,7 +12,7 @@ internal sealed class MigrationTransactionException : InvalidOperationException
     }
 }
 
-internal static class MigrationSqlPolicy
+public static class MigrationSqlPolicy
 {
     public static string PrepareForExecution(string version, string rawSql, bool legacyTransactionWrapper)
     {
@@ -19,11 +24,11 @@ internal static class MigrationSqlPolicy
             if (controls.Length > 0)
             {
                 var control = controls[0];
-                var command = GetTransactionCommand(control.Text)!;
+                var command = GetTransactionCommand(control.Text);
                 var line = GetLineNumber(rawSql, control.Start);
                 var safeExcerpt = GetSafeExcerpt(control.Text);
                 throw new MigrationTransactionException(
-                    $"Migration {version} contém o comando transacional proibido {command} " +
+                    $"Migration {version} contém controle transacional explícito proibido: {command} " +
                     $"próximo à linha {line}. Trecho seguro: \"{safeExcerpt}\". " +
                     "Remova BEGIN/COMMIT/ROLLBACK/SAVEPOINT; a transação pertence ao MigrationRunner.");
             }
@@ -64,8 +69,11 @@ internal static class MigrationSqlPolicy
         if (normalized == "COMMIT" || normalized.StartsWith("COMMIT ", StringComparison.Ordinal)) return "COMMIT";
         if (normalized == "END" || normalized.StartsWith("END ", StringComparison.Ordinal)) return "END TRANSACTION";
         if (normalized.StartsWith("ROLLBACK", StringComparison.Ordinal)) return "ROLLBACK";
+        if (normalized == "ABORT" || normalized.StartsWith("ABORT ", StringComparison.Ordinal)) return "ABORT";
         if (normalized.StartsWith("SAVEPOINT ", StringComparison.Ordinal)) return "SAVEPOINT";
-        if (normalized.StartsWith("RELEASE SAVEPOINT ", StringComparison.Ordinal)) return "RELEASE SAVEPOINT";
+        if (normalized.StartsWith("RELEASE ", StringComparison.Ordinal)) return "RELEASE SAVEPOINT";
+        if (normalized.StartsWith("SET TRANSACTION ", StringComparison.Ordinal)) return "SET TRANSACTION";
+        if (normalized.StartsWith("SET SESSION CHARACTERISTICS AS TRANSACTION ", StringComparison.Ordinal)) return "SET SESSION CHARACTERISTICS AS TRANSACTION";
         if (normalized.StartsWith("PREPARE TRANSACTION ", StringComparison.Ordinal)) return "PREPARE TRANSACTION";
         return null;
     }
@@ -238,7 +246,11 @@ internal static class MigrationSqlPolicy
 
     private static bool TryReadDollarTag(string value, int index, out string tag)
     {
+        tag = string.Empty;
+        // PostgreSQL identifiers may contain '$'; a quoted body must start at a token boundary.
+        if (index > 0 && (char.IsLetterOrDigit(value[index - 1]) || value[index - 1] is '_' or '$')) return false;
         var end = index + 1;
+        if (end < value.Length && char.IsDigit(value[end])) return false;
         while (end < value.Length && (char.IsLetterOrDigit(value[end]) || value[end] == '_')) end++;
         if (end < value.Length && value[end] == '$')
         {
@@ -246,7 +258,6 @@ internal static class MigrationSqlPolicy
             return true;
         }
 
-        tag = string.Empty;
         return false;
     }
 

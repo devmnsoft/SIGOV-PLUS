@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Health;
 using Sigov.Application.Release;
 
@@ -6,14 +7,14 @@ namespace Sigov.Infrastructure.Health;
 
 public sealed class HealthCheckService : IHealthCheckService
 {
-    private readonly IReadOnlyCollection<IHealthCheck> _checks;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IVersionInfoProvider _versionInfoProvider;
     private readonly IReleaseInfoProvider _releaseInfoProvider;
     private readonly ILogger<HealthCheckService> _logger;
 
-    public HealthCheckService(IEnumerable<IHealthCheck> checks, IVersionInfoProvider versionInfoProvider, IReleaseInfoProvider releaseInfoProvider, ILogger<HealthCheckService> logger)
+    public HealthCheckService(IServiceProvider serviceProvider, IVersionInfoProvider versionInfoProvider, IReleaseInfoProvider releaseInfoProvider, ILogger<HealthCheckService> logger)
     {
-        _checks = checks.ToArray();
+        _serviceProvider = serviceProvider;
         _versionInfoProvider = versionInfoProvider;
         _releaseInfoProvider = releaseInfoProvider;
         _logger = logger;
@@ -24,7 +25,19 @@ public sealed class HealthCheckService : IHealthCheckService
     public async Task<HealthSummaryResponse> GetReadyAsync(CancellationToken cancellationToken)
     {
         var results = new List<HealthCheckResult>();
-        foreach (var check in _checks.Where(check => check.IncludeInReady))
+        IReadOnlyCollection<IHealthCheck> checks;
+        try
+        {
+            checks = _serviceProvider.GetServices<IHealthCheck>().ToArray();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao resolver dependências dos health checks de readiness.");
+            results.Add(HealthCheckResult.Unhealthy("dependencies", "Dependências de readiness indisponíveis."));
+            return new HealthSummaryResponse("Unhealthy", _versionInfoProvider.Service, _versionInfoProvider.Version, results);
+        }
+
+        foreach (var check in checks.Where(check => check.IncludeInReady))
         {
             results.Add(await RunSafelyAsync(check, cancellationToken).ConfigureAwait(false));
         }
@@ -37,18 +50,23 @@ public sealed class HealthCheckService : IHealthCheckService
 
     public async Task<HealthCheckResult> GetOutboxAsync(CancellationToken cancellationToken) => await RunByNameAsync("outbox", cancellationToken).ConfigureAwait(false);
 
-    public HealthCheckResult GetStorage()
-    {
-        var storage = _checks.Single(check => check.Name == "storage");
-        return storage.CheckAsync(CancellationToken.None).GetAwaiter().GetResult();
-    }
+    public Task<HealthCheckResult> GetStorageAsync(CancellationToken cancellationToken) =>
+        RunByNameAsync("storage", cancellationToken);
 
     public ReleaseInfoResponse GetVersion() => _releaseInfoProvider.GetReleaseInfo();
 
     private async Task<HealthCheckResult> RunByNameAsync(string name, CancellationToken cancellationToken)
     {
-        var check = _checks.Single(healthCheck => healthCheck.Name == name);
-        return await RunSafelyAsync(check, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var check = _serviceProvider.GetServices<IHealthCheck>().Single(healthCheck => healthCheck.Name == name);
+            return await RunSafelyAsync(check, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao resolver health check {HealthCheckName}.", name);
+            return HealthCheckResult.Unhealthy(name, "Dependência indisponível.");
+        }
     }
 
     private async Task<HealthCheckResult> RunSafelyAsync(IHealthCheck check, CancellationToken cancellationToken)

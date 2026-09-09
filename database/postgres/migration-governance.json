@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "5ef7516c",
+  "orphans": [
+    {
+      "file": "20260813120000_rc50_24_educacao_rh_folha_produto_core.sql",
+      "checksum": "0fb6232a00fbad99380179bad080a3fd7c3c50beb1d186dcce4938665a95aa0a",
+      "classification": "necessaria",
+      "reason": "Cria contratos educacao_* e folha_* consumidos por Educação/Folha. Colide em timestamp com RC50.27; reconciliar objetos com migrations posteriores em fixture, antes de qualquer inclusão.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260813120000_rc50_27_operacoes_inteligentes.sql",
+      "checksum": "c9747b7f93c1e376cc644219f5e78b1a299d9b94477255422c318163e258f6cb",
+      "classification": "necessaria",
+      "reason": "OperationalImportStore consome relatorio_importacao; histórico/simulação ainda dependem de reconciliação. Timestamp compartilhado com RC50.24, nunca executar ambos com a mesma versão.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260813160000_rc50_25_educacao_fluxo_diario.sql",
+      "checksum": "c3d778299e5d0a9c3c037a532c7bc18e4a73dc599930bd74c21da9d3e8ad9b7e",
+      "classification": "necessaria",
+      "reason": "Altera diario_frequencia e matricula preexistentes; depende de contratos legados, índices/constraints exigem ensaio com dados sanitizados.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260813190000_rc50_28_gestao_avancada.sql",
+      "checksum": "8a4aa20a054942b3f8df29d03f27a5751a8dc4aaf2a39045f186583a543a31de",
+      "classification": "necessaria",
+      "reason": "Declara workflow_instancia e estruturas educacao/rh/folha; há contratos homônimos anteriores. Reconciliar tipos e consumidores, não executar DDL genérico automaticamente.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260813193000_rc50_29_parametros_modulos.sql",
+      "checksum": "755a77f67431091f9e83a86703816e5d8f50c20c5eae6091fd1e3fe765fe6f2d",
+      "classification": "necessaria",
+      "reason": "ModuleParameterRepository consome parametro_modulo e salvar_parametro_modulo. Grants por nome de perfil exigem revisão de autorização antes de reconciliar a função/schema.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260813195500_rc50_30_governanca_executiva.sql",
+      "checksum": "c0233bd72365fc085975efd6765ce0368f2608868eff417d8df58b21c229effc",
+      "classification": "necessaria",
+      "reason": "ExecutiveOperationsRepository consome notificacao_interna/destinatario; colunas e vínculos precisam convergir com governança posterior.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260813210000_rc50_31_bloco1_fechamento.sql",
+      "checksum": "7501e0ec38ec97dc89c7109cde137e07d6c32ba1294bfaa69fbb6890ed7dafee",
+      "classification": "necessaria",
+      "reason": "Depende das órfãs RC50.24/27/28. Índices em educacao_nota/avaliacao e constraints RH/Folha não podem preceder seus contratos.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260815120000_rc50_37_compras_licitacoes_bloco6_core.sql",
+      "checksum": "8ffead4bbb888ca24417581632c71b3fe5a504fde502964e3b993ea994f196c4",
+      "classification": "incompativel",
+      "reason": "DDL UUID usa nomes canônicos bigint de compras. Matriz docs/database/matriz-propriedade-compras.md e bootstrap 070 separam contratos. Preservar histórico; não ativar este arquivo.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260815121000_rc50_37_contratos_bloco6_core.sql",
+      "checksum": "d056111de82837602f315eec9912688d715764ae57b8f6c253a9b8f618a9c075",
+      "classification": "incompativel",
+      "reason": "DDL contrato UUID colide com contratos governamentais existentes. Preservar compatibilidade Bloco6 e inventariar consumidores Guid antes de migração forward-only.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    },
+    {
+      "file": "20260815122000_rc50_37_almoxarifado_patrimonio_bloco6_core.sql",
+      "checksum": "4c197288ee0c486bf0fe6f3404c9e3eedb92bea86daba7d0022dadfcc9c3df97",
+      "classification": "incompativel",
+      "reason": "DDL UUID de almoxarifado/patrimônio conflita com contratos funcionais bigint. Sem autorização para reativação; manter evidência histórica.",
+      "disposition": "excluded_pending_runtime_reconciliation"
+    }
+  ],
+  "prefixExceptions": [
+    {
+      "file": "20260608120000_saas_comercial_white_label_planos.sql",
+      "version": "20260608120001",
+      "reason": "Manifest histórico já usa 20260608120001 para distinguir Plantao Pro de SaaS com prefixo 20260608120000. Preservar versão registrada e nome, sem renumerar banco legado."
+    }
+  ],
+  "prefixCollisions": [
+    {
+      "prefix": "20260608120000",
+      "files": [
+        "20260608120000_plantao_pro_white_label_b2b_launch.sql",
+        "20260608120000_saas_comercial_white_label_planos.sql"
+      ],
+      "reason": "Versões canônicas distintas 20260608120000/20260608120001 no manifesto; exceção de nome documentada."
+    },
+    {
+      "prefix": "20260813120000",
+      "files": [
+        "20260813120000_rc50_24_educacao_rh_folha_produto_core.sql",
+        "20260813120000_rc50_27_operacoes_inteligentes.sql"
+      ],
+      "reason": "Ambas fora do manifesto; excluídas explicitamente. Reconciliação necessária em nova versão após fixture; não executar pelo timestamp compartilhado."
+    }
+  ]
+}

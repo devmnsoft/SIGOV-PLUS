@@ -8,7 +8,7 @@ public sealed class TestHostEnvironment : IHostEnvironment, IWebHostEnvironment
 {
     public TestHostEnvironment(string? contentRootPath = null, string? webRootPath = null)
     {
-        ContentRootPath = Path.GetFullPath(contentRootPath ?? Directory.GetCurrentDirectory());
+        ContentRootPath = Path.GetFullPath(contentRootPath ?? TestRepoPath.Root);
         WebRootPath = Path.GetFullPath(webRootPath ?? ResolveWebRoot(ContentRootPath));
 
         if (!Directory.Exists(ContentRootPath))

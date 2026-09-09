@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Sigov.Api.Contracts;
 using Sigov.Application.Health;
 
 namespace Sigov.Api.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/health")]
 public sealed class HealthController : ControllerBase
 {
@@ -28,7 +30,8 @@ public sealed class HealthController : ControllerBase
     }
 
     [HttpGet("storage")]
-    public ActionResult<ApiResponse<object>> GetStorage() => Ok(ApiResponse<object>.Ok(_healthCheckService.GetStorage()));
+    public async Task<ActionResult<ApiResponse<object>>> GetStorage(CancellationToken cancellationToken) =>
+        Ok(ApiResponse<object>.Ok(await _healthCheckService.GetStorageAsync(cancellationToken).ConfigureAwait(false)));
 
     [HttpGet("outbox")]
     public async Task<ActionResult<ApiResponse<object>>> GetOutbox(CancellationToken cancellationToken)

@@ -384,7 +384,7 @@ values(@TenantId,@DocumentoId,@ProtocoloId,@ContratoId,@Acao,@Descricao,@Usuario
     private string CorrelationId() => HttpContext.TraceIdentifier;
     private static int Limit(int pageSize) => Math.Clamp(pageSize, 1, 100);
     private static int Offset(int page, int pageSize) => (Math.Max(1, page) - 1) * Limit(pageSize);
-    private bool HasPermission(string permission) => User.Identity?.IsAuthenticated != true || User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.Claims.Any(c => (c.Type == "permission" || c.Type == ClaimTypes.Role) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
+    private bool HasPermission(string permission) => User.Identity?.IsAuthenticated == true && (User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.Claims.Any(c => (c.Type == "permission" || c.Type == ClaimTypes.Role) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase)));
     private bool HasAnyPermission(params string[] permissions) => permissions.Any(HasPermission);
     private static Guid GuidOrNew(string value) => Guid.TryParse(value, out var parsed) ? parsed : Guid.NewGuid();
     private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();

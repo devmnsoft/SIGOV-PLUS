@@ -8,6 +8,7 @@ public sealed class TenantResolutionMiddleware
     private static readonly PathString[] PublicPrefixes =
     {
         new("/api/health"),
+        new("/api/publico"),
         new("/api/saas/contexto"),
         new("/api/saas/admin"),
         new("/api/operacao/backups"),
@@ -24,13 +25,26 @@ public sealed class TenantResolutionMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext httpContext, ITenantResolver resolver, ITenantContext tenantContext, ITenantUsageMeter usageMeter)
+    public async Task InvokeAsync(HttpContext httpContext)
     {
         if (PublicPrefixes.Any(prefix => httpContext.Request.Path.StartsWithSegments(prefix)))
         {
             await _next(httpContext).ConfigureAwait(false);
             return;
         }
+
+        if (httpContext.User.Identity?.IsAuthenticated != true)
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await httpContext.Response.WriteAsJsonAsync(
+                new { error = "authentication_required", message = "Autenticação obrigatória." },
+                httpContext.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
+        var resolver = httpContext.RequestServices.GetRequiredService<ITenantResolver>();
+        var tenantContext = httpContext.RequestServices.GetRequiredService<ITenantContext>();
+        var usageMeter = httpContext.RequestServices.GetRequiredService<ITenantUsageMeter>();
 
         const bool allowDevelopmentResolvers = false;
         var claims = httpContext.User.Claims
