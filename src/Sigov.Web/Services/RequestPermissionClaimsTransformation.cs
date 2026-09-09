@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Security;
 using Sigov.Application.Saas.Modules;
 
@@ -10,8 +11,6 @@ namespace Sigov.Web.Services;
 /// Cookie authentication serializes the compact principal created at login, never this clone.
 /// </summary>
 public sealed class RequestPermissionClaimsTransformation(
-    IAuthenticationRepository authenticationRepository,
-    IModuleAccessRepository moduleAccessRepository,
     IHttpContextAccessor httpContextAccessor,
     ILogger<RequestPermissionClaimsTransformation> logger) : IClaimsTransformation
 {
@@ -29,6 +28,10 @@ public sealed class RequestPermissionClaimsTransformation(
 
         try
         {
+            var requestServices = httpContextAccessor.HttpContext?.RequestServices
+                ?? throw new InvalidOperationException("RequestServices indisponível para carregar permissões.");
+            var authenticationRepository = requestServices.GetRequiredService<IAuthenticationRepository>();
+            var moduleAccessRepository = requestServices.GetRequiredService<IModuleAccessRepository>();
             var tenantId = PositiveLongClaim(principal, "tenant_id");
             var entidadeId = PositiveLongClaim(principal, "entidade_id");
             var exercicioId = PositiveLongClaim(principal, "exercicio_id");

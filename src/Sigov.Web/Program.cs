@@ -59,6 +59,40 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.ExpireTimeSpan = TimeSpan.FromHours(builder.Configuration.GetValue("Authentication:CookieHours", 8));
         options.SlidingExpiration = true;
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnValidatePrincipal = async context =>
+            {
+                var principal = context.Principal;
+                if (principal?.Identity?.IsAuthenticated != true)
+                    return;
+
+                var userIdValue = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var tenantIdValue = principal.FindFirst("tenant_id")?.Value;
+                var sessionIdValue = principal.FindFirst("session_id")?.Value;
+                var token = principal.FindFirst("session_token")?.Value;
+                var authVersionValue = principal.FindFirst("auth_version")?.Value;
+
+                if (!long.TryParse(userIdValue, out var userId) ||
+                    !long.TryParse(tenantIdValue, out var tenantId) ||
+                    !long.TryParse(sessionIdValue, out var sessionId) ||
+                    !long.TryParse(authVersionValue, out var authVersion) ||
+                    string.IsNullOrWhiteSpace(token))
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+                    return;
+                }
+
+                var sessionService = context.HttpContext.RequestServices.GetRequiredService<IIdentitySessionService>();
+                var validation = await sessionService.ValidateAsync(sessionId, userId, tenantId, token, authVersion, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                if (validation?.Valid != true)
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+                }
+            }
+        };
     });
 builder.Services.AddAuthorization(options =>
 {

@@ -51,6 +51,35 @@ insert into sigov.api_key (tenant_id,nome,prefixo,api_key_hash,algoritmo_hash,st
 select id,'API Key Demo Homologação','sigov_demo','fc86ee2b04157910a83296966cd5033de0f564cbe8dc64d1f3a54238fb32063a','SHA-256','ATIVA','{"aviso":"token claro nunca é salvo no banco","producao":false}'::jsonb from tenant_demo
 where not exists (select 1 from sigov.api_key k where k.prefixo='sigov_demo');
 
+with tenant_demo as (
+  select id from sigov.tenant where slug='prefeitura-demo-sigov'
+),
+api_key_demo as (
+  select k.id, k.tenant_id
+    from sigov.api_key k
+    join tenant_demo t on t.id = k.tenant_id
+   where k.prefixo = 'sigov_demo'
+)
+insert into sigov.api_key_escopo (tenant_id, api_key_id, escopo, status)
+select k.tenant_id, k.id, v.escopo, 'ATIVO'
+from api_key_demo k
+cross join (values
+  ('protocolos.read'),
+  ('protocolos.write'),
+  ('documentos.read'),
+  ('tarefas.read'),
+  ('webhooks.manage'),
+  ('bi.read')
+) as v(escopo)
+where not exists (
+  select 1
+    from sigov.api_key_escopo e
+   where e.tenant_id = k.tenant_id
+     and e.api_key_id = k.id
+     and e.escopo = v.escopo
+     and e.is_deleted = false
+);
+
 with tenant_demo as (select id from sigov.tenant where slug='prefeitura-demo-sigov')
 insert into sigov.outbox_evento (tenant_id,event_id,event_type,aggregate_type,aggregate_id,payload,status,idempotency_key)
 select t.id, gen_random_uuid(), v.event_type, v.aggregate_type, v.aggregate_id, v.payload::jsonb, 'PENDING', v.idempotency_key

@@ -234,6 +234,7 @@ public static class DependencyInjection
         services.AddScoped<IEnterpriseCrudService>(provider => provider.GetRequiredService<EnterpriseDapperCrudService>());
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IAuthenticationRepository, AuthenticationRepository>();
+        services.AddScoped<IIdentitySessionService, IdentitySessionService>();
         services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
         services.AddOptions<PasswordRecoveryEmailOptions>().BindConfiguration(PasswordRecoveryEmailOptions.SectionName);
         services.AddScoped<IPasswordRecoveryEmailSender, SmtpPasswordRecoveryEmailSender>();
