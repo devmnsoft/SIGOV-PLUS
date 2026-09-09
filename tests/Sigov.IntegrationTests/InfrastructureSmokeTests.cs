@@ -53,16 +53,18 @@ public sealed class InfrastructureSmokeTests
     [Fact]
     public void Health_Db_Deve_Consultar_Schema_Sigov()
     {
-        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/HealthController.cs")).Should().Contain("schema_name = 'sigov'");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Health/DatabaseHealthCheck.cs")).Should().Contain("schema_name = 'sigov'");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/HealthController.cs")).Should().Contain("GetDatabaseAsync");
     }
 
     [Fact]
     public void Seed_Deve_Criar_Admin_De_Desenvolvimento()
     {
         var seed = File.ReadAllText(Path.Combine(Root, "database/postgres/migrations/011_seed_sigov_dev.sql"));
-        seed.Should().Contain("admin@sigov.local");
-        seed.Should().Contain("SIGOV_ADMIN_PASSWORD");
-        seed.Should().Contain("DEV_ONLY:");
+        seed.Should().Contain("seed demonstrativo removido da cadeia estrutural");
+        seed.Should().Contain("sigov_dev_demo.sql");
+        seed.Should().NotContain("admin@sigov.local");
+        seed.Should().NotContain("SIGOV_ADMIN_PASSWORD");
     }
 
     [Fact]

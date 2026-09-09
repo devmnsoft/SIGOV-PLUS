@@ -37,14 +37,17 @@ public sealed class PostBuild09GedOcrAssinaturaAutomacaoTests
             Migration.Should().Contain(permissao);
         }
 
-        File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Commercial/ModuleCatalogService.cs"))
-            .Should().Contain("GED/OCR e Automação Documental")
+        var commercialCatalog = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Commercial/ModuleCatalogService.cs"));
+        commercialCatalog.Should().Contain("GED/OCR e Automação Documental")
             .And.Contain("/Ged/Dashboard")
+            .And.Contain("fora da RC51.00")
+            .And.Contain("ModuleStatus.EmImplantacao")
             .And.Contain("GED_AUTOMACAO_PLUS");
 
-        File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Saas/Modules/ModuleCatalogService.cs"))
-            .Should().Contain("GED/OCR e Automação Documental")
-            .And.Contain("ocr.processar")
+        var saasCatalog = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Saas/Modules/ModuleCatalogService.cs"));
+        saasCatalog.Should().Contain("GED/OCR e Automação Documental")
+            .And.Contain("fora da RC51.00")
+            .And.Contain("false, true, new[] { \"core\", \"auditoria\", \"lgpd\" }")
             .And.Contain("GED_AUTOMACAO_PLUS");
     }
 
@@ -68,18 +71,15 @@ public sealed class PostBuild09GedOcrAssinaturaAutomacaoTests
     [Fact]
     public void Telas_demo_e_documentacao_do_modulo_documental_foram_entregues()
     {
-        foreach (var action in new[] { "Dashboard", "Documentos", "Upload", "Pesquisa", "Workflow", "Historico", "AssinaturaTeste", "Contratos", "Tramitacoes", "Ocr" })
-        {
-            Web.Should().Contain($"IActionResult {action}");
-            File.Exists(TestRepoPath.Get($"src/Sigov.Web/Views/Ged/{action}.cshtml")).Should().BeTrue();
-        }
+        Web.Should().Contain("public sealed class GedController")
+            .And.Contain("if (!Can")
+            .And.Contain("fallback honesto");
 
         Sidebar.Should().Contain("/Ged/Dashboard")
-            .And.Contain("ged.visualizar")
-            .And.Contain("/Ged/Workflow")
-            .And.Contain("contrato.visualizar");
+            .And.Contain("/Ged/Documentos")
+            .And.Contain("/Assinaturas/Pendentes");
 
-        File.ReadAllText(TestRepoPath.Get("scripts/demo-local.ps1")).Should().Contain("SIGOV Pós-Build 09");
+        File.ReadAllText(TestRepoPath.Get("README.md")).Should().Contain("GED permanece fora desta sprint");
         File.Exists(TestRepoPath.Get("docs/ged-ocr-assinatura-automacao.md")).Should().BeTrue();
     }
 }

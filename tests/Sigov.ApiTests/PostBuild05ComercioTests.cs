@@ -57,7 +57,9 @@ public sealed class PostBuild05ComercioTests
     {
         File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Saas/Modules/ModuleCatalogService.cs")).Should().Contain("COMERCIO_STARTER").And.Contain("ATACADO_PRO").And.Contain("BUSINESS_FULL");
         File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Commercial/ModuleCatalogService.cs")).Should().Contain("pdv").And.Contain("caixa");
-        Sidebar.Should().Contain("data-module=\"comercio_varejo\"").And.Contain("/Atacado/Separacao").And.Contain("/Financeiro/ContasReceber");
+        Sidebar.Should().Contain("/Empresarial/Comercial/Dashboard")
+            .And.Contain("/Empresarial/Comercial/Pedidos")
+            .And.Contain("/Empresarial/Estoque/Movimentos");
         File.ReadAllText(TestRepoPath.Get("docs/comercio-varejo-atacado.md")).Should().Contain("Fluxo atacado");
         File.ReadAllText(TestRepoPath.Get("scripts/demo-local.ps1")).Should().Contain("http://localhost:8080/Comercio/PDV");
     }

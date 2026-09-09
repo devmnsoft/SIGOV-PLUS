@@ -3,7 +3,7 @@
     <AssemblyName>Sigov.IntegrationTests</AssemblyName>
     <RootNamespace>Sigov.IntegrationTests</RootNamespace>
     <IsPackable>false</IsPackable>
-    <EnableSigovIntegrationTests Condition="'$(EnableSigovIntegrationTests)' == ''">false</EnableSigovIntegrationTests>
+    <EnableSigovIntegrationTests Condition="'$(EnableSigovIntegrationTests)' == ''">true</EnableSigovIntegrationTests>
     <IsTestProject Condition="'$(EnableSigovIntegrationTests)' == 'true'">true</IsTestProject>
   </PropertyGroup>
   <ItemGroup Condition="'$(EnableSigovIntegrationTests)' == 'true'">

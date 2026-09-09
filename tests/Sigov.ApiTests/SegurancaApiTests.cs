@@ -9,6 +9,9 @@ public sealed class SegurancaApiTests
     [Fact]
     public void Menu_Deve_Ter_Rotas_De_Seguranca()
     {
-        File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_Sidebar.cshtml")).Should().Contain("/Seguranca/Usuarios").And.Contain("/Seguranca/Permissoes");
+        File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_Sidebar.cshtml")).Should()
+            .Contain("/Seguranca/Usuarios")
+            .And.Contain("/Seguranca/Perfis")
+            .And.Contain("/Seguranca/MatrizAcesso");
     }
 }

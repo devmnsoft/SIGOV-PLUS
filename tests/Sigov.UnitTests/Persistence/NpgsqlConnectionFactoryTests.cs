@@ -23,8 +23,9 @@ public sealed class NpgsqlConnectionFactoryTests
     public void NpgsqlConnectionFactory_DeveFalhar_QuandoConnectionStringNaoExistir()
     {
         var configuration = BuildConfiguration();
+        var factory = new NpgsqlConnectionFactory(configuration);
 
-        var action = () => new NpgsqlConnectionFactory(configuration);
+        var action = () => factory.CreateConnection();
 
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("ConnectionStrings:DefaultConnection não configurada. Em Production use variável de ambiente ou secret manager.");
@@ -34,8 +35,9 @@ public sealed class NpgsqlConnectionFactoryTests
     public void NpgsqlConnectionFactory_DeveFalhar_QuandoConnectionStringForVazia()
     {
         var configuration = BuildConfiguration("   ");
+        var factory = new NpgsqlConnectionFactory(configuration);
 
-        var action = () => new NpgsqlConnectionFactory(configuration);
+        var action = () => factory.CreateConnection();
 
         action.Should().Throw<InvalidOperationException>();
     }

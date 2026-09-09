@@ -44,7 +44,9 @@ public sealed class PostBuild07FinanceiroIntegradoTests
     [Fact]
     public void Telas_menu_docs_e_demo_foram_entregues()
     {
-        Sidebar.Should().Contain("/Financeiro/ContasPagar").And.Contain("/Financeiro/FluxoCaixa").And.Contain("data-module=\"financeiro_empresarial\"");
+        Sidebar.Should().Contain("/Financeiro/Dashboard")
+            .And.Contain("/Empresarial/Estoque/Compras")
+            .And.Contain("/Industria/Custos");
         File.Exists(TestRepoPath.Get("src/Sigov.Web/Views/Financeiro/FinanceiroEmpresarial.cshtml")).Should().BeTrue();
         File.ReadAllText(TestRepoPath.Get("scripts/demo-local.ps1")).Should().Contain("http://localhost:8080/Financeiro/Conciliacao");
         File.Exists(TestRepoPath.Get("docs/financeiro-integrado.md")).Should().BeTrue();

@@ -17,7 +17,7 @@ public sealed class PostBuild11IaTests
         sql.Should().Contain("tenant_id bigint not null");
         sql.Should().Contain("correlation_id uuid not null");
         sql.Should().Contain("sigov.ia_consumo");
-        sql.Should().Contain("on conflict(tenant_id,competencia)");
+        sql.Should().Contain("idx_ia_consumo_tenant_comp");
         migration.Should().Contain("sigov.ia_feedback_usuario");
     }
 
@@ -61,8 +61,8 @@ public sealed class PostBuild11IaTests
         controller.Should().Contain("Dashboard");
         controller.Should().Contain("Assistente");
         controller.Should().Contain("Consumo");
-        sidebar.Should().Contain("/IA/Dashboard");
-        sidebar.Should().Contain("data-module=\"ia_predicoes\"");
+        sidebar.Should().Contain("href=\"/IA\"");
+        sidebar.Should().Contain("<span>IA</span>");
         page.Should().Contain("spinner-border");
     }
 }
