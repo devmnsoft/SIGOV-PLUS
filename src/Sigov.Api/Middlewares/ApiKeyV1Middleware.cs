@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Dapper;
+using Sigov.Api.Authentication;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Api.Middlewares;
@@ -17,13 +19,15 @@ public sealed class ApiKeyV1Middleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, DapperContext db)
+    public async Task InvokeAsync(HttpContext context)
     {
         if (!context.Request.Path.StartsWithSegments("/api/v1", StringComparison.OrdinalIgnoreCase) || IsPublic(context.Request.Path))
         {
             await _next(context).ConfigureAwait(false);
             return;
         }
+
+        var db = context.RequestServices.GetRequiredService<DapperContext>();
 
         var started = DateTimeOffset.UtcNow;
         var watch = Stopwatch.StartNew();
@@ -77,6 +81,14 @@ select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash, ak.
             }
 
             context.Items["ApiKeyId"] = apiKeyId;
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, $"api-key:{row.Id}"),
+                new("api_key_id", row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new("tenant_id", row.TenantId.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            };
+            claims.AddRange(row.Scopes.Select(scope => new Claim("scope", scope)));
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, SigovApiAuthenticationHandler.SchemeName));
             await _next(context).ConfigureAwait(false);
         }
         finally

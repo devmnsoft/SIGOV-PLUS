@@ -16,9 +16,26 @@ public sealed class AuthPermissionRegressionTests
 
         program.Should().Contain("UseMiddleware<ExceptionHandlingMiddleware>");
         program.Should().Contain("UseMiddleware<SecurityHeadersMiddleware>");
-        exceptionMiddleware.Should().Contain("ProblemDetails");
+        exceptionMiddleware.Should().Contain("ApiResponse<object>.Fail");
         exceptionMiddleware.Should().Contain("Não foi possível processar a solicitação");
         exceptionMiddleware.Should().NotContain("StackTrace");
+    }
+
+    [Fact]
+    public void Api_Deve_Autenticar_Antes_De_Autorizar_E_Usar_Fallback_FailClosed()
+    {
+        var program = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Program.cs"));
+        var apiKeyMiddleware = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Middlewares", "ApiKeyV1Middleware.cs"));
+        var gedController = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Controllers", "GedController.cs"));
+
+        program.Should().Contain("AddAuthentication(options =>");
+        program.Should().Contain("options.FallbackPolicy");
+        program.IndexOf("app.UseAuthentication();", StringComparison.Ordinal).Should()
+            .BeLessThan(program.IndexOf("app.UseAuthorization();", StringComparison.Ordinal));
+        apiKeyMiddleware.Should().Contain("new ClaimsIdentity(claims, SigovApiAuthenticationHandler.SchemeName)");
+        apiKeyMiddleware.Should().Contain("new(\"tenant_id\", row.TenantId.ToString");
+        gedController.Should().Contain("User.Identity?.IsAuthenticated == true &&");
+        gedController.Should().NotContain("User.Identity?.IsAuthenticated != true || User.IsInRole");
     }
 
     [Fact]

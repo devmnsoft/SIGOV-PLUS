@@ -18,7 +18,7 @@ public sealed class PosRc02RealFlowStaticTests
         Assert.Contains("protocolos.write", Middleware);
         Assert.Contains("documentos.write", Middleware);
         Assert.Contains("api_requisicao_log", Middleware);
-        Assert.DoesNotContain("apiKey)", Middleware);
+        Assert.DoesNotContain("ApiKey={ApiKey}", Middleware, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

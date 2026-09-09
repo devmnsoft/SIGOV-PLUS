@@ -88,15 +88,15 @@ public sealed class EnterpriseAuthorizationService : IEnterpriseAuthorizationSer
 
 public sealed class EnterpriseAuthorizationHandler : AuthorizationHandler<EnterpriseAuthorizationRequirement>
 {
-    private readonly Sigov.Application.Authorization.IAuthorizationEvaluator _evaluator;
-    private readonly Sigov.Application.Abstractions.ICurrentTenant _tenant;
+    private readonly IServiceProvider _serviceProvider;
 
-    public EnterpriseAuthorizationHandler(Sigov.Application.Authorization.IAuthorizationEvaluator evaluator, Sigov.Application.Abstractions.ICurrentTenant tenant)
-        => (_evaluator, _tenant) = (evaluator, tenant);
+    public EnterpriseAuthorizationHandler(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, EnterpriseAuthorizationRequirement requirement)
     {
-        if (context.User.Identity?.IsAuthenticated != true || !_tenant.TenantId.HasValue) return;
+        if (context.User.Identity?.IsAuthenticated != true) return;
+        var tenant = _serviceProvider.GetRequiredService<Sigov.Application.Abstractions.ICurrentTenant>();
+        if (!tenant.TenantId.HasValue) return;
         var rawUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? context.User.FindFirstValue("usuario_id") ?? context.User.FindFirstValue("user_id");
         if (!long.TryParse(rawUserId, out var userId)) return;
@@ -105,8 +105,9 @@ public sealed class EnterpriseAuthorizationHandler : AuthorizationHandler<Enterp
         var action = separator > 0 ? requirement.Permission[(separator + 1)..] : "acessar";
         var moduleSeparator = resource.IndexOf('.');
         var module = moduleSeparator > 0 ? resource[..moduleSeparator] : "enterprise";
-        var decision = await _evaluator.EvaluateAsync(new Sigov.Application.Authorization.AuthorizationRequest(
-            userId, module, resource, action, _tenant.TenantId, _tenant.EntidadeId, _tenant.ExercicioId,
+        var evaluator = _serviceProvider.GetRequiredService<Sigov.Application.Authorization.IAuthorizationEvaluator>();
+        var decision = await evaluator.EvaluateAsync(new Sigov.Application.Authorization.AuthorizationRequest(
+            userId, module, resource, action, tenant.TenantId, tenant.EntidadeId, tenant.ExercicioId,
             CorrelationId: null, Origem: "API_ENTERPRISE")).ConfigureAwait(false);
         if (decision.Permitido) context.Succeed(requirement);
     }

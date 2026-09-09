@@ -1,0 +1,38 @@
+[
+  {
+    "ContainingType": "Sigov.Web.Controllers.ApiV1Controller",
+    "Method": "List",
+    "RelativePath": "api/v1/{resource}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "resource",
+        "Type": "System.String",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "Sigov.Web.Controllers.ApiV1Controller",
+    "Method": "Health",
+    "RelativePath": "api/v1/health",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  }
+]

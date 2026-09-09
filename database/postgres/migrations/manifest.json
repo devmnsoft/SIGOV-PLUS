@@ -480,6 +480,7 @@
       "file": "20260722120000_enterprise_tenant_mapping.sql",
       "checksum": "5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7",
       "category": "schema",
+      "includeInBaseline": false,
       "applyAutomatically": true
     },
     {

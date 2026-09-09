@@ -1,5 +1,7 @@
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Authentication;
 using Serilog;
+using Sigov.Api.Authentication;
 using Sigov.Api.Middlewares;
 using Microsoft.Extensions.Options;
 using Sigov.Application.Configuration;
@@ -31,12 +33,21 @@ builder.Services.AddOptions<SigovOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<IValidateOptions<SigovOptions>, SigovOptionsValidator>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Conventions.Add(new PublicApiAnonymousConvention()));
 builder.Services.AddScoped<EnterpriseExecutionContextFilter>();
 builder.Services.AddScoped<IEnterpriseAuthorizationService, EnterpriseAuthorizationService>();
 builder.Services.AddScoped<IAuthorizationHandler, EnterpriseAuthorizationHandler>();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = SigovApiAuthenticationHandler.SchemeName;
+    options.DefaultChallengeScheme = SigovApiAuthenticationHandler.SchemeName;
+})
+    .AddScheme<AuthenticationSchemeOptions, SigovApiAuthenticationHandler>(SigovApiAuthenticationHandler.SchemeName, _ => { });
 builder.Services.AddAuthorization(options =>
 {
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
     foreach (var (policyName, permission) in PermissionCatalog.Policies)
         options.AddPolicy(policyName, policy => policy.RequireAssertion(context =>
             PermissionCatalog.UserHasPermission(context.User, permission)));
@@ -100,11 +111,6 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<ApiKeyV1Middleware>();
-app.UseMiddleware<TenantResolutionMiddleware>();
-app.UseCors("SigovCors");
-app.UseMiddleware<SimpleRateLimitMiddleware>();
-app.UseAuthorization();
 
 var sigovOptions = app.Services.GetRequiredService<IOptions<SigovOptions>>().Value;
 if (app.Environment.IsProduction() && string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("DefaultConnection")))
@@ -144,6 +150,13 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing") 
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<ApiKeyV1Middleware>();
+app.UseAuthentication();
+app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseCors("SigovCors");
+app.UseMiddleware<SimpleRateLimitMiddleware>();
+app.UseAuthorization();
 
 app.MapControllers();
 

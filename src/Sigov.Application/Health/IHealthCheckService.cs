@@ -8,6 +8,6 @@ public interface IHealthCheckService
     Task<HealthSummaryResponse> GetReadyAsync(CancellationToken cancellationToken);
     Task<HealthCheckResult> GetDatabaseAsync(CancellationToken cancellationToken);
     Task<HealthCheckResult> GetOutboxAsync(CancellationToken cancellationToken);
-    HealthCheckResult GetStorage();
+    Task<HealthCheckResult> GetStorageAsync(CancellationToken cancellationToken);
     ReleaseInfoResponse GetVersion();
 }
