@@ -33,6 +33,188 @@ alter table sigov.schema_migrations
     add column if not exists success boolean not null default true,
     add column if not exists execution_ms bigint null;
 
+select exists (
+    select 1
+    from (values
+        ('001', array['db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8']::text[]),
+        ('002', array['82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130']::text[]),
+        ('003', array['915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e']::text[]),
+        ('004', array['5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2']::text[]),
+        ('005', array['4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb']::text[]),
+        ('006', array['4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb']::text[]),
+        ('007', array['4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb']::text[]),
+        ('008', array['4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb']::text[]),
+        ('009', array['be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441']::text[]),
+        ('010', array['ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3']::text[]),
+        ('012', array['cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699']::text[]),
+        ('013', array['83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367']::text[]),
+        ('014', array['b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0']::text[]),
+        ('015', array['0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f']::text[]),
+        ('016', array['b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55']::text[]),
+        ('017', array['591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea']::text[]),
+        ('018', array['6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c']::text[]),
+        ('019', array['b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e']::text[]),
+        ('020', array['614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e']::text[]),
+        ('021', array['3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6']::text[]),
+        ('022', array['4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c']::text[]),
+        ('023', array['a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff']::text[]),
+        ('024', array['cb4117e8390fbd7fe281d678178ae57943f803d30d4052a18c953f4d875aabba']::text[]),
+        ('025', array['f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c']::text[]),
+        ('026', array['00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc']::text[]),
+        ('20260607090000', array['5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847']::text[]),
+        ('20260608090000', array['3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb']::text[]),
+        ('20260608100000', array['64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10']::text[]),
+        ('20260608110000', array['eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe']::text[]),
+        ('20260608120000', array['935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1']::text[]),
+        ('20260608120001', array['3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b']::text[]),
+        ('20260608130000', array['c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9']::text[]),
+        ('20260608140000', array['48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad']::text[]),
+        ('20260609090000', array['e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d']::text[]),
+        ('20260609120000', array['81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c']::text[]),
+        ('20260610100000', array['ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593']::text[]),
+        ('20260610120000', array['884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b']::text[]),
+        ('20260610150000', array['2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5']::text[]),
+        ('20260610180000', array['7524a57b97313f65ca623dfbb1865d20588fbc55d23d69835e550c8837c291fe']::text[]),
+        ('20260610200000', array['3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2']::text[]),
+        ('20260610220000', array['f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860']::text[]),
+        ('20260611110000', array['8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8']::text[]),
+        ('20260611130000', array['2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71']::text[]),
+        ('20260706120000', array['5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d','2e4ce60b5222d8e6d7c2cae5b51efa0fb762118af9f49370d1be8d2a185ca0fc','983dfb35b7a953103c97ec439947ea0967b6132d914934c1fc0253c1ce233d1a']::text[]),
+        ('20260706153000', array['a8b4347d56e0a9debcbe6ae15c254a5650e638c30454c0b6ada9fb062102ce39','ec91967e5a74a2ffbef4f50deabadbac1041ddf89e09bd703602f6f9fa470064']::text[]),
+        ('20260709120000', array['db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784']::text[]),
+        ('20260713120000', array['50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7']::text[]),
+        ('20260721120000', array['3a6e2e05531dd3d6a725a2a31c86592d6ce1c8ad5f06142ce0d9bec4e55b387f','5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06','ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d','0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e']::text[]),
+        ('20260727120000', array['177f36a01775fbc78039e1f77555def37ed0e15442946530bd55f5bd9539c62d','ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662']::text[]),
+        ('20260727160000', array['bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8']::text[]),
+        ('20260730090000', array['cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c']::text[]),
+        ('20260730110000', array['740ef5203f9c67ee5c1519cd8baa971638bea21dd2d4c3a9371ea117308731c3']::text[]),
+        ('20260730120000', array['7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5']::text[]),
+        ('20260730170000', array['8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e']::text[]),
+        ('20260730180000', array['148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042']::text[]),
+        ('20260730210000', array['15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf']::text[]),
+        ('20260731120000', array['56970917a32ca0a69809717b4d009f6ed7071c000c50fec56b44351ac1acdb04']::text[]),
+        ('20260802210000', array['d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331']::text[]),
+        ('20260807120000', array['a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6']::text[]),
+        ('20260809120000', array['77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821']::text[]),
+        ('20260809160000', array['c9879e5a853fe2b42ccd38e756fa8b4cdae858ead423faf3c0eb46fbe9d907ae','be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735']::text[]),
+        ('20260813223000', array['e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1']::text[]),
+        ('20260813230000', array['717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5']::text[]),
+        ('20260813231000', array['52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5']::text[]),
+        ('20260813232000', array['48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f']::text[]),
+        ('20260814120000', array['21525439b3ddeafd72d2d53029f3d2cd16272d7648387eff2de4c3c04fa506a3']::text[]),
+        ('20260814121000', array['36b821f45a5b9d78212c9d287d889628ff7ae7a92a9d47c0bde7920b171c1cf6']::text[]),
+        ('20260814122000', array['b4c74ede176a48826069e0ece3d9b8ddd301f453083d86eb5f5ee8a443cc6ec2']::text[]),
+        ('20260816120000', array['cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7']::text[]),
+        ('20260816121000', array['a6554696f26233a432e3cfad41a9714227648d4f99d012f1e45f205836c5c39b']::text[]),
+        ('20260816122000', array['cc24ac60670d2459ae7611a3d784c087eac41493df995bc480ba40c6374a34a8']::text[]),
+        ('20260816123000', array['e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa']::text[]),
+        ('20260817120000', array['0e9e2f92a8fe6d24d572578414194631b6086d5cc68a6293538ffafa07332853']::text[]),
+        ('20260817121000', array['f01c2ff0a7ad334082bc3f24eb9752a4122f58b984b102373d4315a72c43101b']::text[]),
+        ('20260817122000', array['71bb8284719919e8cc3b4d1e0396cdb95d8969a65b400d112b6797cca322f80a']::text[]),
+        ('20260817123000', array['3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9']::text[]),
+        ('20260817130000', array['c73ac0207d7a12c625391bda98f60da76f8229c69520bfed01dd6a22052f0a4e','cc6e79774de51931a2e8388867e534d8b5d88e64316cbe2598b9002e94506b83']::text[]),
+        ('20260817131000', array['44340d33b6b58b501d86871748cf00ea803d68d8336e3f21d03fcd930e6bf9d8','1e4825716d8179c35fff6afdce6d4208ace78ab4ca296586c0e921ce57775f08']::text[]),
+        ('20260817132000', array['80bb1e2e18ae68c0999c077983aebdc819f24a3d1a96798eea2663cf5423e658','b9aa71364146aae196d6d31283a80572241b19273914be0e1b04ead7f61fcc2d']::text[]),
+        ('20260817133000', array['f851b5d3855a6aed8fdd78692b8f50395fab52f19b588e83c704d9e31824faf4','61274c70eeeacf4e277c40cbd1da977905aa6a77ab870f307da301c9e05370b9']::text[]),
+        ('20260817140000', array['aec28f0c3cd4778778acf04fadf7035247b3d3d5fbc7926c409f3c548bbf595c']::text[]),
+        ('20260817141000', array['a613ad05f8cb8bc9f2304ac5d875d3aa1ce5a9caee769382bdb20554a973d38b']::text[]),
+        ('20260817142000', array['595a5a64c98ab84c4397d08c2326264573bf903c2aeaa55735614f7872abdd95']::text[]),
+        ('20260817143000', array['8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74']::text[]),
+        ('20260817150000', array['c422ba944d98fedecd96874d095c9c066f946c1414aecdfa84fa6e5010c81783','554d287fb4f5c9594ec808eb1447fd33e73677ae4eee98f4ead82406b0b54d41']::text[]),
+        ('20260817151000', array['fc7c6f223c6b8b6299101edc48a6140a19292945f182f2fa453cfc2b505688b7','f0c3407d2e2995c9092f5dfd1f63e195d229e351b3dc03c9a703913984485e8c']::text[]),
+        ('20260817152000', array['97fcd4df32ab7237ad2e0008f45540cb4b43738ddad974bbb5d4198bdc069ba9','ede2d93259a81cfc0e08e16a98157fc05424fb1391fed297289ca3a5abae8cdc']::text[]),
+        ('20260817153000', array['99f7a3aea02ffe6beb69b9ce0571206dde7967dbf873c885439586a5ef973b8f','2906f5adb0a0e7f1665ed55967a8e7cf43f180a5413eccfa271e58641e6d1b23']::text[]),
+        ('20260818120000', array['5b79e8564806fbee9d9644920157c638ad686c5631b2a7eb61e2b1957430c99f','a2a37d6f77cc136cfab3c4f86aeb3b5c42d616e88cb740889f31d0c78a46f15c']::text[]),
+        ('20260818121000', array['1ec8fd32b0eb99fd632772c4d0a34234f1861b7d969a2aeb0f562393eba7377f','693e8abd0fd7c957e2c1879058274e4699fef7b31110eef015ff7a6c4a5a71e7']::text[]),
+        ('20260818122000', array['3acf39181f7f1da2075dcd57a932336a783657eb8b9ba71ddd0b267af788c38f','b5288edd073ba59346d4823a2774dd2cf701dfff65a94b252b0c779fc9d012f3']::text[]),
+        ('20260818123000', array['1e891bd1ab0a5b5a88c38d4923afb0ac394e9fbffc12c4bb8cf5fad74d173bd3','c15b0e3b78891064b8ad472296ce437c4a051a7a769193728f473f8d227607ad']::text[]),
+        ('20260818130000', array['646efcef3c105612a6f4a5f2889338f979e96dfcb1c97a0fe53264cf20f1c1a0','3e7d41c829d6041ee65d202c4959318f09e47d6a9140f7e021124f5025c7bd6a']::text[]),
+        ('20260818131000', array['0904e625ab3de379c1868f8ea35c8f309b0ebae44a2f43470f7a015502983d2e','49c1fcaa64766be9977e20014d777cca83e65d0de07a5e8f7e4790ebe19d2623']::text[]),
+        ('20260818132000', array['5397cbc32104bf1c11c2b51b29eab374e1a3208b7ed3cd69fb2f07a14a0f9a49','61e725c2e512e0a8604db20aa78cc92d7f93a61c3a92014409ab8608c02559aa']::text[]),
+        ('20260818133000', array['600ab03eb8ddb0df813e1018c37670852ce3a0d951a3c72ba1f187e09d149842','657d5ef18cd315604e6a6b00b901a0c8f3acfc822839687dd7a1220199c5ff3a']::text[]),
+        ('20260818140000', array['50ed25704f7a746d5f7e49ad217e313da9431fd98af35f72e7b6e28525d1339a']::text[]),
+        ('20260818141000', array['792e1423928b022612fd777925f5016d97882fd09986650f8ab9e12f44d9a7bd']::text[]),
+        ('20260818142000', array['b03968468dc02a4a1fbf2c39fe4c6a01c89951250bc80edac201393b36b867e3']::text[]),
+        ('20260818143000', array['a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330']::text[]),
+        ('20260818150000', array['493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63']::text[]),
+        ('20260818160000', array['e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee']::text[]),
+        ('20260819120000', array['5c4a26e582e967309c817bebecf3c089d69059d1a219c38a30aee8f56e94e41d','93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c']::text[]),
+        ('20260819130000', array['0892a363f7cd04eb5e6231eb8afcdf25770fb243a78cfbd6d495dbd650193617','c82d37cad431124b6de33fa399e1b1bdf0329f595f84edd3ec7df8344ea7566e']::text[]),
+        ('20260819140000', array['6880555e3aceb537dc6ebc94a68ae81e060a63ff761a66a76381befc0923f926','19843e03bcab2cfe86cd45b4a5ed1f10c976f479c95f3163f51188f21b2cb78a']::text[]),
+        ('20260819150000', array['136f95b3fd388e640ec0312e8da7d4fb618bf45916a1207f1fc6365a2fcd74be','dd6d8fd38e1ede277a30a01385fb9a7a012ed9c0d2ee84525fc9c10f554f8e1b']::text[]),
+        ('20260820120000', array['15c33ca8593c7dfc0daa01a57e02800fa71c75139267b94502f3a7d93d612571']::text[]),
+        ('20260820160000', array['cdf95bcec5cf04cd80299bb93a6cfe0936cede30ddda9210c2f75b6eb867e10c']::text[]),
+        ('20260820200000', array['b349733d0bbdbe6fbfdd33b90b87b703439e6aca417734b45cc03eca506abe09']::text[]),
+        ('20260820230000', array['e96bfa078a1ee0fb6fc5d1aaf3b6202ad4aceb0c91ed6b409f4ed42ce72c700c']::text[]),
+        ('20260821120000', array['3908cb29fcff7c550ed99176f3503b1fdbfffcd88cf40490ac685d6431d26784']::text[]),
+        ('20260824120000', array['d1e705d8727ad182ce18d0820147edf47bc92c9a3af8d889943a69c59036373f']::text[]),
+        ('20260824180000', array['15a775c2ee963a62dfc3923e33d17dabc0fee768f954b269418ca4b4cd666007']::text[]),
+        ('20260824200000', array['407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0']::text[]),
+        ('20260824220000', array['a51f54ebe93fc03d3f280ba195e3545282d68d80ea300d0b91b17007b6c14587']::text[]),
+        ('20260824230000', array['f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86']::text[]),
+        ('20260825000000', array['69cf4c6ffaa1069f38d33676c732b5515a27a0f6597f01ddd0a70d1141789003']::text[]),
+        ('20260825010000', array['2ed8027063d864eccd79b6524f6052acbcbe578187cc9c0cdd9cc2376ed5a90c']::text[]),
+        ('20260825020000', array['fad32bffa62a91cf8d7dcb05ee6a02b6f22cf23378a6060cab91c94d5f0cb247']::text[]),
+        ('20260825030000', array['f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6']::text[]),
+        ('20260825040000', array['abf22f0cc71c188ed73592739be04f360c6b9ea84de92dfa739b24b14cd2f5c9']::text[]),
+        ('20260825050000', array['d5a269a1812ff2e0f04e9e61661fc8e89e4042653c341b0c71a1c43c341ced85']::text[]),
+        ('20260825060000', array['2a2fbfe6a03cdd016b7d1928400f821c812427acb095c0b8d4f14ce3230b413f']::text[]),
+        ('20260825070000', array['b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111','9cef4d24362ff713397ba5bc61eb718666546e23895956eb8102f087b607556b']::text[]),
+        ('20260825080000', array['c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64','664ed3d4f1151fb92f1d6abfd9832ece34353f9302b7b5f5709135859788b2ab']::text[]),
+        ('20260825090000', array['f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364','568b1f57531c05c45c21fcb10054e874a8dc3b5b5022c16cc12517242d949641','dc9993f706641fd0d538e2a92bc0de0c3fb0e1ff8ff776e5f0ca268752db1b93']::text[]),
+        ('20260825100000', array['e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82','c38ae4b1bffe412acaadb37c94693cc2093ad70f78fb891836deb502bee6e53d','6762e4006ed6f3a4240916a3964b911cfc6ea44a3a2b89964d4e285327d14299']::text[]),
+        ('20260825110000', array['4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab','52b30af5bac763cd6903de92c80740996407e873c2e7fd6a170880ffeac35116','0ae9cfcbc6325920d054a48d2887e4401e2b51de0b9bba4b743309aac64ddc12']::text[]),
+        ('20260825120000', array['e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397','f862b25c2e1b93a09542ba242db81b42190e5bbca062430a6a11f9d8c27621ee','e02f3c53ccb4cde363f5834bec0582bff006bacb2f6cdd9fd59d52e7b30fd4a9']::text[]),
+        ('20260825121000', array['d26ede93088c94c26405f02297f93404ab2e64f8e3593826ce1559697ef36c60','7d54ae2884409857f5dab616f6d883fff52f3f8100bfcdb9f25206d76179cd1a']::text[]),
+        ('20260825130000', array['22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1','703f387d0dc86235913f370d67ec41b058503242724e4b83b9533137fc0bf154']::text[]),
+        ('20260825131000', array['49478a74cc5411268608c4a45f5021ebe1156e5ba3b7a6e0b38a7b23f5ae7a32','14cbd64ba464fc000e0d86a9fd864f43fea95b6d5665e00b53d2628b8a74f607']::text[]),
+        ('20260826100000', array['1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d','6f961883b8b6e8bc5fdb5339b03236ce26ed7e34874395bfe176383b64a16912','24f0fc52151b555f7ca1b691b56f5ac64b73716d44a4f06761e8b67296629ec8']::text[]),
+        ('20260826110000', array['785151a081efcac02a48502696352e17ad3cde39a2982ec2c8a49e982b243bb2','825a60b39b5eadb63bf13e3c127947120467c86b39f18b8dacd11e968d496f6b']::text[]),
+        ('20260826120000', array['1b94531a4a583b62400e7c70e9858eb09c749a42ce25fc2473bd73e5772b754c']::text[]),
+        ('20260826130000', array['6cebafe4e884b6105b6fee01715b412809035599b964179f4b42a9c9fc66adeb']::text[]),
+        ('20260826140000', array['0191865793bc9845ec077ed2c78964e7866a80acbdd61521bd06e6272aad5e9a']::text[]),
+        ('20260826150000', array['a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967','aa98b8b9262cbad3094cc6c70f97619565b546584d6d05fabca396adf4e48ed4']::text[]),
+        ('20260826160000', array['1dae1d0fbff3a7129faa68d47d9260387ca9d96b315d33a453142f8e4b3c114d','c269ca4a5e5fc9836f52f9552e7b80342679117d304eee3538117787c7624dc1']::text[]),
+        ('20260826170000', array['2ebc8a069d82319703eb0a7e3beb0fde4064fb64b558dec44a6bb8d6492b3c0c']::text[]),
+        ('20260826180000', array['f98bf85a739f3d01c653be3e8b1a4f92be0c66dd2b8838ffa662e6f1045b5af6','b34303dbdc58b2f5ce2a66396f5adbd942e037482a42c86672ec8ec7abb122aa']::text[]),
+        ('20260826210000', array['e3784f95cd33b338228ac35b7b0174fffdf66397731175590182e4adce5c7d60']::text[]),
+        ('20260826220000', array['b56aeb80754344edea1525ec65573d73fe6da09ab8d603c2dda06d98bf46048e']::text[]),
+        ('20260827100000', array['33c687629eae15da672c8b561291a0a5bf161bdf4a204c1be3a19526a6774385']::text[]),
+        ('20260827120000', array['8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c','845878bd470c312b697eb36d5d18541c5083e1a79e9d3cee2e28f17ac484dedd','e42939d4aa152afc85ac9298afeae84e4158189fddec1c5a363ad8ed3eeab0e6']::text[]),
+        ('20260827150000', array['ae14c7f27643124d4b3543c701c9f218113f596fc70289746ffdd98c0e6a0810']::text[]),
+        ('20260828100000', array['f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e','a6f8df8a73dd6a0636d416dfa26e9792b9822fd88dda25e5d7754211bbb5cb74']::text[]),
+        ('20260828120000', array['4fcb530a70993cf564ad436cafeb626ab84c291c18a7b425dce0c455ce1baade']::text[]),
+        ('20260829100000', array['f15578a8a66c3b957280f8bef5549cf08feea44bb9fe78d295160f2cb9b3eb8b']::text[]),
+        ('20260829120000', array['e7def5cdb39deecba61f6587b67a64eae4386d5176f9ea42cff3d2572aa53fda']::text[]),
+        ('20260829140000', array['bad5e86f75925fb350a27b492fc7573b5058cd1753aaee6b14e7541db7a09bf3']::text[]),
+        ('20260829160000', array['2cdecc8c7242414505418407aafcc4cc128fd82ac83de252f3ffbe4e9f8aa324']::text[]),
+        ('20260829180000', array['db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf','260fc916adb1b9edb553806567cc906e5290c2b69678b20f5a166f5da7aba193']::text[]),
+        ('20260831120000', array['300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369','fefd677795e2d1525f9c94ee0d7593958c24dedc32b7fa80d8d0ad57ba3672a2']::text[]),
+        ('20260831180000', array['07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c','73413158b125b94917e55a9b769bd5670cd2335ce443b5db0e29ad8f7c210cf0']::text[]),
+        ('20260831210000', array['cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9','daa1c395e69fd32c0889da47cfc74e87657cc15f74f137ff0069d0a0ab208989']::text[]),
+        ('20260831230000', array['bf9bc005b5455e4cb086d41c72e7165af7cf1b725101e8d7bfd073b67f666c39','913cbb2bb539324d8593990c4f4b1510dfe377e6de4aed2a2b5227f7148e9bbf']::text[]),
+        ('20260901000000', array['376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16']::text[]),
+        ('20260901030000', array['324d4bac90745f2b87238701aa750ad52d821449cfcfc73afbc76c4d25cc3487']::text[]),
+        ('20260901060000', array['40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a']::text[]),
+        ('20260901090000', array['8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9']::text[]),
+        ('20260901120000', array['79994e71582be89f98a632ba41e58a2a28f566d819376896550761dc95b579c0','1600232d2b536459b9dd9b2c71c18d97adb94edb196023a2c37d97f6b560c213']::text[]),
+        ('20260901150000', array['b7fae30e648b53ba82ebc71a8f9778ed0f9942d8cf054dc8a1c06a4b80c938c1','37cebff36bf75ed6cb0f00d987288486af089ef4f78fe282b375d4cb339b3c6e']::text[]),
+        ('20260901180000', array['8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282']::text[]),
+        ('20260901210000', array['a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd']::text[]),
+        ('20260902000000', array['f5a4370460581e6b3e78a1f0ab30e2487fc272e66c53634be46541d470e8b007']::text[]),
+        ('20260903100000', array['7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed']::text[]),
+        ('20260903173000', array['ea2e34fb9909c44f2e2a66a9e80de887d31717ca9fe20bbed0a714242bfbc528']::text[]),
+        ('20260903230000', array['2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70']::text[]),
+        ('20260908120000', array['c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7']::text[])
+    ) required(version, accepted_checksums)
+    left join sigov.schema_migrations applied on applied.version = required.version
+    where applied.version is null
+       or not applied.success
+       or not (applied.checksum = any(required.accepted_checksums))
+) as sigov_baseline_pending
+\gset
+\if :sigov_baseline_pending
+
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
@@ -11711,6 +11893,47 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 080_pre_rc50_38_integracao_interna_evento.sql
+-- STAGE: BEFORE 20260816120000_rc50_38_saude_bloco7_core.sql
+-- ==================================================
+-- Compatibilidade forward-only para RC50.38.
+-- As migrations de Saúde/Assistência/Saneamento/Frotas publicadas consultam a
+-- relação em NOT EXISTS antes que a RC50.63 a crie. PostgreSQL resolve a
+-- relação no parse da instrução, portanto o predicado information_schema não
+-- evita a falha em banco vazio. Este contrato reúne as colunas consumidas
+-- pelos dois formatos históricos sem executar as órfãs RC50.30/RC50.37.
+create schema if not exists sigov;
+
+create table if not exists sigov.integracao_interna_evento (
+    id bigint generated always as identity primary key,
+    tenant_id bigint not null,
+    origem_modulo varchar(40) not null,
+    destino_modulo varchar(40) not null,
+    origem varchar(80) generated always as (origem_modulo) stored,
+    destino varchar(80) generated always as (destino_modulo) stored,
+    tipo_evento varchar(120) not null,
+    status varchar(40) not null default 'PENDENTE',
+    referencia_tipo varchar(80),
+    referencia_id bigint,
+    referencia varchar(160),
+    payload jsonb not null default '{}'::jsonb,
+    erro text,
+    detalhe_erro varchar(1000),
+    rota_correcao varchar(300),
+    preparatoria boolean not null default false,
+    correlation_id uuid not null default gen_random_uuid(),
+    created_at timestamptz not null default now(),
+    processed_at timestamptz,
+    created_by bigint,
+    is_deleted boolean not null default false,
+    auditoria jsonb not null default '{}'::jsonb
+);
+
+create index if not exists ix_integracao_interna_fila
+    on sigov.integracao_interna_evento (tenant_id, status, created_at, id)
+    where not is_deleted;
+
+-- ==================================================
 -- MIGRATION: 20260816120000_rc50_38_saude_bloco7_core.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7
@@ -14502,6 +14725,19 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 081_pre_rc50_38_obra_compatibility.sql
+-- STAGE: BEFORE 20260816123000_rc50_38_frotas_obras_bloco7_core.sql
+-- ==================================================
+-- Compatibilidade forward-only para a tabela sigov.obra anterior à RC50.38.
+-- A consolidação de módulos transversais já publicava a relação com um
+-- contrato reduzido. A RC50.38 usa CREATE TABLE IF NOT EXISTS e, em seguida,
+-- cria um índice sobre codigo sem garantir a coluna no caminho legado.
+-- Mantê-la anulável preserva os registros existentes e a semântica do índice
+-- parcial publicado, que considera apenas códigos informados.
+alter table if exists sigov.obra
+    add column if not exists codigo varchar(80);
 
 -- ==================================================
 -- MIGRATION: 20260816123000_rc50_38_frotas_obras_bloco7_core.sql
@@ -19705,6 +19941,18 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 082_pre_rc50_60_perfil_global_compatibility.sql
+-- STAGE: BEFORE 20260819120000_rc50_60_fluxos_educacao_saude_core.sql
+-- ==================================================
+-- Compatibilidade forward-only para os templates globais da RC50.60.
+-- A migration 015 tornou tenant_id obrigatório em tabelas operacionais,
+-- inclusive perfil_acesso. A RC50.60 publicada introduz perfis funcionais
+-- globais e omite tenant_id deliberadamente; as concessões continuam
+-- vinculadas ao tenant em perfil_permissao/grupo_perfil.
+alter table if exists sigov.perfil_acesso
+    alter column tenant_id drop not null;
+
+-- ==================================================
 -- MIGRATION: 20260819120000_rc50_60_fluxos_educacao_saude_core.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: 5c4a26e582e967309c817bebecf3c089d69059d1a219c38a30aee8f56e94e41d
@@ -20194,6 +20442,17 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 083_pre_rc50_68c_permissao_chave_compatibility.sql
+-- STAGE: BEFORE 20260820200000_rc50_68c_contexto_operacional_seguro.sql
+-- ==================================================
+-- Compatibilidade forward-only para o catálogo canônico de permissões.
+-- Desde a POS-RC36B, `chave` é a identidade natural e possui índice único.
+-- A restrição histórica (modulo,recurso,acao) impede chaves distintas para a
+-- mesma ação contextual (por exemplo, seletor/unidade/exercício visualizar).
+alter table if exists sigov.permissao
+    drop constraint if exists uk_sigov_permissao_modulo_recurso_acao;
+
+-- ==================================================
 -- MIGRATION: 20260820200000_rc50_68c_contexto_operacional_seguro.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: b349733d0bbdbe6fbfdd33b90b87b703439e6aca417734b45cc03eca506abe09
@@ -20324,6 +20583,77 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 084_pre_func01_patrimonio_compatibility.sql
+-- STAGE: BEFORE 20260824120000_func01_patrimonio_inventario.sql
+-- ==================================================
+-- Compatibilidade forward-only entre o patrimônio transversal legado e FUNC01.
+-- As relações `patrimonio_bem` e `patrimonio_inventario` já existiam com um
+-- contrato mínimo; por isso os CREATE TABLE IF NOT EXISTS publicados em FUNC01
+-- não acrescentam as colunas usadas pelos índices e pelos fluxos atuais.
+
+alter table if exists sigov.patrimonio_bem
+    add column if not exists codigo_tombo varchar(80),
+    add column if not exists codigo_anterior varchar(80),
+    add column if not exists categoria_id bigint,
+    add column if not exists tipo_bem varchar(80) not null default 'OUTRO',
+    add column if not exists marca varchar(120),
+    add column if not exists modelo varchar(120),
+    add column if not exists numero_serie varchar(160),
+    add column if not exists data_aquisicao date,
+    add column if not exists valor_aquisicao numeric(18,2),
+    add column if not exists valor_atual numeric(18,2),
+    add column if not exists estado_conservacao varchar(30) not null default 'BOM',
+    add column if not exists situacao varchar(30) not null default 'ATIVO',
+    add column if not exists unidade_id bigint,
+    add column if not exists setor_id bigint,
+    add column if not exists responsavel_usuario_id bigint,
+    add column if not exists observacao text,
+    add column if not exists ativo boolean not null default true,
+    add column if not exists created_by bigint,
+    add column if not exists updated_by bigint,
+    add column if not exists deleted_at timestamptz,
+    add column if not exists deleted_by bigint;
+
+update sigov.patrimonio_bem
+set codigo_tombo = coalesce(nullif(codigo_tombo, ''), nullif(numero_tombamento, ''), 'LEGACY-BEM-' || id::text)
+where codigo_tombo is null or codigo_tombo = '';
+
+with duplicados as (
+    select id, row_number() over(partition by tenant_id, codigo_tombo order by id) as ordem
+    from sigov.patrimonio_bem
+)
+update sigov.patrimonio_bem bem
+set codigo_tombo = bem.codigo_tombo || '-' || bem.id::text
+from duplicados d
+where d.id = bem.id and d.ordem > 1;
+
+alter table if exists sigov.patrimonio_bem
+    alter column codigo_tombo set not null;
+
+create unique index if not exists ux_patrimonio_bem_tenant_tombo
+    on sigov.patrimonio_bem(tenant_id, codigo_tombo);
+
+alter table if exists sigov.patrimonio_inventario
+    add column if not exists codigo varchar(80),
+    add column if not exists data_abertura date not null default current_date,
+    add column if not exists data_fechamento date,
+    add column if not exists situacao varchar(20) not null default 'ABERTO',
+    add column if not exists unidade_id bigint,
+    add column if not exists responsavel_usuario_id bigint,
+    add column if not exists created_by bigint,
+    add column if not exists updated_by bigint;
+
+update sigov.patrimonio_inventario
+set codigo = coalesce(nullif(codigo, ''), 'LEGACY-INV-' || id::text)
+where codigo is null or codigo = '';
+
+alter table if exists sigov.patrimonio_inventario
+    alter column codigo set not null;
+
+create unique index if not exists ux_patrimonio_inventario_tenant_codigo
+    on sigov.patrimonio_inventario(tenant_id, codigo);
 
 -- ==================================================
 -- MIGRATION: 20260824120000_func01_patrimonio_inventario.sql
@@ -20674,6 +21004,22 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 085_pre_func05_educacao_portal_compatibility.sql
+-- STAGE: BEFORE 20260824230000_func05_educacao_gestao_escolar.sql
+-- ==================================================
+-- Compatibilidade forward-only entre o portal do responsável (RC50.34) e
+-- o contrato consolidado de Educação (FUNC05). As tabelas já existiam, então
+-- os CREATE TABLE IF NOT EXISTS de FUNC05 não acrescentavam o contexto de
+-- entidade nem os campos de publicação consumidos pelo fluxo consolidado.
+alter table if exists sigov.educacao_comunicado
+    add column if not exists entidade_id bigint,
+    add column if not exists publicado_em timestamptz not null default now(),
+    add column if not exists ativo boolean not null default true;
+
+alter table if exists sigov.educacao_portal_vinculo
+    add column if not exists entidade_id bigint;
+
+-- ==================================================
 -- MIGRATION: 20260824230000_func05_educacao_gestao_escolar.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86
@@ -20871,6 +21217,61 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 086_pre_func07_saneamento_uc_compatibility.sql
+-- STAGE: BEFORE 20260825010000_func07_saneamento_comercial_operacional.sql
+-- ==================================================
+-- Compatibilidade forward-only entre a unidade consumidora do saneamento base
+-- e o contrato comercial de FUNC07. O identificador funcional legado
+-- `codigo_unidade` permanece preservado e passa a alimentar `matricula`.
+alter table if exists sigov.saneamento_unidade_consumidora
+    add column if not exists matricula varchar(40),
+    add column if not exists proprietario_id bigint,
+    add column if not exists inquilino_id bigint,
+    add column if not exists responsavel_financeiro_id bigint,
+    add column if not exists orgao_pagador_id bigint,
+    add column if not exists logradouro varchar(250),
+    add column if not exists numero varchar(30),
+    add column if not exists complemento varchar(120),
+    add column if not exists cep varchar(8),
+    add column if not exists cidade varchar(120),
+    add column if not exists uf char(2),
+    add column if not exists categoria varchar(30),
+    add column if not exists subcategoria varchar(60),
+    add column if not exists moradores integer not null default 0,
+    add column if not exists economias integer not null default 1,
+    add column if not exists area_edificada numeric(12,2),
+    add column if not exists inscricao_imobiliaria varchar(60),
+    add column if not exists reservatorio boolean not null default false,
+    add column if not exists cisterna boolean not null default false,
+    add column if not exists fonte_propria boolean not null default false,
+    add column if not exists fossa boolean not null default false;
+
+update sigov.saneamento_unidade_consumidora
+set matricula = coalesce(nullif(matricula, ''), left(codigo_unidade, 40)),
+    proprietario_id = coalesce(proprietario_id, consumidor_id),
+    logradouro = coalesce(nullif(logradouro, ''), nullif(endereco_json->>'logradouro', ''), 'Não informado'),
+    numero = coalesce(nullif(numero, ''), nullif(endereco_json->>'numero', ''), 'S/N'),
+    bairro = coalesce(nullif(bairro, ''), nullif(endereco_json->>'bairro', ''), 'Não informado'),
+    cidade = coalesce(nullif(cidade, ''), nullif(endereco_json->>'cidade', ''), 'Não informado'),
+    uf = coalesce(nullif(uf, ''), nullif(upper(left(endereco_json->>'uf', 2)), ''), 'NA'),
+    categoria = coalesce(nullif(categoria, ''), 'RESIDENCIAL')
+where matricula is null or proprietario_id is null or logradouro is null or numero is null
+   or bairro is null or cidade is null or uf is null or categoria is null;
+
+alter table if exists sigov.saneamento_unidade_consumidora
+    alter column matricula set not null,
+    alter column proprietario_id set not null,
+    alter column logradouro set not null,
+    alter column numero set not null,
+    alter column bairro set not null,
+    alter column cidade set not null,
+    alter column uf set not null,
+    alter column categoria set not null;
+
+create unique index if not exists ux_san_uc_matricula
+    on sigov.saneamento_unidade_consumidora(tenant_id, entidade_id, matricula);
+
+-- ==================================================
 -- MIGRATION: 20260825010000_func07_saneamento_comercial_operacional.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: 2ed8027063d864eccd79b6524f6052acbcbe578187cc9c0cdd9cc2376ed5a90c
@@ -21059,6 +21460,125 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 087_pre_func09_tributario_compatibility.sql
+-- STAGE: BEFORE 20260825030000_func09_tributario_receita_municipal.sql
+-- ==================================================
+-- Compatibilidade forward-only entre os contratos tributários históricos e
+-- FUNC09. Preserva as colunas publicadas e acrescenta os nomes canônicos usados
+-- pelos índices e validações atuais; nenhuma esfera de governo é presumida.
+alter table if exists sigov.tributario_contribuinte
+    add column if not exists entidade_id bigint,
+    add column if not exists nome_razao_social varchar(250),
+    add column if not exists nome_fantasia varchar(180),
+    add column if not exists inscricao_municipal varchar(40),
+    add column if not exists endereco jsonb not null default '{}'::jsonb,
+    add column if not exists responsavel_contabil jsonb,
+    add column if not exists situacao varchar(20) not null default 'ATIVO',
+    add column if not exists is_deleted boolean not null default false,
+    add column if not exists created_by bigint,
+    add column if not exists updated_by bigint,
+    add column if not exists deleted_at timestamptz,
+    add column if not exists deleted_by bigint;
+
+update sigov.tributario_contribuinte
+set nome_razao_social = coalesce(nullif(nome_razao_social, ''), nome),
+    inscricao_municipal = coalesce(nullif(inscricao_municipal, ''), nullif(dados_json->>'inscricao_municipal', ''))
+where nome_razao_social is null or inscricao_municipal is null;
+
+alter table if exists sigov.tributario_imovel
+    add column if not exists entidade_id bigint,
+    add column if not exists inscricao_imobiliaria varchar(60),
+    add column if not exists proprietario_id bigint,
+    add column if not exists responsavel_id bigint,
+    add column if not exists situacao varchar(20) not null default 'ATIVO',
+    add column if not exists valor_venal_territorial numeric(18,2) not null default 0,
+    add column if not exists valor_venal_predial numeric(18,2) not null default 0,
+    add column if not exists is_deleted boolean not null default false,
+    add column if not exists created_by bigint,
+    add column if not exists updated_by bigint,
+    add column if not exists deleted_at timestamptz,
+    add column if not exists deleted_by bigint;
+
+update sigov.tributario_imovel
+set inscricao_imobiliaria = coalesce(nullif(inscricao_imobiliaria, ''), left(inscricao, 60)),
+    proprietario_id = coalesce(proprietario_id, contribuinte_id)
+where inscricao_imobiliaria is null or proprietario_id is null;
+
+alter table if exists sigov.tributario_lancamento
+    add column if not exists numero varchar(60),
+    add column if not exists vencimento date,
+    add column if not exists imovel_id bigint,
+    add column if not exists mobiliario_id bigint,
+    add column if not exists revisao_justificativa text,
+    add column if not exists cancelamento_justificativa text;
+
+update sigov.tributario_lancamento
+set numero = coalesce(nullif(numero, ''), left(codigo, 60)),
+    vencimento = coalesce(vencimento, data_vencimento)
+where numero is null or vencimento is null;
+
+alter table if exists sigov.tributario_lancamento_item
+    add column if not exists entidade_id bigint,
+    add column if not exists ativo boolean not null default true,
+    add column if not exists created_by bigint,
+    add column if not exists updated_at timestamptz,
+    add column if not exists updated_by bigint,
+    add column if not exists deleted_at timestamptz,
+    add column if not exists deleted_by bigint;
+
+alter table if exists sigov.tributario_guia
+    add column if not exists numero varchar(60),
+    add column if not exists emissao_at timestamptz not null default now(),
+    add column if not exists vencimento date,
+    add column if not exists valor numeric(18,2),
+    add column if not exists via integer not null default 1,
+    add column if not exists codigo_barras varchar(100),
+    add column if not exists pix_payload text;
+
+update sigov.tributario_guia
+set numero = coalesce(nullif(numero, ''), left(codigo, 60)),
+    vencimento = coalesce(vencimento, data_vencimento),
+    valor = coalesce(valor, valor_total)
+where numero is null or vencimento is null or valor is null;
+
+alter table if exists sigov.tributario_pagamento
+    add column if not exists lote_id bigint,
+    add column if not exists pago_at timestamptz,
+    add column if not exists valor_pago numeric(18,2),
+    add column if not exists desconto numeric(18,2) not null default 0,
+    add column if not exists multa numeric(18,2) not null default 0,
+    add column if not exists juros numeric(18,2) not null default 0,
+    add column if not exists diferenca numeric(18,2) not null default 0,
+    add column if not exists diferenca_justificativa text,
+    add column if not exists estorno_justificativa text,
+    add column if not exists ativo boolean not null default true,
+    add column if not exists updated_at timestamptz,
+    add column if not exists updated_by bigint,
+    add column if not exists deleted_at timestamptz,
+    add column if not exists deleted_by bigint;
+
+update sigov.tributario_pagamento
+set pago_at = coalesce(pago_at, data_pagamento::timestamptz),
+    valor_pago = coalesce(valor_pago, valor)
+where pago_at is null or valor_pago is null;
+
+alter table if exists sigov.tributario_divida_ativa
+    add column if not exists numero_inscricao varchar(60),
+    add column if not exists livro varchar(30),
+    add column if not exists folha varchar(30),
+    add column if not exists inscrita_at timestamptz,
+    add column if not exists valor_original numeric(18,2),
+    add column if not exists valor_atualizado numeric(18,2),
+    add column if not exists cancelamento_justificativa text;
+
+update sigov.tributario_divida_ativa
+set numero_inscricao = coalesce(nullif(numero_inscricao, ''), left(inscricao, 60)),
+    inscrita_at = coalesce(inscrita_at, data_inscricao::timestamptz),
+    valor_original = coalesce(valor_original, valor_total),
+    valor_atualizado = coalesce(valor_atualizado, saldo)
+where numero_inscricao is null or inscrita_at is null or valor_original is null or valor_atualizado is null;
+
+-- ==================================================
 -- MIGRATION: 20260825030000_func09_tributario_receita_municipal.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6
@@ -21109,7 +21629,7 @@ create index if not exists ix_tributario_auditoria_func09 on sigov.tributario_au
 insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted) select 'tributario',v.chave,v.recurso,v.acao,'Permissão FUNC09 Tributário',true,false from(values ('TRIBUTARIO_DASHBOARD_VIEW','tributario.dashboard','visualizar'),('TRIBUTARIO_CONTRIBUINTE_VIEW','tributario.contribuinte','visualizar'),('TRIBUTARIO_CONTRIBUINTE_MANAGE','tributario.contribuinte','gerenciar'),('TRIBUTARIO_IMOVEL_VIEW','tributario.imovel','visualizar'),('TRIBUTARIO_IMOVEL_MANAGE','tributario.imovel','gerenciar'),('TRIBUTARIO_MOBILIARIO_VIEW','tributario.mobiliario','visualizar'),('TRIBUTARIO_MOBILIARIO_MANAGE','tributario.mobiliario','gerenciar'),('TRIBUTARIO_PARAMETRO_VIEW','tributario.parametro','visualizar'),('TRIBUTARIO_PARAMETRO_MANAGE','tributario.parametro','gerenciar'),('TRIBUTARIO_LANCAMENTO_VIEW','tributario.lancamento','visualizar'),('TRIBUTARIO_LANCAMENTO_MANAGE','tributario.lancamento','gerenciar'),('TRIBUTARIO_GUIA_VIEW','tributario.guia','visualizar'),('TRIBUTARIO_GUIA_MANAGE','tributario.guia','gerenciar'),('TRIBUTARIO_ARRECADACAO_VIEW','tributario.arrecadacao','visualizar'),('TRIBUTARIO_ARRECADACAO_MANAGE','tributario.arrecadacao','gerenciar'),('TRIBUTARIO_DIVIDA_ATIVA_VIEW','tributario.divida_ativa','visualizar'),('TRIBUTARIO_DIVIDA_ATIVA_MANAGE','tributario.divida_ativa','gerenciar'),('TRIBUTARIO_PARCELAMENTO_VIEW','tributario.parcelamento','visualizar'),('TRIBUTARIO_PARCELAMENTO_MANAGE','tributario.parcelamento','gerenciar'),('TRIBUTARIO_FISCALIZACAO_VIEW','tributario.fiscalizacao','visualizar'),('TRIBUTARIO_FISCALIZACAO_MANAGE','tributario.fiscalizacao','gerenciar'),('TRIBUTARIO_CERTIDAO_VIEW','tributario.certidao','visualizar'),('TRIBUTARIO_CERTIDAO_MANAGE','tributario.certidao','gerenciar'),('TRIBUTARIO_RELATORIO_EXPORT','tributario.relatorio_export','gerenciar'),('TRIBUTARIO_AUDITORIA_VIEW','tributario.auditoria','visualizar'))v(chave,recurso,acao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.chave like 'TRIBUTARIO_%' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825030000', 'FUNC09 Tributário e Receita Municipal', 'f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825030000', 'FUNC09 Tributário e Receita Multi-esfera (arquivo histórico preservado)', 'f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21259,6 +21779,49 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 088_pre_func11_agro_produtor_compatibility.sql
+-- STAGE: BEFORE 20260825050000_func11_agro_desenvolvimento_rural.sql
+-- ==================================================
+-- Compatibilidade forward-only do cadastro Agro legado com FUNC11.
+-- O documento continua derivado da pessoa já vinculada; ausência de documento
+-- permanece explícita (NULL), sem geração de dado fictício como autoridade.
+alter table if exists sigov.agro_produtor
+    add column if not exists cpf_cnpj varchar(14),
+    add column if not exists tipo_pessoa varchar(2),
+    add column if not exists nome_razao_social varchar(180),
+    add column if not exists telefone varchar(30),
+    add column if not exists email varchar(180),
+    add column if not exists endereco text,
+    add column if not exists comunidade varchar(120),
+    add column if not exists localidade varchar(120),
+    add column if not exists caf_pronaf varchar(80),
+    add column if not exists observacoes text;
+
+update sigov.agro_produtor produtor
+set cpf_cnpj = nullif(regexp_replace(coalesce(pessoa.documento, ''), '[^0-9]', '', 'g'), ''),
+    nome_razao_social = coalesce(nullif(produtor.nome_razao_social, ''), nullif(pessoa.nome, '')),
+    tipo_pessoa = coalesce(produtor.tipo_pessoa,
+        case when length(regexp_replace(coalesce(pessoa.documento, ''), '[^0-9]', '', 'g')) = 14 then 'PJ'
+             when length(regexp_replace(coalesce(pessoa.documento, ''), '[^0-9]', '', 'g')) = 11 then 'PF'
+        end)
+from sigov.pessoa pessoa
+where pessoa.id = produtor.pessoa_id
+  and (produtor.cpf_cnpj is null or produtor.nome_razao_social is null or produtor.tipo_pessoa is null);
+
+alter table if exists sigov.agro_servico_maquina
+    add column if not exists data_prevista date,
+    add column if not exists data_executada date,
+    add column if not exists horas numeric(10,2),
+    add column if not exists custo_estimado numeric(14,2);
+
+update sigov.agro_servico_maquina
+set data_prevista = coalesce(data_prevista, data_agendada),
+    data_executada = coalesce(data_executada, data_execucao),
+    horas = coalesce(horas, horas_trabalhadas),
+    custo_estimado = coalesce(custo_estimado, valor_estimado)
+where data_prevista is null or data_executada is null or horas is null or custo_estimado is null;
 
 -- ==================================================
 -- MIGRATION: 20260825050000_func11_agro_desenvolvimento_rural.sql
@@ -24430,6 +24993,16 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 089_pre_rc50_85_contrato_fiscal_compatibility.sql
+-- STAGE: BEFORE 20260831210000_rc50_84_modulos_estruturantes_multiesfera.sql
+-- ==================================================
+-- Compatibilidade forward-only do contrato_fiscal transversal com RC50.85.
+-- A relação já existia antes do contrato multi-esfera; o índice publicado usa
+-- `ativo` antes da migration corretiva posterior que completa o contrato.
+alter table if exists sigov.contrato_fiscal
+    add column if not exists ativo boolean not null default true;
+
+-- ==================================================
 -- MIGRATION: 20260831210000_rc50_84_modulos_estruturantes_multiesfera.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9
@@ -25030,6 +25603,62 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 090_pre_rc50_86_financeiro_multiesfera_compatibility.sql
+-- STAGE: BEFORE 20260901000000_rc50_86_financeiro_orcamento_contabilidade_multiesfera.sql
+-- ==================================================
+-- Compatibilidade forward-only dos contratos financeiros anteriores à RC50.86.
+-- O contexto multi-esfera é derivado exclusivamente da entidade persistida.
+-- Dados legados sem esfera configurada interrompem explicitamente a aplicação.
+alter table if exists sigov.entidade
+    add column if not exists esfera_governo varchar(12);
+
+do $$
+declare
+    tabela text;
+    possui_sem_esfera boolean;
+    tabelas text[] := array[
+        'financeiro_acao', 'financeiro_conciliacao_bancaria', 'financeiro_conciliacao_item',
+        'financeiro_conta_bancaria', 'financeiro_dotacao', 'financeiro_empenho',
+        'financeiro_empenho_item', 'financeiro_empenho_movimento', 'financeiro_fonte_recurso',
+        'financeiro_liquidacao', 'financeiro_natureza_despesa', 'financeiro_pagamento',
+        'financeiro_programa', 'financeiro_receita_arrecadada', 'financeiro_receita_prevista',
+        'financeiro_transferencia', 'financeiro_unidade_orcamentaria'
+    ];
+begin
+    foreach tabela in array tabelas loop
+        if to_regclass('sigov.' || tabela) is null then
+            continue;
+        end if;
+
+        execute format('alter table sigov.%I add column if not exists tenant_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists entidade_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists exercicio_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists esfera_governo varchar(10)', tabela);
+        execute format('alter table sigov.%I add column if not exists orgao_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_gestora_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_executora_id bigint', tabela);
+        execute format(
+            'update sigov.%1$I registro set esfera_governo=entidade.esfera_governo from sigov.entidade entidade where entidade.id=registro.entidade_id and registro.esfera_governo is null',
+            tabela);
+
+        execute format('select exists(select 1 from sigov.%I where tenant_id is null or entidade_id is null or exercicio_id is null or esfera_governo is null)', tabela)
+            into possui_sem_esfera;
+        if possui_sem_esfera then
+            raise exception 'Tabela sigov.% contém dados sem contexto tenant/entidade/exercício/esfera completo', tabela;
+        end if;
+
+        execute format('alter table sigov.%I alter column tenant_id set not null, alter column entidade_id set not null, alter column exercicio_id set not null, alter column esfera_governo set not null', tabela);
+        if not exists(select 1 from pg_constraint
+                      where conrelid=to_regclass('sigov.' || tabela)
+                        and conname=('ck_' || tabela || '_esfera')) then
+            execute format(
+                'alter table sigov.%1$I add constraint %2$I check(esfera_governo in (''municipal'',''estadual'',''federal''))',
+                tabela, 'ck_' || tabela || '_esfera');
+        end if;
+    end loop;
+end $$;
 
 -- ==================================================
 -- MIGRATION: 20260901000000_rc50_86_financeiro_orcamento_contabilidade_multiesfera.sql
@@ -25706,6 +26335,16 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 091_pre_rc50_88_rh_frequencia_compatibility.sql
+-- STAGE: BEFORE 20260901060000_rc50_88_rh360_folha_portal.sql
+-- ==================================================
+-- Compatibilidade forward-only da frequência FUNC12 com o contrato RH360.
+-- O vínculo legado permanece preservado; servidor_id é acrescentado sem
+-- inventar associação quando não houver origem autoritativa persistida.
+alter table if exists sigov.rh_frequencia
+    add column if not exists servidor_id bigint;
+
+-- ==================================================
 -- MIGRATION: 20260901060000_rc50_88_rh360_folha_portal.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: 40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a
@@ -26341,6 +26980,75 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 092_pre_rc50_90_saude_unidade_compatibility.sql
+-- STAGE: BEFORE 20260901120000_rc50_90_saude360_ubs_acs_regulacao.sql
+-- ==================================================
+-- Compatibilidade forward-only da unidade de saúde legada com Saúde360.
+-- As colunas contextuais e operacionais são aditivas; vínculos inexistentes
+-- permanecem NULL para não simular autoridade clínica ou administrativa.
+alter table if exists sigov.saude_unidade
+    add column if not exists exercicio_id bigint,
+    add column if not exists esfera_governo varchar(12),
+    add column if not exists tipo_entidade varchar(60),
+    add column if not exists orgao_superior_id bigint,
+    add column if not exists orgao_id bigint,
+    add column if not exists unidade_gestora_id bigint,
+    add column if not exists unidade_executora_id bigint,
+    add column if not exists hierarquia_administrativa varchar(200),
+    add column if not exists abrangencia_territorial varchar(160),
+    add column if not exists uf char(2),
+    add column if not exists municipio varchar(160),
+    add column if not exists regiao varchar(120),
+    add column if not exists jurisdicao varchar(160),
+    add column if not exists unidade_saude_id bigint,
+    add column if not exists paciente_id bigint,
+    add column if not exists profissional_id bigint,
+    add column if not exists equipe_id bigint,
+    add column if not exists territorio_id bigint,
+    add column if not exists procedimento_id bigint,
+    add column if not exists prioridade varchar(20),
+    add column if not exists data_inicio timestamptz,
+    add column if not exists data_fim timestamptz,
+    add column if not exists quantidade numeric(18,3),
+    add column if not exists valor numeric(18,2),
+    add column if not exists percentual numeric(7,4),
+    add column if not exists validade date,
+    add column if not exists dados jsonb not null default '{}'::jsonb;
+
+do $$
+declare
+    tabela text;
+begin
+    foreach tabela in array array[
+        'saude_acs_microarea', 'saude_acs_visita', 'saude_agenda', 'saude_atendimento',
+        'saude_encaminhamento', 'saude_equipe', 'saude_farmacia_dispensacao',
+        'saude_farmacia_estoque', 'saude_farmacia_lote', 'saude_farmacia_movimento',
+        'saude_paciente', 'saude_procedimento', 'saude_profissional',
+        'saude_regulacao_solicitacao', 'saude_unidade', 'saude_unidade_servico',
+        'saude_vigilancia_notificacao'
+    ] loop
+        if to_regclass('sigov.' || tabela) is null then
+            continue;
+        end if;
+        execute format('alter table sigov.%I add column if not exists exercicio_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists esfera_governo varchar(12)', tabela);
+        execute format('alter table sigov.%I add column if not exists tipo_entidade varchar(60)', tabela);
+        execute format('alter table sigov.%I add column if not exists orgao_superior_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists orgao_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_gestora_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_executora_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_saude_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists paciente_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists profissional_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists equipe_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists territorio_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists procedimento_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists prioridade varchar(20)', tabela);
+        execute format('alter table sigov.%I add column if not exists data_inicio timestamptz', tabela);
+    end loop;
+end $$;
 
 -- ==================================================
 -- MIGRATION: 20260901120000_rc50_90_saude360_ubs_acs_regulacao.sql
@@ -27881,6 +28589,55 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- COMPATIBILITY: 093_pre_rc50_92_saneamento_operacao_compatibility.sql
+-- STAGE: BEFORE 20260901180000_rc50_92_saneamento_meio_ambiente360.sql
+-- ==================================================
+-- Compatibilidade forward-only das relações operacionais de saneamento com
+-- RC50.92. Contexto e vínculos sem fonte persistida permanecem NULL.
+do $$
+declare
+    tabela text;
+begin
+    foreach tabela in array array['saneamento_ocorrencia','saneamento_ordem_servico'] loop
+        if to_regclass('sigov.' || tabela) is null then
+            continue;
+        end if;
+        execute format('alter table sigov.%I add column if not exists exercicio_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists esfera_governo varchar(12)', tabela);
+        execute format('alter table sigov.%I add column if not exists tipo_entidade varchar(80)', tabela);
+        execute format('alter table sigov.%I add column if not exists orgao_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists orgao_superior_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_gestora_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists unidade_executora_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists territorio_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists prioridade varchar(20)', tabela);
+        execute format('alter table sigov.%I add column if not exists responsavel_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists data_ocorrencia timestamptz', tabela);
+        execute format('alter table sigov.%I add column if not exists equipe_id bigint', tabela);
+        execute format('alter table sigov.%I add column if not exists previsao timestamptz', tabela);
+    end loop;
+end $$;
+
+alter table if exists sigov.saneamento_ocorrencia
+    add column if not exists protocolo varchar(80);
+
+update sigov.saneamento_ocorrencia
+set protocolo = coalesce(nullif(protocolo, ''), nullif(codigo, ''), 'LEGACY-OC-' || id::text)
+where protocolo is null or protocolo = '';
+
+with duplicados as (
+    select id, row_number() over(partition by tenant_id, entidade_id, protocolo order by id) as ordem
+    from sigov.saneamento_ocorrencia
+)
+update sigov.saneamento_ocorrencia ocorrencia
+set protocolo = ocorrencia.protocolo || '-' || ocorrencia.id::text
+from duplicados d
+where d.id = ocorrencia.id and d.ordem > 1;
+
+alter table if exists sigov.saneamento_ocorrencia
+    alter column protocolo set not null;
+
+-- ==================================================
 -- MIGRATION: 20260901180000_rc50_92_saneamento_meio_ambiente360.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: 8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282
@@ -28440,97 +29197,6 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
--- MIGRATION: 20260902010000_corr_compras_checksum_schema.sql
--- CATEGORY: schema
--- CHECKSUM_SHA256: 19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f
--- ==================================================
--- Correção aditiva para instalações que aplicaram a RC50.85 antes das correções
--- de tipo das FKs de fornecedor e do índice de fiscalização contratual.
--- A migration publicada 20260831230000 e o seu histórico permanecem imutáveis.
-
-DO $$
-DECLARE
-    tabela text;
-    tipo_fornecedor text;
-BEGIN
-    IF to_regclass('sigov.compras_fornecedor') IS NULL THEN
-        RAISE EXCEPTION 'Schema de Compras incompleto: sigov.compras_fornecedor não existe';
-    END IF;
-
-    SELECT a.atttypid::regtype::text
-      INTO tipo_fornecedor
-      FROM pg_attribute a
-     WHERE a.attrelid = 'sigov.compras_fornecedor'::regclass
-       AND a.attname = 'id'
-       AND NOT a.attisdropped;
-
-    IF tipo_fornecedor <> 'uuid' THEN
-        RAISE EXCEPTION 'Schema de Compras incompatível: compras_fornecedor.id possui tipo %, esperado uuid', tipo_fornecedor;
-    END IF;
-
-    FOREACH tabela IN ARRAY ARRAY[
-        'compras_fornecedor_cotacao', 'compras_proposta', 'compras_habilitacao',
-        'compras_recurso', 'contrato_administrativo', 'contrato_sancao'
-    ] LOOP
-        IF to_regclass('sigov.' || tabela) IS NULL THEN
-            RAISE EXCEPTION 'Schema de Compras incompleto: sigov.% não existe', tabela;
-        END IF;
-
-        IF NOT EXISTS (
-            SELECT 1
-              FROM pg_attribute a
-             WHERE a.attrelid = to_regclass('sigov.' || tabela)
-               AND a.attname = 'fornecedor_id'
-               AND a.atttypid = 'uuid'::regtype
-               AND NOT a.attisdropped
-        ) THEN
-            RAISE EXCEPTION 'Schema de Compras incompatível: sigov.%.fornecedor_id não é uuid', tabela;
-        END IF;
-
-        IF NOT EXISTS (
-            SELECT 1
-              FROM pg_constraint c
-             WHERE c.conrelid = to_regclass('sigov.' || tabela)
-               AND c.contype = 'f'
-               AND c.confrelid = 'sigov.compras_fornecedor'::regclass
-               AND c.conkey = ARRAY[(
-                   SELECT a.attnum
-                     FROM pg_attribute a
-                    WHERE a.attrelid = to_regclass('sigov.' || tabela)
-                      AND a.attname = 'fornecedor_id'
-                      AND NOT a.attisdropped
-               )]::smallint[]
-               AND c.confkey = ARRAY[(
-                   SELECT a.attnum
-                     FROM pg_attribute a
-                    WHERE a.attrelid = 'sigov.compras_fornecedor'::regclass
-                      AND a.attname = 'id'
-                      AND NOT a.attisdropped
-               )]::smallint[]
-               AND c.convalidated
-        ) THEN
-            RAISE EXCEPTION 'FK de fornecedor ausente ou não validada em sigov.%', tabela;
-        END IF;
-    END LOOP;
-END $$;
-
--- A definição legada de contrato_fiscal antecede a coluna que representa a
--- vigência da designação no domínio de Compras. A RC50.85 usa CREATE TABLE IF
--- NOT EXISTS e, portanto, não acrescenta a coluna em instalações já existentes.
-ALTER TABLE sigov.contrato_fiscal
-    ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
-
-CREATE INDEX IF NOT EXISTS ix_contrato_fiscal_ativo
-    ON sigov.contrato_fiscal (tenant_id, contrato_id, ativo);
-
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260902010000', 'Correção aditiva do schema e da validação histórica do módulo Compras', '19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
-
--- Reset de helpers temporários entre migrations concatenadas.
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
-drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
-
--- ==================================================
 -- MIGRATION: 20260903100000_corr_postconditions_permissions_schema.sql
 -- CATEGORY: schema
 -- CHECKSUM_SHA256: 7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed
@@ -28720,70 +29386,6 @@ on conflict (perfil_acesso_id, permissao_id) do update
 set efeito = 'PERMITIR', ativo = true, is_deleted = false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903100000', 'Correção aditiva das permissões e dos objetos exigidos pelas pós-condições históricas', '7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
-
--- Reset de helpers temporários entre migrations concatenadas.
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
-drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
-drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
-
--- ==================================================
--- MIGRATION: 20260903130000_corr_licitapro_postconditions_schema.sql
--- CATEGORY: corrective
--- CHECKSUM_SHA256: c237332d2878958e55a6a535208c77ded73521be5c805a52e06a01493b347a6b
--- ==================================================
--- Correção aditiva final dos objetos exigidos pelas pós-condições do LicitaPro.
--- As migrations publicadas e o histórico de execução permanecem imutáveis.
-
-do $$
-begin
-    if to_regclass('sigov.compras_licitapro_fonte') is null then
-        raise exception 'Schema LicitaPro incompleto: relação sigov.compras_licitapro_fonte ausente';
-    end if;
-
-    if to_regclass('sigov.compras_licitapro_alerta') is null then
-        raise exception 'Schema LicitaPro incompleto: relação sigov.compras_licitapro_alerta ausente';
-    end if;
-
-    if exists (
-        select 1
-        from (values
-            ('compras_licitapro_fonte', 'configurada'),
-            ('compras_licitapro_fonte', 'endpoint_url'),
-            ('compras_licitapro_alerta', 'tenant_id'),
-            ('compras_licitapro_alerta', 'entidade_id'),
-            ('compras_licitapro_alerta', 'status'),
-            ('compras_licitapro_alerta', 'vencimento_at')
-        ) required(table_name, column_name)
-        where not exists (
-            select 1
-            from information_schema.columns c
-            where c.table_schema = 'sigov'
-              and c.table_name = required.table_name
-              and c.column_name = required.column_name
-        )
-    ) then
-        raise exception 'Schema LicitaPro incompleto: uma ou mais colunas canônicas estão ausentes';
-    end if;
-end $$;
-
-do $$
-begin
-    if not exists (
-        select 1
-        from pg_constraint c
-        where c.conrelid = to_regclass('sigov.compras_licitapro_fonte')
-          and c.conname = 'ck_clp_fonte_endpoint_url'
-    ) then
-        alter table sigov.compras_licitapro_fonte
-            add constraint ck_clp_fonte_endpoint_url
-            check (not configurada or endpoint_url ~* '^https?://[^[:space:]]+$') not valid;
-    end if;
-end $$;
-
-create index if not exists sigov.ix_clp_alerta_tenant_status_vencimento
-    on sigov.compras_licitapro_alerta (tenant_id, entidade_id, status, vencimento_at);
-
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903130000', 'Correção final dos objetos e pós-condições do LicitaPro', 'c237332d2878958e55a6a535208c77ded73521be5c805a52e06a01493b347a6b', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30141,8 +30743,14 @@ create unique index if not exists ux_bootstrap_perfil_codigo_tenant
 create unique index if not exists ux_bootstrap_grupo_nome_tenant
     on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
 
+\else
+\echo 'Baseline canônico já registrado; nenhuma migration foi reaplicada.'
+\endif
+
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
 -- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
+-- EXCLUDED_FROM_BASELINE: 20260902010000_corr_compras_checksum_schema.sql [schema]
+-- EXCLUDED_FROM_BASELINE: 20260903130000_corr_licitapro_postconditions_schema.sql [corrective]
 
 -- DEVELOPMENT ONLY: seeds fictícias idempotentes
 -- SIGOV+ RC50.10 - guarda canônica de acesso administrativo local.

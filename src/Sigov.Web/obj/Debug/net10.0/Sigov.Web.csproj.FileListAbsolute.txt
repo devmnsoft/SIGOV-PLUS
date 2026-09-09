@@ -326,7 +326,6 @@ C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\staticwebassets.build.json.
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\staticwebassets.development.json
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\staticwebassets.build.endpoints.json
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\swae.build.ex.cache
-C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\Sigov.Web.csproj.Up2Date
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\Sigov.Web.dll
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\refint\Sigov.Web.dll

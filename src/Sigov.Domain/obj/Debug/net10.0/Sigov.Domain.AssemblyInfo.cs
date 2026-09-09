@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Sigov.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2caddfba31d282577d34e8ddca738f5aa6896df5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f6bb7f24df58620d3c898d3f28f8b460d8c366b1")]
 [assembly: System.Reflection.AssemblyProductAttribute("Sigov.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Sigov.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

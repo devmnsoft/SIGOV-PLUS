@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Sigov.UnitTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5ef7516c2bbfb5cad56b0fd426643f94e0a65dab")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f6bb7f24df58620d3c898d3f28f8b460d8c366b1")]
 [assembly: System.Reflection.AssemblyProductAttribute("Sigov.UnitTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Sigov.UnitTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

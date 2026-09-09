@@ -12,16 +12,16 @@ public sealed class ModuleCatalogApiTests : IClassFixture<SigovApiFactory>
     public ModuleCatalogApiTests(SigovApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Catalogo_De_Modulos_Deve_Responder_Rotas_Comerciais()
+    public async Task Catalogo_De_Modulos_Anonimo_Deve_Ser_Negado()
     {
         using var client = _factory.CreateClient();
         using var listResponse = await client.GetAsync("/api/ui/modulos");
         using var detailResponse = await client.GetAsync("/api/ui/modulos/core");
 
-        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        detailResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         var body = await listResponse.Content.ReadAsStringAsync();
-        body.Should().Contain("Core e Cadastros");
-        body.Should().Contain("Financeiro/SIAFIC");
+        body.Should().NotContain("Core e Cadastros");
+        body.Should().NotContain("Financeiro/SIAFIC");
     }
 }

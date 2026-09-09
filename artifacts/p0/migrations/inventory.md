@@ -174,9 +174,9 @@ Gate estático: PASS. P0: BLOCKED; validação semântica exige PostgreSQL 16.
 | 166 | 20260901180000 | 20260901180000_rc50_92_saneamento_meio_ambiente360.sql | registered_automatic | True | True | 8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282 |
 | 167 | 20260901210000 | 20260901210000_rc50_95_base_restauravel.sql | registered_automatic | True | True | a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd |
 | 168 | 20260902000000 | 20260902000000_rc50_98_ged_workflow_branding_logo.sql | registered_automatic | True | True | f5a4370460581e6b3e78a1f0ab30e2487fc272e66c53634be46541d470e8b007 |
-| 169 | 20260902010000 | 20260902010000_corr_compras_checksum_schema.sql | registered_automatic | True | True | 19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f |
+| 169 | 20260902010000 | 20260902010000_corr_compras_checksum_schema.sql | registered_excluded | False | False | 19a074dcde84a8057f38e38808452d4bfb6e0551f5ff0975e73811e8edc65e0f |
 | 170 | 20260903100000 | 20260903100000_corr_postconditions_permissions_schema.sql | registered_automatic | True | True | 7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed |
-| 171 | 20260903130000 | 20260903130000_corr_licitapro_postconditions_schema.sql | registered_automatic | True | True | c237332d2878958e55a6a535208c77ded73521be5c805a52e06a01493b347a6b |
+| 171 | 20260903130000 | 20260903130000_corr_licitapro_postconditions_schema.sql | registered_excluded | False | False | c237332d2878958e55a6a535208c77ded73521be5c805a52e06a01493b347a6b |
 | 172 | 20260903173000 | 20260903173000_corr_licitapro_schema_history.sql | registered_automatic | True | True | ea2e34fb9909c44f2e2a66a9e80de887d31717ca9fe20bbed0a714242bfbc528 |
 | 173 | 20260903230000 | 20260903230000_corr_compras_bigint_postconditions_final.sql | registered_automatic | True | True | 2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70 |
 | 174 | 20260908120000 | 20260908120000_evolucao_saas_industria_360.sql | registered_automatic | True | True | c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7 |
