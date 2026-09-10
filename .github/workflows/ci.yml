@@ -126,7 +126,7 @@ jobs:
           path: release-context.log
 
   build-test:
-    needs: [workflow-integrity, release-context]
+    needs: [tracked-artifacts, workflow-integrity, release-context]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
