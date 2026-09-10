@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
-\echo 'Aplicando baseline canônico SIGOV PLUS (somente entradas declaradas includeInBaseline=true; automáticas e históricas são governadas pelo manifest)...'
+\echo 'Aplicando baseline canônico SIGOV PLUS...'
 
 \i /database/script_completo.sql
 

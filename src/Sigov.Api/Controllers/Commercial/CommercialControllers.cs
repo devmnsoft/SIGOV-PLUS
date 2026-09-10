@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Sigov.Application.Authorization;
 using Sigov.Application.Commercial;
 
 namespace Sigov.Api.Controllers.Commercial;
@@ -16,7 +18,9 @@ public abstract class CommercialControllerBase(ICommercialApplicationService app
             throw new UnauthorizedAccessException("Tenant Enterprise não resolvido; o mapeamento explícito é obrigatório.");
         if (!Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) || userId == Guid.Empty)
             throw new UnauthorizedAccessException("Usuário não resolvido.");
-        return new(tenantId, userId, User.HasClaim("permission", "comercial.clientes.dados_pessoais.visualizar"), HttpContext.TraceIdentifier);
+        var snapshot = HttpContext.RequestServices.GetRequiredService<IRequestAuthorizationSnapshot>();
+        var canViewPersonalData = snapshot.Current.HasPermission("comercial.clientes.dados_pessoais.visualizar");
+        return new(tenantId, userId, canViewPersonalData, HttpContext.TraceIdentifier);
     }
 }
 

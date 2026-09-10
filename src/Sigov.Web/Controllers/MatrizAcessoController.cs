@@ -16,8 +16,13 @@ public sealed class MatrizAcessoController : Controller
         "FINANCEIRO", "AUDITOR", "ATENDIMENTO", "GESTOR_MODULO", "LEITURA", "CIDADAO"
     };
     private readonly IAuditTrailService _audit;
+    private readonly IUserPermissionService _permissions;
 
-    public MatrizAcessoController(IAuditTrailService audit) => _audit = audit;
+    public MatrizAcessoController(IAuditTrailService audit, IUserPermissionService permissions)
+    {
+        _audit = audit;
+        _permissions = permissions;
+    }
 
     [HttpGet("")]
     public IActionResult Index([FromQuery] string? perfil) => View(Build(perfil));
@@ -46,7 +51,7 @@ public sealed class MatrizAcessoController : Controller
             ? requestedProfile!.ToUpperInvariant()
             : CurrentProfile();
         var rows = Matrix(profile);
-        var canExport = IsSuperAdmin() || User.HasClaim("permission", "seguranca.matriz.exportar") || User.HasClaim("permissao", "seguranca.matriz.exportar");
+        var canExport = IsSuperAdmin() || _permissions.HasPermission(User, "seguranca.matriz.exportar");
         return new AccessMatrixViewModel { Profile = profile, Profiles = Profiles, Rows = rows, CanExport = canExport };
     }
 

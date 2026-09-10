@@ -145,7 +145,12 @@ public sealed record AcaoRecomendadaViewModel(string Titulo, string Descricao, s
 public sealed record ModuloResumoViewModel(string Codigo, string Nome, string Status);
 public sealed record PendenciaViewModel(string Titulo, string Descricao, string Url);
 public sealed record AlertaLgpdViewModel(string Titulo, string Descricao);
-public sealed record AtividadeRecenteViewModel(string Acao, string Entidade, DateTimeOffset? Data);
+public sealed class AtividadeRecenteViewModel
+{
+    public string Acao { get; init; } = string.Empty;
+    public string Entidade { get; init; } = string.Empty;
+    public DateTime? Data { get; init; }
+}
 
 public sealed record SaasPlanoViewModel(long Id, string Codigo, string Nome, string Descricao, decimal ValorMensal, decimal ValorAnual, int LimiteUsuarios, int LimiteStorageGb, int LimiteTenants, string Suporte, string ModulosInclusos, bool Ativo, bool Recomendado, int Ordem, bool Persistido);
 public sealed class SaasPlanosViewModel
