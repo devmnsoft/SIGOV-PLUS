@@ -17,6 +17,7 @@ using Sigov.Application.Ui;
 using Sigov.Api.Filters;
 using Sigov.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
+using Sigov.Infrastructure.Security;
 using Sigov.Application.Security;
 using Sigov.Infrastructure.Diagnostics;
 
@@ -49,8 +50,7 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .Build();
     foreach (var (policyName, permission) in PermissionCatalog.Policies)
-        options.AddPolicy(policyName, policy => policy.RequireAssertion(context =>
-            PermissionCatalog.UserHasPermission(context.User, permission)));
+        options.AddPolicy(policyName, policy => policy.Requirements.Add(new PersistedPermissionRequirement(permission.Code)));
 });
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
@@ -152,6 +152,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing") 
 }
 
 app.UseAuthentication();
+app.UseMiddleware<RequestAuthorizationSnapshotMiddleware>();
 app.UseMiddleware<ApiKeyV1Middleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseCors("SigovCors");

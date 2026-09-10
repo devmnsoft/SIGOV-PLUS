@@ -1,20 +1,21 @@
 @inject Sigov.Web.Services.IMenuPermissionService MenuPermissions
+@inject Sigov.Application.Authorization.IRequestAuthorizationSnapshot AuthSnapshot
 @{
   var path = Context.Request.Path.Value ?? string.Empty;
   Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
   Func<string[], string> opened = urls => urls.Any(url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase)) ? "open" : string.Empty;
-  var claims = User.Claims.Where(c => c.Type is "permission" or "permissions" or "scope").SelectMany(c => c.Value.Split(new[]{' ',',',';'}, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).ToArray();
-  Func<string, bool> hasPermission = permission => claims.Contains(permission, StringComparer.OrdinalIgnoreCase);
-  Func<string, bool> hasModule = module => User.Claims.Any(c => c.Type == "module" && string.Equals(c.Value, module, StringComparison.OrdinalIgnoreCase));
-  var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || claims.Contains("compras_empresariais.dashboard.visualizar", StringComparer.OrdinalIgnoreCase);
+  var auth = AuthSnapshot.Current;
+  Func<string, bool> hasPermission = permission => auth.HasPermission(permission);
+  Func<string, bool> hasModule = module => auth.HasModule(module);
+  var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || hasPermission("compras_empresariais.dashboard.visualizar");
   var canSeeSecurity = MenuPermissions.CanSeeModule(User, "seguranca");
   var canSeeAudit = MenuPermissions.CanSeeModule(User, "auditoria-lgpd");
-  var canSeeGovernanca = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL") || User.IsInRole("AUDITOR") || claims.Any(c => c.StartsWith("governanca.", StringComparison.OrdinalIgnoreCase));
-  var canSeeIndustry = hasModule("industria_producao") && hasModule("core") && hasModule("estoque_compras") && claims.Any(c => c.StartsWith("industria.", StringComparison.OrdinalIgnoreCase));
+  var canSeeGovernanca = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL") || User.IsInRole("AUDITOR") || auth.Permissions.Any(c => c.StartsWith("governanca.", StringComparison.OrdinalIgnoreCase));
+  var canSeeIndustry = hasModule("industria_producao") && (hasPermission("industria.dashboard.visualizar") || auth.Permissions.Any(c => c.StartsWith("industria.", StringComparison.OrdinalIgnoreCase)));
   var canSeeAnyEnterprise = canSeeIndustry || new[] { "comercial", "ordem_servico", "estoque_compras", "manutencao_industrial" }.Any(codigo => MenuPermissions.CanSeeModule(User, codigo));
   var globalRoles = new[] { "ADMINISTRADOR_GERAL", "SIGOV_ADMIN", "SUPER_ADMIN", "SUPERADMIN", "ADMIN_GERAL" };
-  var isGlobalAdmin = User.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Any(c => globalRoles.Contains(c.Value, StringComparer.OrdinalIgnoreCase));
-  var hasTenantContext = User.Claims.Any(c => c.Type == "tenant_id" && long.TryParse(c.Value, out var tenantId) && tenantId > 0);
+  var isGlobalAdmin = auth.Roles.Any(role => globalRoles.Contains(role, StringComparer.OrdinalIgnoreCase));
+  var hasTenantContext = auth.TenantId.HasValue;
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">

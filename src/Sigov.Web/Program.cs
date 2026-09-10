@@ -20,6 +20,7 @@ using Sigov.Web.Services.Editais;
 using Sigov.Web;
 using Sigov.Web.Services.Visual;
 using Sigov.Application.Security;
+using Sigov.Infrastructure.Security;
 using Sigov.Web.Services.Workflows;
 using Sigov.Infrastructure.Diagnostics;
 using Sigov.Web.Services.Development;
@@ -114,16 +115,13 @@ builder.Services.AddSingleton<IDemoModeService, DemoModeService>();
 builder.Services.AddSingleton<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>();
 builder.Services.AddSingleton<IExecutiveDashboardService, ExecutiveDashboardService>();
-builder.Services.AddSingleton<Sigov.Application.Saas.Modules.IModuleCatalogService, Sigov.Application.Saas.Modules.ModuleCatalogService>();
 builder.Services.AddInfrastructure();
 builder.Services.AddSigovWebOperationalServices();
 builder.Services.AddScoped<SegurancaAdminService>();
 builder.Services.AddScoped<DevelopmentAuthDiagnosticService>();
 builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
 builder.Services.AddScoped<IUserPermissionService, UserPermissionService>();
-builder.Services.AddScoped<IClaimsTransformation, RequestPermissionClaimsTransformation>();
 builder.Services.AddScoped<IMenuAuthorizationService, MenuAuthorizationService>();
-builder.Services.AddScoped<IAuthorizationHandler, PersistedPermissionHandler>();
 builder.Services.AddScoped<ModuleAccessService>();
 builder.Services.AddScoped<IModuloAccessService>(provider => provider.GetRequiredService<ModuleAccessService>());
 builder.Services.AddScoped<IMenuPermissionService>(provider => provider.GetRequiredService<ModuleAccessService>());
@@ -221,6 +219,7 @@ app.Use(async (context, next) =>
     }
 });
 app.UseAuthentication();
+app.UseMiddleware<RequestAuthorizationSnapshotMiddleware>();
 app.Use(async (context, next) =>
 {
     var requiresPasswordChange = context.User.Identity?.IsAuthenticated == true
