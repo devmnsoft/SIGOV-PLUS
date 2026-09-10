@@ -16,3 +16,4 @@ Estados: APROVADO (escopo autorizado), EM_EXECUCAO, VALIDADO (com evidência), B
 | 10 | GED | AGUARDA_GATE | Último módulo; anteriores sem PARCIAL/ESTRUTURA pendente, salvo adiamento formal |
 
 Próximo item exato: disponibilizar PostgreSQL 16 descartável e concluir P0.1-B sem reescrever migrations históricas.
+> Próximo item após a estabilização P0 e o entitlement canônico: **RC51.02 — Ordem de Produção industrial integrada: demanda/venda → reserva de materiais → OP → apontamento → consumo → qualidade → produto acabado → estoque → custos e rastreabilidade.** GED continua obrigatoriamente por último.

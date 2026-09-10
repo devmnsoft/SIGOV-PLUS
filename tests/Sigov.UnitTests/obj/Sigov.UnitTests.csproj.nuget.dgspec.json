@@ -118,7 +118,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -655,7 +655,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -1023,7 +1023,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -1410,7 +1410,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -1950,7 +1950,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -2495,7 +2495,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -2879,7 +2879,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },
@@ -3433,7 +3433,7 @@
             "Serilog.Sinks.Console": "6.1.1",
             "Serilog.Sinks.File": "7.0.0",
             "Swashbuckle.AspNetCore": "6.5.0",
-            "Testcontainers.PostgreSql": "3.10.0",
+            "Testcontainers.PostgreSql": "4.14.0",
             "xunit": "2.9.2",
             "xunit.runner.visualstudio": "2.8.2"
           },

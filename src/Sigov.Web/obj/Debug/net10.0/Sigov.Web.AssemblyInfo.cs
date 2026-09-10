@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Sigov.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6159822b17e31950e4664eed898b2ddc62bde5d2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0fbfa66872bc9b440c5b5eb9eaa32c79266929dd")]
 [assembly: System.Reflection.AssemblyProductAttribute("Sigov.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Sigov.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -24,8 +24,9 @@ public sealed class AgroParte6RelatoriosTests
     }
     [Fact] public void Migration_Suporta_Csv_Json_Geojson_Datasets_Publicados()
     {
-        _migration.Should().Contain("PUBLICADO");
-        _migration.Should().Contain("CSV");
+        _migration.Should().Contain("agro_dataset_publicacao");
+        _migration.Should().Contain("formato_padrao varchar(20) not null default 'CSV'");
+        _migration.Should().Contain("formato varchar(20)");
         _migration.Should().Contain("anonimizado boolean not null default true");
         _migration.Should().Contain("ck_agro_dataset_publico_lgpd");
     }

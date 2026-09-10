@@ -21,8 +21,9 @@ public sealed class PostBuild01RegressionTests
     {
         var migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260609090000_pos_build_dashboard_saas.sql"));
         migration.Should().Contain("create table if not exists sigov.auditoria_evento");
-        migration.Should().Contain("admin@sigov.local");
-        migration.Should().Contain("SIGOV_PBKDF2_V1");
+        migration.Should().Contain("baseline estrutural não cria usuário, e-mail ou senha administrativa padrão");
+        migration.Should().NotContain("admin@sigov.local");
+        migration.Should().NotContain("SIGOV_PBKDF2_V1");
         migration.Should().Contain("on conflict");
         migration.ToLowerInvariant().Should().NotContain("drop table");
     }

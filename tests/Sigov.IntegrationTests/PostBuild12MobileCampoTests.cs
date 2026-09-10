@@ -77,9 +77,8 @@ public sealed class PostBuild12MobileCampoTests
 
         web.Should().Contain("MobileController");
         web.Should().Contain("CampoController");
-        sidebar.Should().Contain("data-module=\"mobile_pwa\"");
-        sidebar.Should().Contain("data-module=\"campo_operacional\"");
-        sidebar.Should().Contain("data-module=\"georreferenciamento\"");
+        sidebar.Should().Contain("href=\"/MobileCampo\"");
+        sidebar.Should().Contain("<span>Mobile/Campo</span>");
         demo.Should().Contain("http://localhost:8080/Mobile/Home");
         File.Exists(TestRepoPath.Get("docs/mobile-pwa.md")).Should().BeTrue();
         File.Exists(TestRepoPath.Get("docs/offline-sync.md")).Should().BeTrue();

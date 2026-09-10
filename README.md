@@ -1,12 +1,76 @@
 # SIGOV PLUS
 
-## Execução sem Docker
+SIGOV PLUS e uma plataforma SaaS de gestao publica e operacao integrada para entidades municipais, estaduais e federais, com suporte tambem a organizacoes empresariais quando o modulo contratado exigir.
 
-A execução local principal do Pós-RC 19 usa PostgreSQL instalado diretamente e processos .NET iniciados por `scripts/start-local.ps1` ou `scripts/start-local.sh`. O script `scripts/start-dev.ps1` delega para o fluxo local sem Docker.
+Esta pagina descreve o estado operacional atual. Documentos historicos de Pos-RC e FUNC permanecem no repositorio como memoria tecnica, mas nao promovem modulo a funcional, homologado ou producao sem evidencia runtime atual.
 
-## Build principal do runtime
+## Stack normativa
 
-O build usado no desenvolvimento do produto é isolado da infraestrutura de testes e inclui somente API, Web, Worker, Application, Domain e Infrastructure:
+- .NET 10 conforme `global.json`.
+- C# 14.
+- ASP.NET Core MVC/Razor, API REST e Worker.
+- PostgreSQL 16+ como persistencia oficial.
+- Dapper; Entity Framework nao deve ser introduzido.
+- Clean Architecture com `Domain`, `Application`, `Infrastructure`, `Api`, `Web` e `Worker`.
+
+## Execucao local principal
+
+A execucao local principal nao depende de Docker. Configure uma instancia PostgreSQL 16+ local, exporte `ConnectionStrings__DefaultConnection` e use os scripts locais:
+
+```powershell
+pwsh -NoProfile -File scripts/start-local.ps1
+```
+
+Linux/macOS:
+
+```bash
+./scripts/start-local.sh
+```
+
+URLs padrao:
+
+- Web: `http://localhost:5000`
+- API: `http://localhost:5001`
+- Swagger: `http://localhost:5001/swagger`
+- Health live: `http://localhost:5001/api/health/live`
+- Health ready: `http://localhost:5001/api/health/ready`
+- DB health: `http://localhost:5001/api/health/db`
+
+## Docker opcional
+
+Docker Compose e alternativa para validacoes de container e ambientes descartaveis:
+
+```powershell
+copy .env.example .env
+docker compose up -d --build
+```
+
+Use Docker apenas como apoio operacional. O fluxo principal de desenvolvimento local continua sendo PostgreSQL instalado/configurado diretamente e processos .NET iniciados pelos scripts locais.
+
+## Banco de dados
+
+O PostgreSQL usa o schema fisico `sigov`. Multi-tenancy usa banco/schema compartilhado, com `tenant_id`, `entidade_id`, `exercicio_id`, usuario e escopo preservados nas operacoes em que se aplicam.
+
+Scripts canonicos:
+
+- `database/postgres/migrations/manifest.json`
+- `database/postgres/script_completo.sql`
+- `database/postgres/script_completo_dev.sql`
+- `database/script_completo.sql`
+- `script_completop.sql`
+- `script_completo.sql`
+
+`script_completop.sql` e autonomo e deve ser executado com PostgreSQL 16+:
+
+```bash
+psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U sigov -d sigov -f script_completop.sql
+```
+
+Toda alteracao de schema exige migration PostgreSQL idempotente, forward-only, sincronizada com manifesto e scripts consolidados. Migrations publicadas nao devem ser editadas.
+
+## Build e testes
+
+Build runtime:
 
 ```bash
 dotnet clean sigov.runtime.slnf
@@ -14,267 +78,28 @@ dotnet restore sigov.runtime.slnf --locked-mode
 dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror
 ```
 
-Os projetos em `tests/` permanecem na solução completa para uma etapa e um pipeline próprios; eles não fazem parte do build principal. Consulte [`docs/testing-roadmap.md`](docs/testing-roadmap.md).
-
-## Configuração do PostgreSQL
-
-Copie `.env.local.example` para `.env.local`, ajuste host, porta, database, usuário e senha locais e exporte a connection string via `ConnectionStrings__DefaultConnection`.
-
-## Execução de `script_completop.sql`
-
-O arquivo `script_completop.sql` fica na raiz, é autônomo e deve ser executado com PostgreSQL 16: `psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U sigov -d sigov -f script_completop.sql`. O mesmo conteúdo pode ser colado no pgAdmin Query Tool.
-
-## Inicialização local
-
-Windows: `pwsh -NoProfile -File scripts/start-local.ps1`. Linux: `./scripts/start-local.sh`. URLs padrão: Web `http://localhost:5000`, API `http://localhost:5001`, Swagger `http://localhost:5001/swagger`.
-
-## Docker opcional
-
-Docker Compose permanece como alternativa para validações de container, mas não é requisito para executar API, Web e Worker.
-
-## Produção
-
-Em produção, forneça segredos por variáveis de ambiente ou secret manager e configure explicitamente `Sigov:Database:MigrationMode`.
-
-## Dashboard operacional SuperAdmin
-
-A rota autenticada `/SaasAdmin/Operacional` apresenta saúde, tenants, contexto, autorização,
-auditoria e integrações a partir do PostgreSQL. Visualização e exportação exigem, respectivamente,
-as permissões persistidas `saas.superadmin.dashboard.visualizar` e
-`saas.superadmin.dashboard.exportar`; áreas sem schema são identificadas como indisponíveis.
-
-Em `/SaasAdmin/Autorizacao`, um SuperAdmin com a concessão persistida
-`saas.superadmin.autorizacao.administrar` administra perfis, grupos, permissões e vínculos de
-usuário→grupo, grupo→perfil e perfil→permissão, inclusive escopo, vigência, negativa e alçada. As
-operações usam Dapper, validação no servidor, exclusão lógica e auditoria antes/depois.
-
-O código das RC50.68A–D está integrado, mas a promoção da RC50.68 permanece **BLOCKED**. A
-RC50.68E-R6 executou os checks locais disponíveis; .NET, PostgreSQL/`psql`, PowerShell e smoke não
-estavam disponíveis e não receberam PASS. O CI oficial não foi consultado e é um gate distinto.
-Consulte a [decisão técnica final](docs/execucao/RC50.68-DECISAO-TECNICA-FINAL.md) e a
-[homologação local assistida](docs/execucao/RC50.68-PROMOCAO-LOCAL.md).
-A RC50.69 ERP Serviços segue não iniciada e não pode
-começar antes da promoção.
-
-# sigov
-
-Plataforma SaaS de gestão pública municipal para operação real de prefeituras, câmaras, autarquias, fundos, secretarias e unidades descentralizadas.
-
-## Stack
-
-ASP.NET Core, C# 10, Clean Architecture, DDD, Dapper, PostgreSQL, API REST, Bootstrap 5, JavaScript puro, Serilog/ILogger, Docker e testes automatizados.
-
-
-## Rodando com Docker
-
-O ambiente Docker local sobe PostgreSQL 16, migrations automáticas, API, Worker configurável, Web MVC/Razor e storage persistente sem exigir PostgreSQL instalado na máquina.
-
-```powershell
-copy .env.example .env
-docker compose up -d --build
-```
-
-- Web: http://localhost:8080
-- API: http://localhost:5001
-- Banco local: `localhost:5432`, database/user/senha conforme `.env`.
-- Migrations manuais: `scripts/docker-apply-migrations.ps1`.
-- Logs: `scripts/docker-logs.ps1`.
-- PSQL: `scripts/docker-psql.ps1`.
-- Reset total com confirmação: `scripts/docker-reset.ps1`.
-
-OCR/preview e workers opcionais ficam desabilitados por padrão no Docker local e podem ser habilitados por variáveis no `.env`. Consulte o guia completo em [`docs/docker-local.md`](docs/docker-local.md).
-
-## Execução local
-
-- Web: http://localhost:5000
-- API: http://localhost:5001
-- Swagger Development: http://localhost:5001/swagger
-- Health live: http://localhost:5001/api/health/live
-- Health ready: http://localhost:5001/api/health/ready
-- DB Health: http://localhost:5001/api/health/db
-
-```powershell
-scripts/start-dev.ps1
-```
-
-## Banco de dados
-
-O PostgreSQL usa o database `sigov`, usuário `sigov` e schema físico único `sigov`. Multi-tenancy usa banco e schema compartilhados com `tenant_id` obrigatório nas tabelas operacionais, filtros na aplicação e Row-Level Security preparado para tabelas críticas.
-
-## SaaS production-ready
-
-A camada SaaS inclui tenants, domínios, planos, assinaturas, módulos contratados, feature flags, limites, uso mensal, eventos operacionais, health checks, Docker Production, scripts de backup/restore e CI/CD.
-
-O antigo conteúdo de conformidade/aderência fica tratado como módulo acessório administrativo, sem posicionar esse conteúdo como núcleo do produto.
-
-## Etapas implementadas
-
-- Etapa 1: estrutura Clean Architecture, Docker Compose, PostgreSQL `sigov`, migrações, SaaS/multi-tenancy e módulos base.
-- Etapa 2: módulo Pessoa e Endereço com API REST, Dapper, auditoria LGPD, UI CSHTML/jQuery/Ajax e exportação CSV/JSON/XML. Consulte `docs/etapas/02-pessoas-enderecos.md`.
-
-- Etapa RH: módulo Recursos Humanos com cadastros de servidores/cargos/lotações/vínculos, folha inicial, ponto/frequência, férias/afastamentos, saúde ocupacional, eSocial estrutural, portal do servidor, dashboards, exportação CSV/JSON, auditoria JSONB, LGPD, outbox e integração preparada com Financeiro/SIAFIC.
-
-Etapa concluída: Recursos Humanos – Próxima etapa: Gestão de Patrimônio/Inventário/Obras (integração RH e Financeiro).
-
-## Release Candidate 1.0.0-rc.2
-
-Esta versão candidata congela o escopo do SIGOV PLUS para homologação técnica/comercial sem abrir módulos novos. A matriz oficial de status está em [`docs/matriz-modulos-release-candidate.md`](docs/matriz-modulos-release-candidate.md) e o escopo está em [`docs/release-candidate-escopo.md`](docs/release-candidate-escopo.md).
-
-Comandos esperados para validação em ambiente com .NET SDK e Docker:
-
-```powershell
-dotnet clean
-dotnet restore
-dotnet build
-dotnet test
-docker compose up -d --build
-scripts/smoke-test-sigov.ps1
-```
-
-Módulos parciais, demonstrativos ou em implantação não devem ser apresentados como funcionalidades integrais de produção. O fallback honesto permanece obrigatório.
-
-## Pós-RC: homologação real da API v1 e fluxo operacional
-
-A sprint Pós-RC adiciona uma base homologável para API key real, webhooks, outbox e persistência de Protocolo + GED + Workflow. A migration `20260706153000_pos_rc_protocolo_ged_workflow_api_outbox.sql` é idempotente e não destrutiva, sempre com `tenant_id`, auditoria, LGPD, soft delete, `correlation_id` e índices operacionais. Rotas `/api/v1/*` passam a exigir `X-Api-Key` e `X-Tenant-Id`, com validação por hash e escopos; health permanece público.
-
-Fallback honesto permanece obrigatório: provedores oficiais de assinatura/OCR/storage externo e integrações sem configuração real não devem ser simulados.
-
-## Pós-RC 02 — persistência real operacional
-
-- Funcional real: API v1 com API key/tenant/escopos, Protocolo e GED persistindo nas tabelas Pós-RC, Outbox worker consumindo sigov.outbox_evento.
-- Parcial: telas MVC administrativas continuam com fallback honesto quando ação/formulário não possui todos os dados reais.
-- Dependente de provedor: OCR, ICP/Gov.br e entrega externa oficial de webhooks.
-- LGPD: respostas e logs não devem expor dados pessoais completos nem token claro.
-
-
-## Pós-RC 03 — homologação Web real
-
-- **Funcional real:** Protocolo e GED Web passam a acionar serviços Dapper para `sigov.protocolo`, `sigov.protocolo_movimento`, `sigov.workflow_instancia`, `sigov.tarefa`, `sigov.notificacao`, `sigov.documento`, `sigov.documento_versao`, `sigov.protocolo_anexo`, `sigov.portal_validacao_documento` e `sigov.outbox_evento` quando o schema existe.
-- **Parcial:** Dashboard, Minha Central, Busca e Relatórios mantêm fallback honesto e devem priorizar dados reais detectados no schema.
-- **Em implantação/fallback:** PDF/DOCX da POC, OCR, ICP-Brasil e Gov.br não são simulados.
-- **Dependente de provedor:** envio externo de webhook e validações oficiais dependem de infraestrutura configurada.
-- **Não disponível:** exposição de path físico de storage e dados pessoais completos em listagens/exports.
-
-## Pós-RC 04 — homologação final e dados demonstráveis
-
-Para preparar a demonstração/homologação técnica:
-
-```powershell
-docker compose up -d
-pwsh -NoProfile -File scripts/apply-demo-seed.ps1
-pwsh -NoProfile -File scripts/smoke-test-sigov.ps1
-```
-
-O seed `database/postgres/seeds/pos_rc_homologacao_demo.sql` cria tenant, usuários, permissões, protocolos, documentos GED, workflows, tarefas, notificações, outbox, webhook inativo e API key demo apenas com hash. Os dados são fictícios e seguros para apresentação. Consulte `docs/guia-homologacao-comercial.md`, `docs/roteiro-demo-sigov-plus.md` e `docs/checklist-go-live-pos-rc.md`.
-
-## Pós-RC 05 — hardening CI/CD e pacote Go-Live
-
-Esta versão adiciona consolidação de CI/CD no GitHub Actions, smoke E2E Web/API, validação SQL em PostgreSQL, empacotamento de release e documentação de homologação final.
-
-### Validação recomendada
+Solucao completa e suites:
 
 ```bash
-dotnet restore sigov.sln
-dotnet build sigov.sln --configuration Release
-dotnet test sigov.sln --configuration Release
-docker compose build --no-cache
-docker compose up -d
+dotnet restore sigov.sln --locked-mode
+dotnet build sigov.sln --configuration Release --no-restore --nologo -warnaserror
+dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj --configuration Release --no-build
+dotnet test tests/Sigov.ApiTests/Sigov.ApiTests.csproj --configuration Release --no-build
+dotnet test tests/Sigov.IntegrationTests/Sigov.IntegrationTests.csproj --configuration Release --no-build
 ```
 
-Depois, aplicar o seed demo e executar `scripts/smoke-test-sigov.ps1`. Em ambientes sem `pwsh`, aplicar `database/postgres/seeds/pos_rc_homologacao_demo.sql` via `psql` e executar o smoke em host com PowerShell 7.
+## Estado funcional
 
-### Limitação honesta
+O estado oficial dos modulos esta em `docs/execucao/STATUS_REAL_MODULOS.md`. Ate que um fluxo tenha migration, persistencia Dapper, regras, API/controller, UI real, validacao, autorizacao, isolamento de tenant, auditoria, transacao/concorrencia, estados de erro/vazio, testes criticos, menu por contratacao e evidencia runtime conjunta, ele deve ser tratado como `PARCIAL`, `ESTRUTURA` ou `AGUARDA_GATE`, conforme a matriz vigente.
 
-No container do agente da sprint Pós-RC 05, `dotnet`, `docker` e `pwsh` não estavam instalados; por isso, as evidências finais de build, testes, Docker e smoke devem ser obtidas no GitHub Actions e no ambiente de homologação.
+Nao declare modulo como concluido apenas por existir controller, view, migration, seed ou documento.
 
-## Pós-RC 06 — CI real, smoke autenticado e Go-Live
+## Seguranca e configuracao
 
-A Pós-RC 06 corrige a validação do schema para `sigov.outbox_evento`, adiciona schema report compatível com Docker local e PostgreSQL service do CI, seed demo com API key compatível com o middleware, smoke autenticado mascarado, job Docker Compose E2E e package release sanitizado.
+Segredos devem vir do ambiente ou de secret manager. `.env` e `.env.local` sao locais e ignorados. Seeds de desenvolvimento/homologacao devem ser ficticias, idempotentes e nunca conter senha, token, chave real ou dado pessoal real.
 
-Chave demo **somente local/homologação**: `sigov_demo_local_only_2026_please_rotate`. Rotacione antes de qualquer uso real. O banco armazena apenas o hash SHA-256 hexadecimal.
+Autorizacao, perfis, permissoes, parametros, catalogo SaaS e entitlements usam o banco como fonte de autoridade. Ausencia de schema ou configuracao deve falhar explicitamente; nao simule sucesso.
 
-Documentação operacional: `docs/ci-cd-pos-rc-06.md`, `docs/smoke-e2e-pos-rc-06.md`, `docs/release-package-pos-rc-06.md` e `docs/diagnostico-pos-rc-06.md`.
+## Escopo atual
 
-
-## Pós-RC 07
-
-Homologação real multi-tenant e Go-Live controlado: ambiente local padronizado para banco `sigov`, tenant resolvido por contexto, dashboard com fonte Real/Demo/Fallback, CI com Docker Compose E2E, package release sanitizado e go-live-check executável.
-
-## Pós-RC 07 — Enterprise funcional
-
-O bloco Enterprise agora possui migration PostgreSQL idempotente, serviço Dapper com fallback honesto, telas Razor operáveis, CSV com LGPD, seed demo fictício e rotas de smoke para Comercial, OS, Estoque/Compras, Industrial e Indústria Produção. Consulte `docs/enterprise-funcional-pos-rc-07.md` e `docs/diagnostico-enterprise-pos-rc-07.md`.
-
-### Enterprise Pós-RC 08
-A rodada Pós-RC 08 consolidou a validação Enterprise ponta a ponta com CRUD REST, template MVC/Razor operacional, smoke ampliado e documentação de homologação. Consulte `docs/diagnostico-enterprise-pos-rc-08.md`, `docs/enterprise-pos-rc-08-validacao-e2e.md`, `docs/jornadas-enterprise-pos-rc-08.md` e `docs/matriz-crud-enterprise-pos-rc-08.md`.
-
-
-## Pós-RC 09 — QA funcional Enterprise
-
-- Diagnóstico criado em `docs/diagnostico-enterprise-pos-rc-09.md`.
-- Evidências de homologação registradas em `docs/evidencias-enterprise-pos-rc-09.md` e `docs/evidencias-enterprise-pos-rc-09.json`.
-- Manual de usuário e checklist QA criados para a jornada Enterprise navegável.
-- UX Enterprise refinada com filtros, paginação, loading, detalhes, edição, inativação, restauração, CSV com tenant, toasts e fallback honesto.
-
-## Pós-RC 10 — Hardening Enterprise
-
-A rodada Pós-RC 10 endurece a operação Enterprise com autenticação obrigatória na API, tenant real obrigatório, permissões por ação, auditoria com contexto de usuário, fallback honesto para schema indisponível, formulários por entidade, ações operacionais por tela e CSV com LGPD/fórmula segura. Consulte `docs/diagnostico-enterprise-pos-rc-10.md`, `docs/security-lgpd-enterprise-pos-rc-10.md`, `docs/jornadas-enterprise-pos-rc-10.md`, `docs/matriz-crud-enterprise-pos-rc-10.md`, `docs/enterprise-manual-usuario-pos-rc-10.md` e `docs/enterprise-qa-checklist-pos-rc-10.md`.
-
-## Pós-RC 14 — runtime, CI/CD e operação real
-
-A consolidação Pós-RC 14 corrige o smoke com interpolação real, atualiza artefatos CI/CD para evidências Pós-RC 14, fortalece o Kanban autenticado/autorizado com dados Enterprise quando o schema existe, mantém fallback honesto para indisponibilidade de schema/provedor GED, e documenta pendências runtime que dependem de ambiente Docker/PostgreSQL/GED configurado.
-
-Documentos principais:
-
-- `docs/diagnostico-tecnico-pos-rc-14.md`
-- `docs/evidencias-consolidacao-pos-rc-14.md`
-- `docs/manual-usuario-sigov-pos-rc-14.md`
-- `docs/manual-admin-sigov-pos-rc-14.md`
-- `docs/checklist-homologacao-pos-rc-14.md`
-
-## Pós-RC 15 — validação runtime, CI verde e release homologável
-
-A consolidação Pós-RC 15 atualiza os artefatos de CI/CD, smoke, go-live e pacote de release para evidências Pós-RC 15, registra diagnóstico técnico completo e endurece o Kanban para não usar tenant demo em produção. O fluxo mantém fallback honesto para schema/storage/GED ausente, sem declarar sucesso quando a persistência real não ocorre.
-
-Artefatos principais:
-
-- `docs/diagnostico-tecnico-pos-rc-15.md`
-- `docs/auditoria-dotnet-pacotes-pos-rc-15.md`
-- `docs/plano-migracao-dotnet-pos-rc-15.md`
-- `docs/evidencias-consolidacao-pos-rc-15.md`
-- `docs/evidencias-consolidacao-pos-rc-15.json`
-- `docs/manual-usuario-sigov-pos-rc-15.md`
-- `docs/manual-admin-sigov-pos-rc-15.md`
-- `docs/checklist-homologacao-pos-rc-15.md`
-- `docs/importacao-enterprise-pos-rc-15.md`
-- `docs/acoes-lote-enterprise-pos-rc-15.md`
-- `docs/anexos-enterprise-ged-pos-rc-15.md`
-- `docs/agenda-sla-kanban-pos-rc-15.md`
-
-## Pós-RC 16 — estabilização arquitetural
-
-A rodada Pós-RC 16 registra a auditoria de interfaces, DI e dependências entre projetos em `docs/diagnostico-pos-rc-16-inicial.md`, `docs/matriz-interfaces-pos-rc-16.md`, `docs/matriz-di-pos-rc-16.md` e `docs/evidencias-pos-rc-16.md`. O foco desta etapa é estabilizar a base antes de novos módulos grandes, eliminando casts indevidos entre contratos Enterprise e adicionando teste arquitetural para impedir referências proibidas entre camadas.
-
-## Pós-RC 17 — validação técnica
-
-A trilha Pós-RC 17 centraliza as correções de build, DI Enterprise, migrations/seed PostgreSQL, Docker/Docker Compose, smoke estático/E2E, empacotamento de release e go-live. A evidência operacional deve vir dos comandos do CI e dos artifacts gerados, não de declaração manual.
-
-## Pós-RC 20 — baseline PostgreSQL standalone
-
-A trilha Pós-RC 20 centraliza a versão `1.0.0-rc20`, separa seeds demonstrativos da baseline estrutural e exige que `script_completop.sql` seja gerado por `scripts/generate-script-completop.ps1` a partir de `database/postgres/migrations/manifest.json`. A criação do primeiro administrador não é feita no SQL estrutural; use explicitamente `scripts/create-initial-admin.ps1` ou `scripts/create-initial-admin.sh` após instalar o banco.
-
-## FUNC01 — Patrimônio e Inventário
-
-O módulo funcional de patrimônio público está disponível em `/Patrimonio`, com API em `/api/patrimonio`, persistência Dapper, inventário, responsabilidade, baixa, dashboard, auditoria e CSV LGPD. Consulte o [manual FUNC01](docs/FUNC01-PATRIMONIO-INVENTARIO.md). Esta trilha não altera a RC50.68 (BLOCKED) nem promove a RC50.69.
-
-## FUNC02 — Almoxarifado
-
-O módulo autenticado usa dados PostgreSQL do contexto tenant/entidade e está disponível em `/Almoxarifado`, com catálogo em `/Almoxarifado/Materiais`, saldos em `/Almoxarifado/Estoque`, entradas/saídas em `/Almoxarifado/Movimentacoes/*` e requisições em `/Almoxarifado/Requisicoes`. A API equivalente inicia em `/api/almoxarifado`. Consulte [`docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md`](docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md).
-
-### FUNC18 — Trânsito e Mobilidade
-O SIGOV-PLUS inclui gestão persistente de trânsito, fiscalização e transporte urbano em `/Transito`, com isolamento tenant/entidade, autorização proveniente do banco, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC18-TRANSITO-MOBILIDADE-FISCALIZACAO.md).
-
-### FUNC19 — Defesa Civil e Guarda Municipal
-O módulo persistente está disponível em `/Defesa`, com operação municipal, isolamento tenant/entidade, RBAC, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC19-DEFESA-CIVIL-GUARDA-MUNICIPAL.md).
-
-### FUNC20 — Convênios, Emendas e Prestação de Contas
-O módulo persistente está disponível em `/Convenios`, com instrumentos, projetos, execução financeira, prestação de contas, auditoria e relatórios CSV. Consulte [a documentação funcional](docs/FUNC20-CONVENIOS-EMENDAS-PRESTACAO-CONTAS.md).
+A trilha ativa RC51.00 deve fechar o P0 antes de liberar SaaS Admin e Ordem de Producao do Industria 360. GED permanece fora desta sprint.

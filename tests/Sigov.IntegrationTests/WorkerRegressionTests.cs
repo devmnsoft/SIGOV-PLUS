@@ -16,7 +16,8 @@ public sealed class WorkerRegressionTests
         processor.Should().Contain("ProcessBatchAsync");
         processor.Should().Contain("TenantId");
         processor.Should().Contain("CorrelationId");
-        retryPolicy.Should().Contain("DeadLetter");
+        retryPolicy.Should().Contain("deadLetter");
+        retryPolicy.Should().Contain("OutboxRetryDecision");
     }
 
     [Fact]
@@ -25,11 +26,11 @@ public sealed class WorkerRegressionTests
         var repository = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Outbox", "OutboxRepository.cs"));
         var queries = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Outbox", "OutboxSqlQueries.cs"));
 
-        queries.Should().Contain("sigov.fila_evento");
+        queries.Should().Contain("sigov.outbox_evento");
         queries.Should().Contain("tenant_id");
         queries.Should().Contain("PROCESSADO");
         queries.Should().Contain("ERRO");
-        queries.Should().Contain("DEAD_LETTER");
+        queries.Should().Contain("FALHOU");
         repository.Should().Contain("MarkFailureAsync");
     }
 

@@ -1,9 +1,5 @@
 using System.Diagnostics;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Dapper;
-using Sigov.Api.Authentication;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Api.Middlewares;
@@ -37,14 +33,6 @@ public sealed class ApiKeyV1Middleware
 
         try
         {
-            var apiKey = context.Request.Headers["X-Api-Key"].FirstOrDefault();
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "api_key_required", message = "Header X-Api-Key obrigatório." }, context.RequestAborted).ConfigureAwait(false);
-                return;
-            }
-
             if (!long.TryParse(context.Request.Headers["X-Tenant-Id"].FirstOrDefault(), out var parsedTenant) || parsedTenant <= 0)
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -53,42 +41,37 @@ public sealed class ApiKeyV1Middleware
             }
             tenantId = parsedTenant;
 
-            var requiredScope = ResolveScope(context.Request.Path, context.Request.Method);
-            using var cn = db.CreateConnection();
-            var rows = await cn.QueryAsync<ApiKeyRow>(new CommandDefinition(@"
-select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash, ak.status as Status,
-       coalesce(array_agg(ake.escopo) filter (where ake.escopo is not null), array[]::text[]) as Scopes
-  from sigov.api_key ak
-  left join sigov.api_key_escopo ake on ake.api_key_id = ak.id and ake.tenant_id = ak.tenant_id and ake.is_deleted = false
- where ak.tenant_id = @TenantId and ak.is_deleted = false and ak.status = 'ATIVA'
- group by ak.id, ak.tenant_id, ak.api_key_hash, ak.status;", new { TenantId = tenantId }, cancellationToken: context.RequestAborted)).ConfigureAwait(false);
-            var apiKeyHash = Hash(apiKey);
-            var row = rows.FirstOrDefault(candidate => FixedEquals(apiKeyHash, candidate.ApiKeyHash));
+            if (context.User.Identity?.IsAuthenticated != true)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { error = "api_key_required", message = "Header X-Api-Key obrigatório e válido." }, context.RequestAborted).ConfigureAwait(false);
+                return;
+            }
 
-            if (row is null)
+            if (!long.TryParse(context.User.FindFirst("api_key_id")?.Value, out var parsedApiKeyId) || parsedApiKeyId <= 0)
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 await context.Response.WriteAsJsonAsync(new { error = "api_key_invalid", message = "API key ausente ou inválida." }, context.RequestAborted).ConfigureAwait(false);
                 return;
             }
+            apiKeyId = parsedApiKeyId;
 
-            apiKeyId = row.Id;
-            if (!string.IsNullOrWhiteSpace(requiredScope) && !row.Scopes.Contains(requiredScope, StringComparer.OrdinalIgnoreCase))
+            if (!long.TryParse(context.User.FindFirst("tenant_id")?.Value, out var authenticatedTenant) || authenticatedTenant != tenantId)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new { error = "tenant_mismatch", message = "API key não pertence ao tenant informado." }, context.RequestAborted).ConfigureAwait(false);
+                return;
+            }
+
+            var requiredScope = ResolveScope(context.Request.Path, context.Request.Method);
+            var scopes = context.User.FindAll("scope").Select(claim => claim.Value);
+            if (!string.IsNullOrWhiteSpace(requiredScope) && !scopes.Contains(requiredScope, StringComparer.OrdinalIgnoreCase))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(new { error = "scope_denied", scope = requiredScope, message = "Escopo insuficiente para o endpoint." }, context.RequestAborted).ConfigureAwait(false);
                 return;
             }
 
-            context.Items["ApiKeyId"] = apiKeyId;
-            var claims = new List<Claim>
-            {
-                new(ClaimTypes.NameIdentifier, $"api-key:{row.Id}"),
-                new("api_key_id", row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                new("tenant_id", row.TenantId.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            };
-            claims.AddRange(row.Scopes.Select(scope => new Claim("scope", scope)));
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, SigovApiAuthenticationHandler.SchemeName));
             await _next(context).ConfigureAwait(false);
         }
         finally
@@ -113,13 +96,6 @@ select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash, ak.
         if (p.Contains("/bi", StringComparison.OrdinalIgnoreCase)) return "bi.read";
         return string.Empty;
     }
-    private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
-    private static bool FixedEquals(string a, string b)
-    {
-        var left = Encoding.UTF8.GetBytes(a);
-        var right = Encoding.UTF8.GetBytes(b ?? string.Empty);
-        return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
-    }
     private static async Task SafeLogAsync(DapperContext db, long? tenantId, long? apiKeyId, HttpContext context, string correlation, DateTimeOffset started, long elapsedMs, ILogger logger)
     {
         try
@@ -133,5 +109,4 @@ values (@TenantId, @ApiKeyId, @Endpoint, @Method, @StatusCode, cast(@Correlation
             logger.LogWarning(ex, "Falha ao persistir auditoria da API. TenantId={TenantId}; ApiKeyId={ApiKeyId}; CorrelationId={CorrelationId}", tenantId, apiKeyId, correlation);
         }
     }
-    private sealed record ApiKeyRow(long Id, long TenantId, string ApiKeyHash, string Status, string[] Scopes);
 }

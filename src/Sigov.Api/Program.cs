@@ -151,8 +151,8 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing") 
     app.UseSwaggerUI();
 }
 
-app.UseMiddleware<ApiKeyV1Middleware>();
 app.UseAuthentication();
+app.UseMiddleware<ApiKeyV1Middleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseCors("SigovCors");
 app.UseMiddleware<SimpleRateLimitMiddleware>();

@@ -47,6 +47,7 @@ public sealed class PosRc03WebOperationalStaticTests
         Assert.Contains("AuditarExportacaoAsync", RelatoriosController);
         Assert.Contains("BuscarAsync", BuscaController);
         Assert.Contains("MensagemFallback", BuscaController);
-        Assert.Contains("Não Atende", PocService);
+        Assert.Contains("Não avaliado", PocService);
+        Assert.Contains("Não marcar Atende sem evidência validada", PocService);
     }
 }

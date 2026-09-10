@@ -44,10 +44,10 @@ public sealed class DatabaseMigrationRegressionTests
     [Fact]
     public void Migrations_Operacionais_Devem_Declarar_TenantId_E_Qualificar_Tabelas_Com_Sigov()
     {
-        var sql = ReadAllMigrations();
+        var sql = ReadBaselineMigrations();
 
         sql.Should().Contain("tenant_id");
-        var tableNames = Regex.Matches(sql, @"create\s+table\s+(?:if\s+not\s+exists\s+)?(?<name>[a-zA-Z0-9_.%]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+        var tableNames = Regex.Matches(sql, @"^\s*create\s+table\s+(?:if\s+not\s+exists\s+)?(?<name>[a-zA-Z0-9_.%]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Multiline)
             .Select(match => match.Groups["name"].Value)
             .ToArray();
 
@@ -72,6 +72,12 @@ public sealed class DatabaseMigrationRegressionTests
         var historical = entries.Single(entry => entry.GetProperty("version").GetString() == "20260903130000");
         historical.GetProperty("knownChecksums").EnumerateArray().Select(value => value.GetString())
             .Should().Contain("2ee4b77413f755230ad1bdaef456893c1f5f045866ea436e78d388a0b4f18364");
+
+        entries.Single(entry => entry.GetProperty("version").GetString() == "20260902010000")
+            .GetProperty("applyAutomatically").GetBoolean().Should().BeFalse();
+        historical.GetProperty("applyAutomatically").GetBoolean().Should().BeFalse();
+        entries.Single(entry => entry.GetProperty("version").GetString() == "20260909120000")
+            .GetProperty("applyAutomatically").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -81,8 +87,8 @@ public sealed class DatabaseMigrationRegressionTests
         sql.Should().Contain("conrelid=to_regclass('sigov.compras_licitapro_fonte')");
         sql.Should().Contain("create index ix_clp_alerta_tenant_status_vencimento");
         sql.Should().NotContain("create index sigov.ix_clp_alerta_tenant_status_vencimento");
-        sql.Should().Contain("pg_index").And.Contain("pg_class").And.Contain("pg_attribute");
-        sql.Should().Contain("array['tenant_id','entidade_id','status','vencimento_at']::name[]");
+        sql.Should().Contain("compras_licitapro_alerta (tenant_id, entidade_id, status, vencimento_at)");
+        sql.Should().Contain("pg_constraint").And.Contain("pg_attribute");
         sql.Should().NotContain("concurrently");
     }
 
@@ -96,10 +102,26 @@ public sealed class DatabaseMigrationRegressionTests
             .BeLessThan(runner.IndexOf("// Fase 3:", StringComparison.Ordinal));
         runner.Should().Contain("if (!validateOnly)");
         runner.Should().Contain("history = await ReadMigrationHistoryAsync");
+        runner.Should().Contain("manifest.DeclaredMigrations.ToDictionary");
+        runner.Should().Contain("manifest.AutomaticMigrations.Where");
+        runner.Should().Contain("validation.Excluded.Add");
+        runner.Should().Contain("POSTCONDITION_MISSING: migration histórica presente");
         runner.Should().Contain("pendentes=0; checksum=0; falhas=0");
     }
 
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));
+
+    private static string ReadBaselineMigrations()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(MigrationsPath, "manifest.json")));
+        var files = document.RootElement.GetProperty("migrations")
+            .EnumerateArray()
+            .Where(entry => entry.GetProperty("includeInBaseline").GetBoolean())
+            .Select(entry => entry.GetProperty("file").GetString()!)
+            .OrderBy(static file => file, StringComparer.OrdinalIgnoreCase);
+
+        return string.Join('\n', files.Select(file => File.ReadAllText(Path.Combine(MigrationsPath, file))));
+    }
 
     private static string FindRepositoryRoot()
     {

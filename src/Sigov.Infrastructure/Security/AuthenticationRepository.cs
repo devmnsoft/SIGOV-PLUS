@@ -16,7 +16,7 @@ public sealed class AuthenticationRepository(NpgsqlConnectionFactory connectionF
     {
         if (!identifier.IsValid) return Array.Empty<AuthenticationUser>();
 
-        const string sql = @"select u.id, u.tenant_id as TenantId, coalesce(u.nome, u.login) as Nome, u.login, coalesce(u.email, '') as Email,
+        const string sql = @"select u.id, u.tenant_id as TenantId, u.entidade_id as EntidadeId, coalesce(u.nome, u.login) as Nome, u.login, coalesce(u.email, '') as Email,
        coalesce(t.nome, '') as TenantName,
        u.senha_hash as PasswordHash, u.ativo, u.bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha,
        u.is_deleted as IsDeleted, coalesce(t.ativo, true) as TenantAtivo,

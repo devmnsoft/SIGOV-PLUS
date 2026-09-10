@@ -54,6 +54,6 @@ public sealed class PostBuild03EvolutionTests
     public void Web_expõe_telas_saas_e_tributario_base()
     {
         Api("src/Sigov.Web/Controllers/SaasController.cs").Should().Contain("Planos").And.Contain("Implantacao").And.Contain("Parametros");
-        Api("src/Sigov.Web/Controllers/TributarioController.cs").Should().Contain("Configuracao").And.Contain("TiposCadastro").And.Contain("CamposDinamicos");
+        Api("src/Sigov.Web/Controllers/TributarioController.cs").Should().Contain("Parametros").And.Contain("Exercicios").And.Contain("Tributos");
     }
 }

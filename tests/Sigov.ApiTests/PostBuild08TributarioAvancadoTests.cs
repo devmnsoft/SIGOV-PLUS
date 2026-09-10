@@ -60,15 +60,19 @@ public sealed class PostBuild08TributarioAvancadoTests
     [Fact]
     public void Telas_docs_e_demo_do_tributario_avancado_foram_entregues()
     {
-        foreach (var action in new[] { "Iptu", "Iss", "Taxas", "Parcelamentos", "Arrecadacao", "LivroEletronico", "RelatoriosFiscais", "Nfse" })
+        foreach (var view in new[] { "Iptu", "Iss", "Taxas", "Parcelamentos", "Arrecadacao", "LivroEletronico", "RelatoriosFiscais", "Nfse" })
         {
-            Web.Should().Contain($"IActionResult {action}");
-            File.Exists(TestRepoPath.Get($"src/Sigov.Web/Views/Tributario/{action}.cshtml")).Should().BeTrue();
+            File.Exists(TestRepoPath.Get($"src/Sigov.Web/Views/Tributario/{view}.cshtml")).Should().BeTrue();
         }
 
-        Sidebar.Should().Contain("/Tributario/Iptu")
-            .And.Contain("tributario.iptu.visualizar")
-            .And.Contain("/Tributario/RelatoriosFiscais");
+        Web.Should().Contain("Lista(\"Contribuintes\"")
+            .And.Contain("Lista(\"Lançamentos tributários\"")
+            .And.Contain("Lista(\"Dívida ativa\"")
+            .And.Contain("Lista(\"Parcelamentos\"");
+
+        Sidebar.Should().Contain("/Tributario/Dashboard")
+            .And.Contain("/Tributario/Contribuintes")
+            .And.Contain("/Tributario/Nfse/LivroEletronico");
         File.ReadAllText(TestRepoPath.Get("scripts/demo-local.ps1")).Should().Contain("SIGOV Pós-Build 08");
         File.Exists(TestRepoPath.Get("docs/tributario-avancado.md")).Should().BeTrue();
     }

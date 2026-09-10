@@ -82,9 +82,18 @@ try {
         $manifest = Get-Content (Join-Path $repoRoot 'database/postgres/migrations/manifest.json') -Raw | ConvertFrom-Json
         $registeredRaw = Invoke-Psql $Database "select version||'|'||coalesce(checksum,'') from $SchemaName.schema_migrations order by version"
         $registered = @{}; foreach ($line in ($registeredRaw -split "`n")) { if ($line) { $p=$line.Split('|',2); $registered[$p[0]]=$p[1] } }
-        foreach ($m in $manifest.migrations | Where-Object { $_.applyAutomatically -ne $false }) {
-            if (-not $registered.ContainsKey([string]$m.version)) { Add-Check "migration.$($m.version)" 'ERROR' "Migration $($m.version) não registrada." }
-            else { $known = if ($m.PSObject.Properties.Name -contains 'knownChecksums') { @($m.knownChecksums) } else { @() }; $allowed=@([string]$m.checksum)+$known; if ($registered[[string]$m.version] -notin $allowed) { Add-Check "migration.$($m.version).checksum" 'ERROR' "Checksum registrado diverge do manifest." } }
+        foreach ($m in $manifest.migrations) {
+            $classification = if ($m.applyAutomatically -eq $true) { 'AUTOMATIC' } elseif ($m.includeInBaseline -eq $true) { 'BASELINE' } else { 'HISTORICAL_EXCLUDED' }
+            if (-not $registered.ContainsKey([string]$m.version)) {
+                if ($m.applyAutomatically -eq $true) { Add-Check "migration.$($m.version)" 'ERROR' "Migration declarada automática $($m.version) não registrada." }
+                else { Add-Check "migration.$($m.version)" 'OK' "Migration declarada $classification $($m.version) ausente do ledger; status Excluded, sem execução." }
+            } else {
+                $known = if ($m.PSObject.Properties.Name -contains 'knownChecksums') { @($m.knownChecksums) } else { @() }
+                $allowed=@([string]$m.checksum)+$known
+                if ($registered[[string]$m.version] -notin $allowed) { Add-Check "migration.$($m.version).checksum" 'ERROR' "Checksum registrado diverge da migration declarada $classification." }
+                elseif ($m.applyAutomatically -ne $true -and [string]::IsNullOrWhiteSpace([string]$m.postConditionSql)) { Add-Check "migration.$($m.version).postcondition" 'CRITICAL' "Migration histórica presente sem pós-condição específica." }
+                else { Add-Check "migration.$($m.version).classification" 'OK' "Migration declarada $classification reconhecida no ledger." }
+            }
         }
         $rc32Version = '20260730090000'
         $bridgeExists = (Invoke-Psql $Database "select to_regclass('$schema.enterprise_integracao_financeira') is not null") -eq 't'

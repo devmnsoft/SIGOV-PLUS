@@ -19,6 +19,7 @@ public sealed class AuthController : Controller
     private readonly IAuthenticationRepository _authenticationRepository;
     private readonly IPasswordHashService _passwordHashService;
     private readonly IPasswordPolicyService _passwordPolicy;
+    private readonly IIdentitySessionService _identitySessionService;
     private readonly ICurrentUser _currentUser;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuditTrailService _auditTrail;
@@ -27,11 +28,12 @@ public sealed class AuthController : Controller
     private readonly IWebHostEnvironment _environment;
     private readonly IOptionsMonitor<CookieAuthenticationOptions> _cookieOptions;
 
-    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger, IOptionsMonitor<CookieAuthenticationOptions> cookieOptions)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, IIdentitySessionService identitySessionService, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger, IOptionsMonitor<CookieAuthenticationOptions> cookieOptions)
     {
         _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
         _passwordPolicy = passwordPolicy;
+        _identitySessionService = identitySessionService;
         _currentUser = currentUser;
         _auditTrail = auditTrail;
         _passwordRecoveryService = passwordRecoveryService;
@@ -119,6 +121,15 @@ public sealed class AuthController : Controller
                 return View(model);
             }
 
+            var cookieLifetime = TimeSpan.FromHours(_configuration.GetValue("Authentication:CookieHours", 8));
+            var session = await _identitySessionService.CreateAsync(
+                user,
+                cookieLifetime,
+                ip,
+                Request.Headers["User-Agent"].ToString(),
+                correlationId,
+                cancellationToken).ConfigureAwait(false);
+
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -126,8 +137,10 @@ public sealed class AuthController : Controller
                 new(ClaimTypes.Email, user.Email),
                 new("login", user.Login),
                 new("tenant_id", user.TenantId?.ToString() ?? string.Empty),
-                new("auth_version", "1"),
-                new("session_id", Guid.NewGuid().ToString("N"))
+                new("entidade_id", user.EntidadeId?.ToString() ?? string.Empty),
+                new("auth_version", session.AuthVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new("session_id", session.SessionId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new("session_token", session.Token)
             };
             if (!string.IsNullOrWhiteSpace(user.TenantName)) claims.Add(new Claim("tenant_name", user.TenantName));
             if (user.DeveAlterarSenha) claims.Add(new Claim("password_change_required", "true"));
@@ -136,7 +149,7 @@ public sealed class AuthController : Controller
             {
                 IsPersistent = model.LembrarLogin,
                 AllowRefresh = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+                ExpiresUtc = session.ExpiresAt
             };
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
             var ticket = new AuthenticationTicket(principal, properties, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -312,6 +325,7 @@ public sealed class AuthController : Controller
         if (_passwordHashService.VerifyPassword(novaSenha, currentHash)) { ModelState.AddModelError(nameof(model.NovaSenha), "A nova senha deve ser diferente da atual."); return View("AlterarSenha", model); }
         var changed = await _authenticationRepository.ChangePasswordAsync(tenantId.Value, id.Value, _passwordHashService.HashPassword(novaSenha), ct).ConfigureAwait(false);
         if (!changed) return NotFound();
+        await _identitySessionService.RevokeAllForUserAsync(id.Value, "PASSWORD_CHANGED", ct).ConfigureAwait(false);
         await _auditTrail.RegistrarAsync(tenantId, id, "SENHA_ALTERADA", "sigov.usuario", id.ToString(), null, new { origem = "usuario" }, null, null, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
         TempData["Success"] = "Senha alterada. Entre novamente.";
@@ -343,6 +357,8 @@ public sealed class AuthController : Controller
         var login = User.Identity?.Name ?? "anonimo";
         try
         {
+            if (_currentUser.UserId is long userId && long.TryParse(User.FindFirst("session_id")?.Value, out var sessionId))
+                await _identitySessionService.RevokeAsync(sessionId, userId, "LOGOUT", cancellationToken).ConfigureAwait(false);
             await _auditTrail.RegistrarAsync(_currentUser.TenantId, _currentUser.UserId, "LOGOUT", "sigov.usuario", _currentUser.UserId?.ToString(), null, new { login }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers["User-Agent"].ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Logout SIGOV para {Login}. CorrelationId={CorrelationId}", login, HttpContext.TraceIdentifier);
         }
