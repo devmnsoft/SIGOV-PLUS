@@ -9,6 +9,42 @@ public sealed class PosRc06StaticTests
     private static string Read(string path) => File.ReadAllText(TestRepoPath.Get(path));
 
     [Fact]
+    public void Tracked_Artifacts_Gate_Deve_Falhar_Fora_De_Worktree_E_Sem_Ferramentas()
+    {
+        var script = Read("scripts/check-tracked-artifacts.sh");
+        Assert.Contains("git is not available", script);
+        Assert.Contains("rg is not available", script);
+        Assert.Contains("not inside a git worktree", script);
+        Assert.Contains("git ls-files failed", script);
+        Assert.Contains("tracked_files=\"$(git ls-files)\"", script);
+        var passIndex = script.LastIndexOf("Tracked artifact gate: PASS", StringComparison.Ordinal);
+        var failIndex = script.IndexOf("Generated artifacts are tracked by Git", StringComparison.Ordinal);
+        Assert.True(failIndex > 0 && passIndex > failIndex);
+        var ci = Read(".github/workflows/ci.yml");
+        Assert.Contains("Install ripgrep", ci);
+        Assert.Contains("needs: [tracked-artifacts, workflow-integrity]", ci);
+    }
+
+    [Fact]
+    public void Appsettings_Versionados_Nao_Devem_Conter_Senha_Literal()
+    {
+        foreach (var path in new[]
+        {
+            "src/Sigov.Api/appsettings.json",
+            "src/Sigov.Api/appsettings.Development.json",
+            "src/Sigov.Api/appsettings.Homologation.json",
+            "src/Sigov.Web/appsettings.json",
+            "src/Sigov.Web/appsettings.Development.json"
+        })
+        {
+            var content = Read(path);
+            Assert.DoesNotContain("Password=123456", content, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("\"MigrationsPath\": \"database/postgres/migrations\"", content);
+        }
+        Assert.Contains("ConnectionStrings__DefaultConnection", Read(".env.example"));
+    }
+
+    [Fact]
     public void Ci_Deve_Conter_Jobs_E_Validar_OutboxEvento()
     {
         var ci = Read(".github/workflows/ci.yml");
