@@ -75,7 +75,7 @@ select t.id as Id, coalesce(t.nome_fantasia,t.nome,t.slug,'Tenant '||t.id::text)
 from sigov.tenant t
 left join sigov.tenant_assinatura a on a.tenant_id=t.id and a.ativo and not a.is_deleted
 left join sigov.plano_saas p on p.id=a.plano_saas_id
-left join sigov.tenant_modulo tm on tm.tenant_id=t.id and tm.ativo and tm.contratado
+left join sigov.tenant_modulo_contratado tm on tm.tenant_id=t.id and tm.ativo and tm.status in ('CONTRATADO','HABILITADO','ATIVO','TRIAL','EM_IMPLANTACAO','BETA')
 left join sigov.tenant_dominio td on td.tenant_id=t.id and td.ativo
 left join sigov.tenant_entidade te on te.tenant_id=t.id and te.ativo
 left join sigov.exercicio e on e.entidade_id=te.entidade_id and e.ativo and not e.is_deleted

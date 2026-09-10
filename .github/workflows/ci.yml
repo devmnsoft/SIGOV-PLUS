@@ -18,6 +18,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Install ripgrep
+        run: |
+          set -euo pipefail
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+          rg --version
       - name: Reject generated artifacts tracked by Git
         shell: bash
         run: bash scripts/check-tracked-artifacts.sh
@@ -126,7 +134,7 @@ jobs:
           path: release-context.log
 
   build-test:
-    needs: [workflow-integrity, release-context]
+    needs: [tracked-artifacts, workflow-integrity, release-context]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -261,7 +269,7 @@ jobs:
             smoke-static.log
 
   migration-governance-static:
-    needs: workflow-integrity
+    needs: [tracked-artifacts, workflow-integrity]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -554,7 +562,7 @@ jobs:
             ${{ needs.release-context.outputs.release_directory }}
 
   go-live-check:
-    needs: [workflow-integrity, release-context, build-test, test-path-contract, dependency-injection, web-smoke, powershell-lint, migrations-manifest, seed-idempotency, script-completop-validate, script-completop-idempotency, schema-equivalence, standalone-postgres-runtime, docker-build, docker-compose-e2e, ui-contrast, release-package-check]
+    needs: [tracked-artifacts, workflow-integrity, release-context, build-test, test-path-contract, dependency-injection, web-smoke, powershell-lint, migrations-manifest, seed-idempotency, script-completop-validate, script-completop-idempotency, schema-equivalence, standalone-postgres-runtime, docker-build, docker-compose-e2e, ui-contrast, release-package-check]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

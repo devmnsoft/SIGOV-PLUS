@@ -80,11 +80,11 @@ public sealed class AuthPermissionRegressionTests
         controller.Should().NotContain("access.Permissions.Select(permission => new Claim(\"permission\"");
         controller.Should().Contain("TicketDataFormat.Protect(ticket)");
         controller.Should().Contain("protectedTicketSize");
-        program.Should().Contain("AddScoped<IClaimsTransformation, RequestPermissionClaimsTransformation>");
-        transformation.Should().Contain("principal.Clone()");
-        transformation.Should().Contain("_access ??=");
-        transformation.Should().Contain("_modules ??=");
-        transformation.Should().Contain("GetRequestAccessAsync");
+        program.Should().NotContain("AddScoped<IClaimsTransformation, RequestPermissionClaimsTransformation>");
+        program.Should().Contain("UseMiddleware<RequestAuthorizationSnapshotMiddleware>");
+        transformation.Should().NotContain("AddClaims");
+        transformation.Should().NotContain("new Claim(\"permission\"");
+        transformation.Should().NotContain("new Claim(\"module\"");
         transformation.Should().NotContain("SignInAsync");
         transformation.Should().NotContain("GetAwaiter().GetResult()");
     }

@@ -11,11 +11,11 @@ public sealed class SaasConfiguracaoController : Controller
 
     public SaasConfiguracaoController(IModuleCatalogService moduleCatalogService) => _moduleCatalogService = moduleCatalogService;
 
-    public IActionResult Modulos()
+    public async Task<IActionResult> Modulos(CancellationToken cancellationToken)
     {
         ViewData["Title"] = "Módulos e Pacotes SaaS";
-        ViewData["Packages"] = _moduleCatalogService.GetPackages();
-        return View(_moduleCatalogService.GetModules());
+        ViewData["Packages"] = await _moduleCatalogService.GetPackagesAsync(cancellationToken).ConfigureAwait(false);
+        return View(await _moduleCatalogService.GetModulesAsync(cancellationToken).ConfigureAwait(false));
     }
 
     public IActionResult Perfis()

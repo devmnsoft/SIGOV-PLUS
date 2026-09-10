@@ -5,6 +5,7 @@ using Sigov.Api.Middlewares;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Authorization;
 using Sigov.Application.Industria;
+using Sigov.Application.Saas.Modules;
 using Sigov.Infrastructure.Persistence.Dapper;
 using System.Globalization;
 using System.Text.Json;
@@ -21,15 +22,17 @@ public sealed class IndustriaController : ControllerBase
     private readonly ICurrentUser _user;
     private readonly IIndustriaEstoqueService _estoque;
     private readonly IAuthorizationEvaluator _authorization;
+    private readonly IModuleEntitlementEvaluator _entitlement;
     private readonly ILogger<IndustriaController> _logger;
 
-    public IndustriaController(DapperContext context, ICurrentTenant tenant, ICurrentUser user, IIndustriaEstoqueService estoque, IAuthorizationEvaluator authorization, ILogger<IndustriaController> logger)
+    public IndustriaController(DapperContext context, ICurrentTenant tenant, ICurrentUser user, IIndustriaEstoqueService estoque, IAuthorizationEvaluator authorization, IModuleEntitlementEvaluator entitlement, ILogger<IndustriaController> logger)
     {
         _context = context;
         _tenant = tenant;
         _user = user;
         _estoque = estoque;
         _authorization = authorization;
+        _entitlement = entitlement;
         _logger = logger;
     }
 
@@ -469,8 +472,9 @@ public sealed class IndustriaController : ControllerBase
         {
             if (!await HasPermission("industria.paradas.criar")) return Forbid();
             var tenantId = RequireTenant(); using var c = _context.CreateConnection();
-            var osAtivo = await c.ExecuteScalarAsync<bool>("select exists(select 1 from sigov.tenant_modulo_contratado where tenant_id=@TenantId and modulo_codigo='ordem_servico' and ativo=true and status in ('CONTRATADO','HABILITADO','EM_IMPLANTACAO','BETA'))", new { TenantId = tenantId });
-            if (!osAtivo) return StatusCode(403, ApiResponse<object>.Fail("Módulo ordem_servico não contratado.", cid));
+            var osAtivo = await _entitlement.EvaluateAsync(new ModuleEntitlementRequest(
+                _user.UsuarioId ?? 0, "ordem_servico", _user.Roles, tenantId, CorrelationId: cid)).ConfigureAwait(false);
+            if (!osAtivo.Allowed) return StatusCode(403, ApiResponse<object>.Fail(osAtivo.Reason, cid));
             var osId = await c.ExecuteScalarAsync<long>("select nextval(pg_get_serial_sequence('sigov.industria_ordem_producao','id'))");
             await c.ExecuteAsync("update sigov.industria_parada_producao set gerou_os=true, os_id=@OsId where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, OsId = osId });
             await Auditar(c, tenantId, "PARADA_GEROU_OS", "industria_parada_producao", id, new { osId }, cid);

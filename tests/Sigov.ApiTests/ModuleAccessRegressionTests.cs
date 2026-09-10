@@ -14,12 +14,12 @@ public sealed class ModuleAccessRegressionTests
         var featureAttribute = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Middlewares", "RequireFeatureAttribute.cs"));
 
         moduleAttribute.Should().Contain("StatusCodes.Status403Forbidden");
-        moduleAttribute.Should().Contain("IsModuleEnabledAsync");
+        moduleAttribute.Should().Contain("IModuleEntitlementEvaluator");
         featureAttribute.Should().Contain("StatusCodes.Status403Forbidden");
         featureAttribute.Should().Contain("IsEnabledAsync");
 
         var licensing = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Saas", "SaasServices.cs"));
-        licensing.Should().Contain("IModuleAccessRepository");
+        licensing.Should().Contain("IModuleEntitlementEvaluator");
         licensing.Should().NotContain("from sigov.tenant_modulo tm");
     }
 

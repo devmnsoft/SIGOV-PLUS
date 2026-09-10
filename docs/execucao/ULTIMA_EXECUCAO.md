@@ -1,5 +1,41 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02. Estado: PARCIAL / BLOCKED; P0 estático e entitlement/SaaS Admin implementados no código; PostgreSQL 16 vazio/reaplicação/legado, Swagger HTTP 200 e login ponta a ponta permanecem BLOCKED neste host.
+
+- Branch: `codex/rc51-02-p0-runtime-entitlement-canonico`, baseada em `origin/main` `ec799b75a6a1b3156566afc8a21216748f82df24` (HEAD inicial da sprint anterior `0675787277addc39df526515d431900f27e4248a` reaproveitada como fundação).
+- Causa raiz 1: `check-tracked-artifacts.sh` imprimia PASS fora de worktree porque `git ls-files | rg` falhava dentro de `if`; agora falha se git/rg/worktree/ls-files falharem e só imprime PASS no final.
+- Causa raiz 2: `MigrationRunner` resolvia o caminho no construtor e `DatabaseOptions.MigrationsPath` tinha default relativo enganoso. Construtor ficou lazy; `MigrationMode=Disabled` não toca o diretório.
+- Causa raiz 3: `RequestPermissionClaimsTransformation` recolocava permissões/módulos no principal; sidebar e `UserPermissionService` decidiam por claims. Snapshot request-scoped (`IRequestAuthorizationSnapshot`) carrega uma vez por request; policies usam `PersistedPermissionHandler`.
+- Causa raiz 4: dois `IModuleCatalogService` hardcoded. A interface canônica em Application.Saas.Modules passou a ser assíncrona; DI usa `PersistentModuleCatalogService` lendo `modulo_saas`. `IModuleEntitlementEvaluator` é a decisão única de contrato+dependência+permissão.
+- SaaS Admin: SuperAdmin lista tenants (status, esfera, entidades, usuários ativos, módulos, última atividade), abre detalhe e contrata/suspende/reativa com justificativa, transação, concorrência e auditoria. Admin local não altera catálogo/preço e só vê o próprio tenant.
+- Indústria: `RequireModule("industria_producao")`, menu e `IndustriaComercialService` usam o avaliador; SQL direto de contratação de `industria_producao` removido. Status permanece PARCIAL.
+- Manifesto estático: 185 SQLs, 175 entradas, 10 órfãos classificados preservados; 171 automáticas, 170 baseline; `20260902010000`, `20260903130000` e `20260909120000` permanecem declaradas. SHA do manifesto deve ser relida no runtime.
+- Testes: UnitTests 389, IntegrationTests 123, ApiTests 102. `bash scripts/check-tracked-artifacts.sh` PASS; `python -m json.tool database/postgres/migrations/manifest.json` PASS; `python scripts/validate-rc50-80.py` PASS; `bash scripts/check-api-route-conflicts.sh` PASS em 630 rotas; `git diff --check` PASS.
+- `BLOCKED: PostgreSQL 16 vazio, segunda passagem idempotente, upgrade legado, equivalência, API ApplyPending/ValidateOnly, Swagger HTTP 200, login e-mail/CPF/CNPJ, MinhaCentral, logout, revogação, tenant suspenso, dois tenants e SaaS Admin ponta a ponta não foram executados porque psql não está no PATH, ConnectionStrings__DefaultConnection/PG* ausentes e o Docker daemon desktop-linux está indisponível.`
+- ADR de catálogo/entitlements e de autenticação permanecem sem ACEITO até evidência runtime PostgreSQL 16.
+- Próximo item após todos os gates verdes: **RC51.03 — Ordem de Produção industrial integrada: demanda/pedido → BOM versionada → roteiro versionado → disponibilidade e reserva atômica → liberação da OP → apontamento → consumo por lote → qualidade → entrada do acabado → custo real/variação → encerramento e rastreabilidade.**
+
+---
+
+Data: 2026-09-10. RC51.02. Estado: PARCIAL / BLOCKED; runtime estático de migrations estabilizado, artefatos rastreados saneados, P0 PostgreSQL 16 bloqueado e SaaS Admin não iniciado.
+
+- Branch: `codex/rc51-02-migration-runtime-saas-admin`, baseada em `origin/main` `ec799b75a6a1b3156566afc8a21216748f82df24`.
+- Estado preexistente antes da sprint: `.vs`, `bin` e `obj` rastreados e modificados; `src/Sigov.Worker/appsettings.json` modificado fora do escopo.
+- Causa raiz: `Sigov:Database:MigrationsPath = "database/postgres/migrations"` era resolvido contra `Directory.GetCurrentDirectory()`/ContentRoot em `src/Sigov.Api`, fazendo a API procurar `src/Sigov.Api/database/postgres/migrations`.
+- Correção: `MigrationsPath` relativo foi removido do `appsettings.json` local da API; Docker mantém `/app/database/postgres/migrations`; o resolvedor agora considera ContentRoot, CurrentDirectory e BaseDirectory, sobe ancestrais, valida `manifest.json`, recusa `.vs/bin/obj/artifacts/TestResults`, registra origem e falha em ambiguidade.
+- Caminho canônico local esperado para Visual Studio: `C:\MNSOFT\SIGOV-PLUS\database\postgres\migrations`.
+- Manifesto canônico atual: `C:\MNSOFT\SIGOV-PLUS\database\postgres\migrations\manifest.json`.
+- Artefatos: 1.084 entradas removidas somente do índice Git; arquivos físicos de trabalho preservados. Diretórios afetados: `.vs`, `src/*/bin`, `src/*/obj`, `tests/*/bin` e `tests/*/obj`.
+- Commit de retorno dos artefatos no main atual: `ec799b75` (`dsdsds`), com origem histórica detectada em `f6bb7f24` e `4a466e38` para amostras de artefatos.
+- Prevenção: `.gitignore` passou a ignorar `*.dll`; `build-test` no CI agora depende de `tracked-artifacts`, garantindo o gate antes de restore/build/test.
+- Testes: `MigrationSqlPolicyTests` ampliado na classe existente para cobrir raiz do repo, Visual Studio em `src/Sigov.Api`, ContentRoot, BaseDirectory em `bin/Debug/net10.0`, absoluto válido/inválido, relativo em ancestral, relativo ausente, múltiplos checkouts, manifesto em `bin`, Docker absoluto, pacote publicado e contrato `MANIFEST_OUTDATED`.
+- Evidência local: `bash scripts/check-tracked-artifacts.sh` PASS; `python -m json.tool database/postgres/migrations/manifest.json` PASS; `dotnet clean sigov.sln` PASS; `dotnet restore sigov.sln --locked-mode` PASS; `dotnet build sigov.sln -c Release --no-restore --nologo -warnaserror` PASS; `dotnet test sigov.sln -c Release --no-build` PASS com UnitTests 385, IntegrationTests 123 e ApiTests 100; `bash scripts/check-api-route-conflicts.sh` PASS em 630 rotas; `git diff --check` PASS; `rg -n '^(<<<<<<<|=======|>>>>>>>)' src database tests docs .github` PASS.
+- `BLOCKED: PostgreSQL 16 vazio, segunda passagem idempotente, upgrade legado, pós-condições, equivalência semântica, API ApplyPending/ValidateOnly, Swagger HTTP 200, login, MinhaCentral, logout, revogação, tenant suspenso, dois tenants e acesso cruzado não foram executados porque psql não está instalado/no PATH, não há ConnectionStrings__DefaultConnection/PG* no ambiente e o Docker daemon desktop-linux está indisponível.`
+- `BLOCKED: SaaS Admin/Entitlements funcional não foi iniciado porque P0 PostgreSQL 16 não foi aprovado.`
+- Próximo item exato: disponibilizar PostgreSQL 16 descartável e concluir P0.1-B. Após P0 e entitlement canônico aprovados, seguir para **RC51.03 — Indústria: Ordem de Produção integrada demanda/venda → BOM/ficha técnica → roteiro → reserva de materiais → OP → apontamento → consumo → qualidade → produto acabado → estoque → custos → rastreabilidade**.
+
+---
+
 Data: 2026-09-09. RC51.01. Estado: PARCIAL / BLOCKED; catálogo runtime corrigido, validação PostgreSQL 16 e fase SaaS Admin não liberada.
 
 - Branch: `codex/rc51-01-history-manifest-saas-entitlements`; HEAD inicial `3efdc97520d0db9019182705a645ff2c975ff84b`, sem upstream disponível no ambiente.

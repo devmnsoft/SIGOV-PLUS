@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Authorization;
 
 namespace Sigov.Infrastructure.Security;
 
@@ -58,7 +60,9 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
 
     public IReadOnlyCollection<string> Roles => ClaimValues(ClaimTypes.Role);
 
-    public IReadOnlyCollection<string> Permissions => ClaimValues("permission");
+    public IReadOnlyCollection<string> Permissions =>
+        httpContextAccessor.HttpContext?.RequestServices.GetService<IRequestAuthorizationSnapshot>()?.Current.Permissions.ToArray()
+        ?? Array.Empty<string>();
 
     public bool IsAuthenticated => Principal?.Identity?.IsAuthenticated == true;
 

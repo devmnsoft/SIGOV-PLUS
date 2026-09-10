@@ -1,5 +1,6 @@
 using Dapper;
 using Sigov.Application.Industria;
+using Sigov.Application.Saas.Modules;
 using Sigov.Infrastructure.Persistence.Dapper;
 using System.Data;
 using System.Globalization;
@@ -9,8 +10,13 @@ namespace Sigov.Infrastructure.Industria;
 public sealed class IndustriaEstoqueService : IIndustriaEstoqueService
 {
     private readonly DapperContext _context;
+    private readonly IModuleEntitlementEvaluator _entitlement;
 
-    public IndustriaEstoqueService(DapperContext context) => _context = context;
+    public IndustriaEstoqueService(DapperContext context, IModuleEntitlementEvaluator entitlement)
+    {
+        _context = context;
+        _entitlement = entitlement;
+    }
 
     public async Task<IndustriaEstoqueResultado> ReservarMaterialAsync(long tenantId, long ordemId, long produtoId, decimal quantidade, string correlationId, CancellationToken cancellationToken = default)
     {
@@ -67,7 +73,12 @@ public sealed class IndustriaEstoqueService : IIndustriaEstoqueService
         return await connection.ExecuteScalarAsync<decimal?>("select coalesce(preco_custo, preco_venda, 0) from sigov.comercio_produto where tenant_id=@TenantId and id=@ProdutoId", new { TenantId = tenantId, ProdutoId = produtoId }) ?? 0m;
     }
 
-    private static async Task<bool> EstoqueAtivoAsync(IDbConnection connection, long tenantId) => await connection.ExecuteScalarAsync<bool>("select exists(select 1 from sigov.tenant_modulo_contratado where tenant_id=@TenantId and modulo_codigo='estoque_compras' and ativo=true and status in ('CONTRATADO','HABILITADO','EM_IMPLANTACAO','BETA'))", new { TenantId = tenantId });
+    private async Task<bool> EstoqueAtivoAsync(IDbConnection connection, long tenantId)
+    {
+        _ = connection;
+        var decision = await _entitlement.EvaluateAsync(new ModuleEntitlementRequest(0, "estoque_compras", Array.Empty<string>(), tenantId)).ConfigureAwait(false);
+        return decision.Allowed;
+    }
     private static async Task<decimal> SaldoAsync(IDbConnection connection, long tenantId, long produtoId) => await connection.ExecuteScalarAsync<decimal?>("select saldo from sigov.comercio_estoque_saldo where tenant_id=@TenantId and produto_id=@ProdutoId", new { TenantId = tenantId, ProdutoId = produtoId }) ?? 0m;
     private static async Task GarantirSaldoAsync(IDbConnection connection, long tenantId, long produtoId, decimal quantidade)
     {
@@ -80,14 +91,20 @@ public sealed class IndustriaEstoqueService : IIndustriaEstoqueService
 public sealed class IndustriaComercialService : IIndustriaComercialService
 {
     private readonly DapperContext _context;
+    private readonly IModuleEntitlementEvaluator _entitlement;
 
-    public IndustriaComercialService(DapperContext context) => _context = context;
+    public IndustriaComercialService(DapperContext context, IModuleEntitlementEvaluator entitlement)
+    {
+        _context = context;
+        _entitlement = entitlement;
+    }
 
     public async Task<long> GerarOrdemProducaoDoPedidoAsync(long tenantId, long pedidoId, long? usuarioId, string correlationId, CancellationToken cancellationToken = default)
     {
         using var connection = _context.CreateConnection();
-        var industriaAtiva = await connection.ExecuteScalarAsync<bool>("select exists(select 1 from sigov.tenant_modulo_contratado where tenant_id=@TenantId and modulo_codigo='industria_producao' and ativo=true and status in ('CONTRATADO','HABILITADO','EM_IMPLANTACAO','BETA'))", new { TenantId = tenantId });
-        if (!industriaAtiva) throw new InvalidOperationException("Módulo indústria e produção não contratado.");
+        var industriaAtiva = await _entitlement.EvaluateAsync(new ModuleEntitlementRequest(
+            usuarioId ?? 0, "industria_producao", Array.Empty<string>(), tenantId, CorrelationId: correlationId), cancellationToken).ConfigureAwait(false);
+        if (!industriaAtiva.Allowed) throw new InvalidOperationException(industriaAtiva.Reason);
         var item = await connection.QuerySingleOrDefaultAsync<dynamic>(@"select pi.produto_id, pi.quantidade, p.codigo, p.nome from sigov.comercio_pedido_item pi join sigov.comercio_pedido ped on ped.id=pi.pedido_id and ped.tenant_id=@TenantId join sigov.comercio_produto p on p.id=pi.produto_id where pi.pedido_id=@PedidoId order by pi.id limit 1", new { TenantId = tenantId, PedidoId = pedidoId });
         if (item is null) throw new InvalidOperationException("Pedido sem item para gerar OP.");
         var produtoIndustrialId = await connection.ExecuteScalarAsync<long?>("select id from sigov.industria_produto where tenant_id=@TenantId and (produto_id=@ProdutoId or codigo=@Codigo) and ativo=true order by id limit 1", new { TenantId = tenantId, ProdutoId = (long)item.produto_id, Codigo = (string)item.codigo });

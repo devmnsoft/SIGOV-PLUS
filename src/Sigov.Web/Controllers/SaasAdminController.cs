@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Authorization;
 using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 using Sigov.Application.Saas.SuperAdmin;
+using Sigov.Domain.Saas;
 
 namespace Sigov.Web.Controllers;
 
@@ -14,7 +15,7 @@ namespace Sigov.Web.Controllers;
 [Route("SaasAdmin")]
 [Route("AdminMNSOFT")]
 public sealed class SaasAdminController(ISuperAdminOperationalDashboardService dashboard, IAuthorizationEvaluator authorization,
-    IAuthorizationAdminService authorizationAdmin) : Controller
+    IAuthorizationAdminService authorizationAdmin, ISaasTenantAdministrationService tenants) : Controller
 {
     [HttpGet("Dashboard")]
     [HttpGet("Operacional")]
@@ -45,10 +46,63 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     }
 
     [HttpGet("Tenants"), HttpGet("Clientes")]
-    public async Task<IActionResult> Tenants(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> Tenants(string? search, string? status, string? esfera, int page = 1, CancellationToken ct = default)
+    {
+        if (!await Allowed("visualizar", null, ct)) return Forbid();
+        if (IsLocalTenantAdmin() && long.TryParse(User.FindFirstValue("tenant_id"), out var ownTenant))
+            return RedirectToAction(nameof(TenantDetalhe), new { id = ownTenant });
+        var model = await tenants.ListAsync(new(search, status, esfera, page, 20), ct).ConfigureAwait(false);
+        ViewBag.Search = search;
+        ViewBag.Status = status;
+        ViewBag.Esfera = esfera;
+        return View(model);
+    }
 
     [HttpGet("TenantDetalhe"), HttpGet("Clientes/Details"), HttpGet("Clientes/Edit")]
-    public async Task<IActionResult> TenantDetalhe(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> TenantDetalhe(long id, CancellationToken ct)
+    {
+        if (!await Allowed("visualizar", id, ct)) return Forbid();
+        var detail = await tenants.GetAsync(id, ct).ConfigureAwait(false);
+        if (detail is null) return NotFound();
+        ViewBag.CanManageContracts = !IsLocalTenantAdmin() && await Allowed("administrar", id, ct);
+        return View(detail);
+    }
+
+    [HttpPost("Tenants/{id:long}/Contratar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ContratarModulo(long id, string moduleCode, DateOnly? effectiveFrom, DateOnly? effectiveUntil, string justification, DateTimeOffset? expectedUpdatedAt, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ContractAsync(new(id, moduleCode, "CONTRATADO", effectiveFrom, effectiveUntil, justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Suspender")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SuspenderModulo(long id, string moduleCode, string justification, DateTimeOffset? expectedUpdatedAt, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.SuspendAsync(new(id, moduleCode, "SUSPENSO", null, null, justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Reativar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReativarModulo(long id, string moduleCode, DateOnly? effectiveFrom, DateOnly? effectiveUntil, string justification, DateTimeOffset? expectedUpdatedAt, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ReactivateAsync(new(id, moduleCode, "HABILITADO", effectiveFrom, effectiveUntil, justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
 
     [HttpGet("NovoTenant"), HttpGet("Clientes/Create")]
     public async Task<IActionResult> NovoTenant(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
@@ -118,11 +172,32 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
             TenantId: null, CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_AUTORIZACAO"), ct);
         return decision.Permitido ? userId : null;
     }
-    private async Task<bool> Allowed(string action, long? tenantId, CancellationToken ct)
+    private long? CurrentUserId()
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue("usuario_id");
-        if (!long.TryParse(raw, CultureInfo.InvariantCulture, out var userId)) return false;
-        var decision = await authorization.EvaluateAsync(new(userId, "saas", "saas.superadmin.dashboard", action, tenantId,
+        return long.TryParse(raw, CultureInfo.InvariantCulture, out var userId) ? userId : null;
+    }
+
+    private bool IsLocalTenantAdmin()
+    {
+        var roles = User.FindAll(ClaimTypes.Role).Select(claim => claim.Value);
+        return roles.Any(role => string.Equals(role, PerfilNivelCodigos.AdministradorTenant, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, "ADMIN_TENANT", StringComparison.OrdinalIgnoreCase))
+            && !roles.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains);
+    }
+
+    private async Task<bool> Allowed(string action, long? tenantId, CancellationToken ct)
+    {
+        var userId = CurrentUserId();
+        if (userId is null) return false;
+        if (IsLocalTenantAdmin())
+        {
+            var ownTenant = long.TryParse(User.FindFirstValue("tenant_id"), out var currentTenant) ? currentTenant : (long?)null;
+            if (string.Equals(action, "administrar", StringComparison.OrdinalIgnoreCase))
+                return false;
+            return ownTenant.HasValue && (!tenantId.HasValue || tenantId == ownTenant);
+        }
+        var decision = await authorization.EvaluateAsync(new(userId.Value, "saas", "saas.superadmin.dashboard", action, tenantId,
             CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_DASHBOARD"), ct);
         return decision.Permitido;
     }

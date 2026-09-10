@@ -10,14 +10,21 @@ appsettings.Local.json
 
 # Artefatos gerados por IDE, build, testes e publicacao local.
 .vs/
+.idea/
 bin/
 obj/
 artifacts/
 TestResults/
+coverage/
+*.coverage
+*.coveragexml
 *.trx
+*.dll
 *.pdb
 *.suo
 *.user
+*.userprefs
+*.DotSettings.user
 *.cache
 *.vsidx
 *.db-shm
