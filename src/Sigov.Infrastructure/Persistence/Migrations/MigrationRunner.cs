@@ -27,6 +27,7 @@ public sealed class MigrationRunner
     private readonly ILogger<MigrationRunner> _logger;
     private readonly string _migrationsPath;
     private readonly string _manifestPath;
+    private readonly string? _expectedLatestVersion;
     private readonly TimeSpan _migrationLockTimeout;
     private const long MigrationLockKey = 0x5349474F56504C55; // "SIGOVPLU", stable per database.
 
@@ -37,6 +38,7 @@ public sealed class MigrationRunner
         var configuredPath = configuration["Sigov:Database:MigrationsPath"];
         _migrationsPath = ResolveMigrationsPath(configuredPath);
         _manifestPath = Path.Combine(_migrationsPath, "manifest.json");
+        _expectedLatestVersion = configuration["Sigov:Database:ExpectedLatestMigration"];
         var lockTimeoutSeconds = configuration.GetValue("Sigov:Database:MigrationLockTimeoutSeconds", 60);
         if (lockTimeoutSeconds <= 0)
         {
@@ -75,9 +77,21 @@ public sealed class MigrationRunner
 
             // Fase 1a: toda a integridade em disco é comprovada antes de abrir a possibilidade de DDL.
             var manifest = LoadManifestFiles();
+            var manifestHash = Checksum(await File.ReadAllTextAsync(_manifestPath, cancellationToken).ConfigureAwait(false));
+            _logger.LogInformation(
+                "Catálogo de migrations carregado. ManifestPath={ManifestPath}; ManifestSha256={ManifestSha256}; Declared={Declared}; Automatic={Automatic}; Excluded={Excluded}; Baseline={Baseline}; LatestVersion={LatestVersion}; CurrentDirectory={CurrentDirectory}; BaseDirectory={BaseDirectory}",
+                _manifestPath, manifestHash, manifest.DeclaredMigrations.Count, manifest.AutomaticMigrations.Count,
+                manifest.ExcludedMigrations.Count, manifest.BaselineMigrations.Count,
+                manifest.DeclaredMigrations.LastOrDefault()?.Version ?? "none", Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+            if (IsDevelopment() && !string.IsNullOrWhiteSpace(_expectedLatestVersion) &&
+                !manifest.DeclaredMigrations.Any(migration => string.Equals(migration.Version, _expectedLatestVersion, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException(
+                    $"MANIFEST_OUTDATED: o manifest carregado em '{_manifestPath}' não declara a migration esperada pelo build/deployment '{_expectedLatestVersion}'. Verifique o checkout ou o pacote publicado.");
+            }
             var migrationFiles = new Dictionary<string, (string Sql, string Checksum)>(StringComparer.OrdinalIgnoreCase);
             var validation = new MigrationValidationResult();
-            foreach (var migration in manifest.Migrations)
+            foreach (var migration in manifest.DeclaredMigrations)
             {
                 var sql = await File.ReadAllTextAsync(migration.FilePath, cancellationToken).ConfigureAwait(false);
                 var checksum = Checksum(sql);
@@ -99,7 +113,7 @@ public sealed class MigrationRunner
                 // Fase 1b: o ledger é somente lido. Checksum desconhecido bloqueia antes de qualquer DDL.
                 activeStage = "HistoryValidation";
                 var history = await ReadMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
-                var manifestByVersion = manifest.Migrations.ToDictionary(m => m.Version, StringComparer.OrdinalIgnoreCase);
+                var manifestByVersion = manifest.DeclaredMigrations.ToDictionary(m => m.Version, StringComparer.OrdinalIgnoreCase);
                 foreach (var (version, storedChecksum) in history)
                 {
                     if (!manifestByVersion.TryGetValue(version, out var migration))
@@ -110,6 +124,14 @@ public sealed class MigrationRunner
                     }
 
                     var currentChecksum = migrationFiles[version].Checksum;
+                    if (!migration.ApplyAutomatically && string.IsNullOrWhiteSpace(migration.PostConditionSql))
+                    {
+                        validation.ChecksumMismatch.Add(version);
+                        validation.ChecksumReports.Add(FormatChecksumReport(migration, currentChecksum, storedChecksum,
+                            migration.KnownChecksums.Contains(storedChecksum, StringComparer.OrdinalIgnoreCase), null,
+                            "POSTCONDITION_MISSING: migration histórica presente exige postConditionSql específica; nenhum DDL foi executado."));
+                        continue;
+                    }
                     if (string.Equals(storedChecksum, currentChecksum, StringComparison.OrdinalIgnoreCase)) continue;
                     if (!migration.KnownChecksums.Contains(storedChecksum, StringComparer.OrdinalIgnoreCase))
                     {
@@ -130,7 +152,7 @@ public sealed class MigrationRunner
                 if (!validateOnly)
                 {
                     await EnsureMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
-                    foreach (var migration in manifest.Migrations.Where(m => !history.ContainsKey(m.Version)))
+                    foreach (var migration in manifest.AutomaticMigrations.Where(m => !history.ContainsKey(m.Version)))
                     {
                         activeVersion = migration.Version;
                         activeMigrationFile = Path.GetFileName(migration.FilePath);
@@ -142,22 +164,33 @@ public sealed class MigrationRunner
                         activeCompatibilityFile = null;
                     }
 
-                    activeStage = "CompatibilityAfterAll";
-                    await ApplyCompatibilityAfterAllAsync(connection, manifest.CompatibilityAfterAll,
-                        file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
-                    activeCompatibilityFile = null;
+                    if (validation.Applied.Count > 0)
+                    {
+                        activeStage = "CompatibilityAfterAll";
+                        await ApplyCompatibilityAfterAllAsync(connection, manifest.CompatibilityAfterAll,
+                            file => activeCompatibilityFile = file, cancellationToken).ConfigureAwait(false);
+                        activeCompatibilityFile = null;
+                    }
                 }
 
                 // Fase 3: relê o ledger e avalia o contrato exclusivamente contra o estado final.
                 activeStage = "FinalValidation";
                 history = await ReadMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
-                foreach (var migration in manifest.Migrations)
+                foreach (var migration in manifest.DeclaredMigrations)
                 {
                     activeVersion = migration.Version;
                     activeMigrationFile = Path.GetFileName(migration.FilePath);
                     if (!history.TryGetValue(migration.Version, out var storedChecksum))
                     {
-                        validation.Pending.Add(migration.Version);
+                        if (migration.ApplyAutomatically)
+                        {
+                            validation.Pending.Add(migration.Version);
+                        }
+                        else
+                        {
+                            validation.Excluded.Add(migration.Version);
+                            _logger.LogInformation("Migration histórica/excluída ausente e não executável. Migration={Version}; Status=Excluded.", migration.Version);
+                        }
                         continue;
                     }
 
@@ -373,7 +406,7 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         var bootstrapPath = Path.GetFullPath(Path.Combine(basePath, "..", "bootstrap"));
         var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var result = new List<ManifestMigration>();
+        var declared = new List<ManifestMigration>();
         string? previousVersion = null;
         foreach (var item in document.RootElement.GetProperty("migrations").EnumerateArray())
         {
@@ -409,21 +442,26 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
                 throw new InvalidOperationException($"Arquivo duplicado no manifest de migrations: {file}.");
             }
 
-            if (item.TryGetProperty("applyAutomatically", out var apply) && apply.ValueKind == System.Text.Json.JsonValueKind.True)
+            var applyAutomatically = item.TryGetProperty("applyAutomatically", out var apply) && apply.ValueKind == System.Text.Json.JsonValueKind.True;
+            var includeInBaseline = item.TryGetProperty("includeInBaseline", out var baseline) && baseline.ValueKind == System.Text.Json.JsonValueKind.True;
+            var filePath = Path.Combine(basePath, file);
+            if (!File.Exists(filePath))
             {
-                var filePath = Path.Combine(basePath, file);
-                if (!File.Exists(filePath))
-                {
-                    throw new FileNotFoundException("Migration automática ausente no manifest.", filePath);
-                }
-
-                var compatibilityBefore = ReadCompatibilityScripts(item, "compatibilityBefore", bootstrapPath);
-                result.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums, postConditionSql, postConditionProbes, legacyTransactionWrapper, compatibilityBefore));
+                throw new FileNotFoundException("Migration declarada ausente no catálogo do manifest.", filePath);
             }
+
+            var compatibilityBefore = ReadCompatibilityScripts(item, "compatibilityBefore", bootstrapPath);
+            declared.Add(new ManifestMigration(version, filePath, description, category, checksum, knownChecksums,
+                postConditionSql, postConditionProbes, legacyTransactionWrapper, compatibilityBefore, applyAutomatically, includeInBaseline));
         }
 
         var afterAll = ReadCompatibilityScripts(document.RootElement, "compatibilityAfterAll", bootstrapPath);
-        return new ManifestDefinition(result, afterAll);
+        return new ManifestDefinition(
+            declared,
+            declared.Where(migration => migration.ApplyAutomatically).ToArray(),
+            declared.Where(migration => !migration.ApplyAutomatically).ToArray(),
+            declared.Where(migration => migration.IncludeInBaseline).ToArray(),
+            afterAll);
     }
 
     private static IReadOnlyList<CompatibilityScript> ReadCompatibilityScripts(System.Text.Json.JsonElement owner, string propertyName, string bootstrapPath)
@@ -477,42 +515,56 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         string? PostConditionSql,
         IReadOnlyList<PostConditionProbe> PostConditionProbes,
         bool LegacyTransactionWrapper,
-        IReadOnlyList<CompatibilityScript> CompatibilityBefore);
+        IReadOnlyList<CompatibilityScript> CompatibilityBefore,
+        bool ApplyAutomatically,
+        bool IncludeInBaseline);
 
     private sealed record PostConditionProbe(string Name, string Sql);
     private sealed record CompatibilityScript(string File, string FilePath, string Checksum);
-    private sealed record ManifestDefinition(IReadOnlyList<ManifestMigration> Migrations, IReadOnlyList<CompatibilityScript> CompatibilityAfterAll);
+    private sealed record ManifestDefinition(
+        IReadOnlyList<ManifestMigration> DeclaredMigrations,
+        IReadOnlyList<ManifestMigration> AutomaticMigrations,
+        IReadOnlyList<ManifestMigration> ExcludedMigrations,
+        IReadOnlyList<ManifestMigration> BaselineMigrations,
+        IReadOnlyList<CompatibilityScript> CompatibilityAfterAll);
 
-    private static string ResolveMigrationsPath(string? configuredPath)
+    internal static string ResolveMigrationsPath(string? configuredPath) =>
+        ResolveMigrationsPath(configuredPath, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+
+    internal static string ResolveMigrationsPath(string? configuredPath, string currentDirectory, string baseDirectory)
     {
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
-            if (Path.IsPathRooted(configuredPath))
-            {
-                return configuredPath;
-            }
-
-            var fromCurrentDirectory = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), configuredPath));
-            if (Directory.Exists(fromCurrentDirectory))
-            {
-                return fromCurrentDirectory;
-            }
+            var explicitPath = Path.GetFullPath(configuredPath, currentDirectory);
+            if (!File.Exists(Path.Combine(explicitPath, "manifest.json")))
+                throw new DirectoryNotFoundException($"Diretório de migrations explicitamente configurado não contém manifest.json: {explicitPath}");
+            return explicitPath;
         }
 
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null)
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var start in new[] { currentDirectory, baseDirectory })
         {
-            var candidate = Path.Combine(current.FullName, "database", "postgres", "migrations");
-            if (Directory.Exists(candidate))
+            var current = new DirectoryInfo(start);
+            while (current is not null)
             {
-                return candidate;
+                var candidate = Path.GetFullPath(Path.Combine(current.FullName, "database", "postgres", "migrations"));
+                if (File.Exists(Path.Combine(candidate, "manifest.json"))) candidates.Add(candidate);
+                current = current.Parent;
             }
-
-            current = current.Parent;
         }
 
-        return Path.GetFullPath(configuredPath ?? "database/postgres/migrations");
+        return candidates.Count switch
+        {
+            1 => candidates.Single(),
+            0 => throw new DirectoryNotFoundException(
+                $"Nenhum manifest.json canônico encontrado. CurrentDirectory={Directory.GetCurrentDirectory()}; BaseDirectory={AppContext.BaseDirectory}. Configure Sigov:Database:MigrationsPath para publicação/container."),
+            _ => throw new InvalidOperationException(
+                $"Múltiplos manifestos candidatos encontrados; seleção recusada. Configure Sigov:Database:MigrationsPath explicitamente. Paths={string.Join(" | ", candidates.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))}")
+        };
     }
+
+    private static bool IsDevelopment() =>
+        string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 
     private static string Checksum(string value)
     {
