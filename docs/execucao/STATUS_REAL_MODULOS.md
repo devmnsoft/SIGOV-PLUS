@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-10 (RC51.02D); checkout `work` em `86a8cfcb3803221735426bf937924606c1c201ba`, sem remoto/upstream configurado nesta execução.
+Corte: 2026-09-10 (RC51.02E); checkout `work` iniciado em `cd0f4c4e43ed0cdcbf4e57fd6ff6b3bc2039c471`, sem remoto/upstream configurado nesta execução.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -26,4 +26,4 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
 | GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
 
-Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02D tornou determinística no aplicador PowerShell a execução dos probes separados de Compras, Educação/Saúde e SaaS, inclusive na reaplicação, mas não produziu nova evidência runtime por ausência de `pwsh`, `.NET` e PostgreSQL 16. A evidência anterior da RC51.02C permanece histórica; upgrade legado formal e isolamento API profundo seguem pendentes. Indústria Core permanece PARCIAL (telas genéricas). Dual catálogo Commercial/SaaS permanece. GED continua por último.
+Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02E alinhou o aplicador PowerShell ao contrato de ledger do runner .NET: versão/checksum desconhecido bloqueia, checksum histórico só é aceito quando declarado e protegido por pós-condição, e a reaplicação não dispara compatibilidade final sem pendências. Não houve evidência runtime por ausência de `pwsh`, `.NET` e PostgreSQL 16. A evidência anterior da RC51.02C permanece histórica; upgrade legado formal e isolamento API profundo seguem pendentes. Indústria Core permanece PARCIAL (telas genéricas). Dual catálogo Commercial/SaaS permanece. GED continua por último.

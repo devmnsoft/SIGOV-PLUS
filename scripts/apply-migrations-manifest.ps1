@@ -55,7 +55,6 @@ function Get-OptionalArray([object]$target, [string]$propertyName) {
     return @($property.Value)
 }
 if (-not (Test-Path $manifestFile)) { throw "Manifest não encontrado: $manifestFile" }
-if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) { throw "psql não encontrado em '$PsqlPath'." }
 $manifest = Get-Content $manifestFile -Raw | ConvertFrom-Json
 $seenVersions = @{}; $seenFiles = @{}
 foreach ($entry in $manifest.migrations) {
@@ -78,6 +77,7 @@ foreach ($compatibility in (Get-OptionalArray $manifest 'compatibilityAfterAll')
 
 $canExecute = -not $ValidateOnly -and $HostName -and $Database -and $User
 if ($canExecute) {
+    if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) { throw "psql não encontrado em '$PsqlPath'." }
     if ([string]::IsNullOrWhiteSpace($SslMode)) {
         Remove-Item Env:PGSSLMODE -ErrorAction SilentlyContinue
     }
@@ -88,17 +88,40 @@ if ($canExecute) {
 
 $appliedVersions = @{}
 if ($canExecute) {
-    $historyArgs = @('-X', '-q', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-At', '-c', "select version||'|'||checksum from sigov.schema_migrations where success = true")
-    $history = & $PsqlPath @historyArgs 2>$null
-    if ($LASTEXITCODE -eq 0 -and $history) {
+    $connectionArgs = @('-X', '-q', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-At')
+    $historyTable = & $PsqlPath @connectionArgs -c "select coalesce(to_regclass('sigov.schema_migrations')::text, '')"
+    if ($LASTEXITCODE -ne 0) { throw 'Não foi possível inspecionar o ledger de migrations.' }
+    if (-not [string]::IsNullOrWhiteSpace((@($historyTable) -join '').Trim())) {
+        $history = & $PsqlPath @connectionArgs -c "select version||'|'||checksum from sigov.schema_migrations where success = true"
+        if ($LASTEXITCODE -ne 0) { throw 'Não foi possível ler o ledger de migrations existente.' }
         foreach ($row in @($history)) {
             if ([string]::IsNullOrWhiteSpace($row)) { continue }
             $parts = $row.Split('|', 2)
             if ($parts.Length -eq 2) { $appliedVersions[$parts[0]] = $parts[1] }
         }
     }
+
+    $manifestByVersion = @{}
+    foreach ($entry in $manifest.migrations) { $manifestByVersion[[string]$entry.version] = $entry }
+    foreach ($versionKey in $appliedVersions.Keys) {
+        if (-not $manifestByVersion.ContainsKey($versionKey)) {
+            throw "DATABASE_HISTORY_INCONSISTENT: versão $versionKey existe no banco, mas não no manifest."
+        }
+        $entry = $manifestByVersion[$versionKey]
+        $storedChecksum = [string]$appliedVersions[$versionKey]
+        if ($storedChecksum -eq [string]$entry.checksum) { continue }
+        $knownChecksums = @((Get-OptionalArray $entry 'knownChecksums') | ForEach-Object { [string]$_ })
+        if ($knownChecksums -notcontains $storedChecksum) {
+            throw "DATABASE_HISTORY_INCONSISTENT: checksum desconhecido no ledger para $versionKey."
+        }
+        $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
+        if ($null -eq $postConditionProperty -or [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value)) {
+            throw "POSTCONDITION_MISSING: checksum histórico conhecido de $versionKey exige postConditionSql específica."
+        }
+    }
 }
 
+$appliedAny = $false
 foreach ($entry in $manifest.migrations) {
     if ($entry.applyAutomatically -ne $true) { Write-Host "Ignorada: $($entry.file)"; continue }
     if (-not $canExecute) { Write-Host "Validada: $($entry.file)"; continue }
@@ -106,9 +129,6 @@ foreach ($entry in $manifest.migrations) {
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
     $versionKey = [string]$entry.version
     if ($appliedVersions.ContainsKey($versionKey)) {
-        if ($appliedVersions[$versionKey] -ne [string]$entry.checksum) {
-            throw "Checksum divergente no ledger para $($entry.version): ledger=$($appliedVersions[$versionKey]) manifest=$($entry.checksum)"
-        }
         Write-Host "Já aplicada: $($entry.file)"
         continue
     }
@@ -173,6 +193,7 @@ foreach ($entry in $manifest.migrations) {
             $psqlArgs += @('-f', $registrationFile)
             & $PsqlPath @psqlArgs
             if ($LASTEXITCODE -ne 0) { throw "migration transacional saiu com código $LASTEXITCODE" }
+            $appliedAny = $true
         }
         finally {
             foreach ($tempSqlFile in $tempSqlFiles) {
@@ -186,16 +207,18 @@ foreach ($entry in $manifest.migrations) {
 }
 
 if ($canExecute) {
-    foreach ($compatibility in (Get-OptionalArray $manifest 'compatibilityAfterAll')) {
-        Invoke-SqlFile -Path (Resolve-Compatibility $compatibility) -Stage 'POST_MIGRATION_COMPATIBILITY'
+    if ($appliedAny) {
+        foreach ($compatibility in (Get-OptionalArray $manifest 'compatibilityAfterAll')) {
+            Invoke-SqlFile -Path (Resolve-Compatibility $compatibility) -Stage 'POST_MIGRATION_COMPATIBILITY'
+        }
     }
 
     # Revalida o estado final inclusive na reaplicação, quando todas as versões já
     # constam do ledger. Probes nomeados retornam NULL em sucesso e uma mensagem
     # diagnóstica em falha; não são substitutos da pós-condição booleana.
     foreach ($entry in $manifest.migrations) {
-        if ($entry.applyAutomatically -ne $true) { continue }
         $versionKey = [string]$entry.version
+        if (-not $appliedVersions.ContainsKey($versionKey) -and $entry.applyAutomatically -ne $true) { continue }
         $baseArgs = @('-X', '-q', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-At')
         $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
         if ($null -ne $postConditionProperty -and -not [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value)) {

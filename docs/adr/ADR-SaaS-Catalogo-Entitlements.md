@@ -12,6 +12,8 @@ Quando P1 for liberado, o catálogo canônico será persistido em `modulo_saas`;
 
 Compatibilidade legada será forward-only, auditável e sem remoção de tabelas nesta sprint. Ausência de schema ou configuração falhará explicitamente.
 
+O aplicador operacional deve recusar versões e checksums de ledger ausentes do manifesto. Um checksum histórico somente é compatível quando consta em `knownChecksums` e a migration possui pós-condição específica, reavaliada contra o estado final; configuração comercial mutável não integra essa invariável estrutural.
+
 ## Consequências
 
 - Catálogo não concede acesso por si só.

@@ -161,6 +161,13 @@ public sealed class DatabaseMigrationRegressionTests
         script.Should().Contain("postConditionProbe reprovada");
         script.Should().Contain("postConditionSql final reprovada");
         script.Should().Contain("postConditionProbe final reprovada");
+        script.Should().Contain("DATABASE_HISTORY_INCONSISTENT: versão");
+        script.Should().Contain("DATABASE_HISTORY_INCONSISTENT: checksum desconhecido");
+        script.Should().Contain("knownChecksums");
+        script.Should().Contain("if ($appliedAny)");
+        script.IndexOf("$canExecute =", StringComparison.Ordinal).Should()
+            .BeLessThan(script.IndexOf("Get-Command $PsqlPath", StringComparison.Ordinal),
+                "ValidateOnly não deve depender da instalação do cliente PostgreSQL");
     }
 
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));
