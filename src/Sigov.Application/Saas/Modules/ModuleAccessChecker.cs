@@ -43,7 +43,7 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
             return ModuleAccessResult.Forbidden("Usuário comum precisa estar vinculado a um tenant ativo.");
         }
 
-        var module = _catalogService.FindByCode(request.ModuleCode);
+        var module = await _catalogService.FindByCodeAsync(request.ModuleCode, cancellationToken).ConfigureAwait(false);
         if (module is null)
         {
             return ModuleAccessResult.Forbidden("Módulo não existe no catálogo vendável do sigov.");

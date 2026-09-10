@@ -43,6 +43,15 @@ public sealed class ModuleAccessCheckerTests
     }
 
     [Fact]
+    public async Task Industria_producao_exige_dependencia_estoque()
+    {
+        var checker = CreateChecker(new TenantModuleContract(1, "industria_producao", null, "HABILITADO", true));
+        var result = await checker.CheckModuleAsync(new ModuleAccessRequest(1, "industria_producao", new[] { "ADMINISTRADOR_TENANT" }), CancellationToken.None);
+        result.Allowed.Should().BeFalse();
+        result.Reason.Should().Contain("Dependência de módulo não atendida");
+    }
+
+    [Fact]
     public async Task Feature_desabilitada_bloqueia()
     {
         var checker = CreateChecker(new TenantModuleContract(1, "core", null, "HABILITADO", true));

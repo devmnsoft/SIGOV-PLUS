@@ -29,34 +29,13 @@ public sealed class FeatureFlagService : IFeatureFlagService
     }
 }
 
-public sealed class ModuloLicenciamentoService(IModuleAccessRepository repository, IModuleCatalogService catalog) : IModuloLicenciamentoService
+public sealed class ModuloLicenciamentoService(IModuleEntitlementEvaluator evaluator) : IModuloLicenciamentoService
 {
-    private static readonly ISet<string> EnabledStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "CONTRATADO", "HABILITADO", "ATIVO", "TRIAL", "EM_IMPLANTACAO", "BETA"
-    };
-
     public async Task<bool> IsModuleEnabledAsync(long tenantId, string moduleCode, CancellationToken cancellationToken)
     {
-        var contract = await repository.GetTenantModuleAsync(tenantId, moduleCode, cancellationToken).ConfigureAwait(false);
-        if (!IsEnabled(contract)) return false;
-
-        var module = catalog.FindByCode(moduleCode);
-        if (module is null) return false;
-        foreach (var dependency in module.Dependencias)
-        {
-            if (!IsEnabled(await repository.GetTenantModuleAsync(tenantId, dependency, cancellationToken).ConfigureAwait(false)))
-                return false;
-        }
-        return true;
-    }
-
-    private static bool IsEnabled(TenantModuleContract? contract)
-    {
-        if (contract is null || !contract.Active || !EnabledStatuses.Contains(contract.Status)) return false;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        return (!contract.EffectiveFrom.HasValue || contract.EffectiveFrom <= today) &&
-               (!contract.EffectiveUntil.HasValue || contract.EffectiveUntil >= today);
+        var decision = await evaluator.EvaluateAsync(new ModuleEntitlementRequest(
+            0, moduleCode, Array.Empty<string>(), tenantId), cancellationToken).ConfigureAwait(false);
+        return decision.Allowed;
     }
 }
 

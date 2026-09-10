@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Sigov.Application.Authorization;
 using Sigov.Application.Commercial;
 using Sigov.Domain.Saas;
 using Sigov.Web.Models.Security;
@@ -21,41 +22,34 @@ public sealed class ModuleAccessService : IModuloAccessService, IMenuPermissionS
 {
     private static readonly string[] SensitiveModules = { "saude", "educacao", "social", "auditoria-lgpd", "rh" };
     private readonly IModuleCatalogService _catalog;
-    private readonly Sigov.Application.Saas.Modules.IModuleCatalogService _canonicalCatalog;
+    private readonly IRequestAuthorizationSnapshot _snapshot;
     private readonly IUserPermissionService _permissions;
 
-    public ModuleAccessService(IModuleCatalogService catalog, Sigov.Application.Saas.Modules.IModuleCatalogService canonicalCatalog, IUserPermissionService permissions)
+    public ModuleAccessService(IModuleCatalogService catalog, IRequestAuthorizationSnapshot snapshot, IUserPermissionService permissions)
     {
         _catalog = catalog;
-        _canonicalCatalog = canonicalCatalog;
+        _snapshot = snapshot;
         _permissions = permissions;
     }
 
     public bool IsSuperAdmin(ClaimsPrincipal user) =>
         user.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Any(PerfilNivelCodigos.GlobalAdminAliases.Contains) ||
-        user.FindAll("perfil").Select(claim => claim.Value).Any(PerfilNivelCodigos.GlobalAdminAliases.Contains);
+        user.FindAll("perfil").Select(claim => claim.Value).Any(PerfilNivelCodigos.GlobalAdminAliases.Contains) ||
+        _snapshot.Current.Roles.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains);
 
     public bool CanAccess(ClaimsPrincipal user, ModuleCatalogItem module)
     {
         if (user.Identity?.IsAuthenticated != true) return false;
-        var hasTenantContext = long.TryParse(user.FindFirstValue("tenant_id"), out var tenantId) && tenantId > 0;
+        var hasTenantContext = _snapshot.Current.TenantId.HasValue;
         if (IsSuperAdmin(user) && !hasTenantContext) return true;
         if (module.Status == ModuleStatus.Bloqueado) return false;
-
-        var moduleEnabled = user.Claims.Any(c =>
-            (c.Type is "module" or "modulo" or "modules") &&
-            string.Equals(c.Value, module.Code, StringComparison.OrdinalIgnoreCase));
-        var dependenciesEnabled = _canonicalCatalog.FindByCode(module.Code)?.Dependencias.All(dependency => user.Claims.Any(c =>
-            (c.Type is "module" or "modulo" or "modules") &&
-            string.Equals(c.Value, dependency, StringComparison.OrdinalIgnoreCase))) == true;
-        return moduleEnabled && dependenciesEnabled && module.RequiredPermissions.Any(permission => _permissions.HasPermission(user, permission));
+        return _snapshot.Current.HasModule(module.Code) &&
+               module.RequiredPermissions.Any(permission => _permissions.HasPermission(user, permission));
     }
 
-    public bool CanSeeModule(ClaimsPrincipal user, string moduleCode)
-    {
-        var module = _catalog.FindByCode(moduleCode);
-        return module is not null && CanAccess(user, module);
-    }
+    public bool CanSeeModule(ClaimsPrincipal user, string moduleCode) =>
+        user.Identity?.IsAuthenticated == true &&
+        (IsSuperAdmin(user) && !_snapshot.Current.TenantId.HasValue || _snapshot.Current.HasModule(moduleCode));
 
     public IReadOnlyList<ModuleAccessCardViewModel> BuildCatalog(ClaimsPrincipal user, bool includeBlocked)
     {

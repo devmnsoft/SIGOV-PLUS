@@ -13,6 +13,18 @@ public sealed class ModuleCatalogService : IModuleCatalogService
 
     public ModulePackageItem? FindPackageByCode(string codigo) => Packages.FirstOrDefault(package => string.Equals(package.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
 
+    public Task<IReadOnlyCollection<ModuleCatalogItem>> GetModulesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(GetModules());
+
+    public Task<ModuleCatalogItem?> FindByCodeAsync(string codigo, CancellationToken cancellationToken = default) =>
+        Task.FromResult(FindByCode(codigo));
+
+    public Task<IReadOnlyCollection<ModulePackageItem>> GetPackagesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(GetPackages());
+
+    public Task<ModulePackageItem?> FindPackageByCodeAsync(string codigo, CancellationToken cancellationToken = default) =>
+        Task.FromResult(FindPackageByCode(codigo));
+
     private static IReadOnlyList<ModuleCatalogItem> BuildModules()
     {
         return new[]

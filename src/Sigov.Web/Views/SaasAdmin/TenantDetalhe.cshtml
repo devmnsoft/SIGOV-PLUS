@@ -1,11 +1,150 @@
+@model Sigov.Application.Saas.SuperAdmin.SaasTenantDetail
 @{
-    ViewData["Title"] = "SaaS Admin - TenantDetalhe";
+    ViewData["Title"] = "SaaS Admin - " + Model.Name;
+    var canManage = ViewBag.CanManageContracts as bool? == true;
 }
 <section class="sigov-page-header d-flex justify-content-between align-items-start gap-3 mb-4" data-sigov-role="SIGOV_ADMIN">
-  <div><span class="badge text-bg-warning mb-2">SaaS Admin</span><h1 class="h2">TenantDetalhe</h1><p class="text-muted">Painel global exclusivo para SIGOV_ADMIN com auditoria, tenant isolation e bloqueio de tenant suspenso/cancelado.</p></div>
-  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saas-modal">Nova ação</button>
+  <div>
+    <span class="badge text-bg-warning mb-2">SaaS Admin</span>
+    <h1 class="h2">@Model.Name</h1>
+    <p class="text-muted">Entidades, usuários, perfis e contratos vigentes. Catálogo e preço global permanecem exclusivos do SuperAdmin.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/SaasAdmin/Tenants">Voltar</a>
 </section>
-<div class="row g-3 mb-3"><div class="col-md-3"><div class="card card-body"><small class="text-muted">Ativos</small><strong>24</strong></div></div><div class="col-md-3"><div class="card card-body"><small class="text-muted">Suspensos</small><strong>2</strong></div></div><div class="col-md-3"><div class="card card-body"><small class="text-muted">Homologação</small><strong>5</strong></div></div><div class="col-md-3"><div class="card card-body"><small class="text-muted">Uso mensal</small><strong>Isolado</strong></div></div></div>
-<ul class="nav nav-tabs mb-3"><li class="nav-item"><span class="nav-link active">Dados</span></li><li class="nav-item"><span class="nav-link">Entidades</span></li><li class="nav-item"><span class="nav-link">Usuários</span></li><li class="nav-item"><span class="nav-link">Assinatura</span></li><li class="nav-item"><span class="nav-link">Módulos</span></li><li class="nav-item"><span class="nav-link">Features</span></li><li class="nav-item"><span class="nav-link">Uso</span></li><li class="nav-item"><span class="nav-link">Auditoria</span></li></ul><div class="card sigov-grid"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Tenant/Plano</th><th>Domínio</th><th>Status</th><th>Módulos/Features</th><th class="text-end">Ações</th></tr></thead><tbody><tr><td>Município Comercial</td><td>municipio.sigov.local <span class="badge text-bg-info">Verificado</span></td><td><span class="badge text-bg-success">Ativo</span> <span class="badge text-bg-secondary">Implantação</span></td><td><span class="badge text-bg-primary">Core</span> <span class="badge text-bg-primary">Segurança</span> <span class="badge text-bg-primary">LGPD</span></td><td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/SaasAdmin/TenantDetalhe">Detalhar</a> <button class="btn btn-sm btn-outline-warning">Suspender</button></td></tr></tbody></table></div><div class="card-footer d-flex justify-content-between"><small>Uso mensal nunca mistura tenants; plano, módulos e flags auditam antes/depois.</small><ul class="pagination pagination-sm mb-0"><li class="page-item active"><span class="page-link">1</span></li></ul></div></div>
-<div class="modal fade" id="saas-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post">@Html.AntiForgeryToken()<div class="modal-header"><h2 class="h5 modal-title">Ação SaaS Admin</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Fechar"></button></div><div class="modal-body"><label class="form-label" for="Justificativa">Justificativa</label><textarea id="Justificativa" name="Justificativa" class="form-control" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Confirmar</button></div></form></div></div>
-@section Scripts { <script src="~/js/modules/saas.tenants.js"></script> }
+@if (TempData["SaasAdminError"] is string error)
+{
+  <div class="alert alert-danger" role="alert">@error</div>
+}
+@if (TempData["SaasAdminSuccess"] is string success)
+{
+  <div class="alert alert-success" role="alert">@success</div>
+}
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="card card-body"><small class="text-muted">Status</small><strong>@Model.Status</strong></div></div>
+  <div class="col-md-3"><div class="card card-body"><small class="text-muted">Esfera</small><strong>@Model.Esfera</strong></div></div>
+  <div class="col-md-3"><div class="card card-body"><small class="text-muted">Plano</small><strong>@(Model.Plan ?? "Não contratado")</strong></div></div>
+  <div class="col-md-3"><div class="card card-body"><small class="text-muted">Última atividade</small><strong>@(Model.LastActivityUtc?.ToString("g") ?? "Sem registro")</strong></div></div>
+</div>
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-entidades" role="tab">Entidades</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-usuarios" role="tab">Usuários e perfis</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-contratos" role="tab">Contratos</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-assinatura" role="tab">Assinatura</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-auditoria" role="tab">Auditoria</a></li>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tab-entidades" role="tabpanel">
+    @if (Model.Entities.Count == 0)
+    {
+      <div class="alert alert-info" role="status">Nenhuma entidade vinculada.</div>
+    }
+    else
+    {
+      <div class="card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Entidade</th><th>Tipo</th><th>Esfera</th></tr></thead><tbody>
+      @foreach (var entity in Model.Entities)
+      {
+        <tr><td>@entity.Name</td><td>@(entity.Type ?? "—")</td><td>@(entity.Esfera ?? "nao_informada")</td></tr>
+      }
+      </tbody></table></div></div>
+    }
+  </div>
+  <div class="tab-pane fade" id="tab-usuarios" role="tabpanel">
+    @if (Model.Users.Count == 0)
+    {
+      <div class="alert alert-info" role="status">Nenhum usuário neste tenant.</div>
+    }
+    else
+    {
+      <div class="card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Usuário</th><th>E-mail</th><th>Perfis</th><th>Status</th></tr></thead><tbody>
+      @foreach (var user in Model.Users)
+      {
+        <tr><td>@user.Name</td><td>@user.Email</td><td>@(user.Profiles.Count == 0 ? "—" : string.Join(", ", user.Profiles))</td><td>@(user.Active ? "Ativo" : "Inativo")</td></tr>
+      }
+      </tbody></table></div></div>
+    }
+  </div>
+  <div class="tab-pane fade" id="tab-contratos" role="tabpanel">
+    @if (Model.Contracts.Count == 0)
+    {
+      <div class="alert alert-info" role="status">Nenhum contrato de módulo registrado.</div>
+    }
+    else
+    {
+      <div class="card mb-3"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Módulo</th><th>Status</th><th>Vigência</th><th>Plano</th><th>Valor</th><th>Motivo</th>@if (canManage) { <th></th> }</tr></thead><tbody>
+      @foreach (var contract in Model.Contracts)
+      {
+        <tr>
+          <td>@contract.ModuleName <span class="text-muted">(@contract.ModuleCode)</span></td>
+          <td>@contract.Status</td>
+          <td>@(contract.EffectiveFrom?.ToString("d") ?? "—") – @(contract.EffectiveUntil?.ToString("d") ?? "aberta")</td>
+          <td>@(contract.PlanCode ?? "—")</td>
+          <td>@(contract.ContractedValue?.ToString("N2") ?? "—")</td>
+          <td>@(contract.Reason ?? "—")</td>
+          @if (canManage)
+          {
+            <td class="text-end">
+              <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Suspender" class="d-inline">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="moduleCode" value="@contract.ModuleCode" />
+                <input type="hidden" name="expectedUpdatedAt" value="@contract.UpdatedAt?.ToString("o")" />
+                <label class="visually-hidden" for="suspender-@contract.Id">Justificativa para suspender @contract.ModuleName</label>
+                <input id="suspender-@contract.Id" name="justification" class="form-control form-control-sm mb-1" required minlength="8" placeholder="Justificativa" />
+                <button class="btn btn-sm btn-outline-warning" type="submit">Suspender</button>
+              </form>
+              <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Reativar" class="d-inline">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="moduleCode" value="@contract.ModuleCode" />
+                <input type="hidden" name="expectedUpdatedAt" value="@contract.UpdatedAt?.ToString("o")" />
+                <label class="visually-hidden" for="reativar-@contract.Id">Justificativa para reativar @contract.ModuleName</label>
+                <input id="reativar-@contract.Id" name="justification" class="form-control form-control-sm mb-1" required minlength="8" placeholder="Justificativa" />
+                <button class="btn btn-sm btn-outline-success" type="submit">Reativar</button>
+              </form>
+            </td>
+          }
+        </tr>
+      }
+      </tbody></table></div></div>
+    }
+    @if (canManage)
+    {
+      <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Contratar" class="card card-body">
+        @Html.AntiForgeryToken()
+        <h2 class="h5">Contratar módulo</h2>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="moduleCode">Módulo</label>
+            <select id="moduleCode" name="moduleCode" class="form-select" required>
+              @foreach (var option in Model.Catalog)
+              {
+                <option value="@option.Code">@option.Name (@option.Code)</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label" for="effectiveFrom">Início</label>
+            <input id="effectiveFrom" name="effectiveFrom" type="date" class="form-control" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label" for="effectiveUntil">Fim</label>
+            <input id="effectiveUntil" name="effectiveUntil" type="date" class="form-control" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="justification">Justificativa</label>
+            <textarea id="justification" name="justification" class="form-control" required minlength="8"></textarea>
+          </div>
+        </div>
+        <div class="mt-3"><button class="btn btn-primary" type="submit">Contratar</button></div>
+      </form>
+    }
+  </div>
+  <div class="tab-pane fade" id="tab-assinatura" role="tabpanel">
+    <div class="card card-body">
+      <p class="mb-0">Plano atual: <strong>@(Model.Plan ?? "sem assinatura vigente")</strong>. Alteração de catálogo/preço global é exclusiva do SuperAdmin.</p>
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tab-auditoria" role="tabpanel">
+    <div class="card card-body">
+      <p class="mb-0">Cada contratação, suspensão e reativação grava auditoria antes/depois, usuário e correlation id. O histórico imutável permanece em tenant_modulo_contratado_historico.</p>
+    </div>
+  </div>
+</div>
