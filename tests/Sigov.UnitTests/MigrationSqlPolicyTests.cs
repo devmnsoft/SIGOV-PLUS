@@ -6,6 +6,30 @@ namespace Sigov.UnitTests;
 public sealed class MigrationSqlPolicyTests
 {
     [Fact]
+    public void Migration_path_resolution_rejects_two_manifest_candidates_deterministically()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"sigov-migrations-{Guid.NewGuid():N}");
+        var checkoutA = Path.Combine(root, "checkout-a");
+        var checkoutB = Path.Combine(root, "checkout-b");
+        Directory.CreateDirectory(Path.Combine(checkoutA, "database", "postgres", "migrations"));
+        Directory.CreateDirectory(Path.Combine(checkoutB, "database", "postgres", "migrations"));
+        File.WriteAllText(Path.Combine(checkoutA, "database", "postgres", "migrations", "manifest.json"), "{}");
+        File.WriteAllText(Path.Combine(checkoutB, "database", "postgres", "migrations", "manifest.json"), "{}");
+
+        try
+        {
+            var action = () => MigrationRunner.ResolveMigrationsPath(null, checkoutB, checkoutA);
+
+            action.Should().Throw<InvalidOperationException>()
+                .WithMessage($"*{Path.Combine(checkoutA, "database", "postgres", "migrations")}*{Path.Combine(checkoutB, "database", "postgres", "migrations")}*");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Legacy_wrapper_is_removed_without_touching_plpgsql()
     {
         const string raw = "\uFEFF-- legacy\r\nBEGIN;\r\nDO $body$\r\nBEGIN\r\n  PERFORM 'commit;';\r\nEND\r\n$body$;\r\nCOMMIT; -- eof\r\n";

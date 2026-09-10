@@ -72,6 +72,12 @@ public sealed class DatabaseMigrationRegressionTests
         var historical = entries.Single(entry => entry.GetProperty("version").GetString() == "20260903130000");
         historical.GetProperty("knownChecksums").EnumerateArray().Select(value => value.GetString())
             .Should().Contain("2ee4b77413f755230ad1bdaef456893c1f5f045866ea436e78d388a0b4f18364");
+
+        entries.Single(entry => entry.GetProperty("version").GetString() == "20260902010000")
+            .GetProperty("applyAutomatically").GetBoolean().Should().BeFalse();
+        historical.GetProperty("applyAutomatically").GetBoolean().Should().BeFalse();
+        entries.Single(entry => entry.GetProperty("version").GetString() == "20260909120000")
+            .GetProperty("applyAutomatically").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -96,6 +102,10 @@ public sealed class DatabaseMigrationRegressionTests
             .BeLessThan(runner.IndexOf("// Fase 3:", StringComparison.Ordinal));
         runner.Should().Contain("if (!validateOnly)");
         runner.Should().Contain("history = await ReadMigrationHistoryAsync");
+        runner.Should().Contain("manifest.DeclaredMigrations.ToDictionary");
+        runner.Should().Contain("manifest.AutomaticMigrations.Where");
+        runner.Should().Contain("validation.Excluded.Add");
+        runner.Should().Contain("POSTCONDITION_MISSING: migration histórica presente");
         runner.Should().Contain("pendentes=0; checksum=0; falhas=0");
     }
 

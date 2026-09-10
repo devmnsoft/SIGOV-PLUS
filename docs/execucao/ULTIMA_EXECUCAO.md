@@ -1,5 +1,21 @@
 # Última execução
 
+Data: 2026-09-09. RC51.01. Estado: PARCIAL / BLOCKED; catálogo runtime corrigido, validação PostgreSQL 16 e fase SaaS Admin não liberada.
+
+- Branch: `codex/rc51-01-history-manifest-saas-entitlements`; HEAD inicial `3efdc97520d0db9019182705a645ff2c975ff84b`, sem upstream disponível no ambiente.
+- Remoto configurado: `https://github.com/devmnsoft/SIGOV-PLUS.git`; atualização de `origin/main` BLOCKED por proxy HTTP 403. O HEAD inicial é o próprio merge commit obrigatório.
+- Causa raiz confirmada: o parser adicionava ao modelo runtime somente entradas `applyAutomatically=true`, e a validação do ledger confundia migrations históricas declaradas com versões desconhecidas.
+- Correção: coleções explícitas declaradas, automáticas, excluídas e baseline; histórico validado contra todas as declaradas; DDL restrito às automáticas ausentes; excluídas ausentes reportadas como `Excluded`.
+- Diagnóstico do runner agora registra caminho absoluto, SHA-256 e contagens do manifesto, maior versão, diretório corrente e base da aplicação; candidatos ambíguos são recusados.
+- Manifesto canônico estático: `/workspace/SIGOV-PLUS/database/postgres/migrations/manifest.json`; SHA-256 `5bcc4eb4f0935ec77d77ca799f4fd12006dd901fa687447957d39e813f5675cd`. O runner registrará ambos na execução; a evidência runtime não pôde ser produzida sem .NET/PostgreSQL.
+- `BLOCKED: dotnet restore/build/test, Swagger, login, MinhaCentral, logout e revogação porque o executável dotnet não está instalado.`
+- `BLOCKED: PostgreSQL 16 vazio, reaplicação e upgrade com ledger histórico porque psql, Docker e instância descartável não estão disponíveis.`
+- Fase SaaS Admin não iniciada, conforme a proibição de iniciar P1 antes de todas as validações P0 passarem.
+
+Próximo item exato: “RC51.02 — Ordem de Produção industrial integrada: demanda/venda → reserva de materiais → OP → apontamento → consumo → qualidade → produto acabado → estoque → custos e rastreabilidade.” GED continua obrigatoriamente por último.
+
+---
+
 Data: 2026-09-09. RC51.00. Estado: PARCIAL / BLOCKED; P0 estático estabilizado, P0 runtime PostgreSQL 16 ainda pendente.
 
 ## Execução RC51.00
