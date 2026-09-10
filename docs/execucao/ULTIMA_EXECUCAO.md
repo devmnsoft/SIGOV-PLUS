@@ -1,5 +1,22 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02. Estado: PARCIAL / BLOCKED; P0 estático e entitlement/SaaS Admin implementados no código; PostgreSQL 16 vazio/reaplicação/legado, Swagger HTTP 200 e login ponta a ponta permanecem BLOCKED neste host.
+
+- Branch: `codex/rc51-02-p0-runtime-entitlement-canonico`, baseada em `origin/main` `ec799b75a6a1b3156566afc8a21216748f82df24` (HEAD inicial da sprint anterior `0675787277addc39df526515d431900f27e4248a` reaproveitada como fundação).
+- Causa raiz 1: `check-tracked-artifacts.sh` imprimia PASS fora de worktree porque `git ls-files | rg` falhava dentro de `if`; agora falha se git/rg/worktree/ls-files falharem e só imprime PASS no final.
+- Causa raiz 2: `MigrationRunner` resolvia o caminho no construtor e `DatabaseOptions.MigrationsPath` tinha default relativo enganoso. Construtor ficou lazy; `MigrationMode=Disabled` não toca o diretório.
+- Causa raiz 3: `RequestPermissionClaimsTransformation` recolocava permissões/módulos no principal; sidebar e `UserPermissionService` decidiam por claims. Snapshot request-scoped (`IRequestAuthorizationSnapshot`) carrega uma vez por request; policies usam `PersistedPermissionHandler`.
+- Causa raiz 4: dois `IModuleCatalogService` hardcoded. A interface canônica em Application.Saas.Modules passou a ser assíncrona; DI usa `PersistentModuleCatalogService` lendo `modulo_saas`. `IModuleEntitlementEvaluator` é a decisão única de contrato+dependência+permissão.
+- SaaS Admin: SuperAdmin lista tenants (status, esfera, entidades, usuários ativos, módulos, última atividade), abre detalhe e contrata/suspende/reativa com justificativa, transação, concorrência e auditoria. Admin local não altera catálogo/preço e só vê o próprio tenant.
+- Indústria: `RequireModule("industria_producao")`, menu e `IndustriaComercialService` usam o avaliador; SQL direto de contratação de `industria_producao` removido. Status permanece PARCIAL.
+- Manifesto estático: 185 SQLs, 175 entradas, 10 órfãos classificados preservados; 171 automáticas, 170 baseline; `20260902010000`, `20260903130000` e `20260909120000` permanecem declaradas. SHA do manifesto deve ser relida no runtime.
+- Testes: UnitTests 389, IntegrationTests 123, ApiTests 102. `bash scripts/check-tracked-artifacts.sh` PASS; `python -m json.tool database/postgres/migrations/manifest.json` PASS; `python scripts/validate-rc50-80.py` PASS; `bash scripts/check-api-route-conflicts.sh` PASS em 630 rotas; `git diff --check` PASS.
+- `BLOCKED: PostgreSQL 16 vazio, segunda passagem idempotente, upgrade legado, equivalência, API ApplyPending/ValidateOnly, Swagger HTTP 200, login e-mail/CPF/CNPJ, MinhaCentral, logout, revogação, tenant suspenso, dois tenants e SaaS Admin ponta a ponta não foram executados porque psql não está no PATH, ConnectionStrings__DefaultConnection/PG* ausentes e o Docker daemon desktop-linux está indisponível.`
+- ADR de catálogo/entitlements e de autenticação permanecem sem ACEITO até evidência runtime PostgreSQL 16.
+- Próximo item após todos os gates verdes: **RC51.03 — Ordem de Produção industrial integrada: demanda/pedido → BOM versionada → roteiro versionado → disponibilidade e reserva atômica → liberação da OP → apontamento → consumo por lote → qualidade → entrada do acabado → custo real/variação → encerramento e rastreabilidade.**
+
+---
+
 Data: 2026-09-10. RC51.02. Estado: PARCIAL / BLOCKED; runtime estático de migrations estabilizado, artefatos rastreados saneados, P0 PostgreSQL 16 bloqueado e SaaS Admin não iniciado.
 
 - Branch: `codex/rc51-02-migration-runtime-saas-admin`, baseada em `origin/main` `ec799b75a6a1b3156566afc8a21216748f82df24`.

@@ -24,18 +24,18 @@ public sealed class SaasModulesController : ControllerBase
     }
 
     [HttpGet("modulos")]
-    public ActionResult<ApiResponse<IReadOnlyCollection<ModuleCatalogItem>>> GetModules()
+    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<ModuleCatalogItem>>>> GetModules(CancellationToken cancellationToken)
     {
-        try { return Ok(ApiResponse<IReadOnlyCollection<ModuleCatalogItem>>.Ok(_catalogService.GetModules(), correlationId: CorrelationId())); }
+        try { return Ok(ApiResponse<IReadOnlyCollection<ModuleCatalogItem>>.Ok(await _catalogService.GetModulesAsync(cancellationToken).ConfigureAwait(false), correlationId: CorrelationId())); }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao listar módulos."); return StatusCode(500, ApiResponse<IReadOnlyCollection<ModuleCatalogItem>>.Fail("Não foi possível listar módulos.", CorrelationId())); }
     }
 
     [HttpGet("modulos/{codigo}")]
-    public ActionResult<ApiResponse<ModuleCatalogItem>> GetModule(string codigo)
+    public async Task<ActionResult<ApiResponse<ModuleCatalogItem>>> GetModule(string codigo, CancellationToken cancellationToken)
     {
         try
         {
-            var module = _catalogService.FindByCode(codigo);
+            var module = await _catalogService.FindByCodeAsync(codigo, cancellationToken).ConfigureAwait(false);
             return module is null ? NotFound(ApiResponse<ModuleCatalogItem>.Fail("Módulo não encontrado.", CorrelationId())) : Ok(ApiResponse<ModuleCatalogItem>.Ok(module, correlationId: CorrelationId()));
         }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao obter módulo {Codigo}.", codigo); return StatusCode(500, ApiResponse<ModuleCatalogItem>.Fail("Não foi possível obter módulo.", CorrelationId())); }

@@ -64,6 +64,11 @@ public class PostBuild06IndustriaTests
     {
         Sidebar.Should().Contain("/Industria/Dashboard");
         Sidebar.Should().Contain("/Industria/ChaoFabrica");
+        Sidebar.Should().Contain("IRequestAuthorizationSnapshot");
+        Sidebar.Should().Contain("hasModule(\"industria_producao\")");
+        File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Industria/IndustriaIntegracaoServices.cs"))
+            .Should().NotContain("from sigov.tenant_modulo_contratado where tenant_id=@TenantId and modulo_codigo='industria_producao'");
+        IndustriaApi.Should().Contain("IModuleEntitlementEvaluator");
         File.Exists(TestRepoPath.Get("src/Sigov.Web/Views/Industria/Dashboard.cshtml")).Should().BeTrue();
         File.Exists(TestRepoPath.Get("src/Sigov.Web/Views/Industria/OrdensProducao.cshtml")).Should().BeTrue();
     }
