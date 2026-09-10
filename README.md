@@ -108,4 +108,4 @@ Autorizacao, perfis, permissoes, parametros, catalogo SaaS e entitlements usam o
 
 ## Escopo atual
 
-A trilha ativa RC51.02 fecha o resolvedor de migrations, o entitlement canônico e o primeiro fluxo SaaS Admin. P0 PostgreSQL 16 runtime permanece BLOCKED neste host. A próxima RC, após todos os gates verdes, é a Ordem de Produção industrial. GED permanece fora desta sprint.
+A trilha ativa RC51.02A repara regressões do main (artefatos/segredo) e exige Gate A runtime em PostgreSQL 16 antes de SaaS Admin completo e da jornada de Ordem de Produção. GED permanece fora desta sprint.
