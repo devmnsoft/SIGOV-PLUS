@@ -158,6 +158,45 @@ public sealed class MigrationSqlPolicyTests
     }
 
     [Fact]
+    public void Migration_runner_does_not_resolve_path_in_constructor()
+    {
+        var runner = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Persistence/Migrations/MigrationRunner.cs"));
+        var constructorStart = runner.IndexOf("public MigrationRunner(", StringComparison.Ordinal);
+        var constructorEnd = runner.IndexOf("private MigrationPathResolution PathResolution", StringComparison.Ordinal);
+        var constructor = runner[constructorStart..constructorEnd];
+        constructor.Should().NotContain("ResolveMigrations(");
+        constructor.Should().Contain("_hostEnvironment = hostEnvironment");
+        runner.IndexOf("MigrationRunner desabilitado", StringComparison.Ordinal).Should()
+            .BeLessThan(runner.IndexOf("Directory.Exists(MigrationsDirectory)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Migration_path_resolution_treats_generated_only_candidate_as_zero_matches()
+    {
+        using var tree = MigrationTree.CreateIsolatedDirectory();
+        var generated = Path.Combine(tree.Root, "bin", "database", "postgres", "migrations");
+        Directory.CreateDirectory(generated);
+        File.WriteAllText(Path.Combine(generated, "manifest.json"), "{}");
+
+        var action = () => MigrationRunner.ResolveMigrationsPath(null, tree.Root, tree.Root, tree.Root);
+
+        action.Should().Throw<DirectoryNotFoundException>().WithMessage("*Nenhum manifest.json canônico encontrado*");
+    }
+
+    [Fact]
+    public void Migration_path_resolution_rejects_backup_directory_candidate()
+    {
+        using var tree = MigrationTree.CreateIsolatedDirectory();
+        var backup = Path.Combine(tree.Root, "backups", "database", "postgres", "migrations");
+        Directory.CreateDirectory(backup);
+        File.WriteAllText(Path.Combine(backup, "manifest.json"), "{}");
+
+        var action = () => MigrationRunner.ResolveMigrationsPath(backup, tree.Root, tree.Root, tree.Root);
+
+        action.Should().Throw<DirectoryNotFoundException>().WithMessage("*backups*");
+    }
+
+    [Fact]
     public void Migration_path_resolution_rejects_missing_expected_latest_migration_message_contract()
     {
         var runner = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Persistence/Migrations/MigrationRunner.cs"));
