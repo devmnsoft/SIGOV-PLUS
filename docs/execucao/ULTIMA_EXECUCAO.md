@@ -1,5 +1,21 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02A (continuação). Estado: PARCIAL / BLOCKED. Gate A parcialmente evidenciado em runtime; Gate A não aprovado; Gate B e Gate C não iniciados.
+
+- Branch: `codex/rc51-02a-foundation-saas-industria-core` sobre `origin/main` `2646b374` (merge do PR #383).
+- Runtime PostgreSQL 16.15 descartável em `127.0.0.1:5433` (container `sigov-pg16-gatea`).
+- **PASS:** apply vazio = 171 migrations automáticas registradas; segunda aplicação idempotente (skip de ledger) = PASS.
+- **PASS:** Swagger HTTP 200 em API local (`/swagger/v1/swagger.json`, ~3,4 MiB) com `MigrationMode=Disabled` apontando ao banco Gate A.
+- **PASS estático de senha:** `check-local-login.ps1` validou hash de `admin` e `superadmin`.
+- Correções de suporte ao Gate A: `apply-migrations-manifest.ps1` (StrictMode, pós-condição via arquivo, skip de já aplicadas); manifesto alinhou pós-condições de `20260802210000` e `20260826130000` ao SQL publicado; `AuthenticationRepository` reordenou colunas para materialização Dapper de `AuthenticationUser`.
+- **BLOCKED:** equivalência schema vs `script_completop.sql` — Docker Desktop derrubou o engine durante o apply/compare.
+- **BLOCKED:** login HTTP ponta a ponta / MinhaCentral / logout / dois tenants — banco 16 caiu (connection refused) durante as tentativas; cookie autenticado não foi obtido.
+- **BLOCKED:** upgrade legado formal e isolamento de dois tenants.
+- Gate B e Gate C não avançaram (Gate A runtime incompleto).
+- Próximo item: estabilizar PostgreSQL 16 descartável (sem colisão com PG18 na 5432), fechar equivalência/legado, login HTTP e-mail/CPF/CNPJ + isolamento; só então Gate B e Gate C.
+
+---
+
 Data: 2026-09-10. RC51.02A. Estado: PARCIAL / BLOCKED. Gate A estático reparado; Gate A runtime, Gate B e Gate C não aprovados.
 
 - Branch: `codex/rc51-02a-foundation-saas-industria-core`, criada de `origin/main` `8b6e867b2e76638d5d809ca6a3462b1d7d60756c`.
