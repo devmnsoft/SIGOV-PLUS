@@ -1,6 +1,6 @@
 # ADR — Catálogo SaaS e entitlements
 
-Status: PROPOSTO; decisão de implementação adiada até aprovação integral do gate P0 em PostgreSQL 16.
+Status: PROPOSTO; implementação RC51.02 no código; ACEITO somente após testes runtime PostgreSQL 16 verdes.
 
 ## Contexto
 
@@ -17,4 +17,4 @@ Compatibilidade legada será forward-only, auditável e sem remoção de tabelas
 - Catálogo não concede acesso por si só.
 - Contratação não substitui permissão do usuário.
 - Menu e API devem produzir a mesma decisão.
-- A implementação e a homologação permanecem `AGUARDA_GATE`; RC51.02 não iniciou SaaS Admin porque PostgreSQL 16 runtime segue bloqueado.
+- A implementação de catálogo persistido, `IModuleEntitlementEvaluator` e SuperAdmin de contratação entrou na RC51.02. Homologação permanece `AGUARDA_GATE` até PostgreSQL 16 runtime.

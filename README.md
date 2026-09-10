@@ -108,4 +108,4 @@ Autorizacao, perfis, permissoes, parametros, catalogo SaaS e entitlements usam o
 
 ## Escopo atual
 
-A trilha ativa RC51.00 deve fechar o P0 antes de liberar SaaS Admin e Ordem de Producao do Industria 360. GED permanece fora desta sprint.
+A trilha ativa RC51.02 fecha o resolvedor de migrations, o entitlement canônico e o primeiro fluxo SaaS Admin. P0 PostgreSQL 16 runtime permanece BLOCKED neste host. A próxima RC, após todos os gates verdes, é a Ordem de Produção industrial. GED permanece fora desta sprint.

@@ -5,9 +5,9 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
 |---|---|---|
-| Core, identidade, segurança, permissões | PARCIAL | AuthenticationRepository, avaliador persistido, API key por hash/escopos e sessão persistente com revogação; prova runtime PostgreSQL 16 e isolamento ponta a ponta pendentes |
+| Core, identidade, segurança, permissões | PARCIAL | Cookie compacto, snapshot request-scoped e policies pelo avaliador persistido; prova runtime PostgreSQL 16 e isolamento ponta a ponta pendentes |
 | Auditoria e LGPD | PARCIAL | Serviços/tabelas/rotas existentes; trilha e segregação runtime pendentes |
-| SaaS, planos, contratação, administração global/cliente | AGUARDA_GATE | modulo_saas e tenant_modulo_contratado existem, mas a consolidação funcional permanece bloqueada até P0 PostgreSQL 16; catálogos/controladores duplicados ainda exigem inventário antes de P1 |
+| SaaS, planos, contratação, administração global/cliente | PARCIAL | Catálogo persistido, avaliador único e fluxo SuperAdmin de listar/abrir/contratar/suspender/reativar implementados; ACEITE FUNCIONAL bloqueado até evidência PostgreSQL 16 |
 | Indústria Core | PARCIAL | Application/Industria, Infrastructure/Industria, API/Web/Views/Industria; consulta real, fluxo mutável completo não homologado |
 | Indústria avançada | ESTRUTURA | Planejamento MRP/MPS/IoT; não há evidência de fluxo completo |
 | Comercial, OS, manutenção industrial | PARCIAL | Serviços Enterprise e pontos de integração; contratos e transações integradas pendentes |
@@ -26,5 +26,5 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
 | GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
 
-Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO nesta execução. RC51.02 estabilizou o resolvedor estático de migrations e o saneamento de artefatos rastreados, mas P0 runtime PostgreSQL 16 permanece BLOCKED; SaaS Admin/Entitlements não foi iniciado.
+Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO nesta execução. RC51.02 implementou resolvedor lazy, snapshot de autorização, catálogo/avaliador canônicos e o primeiro fluxo SaaS Admin; P0 runtime PostgreSQL 16 permanece BLOCKED.
 
