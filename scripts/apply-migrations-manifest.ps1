@@ -124,11 +124,11 @@ foreach ($entry in $manifest.migrations) {
         $psqlArgs += @('-f', $file)
         $tempSqlFiles = @()
         try {
+            $tempDir = Join-Path $root '.local/tmp'
+            New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
             $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
             if ($null -ne $postConditionProperty -and -not [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value)) {
                 $condition = [string]$postConditionProperty.Value
-                $tempDir = Join-Path $root '.local/tmp'
-                New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
                 $postFile = Join-Path $tempDir ("sigov-post-" + [guid]::NewGuid().ToString('N') + '.sql')
                 $postSql = @(
                     'do $sigov_post$'
@@ -143,8 +143,30 @@ foreach ($entry in $manifest.migrations) {
                 $tempSqlFiles += $postFile
                 $psqlArgs += @('-f', $postFile)
             }
-            $tempDir = Join-Path $root '.local/tmp'
-            New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+            foreach ($probe in (Get-OptionalArray $entry 'postConditionProbes')) {
+                $probeName = [string]$probe.name
+                $probeSql = ([string]$probe.sql).Trim().TrimEnd(';')
+                if ([string]::IsNullOrWhiteSpace($probeName) -or [string]::IsNullOrWhiteSpace($probeSql)) {
+                    throw "postConditionProbe sem nome ou SQL para $versionLiteral"
+                }
+
+                $probeNameLiteral = $probeName.Replace("'", "''")
+                $probeFile = Join-Path $tempDir ("sigov-probe-" + [guid]::NewGuid().ToString('N') + '.sql')
+                $probeScript = @(
+                    'do $sigov_probe$'
+                    'declare failure_message text;'
+                    'begin'
+                    "  select result into failure_message from ($probeSql) as probe_result(result);"
+                    "  if nullif(btrim(failure_message), '') is not null then"
+                    "    raise exception using message = 'postConditionProbe reprovada para $versionLiteral [$probeNameLiteral]: ' || failure_message;"
+                    '  end if;'
+                    'end'
+                    '$sigov_probe$;'
+                ) -join "`n"
+                [System.IO.File]::WriteAllText($probeFile, $probeScript + "`n")
+                $tempSqlFiles += $probeFile
+                $psqlArgs += @('-f', $probeFile)
+            }
             $registrationFile = Join-Path $tempDir ("sigov-reg-" + [guid]::NewGuid().ToString('N') + '.sql')
             [System.IO.File]::WriteAllText($registrationFile, $registrationSql + "`n")
             $tempSqlFiles += $registrationFile
@@ -166,5 +188,30 @@ foreach ($entry in $manifest.migrations) {
 if ($canExecute) {
     foreach ($compatibility in (Get-OptionalArray $manifest 'compatibilityAfterAll')) {
         Invoke-SqlFile -Path (Resolve-Compatibility $compatibility) -Stage 'POST_MIGRATION_COMPATIBILITY'
+    }
+
+    # Revalida o estado final inclusive na reaplicação, quando todas as versões já
+    # constam do ledger. Probes nomeados retornam NULL em sucesso e uma mensagem
+    # diagnóstica em falha; não são substitutos da pós-condição booleana.
+    foreach ($entry in $manifest.migrations) {
+        if ($entry.applyAutomatically -ne $true) { continue }
+        $versionKey = [string]$entry.version
+        $baseArgs = @('-X', '-q', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-At')
+        $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
+        if ($null -ne $postConditionProperty -and -not [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value)) {
+            $conditionResult = & $PsqlPath @baseArgs -c ([string]$postConditionProperty.Value)
+            if ($LASTEXITCODE -ne 0 -or [string]$conditionResult -notmatch '^(?i:t|true|1)$') {
+                throw "postConditionSql final reprovada para $versionKey"
+            }
+        }
+        foreach ($probe in (Get-OptionalArray $entry 'postConditionProbes')) {
+            $probeName = [string]$probe.name
+            $probeResult = & $PsqlPath @baseArgs -c ([string]$probe.sql)
+            if ($LASTEXITCODE -ne 0) { throw "postConditionProbe final não executou para $versionKey [$probeName]" }
+            $failure = (@($probeResult) -join "`n").Trim()
+            if (-not [string]::IsNullOrWhiteSpace($failure)) {
+                throw "postConditionProbe final reprovada para $versionKey [$probeName]: $failure"
+            }
+        }
     }
 }

@@ -1,5 +1,17 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02D (validação determinística das pós-condições). Estado: PARCIAL / BLOCKED.
+
+- Branch observada: `work`; HEAD inicial `86a8cfcb3803221735426bf937924606c1c201ba`; working tree inicialmente limpa; branch sem upstream e checkout sem remoto configurado, portanto a comparação atualizada com `origin/main` ficou BLOCKED sem alterar o trabalho local.
+- As correções forward-only e os probes separados das migrations `20260802210000`, `20260819120000` e `20260908120000` já existiam no HEAD inicial. A lacuna encontrada estava no aplicador PowerShell: ele executava apenas `postConditionSql`, ignorava `postConditionProbes` e, na reaplicação, pulava toda validação das versões presentes no ledger.
+- Implementado: probes nomeados agora participam da mesma transação antes do registro no ledger. Ao final, o aplicador revalida a pós-condição booleana e cada probe de todas as migrations automáticas, inclusive quando o ledger já estava completo. Falhas preservam o nome da versão/invariante e não são convertidas em sucesso.
+- Compras permanece com o rename conservador do bootstrap 070, contrato empresarial UUID e contrato governamental bigint separados; Educação/Saúde preserva template global anulável sem conceder perfil; SaaS preserva nome/disponibilidade comerciais administráveis e valida tabela, tipos, constraint, funções e triggers separadamente.
+- **BLOCKED:** restore/build/test e parser PowerShell não executados porque `dotnet` e `pwsh` não existem no ambiente desta execução.
+- **BLOCKED:** PostgreSQL 16 vazio, reaplicação, upgrade sanitizado, equivalência, Swagger, login/MinhaCentral/logout, isolamento e validação visual não executados porque `psql`, runtime e navegador não estão disponíveis/configurados.
+- Próximo comando exato: `pwsh -NoProfile -File scripts/apply-migrations-manifest.ps1 -ValidateOnly`; em seguida, com PostgreSQL 16 descartável configurado, executar aplicação vazia, reaplicação e upgrade sanitizado antes de liberar Gate B.
+
+---
+
 Data: 2026-09-10. RC51.02C (recalc + remoto). Estado: PARCIAL / BLOCKED. Gate A quase fechado em runtime Podman PG16; Gate B–D não iniciados.
 
 ## Preflight recalculado

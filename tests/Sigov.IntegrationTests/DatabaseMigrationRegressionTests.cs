@@ -148,6 +148,21 @@ public sealed class DatabaseMigrationRegressionTests
         sql.Should().NotContain("create table if not exists sigov.compras_fatura");
     }
 
+    [Fact]
+    public void Aplicador_PowerShell_Deve_Executar_Probes_Nomeados_Antes_De_Registrar_Ledger()
+    {
+        var script = File.ReadAllText(Path.Combine(Root, "scripts", "apply-migrations-manifest.ps1"));
+        var probes = script.IndexOf("foreach ($probe in (Get-OptionalArray $entry 'postConditionProbes'))", StringComparison.Ordinal);
+        var registration = script.IndexOf("$psqlArgs += @('-f', $registrationFile)", StringComparison.Ordinal);
+
+        probes.Should().BeGreaterThan(0);
+        probes.Should().BeLessThan(registration, "probes reprovados devem abortar a transação antes do registro no ledger");
+        script.Should().Contain("nullif(btrim(failure_message), '') is not null");
+        script.Should().Contain("postConditionProbe reprovada");
+        script.Should().Contain("postConditionSql final reprovada");
+        script.Should().Contain("postConditionProbe final reprovada");
+    }
+
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));
 
     private static string ReadBaselineMigrations()
