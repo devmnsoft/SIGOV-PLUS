@@ -1,18 +1,82 @@
 # Última execução
 
-Data: 2026-09-10. RC51.02C. Estado: PARCIAL / BLOCKED. Gate 1 avançou com evidência runtime em PostgreSQL 16.15 via Podman/WSL; Gates 2–5 não iniciados.
+Data: 2026-09-10. RC51.02C (recalc + remoto). Estado: PARCIAL / BLOCKED. Gate A quase fechado em runtime Podman PG16; Gate B–D não iniciados.
 
-- Branch: `codex/rc51-02c-foundation-saas-industria-evolucao` a partir de `origin/main` `dc7c1ac23f0c4ee95d7362e149157f2bec8284dc`.
-- Reconfirmação vs auditoria `ec799b75`: artefatos rastreados = 0; senhas literais em appsettings versionados = 0; `MigrationsPath` lazy; inventário 185 SQL / 175 manifesto / 171 auto / 171 baseline / 4 excluídas.
-- Runtime Gate A: `postgres:16-alpine` via **Podman** no Ubuntu WSL (`sigov-pg16-gatea`, `127.0.0.1:5433`, user/db `sigov`/`sigov_gate_a_empty`). Docker Desktop permaneceu instável (`WSL_E_USER_VHD_ALREADY_ATTACHED` / engine down).
-- **PASS Gate 1:** apply vazio = 171; reaplicação idempotente (“Já aplicada”) = PASS; Swagger `GET /swagger/v1/swagger.json` = HTTP 200 (3 445 457 bytes); hashes `admin`/`superadmin` via `check-local-login.ps1`.
-- **PASS Gate 1 (auth HTTP):** login `admin`, `admin@sigov.local`, `superadmin`, CPF `52998224725`, CNPJ `11222333000181` → 302 `/MinhaCentral`; `/MinhaCentral` = 200; logout POST antiforgery → 302 `/Auth/Login`; após logout `/MinhaCentral` → 302 login.
-- **Correções desta RC:** baseline `enterprise_tenant_mapping`; claims pontuais MatrizAcesso/Commercial → snapshot/serviço; ícones sidebar (`workflow` etc.) + tamanhos 22/34; `AtividadeRecenteViewModel` materializável pelo Dapper; TagHelper com fallback de ícone.
-- **BLOCKED Gate 1 (equivalência):** `script_completop.sql` one-shot (~3,1 MiB) ainda não reexecutado com segurança neste host após histórico de crash do engine. Pré-requisito: apply one-shot estável + `compare-schema-equivalence.ps1`.
-- **BLOCKED Gate 1 (dois tenants / legado):** apenas o tenant `SIGOV Local` (id 5) possui entidade/exercício/usuários operacionais; demais tenants do seed não permitem isolamento HTTP comprovado. Upgrade legado formal não executado.
-- Remanescentes de produto: dois `IModuleCatalogService`; Indústria com `ModulePage` genérico; nenhum módulo FUNCIONAL/HOMOLOGADO/PRODUÇÃO.
-- **Não iniciado:** Gate 2 SaaS Admin; Gate 3 OP industrial; Gate 4 Compras/Almoxarifado–Jurídico–Educação; Gate 5 backlog detalhado; GED permanece último.
-- Próximo item: fechar equivalência one-shot e isolamento de dois tenants em PG16; só então Gates 2+.
+## Preflight recalculado
+
+- Branch atual: `codex/rc51-02c-foundation-saas-multimodulo` (criada de `c6e74776`).
+- Branch anterior / PR #385: `codex/rc51-02c-foundation-saas-industria-evolucao` @ `c6e74776` (open, mergeable_state=unstable, CI status pending/vazio).
+- `origin/main`: `dc7c1ac23f0c4ee95d7362e149157f2bec8284dc` (inalterado após fetch --prune).
+- Remoto: `https://github.com/devmnsoft/SIGOV-PLUS.git`.
+- Working tree: limpa após commits da RC; alterações locais de runtime (Podman/DB) não versionadas.
+- Layout: `src/Sigov.{Api,Web,Application,Infrastructure,Domain,Worker}` + `tests/Sigov.{UnitTests,IntegrationTests,ApiTests,Testing}` + `database/postgres/migrations` confirmados.
+
+## Inventário migrations (recalculado)
+
+| Métrica | Valor |
+|---|---|
+| SQL em `database/postgres/migrations` | 185 |
+| Entradas no manifesto | 175 |
+| `applyAutomatically=true` | 171 |
+| `includeInBaseline=true` | 171 |
+| Excluídas de apply | 4 |
+| Órfãs (SQL fora do manifesto) | 10 |
+| Versões duplicadas no manifesto | 0 |
+| Arquivos duplicados no manifesto | 0 |
+| SHA-256 do manifesto | `10eda0576ee35a3db1d1c31d6fb2465a3ddb671c72fbda4f7bc8fc11f94a6f93` |
+| Maior versão declarada | `20260909120000` |
+
+Órfãs preservadas (não aplicadas automaticamente). Duas compartilham o prefixo de versão `20260813120000` **fora do manifesto**:
+`20260813120000_rc50_24_educacao_rh_folha_produto_core.sql` e `20260813120000_rc50_27_operacoes_inteligentes.sql`.
+
+## Gate A — evidência reconfirmada
+
+- Runtime: Podman `postgres:16-alpine` `sigov-pg16-gatea` em `127.0.0.1:5433` (shm 1 GiB). Docker Desktop continua instável neste host.
+- **PASS:** `bash scripts/check-tracked-artifacts.sh`
+- **PASS:** senhas literais em appsettings versionados = 0 (`Password: ""` apenas)
+- **PASS:** apply vazio = 171; reaplicação idempotente = 171\|171
+- **PASS:** `script_completop.sql` one-shot em `sigov_gate_a_oneshot` = EXIT 0 (engine permaneceu Up)
+- **PASS:** equivalência semântica colunas `information_schema` migração vs one-shot = **EQUIVALENT** (41 172 linhas cada)
+- **PASS:** Swagger HTTP 200 (3 445 457 bytes) reconfirmado
+- **PASS:** build Release `-warnaserror` (`sigov.runtime.slnf` e `sigov.sln`)
+- **PASS:** testes 389 Unit + 123 Integration + 102 Api
+- **PASS:** rotas API 630 sem conflito direto; `validate-rc50-80.py` PASS; governance static PASS
+- **PASS auth:** login/login-email/CPF/CNPJ → MinhaCentral 200; logout POST → login; dois tenants (`admin`=SIGOV Local id5 vs `admin_t1`=Tenant de Desenvolvimento id1) com hero distinto (`ISOLATION_OK=True`)
+- **BLOCKED:** upgrade legado formal (banco com ledger antigo → apply residual) não executado nesta recalculação
+- **BLOCKED/parcial:** troca de senha, revogação de sessão, tenant suspenso e acesso cruzado API profundo não reexecutados ponta a ponta nesta passagem
+- Claims `HasClaim("permission"|"permissao")` em src = 0; `RequestPermissionClaimsTransformation` permanece no-op
+- Remanescente Gate B: dois `IModuleCatalogService` (Commercial sync hardcoded em Program + SaaS async `PersistentModuleCatalogService` no DI)
+
+## Matriz de causas-raiz (estado atual)
+
+| Problema | Causa raiz | Arquivo responsável | Teste reprodutor | Correção |
+|---|---|---|---|---|
+| Equivalência one-shot derrubava Docker | Engine Desktop/VHD instável + shm baixo | Docker Desktop / host | `psql -f script_completop.sql` | Podman WSL + `--shm-size=1g` → PASS |
+| MinhaCentral 500 pós-login | Ícone `workflow` ausente + size 34 + Dapper record | `IconRegistry`, `SigovIconTagHelper`, `AtividadeRecenteViewModel` | Login → `/MinhaCentral` | Registrar ícones/sizes; VM com props → PASS |
+| Claims pontuais | Controllers ainda usavam `HasClaim` | `MatrizAcessoController`, `CommercialControllers` | Grep `HasClaim("permission")` | Snapshot/serviço → 0 matches |
+| Baseline incompleto | `enterprise_tenant_mapping` auto sem baseline | `manifest.json` | compare schema | `includeInBaseline=true` + scripts → 171 |
+| Dois tenants sem evidência | Seed só no tenant 5 | seeds/runtime | Login `admin_t1` | Seed entidade/exercício/usuário tenant 1 → PASS hero |
+| Dual catálogo | Interfaces homônimas em namespaces distintos | Commercial vs Saas.Modules | DI/Program | Pendente Gate B |
+| Upgrade legado | Não executado | n/a | apply residual em ledger antigo | BLOCKED |
+
+## Divergências vs auditoria `ec799b75` / docs anteriores
+
+1. **Baseline 170 → 171:** docs antigos e auditoria falavam 170; após incluir `enterprise_tenant_mapping` no baseline, o valor recalculado é 171.
+2. **Login HTTP:** estava BLOCKED (PG caiu); agora PASS (e-mail/login/CPF/CNPJ + MinhaCentral + logout).
+3. **Equivalência:** estava BLOCKED por crash Docker; agora PASS em Podman (41 172 colunas equivalentes).
+4. **Dois tenants:** estava BLOCKED; agora PASS no shell MinhaCentral (hero por tenant). Isolamento de dados/API profundo ainda parcial.
+5. **Branch:** contrato pediu `codex/rc51-02c-foundation-saas-multimodulo`; PR #385 usava `...industria-evolucao`. Ambas apontam ao mesmo SHA `c6e74776` até o commit documental desta recalculação.
+6. **BACKLOG item 1 (“184 arquivos”):** inventário atual = **185** SQLs.
+7. **`validate-rc50-80` “4 baselines”:** refere-se ao conjunto de baselines/exclusões do validador, não a `includeInBaseline=171`.
+8. **Gates 2–5 / B–D:** continuam **não iniciados** (Gate A ainda incompleto pelo upgrade legado formal).
+
+## Não iniciado
+
+Gate B SaaS canônico; Gate C OP industrial; Gate D Compras/Almoxarifado–Jurídico–Educação; backlog detalhado dos demais; GED por último.
+
+## Próximo item exato
+
+Executar **upgrade legado formal** em PostgreSQL 16 (ledger antigo → apply residual com `pendentes=0 checksum=0 falhas=0`) e fechar evidências de revogação/tenant suspenso/acesso cruzado API; só então liberar Gate B.
 
 ---
 
