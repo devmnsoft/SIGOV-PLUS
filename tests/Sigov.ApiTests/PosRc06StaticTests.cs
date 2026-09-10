@@ -17,6 +17,7 @@ public sealed class PosRc06StaticTests
         Assert.Contains("not inside a git worktree", script);
         Assert.Contains("git ls-files failed", script);
         Assert.Contains("tracked_files=\"$(git ls-files)\"", script);
+        Assert.Contains("cache\\.json", script);
         var passIndex = script.LastIndexOf("Tracked artifact gate: PASS", StringComparison.Ordinal);
         var failIndex = script.IndexOf("Generated artifacts are tracked by Git", StringComparison.Ordinal);
         Assert.True(failIndex > 0 && passIndex > failIndex);
@@ -34,7 +35,8 @@ public sealed class PosRc06StaticTests
             "src/Sigov.Api/appsettings.Development.json",
             "src/Sigov.Api/appsettings.Homologation.json",
             "src/Sigov.Web/appsettings.json",
-            "src/Sigov.Web/appsettings.Development.json"
+            "src/Sigov.Web/appsettings.Development.json",
+            "src/Sigov.Worker/appsettings.json"
         })
         {
             var content = Read(path);

@@ -18,7 +18,7 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   fail "not inside a git worktree."
 fi
 
-pattern='(^|/)(bin|obj|\.vs)(/|$)|(^|/)(artifacts|TestResults|coverage)(/|$)|\.(trx|pdb|suo|user|cache)$'
+pattern='(^|/)(bin|obj|\.vs)(/|$)|(^|/)(artifacts|TestResults|coverage)(/|$)|\.(trx|pdb|suo|user|cache|cache\.json)$'
 
 tracked_files="$(git ls-files)" || fail "git ls-files failed."
 
