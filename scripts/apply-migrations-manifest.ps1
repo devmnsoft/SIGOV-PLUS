@@ -48,6 +48,12 @@ function Resolve-Compatibility([object]$compatibility) {
     if ((Get-NormalizedSha256 $path) -ne [string]$compatibility.checksum) { throw "Checksum divergente na compatibilidade: $name" }
     return $path
 }
+function Get-OptionalArray([object]$target, [string]$propertyName) {
+    if ($null -eq $target) { return @() }
+    $property = $target.PSObject.Properties[$propertyName]
+    if ($null -eq $property -or $null -eq $property.Value) { return @() }
+    return @($property.Value)
+}
 if (-not (Test-Path $manifestFile)) { throw "Manifest não encontrado: $manifestFile" }
 if (-not (Get-Command $PsqlPath -ErrorAction SilentlyContinue)) { throw "psql não encontrado em '$PsqlPath'." }
 $manifest = Get-Content $manifestFile -Raw | ConvertFrom-Json
@@ -62,13 +68,13 @@ foreach ($entry in $manifest.migrations) {
     $actual = Get-NormalizedSha256 $file
     if ($actual -ne $entry.checksum) { throw "Checksum divergente: $($entry.file)" }
     $seenCompatibility = @{}
-    foreach ($compatibility in @($entry.compatibilityBefore)) {
+    foreach ($compatibility in (Get-OptionalArray $entry 'compatibilityBefore')) {
         if ($seenCompatibility.ContainsKey([string]$compatibility.file)) { throw "Compatibilidade duplicada em $($entry.file): $($compatibility.file)" }
         $seenCompatibility[[string]$compatibility.file] = $true
         $null = Resolve-Compatibility $compatibility
     }
 }
-foreach ($compatibility in @($manifest.compatibilityAfterAll)) { $null = Resolve-Compatibility $compatibility }
+foreach ($compatibility in (Get-OptionalArray $manifest 'compatibilityAfterAll')) { $null = Resolve-Compatibility $compatibility }
 
 $canExecute = -not $ValidateOnly -and $HostName -and $Database -and $User
 if ($canExecute) {
@@ -80,11 +86,32 @@ if ($canExecute) {
     }
 }
 
+$appliedVersions = @{}
+if ($canExecute) {
+    $historyArgs = @('-X', '-q', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-At', '-c', "select version||'|'||checksum from sigov.schema_migrations where success = true")
+    $history = & $PsqlPath @historyArgs 2>$null
+    if ($LASTEXITCODE -eq 0 -and $history) {
+        foreach ($row in @($history)) {
+            if ([string]::IsNullOrWhiteSpace($row)) { continue }
+            $parts = $row.Split('|', 2)
+            if ($parts.Length -eq 2) { $appliedVersions[$parts[0]] = $parts[1] }
+        }
+    }
+}
+
 foreach ($entry in $manifest.migrations) {
     if ($entry.applyAutomatically -ne $true) { Write-Host "Ignorada: $($entry.file)"; continue }
     if (-not $canExecute) { Write-Host "Validada: $($entry.file)"; continue }
 
     $file = Join-Path $root (Join-Path 'database/postgres/migrations' $entry.file)
+    $versionKey = [string]$entry.version
+    if ($appliedVersions.ContainsKey($versionKey)) {
+        if ($appliedVersions[$versionKey] -ne [string]$entry.checksum) {
+            throw "Checksum divergente no ledger para $($entry.version): ledger=$($appliedVersions[$versionKey]) manifest=$($entry.checksum)"
+        }
+        Write-Host "Já aplicada: $($entry.file)"
+        continue
+    }
     $start = Get-Date; $result = 'success'; $errorMessage = ''
     try {
         $versionLiteral = ([string]$entry.version).Replace("'", "''")
@@ -93,15 +120,43 @@ foreach ($entry in $manifest.migrations) {
         $categoryLiteral = ([string]$entry.category).Replace("'", "''")
         $registrationSql = "insert into sigov.schema_migrations(version,description,checksum,category,source,success) values ('$versionLiteral','$descriptionLiteral','$checksumLiteral','$categoryLiteral','manifest',true) on conflict(version) do update set description=excluded.description, category=excluded.category, source='manifest', success=true where sigov.schema_migrations.checksum=excluded.checksum;"
         $psqlArgs = @('-X', '-q', '-1', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1')
-        foreach ($compatibility in @($entry.compatibilityBefore)) { $psqlArgs += @('-f', (Resolve-Compatibility $compatibility)) }
+        foreach ($compatibility in (Get-OptionalArray $entry 'compatibilityBefore')) { $psqlArgs += @('-f', (Resolve-Compatibility $compatibility)) }
         $psqlArgs += @('-f', $file)
-        if ($entry.postConditionSql) {
-            $condition = [string]$entry.postConditionSql
-            $psqlArgs += @('-c', "do `$`$ begin if not ($condition) then raise exception 'postConditionSql reprovada para $versionLiteral'; end if; end `$`$;")
+        $tempSqlFiles = @()
+        try {
+            $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
+            if ($null -ne $postConditionProperty -and -not [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value)) {
+                $condition = [string]$postConditionProperty.Value
+                $tempDir = Join-Path $root '.local/tmp'
+                New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+                $postFile = Join-Path $tempDir ("sigov-post-" + [guid]::NewGuid().ToString('N') + '.sql')
+                $postSql = @(
+                    'do $sigov_post$'
+                    'begin'
+                    "  if not ($condition) then"
+                    "    raise exception 'postConditionSql reprovada para $versionLiteral';"
+                    '  end if;'
+                    'end'
+                    '$sigov_post$;'
+                ) -join "`n"
+                [System.IO.File]::WriteAllText($postFile, $postSql + "`n")
+                $tempSqlFiles += $postFile
+                $psqlArgs += @('-f', $postFile)
+            }
+            $tempDir = Join-Path $root '.local/tmp'
+            New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+            $registrationFile = Join-Path $tempDir ("sigov-reg-" + [guid]::NewGuid().ToString('N') + '.sql')
+            [System.IO.File]::WriteAllText($registrationFile, $registrationSql + "`n")
+            $tempSqlFiles += $registrationFile
+            $psqlArgs += @('-f', $registrationFile)
+            & $PsqlPath @psqlArgs
+            if ($LASTEXITCODE -ne 0) { throw "migration transacional saiu com código $LASTEXITCODE" }
         }
-        $psqlArgs += @('-c', $registrationSql)
-        & $PsqlPath @psqlArgs
-        if ($LASTEXITCODE -ne 0) { throw "migration transacional saiu com código $LASTEXITCODE" }
+        finally {
+            foreach ($tempSqlFile in $tempSqlFiles) {
+                Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $tempSqlFile
+            }
+        }
     } catch { $result = 'failed'; $errorMessage = Sanitize-Error $_.Exception.Message; throw } finally {
         $end = Get-Date
         Write-MigrationLog ([ordered]@{ version=$entry.version; file=$entry.file; category=$entry.category; checksum=$entry.checksum; startedAt=$start.ToString('o'); finishedAt=$end.ToString('o'); durationMs=[int64]($end-$start).TotalMilliseconds; result=$result; error=$errorMessage })
@@ -109,7 +164,7 @@ foreach ($entry in $manifest.migrations) {
 }
 
 if ($canExecute) {
-    foreach ($compatibility in @($manifest.compatibilityAfterAll)) {
+    foreach ($compatibility in (Get-OptionalArray $manifest 'compatibilityAfterAll')) {
         Invoke-SqlFile -Path (Resolve-Compatibility $compatibility) -Stage 'POST_MIGRATION_COMPATIBILITY'
     }
 }
