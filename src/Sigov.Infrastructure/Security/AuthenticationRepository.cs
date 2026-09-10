@@ -16,11 +16,12 @@ public sealed class AuthenticationRepository(NpgsqlConnectionFactory connectionF
     {
         if (!identifier.IsValid) return Array.Empty<AuthenticationUser>();
 
-        const string sql = @"select u.id, u.tenant_id as TenantId, u.entidade_id as EntidadeId, coalesce(u.nome, u.login) as Nome, u.login, coalesce(u.email, '') as Email,
-       coalesce(t.nome, '') as TenantName,
-       u.senha_hash as PasswordHash, u.ativo, u.bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha,
+        const string sql = @"select u.id as Id, u.tenant_id as TenantId, coalesce(u.nome, u.login) as Nome, u.login as Login,
+       coalesce(u.email, '') as Email, coalesce(t.nome, '') as TenantName, u.senha_hash as PasswordHash,
+       u.ativo as Ativo, u.bloqueado as Bloqueado, coalesce(u.deve_alterar_senha, false) as DeveAlterarSenha,
        u.is_deleted as IsDeleted, coalesce(t.ativo, true) as TenantAtivo,
-       coalesce(t.is_deleted, false) as TenantIsDeleted, count(*) over()::integer as MatchingUsers
+       coalesce(t.is_deleted, false) as TenantIsDeleted, count(*) over()::integer as MatchingUsers,
+       u.entidade_id as EntidadeId
 from sigov.usuario u
 left join sigov.tenant t on t.id = u.tenant_id
 where (@Kind = 'LegacyLogin' and lower(trim(u.login)) = @Value)
