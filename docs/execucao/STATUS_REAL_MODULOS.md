@@ -1,13 +1,13 @@
 # Status real dos módulos
 
-Corte: 2026-09-09; referência inicial 6159822b17e31950e4664eed898b2ddc62bde5d2 (origin/main).
+Corte: 2026-09-10; referência inicial ec799b75a6a1b3156566afc8a21216748f82df24 (origin/main).
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
 |---|---|---|
 | Core, identidade, segurança, permissões | PARCIAL | AuthenticationRepository, avaliador persistido, API key por hash/escopos e sessão persistente com revogação; prova runtime PostgreSQL 16 e isolamento ponta a ponta pendentes |
 | Auditoria e LGPD | PARCIAL | Serviços/tabelas/rotas existentes; trilha e segregação runtime pendentes |
-| SaaS, planos, contratação, administração global/cliente | PARCIAL | modulo_saas e tenant_modulo_contratado; catálogos duplicados e telas secundárias incompletas |
+| SaaS, planos, contratação, administração global/cliente | AGUARDA_GATE | modulo_saas e tenant_modulo_contratado existem, mas a consolidação funcional permanece bloqueada até P0 PostgreSQL 16; catálogos/controladores duplicados ainda exigem inventário antes de P1 |
 | Indústria Core | PARCIAL | Application/Industria, Infrastructure/Industria, API/Web/Views/Industria; consulta real, fluxo mutável completo não homologado |
 | Indústria avançada | ESTRUTURA | Planejamento MRP/MPS/IoT; não há evidência de fluxo completo |
 | Comercial, OS, manutenção industrial | PARCIAL | Serviços Enterprise e pontos de integração; contratos e transações integradas pendentes |
@@ -26,5 +26,5 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
 | GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
 
-Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO nesta execução. Esta matriz é inventário de evidências, não catálogo produtivo nem concessão de acesso.
+Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO nesta execução. RC51.02 estabilizou o resolvedor estático de migrations e o saneamento de artefatos rastreados, mas P0 runtime PostgreSQL 16 permanece BLOCKED; SaaS Admin/Entitlements não foi iniciado.
 

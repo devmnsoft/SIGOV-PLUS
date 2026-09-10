@@ -51,6 +51,12 @@ Use Docker apenas como apoio operacional. O fluxo principal de desenvolvimento l
 
 O PostgreSQL usa o schema fisico `sigov`. Multi-tenancy usa banco/schema compartilhado, com `tenant_id`, `entidade_id`, `exercicio_id`, usuario e escopo preservados nas operacoes em que se aplicam.
 
+### Resolução do catálogo de migrations
+
+Em execução local a API não deve configurar `Sigov:Database:MigrationsPath` relativo. Sem configuração explícita, o runtime localiza a raiz do checkout por `sigov.sln` e `AGENTS.md` e usa `database/postgres/migrations`, mesmo quando iniciado pelo Visual Studio a partir de `src/Sigov.Api`.
+
+Em Docker, publicação e produção, prefira caminho absoluto via `Sigov__Database__MigrationsPath`. A imagem oficial empacota o catálogo em `/app/database/postgres/migrations` e `src/Sigov.Api/appsettings.Docker.json` mantém esse caminho absoluto. O resolvedor recusa manifestos encontrados em `.vs`, `bin`, `obj`, `artifacts` ou `TestResults` e falha quando houver candidatos ambíguos.
+
 Scripts canonicos:
 
 - `database/postgres/migrations/manifest.json`

@@ -15,6 +15,7 @@ obj/
 artifacts/
 TestResults/
 *.trx
+*.dll
 *.pdb
 *.suo
 *.user

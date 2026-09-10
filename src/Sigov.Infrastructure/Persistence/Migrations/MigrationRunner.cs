@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -27,16 +28,18 @@ public sealed class MigrationRunner
     private readonly ILogger<MigrationRunner> _logger;
     private readonly string _migrationsPath;
     private readonly string _manifestPath;
+    private readonly MigrationPathResolution _pathResolution;
     private readonly string? _expectedLatestVersion;
     private readonly TimeSpan _migrationLockTimeout;
     private const long MigrationLockKey = 0x5349474F56504C55; // "SIGOVPLU", stable per database.
 
-    public MigrationRunner(NpgsqlConnectionFactory connectionFactory, IConfiguration configuration, ILogger<MigrationRunner> logger)
+    public MigrationRunner(NpgsqlConnectionFactory connectionFactory, IConfiguration configuration, ILogger<MigrationRunner> logger, IHostEnvironment? hostEnvironment = null)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
         var configuredPath = configuration["Sigov:Database:MigrationsPath"];
-        _migrationsPath = ResolveMigrationsPath(configuredPath);
+        _pathResolution = ResolveMigrations(configuredPath, hostEnvironment?.ContentRootPath, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+        _migrationsPath = _pathResolution.MigrationsPath;
         _manifestPath = Path.Combine(_migrationsPath, "manifest.json");
         _expectedLatestVersion = configuration["Sigov:Database:ExpectedLatestMigration"];
         var lockTimeoutSeconds = configuration.GetValue("Sigov:Database:MigrationLockTimeoutSeconds", 60);
@@ -79,10 +82,10 @@ public sealed class MigrationRunner
             var manifest = LoadManifestFiles();
             var manifestHash = Checksum(await File.ReadAllTextAsync(_manifestPath, cancellationToken).ConfigureAwait(false));
             _logger.LogInformation(
-                "Catálogo de migrations carregado. ManifestPath={ManifestPath}; ManifestSha256={ManifestSha256}; Declared={Declared}; Automatic={Automatic}; Excluded={Excluded}; Baseline={Baseline}; LatestVersion={LatestVersion}; CurrentDirectory={CurrentDirectory}; BaseDirectory={BaseDirectory}",
-                _manifestPath, manifestHash, manifest.DeclaredMigrations.Count, manifest.AutomaticMigrations.Count,
+                "Catálogo de migrations carregado. ManifestPath={ManifestPath}; ManifestSha256={ManifestSha256}; ResolutionOrigin={ResolutionOrigin}; Declared={Declared}; Automatic={Automatic}; Excluded={Excluded}; Baseline={Baseline}; LatestVersion={LatestVersion}; CurrentDirectory={CurrentDirectory}; ContentRoot={ContentRoot}; BaseDirectory={BaseDirectory}",
+                _manifestPath, manifestHash, _pathResolution.Origin, manifest.DeclaredMigrations.Count, manifest.AutomaticMigrations.Count,
                 manifest.ExcludedMigrations.Count, manifest.BaselineMigrations.Count,
-                manifest.DeclaredMigrations.LastOrDefault()?.Version ?? "none", Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+                manifest.DeclaredMigrations.LastOrDefault()?.Version ?? "none", _pathResolution.CurrentDirectory, _pathResolution.ContentRoot ?? "not-provided", _pathResolution.BaseDirectory);
             if (IsDevelopment() && !string.IsNullOrWhiteSpace(_expectedLatestVersion) &&
                 !manifest.DeclaredMigrations.Any(migration => string.Equals(migration.Version, _expectedLatestVersion, StringComparison.OrdinalIgnoreCase)))
             {
@@ -529,39 +532,187 @@ values (@Version, @Description, @Checksum, @Category, 'manifest', true, @Executi
         IReadOnlyList<CompatibilityScript> CompatibilityAfterAll);
 
     internal static string ResolveMigrationsPath(string? configuredPath) =>
-        ResolveMigrationsPath(configuredPath, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+        ResolveMigrations(configuredPath, null, Directory.GetCurrentDirectory(), AppContext.BaseDirectory).MigrationsPath;
 
     internal static string ResolveMigrationsPath(string? configuredPath, string currentDirectory, string baseDirectory)
+        => ResolveMigrations(configuredPath, null, currentDirectory, baseDirectory).MigrationsPath;
+
+    internal static string ResolveMigrationsPath(string? configuredPath, string? contentRoot, string currentDirectory, string baseDirectory)
+        => ResolveMigrations(configuredPath, contentRoot, currentDirectory, baseDirectory).MigrationsPath;
+
+    private static MigrationPathResolution ResolveMigrations(string? configuredPath, string? contentRoot, string currentDirectory, string baseDirectory)
     {
+        var normalizedCurrentDirectory = NormalizeDirectory(currentDirectory, nameof(currentDirectory));
+        var normalizedContentRoot = string.IsNullOrWhiteSpace(contentRoot) ? null : NormalizeDirectory(contentRoot, nameof(contentRoot));
+        var normalizedBaseDirectory = NormalizeDirectory(baseDirectory, nameof(baseDirectory));
+
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
-            var explicitPath = Path.GetFullPath(configuredPath, currentDirectory);
-            if (!File.Exists(Path.Combine(explicitPath, "manifest.json")))
-                throw new DirectoryNotFoundException($"Diretório de migrations explicitamente configurado não contém manifest.json: {explicitPath}");
-            return explicitPath;
+            if (Path.IsPathFullyQualified(configuredPath))
+            {
+                var explicitPath = NormalizeCandidate(configuredPath);
+                EnsureAllowedCandidate(explicitPath);
+                if (!File.Exists(Path.Combine(explicitPath, "manifest.json")))
+                    throw new DirectoryNotFoundException($"Diretório de migrations explicitamente configurado não contém manifest.json: {explicitPath}");
+                return new MigrationPathResolution(explicitPath, "AbsoluteConfiguration", normalizedCurrentDirectory, normalizedContentRoot, normalizedBaseDirectory);
+            }
+
+            var relativeCandidates = FindRelativeCandidates(configuredPath, normalizedContentRoot, normalizedCurrentDirectory, normalizedBaseDirectory, out var inspectedRelative);
+            return relativeCandidates.Count switch
+            {
+                1 => new MigrationPathResolution(relativeCandidates.Single(), "RelativeAncestor", normalizedCurrentDirectory, normalizedContentRoot, normalizedBaseDirectory),
+                0 => throw new DirectoryNotFoundException(
+                    $"Nenhum manifest.json encontrado para Sigov:Database:MigrationsPath relativo '{configuredPath}'. PathsExaminados={string.Join(" | ", inspectedRelative)}"),
+                _ => throw new InvalidOperationException(
+                    $"Múltiplos manifestos candidatos encontrados para Sigov:Database:MigrationsPath relativo; seleção recusada. Configure caminho absoluto. Paths={string.Join(" | ", relativeCandidates.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))}")
+            };
         }
 
+        var repositoryCandidates = FindRepositoryCandidates(normalizedContentRoot, normalizedCurrentDirectory, normalizedBaseDirectory, out var inspectedRepository);
+        if (repositoryCandidates.Count == 1)
+        {
+            return new MigrationPathResolution(repositoryCandidates.Single(), "RepositoryDiscovery", normalizedCurrentDirectory, normalizedContentRoot, normalizedBaseDirectory);
+        }
+
+        if (repositoryCandidates.Count > 1)
+        {
+            throw new InvalidOperationException(
+                $"Múltiplos repositórios com manifestos candidatos encontrados; seleção recusada. Configure Sigov:Database:MigrationsPath absoluto. Paths={string.Join(" | ", repositoryCandidates.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))}");
+        }
+
+        var packageCandidates = FindPublishedPackageCandidates(normalizedContentRoot, normalizedBaseDirectory, out var inspectedPackage);
+        return packageCandidates.Count switch
+        {
+            1 => new MigrationPathResolution(packageCandidates.Single(), "PublishedPackage", normalizedCurrentDirectory, normalizedContentRoot, normalizedBaseDirectory),
+            0 => throw new DirectoryNotFoundException(
+                $"Nenhum manifest.json canônico encontrado. CurrentDirectory={normalizedCurrentDirectory}; ContentRoot={normalizedContentRoot ?? "not-provided"}; BaseDirectory={normalizedBaseDirectory}; RepositoryPathsExaminados={string.Join(" | ", inspectedRepository)}; PackagePathsExaminados={string.Join(" | ", inspectedPackage)}. Configure Sigov:Database:MigrationsPath absoluto para publicação/container."),
+            _ => throw new InvalidOperationException(
+                $"Múltiplos pacotes publicados com manifestos candidatos encontrados; seleção recusada. Configure Sigov:Database:MigrationsPath absoluto. Paths={string.Join(" | ", packageCandidates.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))}")
+        };
+    }
+
+    private static HashSet<string> FindRelativeCandidates(string configuredPath, string? contentRoot, string currentDirectory, string baseDirectory, out IReadOnlyList<string> inspected)
+    {
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var start in new[] { currentDirectory, baseDirectory })
+        var inspectedPaths = new List<string>();
+        foreach (var ancestor in EnumerateAncestors(contentRoot, currentDirectory, baseDirectory))
+        {
+            var candidate = NormalizeCandidate(Path.Combine(ancestor, configuredPath));
+            inspectedPaths.Add(candidate);
+            if (CandidateHasManifest(candidate))
+            {
+                candidates.Add(candidate);
+            }
+        }
+
+        inspected = inspectedPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return candidates;
+    }
+
+    private static HashSet<string> FindRepositoryCandidates(string? contentRoot, string currentDirectory, string baseDirectory, out IReadOnlyList<string> inspected)
+    {
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var inspectedPaths = new List<string>();
+        foreach (var ancestor in EnumerateAncestors(contentRoot, currentDirectory, baseDirectory))
+        {
+            inspectedPaths.Add(ancestor);
+            if (!File.Exists(Path.Combine(ancestor, "sigov.sln")) || !File.Exists(Path.Combine(ancestor, "AGENTS.md")))
+            {
+                continue;
+            }
+
+            var candidate = NormalizeCandidate(Path.Combine(ancestor, "database", "postgres", "migrations"));
+            if (CandidateHasManifest(candidate))
+            {
+                candidates.Add(candidate);
+            }
+        }
+
+        inspected = inspectedPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return candidates;
+    }
+
+    private static HashSet<string> FindPublishedPackageCandidates(string? contentRoot, string baseDirectory, out IReadOnlyList<string> inspected)
+    {
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var inspectedPaths = new List<string>();
+        foreach (var start in new[] { contentRoot, baseDirectory }.Where(path => !string.IsNullOrWhiteSpace(path)).Cast<string>())
+        {
+            var candidate = NormalizeCandidate(Path.Combine(start, "database", "postgres", "migrations"));
+            inspectedPaths.Add(candidate);
+            if (CandidateHasManifest(candidate))
+            {
+                candidates.Add(candidate);
+            }
+        }
+
+        inspected = inspectedPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return candidates;
+    }
+
+    private static IEnumerable<string> EnumerateAncestors(params string?[] starts)
+    {
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var start in starts.Where(path => !string.IsNullOrWhiteSpace(path)).Cast<string>())
         {
             var current = new DirectoryInfo(start);
             while (current is not null)
             {
-                var candidate = Path.GetFullPath(Path.Combine(current.FullName, "database", "postgres", "migrations"));
-                if (File.Exists(Path.Combine(candidate, "manifest.json"))) candidates.Add(candidate);
+                var normalized = NormalizeDirectory(current.FullName, nameof(starts));
+                if (emitted.Add(normalized))
+                {
+                    yield return normalized;
+                }
+
                 current = current.Parent;
             }
         }
-
-        return candidates.Count switch
-        {
-            1 => candidates.Single(),
-            0 => throw new DirectoryNotFoundException(
-                $"Nenhum manifest.json canônico encontrado. CurrentDirectory={Directory.GetCurrentDirectory()}; BaseDirectory={AppContext.BaseDirectory}. Configure Sigov:Database:MigrationsPath para publicação/container."),
-            _ => throw new InvalidOperationException(
-                $"Múltiplos manifestos candidatos encontrados; seleção recusada. Configure Sigov:Database:MigrationsPath explicitamente. Paths={string.Join(" | ", candidates.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))}")
-        };
     }
+
+    private static bool CandidateHasManifest(string candidate)
+    {
+        if (!File.Exists(Path.Combine(candidate, "manifest.json")))
+        {
+            return false;
+        }
+
+        EnsureAllowedCandidate(candidate);
+        return true;
+    }
+
+    private static void EnsureAllowedCandidate(string candidate)
+    {
+        var parts = candidate.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        var forbidden = parts.FirstOrDefault(part =>
+            string.Equals(part, ".vs", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(part, "bin", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(part, "obj", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(part, "artifacts", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(part, "TestResults", StringComparison.OrdinalIgnoreCase));
+        if (forbidden is not null)
+        {
+            throw new DirectoryNotFoundException($"Candidato de migrations rejeitado por estar em diretório gerado/proibido '{forbidden}': {candidate}");
+        }
+    }
+
+    private static string NormalizeCandidate(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+    private static string NormalizeDirectory(string path, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Caminho obrigatório para resolver migrations.", parameterName);
+        }
+
+        return NormalizeCandidate(path);
+    }
+
+    private sealed record MigrationPathResolution(
+        string MigrationsPath,
+        string Origin,
+        string CurrentDirectory,
+        string? ContentRoot,
+        string BaseDirectory);
 
     private static bool IsDevelopment() =>
         string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
