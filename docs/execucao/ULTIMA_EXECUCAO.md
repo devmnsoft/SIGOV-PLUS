@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02E (ledger seguro no aplicador operacional). Estado: PARCIAL / BLOCKED.
+
+- Branch observada: `work`; HEAD inicial `cd0f4c4e43ed0cdcbf4e57fd6ff6b3bc2039c471`; árvore inicialmente limpa; sem remoto e sem upstream configurados.
+- Comportamento preservado: manifesto com 176 entradas/172 automáticas e probes determinísticos das três pós-condições; `MigrationRunner` .NET já recusava versão/checksum desconhecido.
+- Lacuna confirmada: `apply-migrations-manifest.ps1` silenciava falha de leitura do ledger, não recusava versão desconhecida, recusava checksums históricos declarados e exigia `psql` até em `-ValidateOnly`. Também reaplicava compatibilidades finais quando nenhuma migration fora aplicada.
+- Implementação: o aplicador agora distingue banco limpo de falha de consulta, valida toda versão do ledger contra o manifesto, aceita apenas checksum atual ou `knownChecksums` com pós-condição forte, revalida entradas históricas presentes, não executa `compatibilityAfterAll` numa segunda passagem sem pendências e permite validação estática sem cliente PostgreSQL.
+- Critério/evidência: JSON, shell e `git diff --check` passaram; contratos de regressão foram ampliados na classe existente. **BLOCKED:** parser PowerShell, build/testes .NET e runtime PostgreSQL 16 não executados porque `pwsh`, `dotnet` e `psql` não existem no ambiente.
+- Dependências e próximo item: executar `pwsh -NoProfile -File scripts/apply-migrations-manifest.ps1 -ValidateOnly`; depois testar banco vazio, segunda passagem, ledger com versão desconhecida, checksum histórico conhecido/desconhecido e upgrade legado autorizado em PostgreSQL 16. Gate B continua bloqueado.
+
+---
+
 Data: 2026-09-10. RC51.02D (validação determinística das pós-condições). Estado: PARCIAL / BLOCKED.
 
 - Branch observada: `work`; HEAD inicial `86a8cfcb3803221735426bf937924606c1c201ba`; working tree inicialmente limpa; branch sem upstream e checkout sem remoto configurado, portanto a comparação atualizada com `origin/main` ficou BLOCKED sem alterar o trabalho local.

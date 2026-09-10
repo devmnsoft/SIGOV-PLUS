@@ -12,6 +12,7 @@ P0 (migrations, build, Swagger, login e isolamento) → P1 (SaaS) → P2 (Indús
 - Preservar tenant_id, entidade_id, exercicio_id, usuário e escopo quando aplicáveis. Backend é a autoridade. Queries parametrizadas; nunca concatenar entrada em SQL nem retornar dados de outro tenant.
 - Operações compostas usam transação única. Concorrência, idempotência e auditoria são parte do fluxo.
 - Migrations publicadas são imutáveis; correções forward-only, idempotentes, compatíveis com vazio e legado. Não renumerar versões aplicadas, editar histórico/checksum de schema_migrations ou adicionar órfãs automaticamente.
+- Todos os aplicadores recusam versão/checksum desconhecido no ledger. `knownChecksums` exige pós-condição específica e validação do estado final; compatibilidade pós-migrations só executa quando esta passagem realmente aplicou migration.
 - Sincronizar manifest, baseline, runner, apply_all_required_migrations e todos os scripts completos. Compatibilidade exige justificativa e pós-condições específicas.
 - Novas PKs bigint identity; preservar UUID legado. Exclusões administrativas usam soft delete, motivo e auditoria; nunca apagar fisicamente registros financeiros, fiscais, contratuais, produtivos, de segurança ou auditoria.
 - Banco governa perfis, permissões, parâmetros, catálogo comercial e contratos. Não duplicar serviços/interfaces/modelos canônicos.
@@ -30,4 +31,3 @@ FUNCIONAL exige conjuntamente: schema/migration, contratos tipados, Dapper, regr
 ## Continuidade
 
 Ao encerrar um fluxo, atualizar STATUS_REAL_MODULOS, BACKLOG_EXECUTAVEL e ULTIMA_EXECUCAO com evidências e próximo item exato. Não iniciar GED enquanto fases anteriores estiverem pendentes sem decisão formal. Não declarar todo o programa concluído ao entregar uma fase.
-
