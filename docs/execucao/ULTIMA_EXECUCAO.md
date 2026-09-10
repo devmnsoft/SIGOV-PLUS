@@ -1,5 +1,21 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02A. Estado: PARCIAL / BLOCKED. Gate A estático reparado; Gate A runtime, Gate B e Gate C não aprovados.
+
+- Branch: `codex/rc51-02a-foundation-saas-industria-core`, criada de `origin/main` `8b6e867b2e76638d5d809ca6a3462b1d7d60756c`.
+- `origin/main` avançou após a auditoria `ec799b75`: merge do PR #381 e do PR #382 (RC51.02), depois `d45dc8e ajuste`, `377b178 sasa` e `8b6e867 aDASDAs`.
+- Causa raiz da regressão: esses três commits recolocaram 14 arquivos de `obj` no índice Git e a senha literal no `src/Sigov.Worker/appsettings.json`.
+- Correção Gate A (estática): `git rm --cached` dos 14 artefatos (arquivos físicos preservados); `.gitignore` e o gate passam a recusar `*.cache.json`; Worker versionado sem connection string.
+- Preservado sem commit: alterações locais de `obj` geradas pelo build.
+- Inventário: 185 SQLs, 175 entradas, 171 automáticas, 4 excluídas de apply, 170 baseline, 10 órfãs classificadas. `20260902010000`, `20260903130000` e `20260909120000` permanecem declaradas.
+- Testes: UnitTests 389 (1 s), IntegrationTests 123 (5 s), ApiTests 102 (9 s). Restore/build Release `-warnaserror` PASS. `check-tracked-artifacts` PASS; `validate-rc50-80.py` PASS; rotas API 630 sem conflito direto; `git diff --check` PASS.
+- `BLOCKED: Gate A runtime — PostgreSQL 16 vazio/reaplicação/legado/equivalência, Swagger HTTP 200 e login/isolamento não executados. psql ausente, Docker daemon desktop-linux indisponível, ConnectionStrings__DefaultConnection/PG* ausentes. PostgreSQL 18 local existe somente como diagnóstico e não substitui o gate 16.`
+- `BLOCKED: Gate B não avançado — o contrato exige Gate A runtime verde. Catálogo Commercial hardcoded e telas SaaS Admin ainda incompletas em relação ao aceite B2 permanecem pendentes.`
+- `BLOCKED: Gate C não iniciado — jornada de Ordem de Produção condicionada a A e B verdes. Telas industriais continuam genéricas (`ModulePage`) e o dashboard ainda usa timer de sucesso.`
+- Próximo item exato: disponibilizar PostgreSQL 16 descartável, concluir vazio/reaplicação/legado/equivalência, Swagger 200 e login/dois tenants. Só então fechar Gate B (SaaS Admin completo) e Gate C (OP industrial). GED permanece por último.
+
+---
+
 Data: 2026-09-10. RC51.02. Estado: PARCIAL / BLOCKED; P0 estático e entitlement/SaaS Admin implementados no código; PostgreSQL 16 vazio/reaplicação/legado, Swagger HTTP 200 e login ponta a ponta permanecem BLOCKED neste host.
 
 - Branch: `codex/rc51-02-p0-runtime-entitlement-canonico`, baseada em `origin/main` `ec799b75a6a1b3156566afc8a21216748f82df24` (HEAD inicial da sprint anterior `0675787277addc39df526515d431900f27e4248a` reaproveitada como fundação).

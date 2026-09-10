@@ -26,6 +26,7 @@ coverage/
 *.userprefs
 *.DotSettings.user
 *.cache
+*.cache.json
 *.vsidx
 *.db-shm
 *.db-wal
