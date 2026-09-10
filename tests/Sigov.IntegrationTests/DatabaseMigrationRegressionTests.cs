@@ -109,6 +109,45 @@ public sealed class DatabaseMigrationRegressionTests
         runner.Should().Contain("pendentes=0; checksum=0; falhas=0");
     }
 
+    [Fact]
+    public void PosCondicoes_Corrigidas_Devem_Distinguir_Contratos_E_Configuracao_Comercial()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(MigrationsPath, "manifest.json")));
+        var entries = document.RootElement.GetProperty("migrations").EnumerateArray().ToArray();
+
+        var compras = entries.Single(entry => entry.GetProperty("version").GetString() == "20260802210000");
+        var comprasProbes = compras.GetProperty("postConditionProbes").ToString();
+        compras.GetProperty("postConditionSql").GetString().Should().Contain("compras_empresarial_fatura").And.NotContain("compras_fatura') is not null and");
+        comprasProbes.Should().Contain("coexistem").And.Contain("atttypid='uuid'::regtype").And.Contain("compras_empresarial_pedido");
+
+        var saude = entries.Single(entry => entry.GetProperty("version").GetString() == "20260819120000");
+        saude.GetProperty("postConditionProbes").ToString().Should().Contain("permissão canônica ativa ausente")
+            .And.Contain("atribuição sem tenant_id bigint");
+
+        var saas = entries.Single(entry => entry.GetProperty("version").GetString() == "20260908120000");
+        var saasProbes = saas.GetProperty("postConditionProbes").EnumerateArray().ToArray();
+        saasProbes.Should().HaveCount(9);
+        saasProbes.Select(probe => probe.GetProperty("name").GetString()).Should().Contain(new[]
+        {
+            "tabela de histórico", "trigger de auditoria correto e habilitado", "trigger de compatibilidade correto e habilitado",
+            "cadastro industria_producao", "nome administrável", "disponibilidade de contratação administrável"
+        });
+        saas.GetProperty("postConditionSql").GetString().Should().NotContain("nome='Indústria 360'").And.NotContain("disponivel_contratacao)");
+    }
+
+    [Fact]
+    public void Correcao_Deve_Ser_ForwardOnly_Idempotente_E_Preservar_Suspensao_Comercial()
+    {
+        var sql = File.ReadAllText(Path.Combine(MigrationsPath, "20260910120000_corr_postconditions_rc37b_rc5060_saas.sql"));
+        sql.Should().Contain("where not exists (select 1 from sigov.permissao where chave='saude.visita.registrar')");
+        sql.Should().Contain("alter column tenant_id drop not null");
+        sql.Should().Contain("drop trigger if exists trg_tenant_modulo_contrato_auditar");
+        sql.Should().Contain("drop trigger if exists trg_tenant_modulo_compatibilizar");
+        sql.Should().NotContain("update sigov.modulo_saas set");
+        sql.Should().NotContain("disponivel_contratacao=true");
+        sql.Should().NotContain("create table if not exists sigov.compras_fatura");
+    }
+
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));
 
     private static string ReadBaselineMigrations()

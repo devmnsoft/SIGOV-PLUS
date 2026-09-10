@@ -595,11 +595,25 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331",
-      "postConditionSql": "select to_regclass('sigov.compras_fornecedor') is not null and to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_idempotencia') is not null",
+      "postConditionSql": "select to_regclass('sigov.compras_empresarial_fatura') is not null",
       "compatibilityBefore": [
         {
           "file": "020_pre_rc37b_compras_compatibility.sql",
           "checksum": "409b83dfb5bf3f91bdd718fe55cc50dd0f6140e318b7fc0e15d26721d246eb4a"
+        }
+      ],
+      "postConditionProbes": [
+        {
+          "name": "contrato empresarial foi renomeado sem coexistência",
+          "sql": "select case when to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_empresarial_fatura') is not null then 'contratos antigo e empresarial coexistem; consolidação automática bloqueada' when to_regclass('sigov.compras_empresarial_fatura') is null then 'compras_empresarial_fatura ausente após bootstrap 070' end"
+        },
+        {
+          "name": "fatura empresarial UUID e tenant UUID",
+          "sql": "select case when not exists(select 1 from pg_attribute where attrelid=to_regclass('sigov.compras_empresarial_fatura') and attname='id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) or not exists(select 1 from pg_attribute where attrelid=to_regclass('sigov.compras_empresarial_fatura') and attname='tenant_id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) then 'id/tenant_id devem ser UUID NOT NULL no contrato empresarial' end"
+        },
+        {
+          "name": "fatura empresarial preserva FKs UUID",
+          "sql": "select case when not exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.compras_empresarial_fatura') and confrelid=to_regclass('sigov.compras_empresarial_pedido') and contype='f') or not exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.compras_empresarial_fatura') and confrelid=to_regclass('sigov.compras_empresarial_fornecedor') and contype='f') then 'FKs para pedido/fornecedor empresariais ausentes' end"
         }
       ]
     },
@@ -1126,7 +1140,7 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "5c4a26e582e967309c817bebecf3c089d69059d1a219c38a30aee8f56e94e41d",
-      "postConditionSql": "select exists (select 1 from sigov.permissao where chave='saude.visita.registrar') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id' and is_nullable='YES')",
+      "postConditionSql": "select exists(select 1 from sigov.permissao where chave='saude.visita.registrar') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id' and data_type='bigint' and is_nullable='YES')",
       "compatibilityBefore": [
         {
           "file": "082_pre_rc50_60_perfil_global_compatibility.sql",
@@ -1135,6 +1149,16 @@
       ],
       "knownChecksums": [
         "93ebd9829bd04880848564cae1895d3429dae3967b65092f895bc7a93a5a035c"
+      ],
+      "postConditionProbes": [
+        {
+          "name": "permissão saude.visita.registrar",
+          "sql": "select case when not exists(select 1 from sigov.permissao where chave='saude.visita.registrar' and modulo='saude' and ativo and not is_deleted) then 'permissão canônica ativa ausente' end"
+        },
+        {
+          "name": "templates globais e atribuições contextualizadas",
+          "sql": "select case when not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id' and data_type='bigint' and is_nullable='YES') then 'perfil_acesso.tenant_id deve ser bigint anulável' when exists(select 1 from (values ('perfil_permissao'),('grupo_perfil'),('usuario_grupo')) v(t) where not exists(select 1 from information_schema.columns c where c.table_schema='sigov' and c.table_name=v.t and c.column_name='tenant_id' and c.data_type='bigint')) then 'atribuição sem tenant_id bigint para isolamento contextual' end"
+        }
       ]
     },
     {
@@ -2204,7 +2228,45 @@
       "checksum": "c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7",
       "applyAutomatically": true,
       "includeInBaseline": true,
-      "postConditionSql": "select to_regclass('sigov.tenant_modulo_contratado_historico') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='modulo_saas' and column_name='preco_mensal' and udt_name='numeric') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='tenant_modulo_contratado' and column_name='valor_contratado' and udt_name='numeric') and exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.tenant_modulo_contratado') and conname='ck_tenant_modulo_contratado_status_v2' and contype='c') and exists(select 1 from pg_trigger where tgrelid=to_regclass('sigov.tenant_modulo_contratado') and tgname='trg_tenant_modulo_contrato_auditar' and not tgisinternal) and exists(select 1 from pg_trigger where tgrelid=to_regclass('sigov.tenant_modulo_contratado') and tgname='trg_tenant_modulo_compatibilizar' and not tgisinternal) and exists(select 1 from sigov.modulo_saas where codigo='industria_producao' and nome='Indústria 360' and disponivel_contratacao)"
+      "postConditionSql": "select to_regclass('sigov.tenant_modulo_contratado_historico') is not null",
+      "postConditionProbes": [
+        {
+          "name": "tabela de histórico",
+          "sql": "select case when to_regclass('sigov.tenant_modulo_contratado_historico') is null then 'ausente' end"
+        },
+        {
+          "name": "preco_mensal numeric",
+          "sql": "select case when not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='modulo_saas' and column_name='preco_mensal' and udt_name='numeric') then 'ausente ou tipo incorreto' end"
+        },
+        {
+          "name": "valor_contratado numeric",
+          "sql": "select case when not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='tenant_modulo_contratado' and column_name='valor_contratado' and udt_name='numeric') then 'ausente ou tipo incorreto' end"
+        },
+        {
+          "name": "constraint status_v2 definida",
+          "sql": "select case when not exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.tenant_modulo_contratado') and conname='ck_tenant_modulo_contratado_status_v2' and contype='c' and pg_get_constraintdef(oid) like '%SUSPENSO%' and pg_get_constraintdef(oid) like '%CANCELADO%') then 'ausente ou definição incorreta' end"
+        },
+        {
+          "name": "trigger de auditoria correto e habilitado",
+          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_contrato_auditar' and not t.tgisinternal and t.tgenabled<>'D' and (t.tgtype & 1)=1 and (t.tgtype & 4)=4 and (t.tgtype & 16)=16 and n.nspname='sigov' and p.proname='fn_tenant_modulo_contrato_auditar' and pg_get_functiondef(p.oid) like '%tenant_modulo_contratado_historico%') then 'ausente, desabilitado, eventos ou função incorretos' end"
+        },
+        {
+          "name": "trigger de compatibilidade correto e habilitado",
+          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled<>'D' and (t.tgtype & 1)=1 and (t.tgtype & 4)=4 and (t.tgtype & 16)=16 and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and pg_get_functiondef(p.oid) like '%tenant_modulo%') then 'ausente, desabilitado, eventos ou função incorretos' end"
+        },
+        {
+          "name": "cadastro industria_producao",
+          "sql": "select case when not exists(select 1 from sigov.modulo_saas where codigo='industria_producao') then 'cadastro ausente' end"
+        },
+        {
+          "name": "nome administrável",
+          "sql": "select case when not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='modulo_saas' and column_name='nome' and is_nullable='NO') then 'coluna nome administrável ausente ou anulável' end"
+        },
+        {
+          "name": "disponibilidade de contratação administrável",
+          "sql": "select case when not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='modulo_saas' and column_name='disponivel_contratacao' and udt_name='bool' and is_nullable='NO') then 'coluna de disponibilidade ausente ou tipo/nulabilidade incorreto' end"
+        }
+      ]
     },
     {
       "version": "20260909120000",
@@ -2218,6 +2280,21 @@
         "20260901030000"
       ],
       "postConditionSql": "select to_regclass('sigov.identidade_sessao') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='identidade_sessao' and column_name='auth_version' and udt_name='int8') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='identidade_sessao' and column_name='revogada_at' and udt_name='timestamptz') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='identidade_sessao' and column_name='is_deleted' and udt_name='bool') and exists(select 1 from pg_index where indexrelid=to_regclass('sigov.ix_identidade_sessao_token_hash_ativa') and indisvalid)"
+    },
+    {
+      "version": "20260910120000",
+      "description": "Correção forward-only das pós-condições RC37B, RC50.60 e SaaS",
+      "category": "correction",
+      "file": "20260910120000_corr_postconditions_rc37b_rc5060_saas.sql",
+      "checksum": "f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260802210000",
+        "20260819120000",
+        "20260908120000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.permissao where chave='saude.visita.registrar') and to_regclass('sigov.tenant_modulo_contratado_historico') is not null"
     }
   ],
   "compatibilityAfterAll": [
