@@ -84,6 +84,7 @@ select exists (
         ('20260709120000', array['db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784']::text[]),
         ('20260713120000', array['50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7']::text[]),
         ('20260721120000', array['3a6e2e05531dd3d6a725a2a31c86592d6ce1c8ad5f06142ce0d9bec4e55b387f','5a35264947577114e11300bbc664a5753fb1e66622af1d5507340f5168b3cc06','ac05a6a00abac143e77fc6e4fdb715e61ae446073ed1018c3aca61cd64b0d86d','0cb296d5d5d0c035eff4030678d19e801430a0e370a5a2803ce014d17cf22c9e']::text[]),
+        ('20260722120000', array['5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7']::text[]),
         ('20260727120000', array['177f36a01775fbc78039e1f77555def37ed0e15442946530bd55f5bd9539c62d','ed5ed4c70113601f5b00844ff5df342b1d80b684e422659da87bf553ecc3d662']::text[]),
         ('20260727160000', array['bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8']::text[]),
         ('20260730090000', array['cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c']::text[]),
@@ -9619,6 +9620,34 @@ select pg_temp.create_index_when_columns_exist('sigov', 'kanban_card', 'ix_kanba
 select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_outbox_evento_status', array['status', 'next_attempt_at'], 'status, next_attempt_at');
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260721120000', 'pos_rc_17_runtime_nucleo_operacional', '3a6e2e05531dd3d6a725a2a31c86592d6ce1c8ad5f06142ce0d9bec4e55b387f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260722120000_enterprise_tenant_mapping.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7
+-- ==================================================
+create table if not exists sigov.enterprise_tenant_mapping (
+    id bigserial primary key,
+    core_tenant_id bigint not null,
+    enterprise_tenant_id uuid not null,
+    ativo boolean not null default true,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz null,
+    constraint uq_enterprise_tenant_mapping_core unique (core_tenant_id),
+    constraint uq_enterprise_tenant_mapping_enterprise unique (enterprise_tenant_id),
+    constraint ck_enterprise_tenant_mapping_not_empty check (enterprise_tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)
+);
+
+create index if not exists idx_enterprise_tenant_mapping_core_tenant_id on sigov.enterprise_tenant_mapping (core_tenant_id);
+create index if not exists idx_enterprise_tenant_mapping_enterprise_tenant_id on sigov.enterprise_tenant_mapping (enterprise_tenant_id);
+create index if not exists idx_enterprise_tenant_mapping_ativo on sigov.enterprise_tenant_mapping (ativo);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260722120000', 'Enterprise tenant mapping', '5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30771,7 +30800,6 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
 \endif
 
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]
--- EXCLUDED_FROM_BASELINE: 20260722120000_enterprise_tenant_mapping.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260902000000_rc50_98_ged_workflow_branding_logo.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260902010000_corr_compras_checksum_schema.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260903130000_corr_licitapro_postconditions_schema.sql [corrective]

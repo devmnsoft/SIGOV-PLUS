@@ -6,7 +6,7 @@ namespace Sigov.Web.TagHelpers;
 [HtmlTargetElement("sigov-icon")]
 public sealed class SigovIconTagHelper(IIconRegistry registry) : TagHelper
 {
-    private static readonly HashSet<int> Sizes = [16, 18, 20, 24, 32];
+    private static readonly HashSet<int> Sizes = [16, 18, 20, 22, 24, 32, 34];
     [HtmlAttributeName("name")] public required string Name { get; set; }
     [HtmlAttributeName("size")] public int Size { get; set; } = 20;
     [HtmlAttributeName("title")] public string? Title { get; set; }
@@ -14,7 +14,9 @@ public sealed class SigovIconTagHelper(IIconRegistry registry) : TagHelper
 
     public override void Process(TagHelperContext context, TagHelperOutput output)
     {
-        if (!registry.TryGet(Name, out var icon)) throw new InvalidOperationException($"Ícone SIGOV não registrado: {Name}");
+        // Unknown menu/module icons must not crash authenticated shells (login → MinhaCentral).
+        if (!registry.TryGet(Name, out var icon) && !registry.TryGet("help", out icon))
+            throw new InvalidOperationException($"Ícone SIGOV não registrado: {Name}");
         if (!Sizes.Contains(Size)) throw new InvalidOperationException($"Tamanho de ícone não canônico: {Size}");
         output.TagName = "svg";
         var suppliedClass = output.Attributes["class"]?.Value?.ToString();
@@ -22,6 +24,7 @@ public sealed class SigovIconTagHelper(IIconRegistry registry) : TagHelper
         output.Attributes.SetAttribute("width", Size);
         output.Attributes.SetAttribute("height", Size);
         output.Attributes.SetAttribute("focusable", "false");
+        output.Attributes.SetAttribute("data-icon", Name);
         if (Decorative) output.Attributes.SetAttribute("aria-hidden", "true");
         else { output.Attributes.SetAttribute("role", "img"); output.Attributes.SetAttribute("aria-label", Title ?? Name); }
         output.Content.SetHtmlContent($"<use href=\"#{icon.SymbolId}\"></use>");

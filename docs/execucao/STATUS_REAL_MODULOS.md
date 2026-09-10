@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-10; origin/main `8b6e867b2e76638d5d809ca6a3462b1d7d60756c` (pós PR #382 e commits `ajuste`/`sasa`/`aDASDAs`).
+Corte: 2026-09-10; origin/main `dc7c1ac23f0c4ee95d7362e149157f2bec8284dc` (pós PR #384).
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -26,5 +26,5 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
 | GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
 
-Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02A reparou a regressão de artefatos/segredo no main; Gate A runtime, Gate B e Gate C permanecem BLOCKED. Indústria Core segue PARCIAL (telas genéricas e timer de sucesso).
+Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02C evidenciou apply/reapply/Swagger e autenticação HTTP (login/MinhaCentral/logout, CPF/CNPJ) em PG16 via Podman; equivalência one-shot e isolamento de dois tenants seguem BLOCKED. Indústria Core permanece PARCIAL (telas genéricas). GED continua por último.
 

@@ -1,5 +1,21 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02C. Estado: PARCIAL / BLOCKED. Gate 1 avançou com evidência runtime em PostgreSQL 16.15 via Podman/WSL; Gates 2–5 não iniciados.
+
+- Branch: `codex/rc51-02c-foundation-saas-industria-evolucao` a partir de `origin/main` `dc7c1ac23f0c4ee95d7362e149157f2bec8284dc`.
+- Reconfirmação vs auditoria `ec799b75`: artefatos rastreados = 0; senhas literais em appsettings versionados = 0; `MigrationsPath` lazy; inventário 185 SQL / 175 manifesto / 171 auto / 171 baseline / 4 excluídas.
+- Runtime Gate A: `postgres:16-alpine` via **Podman** no Ubuntu WSL (`sigov-pg16-gatea`, `127.0.0.1:5433`, user/db `sigov`/`sigov_gate_a_empty`). Docker Desktop permaneceu instável (`WSL_E_USER_VHD_ALREADY_ATTACHED` / engine down).
+- **PASS Gate 1:** apply vazio = 171; reaplicação idempotente (“Já aplicada”) = PASS; Swagger `GET /swagger/v1/swagger.json` = HTTP 200 (3 445 457 bytes); hashes `admin`/`superadmin` via `check-local-login.ps1`.
+- **PASS Gate 1 (auth HTTP):** login `admin`, `admin@sigov.local`, `superadmin`, CPF `52998224725`, CNPJ `11222333000181` → 302 `/MinhaCentral`; `/MinhaCentral` = 200; logout POST antiforgery → 302 `/Auth/Login`; após logout `/MinhaCentral` → 302 login.
+- **Correções desta RC:** baseline `enterprise_tenant_mapping`; claims pontuais MatrizAcesso/Commercial → snapshot/serviço; ícones sidebar (`workflow` etc.) + tamanhos 22/34; `AtividadeRecenteViewModel` materializável pelo Dapper; TagHelper com fallback de ícone.
+- **BLOCKED Gate 1 (equivalência):** `script_completop.sql` one-shot (~3,1 MiB) ainda não reexecutado com segurança neste host após histórico de crash do engine. Pré-requisito: apply one-shot estável + `compare-schema-equivalence.ps1`.
+- **BLOCKED Gate 1 (dois tenants / legado):** apenas o tenant `SIGOV Local` (id 5) possui entidade/exercício/usuários operacionais; demais tenants do seed não permitem isolamento HTTP comprovado. Upgrade legado formal não executado.
+- Remanescentes de produto: dois `IModuleCatalogService`; Indústria com `ModulePage` genérico; nenhum módulo FUNCIONAL/HOMOLOGADO/PRODUÇÃO.
+- **Não iniciado:** Gate 2 SaaS Admin; Gate 3 OP industrial; Gate 4 Compras/Almoxarifado–Jurídico–Educação; Gate 5 backlog detalhado; GED permanece último.
+- Próximo item: fechar equivalência one-shot e isolamento de dois tenants em PG16; só então Gates 2+.
+
+---
+
 Data: 2026-09-10. RC51.02A (continuação). Estado: PARCIAL / BLOCKED. Gate A parcialmente evidenciado em runtime; Gate A não aprovado; Gate B e Gate C não iniciados.
 
 - Branch: `codex/rc51-02a-foundation-saas-industria-core` sobre `origin/main` `2646b374` (merge do PR #383).
