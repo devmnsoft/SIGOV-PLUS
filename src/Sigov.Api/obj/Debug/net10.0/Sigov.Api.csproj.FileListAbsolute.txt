@@ -67,3 +67,4 @@ C:\MNSOFT\SIGOV-PLUS\src\Sigov.Api\obj\Debug\net10.0\refint\Sigov.Api.dll
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Api\obj\Debug\net10.0\Sigov.Api.pdb
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Api\obj\Debug\net10.0\Sigov.Api.genruntimeconfig.cache
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Api\obj\Debug\net10.0\ref\Sigov.Api.dll
+C:\MNSOFT\SIGOV-PLUS\src\Sigov.Api\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt

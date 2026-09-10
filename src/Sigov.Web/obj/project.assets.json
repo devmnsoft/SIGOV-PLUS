@@ -647,8 +647,7 @@
         ]
       },
       "restoreLockProperties": {
-        "restorePackagesWithLockFile": "true",
-        "restoreLockedMode": true
+        "restorePackagesWithLockFile": "true"
       },
       "restoreAuditProperties": {
         "enableAudit": "true",

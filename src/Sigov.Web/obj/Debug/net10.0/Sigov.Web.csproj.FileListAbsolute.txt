@@ -332,3 +332,4 @@ C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\refint\Sigov.Web.dll
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\Sigov.Web.pdb
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\Sigov.Web.genruntimeconfig.cache
 C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\ref\Sigov.Web.dll
+C:\MNSOFT\SIGOV-PLUS\src\Sigov.Web\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt

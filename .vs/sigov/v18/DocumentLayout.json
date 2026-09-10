@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\MNSOFT\\SIGOV-PLUS\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{44444444-4444-4444-4444-444444444444}|src\\Sigov.Api\\Sigov.Api.csproj|c:\\mnsoft\\sigov-plus\\src\\sigov.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{44444444-4444-4444-4444-444444444444}|src\\Sigov.Api\\Sigov.Api.csproj|solutionrelative:src\\sigov.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\Sigov.Infrastructure\\Sigov.Infrastructure.csproj|c:\\mnsoft\\sigov-plus\\src\\sigov.infrastructure\\diagnostics\\sigovdevelopmentschemaguard.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{33333333-3333-3333-3333-333333333333}|src\\Sigov.Infrastructure\\Sigov.Infrastructure.csproj|solutionrelative:src\\sigov.infrastructure\\diagnostics\\sigovdevelopmentschemaguard.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -21,10 +25,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{66666666-6666-6666-6666-666666666666}|src\\Sigov.Worker\\Sigov.Worker.csproj|c:\\mnsoft\\sigov-plus\\src\\sigov.worker\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
       "RelativeMoniker": "D:0:0:{66666666-6666-6666-6666-666666666666}|src\\Sigov.Worker\\Sigov.Worker.csproj|solutionrelative:src\\sigov.worker\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{44444444-4444-4444-4444-444444444444}|src\\Sigov.Api\\Sigov.Api.csproj|c:\\mnsoft\\sigov-plus\\src\\sigov.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{44444444-4444-4444-4444-444444444444}|src\\Sigov.Api\\Sigov.Api.csproj|solutionrelative:src\\sigov.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     }
   ],
   "DocumentGroupContainers": [
@@ -34,15 +34,19 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 7,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
             },
             {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "SigovDevelopmentSchemaGuard.cs",
               "DocumentMoniker": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Infrastructure\\Diagnostics\\SigovDevelopmentSchemaGuard.cs",
               "RelativeDocumentMoniker": "src\\Sigov.Infrastructure\\Diagnostics\\SigovDevelopmentSchemaGuard.cs",
@@ -55,7 +59,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "MigrationRunner.cs",
               "DocumentMoniker": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Infrastructure\\Persistence\\Migrations\\MigrationRunner.cs",
               "RelativeDocumentMoniker": "src\\Sigov.Infrastructure\\Persistence\\Migrations\\MigrationRunner.cs",
@@ -67,7 +71,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Web\\Program.cs",
               "RelativeDocumentMoniker": "src\\Sigov.Web\\Program.cs",
@@ -79,7 +83,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Worker\\appsettings.json",
               "RelativeDocumentMoniker": "src\\Sigov.Worker\\appsettings.json",
@@ -91,7 +95,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "SafeConnectionStringDiagnostics.cs",
               "DocumentMoniker": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Infrastructure\\Diagnostics\\SafeConnectionStringDiagnostics.cs",
               "RelativeDocumentMoniker": "src\\Sigov.Infrastructure\\Diagnostics\\SafeConnectionStringDiagnostics.cs",
@@ -103,15 +107,16 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 0,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Api\\appsettings.json",
               "RelativeDocumentMoniker": "src\\Sigov.Api\\appsettings.json",
               "ToolTip": "C:\\MNSOFT\\SIGOV-PLUS\\src\\Sigov.Api\\appsettings.json",
               "RelativeToolTip": "src\\Sigov.Api\\appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAADjAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-09-02T15:51:37.498Z"
+              "WhenOpened": "2026-09-02T15:51:37.498Z",
+              "EditorCaption": ""
             }
           ]
         }
