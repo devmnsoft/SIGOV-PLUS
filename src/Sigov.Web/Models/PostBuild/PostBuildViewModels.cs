@@ -130,8 +130,14 @@ public sealed class HealthVisualViewModel
 
 public sealed class MinhaCentralViewModel
 {
+    public string Estado { get; init; } = "carregado";
     public string Perfil { get; init; } = "Operador";
     public string Tenant { get; init; } = "Contexto institucional não identificado";
+    public string Exercicio { get; init; } = "Não selecionado";
+    public long TotalPendencias { get; init; }
+    public long TotalVencidas { get; init; }
+    public long TotalAlertas { get; init; }
+    public DateTimeOffset AtualizadoEm { get; init; }
     public IReadOnlyCollection<AcaoRecomendadaViewModel> Acoes { get; init; } = Array.Empty<AcaoRecomendadaViewModel>();
     public IReadOnlyCollection<ModuloResumoViewModel> Modulos { get; init; } = Array.Empty<ModuloResumoViewModel>();
     public IReadOnlyCollection<PendenciaViewModel> Pendencias { get; init; } = Array.Empty<PendenciaViewModel>();
@@ -143,7 +149,7 @@ public sealed class MinhaCentralViewModel
 
 public sealed record AcaoRecomendadaViewModel(string Titulo, string Descricao, string Url, string CssClass);
 public sealed record ModuloResumoViewModel(string Codigo, string Nome, string Status);
-public sealed record PendenciaViewModel(string Titulo, string Descricao, string Url);
+public sealed record PendenciaViewModel(string Titulo, string Descricao, string Url, DateTimeOffset? Prazo);
 public sealed record AlertaLgpdViewModel(string Titulo, string Descricao);
 public sealed class AtividadeRecenteViewModel
 {
