@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-10. RC51.02F (diagnóstico independente da correção de fundação). Estado: PARCIAL / BLOCKED.
+
+- Preflight: branch `work`; HEAD inicial `01d7f64f893a86b3c3cacf50f907aabe09bb487d`; árvore limpa; sem remoto e sem upstream configurados. SDK normativo `10.0.100`; projetos Domain, Application, Infrastructure, Api, Web, Worker e quatro projetos de teste confirmados.
+- Matriz curta: Fundação — existente/PARCIAL: runner e aplicador com ledger/probes; lacuna: runtime PG16; serviço canônico: `MigrationRunner`; dependência: dotnet/pwsh/psql; aceite: vazio, upgrade e reaplicação. Visual/SaaS — existente/PARCIAL: componentes compartilhados, catálogo persistido e entitlements; lacuna: Gate A e runtime; serviços canônicos: avaliador/catálogo SaaS; dependência: Fundação; aceite: administração isolada por tenant. Indústria, Almoxarifado, Contratos, Frotas/Patrimônio, Educação/Saúde/Jurídico — existentes/PARCIAIS ou ESTRUTURA; lacuna: jornadas integrais e prova runtime; dependência: Gates A/B; aceite: invariantes específicos sem duplicar livros/autoridade. GED — PARCIAL e mantido por último.
+- Lacuna corrigida: a migration corretiva `20260910120000` tinha uma pós-condição booleana agregada, que não identificava isoladamente permissão ausente/inativa, tipo/nulabilidade de `perfil_acesso.tenant_id`, tabela histórica ou função/trigger SaaS divergente. O manifesto agora contém cinco probes nomeados, com diagnóstico esperado/obtido, e mantém a pós-condição final forte.
+- Preservado: migrations SQL publicadas e consolidados não foram alterados; não houve mudança de schema. O teste de regressão existente passou a exigir os cinco invariantes e a força da pós-condição final.
+- Validação estática: JSON e `git diff --check` passaram. **BLOCKED separadamente:** restore/build/test (.NET ausente), parser PowerShell (`pwsh` ausente), PostgreSQL 16 limpo/upgrade/reexecução (`psql` ausente), Swagger/login/MinhaCentral/logout/isolamento e screenshots reais (runtime e navegador ausentes).
+- Próximo item exato: executar `pwsh -NoProfile -File scripts/apply-migrations-manifest.ps1 -ValidateOnly`; depois aplicar em PostgreSQL 16 vazio, reaplicar e executar upgrade legado autorizado, exigindo todos os cinco probes aprovados e `pendentes=0; checksum=0; falhas=0`. Somente então liberar Gate B SaaS.
+
+---
+
 Data: 2026-09-10. RC51.02E (ledger seguro no aplicador operacional). Estado: PARCIAL / BLOCKED.
 
 - Branch observada: `work`; HEAD inicial `cd0f4c4e43ed0cdcbf4e57fd6ff6b3bc2039c471`; árvore inicialmente limpa; sem remoto e sem upstream configurados.
