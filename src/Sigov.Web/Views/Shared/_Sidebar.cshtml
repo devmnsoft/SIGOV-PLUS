@@ -2,8 +2,9 @@
 @inject Sigov.Application.Authorization.IRequestAuthorizationSnapshot AuthSnapshot
 @{
   var path = Context.Request.Path.Value ?? string.Empty;
-  Func<string, string> active = url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase) ? " active" : string.Empty;
-  Func<string[], string> opened = urls => urls.Any(url => path.StartsWith(url, StringComparison.OrdinalIgnoreCase)) ? "open" : string.Empty;
+  Func<string, bool> isRoute = url => path.Equals(url, StringComparison.OrdinalIgnoreCase) || path.StartsWith(url.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase);
+  Func<string, string> active = url => isRoute(url) ? " active" : string.Empty;
+  Func<string[], string> opened = urls => urls.Any(isRoute) ? "open" : string.Empty;
   var auth = AuthSnapshot.Current;
   Func<string, bool> hasPermission = permission => auth.HasPermission(permission);
   Func<string, bool> hasModule = module => auth.HasModule(module);
@@ -20,14 +21,14 @@
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
   <div class="sigov-sidebar__header">
-    <span class="sigov-sidebar__eyebrow">Workspace</span><strong>Menu SIGOV+</strong>
+    <span class="sigov-sidebar__eyebrow">Área de trabalho</span><strong>Menu SIGOV+</strong>
     <label class="visually-hidden" for="sigovMenuFilter">Filtrar menu</label>
     <div class="sigov-sidebar__filter"><sigov-icon name="search" size="16" /><input id="sigovMenuFilter" type="search" placeholder="Filtrar menu" data-sigov-menu-filter /></div>
   </div>
   <nav class="sigov-sidebar__nav" data-sigov-menu>
     <details class="sigov-nav-group" open><summary><sigov-icon name="home" size="16" />Início</summary>
-      <a class="sigov-nav-link@(active("/MinhaCentral"))" href="/MinhaCentral" data-favorite-key="Minha Central"><sigov-icon name="home" size="18"/><span>Minha Central</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Minha Central">★</button></a>
-      <a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard" data-favorite-key="Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Dashboard">★</button></a>
+      <span class="sigov-nav-favorite-row" data-favorite-key="Minha Central"><a class="sigov-nav-link@(active("/MinhaCentral"))" href="/MinhaCentral"><sigov-icon name="home" size="18"/><span>Minha Central</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Minha Central" aria-pressed="false">★</button></span>
+      <span class="sigov-nav-favorite-row" data-favorite-key="Dashboard"><a class="sigov-nav-link@(active("/Dashboard"))" href="/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Dashboard" aria-pressed="false">★</button></span>
       <a class="sigov-nav-link@(active("/Notificacoes"))" href="/Notificacoes"><sigov-icon name="notifications" size="18"/><span>Notificações</span></a>
       <a class="sigov-nav-link@(active("/GovernancaOperacional"))" href="/GovernancaOperacional"><sigov-icon name="dashboard" size="18"/><span>Governança Operacional</span></a>
       @if (canSeeGovernanca) {
@@ -212,8 +213,8 @@
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Juridico","/Protocolo","/Ged","/Workflow","/Assinaturas"})><summary><sigov-icon name="protocol" size="16" />Administração</summary>
       <a class="sigov-nav-link@(active("/Juridico"))" href="/Juridico/Dashboard"><sigov-icon name="documents" size="18"/><span>Jurídico / Procuradoria</span></a>
-      <a class="sigov-nav-link@(active("/Protocolo"))" href="/Protocolo" data-favorite-key="Protocolo"><sigov-icon name="protocol" size="18"/><span>Protocolo</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Protocolo">★</button></a>
-      <a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard" data-favorite-key="GED/OCR"><sigov-icon name="documents" size="18"/><span>GED/OCR</span><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar GED">★</button></a>
+      <span class="sigov-nav-favorite-row" data-favorite-key="Protocolo"><a class="sigov-nav-link@(active("/Protocolo"))" href="/Protocolo"><sigov-icon name="protocol" size="18"/><span>Protocolo</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Protocolo" aria-pressed="false">★</button></span>
+      <span class="sigov-nav-favorite-row" data-favorite-key="GED/OCR"><a class="sigov-nav-link@(active("/Ged"))" href="/Ged/Dashboard"><sigov-icon name="documents" size="18"/><span>GED/OCR</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar GED" aria-pressed="false">★</button></span>
       <a class="sigov-nav-link@(active("/Patrimonio"))" href="/Patrimonio"><sigov-icon name="services" size="18"/><span>Patrimônio</span></a>
       <a class="sigov-nav-link@(active("/Obras"))" href="/Obras"><sigov-icon name="services" size="18"/><span>Obras Públicas</span></a>
       <a class="sigov-nav-link@(active("/MeioAmbiente"))" href="/MeioAmbiente"><sigov-icon name="services" size="18"/><span>Meio Ambiente</span></a>

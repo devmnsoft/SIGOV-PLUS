@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Dapper;
+using Sigov.Application.Authorization;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Models.PostBuild;
 
@@ -11,42 +12,61 @@ public sealed class MinhaCentralService
     private readonly IDatabaseSchemaInspector _schemaInspector;
     private readonly PostBuildSaasService _saasService;
     private readonly ILogger<MinhaCentralService> _logger;
+    private readonly IRequestAuthorizationSnapshot _authorization;
 
-    public MinhaCentralService(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schemaInspector, PostBuildSaasService saasService, ILogger<MinhaCentralService> logger)
+    public MinhaCentralService(NpgsqlConnectionFactory connectionFactory, IDatabaseSchemaInspector schemaInspector, PostBuildSaasService saasService, ILogger<MinhaCentralService> logger, IRequestAuthorizationSnapshot authorization)
     {
         _connectionFactory = connectionFactory;
         _schemaInspector = schemaInspector;
         _saasService = saasService;
         _logger = logger;
+        _authorization = authorization;
     }
 
     public async Task<MinhaCentralViewModel> ObterResumoAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
     {
-        var tenantId = RequiredPositiveClaim(user, "tenant_id");
-        var userId = RequiredPositiveClaim(user, ClaimTypes.NameIdentifier, "sub", "usuario_id");
+        var authorization = await _authorization.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (!authorization.Authenticated || !authorization.TenantId.HasValue || authorization.UserId <= 0)
+        {
+            throw new UnauthorizedAccessException("É necessário selecionar um contexto institucional autorizado.");
+        }
+        var tenantId = authorization.TenantId.Value;
+        var userId = authorization.UserId;
         if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false))
         {
             throw new InvalidOperationException("A estrutura obrigatória sigov.tenant não está disponível.");
         }
 
         using var cn = _connectionFactory.CreateConnection();
-        var tenant = await cn.ExecuteScalarAsync<string?>(new CommandDefinition(
-            "select nome from sigov.tenant where id=@Id and ativo and not is_deleted",
-            new { Id = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(tenant))
+        var context = await cn.QuerySingleOrDefaultAsync<CentralContextRow>(new CommandDefinition(
+            @"select t.nome as Tenant, e.ano::text as Exercicio
+              from sigov.tenant t
+              left join sigov.exercicio e on e.id=@ExercicioId and e.entidade_id=@EntidadeId and not e.is_deleted
+              where t.id=@TenantId and t.ativo and not t.is_deleted",
+            new { TenantId = tenantId, authorization.EntidadeId, authorization.ExercicioId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (context is null || string.IsNullOrWhiteSpace(context.Tenant))
         {
             throw new UnauthorizedAccessException("O contexto institucional não está ativo ou não pertence à sessão.");
         }
 
+        if (authorization.ExercicioId.HasValue && string.IsNullOrWhiteSpace(context.Exercicio))
+        {
+            throw new UnauthorizedAccessException("O exercício selecionado não pertence ao contexto institucional ativo.");
+        }
+        var pendencias = await ObterResumoPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+        var totalAlertas = await ObterTotalAlertasAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return new MinhaCentralViewModel
         {
             Perfil = Perfil(user),
-            Tenant = tenant,
+            Tenant = context.Tenant,
+            Exercicio = context.Exercicio ?? "Não selecionado",
+            TotalPendencias = pendencias.Total,
+            TotalVencidas = pendencias.Vencidas,
+            TotalAlertas = totalAlertas,
+            AtualizadoEm = pendencias.AtualizadoEm,
             Acoes = await ObterAcoesRecomendadasAsync(user, cancellationToken).ConfigureAwait(false),
             Modulos = await ObterModulosUsuarioAsync(user, cancellationToken).ConfigureAwait(false),
-            Pendencias = await ObterPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false),
-            AlertasLgpd = await ObterAlertasLgpdAsync(user, cancellationToken).ConfigureAwait(false),
-            Atividades = await ObterUltimasAtividadesAsync(user, cancellationToken).ConfigureAwait(false),
+            Pendencias = pendencias.Itens,
             Ambiente = _saasService.CriarAmbiente(true)
         };
     }
@@ -65,10 +85,10 @@ public sealed class MinhaCentralService
     {
         var tenantId = RequiredPositiveClaim(user, "tenant_id");
         var userId = RequiredPositiveClaim(user, ClaimTypes.NameIdentifier, "sub", "usuario_id");
-        return await ObterPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+        return (await ObterResumoPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false)).Itens;
     }
 
-    private async Task<IReadOnlyList<PendenciaViewModel>> ObterPendenciasAsync(long tenantId, long userId, CancellationToken cancellationToken)
+    private async Task<PendenciasResumo> ObterResumoPendenciasAsync(long tenantId, long userId, CancellationToken cancellationToken)
     {
         if (!await _schemaInspector.TableExistsAsync("sigov", "pendencia_operacional", cancellationToken).ConfigureAwait(false))
         {
@@ -76,8 +96,22 @@ public sealed class MinhaCentralService
         }
 
         using var cn = _connectionFactory.CreateConnection();
-        const string sql = "select titulo as Titulo, coalesce(descricao,'') as Descricao, rota_acao as Url from sigov.pendencia_operacional where tenant_id=@TenantId and responsavel_usuario_id=@UserId and status in ('ABERTA','EM_TRATAMENTO') order by prazo nulls last, created_at desc limit 8";
-        return (await cn.QueryAsync<PendenciaViewModel>(new CommandDefinition(sql, new { TenantId = tenantId, UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        const string sql = @"select count(*) as Total,
+                                    count(*) filter (where prazo < now()) as Vencidas,
+                                    now() as AtualizadoEm
+                             from sigov.pendencia_operacional
+                             where tenant_id=@TenantId and responsavel_usuario_id=@UserId
+                               and status in ('ABERTA','EM_TRATAMENTO');
+                             select titulo as Titulo, coalesce(descricao,'') as Descricao,
+                                    rota_acao as Url, prazo as Prazo
+                             from sigov.pendencia_operacional
+                             where tenant_id=@TenantId and responsavel_usuario_id=@UserId
+                               and status in ('ABERTA','EM_TRATAMENTO')
+                             order by prazo nulls last, created_at desc limit 8;";
+        using var results = await cn.QueryMultipleAsync(new CommandDefinition(sql, new { TenantId = tenantId, UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var totals = await results.ReadSingleAsync<PendenciasTotals>().ConfigureAwait(false);
+        var items = (await results.ReadAsync<PendenciaViewModel>().ConfigureAwait(false)).ToArray();
+        return new PendenciasResumo(totals.Total, totals.Vencidas, totals.AtualizadoEm, items);
     }
     public async Task<IReadOnlyList<AlertaLgpdViewModel>> ObterAlertasLgpdAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
     {
@@ -86,6 +120,17 @@ public sealed class MinhaCentralService
         using var cn = _connectionFactory.CreateConnection();
         const string sql = "select titulo as Titulo, coalesce(descricao,'') as Descricao from sigov.alerta_operacional where tenant_id=@TenantId and status in ('ATIVO','ABERTO') and tipo in ('LGPD','SEGURANCA','TECNICO','RISCO') order by created_at desc limit 8";
         return (await cn.QueryAsync<AlertaLgpdViewModel>(new CommandDefinition(sql, new { TenantId = tenantId.Value }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+    }
+
+    private async Task<long> ObterTotalAlertasAsync(long tenantId, CancellationToken cancellationToken)
+    {
+        if (!await _schemaInspector.TableExistsAsync("sigov", "alerta_operacional", cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("A estrutura obrigatória sigov.alerta_operacional não está disponível.");
+        }
+        using var cn = _connectionFactory.CreateConnection();
+        const string sql = "select count(*) from sigov.alerta_operacional where tenant_id=@TenantId and status='ATIVO' and tipo in ('LGPD','SEGURANCA','TECNICO','RISCO')";
+        return await cn.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<AtividadeRecenteViewModel>> ObterUltimasAtividadesAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
@@ -125,4 +170,7 @@ public sealed class MinhaCentralService
         return new[] { A("Meu acesso", "Consulte os módulos e ações liberados para seu perfil.", "/Modulos/MeuAcesso") };
     }
     private static AcaoRecomendadaViewModel A(string title, string description, string url) => new(title, description, url, "info");
+    private sealed record CentralContextRow(string Tenant, string? Exercicio);
+    private sealed record PendenciasTotals(long Total, long Vencidas, DateTimeOffset AtualizadoEm);
+    private sealed record PendenciasResumo(long Total, long Vencidas, DateTimeOffset AtualizadoEm, IReadOnlyList<PendenciaViewModel> Itens);
 }

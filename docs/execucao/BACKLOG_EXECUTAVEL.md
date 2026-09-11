@@ -8,7 +8,7 @@ Estados: APROVADO (escopo autorizado), EM_EXECUCAO, VALIDADO (com evidência), B
 | 2 | P0.1-B convergência em PostgreSQL 16 vazio/legado | EM_EXECUCAO | Aplicador PowerShell executa probes, recusa histórico desconhecido, aceita somente `knownChecksums` protegidos e não repete compatibilidade sem migration aplicada; vazio+reapply+one-shot+equivalência têm evidência anterior, upgrade legado e reconfirmação desta alteração ainda BLOCKED |
 | 3 | P0.2 build Release locked e suites realmente executadas | VALIDADO | build `-warnaserror` + testes 389/123/102 PASS em 2026-09-10 |
 | 4 | P0.3 ApiExplorer/Swagger/OpenAPI/rotas | VALIDADO | Swagger HTTP 200 (3 445 457 bytes); 630 rotas sem conflito direto |
-| 5 | P0.4 login, sessões, cache, revogação e dois tenants | EM_EXECUCAO | Login/CPF/CNPJ/MinhaCentral/logout + 2 tenants hero PASS; revogação/suspenso/legado pendentes |
+| 5 | P0.4 login, sessões, cache, revogação e dois tenants | EM_EXECUCAO | Minha Central e navegação contextual corrigidas estaticamente na RC51.02H; repetir login/CPF/CNPJ/logout + 2 tenants e provar revogação/suspensão/legado em PostgreSQL 16 |
 | 6 | P1.1–P1.6 catálogo, entitlements, preços, administrações e menu | AGUARDA_GATE | Gate B bloqueado até Gate A completo; dual `IModuleCatalogService` permanece |
 | 7 | P2.1–P2.8 Indústria OP vertical | AGUARDA_GATE | Gate C após A+B; telas ainda genéricas (`ModulePage`) |
 | 7a | Fatias Compras/Almoxarifado, Jurídico, Educação | AGUARDA_GATE | Gate D após A+B+C |

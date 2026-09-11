@@ -1,5 +1,14 @@
 # Última execução
 
+Data: 2026-09-11. RC51.02H (central e navegação contextual). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: raiz `/workspace/SIGOV-PLUS`; branch `work`; HEAD inicial `ac06642902bab7b52373cbe4473432a349cf8967`; árvore limpa; sem remoto/upstream.
+- Corrigidos totais/vencimentos reais, exercício selecionado, estados 403/503/vazio e removido o indicador GED sem fonte operacional.
+- Favoritos e recentes foram isolados por identidade/contexto, com URL interna, descarte legado, revalidação de visibilidade e `textContent`.
+- Paleta não simula disponibilidade com catálogo local; navegação ativa compara segmentos e aplica `aria-current`.
+- `node --check` dos três scripts e `git diff --check`: PASS. Gates .NET/PostgreSQL, runtime e screenshots: BLOCKED por ausência das ferramentas.
+- Evidência e matriz: `docs/entregas/RC51-02H-CENTRAL-NAVEGACAO.md`.
+
 Data: 2026-09-11. RC51.02G (central de trabalho fail-closed). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: branch `work`; HEAD inicial `d74a9d238156214f1f2301e562bd437565cc733a`; árvore limpa; checkout sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `pwsh`, `psql`, PostgreSQL 16 e navegador não estão disponíveis neste ambiente.

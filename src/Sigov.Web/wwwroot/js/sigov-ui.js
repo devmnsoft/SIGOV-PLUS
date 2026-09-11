@@ -190,21 +190,91 @@
   });
 })();
 
-(function(){
+(function () {
   'use strict';
-  const store={get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{ return d; }},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{ /* Persistência local indisponível; a interface continua funcional. */ }}};
-  const sidebar=document.getElementById('sigovSidebar');
-  if(sidebar){
-    if(store.get('sigov.sidebar.compact',false)) sidebar.classList.add('is-compact');
-    document.querySelectorAll('[data-sigov-sidebar-toggle]').forEach(b=>b.addEventListener('click',()=>{document.body.classList.add('sigov-sidebar-open');b.setAttribute('aria-expanded','true')}));
-    document.querySelectorAll('[data-sigov-sidebar-close]').forEach(b=>b.addEventListener('click',()=>document.body.classList.remove('sigov-sidebar-open')));
-    document.querySelectorAll('[data-sigov-sidebar-compact]').forEach(b=>b.addEventListener('click',()=>{sidebar.classList.toggle('is-compact');store.set('sigov.sidebar.compact',sidebar.classList.contains('is-compact'))}));
-    const filter=document.querySelector('[data-sigov-menu-filter]'); if(filter) filter.addEventListener('input',()=>{const q=filter.value.toLowerCase();sidebar.querySelectorAll('.sigov-nav-link').forEach(a=>a.hidden=q&&!a.textContent.toLowerCase().includes(q));});
-    const favs=store.get('sigov.menu.favorites',[]); sidebar.querySelectorAll('[data-favorite-key]').forEach(a=>{const key=a.dataset.favoriteKey,btn=a.querySelector('.sigov-favorite-toggle'); if(favs.includes(key)) btn?.classList.add('is-active'); btn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const list=store.get('sigov.menu.favorites',[]); const next=list.includes(key)?list.filter(x=>x!==key):[...list,key].slice(-12); store.set('sigov.menu.favorites',next); btn.classList.toggle('is-active'); window.dispatchEvent(new CustomEvent('sigov:favorites-changed',{detail:next}));});});
+  const store = {
+    get: (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
+    set: (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* O armazenamento local é opcional. */ } },
+    remove: key => { try { localStorage.removeItem(key); } catch { /* Sem estado para remover. */ } }
+  };
+  const body = document.body;
+  const contextParts = [body.dataset.sigovUser, body.dataset.sigovTenant, body.dataset.sigovEntidade || '-', body.dataset.sigovExercicio || '-'];
+  const hasOperationalContext = contextParts[0] && contextParts[1];
+  const contextKey = hasOperationalContext ? contextParts.join(':') : null;
+  const favoritesKey = contextKey ? `sigov.menu.favorites:${contextKey}` : null;
+  const recentKey = contextKey ? `sigov.recent.routes:${contextKey}` : null;
+  // Entradas sem identidade/contexto pertencem ao formato legado e nunca são atribuídas à sessão atual.
+  store.remove('sigov.menu.favorites');
+  store.remove('sigov.recent.routes');
+
+  function safeInternalPath(value) {
+    if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
+    try {
+      const parsed = new URL(value, location.origin);
+      if (parsed.origin !== location.origin || parsed.username || parsed.password) return null;
+      return parsed.pathname + parsed.search;
+    } catch { return null; }
   }
-  const quick=document.getElementById('sigovQuickCreateModal'); if(quick){let previous=null; const backdrop=document.querySelector('[data-sigov-quick-create-close].sigov-modal-backdrop'); const focusables=()=>Array.from(quick.querySelectorAll('a[href],button:not([disabled])')).filter(x=>!x.hidden&&x.getAttribute('aria-disabled')!=='true'); const open=()=>{previous=document.activeElement;quick.hidden=false;backdrop.hidden=false;document.body.classList.add('sigov-modal-open');focusables()[0]?.focus();document.dispatchEvent(new CustomEvent('sigov:quick-create-opened'));}; const close=()=>{quick.hidden=true;backdrop.hidden=true;document.body.classList.remove('sigov-modal-open');previous?.focus();}; document.querySelectorAll('[data-sigov-quick-create]').forEach(b=>b.addEventListener('click',open)); document.querySelectorAll('[data-sigov-quick-create-close]').forEach(b=>b.addEventListener('click',close)); quick.addEventListener('click',e=>{const item=e.target.closest('[data-sigov-quick-create-item]'); if(item) document.dispatchEvent(new CustomEvent('sigov:quick-create-selected',{detail:{title:item.dataset.title}}));}); document.addEventListener('keydown',e=>{if(quick.hidden)return; if(e.key==='Escape'){e.preventDefault();close();} if(e.key==='Tab'){const f=focusables(); if(!f.length)return; const first=f[0], last=f.at(-1); if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}); }
-  document.querySelectorAll('[data-sigov-theme-toggle]').forEach(b=>b.addEventListener('click',()=>{const cur=document.documentElement.dataset.sigovTheme||store.get('sigov.theme','light'); const next=cur==='dark'?'light':'dark'; document.documentElement.dataset.sigovTheme=next; store.set('sigov.theme',next);})); document.documentElement.dataset.sigovTheme=store.get('sigov.theme',document.documentElement.dataset.sigovTheme||'light');
-  document.querySelectorAll('[data-sigov-user-menu]').forEach(b=>b.addEventListener('click',()=>{const m=document.querySelector('[data-sigov-user-dropdown]'); const open=m.hidden; m.hidden=!open; b.setAttribute('aria-expanded',String(open));}));
-  document.querySelectorAll('[data-sigov-notification-toggle]').forEach(b=>b.addEventListener('click',()=>{const m=document.querySelector('[data-sigov-notification-menu]'); const open=m.hidden; m.hidden=!open; b.setAttribute('aria-expanded',String(open));}));
-  const recent=store.get('sigov.recent.routes',[]).filter(x=>x.url!==location.pathname); recent.unshift({url:location.pathname,title:document.title.replace(' - SIGOV PLUS',''),at:new Date().toISOString()}); store.set('sigov.recent.routes',recent.slice(0,10));
+  function visibleRoutes() {
+    return new Set(Array.from(document.querySelectorAll('a[href]')).map(a => safeInternalPath(a.getAttribute('href'))).filter(Boolean).map(x => x.split('?')[0]));
+  }
+  function getRecent() {
+    if (!recentKey) return [];
+    const allowed = visibleRoutes();
+    const rows = store.get(recentKey, []).filter(row => row && safeInternalPath(row.url) && allowed.has(safeInternalPath(row.url).split('?')[0]));
+    store.set(recentKey, rows);
+    return rows;
+  }
+  window.SigovNavigationState = { getRecent, safeInternalPath };
+
+  const sidebar = document.getElementById('sigovSidebar');
+  if (sidebar) {
+    if (store.get('sigov.sidebar.compact', false)) sidebar.classList.add('is-compact');
+    document.querySelectorAll('[data-sigov-sidebar-toggle]').forEach(button => button.addEventListener('click', () => { document.body.classList.add('sigov-sidebar-open'); button.setAttribute('aria-expanded', 'true'); }));
+    document.querySelectorAll('[data-sigov-sidebar-close]').forEach(button => button.addEventListener('click', () => document.body.classList.remove('sigov-sidebar-open')));
+    document.querySelectorAll('[data-sigov-sidebar-compact]').forEach(button => button.addEventListener('click', () => { sidebar.classList.toggle('is-compact'); store.set('sigov.sidebar.compact', sidebar.classList.contains('is-compact')); }));
+    const filter = document.querySelector('[data-sigov-menu-filter]');
+    if (filter) filter.addEventListener('input', () => { const query = filter.value.toLowerCase(); sidebar.querySelectorAll('.sigov-nav-link').forEach(link => { link.hidden = Boolean(query) && !link.textContent.toLowerCase().includes(query); }); });
+    const favorites = favoritesKey ? store.get(favoritesKey, []) : [];
+    sidebar.querySelectorAll('[data-favorite-key]').forEach(row => {
+      const key = row.dataset.favoriteKey, button = row.querySelector('.sigov-favorite-toggle');
+      if (!button) return;
+      const update = selected => { button.classList.toggle('is-active', selected); button.setAttribute('aria-pressed', String(selected)); };
+      update(favorites.includes(key));
+      button.addEventListener('click', event => {
+        event.preventDefault(); event.stopPropagation();
+        if (!favoritesKey) return;
+        const list = store.get(favoritesKey, []);
+        const next = list.includes(key) ? list.filter(item => item !== key) : [...list, key].slice(-12);
+        store.set(favoritesKey, next); update(next.includes(key));
+        window.dispatchEvent(new CustomEvent('sigov:favorites-changed', { detail: next }));
+      });
+    });
+    const current = location.pathname.replace(/\/$/, '') || '/';
+    sidebar.querySelectorAll('a.sigov-nav-link[href]').forEach(link => {
+      const target = safeInternalPath(link.getAttribute('href'))?.split('?')[0].replace(/\/$/, '') || '';
+      if (target === current) { link.setAttribute('aria-current', 'page'); link.closest('details')?.setAttribute('open', ''); }
+      else link.removeAttribute('aria-current');
+    });
+  }
+
+  document.querySelectorAll('[data-sigov-user-menu]').forEach(button => button.addEventListener('click', () => {
+    const menu = document.querySelector('[data-sigov-user-dropdown]'); if (!menu) return;
+    const open = menu.hidden; menu.hidden = !open; button.setAttribute('aria-expanded', String(open));
+  }));
+  document.querySelectorAll('[data-sigov-notification-toggle]').forEach(button => button.addEventListener('click', () => {
+    const menu = document.querySelector('[data-sigov-notification-menu]'); if (!menu) return;
+    const open = menu.hidden; menu.hidden = !open; button.setAttribute('aria-expanded', String(open));
+  }));
+
+  document.querySelectorAll('a[href*="/Auth/Logout"],form[action*="/Auth/Logout"] button').forEach(control => control.addEventListener('click', () => {
+    if (favoritesKey) store.remove(favoritesKey); if (recentKey) store.remove(recentKey);
+  }));
+
+  const path = safeInternalPath(location.pathname);
+  if (recentKey && path && !path.startsWith('/Auth/')) {
+    const rows = getRecent().filter(row => row.url !== path);
+    rows.unshift({ url: path, title: document.title.replace(' - SIGOV PLUS', ''), at: new Date().toISOString() });
+    store.set(recentKey, rows.slice(0, 10));
+  }
 })();

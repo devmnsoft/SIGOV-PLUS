@@ -10,7 +10,7 @@
   <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="~/css/site.css" rel="stylesheet">
 </head>
-<body class="sigov-app">
+<body class="sigov-app" data-sigov-user="@(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value ?? "")" data-sigov-tenant="@(User.FindFirst("tenant_id")?.Value ?? "")" data-sigov-entidade="@(User.FindFirst("entidade_id")?.Value ?? "")" data-sigov-exercicio="@(User.FindFirst("exercicio_id")?.Value ?? "")">
   @await Html.PartialAsync("_IconSprite")
   <a class="sigov-skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
   @await Html.PartialAsync("_DemoBanner")

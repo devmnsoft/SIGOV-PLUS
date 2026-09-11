@@ -22,8 +22,18 @@ public sealed class MinhaCentralController : Controller
         try
         {
             var model = await _service.ObterResumoAsync(User, cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("Minha Central acessada. Usuario={Usuario} CorrelationId={CorrelationId}", User.Identity?.Name, HttpContext.TraceIdentifier);
+            _logger.LogInformation("Minha Central acessada. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
             return View(model);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Acesso negado à Minha Central. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+            return View(new Sigov.Web.Models.PostBuild.MinhaCentralViewModel
+            {
+                Estado = "negado",
+                MensagemFallback = $"O contexto atual não permite consultar esta central. Referência: {HttpContext.TraceIdentifier}."
+            });
         }
         catch (Exception ex)
         {
@@ -31,6 +41,7 @@ public sealed class MinhaCentralController : Controller
             Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             return View(new Sigov.Web.Models.PostBuild.MinhaCentralViewModel
             {
+                Estado = "indisponivel",
                 MensagemFallback = $"Central indisponível. Nenhuma pendência foi simulada. Referência: {HttpContext.TraceIdentifier}."
             });
         }
