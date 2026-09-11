@@ -20,7 +20,7 @@
 </header>
 @if (!string.IsNullOrWhiteSpace(Model.MensagemFallback))
 {
-  <div class="sigov-feedback sigov-feedback--warning mt-3" role="status"><strong>Fallback honesto:</strong><span>@Model.MensagemFallback</span></div>
+  <div class="sigov-feedback sigov-feedback--danger mt-3" role="alert"><strong>Dados indisponíveis:</strong><span>@Model.MensagemFallback</span></div>
 }
 <section class="central-kpis sigov-grid sigov-grid--kpis my-4">
   <article class="sigov-kpi-premium"><small>Minhas pendências</small><strong>@Model.Pendencias.Count</strong><span class="sigov-status-pill sigov-status-pill--info">Ação</span></article>
