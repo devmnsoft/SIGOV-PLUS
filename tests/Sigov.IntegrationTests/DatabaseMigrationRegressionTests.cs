@@ -133,6 +133,18 @@ public sealed class DatabaseMigrationRegressionTests
             "cadastro industria_producao", "nome administrável", "disponibilidade de contratação administrável"
         });
         saas.GetProperty("postConditionSql").GetString().Should().NotContain("nome='Indústria 360'").And.NotContain("disponivel_contratacao)");
+
+        var correction = entries.Single(entry => entry.GetProperty("version").GetString() == "20260910120000");
+        var correctionProbes = correction.GetProperty("postConditionProbes").EnumerateArray().ToArray();
+        correctionProbes.Should().HaveCount(5);
+        correctionProbes.Select(probe => probe.GetProperty("name").GetString()).Should().Contain(new[]
+        {
+            "permissão saude.visita.registrar ativa", "perfil_acesso.tenant_id bigint anulável",
+            "tabela de histórico SaaS canônica", "trigger SaaS de auditoria corrigido",
+            "trigger SaaS de compatibilidade corrigido"
+        });
+        correction.GetProperty("postConditionSql").GetString().Should().Contain("is_nullable='YES'")
+            .And.Contain("ativo and not is_deleted");
     }
 
     [Fact]

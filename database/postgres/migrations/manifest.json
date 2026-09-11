@@ -2294,7 +2294,29 @@
         "20260819120000",
         "20260908120000"
       ],
-      "postConditionSql": "select exists(select 1 from sigov.permissao where chave='saude.visita.registrar') and to_regclass('sigov.tenant_modulo_contratado_historico') is not null"
+      "postConditionSql": "select exists(select 1 from sigov.permissao where chave='saude.visita.registrar' and modulo='saude' and ativo and not is_deleted) and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id' and data_type='bigint' and is_nullable='YES') and to_regclass('sigov.tenant_modulo_contratado_historico') is not null",
+      "postConditionProbes": [
+        {
+          "name": "permissão saude.visita.registrar ativa",
+          "sql": "select case when not exists(select 1 from sigov.permissao where chave='saude.visita.registrar' and modulo='saude' and ativo and not is_deleted) then 'objeto=sigov.permissao chave=saude.visita.registrar esperado=ativa no módulo saude obtido=ausente ou inativa' end"
+        },
+        {
+          "name": "perfil_acesso.tenant_id bigint anulável",
+          "sql": "select case when not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id' and data_type='bigint' and is_nullable='YES') then format('objeto=sigov.perfil_acesso coluna=tenant_id esperado=bigint anulável obtido=%s',coalesce((select data_type||case when is_nullable='YES' then ' anulável' else ' não anulável' end from information_schema.columns where table_schema='sigov' and table_name='perfil_acesso' and column_name='tenant_id'),'ausente')) end"
+        },
+        {
+          "name": "tabela de histórico SaaS canônica",
+          "sql": "select case when to_regclass('sigov.tenant_modulo_contratado_historico') is null then 'objeto=sigov.tenant_modulo_contratado_historico esperado=tabela existente obtido=ausente' end"
+        },
+        {
+          "name": "trigger SaaS de auditoria corrigido",
+          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_contrato_auditar' and not t.tgisinternal and t.tgenabled<>'D' and n.nspname='sigov' and p.proname='fn_tenant_modulo_contrato_auditar' and pg_get_functiondef(p.oid) like '%coalesce(new.usuario_responsavel_id,new.updated_by,new.created_by)%') then 'objeto=trg_tenant_modulo_contrato_auditar esperado=habilitado com função corrigida obtido=ausente, desabilitado ou divergente' end"
+        },
+        {
+          "name": "trigger SaaS de compatibilidade corrigido",
+          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled<>'D' and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and pg_get_functiondef(p.oid) like '%case when new.ativo and new.status%') then 'objeto=trg_tenant_modulo_compatibilizar esperado=habilitado com suspensão preservada obtido=ausente, desabilitado ou divergente' end"
+        }
+      ]
     }
   ],
   "compatibilityAfterAll": [
