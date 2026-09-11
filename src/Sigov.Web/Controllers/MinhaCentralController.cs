@@ -28,8 +28,11 @@ public sealed class MinhaCentralController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha tratada ao abrir Minha Central. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
-            TempData["Warning"] = "Abrimos sua central em modo seguro porque alguns dados do ambiente estão indisponíveis.";
-            return View(new Sigov.Web.Models.PostBuild.MinhaCentralViewModel());
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return View(new Sigov.Web.Models.PostBuild.MinhaCentralViewModel
+            {
+                MensagemFallback = $"Central indisponível. Nenhuma pendência foi simulada. Referência: {HttpContext.TraceIdentifier}."
+            });
         }
     }
 }

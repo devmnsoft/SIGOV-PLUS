@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-11. RC51.02G (central de trabalho fail-closed). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`; HEAD inicial `d74a9d238156214f1f2301e562bd437565cc733a`; árvore limpa; checkout sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `pwsh`, `psql`, PostgreSQL 16 e navegador não estão disponíveis neste ambiente.
+- Existente: `MinhaCentralService`, `pendencia_operacional`, shell autenticado e componentes visuais compartilhados. Lacuna confirmada: a central consultava todas as pendências abertas do tenant, sem limitar ao usuário responsável, e convertia contexto/schema/banco indisponível em painel vazio HTTP 200.
+- Complementado: tenant e usuário agora são contexto obrigatório; o tenant precisa existir e estar ativo; a worklist usa query parametrizada por `tenant_id` e `responsavel_usuario_id`; ausência da estrutura ou falha de consulta é propagada e apresentada como indisponibilidade HTTP 503, com referência de correlação e sem pendências simuladas.
+- Serviço canônico preservado: `MinhaCentralService` continua apenas agregando `pendencia_operacional` e encaminhando ao documento original; nenhum segundo workflow foi criado. Dependências: autenticação persistida, tenant ativo e migration `20260819150000`. Aceite desta fatia: usuário não recebe tarefa atribuída a outro usuário/tenant e indisponibilidade não aparenta sucesso.
+- Validação estática: `git diff --check`, conflito de rotas, JSON do manifesto, artefatos rastreados e marcadores de conflito passaram. **BLOCKED separadamente:** restore/build/test, PostgreSQL 16 e screenshot real, por ausência das ferramentas/runtime.
+- Próximo item exato: executar restore/build/test e validar no PostgreSQL 16 duas sessões do mesmo tenant com pendências atribuídas distintas; em seguida implementar a fila de aprovações disponíveis por autorização persistida, sem tornar pendência sem responsável visível por padrão.
+
+---
+
 Data: 2026-09-10. RC51.02F (diagnóstico independente da correção de fundação). Estado: PARCIAL / BLOCKED.
 
 - Preflight: branch `work`; HEAD inicial `01d7f64f893a86b3c3cacf50f907aabe09bb487d`; árvore limpa; sem remoto e sem upstream configurados. SDK normativo `10.0.100`; projetos Domain, Application, Infrastructure, Api, Web, Worker e quatro projetos de teste confirmados.

@@ -22,33 +22,33 @@ public sealed class MinhaCentralService
 
     public async Task<MinhaCentralViewModel> ObterResumoAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
     {
-        try
+        var tenantId = RequiredPositiveClaim(user, "tenant_id");
+        var userId = RequiredPositiveClaim(user, ClaimTypes.NameIdentifier, "sub", "usuario_id");
+        if (!await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false))
         {
-            var tenantId = TryGetLong(user.FindFirst("tenant_id")?.Value);
-            var tenant = tenantId.HasValue ? $"Tenant #{tenantId.Value}" : "Contexto institucional não identificado";
-            if (tenantId.HasValue && await _schemaInspector.TableExistsAsync("sigov", "tenant", cancellationToken).ConfigureAwait(false))
-            {
-                using var cn = _connectionFactory.CreateConnection();
-                tenant = await cn.ExecuteScalarAsync<string?>(new CommandDefinition("select nome from sigov.tenant where id=@Id", new { Id = tenantId.Value }, cancellationToken: cancellationToken)).ConfigureAwait(false) ?? tenant;
-            }
+            throw new InvalidOperationException("A estrutura obrigatória sigov.tenant não está disponível.");
+        }
 
-            return new MinhaCentralViewModel
-            {
-                Perfil = Perfil(user),
-                Tenant = tenant,
-                Acoes = await ObterAcoesRecomendadasAsync(user, cancellationToken).ConfigureAwait(false),
-                Modulos = await ObterModulosUsuarioAsync(user, cancellationToken).ConfigureAwait(false),
-                Pendencias = await ObterPendenciasAsync(user, cancellationToken).ConfigureAwait(false),
-                AlertasLgpd = await ObterAlertasLgpdAsync(user, cancellationToken).ConfigureAwait(false),
-                Atividades = await ObterUltimasAtividadesAsync(user, cancellationToken).ConfigureAwait(false),
-                Ambiente = _saasService.CriarAmbiente(true)
-            };
-        }
-        catch (Exception ex)
+        using var cn = _connectionFactory.CreateConnection();
+        var tenant = await cn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "select nome from sigov.tenant where id=@Id and ativo and not is_deleted",
+            new { Id = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(tenant))
         {
-            _logger.LogError(ex, "Falha ao montar Minha Central.");
-            return new MinhaCentralViewModel { Acoes = Array.Empty<AcaoRecomendadaViewModel>(), Pendencias = Array.Empty<PendenciaViewModel>(), AlertasLgpd = Array.Empty<AlertaLgpdViewModel>(), Ambiente = _saasService.CriarAmbiente(false), MensagemFallback = "Central aberta em modo seguro; dados reais indisponíveis no momento." };
+            throw new UnauthorizedAccessException("O contexto institucional não está ativo ou não pertence à sessão.");
         }
+
+        return new MinhaCentralViewModel
+        {
+            Perfil = Perfil(user),
+            Tenant = tenant,
+            Acoes = await ObterAcoesRecomendadasAsync(user, cancellationToken).ConfigureAwait(false),
+            Modulos = await ObterModulosUsuarioAsync(user, cancellationToken).ConfigureAwait(false),
+            Pendencias = await ObterPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false),
+            AlertasLgpd = await ObterAlertasLgpdAsync(user, cancellationToken).ConfigureAwait(false),
+            Atividades = await ObterUltimasAtividadesAsync(user, cancellationToken).ConfigureAwait(false),
+            Ambiente = _saasService.CriarAmbiente(true)
+        };
     }
 
     public Task<IReadOnlyList<AcaoRecomendadaViewModel>> ObterAcoesRecomendadasAsync(ClaimsPrincipal user, CancellationToken cancellationToken) =>
@@ -63,11 +63,21 @@ public sealed class MinhaCentralService
 
     public async Task<IReadOnlyList<PendenciaViewModel>> ObterPendenciasAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
     {
-        var tenantId = TryGetLong(user.FindFirst("tenant_id")?.Value);
-        if (!tenantId.HasValue || !await _schemaInspector.TableExistsAsync("sigov", "pendencia_operacional", cancellationToken).ConfigureAwait(false)) return Array.Empty<PendenciaViewModel>();
+        var tenantId = RequiredPositiveClaim(user, "tenant_id");
+        var userId = RequiredPositiveClaim(user, ClaimTypes.NameIdentifier, "sub", "usuario_id");
+        return await ObterPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<PendenciaViewModel>> ObterPendenciasAsync(long tenantId, long userId, CancellationToken cancellationToken)
+    {
+        if (!await _schemaInspector.TableExistsAsync("sigov", "pendencia_operacional", cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("A estrutura obrigatória sigov.pendencia_operacional não está disponível.");
+        }
+
         using var cn = _connectionFactory.CreateConnection();
-        const string sql = "select titulo as Titulo, coalesce(descricao,'') as Descricao, rota_acao as Url from sigov.pendencia_operacional where tenant_id=@TenantId and status in ('ABERTA','EM_TRATAMENTO') order by prazo nulls last, created_at desc limit 8";
-        return (await cn.QueryAsync<PendenciaViewModel>(new CommandDefinition(sql, new { TenantId = tenantId.Value }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        const string sql = "select titulo as Titulo, coalesce(descricao,'') as Descricao, rota_acao as Url from sigov.pendencia_operacional where tenant_id=@TenantId and responsavel_usuario_id=@UserId and status in ('ABERTA','EM_TRATAMENTO') order by prazo nulls last, created_at desc limit 8";
+        return (await cn.QueryAsync<PendenciaViewModel>(new CommandDefinition(sql, new { TenantId = tenantId, UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
     }
     public async Task<IReadOnlyList<AlertaLgpdViewModel>> ObterAlertasLgpdAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
     {
@@ -92,6 +102,15 @@ public sealed class MinhaCentralService
     }
 
     private static long? TryGetLong(string? value) => long.TryParse(value, out var parsed) ? parsed : null;
+    private static long RequiredPositiveClaim(ClaimsPrincipal user, params string[] claimTypes)
+    {
+        foreach (var claimType in claimTypes)
+        {
+            if (long.TryParse(user.FindFirst(claimType)?.Value, out var value) && value > 0) return value;
+        }
+
+        throw new UnauthorizedAccessException($"Contexto obrigatório ausente: {string.Join("/", claimTypes)}.");
+    }
     private static string Perfil(ClaimsPrincipal user) => user.Claims.FirstOrDefault(x => x.Type is ClaimTypes.Role or "role")?.Value ?? "Operador";
     private static AcaoRecomendadaViewModel[] AcoesPerfil(ClaimsPrincipal user)
     {
