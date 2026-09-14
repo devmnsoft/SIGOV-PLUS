@@ -1,5 +1,15 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02J (SaaS Admin — uso verificável). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `8f07ab1c54d79d85237f4fdb11725d73010a09b2`, árvore limpa, sem remoto ou upstream configurado.
+- Problema | Causa | Serviço reutilizado | Correção | Evidência: Uso exibia números e um município demonstrativos | `Uso.cshtml` era uma cópia estática e `saas.uso.js` não implementava consulta | `ISuperAdminOperationalDashboardService`/`auditoria_evento` | filtros de cliente/período/módulo, paginação, exportação existente e indisponibilidade explícita | controller e view recebem `SuperAdminOperationalDashboard`; script impede duplo envio.
+- Problema | Causa | Serviço reutilizado | Correção | Evidência: script de clientes enviava `X-Sigov-Tenant: municipio-demo` | contexto fixo no navegador | avaliador de autorização e contexto já aplicados pelo controller | cabeçalho removido; servidor permanece autoridade | `saas.tenants.js` não resolve nem escolhe tenant.
+- Métrica entregue: “operações concluídas” conta os eventos persistidos em `auditoria_evento`, no intervalo UTC inclusivo consultado; não soma login, visualização, decisão de autorização ou falha. Não há deduplicação adicional na leitura: retries só não inflam o resultado quando a operação canônica não cria novo evento. Usuários ativos, limites e uso por módulo permanecem “medição indisponível” enquanto não houver evento canônico verificável.
+- Preservado: consultas Dapper parametrizadas, autorização global/local existente, isolamento pelo `tenantId` autorizado, catálogo e contratos canônicos e exportação protegida. Sem alteração de schema ou migration.
+- Validação estática: `node --check` nos dois scripts, conflito de rotas API e `git diff --check` passaram. **BLOCKED:** restore/build/test, PostgreSQL 16, runtime autenticado e screenshots responsivos, pois SDK, banco e navegador não estão disponíveis neste ambiente.
+- Próximo item exato: instrumentar uma chave idempotente canônica na conclusão de uma operação já auditada e provar, em PostgreSQL 16, que retry mantém um evento; aceite: filtro de dois clientes não mistura eventos e exportação contém exatamente a mesma janela autorizada da tela.
+
 Data: 2026-09-11. RC51.02I (onboarding contextual persistido). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `75bdee0d096d6c948f4fea9e21757eb7f6c20420`, árvore limpa e sem remoto/upstream.

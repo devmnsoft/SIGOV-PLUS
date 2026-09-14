@@ -1,11 +1,53 @@
+@model Sigov.Application.Saas.SuperAdmin.SuperAdminOperationalDashboard
+@using Sigov.Application.Saas.SuperAdmin
 @{
     ViewData["Title"] = "SaaS Admin - Uso";
+    var filter = (SuperAdminDashboardFilter)ViewBag.Filter;
+    var page = (int)ViewBag.Page;
+    const int pageSize = 25;
+    var events = Model.Audits.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
 }
-<section class="sigov-page-header d-flex justify-content-between align-items-start gap-3 mb-4" data-sigov-role="SIGOV_ADMIN">
-  <div><span class="badge text-bg-warning mb-2">SaaS Admin</span><h1 class="h2">Uso</h1><p class="text-muted">Painel global exclusivo para SIGOV_ADMIN com auditoria, tenant isolation e bloqueio de tenant suspenso/cancelado.</p></div>
-  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saas-modal">Nova ação</button>
+<section class="sigov-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4" data-sigov-role="SIGOV_ADMIN">
+  <div>
+    <span class="badge text-bg-warning mb-2">SaaS Admin</span>
+    <h1 class="h2">Uso verificável</h1>
+    <p class="text-muted mb-0">Eventos operacionais persistidos no período. Ausência de instrumentação nunca é apresentada como zero.</p>
+  </div>
+  <a class="btn btn-outline-primary" asp-action="Export" asp-route-format="csv" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module">Exportar eventos</a>
 </section>
-<div class="row g-3 mb-3"><div class="col-md-3"><div class="card card-body"><small class="text-muted">Ativos</small><strong>24</strong></div></div><div class="col-md-3"><div class="card card-body"><small class="text-muted">Suspensos</small><strong>2</strong></div></div><div class="col-md-3"><div class="card card-body"><small class="text-muted">Homologação</small><strong>5</strong></div></div><div class="col-md-3"><div class="card card-body"><small class="text-muted">Uso mensal</small><strong>Isolado</strong></div></div></div>
-<div class="card sigov-grid"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Tenant/Plano</th><th>Domínio</th><th>Status</th><th>Módulos/Features</th><th class="text-end">Ações</th></tr></thead><tbody><tr><td>Município Comercial</td><td>municipio.sigov.local <span class="badge text-bg-info">Verificado</span></td><td><span class="badge text-bg-success">Ativo</span> <span class="badge text-bg-secondary">Implantação</span></td><td><span class="badge text-bg-primary">Core</span> <span class="badge text-bg-primary">Segurança</span> <span class="badge text-bg-primary">LGPD</span></td><td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/SaasAdmin/TenantDetalhe">Detalhar</a> <button class="btn btn-sm btn-outline-warning">Suspender</button></td></tr></tbody></table></div><div class="card-footer d-flex justify-content-between"><small>Uso mensal nunca mistura tenants; plano, módulos e flags auditam antes/depois.</small><ul class="pagination pagination-sm mb-0"><li class="page-item active"><span class="page-link">1</span></li></ul></div></div>
-<div class="modal fade" id="saas-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post">@Html.AntiForgeryToken()<div class="modal-header"><h2 class="h5 modal-title">Ação SaaS Admin</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Fechar"></button></div><div class="modal-body"><label class="form-label" for="Justificativa">Justificativa</label><textarea id="Justificativa" name="Justificativa" class="form-control" required></textarea></div><div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Confirmar</button></div></form></div></div>
-@section Scripts { <script src="~/js/modules/saas.uso.js"></script> }
+
+<form method="get" class="card card-body mb-3" aria-label="Filtros de uso" data-prevent-double-submit>
+  <div class="row g-3 align-items-end">
+    <div class="col-sm-6 col-lg-3"><label class="form-label" for="tenantId">Cliente</label><input class="form-control" id="tenantId" name="tenantId" type="number" min="1" value="@filter.TenantId" placeholder="Todos os autorizados" /></div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label" for="from">Início (UTC)</label><input class="form-control" id="from" name="from" type="datetime-local" value="@filter.FromUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm")" required /></div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label" for="to">Fim (UTC)</label><input class="form-control" id="to" name="to" type="datetime-local" value="@filter.ToUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm")" required /></div>
+    <div class="col-sm-6 col-lg-2"><label class="form-label" for="module">Módulo</label><input class="form-control" id="module" name="module" value="@filter.Module" /></div>
+    <div class="col-lg-1"><button class="btn btn-primary w-100" type="submit">Aplicar</button></div>
+  </div>
+</form>
+
+@if (Model.DatabaseStatus != "Disponível" || Model.SchemaStatus != "Disponível")
+{
+  <div class="alert alert-warning" role="status"><strong>Medição indisponível.</strong> A fonte persistida não pôde ser consultada. Nenhum valor zero foi inferido.</div>
+}
+else
+{
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Usuários ativos</small><strong class="fs-4">Medição indisponível</strong><span class="small">Não há evento canônico de atividade por identidade neste inventário.</span></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Operações concluídas</small><strong class="fs-4">@Model.Audits.Count</strong><span class="small">Eventos gravados em <code>auditoria_evento</code>; retries só contam se gerarem novo evento.</span></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Última atividade registrada</small><strong class="fs-5">@(Model.Audits.FirstOrDefault()?.AtUtc.ToString("u") ?? "Sem evento no período")</strong><span class="small">Período em UTC, de @filter.FromUtc.ToString("u") a @filter.ToUtc.ToString("u").</span></div></div>
+  </div>
+
+  <div class="alert alert-info small" role="note"><strong>Como usar:</strong> uma operação concluída é um evento persistido em <code>auditoria_evento</code>. Login, visualização, autorização negada e falha não são somados aqui. A atualização ocorre na próxima consulta; dados são limitados ao cliente autorizado.</div>
+  <div class="card sigov-grid">
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Instante (UTC)</th><th>Cliente</th><th>Tipo da operação</th><th>Resultado</th></tr></thead><tbody>
+    @if (events.Length == 0) { <tr><td colspan="4" class="text-center text-muted py-4">Nenhum evento verificável no período selecionado.</td></tr> }
+    @foreach (var item in events) { <tr><td>@item.AtUtc.ToString("u")</td><td>@(item.TenantId?.ToString() ?? "Global")</td><td>@item.Event</td><td><span class="badge text-bg-success">@item.Result</span></td></tr> }
+    </tbody></table></div>
+    <div class="card-footer d-flex justify-content-between align-items-center"><small>@Model.Audits.Count eventos · página @page</small><nav aria-label="Paginação dos eventos"><ul class="pagination pagination-sm mb-0">
+      @if (page > 1) { <li class="page-item"><a class="page-link" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-page="@(page - 1)">Anterior</a></li> }
+      @if (page * pageSize < Model.Audits.Count) { <li class="page-item"><a class="page-link" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-page="@(page + 1)">Próxima</a></li> }
+    </ul></nav></div>
+  </div>
+}
+@section Scripts { <script src="~/js/modules/saas.uso.js" asp-append-version="true"></script> }
