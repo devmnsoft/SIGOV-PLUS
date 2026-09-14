@@ -34,7 +34,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     public async Task<IActionResult> Export(string format, long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, string? status, CancellationToken ct)
     {
         if (!await Allowed("exportar", tenantId, ct)) return Forbid();
-        var data = await dashboard.GetAsync(Filter(tenantId, from, to, module, status), ct);
+        var data = await dashboard.GetAsync(Filter(tenantId, from, to, module, status) with { PageSize = null }, ct);
         if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
             return File(JsonSerializer.SerializeToUtf8Bytes(data, new JsonSerializerOptions { WriteIndented = true }), "application/json", "sigov-operacional.json");
         var csv = new StringBuilder("area;data;tenant;evento;status\n");
@@ -120,16 +120,26 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     public async Task<IActionResult> FeatureFlags(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Modulos") : Forbid();
 
     [HttpGet("Uso")]
-    public async Task<IActionResult> Uso(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, int page = 1, CancellationToken ct = default)
+    public async Task<IActionResult> Uso(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, string? status, int page = 1, CancellationToken ct = default)
     {
         if (!await Allowed("visualizar", tenantId, ct)) return Forbid();
         if (IsLocalTenantAdmin() && long.TryParse(User.FindFirstValue("tenant_id"), out var ownTenant))
             tenantId = ownTenant;
 
-        var filter = Filter(tenantId, from, to, module, null);
+        var filter = Filter(tenantId, from, to, module, status) with { PageNumber = Math.Max(1, page), PageSize = 25 };
+        if (from.HasValue && to.HasValue && from > to)
+            ViewBag.FilterError = "A data inicial deve ser anterior ou igual à data final.";
+        else if (filter.ToUtc - filter.FromUtc > TimeSpan.FromDays(366))
+            ViewBag.FilterError = "O período consultado não pode ultrapassar 366 dias.";
+        var model = await dashboard.GetAsync(filter, ct).ConfigureAwait(false);
+        var lastPage = Math.Max(1, (int)Math.Ceiling(model.AuditTotal / (double)filter.PageSize.Value));
+        if (filter.PageNumber > lastPage)
+        {
+            filter = filter with { PageNumber = lastPage };
+            model = await dashboard.GetAsync(filter, ct).ConfigureAwait(false);
+        }
         ViewBag.Filter = filter;
-        ViewBag.Page = Math.Max(1, page);
-        return View(await dashboard.GetAsync(filter, ct).ConfigureAwait(false));
+        return View(model);
     }
 
     [HttpGet("Relatorios"), HttpGet("Auditoria"), HttpGet("Sessoes"), HttpGet("Usuarios"), HttpGet("PerfisGlobais")]
@@ -219,7 +229,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     {
         var end = to ?? DateTimeOffset.UtcNow;
         var start = from ?? end.AddDays(-7);
-        return new(tenantId, start > end ? end.AddDays(-7) : start, end, module, status);
+        return new(tenantId, start, end, module, status);
     }
 
     private static string Csv(string? value)

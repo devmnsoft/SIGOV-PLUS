@@ -1,5 +1,17 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02K (correção Razor e paginação de uso SaaS). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Projeto confirmado: `src/Sigov.Web/Sigov.Web.csproj`; branch `work`, HEAD inicial `e23e8c18a1af8e5c07386fb5cb019c6c4a47a87b`, árvore inicialmente limpa. O SDK normativo permanece .NET `10.0.100` e nenhuma alteração foi feita no Agro360.
+- Causa Razor confirmada: `Uso.cshtml` é uma View MVC e declarava a variável local `page`; a expressão implícita `@page` no texto da paginação era interpretada pelo parser como a diretiva Razor reservada. Não existia motivo para adicionar a diretiva `@page` nem converter a tela em Razor Page. A variável passou a `pageNumber` e a saída textual usa expressão explícita.
+- Evolução verificável: paginação de `auditoria_evento` passou ao PostgreSQL, com `limit/offset`, total independente da página e ordenação estável por instante e identidade; páginas fora do intervalo retornam à última válida. Cliente, módulo, situação e período são preservados nos links e na exportação; cliente agora é escolhido pelo catálogo retornado pelo servidor, não por digitação de ID.
+- Sem números fictícios: total e última atividade vêm do histórico persistido; usuário ativo continua explicitamente indisponível porque o schema atual não tem evento canônico de uso por identidade. A interface explica período UTC, significado da métrica, limitações de retentativa e diferença entre indisponibilidade e ausência de registros.
+- Autorização existente preservada: SuperAdmin continua avaliado pelo serviço canônico e administrador local é restringido ao próprio `tenant_id`; a exportação reutiliza filtros e avaliação do endpoint. Nenhuma migration ou mudança estrutural foi necessária.
+- Validação estática: busca contextual das demais Views encontrou `page` apenas dentro do JavaScript de Indústria, sem colisão Razor; balanceamento dos elementos principais e `git diff --check` passaram. **BLOCKED:** `dotnet restore`, `dotnet build`, `dotnet test`, renderização HTTP, PostgreSQL 16 e screenshot não foram executados porque `dotnet`/runtime/banco/navegador não estão disponíveis neste ambiente.
+- Próximo item exato: instalar o SDK `10.0.100`, executar restore/build/test e validar `/SaasAdmin/Uso` com PostgreSQL 16 para tenant global, administrador local, filtros combinados, página excedente e exportação; depois instrumentar atividade por usuário somente quando houver evento canônico idempotente.
+
+---
+
 Data: 2026-09-14. RC51.02J (SaaS Admin — uso verificável). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `8f07ab1c54d79d85237f4fdb11725d73010a09b2`, árvore limpa, sem remoto ou upstream configurado.

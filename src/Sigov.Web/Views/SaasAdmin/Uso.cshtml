@@ -3,9 +3,9 @@
 @{
     ViewData["Title"] = "SaaS Admin - Uso";
     var filter = (SuperAdminDashboardFilter)ViewBag.Filter;
-    var page = (int)ViewBag.Page;
-    const int pageSize = 25;
-    var events = Model.Audits.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
+    var pageNumber = filter.PageNumber;
+    var pageSize = filter.PageSize ?? 25;
+    var events = Model.Audits;
 }
 <section class="sigov-page-header d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4" data-sigov-role="SIGOV_ADMIN">
   <div>
@@ -13,15 +13,26 @@
     <h1 class="h2">Uso verificável</h1>
     <p class="text-muted mb-0">Eventos operacionais persistidos no período. Ausência de instrumentação nunca é apresentada como zero.</p>
   </div>
-  <a class="btn btn-outline-primary" asp-action="Export" asp-route-format="csv" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module">Exportar eventos</a>
+  <a class="btn btn-outline-primary" asp-action="Export" asp-route-format="csv" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-status="@filter.Status">Exportar eventos</a>
 </section>
+
+<details class="alert alert-info mb-3">
+  <summary class="fw-semibold">Como usar</summary>
+  <p class="small mb-0 mt-2">SuperAdministradores e administradores autorizados podem delimitar cliente, módulo e período. Aplicar os filtros volta à primeira página; exportar utiliza os mesmos critérios. Para corrigir um intervalo inválido, ajuste as datas e aplique novamente.</p>
+</details>
+
+@if (ViewBag.FilterError is string filterError)
+{
+  <div class="alert alert-danger" role="alert">@filterError</div>
+}
 
 <form method="get" class="card card-body mb-3" aria-label="Filtros de uso" data-prevent-double-submit>
   <div class="row g-3 align-items-end">
-    <div class="col-sm-6 col-lg-3"><label class="form-label" for="tenantId">Cliente</label><input class="form-control" id="tenantId" name="tenantId" type="number" min="1" value="@filter.TenantId" placeholder="Todos os autorizados" /></div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label" for="tenantId">Cliente</label><select class="form-select" id="tenantId" name="tenantId"><option value="">Todos os autorizados</option>@foreach (var tenant in Model.Tenants) { <option value="@tenant.Id" selected="@(filter.TenantId == tenant.Id)">@tenant.Name</option> }</select></div>
     <div class="col-sm-6 col-lg-3"><label class="form-label" for="from">Início (UTC)</label><input class="form-control" id="from" name="from" type="datetime-local" value="@filter.FromUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm")" required /></div>
     <div class="col-sm-6 col-lg-3"><label class="form-label" for="to">Fim (UTC)</label><input class="form-control" id="to" name="to" type="datetime-local" value="@filter.ToUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm")" required /></div>
-    <div class="col-sm-6 col-lg-2"><label class="form-label" for="module">Módulo</label><input class="form-control" id="module" name="module" value="@filter.Module" /></div>
+    <div class="col-sm-6 col-lg-2"><label class="form-label" for="module">Módulo</label><input class="form-control" id="module" name="module" value="@filter.Module" placeholder="Código registrado" /></div>
+    <div class="col-sm-6 col-lg-2"><label class="form-label" for="status">Situação</label><select class="form-select" id="status" name="status"><option value="">Todas</option><option value="ATIVO" selected="@(filter.Status == "ATIVO")">Ativo</option><option value="SUSPENSO" selected="@(filter.Status == "SUSPENSO")">Suspenso</option><option value="INATIVO" selected="@(filter.Status == "INATIVO")">Inativo</option></select></div>
     <div class="col-lg-1"><button class="btn btn-primary w-100" type="submit">Aplicar</button></div>
   </div>
 </form>
@@ -34,19 +45,19 @@ else
 {
   <div class="row g-3 mb-3">
     <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Usuários ativos</small><strong class="fs-4">Medição indisponível</strong><span class="small">Não há evento canônico de atividade por identidade neste inventário.</span></div></div>
-    <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Operações concluídas</small><strong class="fs-4">@Model.Audits.Count</strong><span class="small">Eventos gravados em <code>auditoria_evento</code>; retries só contam se gerarem novo evento.</span></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Operações registradas</small><strong class="fs-4">@Model.AuditTotal</strong><span class="small">Eventos gravados em <code>auditoria_evento</code>; uma retentativa só é distinguível quando preserva o mesmo identificador de correlação.</span></div></div>
     <div class="col-md-4"><div class="card card-body h-100"><small class="text-muted">Última atividade registrada</small><strong class="fs-5">@(Model.Audits.FirstOrDefault()?.AtUtc.ToString("u") ?? "Sem evento no período")</strong><span class="small">Período em UTC, de @filter.FromUtc.ToString("u") a @filter.ToUtc.ToString("u").</span></div></div>
   </div>
 
   <div class="alert alert-info small" role="note"><strong>Como usar:</strong> uma operação concluída é um evento persistido em <code>auditoria_evento</code>. Login, visualização, autorização negada e falha não são somados aqui. A atualização ocorre na próxima consulta; dados são limitados ao cliente autorizado.</div>
   <div class="card sigov-grid">
     <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Instante (UTC)</th><th>Cliente</th><th>Tipo da operação</th><th>Resultado</th></tr></thead><tbody>
-    @if (events.Length == 0) { <tr><td colspan="4" class="text-center text-muted py-4">Nenhum evento verificável no período selecionado.</td></tr> }
-    @foreach (var item in events) { <tr><td>@item.AtUtc.ToString("u")</td><td>@(item.TenantId?.ToString() ?? "Global")</td><td>@item.Event</td><td><span class="badge text-bg-success">@item.Result</span></td></tr> }
+    @if (events.Count == 0) { <tr><td colspan="4" class="text-center text-muted py-4">Nenhum evento verificável no período selecionado.</td></tr> }
+    @foreach (var item in events) { <tr><td>@item.AtUtc.ToString("u")</td><td>@(item.TenantName ?? (item.TenantId?.ToString() ?? "Global"))</td><td>@item.Event</td><td><span class="badge text-bg-success">@item.Result</span></td></tr> }
     </tbody></table></div>
-    <div class="card-footer d-flex justify-content-between align-items-center"><small>@Model.Audits.Count eventos · página @page</small><nav aria-label="Paginação dos eventos"><ul class="pagination pagination-sm mb-0">
-      @if (page > 1) { <li class="page-item"><a class="page-link" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-page="@(page - 1)">Anterior</a></li> }
-      @if (page * pageSize < Model.Audits.Count) { <li class="page-item"><a class="page-link" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-page="@(page + 1)">Próxima</a></li> }
+    <div class="card-footer d-flex justify-content-between align-items-center"><small>@Model.AuditTotal eventos · página @(pageNumber)</small><nav aria-label="Paginação dos eventos"><ul class="pagination pagination-sm mb-0">
+      @if (pageNumber > 1) { <li class="page-item"><a class="page-link" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-status="@filter.Status" asp-route-page="@(pageNumber - 1)">Anterior</a></li> }
+      @if (pageNumber * pageSize < Model.AuditTotal) { <li class="page-item"><a class="page-link" asp-route-tenantId="@filter.TenantId" asp-route-from="@filter.FromUtc.ToString("O")" asp-route-to="@filter.ToUtc.ToString("O")" asp-route-module="@filter.Module" asp-route-status="@filter.Status" asp-route-page="@(pageNumber + 1)">Próxima</a></li> }
     </ul></nav></div>
   </div>
 }
