@@ -1,2 +1,111 @@
-@model Sigov.Application.Common.PagedResult<Sigov.Application.ComprasEmpresariais.RequisicaoResumo>
-@{ViewData["Title"]="Requisições";}<link rel="stylesheet" href="~/css/compras-empresariais.css" /><partial name="../Shared/_ComprasNav" /><header class="compras-header"><div><h1>Requisições</h1><p>Necessidades, aprovações e rastreabilidade.</p></div><a class="btn btn-primary" href="/ComprasEmpresariais/Requisicoes/Nova">Nova requisição</a></header><div class="table-responsive"><table class="table"><thead><tr><th>Número</th><th>Status</th><th>Itens</th><th>Total</th><th>Data necessária</th></tr></thead><tbody>@foreach(var x in Model.Items){<tr><td><a href="/ComprasEmpresariais/Requisicoes/@x.Id">@x.Numero</a></td><td><span class="badge text-bg-info">@x.Status.Replace('_',' ')</span></td><td>@x.Itens</td><td>@x.ValorEstimado.ToString("C")</td><td>@(x.DataNecessaria?.ToString("dd/MM/yyyy") ?? "Não informada")</td></tr>}@if(Model.Items.Count==0){<tr><td colspan="5" class="text-center py-4">Nenhuma requisição encontrada.</td></tr>}</tbody></table></div><p class="text-muted">Total: @Model.Total registros</p>
+@using Microsoft.AspNetCore.Authorization
+@using Sigov.Application.ComprasEmpresariais
+@model Sigov.Application.Common.PagedResult<RequisicaoResumo>
+@inject IAuthorizationService Authorization
+@{
+    ViewData["Title"] = "Requisições de compra";
+    var filtro = (RequisicaoFiltro?)ViewData["Filtro"] ?? new RequisicaoFiltro();
+    var canCreate = (await Authorization.AuthorizeAsync(User, "compras_empresariais.requisicoes.criar")).Succeeded;
+    var first = Model.TotalItems == 0 ? 0L : ((long)Model.Page - 1) * Model.PageSize + 1;
+    var last = Model.TotalItems == 0 ? 0L : Math.Min((long)Model.Page * Model.PageSize, Model.TotalItems);
+    var hasFilters = !string.IsNullOrWhiteSpace(filtro.Busca) || !string.IsNullOrWhiteSpace(filtro.Status) || filtro.DataInicial.HasValue || filtro.DataFinal.HasValue;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="../Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">PLANEJAMENTO DE AQUISIÇÕES</span>
+        <h1>Requisições de compra</h1>
+        <p>Consulte necessidades, acompanhe aprovações e mantenha a rastreabilidade das solicitações.</p>
+    </div>
+    @if (canCreate)
+    {
+        <a class="btn btn-primary" href="@Url.Action("NovaRequisicao")">Nova requisição</a>
+    }
+</header>
+
+<section class="panel" aria-labelledby="filtros-title">
+    <h2 id="filtros-title" class="h5">Filtros</h2>
+    <form method="get" class="requisicao-filtros" data-filter-form>
+        <div class="filter-search">
+            <label class="form-label" for="busca">Número ou identificação</label>
+            <input class="form-control" id="busca" name="busca" value="@filtro.Busca" placeholder="Ex.: RC-2026-000123" autocomplete="off" />
+        </div>
+        <div>
+            <label class="form-label" for="status">Situação</label>
+            <select class="form-select" id="status" name="status">
+                <option value="">Todas</option>
+                @foreach (var status in new[] { "RASCUNHO", "PENDENTE_APROVACAO", "APROVADA", "REJEITADA", "DEVOLVIDA", "CANCELADA" })
+                {
+                    <option value="@status" selected="@(filtro.Status == status)">@status.Replace('_', ' ')</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label class="form-label" for="dataInicial">Solicitada a partir de</label>
+            <input class="form-control" id="dataInicial" name="dataInicial" type="date" value="@filtro.DataInicial?.ToString("yyyy-MM-dd")" />
+        </div>
+        <div>
+            <label class="form-label" for="dataFinal">Solicitada até</label>
+            <input class="form-control" id="dataFinal" name="dataFinal" type="date" value="@filtro.DataFinal?.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="filter-actions">
+            <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+            <a class="btn btn-outline-secondary" href="@Url.Action("Requisicoes")">Limpar filtros</a>
+        </div>
+    </form>
+</section>
+
+<section class="panel requisicoes-lista" aria-labelledby="resultado-title" aria-busy="false">
+    <div class="section-title">
+        <div>
+            <h2 id="resultado-title" class="h5 mb-1">Resultado</h2>
+            <p class="text-muted mb-0" role="status">Exibindo @first–@last de @Model.TotalItems requisições</p>
+        </div>
+    </div>
+    @if (Model.Items.Count > 0)
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th scope="col">Número</th><th scope="col">Solicitação</th><th scope="col">Situação</th><th scope="col">Origem</th><th scope="col" class="text-end">Ações</th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><strong>@item.Numero</strong><br /><small class="text-muted">@item.Itens @(item.Itens == 1 ? "item" : "itens")</small></td>
+                        <td><time datetime="@item.DataSolicitacao.ToString("O")">@item.DataSolicitacao.ToLocalTime().ToString("dd/MM/yyyy")</time><br /><small class="text-muted">Necessidade: @(item.DataNecessaria?.ToString("dd/MM/yyyy") ?? "não informada")</small></td>
+                        <td><span class="status-badge">@item.Status.Replace('_', ' ')</span></td>
+                        <td>@item.Origem</td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="@Url.Action("Requisicao", new { id = item.Id, returnUrl })" aria-label="Acompanhar requisição @item.Numero">Acompanhar</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <h3 class="h5">@(hasFilters ? "Nenhum resultado para os filtros" : "Nenhuma requisição cadastrada")</h3>
+            <p class="text-muted">@(hasFilters ? "Revise os critérios ou limpe os filtros para consultar todas as requisições." : "Quando uma requisição for criada, ela aparecerá aqui para acompanhamento.")</p>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Paginação das requisições">
+            <ul class="pagination justify-content-center flex-wrap mb-0">
+                <li class="page-item @(!Model.HasPreviousPage ? "disabled" : null)"><a class="page-link" aria-disabled="@(!Model.HasPreviousPage)" tabindex="@(!Model.HasPreviousPage ? -1 : 0)" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page - 1, tamanho = Model.PageSize })">Anterior</a></li>
+                @for (var page = Math.Max(1, Model.Page - 2); page <= Math.Min(Model.TotalPages, Model.Page + 2); page++)
+                {
+                    <li class="page-item @(page == Model.Page ? "active" : null)" aria-current="@(page == Model.Page ? "page" : null)"><a class="page-link" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = page, tamanho = Model.PageSize })">@page</a></li>
+                }
+                <li class="page-item @(!Model.HasNextPage ? "disabled" : null)"><a class="page-link" aria-disabled="@(!Model.HasNextPage)" tabindex="@(!Model.HasNextPage ? -1 : 0)" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page + 1, tamanho = Model.PageSize })">Próxima</a></li>
+            </ul>
+        </nav>
+    }
+</section>
+
+<aside class="alert alert-info mt-3"><strong>Como usar:</strong> filtre por número, situação ou período. Abra “Acompanhar” para conferir itens e histórico; requisições em rascunho podem ser enviadas para aprovação por usuários autorizados.</aside>
