@@ -182,6 +182,22 @@ public sealed class DatabaseMigrationRegressionTests
                 "ValidateOnly não deve depender da instalação do cliente PostgreSQL");
     }
 
+    [Fact]
+    public void Aplicador_Bash_Deve_Usar_Checksum_Normalizado_E_Validar_Compatibilidades()
+    {
+        var script = File.ReadAllText(Path.Combine(Root, "scripts", "apply-migrations-manifest.sh"));
+
+        script.Should().Contain("read_text(encoding='utf-8-sig')");
+        script.Should().Contain("replace('\\r\\n','\\n').replace('\\r','\\n')");
+        script.Should().Contain("pathlib.PurePath(name).name != name");
+        script.Should().Contain("e.get('compatibilityBefore') or []");
+        script.Should().Contain("data.get('compatibilityAfterAll') or []");
+        script.Should().Contain("Checksum divergente na compatibilidade");
+        script.Should().Contain("BLOCKED: execução de migrations pelo wrapper Bash não possui contrato seguro");
+        script.Should().NotContain("while IFS='|' read",
+            "o wrapper não pode iniciar DDL sem ledger e pós-condições equivalentes ao runner canônico");
+    }
+
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));
 
     private static string ReadBaselineMigrations()

@@ -5,7 +5,7 @@ Estados: APROVADO (escopo autorizado), EM_EXECUCAO, VALIDADO (com evidência), B
 | Ordem | Item | Estado inicial | Aceite |
 |---|---|---|---|
 | 1 | P0.1-A inventário e gate estático de governança das migrations | VALIDADO | 186 SQLs / 176 manifesto / 172 auto / 172 baseline / 10 órfãs; gate artefatos PASS |
-| 2 | P0.1-B convergência em PostgreSQL 16 vazio/legado | EM_EXECUCAO | Aplicador PowerShell executa probes, recusa histórico desconhecido, aceita somente `knownChecksums` protegidos e não repete compatibilidade sem migration aplicada; vazio+reapply+one-shot+equivalência têm evidência anterior, upgrade legado e reconfirmação desta alteração ainda BLOCKED |
+| 2 | P0.1-B convergência em PostgreSQL 16 vazio/legado | EM_EXECUCAO | Aplicador PowerShell executa probes, recusa histórico desconhecido, aceita somente `knownChecksums` protegidos e não repete compatibilidade sem migration aplicada; wrapper Bash inseguro agora é somente validador e falha explicitamente antes de DDL; vazio+reapply+one-shot+equivalência têm evidência anterior, upgrade legado e reconfirmação desta alteração ainda BLOCKED |
 | 3 | P0.2 build Release locked e suites realmente executadas | VALIDADO | build `-warnaserror` + testes 389/123/102 PASS em 2026-09-10 |
 | 4 | P0.3 ApiExplorer/Swagger/OpenAPI/rotas | VALIDADO | Swagger HTTP 200 (3 445 457 bytes); 630 rotas sem conflito direto |
 | 5 | P0.4 login, sessões, cache, revogação e dois tenants | EM_EXECUCAO | Minha Central e navegação contextual corrigidas estaticamente na RC51.02H; repetir login/CPF/CNPJ/logout + 2 tenants e provar revogação/suspensão/legado em PostgreSQL 16 |
