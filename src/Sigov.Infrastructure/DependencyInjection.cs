@@ -150,6 +150,7 @@ using ComprasAppService = Sigov.Application.Compras.IComprasService;
 using ComprasInfraService = Sigov.Infrastructure.Compras.ComprasService;
 using PatrimonioAppService = Sigov.Application.Patrimonio.IPatrimonioService;
 using PatrimonioInfraService = Sigov.Infrastructure.Patrimonio.PatrimonioService;
+using Sigov.Application.Onboarding;
 namespace Sigov.Infrastructure;
 
 public static class DependencyInjection
