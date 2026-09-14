@@ -119,8 +119,21 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     [HttpGet("FeatureFlags")]
     public async Task<IActionResult> FeatureFlags(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
 
-    [HttpGet("Uso"), HttpGet("Relatorios"), HttpGet("Auditoria"), HttpGet("Sessoes"), HttpGet("Usuarios"), HttpGet("PerfisGlobais")]
-    public async Task<IActionResult> Uso(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
+    [HttpGet("Uso")]
+    public async Task<IActionResult> Uso(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, int page = 1, CancellationToken ct = default)
+    {
+        if (!await Allowed("visualizar", tenantId, ct)) return Forbid();
+        if (IsLocalTenantAdmin() && long.TryParse(User.FindFirstValue("tenant_id"), out var ownTenant))
+            tenantId = ownTenant;
+
+        var filter = Filter(tenantId, from, to, module, null);
+        ViewBag.Filter = filter;
+        ViewBag.Page = Math.Max(1, page);
+        return View(await dashboard.GetAsync(filter, ct).ConfigureAwait(false));
+    }
+
+    [HttpGet("Relatorios"), HttpGet("Auditoria"), HttpGet("Sessoes"), HttpGet("Usuarios"), HttpGet("PerfisGlobais")]
+    public async Task<IActionResult> Operacao(CancellationToken ct) => await Allowed("visualizar", null, ct) ? View() : Forbid();
     [HttpGet("Autorizacao")]
     public async Task<IActionResult> Autorizacao(CancellationToken ct)
     {
