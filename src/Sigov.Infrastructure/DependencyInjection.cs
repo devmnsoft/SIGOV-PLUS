@@ -246,7 +246,7 @@ public static class DependencyInjection
         services.AddOptions<PasswordRecoveryEmailOptions>().BindConfiguration(PasswordRecoveryEmailOptions.SectionName);
         services.AddScoped<IPasswordRecoveryEmailSender, SmtpPasswordRecoveryEmailSender>();
         services.AddSingleton<IPasswordPolicyService, PasswordPolicyService>();
-        services.AddScoped<OnboardingRepository>();
+        services.AddScoped<IOnboardingRepository, OnboardingRepository>();
         services.AddSingleton<IVersionInfoProvider, VersionInfoProvider>();
         services.AddSingleton<IReleaseInfoProvider, ReleaseInfoProvider>();
         services.AddSingleton<ReleaseMetadataReader>();
