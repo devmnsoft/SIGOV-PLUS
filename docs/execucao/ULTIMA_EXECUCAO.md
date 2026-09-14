@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02O (governança estática do manifesto). Estado: CORRIGIDA ESTATICAMENTE / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `b710b05b188edbacee1cb9b30a8e9428fdc00cce`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `pwsh`, `psql`, Docker e navegador ausentes.
+- Defeito confirmado: a migration `20260914120000` estava intacta, mas manifesto e consolidados registravam o hash do conteúdo sem a quebra final, divergindo do algoritmo normativo. O checksum foi sincronizado nos sete catálogos e o valor anterior preservado como `knownChecksums` com pós-condição; nenhuma migration publicada foi editada.
+- Aplicadores Bash e PowerShell agora recusam metadados históricos/probes malformados antes de DDL. Teste existente ampliado; validações Bash/JSON/diff passaram. O CS8629 industrial já permanece corrigido com pattern matching e HTTP 422 para contexto nulo.
+- Sem alteração visual ou schema; screenshot não aplicável. **BLOCKED:** PowerShell ValidateOnly, restore/build/test, OpenAPI, navegador e provas PostgreSQL 16 pela ausência das ferramentas.
+- Evidência e matriz: `docs/entregas/RC51-02O-GOVERNANCA-MANIFEST.md`.
+- Próximo item exato: executar o ValidateOnly PowerShell e provar no PostgreSQL 16 vazio/reapply/histórico conhecido e desconhecido/upgrade legado; depois validar login e isolamento antes do Gate B SaaS.
+
+---
+
 Data: 2026-09-14. RC51.02N (nullable da integração industrial e clareza operacional). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `84214791f4f4f42ea6ff106225e2932429ae31ad`, árvore limpa, sem remoto/upstream. O SDK normativo é `10.0.100`; `dotnet`, PostgreSQL, Docker e navegador não estão disponíveis.

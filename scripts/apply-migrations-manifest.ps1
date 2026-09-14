@@ -66,6 +66,25 @@ foreach ($entry in $manifest.migrations) {
     if (-not (Test-Path $file)) { throw "Migration ausente: $($entry.file)" }
     $actual = Get-NormalizedSha256 $file
     if ($actual -ne $entry.checksum) { throw "Checksum divergente: $($entry.file)" }
+    if ([string]$entry.checksum -cnotmatch '^[0-9a-f]{64}$') { throw "Checksum SHA-256 inválido: $($entry.file)" }
+    $knownChecksums = @((Get-OptionalArray $entry 'knownChecksums') | ForEach-Object { [string]$_ })
+    if (@($knownChecksums | Select-Object -Unique).Count -ne $knownChecksums.Count) { throw "knownChecksums duplicados: $($entry.file)" }
+    foreach ($knownChecksum in $knownChecksums) {
+        if ($knownChecksum -cnotmatch '^[0-9a-f]{64}$') { throw "knownChecksums contém SHA-256 inválido: $($entry.file)" }
+        if ($knownChecksum -ceq [string]$entry.checksum) { throw "Checksum atual repetido em knownChecksums: $($entry.file)" }
+    }
+    $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
+    if ($knownChecksums.Count -gt 0 -and ($null -eq $postConditionProperty -or [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value))) {
+        throw "POSTCONDITION_MISSING: knownChecksums exige postConditionSql em $($entry.file)"
+    }
+    $seenProbes = @{}
+    foreach ($probe in (Get-OptionalArray $entry 'postConditionProbes')) {
+        $probeName = ([string]$probe.name).Trim()
+        $probeSql = ([string]$probe.sql).Trim()
+        if ([string]::IsNullOrWhiteSpace($probeName) -or [string]::IsNullOrWhiteSpace($probeSql)) { throw "postConditionProbe sem nome ou SQL: $($entry.file)" }
+        if ($seenProbes.ContainsKey($probeName)) { throw "postConditionProbe duplicada em $($entry.file): $probeName" }
+        $seenProbes[$probeName] = $true
+    }
     $seenCompatibility = @{}
     foreach ($compatibility in (Get-OptionalArray $entry 'compatibilityBefore')) {
         if ($seenCompatibility.ContainsKey([string]$compatibility.file)) { throw "Compatibilidade duplicada em $($entry.file): $($compatibility.file)" }

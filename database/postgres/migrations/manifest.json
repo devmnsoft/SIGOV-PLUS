@@ -2323,7 +2323,10 @@
       "description": "Integração idempotente entre parada industrial e manutenção canônica",
       "category": "correction",
       "file": "20260914120000_corr_industria_manutencao_integracao.sql",
-      "checksum": "0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02",
+      "checksum": "465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d",
+      "knownChecksums": [
+        "0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02"
+      ],
       "applyAutomatically": true,
       "includeInBaseline": true,
       "dependencies": [

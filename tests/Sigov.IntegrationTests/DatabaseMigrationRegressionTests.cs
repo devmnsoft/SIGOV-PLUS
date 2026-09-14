@@ -176,6 +176,11 @@ public sealed class DatabaseMigrationRegressionTests
         script.Should().Contain("DATABASE_HISTORY_INCONSISTENT: versão");
         script.Should().Contain("DATABASE_HISTORY_INCONSISTENT: checksum desconhecido");
         script.Should().Contain("knownChecksums");
+        script.Should().Contain("knownChecksums duplicados");
+        script.Should().Contain("knownChecksums contém SHA-256 inválido");
+        script.Should().Contain("Checksum atual repetido em knownChecksums");
+        script.Should().Contain("POSTCONDITION_MISSING: knownChecksums exige postConditionSql");
+        script.Should().Contain("postConditionProbe duplicada");
         script.Should().Contain("if ($appliedAny)");
         script.IndexOf("$canExecute =", StringComparison.Ordinal).Should()
             .BeLessThan(script.IndexOf("Get-Command $PsqlPath", StringComparison.Ordinal),
@@ -193,6 +198,11 @@ public sealed class DatabaseMigrationRegressionTests
         script.Should().Contain("e.get('compatibilityBefore') or []");
         script.Should().Contain("data.get('compatibilityAfterAll') or []");
         script.Should().Contain("Checksum divergente na compatibilidade");
+        script.Should().Contain("knownChecksums duplicados");
+        script.Should().Contain("knownChecksums contém SHA-256 inválido");
+        script.Should().Contain("Checksum atual repetido em knownChecksums");
+        script.Should().Contain("POSTCONDITION_MISSING: knownChecksums exige postConditionSql");
+        script.Should().Contain("postConditionProbe duplicada");
         script.Should().Contain("BLOCKED: execução de migrations pelo wrapper Bash não possui contrato seguro");
         script.Should().NotContain("while IFS='|' read",
             "o wrapper não pode iniciar DDL sem ledger e pós-condições equivalentes ao runner canônico");

@@ -13,6 +13,7 @@ root=pathlib.Path(sys.argv[1]).resolve(); manifest_path=pathlib.Path(sys.argv[2]
 if not manifest_path.is_file(): raise SystemExit(f'Manifest não encontrado: {manifest_path}')
 data=json.loads(manifest_path.read_text(encoding='utf-8-sig'))
 seen_v=set(); seen_f=set()
+sha256_pattern=__import__('re').compile(r'^[0-9a-f]{64}$')
 def checksum(path):
     content=path.read_text(encoding='utf-8-sig').replace('\r\n','\n').replace('\r','\n')
     return hashlib.sha256(content.encode('utf-8')).hexdigest()
@@ -31,9 +32,28 @@ for e in data.get('migrations',[]):
         if not e.get(k): raise SystemExit(f'Entrada inválida: {e}')
     if e['version'] in seen_v or e['file'] in seen_f: raise SystemExit('Duplicidade no manifest')
     seen_v.add(e['version']); seen_f.add(e['file'])
+    if not sha256_pattern.fullmatch(e['checksum']):
+        raise SystemExit(f'Checksum SHA-256 inválido: {e["file"]}')
     path=root/'database/postgres/migrations'/e['file']
     if not path.is_file(): raise SystemExit(f'Migration ausente: {e["file"]}')
     if checksum(path) != e['checksum']: raise SystemExit(f'Checksum divergente: {e["file"]}')
+    known=e.get('knownChecksums') or []
+    if len(known) != len(set(known)):
+        raise SystemExit(f'knownChecksums duplicados: {e["file"]}')
+    if any(not isinstance(value,str) or not sha256_pattern.fullmatch(value) for value in known):
+        raise SystemExit(f'knownChecksums contém SHA-256 inválido: {e["file"]}')
+    if e['checksum'] in known:
+        raise SystemExit(f'Checksum atual repetido em knownChecksums: {e["file"]}')
+    if known and not str(e.get('postConditionSql') or '').strip():
+        raise SystemExit(f'POSTCONDITION_MISSING: knownChecksums exige postConditionSql em {e["file"]}')
+    probe_names=set()
+    for probe in e.get('postConditionProbes') or []:
+        name=str(probe.get('name') or '').strip(); sql=str(probe.get('sql') or '').strip()
+        if not name or not sql:
+            raise SystemExit(f'postConditionProbe sem nome ou SQL: {e["file"]}')
+        if name in probe_names:
+            raise SystemExit(f'postConditionProbe duplicada em {e["file"]}: {name}')
+        probe_names.add(name)
     compatibility_seen=set()
     for item in e.get('compatibilityBefore') or []:
         if item.get('file') in compatibility_seen:
