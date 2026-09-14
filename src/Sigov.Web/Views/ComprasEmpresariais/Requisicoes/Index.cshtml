@@ -9,7 +9,7 @@
     var first = Model.TotalItems == 0 ? 0L : ((long)Model.Page - 1) * Model.PageSize + 1;
     var last = Model.TotalItems == 0 ? 0L : Math.Min((long)Model.Page * Model.PageSize, Model.TotalItems);
     var hasFilters = !string.IsNullOrWhiteSpace(filtro.Busca) || !string.IsNullOrWhiteSpace(filtro.Status) || filtro.DataInicial.HasValue || filtro.DataFinal.HasValue;
-    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var returnUrl = Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page, tamanho = Model.PageSize });
 }
 <link rel="stylesheet" href="~/css/compras-empresariais.css" />
 <partial name="../Shared/_ComprasNav" />
@@ -97,12 +97,26 @@
     {
         <nav aria-label="Paginação das requisições">
             <ul class="pagination justify-content-center flex-wrap mb-0">
-                <li class="page-item @(!Model.HasPreviousPage ? "disabled" : null)"><a class="page-link" aria-disabled="@(!Model.HasPreviousPage)" tabindex="@(!Model.HasPreviousPage ? -1 : 0)" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page - 1, tamanho = Model.PageSize })">Anterior</a></li>
-                @for (var page = Math.Max(1, Model.Page - 2); page <= Math.Min(Model.TotalPages, Model.Page + 2); page++)
+                @if (Model.HasPreviousPage)
                 {
-                    <li class="page-item @(page == Model.Page ? "active" : null)" aria-current="@(page == Model.Page ? "page" : null)"><a class="page-link" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = page, tamanho = Model.PageSize })">@page</a></li>
+                    <li class="page-item"><a class="page-link" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page - 1, tamanho = Model.PageSize })">Anterior</a></li>
                 }
-                <li class="page-item @(!Model.HasNextPage ? "disabled" : null)"><a class="page-link" aria-disabled="@(!Model.HasNextPage)" tabindex="@(!Model.HasNextPage ? -1 : 0)" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page + 1, tamanho = Model.PageSize })">Próxima</a></li>
+                else
+                {
+                    <li class="page-item disabled"><span class="page-link" aria-disabled="true">Anterior</span></li>
+                }
+                @for (var pageNumber = Math.Max(1, Model.Page - 2); pageNumber <= Math.Min(Model.TotalPages, Model.Page + 2); pageNumber++)
+                {
+                    <li class="page-item @(pageNumber == Model.Page ? "active" : null)" aria-current="@(pageNumber == Model.Page ? "page" : null)"><a class="page-link" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = pageNumber, tamanho = Model.PageSize })">@(pageNumber)</a></li>
+                }
+                @if (Model.HasNextPage)
+                {
+                    <li class="page-item"><a class="page-link" href="@Url.Action("Requisicoes", new { filtro.Busca, filtro.Status, filtro.DataInicial, filtro.DataFinal, pagina = Model.Page + 1, tamanho = Model.PageSize })">Próxima</a></li>
+                }
+                else
+                {
+                    <li class="page-item disabled"><span class="page-link" aria-disabled="true">Próxima</span></li>
+                }
             </ul>
         </nav>
     }
