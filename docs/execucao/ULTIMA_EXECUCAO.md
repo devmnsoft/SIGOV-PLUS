@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02L (fail-closed do aplicador Bash). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `dd8b2e08f7252d89b8c9c6ff5083d5de791b4fa3`, árvore limpa, sem remoto/upstream; projetos Api, Web, Application e Infrastructure e `database/postgres/migrations` confirmados. Versão declarada do produto: `v1.0.0`; SDK normativo: `10.0.100`.
+- Matriz sucinta: migrations — PARCIAL, aplicador PowerShell canônico existente, lacuna de runtime PG16; Bash — implementado sem validação, repetia todos os SQL sem consultar/registrar ledger nem executar pós-condições; Central/SaaS/Indústria/Compras — PARCIAIS e dependentes dos Gates A/B; GED — PARCIAL e preservado por último.
+- Causa corrigida: `apply-migrations-manifest.sh` retornava sucesso sem configuração e, quando configurado, percorria todas as migrations automáticas sem ledger, probes, compatibilidade ou registro transacional. Para preservar dados, a execução de banco agora falha explicitamente e encaminha ao aplicador PowerShell canônico; `VALIDATE_ONLY=true` permanece disponível.
+- Validação estática fortalecida: o Bash recusa manifesto/migration ausentes, path traversal e checksum divergente, normalizando BOM e finais de linha como o contrato canônico. O teste de regressão existente verifica o bloqueio antes de qualquer aplicação cega.
+- Gates disponíveis: parser Bash, validação integral do manifesto, ausência de configuração e `git diff --check` passaram. **BLOCKED:** parser PowerShell, restore/build/test, PostgreSQL 16, Swagger, autenticação, jornadas Web e screenshots, pois `pwsh`, `.NET`, `psql`, servidor PostgreSQL e navegador não estão disponíveis; tentativa de obter Playwright recebeu HTTP 403.
+- Próximo item exato: executar o aplicador PowerShell canônico em PostgreSQL 16 vazio, reaplicação e fixture de upgrade legado; manter o Bash sem escrita até haver paridade comprovada de ledger, pós-condições, probes, compatibilidade e transação. Depois concluir os testes de revogação e dois tenants do Gate A.
+
+---
+
 Data: 2026-09-14. RC51.02K (correção Razor e paginação de uso SaaS). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Projeto confirmado: `src/Sigov.Web/Sigov.Web.csproj`; branch `work`, HEAD inicial `e23e8c18a1af8e5c07386fb5cb019c6c4a47a87b`, árvore inicialmente limpa. O SDK normativo permanece .NET `10.0.100` e nenhuma alteração foi feita no Agro360.

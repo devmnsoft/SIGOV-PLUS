@@ -182,6 +182,21 @@ public sealed class DatabaseMigrationRegressionTests
                 "ValidateOnly não deve depender da instalação do cliente PostgreSQL");
     }
 
+    [Fact]
+    public void Aplicador_Bash_Deve_Falhar_Fechado_Sem_Configuracao_Ou_Contrato_De_Ledger()
+    {
+        var script = File.ReadAllText(Path.Combine(Root, "scripts", "apply-migrations-manifest.sh"));
+
+        script.Should().Contain("CONFIGURATION_REQUIRED")
+            .And.Contain("MISSING_TOOL")
+            .And.Contain("UNSAFE_RUNNER_BLOCKED")
+            .And.Contain("VALIDATE_ONLY=true")
+            .And.Contain("path.parent != migrations_root")
+            .And.Contain("utf-8-sig");
+        script.Should().NotContain("while IFS='|'",
+            "o runner legado não pode conservar a aplicação cega das migrations");
+    }
+
     private static string ReadAllMigrations() => string.Join('\n', Directory.GetFiles(MigrationsPath, "*.sql", SearchOption.TopDirectoryOnly).OrderBy(static file => file, StringComparer.OrdinalIgnoreCase).Select(File.ReadAllText));
 
     private static string ReadBaselineMigrations()
