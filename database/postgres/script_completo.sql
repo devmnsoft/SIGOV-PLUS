@@ -30751,7 +30751,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 20260914120000_corr_industria_manutencao_integracao.sql
 -- CATEGORY: correction
--- CHECKSUM_SHA256: 0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02
+-- CHECKSUM_SHA256: 465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d
 -- ==================================================
 -- Integração idempotente e rastreável entre parada industrial e manutenção canônica.
 alter table sigov.manutencao_ordem_servico
@@ -30779,7 +30779,7 @@ create index if not exists ix_industria_parada_os
     on sigov.industria_parada_producao(tenant_id, os_id)
     where gerou_os and os_id is not null;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'Integração idempotente entre parada industrial e manutenção canônica', '0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'Integração idempotente entre parada industrial e manutenção canônica', '465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
