@@ -21,11 +21,59 @@ public sealed class FornecedorRepository(NpgsqlConnectionFactory factory):IForne
 
 public sealed class RequisicaoCompraRepository(NpgsqlConnectionFactory factory):IRequisicaoCompraRepository
 {
- public async Task<PagedResult<RequisicaoResumo>> ListarAsync(Guid t,int pagina,int tamanho,CancellationToken ct){var p=Math.Max(1,pagina);var s=Math.Clamp(tamanho,1,100);const string q="select count(*) from sigov.compras_empresarial_requisicao where tenant_id=@t and not is_deleted;select r.id,r.numero,r.status,r.valor_estimado ValorEstimado,r.data_necessaria DataNecessaria,count(i.id)::int Itens,r.version from sigov.compras_empresarial_requisicao r left join sigov.compras_empresarial_requisicao_item i on i.tenant_id=r.tenant_id and i.requisicao_id=r.id and not i.is_deleted where r.tenant_id=@t and not r.is_deleted group by r.id order by r.created_at desc offset @off limit @s";await using var c=factory.CreateConnection();using var m=await c.QueryMultipleAsync(new CommandDefinition(q,new{t,off=(p-1)*s,s},cancellationToken:ct));var n=await m.ReadSingleAsync<long>();return new((await m.ReadAsync<RequisicaoResumo>()).AsList(),p,s,n);}
+ public async Task<PagedResult<RequisicaoResumo>> ListarAsync(Guid t,RequisicaoFiltro f,CancellationToken ct)
+ {
+  var p=Math.Max(1,f.Pagina);
+  var s=Math.Clamp(f.Tamanho,1,100);
+  var status=string.IsNullOrWhiteSpace(f.Status)?null:f.Status.Trim().ToUpperInvariant();
+  var busca=string.IsNullOrWhiteSpace(f.Busca)?null:f.Busca.Trim();
+  var order=((f.OrdenarPor??"data").Trim().ToLowerInvariant(),(f.Direcao??"desc").Trim().ToLowerInvariant()) switch
+  {
+   ("numero","asc")=>"r.numero asc, r.id asc",
+   ("numero",_)=>"r.numero desc, r.id desc",
+   ("status","asc")=>"r.status asc, r.id asc",
+   ("status",_)=>"r.status desc, r.id desc",
+   ("data","asc")=>"r.created_at asc, r.id asc",
+   _=>"r.created_at desc, r.id desc"
+  };
+  var sql=$@"
+select count(*)
+from sigov.compras_empresarial_requisicao r
+where r.tenant_id=@t and not r.is_deleted
+ and (@status is null or r.status=@status)
+ and (@busca is null or r.numero ilike @term or r.justificativa ilike @term)
+ and (@inicio is null or r.created_at>=@inicio)
+ and (@fim is null or r.created_at<(@fim::date+1));
+select r.id,r.numero,r.status,r.valor_estimado ValorEstimado,r.data_necessaria DataNecessaria,
+ r.created_at DataSolicitacao,
+ case when r.ordem_servico_id is not null then 'Ordem de serviço'
+      when r.projeto_id is not null then 'Projeto'
+      when r.contrato_id is not null then 'Contrato'
+      when r.almoxarifado_id is not null then 'Almoxarifado'
+      else 'Solicitação direta' end Origem,
+ count(i.id)::int Itens,r.version
+from sigov.compras_empresarial_requisicao r
+left join sigov.compras_empresarial_requisicao_item i
+ on i.tenant_id=r.tenant_id and i.requisicao_id=r.id and not i.is_deleted
+where r.tenant_id=@t and not r.is_deleted
+ and (@status is null or r.status=@status)
+ and (@busca is null or r.numero ilike @term or r.justificativa ilike @term)
+ and (@inicio is null or r.created_at>=@inicio)
+ and (@fim is null or r.created_at<(@fim::date+1))
+group by r.id
+order by {order}
+offset @off limit @s";
+  var args=new{t,status,busca,term=$"%{busca}%",inicio=f.DataInicial,fim=f.DataFinal,off=(long)(p-1)*s,s};
+  await using var c=factory.CreateConnection();
+  using var m=await c.QueryMultipleAsync(new CommandDefinition(sql,args,cancellationToken:ct));
+  var total=await m.ReadSingleAsync<long>();
+  return new((await m.ReadAsync<RequisicaoResumo>()).AsList(),p,s,total);
+ }
  public async Task<RequisicaoDetalhe?> ObterAsync(Guid t,Guid id,CancellationToken ct){const string q=@"select id,numero,status,setor,urgencia,data_necessaria DataNecessaria,justificativa,observacoes,valor_estimado ValorEstimado,version from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id and not is_deleted;
 select id,ordem,tipo,descricao,especificacao,unidade,quantidade,valor_estimado ValorEstimado,permite_parcial PermiteParcial,exige_inspecao ExigeInspecao from sigov.compras_empresarial_requisicao_item where tenant_id=@t and requisicao_id=@id and not is_deleted order by ordem,id;
 select acao,detalhes::text Detalhes,created_at CriadoEm from sigov.compras_empresarial_historico where tenant_id=@t and aggregate_type='REQUISICAO' and aggregate_id=@id order by created_at,id";await using var c=factory.CreateConnection();using var m=await c.QueryMultipleAsync(new CommandDefinition(q,new{t,id},cancellationToken:ct));var h=await m.ReadSingleOrDefaultAsync<RequisicaoCabecalho>();if(h is null)return null;var itens=(await m.ReadAsync<RequisicaoItemDetalhe>()).AsList();var historico=(await m.ReadAsync<RequisicaoHistorico>()).AsList();return new(h.Id,h.Numero,h.Status,h.Setor,h.Urgencia,h.DataNecessaria,h.Justificativa,h.Observacoes,h.ValorEstimado,h.Version,itens,historico);}
  public async Task<Guid> CriarAsync(ComprasContext x,CriarRequisicaoRequest r,string key,CancellationToken ct){await using var c=factory.CreateConnection();await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(ct);var old=await c.ExecuteScalarAsync<Guid?>(new CommandDefinition("select recurso_id from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='REQUISICAO_CRIAR' and chave=@key",new{t=x.TenantId,key},tx,cancellationToken:ct));if(old.HasValue){await tx.CommitAsync(ct);return old.Value;}var id=Guid.NewGuid();var numero=await FornecedorRepository.Next(c,tx,x.TenantId,"REQUISICAO","RC",ct);var total=r.Itens.Sum(i=>i.Quantidade*i.ValorEstimado);const string head="insert into sigov.compras_empresarial_requisicao(id,tenant_id,numero,solicitante_id,setor,centro_custo_id,projeto_id,contrato_id,ordem_servico_id,almoxarifado_id,urgencia,data_necessaria,justificativa,observacoes,valor_estimado,created_by,updated_by,correlation_id) values(@id,@t,@numero,@usId,@Setor,@CentroCustoId,@ProjetoId,@ContratoId,@OrdemServicoId,@AlmoxarifadoId,upper(@Urgencia),@DataNecessaria,@Justificativa,@Observacoes,@total,@us,@us,@corr)";await c.ExecuteAsync(new CommandDefinition(head,new{id,t=x.TenantId,numero,usId=x.UsuarioId,r.Setor,r.CentroCustoId,r.ProjetoId,r.ContratoId,r.OrdemServicoId,r.AlmoxarifadoId,r.Urgencia,r.DataNecessaria,r.Justificativa,r.Observacoes,total,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));var ordem=0;foreach(var item in r.Itens){ordem++;await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_requisicao_item(tenant_id,requisicao_id,ordem,tipo,descricao,especificacao,unidade,quantidade,valor_estimado,permite_parcial,exige_inspecao,created_by,updated_by,correlation_id) values(@t,@id,@ordem,upper(@Tipo),@Descricao,@Especificacao,@Unidade,@Quantidade,@ValorEstimado,@PermiteParcial,@ExigeInspecao,@us,@us,@corr)",new{t=x.TenantId,id,ordem,item.Tipo,item.Descricao,item.Especificacao,item.Unidade,item.Quantidade,item.ValorEstimado,item.PermiteParcial,item.ExigeInspecao,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));}await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,created_by,correlation_id) values(@t,'REQUISICAO',@id,'RASCUNHO_CRIADO',@us,@corr);insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id) values(@t,'REQUISICAO_CRIAR',@key,@id)",new{t=x.TenantId,id,key,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));await tx.CommitAsync(ct);return id;}
+ public async Task AtualizarAsync(ComprasContext x,Guid id,AtualizarRequisicaoRequest r,CancellationToken ct){await using var c=factory.CreateConnection();await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(ct);var total=r.Itens.Sum(i=>i.Quantidade*i.ValorEstimado);const string update="update sigov.compras_empresarial_requisicao set setor=@Setor,centro_custo_id=@CentroCustoId,projeto_id=@ProjetoId,contrato_id=@ContratoId,ordem_servico_id=@OrdemServicoId,almoxarifado_id=@AlmoxarifadoId,urgencia=upper(@Urgencia),data_necessaria=@DataNecessaria,justificativa=@Justificativa,observacoes=@Observacoes,valor_estimado=@total,version=version+1,updated_at=now(),updated_by=@us,correlation_id=@corr where tenant_id=@t and id=@id and version=@Version and status='RASCUNHO' and not is_deleted";var args=new{t=x.TenantId,id,r.Setor,r.CentroCustoId,r.ProjetoId,r.ContratoId,r.OrdemServicoId,r.AlmoxarifadoId,r.Urgencia,r.DataNecessaria,r.Justificativa,r.Observacoes,total,r.Version,us=x.UsuarioId.ToString(),corr=x.CorrelationId};if(await c.ExecuteAsync(new CommandDefinition(update,args,tx,cancellationToken:ct))!=1)throw new InvalidOperationException("Requisição fora de rascunho ou versão desatualizada.");await c.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_requisicao_item set is_deleted=true,updated_at=now(),updated_by=@us,correlation_id=@corr where tenant_id=@t and requisicao_id=@id and not is_deleted",args,tx,cancellationToken:ct));var ordem=0;foreach(var item in r.Itens){ordem++;const string upsert="insert into sigov.compras_empresarial_requisicao_item(tenant_id,requisicao_id,ordem,tipo,descricao,especificacao,unidade,quantidade,valor_estimado,permite_parcial,exige_inspecao,created_by,updated_by,correlation_id) values(@t,@id,@ordem,upper(@Tipo),@Descricao,@Especificacao,@Unidade,@Quantidade,@ValorEstimado,@PermiteParcial,@ExigeInspecao,@us,@us,@corr) on conflict(tenant_id,requisicao_id,ordem) do update set tipo=excluded.tipo,descricao=excluded.descricao,especificacao=excluded.especificacao,unidade=excluded.unidade,quantidade=excluded.quantidade,valor_estimado=excluded.valor_estimado,permite_parcial=excluded.permite_parcial,exige_inspecao=excluded.exige_inspecao,is_deleted=false,updated_at=now(),updated_by=excluded.updated_by,correlation_id=excluded.correlation_id,version=sigov.compras_empresarial_requisicao_item.version+1";await c.ExecuteAsync(new CommandDefinition(upsert,new{t=x.TenantId,id,ordem,item.Tipo,item.Descricao,item.Especificacao,item.Unidade,item.Quantidade,item.ValorEstimado,item.PermiteParcial,item.ExigeInspecao,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));}await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'REQUISICAO',@id,'RASCUNHO_ATUALIZADO',jsonb_build_object('versao_anterior',@Version),@us,@corr)",args,tx,cancellationToken:ct));await tx.CommitAsync(ct);}
  public async Task EnviarAsync(ComprasContext x,Guid id,long version,CancellationToken ct){await using var c=factory.CreateConnection();await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(ct);const string q="update sigov.compras_empresarial_requisicao r set status='PENDENTE_APROVACAO',version=version+1,updated_at=now(),updated_by=@us,correlation_id=@corr where tenant_id=@t and id=@id and version=@version and status='RASCUNHO' and exists(select 1 from sigov.compras_empresarial_requisicao_item i where i.tenant_id=r.tenant_id and i.requisicao_id=r.id and not i.is_deleted)";var args=new{t=x.TenantId,id,version,us=x.UsuarioId.ToString(),corr=x.CorrelationId};var n=await c.ExecuteAsync(new CommandDefinition(q,args,tx,cancellationToken:ct));if(n!=1)throw new InvalidOperationException("Requisição sem itens, fora de rascunho ou versão desatualizada.");await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'REQUISICAO',@id,'ENVIADA_PARA_APROVACAO',jsonb_build_object('versao_analisada',@version),@us,@corr)",args,tx,cancellationToken:ct));await tx.CommitAsync(ct);}
  private sealed record RequisicaoCabecalho(Guid Id,string Numero,string Status,string? Setor,string Urgencia,DateOnly? DataNecessaria,string Justificativa,string? Observacoes,decimal ValorEstimado,long Version);
 }

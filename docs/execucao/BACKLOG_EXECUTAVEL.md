@@ -11,7 +11,7 @@ Estados: APROVADO (escopo autorizado), EM_EXECUCAO, VALIDADO (com evidência), B
 | 5 | P0.4 login, sessões, cache, revogação e dois tenants | EM_EXECUCAO | Minha Central e navegação contextual corrigidas estaticamente na RC51.02H; repetir login/CPF/CNPJ/logout + 2 tenants e provar revogação/suspensão/legado em PostgreSQL 16 |
 | 6 | P1.1–P1.6 catálogo, entitlements, preços, administrações e menu | AGUARDA_GATE | Gate B bloqueado até Gate A completo; dual `IModuleCatalogService` permanece |
 | 7 | P2.1–P2.8 Indústria OP vertical | AGUARDA_GATE | Gate C após A+B; telas ainda genéricas (`ModulePage`) |
-| 7a | Fatias Compras/Almoxarifado, Jurídico, Educação | AGUARDA_GATE | Compras empresariais agora possui detalhe real de requisição e envio transacional com histórico/versionamento; aprovação configurável, pedido, recebimento/estorno e integração de estoque continuam aguardando Gates A+B+C. Educação ainda exige transferência histórica, correção auditada da chamada, índice por oferta e prova PostgreSQL 16 |
+| 7a | Fatias Compras/Almoxarifado, Jurídico, Educação | AGUARDA_GATE | Compras empresariais possui listagem filtrada/paginada, criação, edição versionada de rascunho, detalhe e envio transacional com histórico; aprovação configurável, pedido, recebimento/estorno e integração de estoque continuam aguardando Gates A+B+C. Educação ainda exige transferência histórica, correção auditada da chamada, índice por oferta e prova PostgreSQL 16 |
 | 7b | Demais módulos na ordem do contrato | AGUARDA_GATE | Atualizar backlog após Gate D; GED por último |
 | 8 | P3 Indústria avançada | AGUARDA_GATE | Core industrial validado |
 | 9 | P4 demais módulos na ordem do contrato | AGUARDA_GATE | Auditoria por fluxo, sem telas decorativas |

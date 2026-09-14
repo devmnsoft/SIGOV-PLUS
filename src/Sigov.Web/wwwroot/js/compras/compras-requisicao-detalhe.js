@@ -2,6 +2,7 @@ import { request, lock } from './compras-api.js';
 
 const button = document.querySelector('[data-enviar]');
 button?.addEventListener('click', async () => {
+  if (!window.confirm('Enviar esta requisição para aprovação? Após o envio, o rascunho não poderá ser alterado diretamente.')) return;
   const feedback = document.querySelector('.form-feedback');
   lock(button, true);
   try {
