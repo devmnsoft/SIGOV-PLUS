@@ -73,6 +73,19 @@ public class PostBuild06IndustriaTests
     }
 
     [Fact]
+    public void ParadaIndustrial_DeveValidarContextoNullableSemInferirIdentidade()
+    {
+        IndustriaApi.Should().Contain("_tenant.EntidadeId is not long entidadeId || _user.UsuarioId is not long usuarioId");
+        IndustriaApi.Should().Contain("Entidade e usuário do contexto são obrigatórios");
+        IndustriaApi.Should().Contain("usuarioId, \"ordem_servico\"");
+        IndustriaApi.Should().Contain("EntidadeId = entidadeId");
+        IndustriaApi.Should().Contain("UsuarioId = usuarioId");
+        IndustriaApi.Should().NotContain("_tenant.EntidadeId.Value");
+        IndustriaApi.Should().NotContain("_user.UsuarioId.Value");
+        IndustriaApi.Should().NotContain("_user.UsuarioId ?? 0");
+    }
+
+    [Fact]
     public void Web_DeveConterMenuETelasIndustriais()
     {
         Sidebar.Should().Contain("/Industria/Dashboard");
