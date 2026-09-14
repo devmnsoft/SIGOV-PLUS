@@ -56,7 +56,7 @@ builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Si
 builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
-builder.Services.AddSingleton<IOnboardingService, OnboardingService>();
+builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddSingleton<IDemoModeService, DemoModeService>();
 builder.Services.AddSingleton<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddSingleton<IUserSavedFilterService, UserSavedFilterService>();

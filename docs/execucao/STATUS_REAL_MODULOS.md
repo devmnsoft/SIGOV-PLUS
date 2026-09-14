@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-11 (RC51.02H); checkout `work` iniciado em `ac06642902bab7b52373cbe4473432a349cf8967`, sem remoto/upstream configurado nesta execução.
+Corte: 2026-09-11 (RC51.02I); checkout `work` iniciado em `ac06642902bab7b52373cbe4473432a349cf8967`, sem remoto/upstream configurado nesta execução.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -8,7 +8,7 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Core, identidade, segurança, permissões | PARCIAL | Cookie compacto, snapshot request-scoped e policies pelo avaliador persistido; prova runtime PostgreSQL 16 e isolamento ponta a ponta pendentes |
 | Central de trabalho e aprovações | PARCIAL | Totais independem do limite da lista, vencimento usa prazo/estado reais, GED sem fonte foi removido e pendências isolam tenant+usuário; prova runtime PostgreSQL 16 ainda pendente |
 | Auditoria e LGPD | PARCIAL | Serviços/tabelas/rotas existentes; trilha e segregação runtime pendentes |
-| SaaS, planos, contratação, administração global/cliente | PARCIAL | Catálogo persistido, avaliador único e fluxo SuperAdmin de listar/abrir/contratar/suspender/reativar implementados; ACEITE FUNCIONAL bloqueado até evidência PostgreSQL 16 |
+| SaaS, planos, contratação, administração global/cliente | PARCIAL | Catálogo/entitlements e SuperAdmin existentes; onboarding deixou de fabricar progresso e passou a consultar o tenant autenticado nas tabelas publicadas; convites e ACEITE FUNCIONAL seguem bloqueados até evidência PostgreSQL 16 |
 | Indústria Core | PARCIAL | Application/Industria, Infrastructure/Industria, API/Web/Views/Industria; consulta real, fluxo mutável completo não homologado |
 | Indústria avançada | ESTRUTURA | Planejamento MRP/MPS/IoT; não há evidência de fluxo completo |
 | Comercial, OS, manutenção industrial | PARCIAL | Serviços Enterprise e pontos de integração; contratos e transações integradas pendentes |
@@ -27,4 +27,4 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
 | GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
 
-Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02H corrigiu agregação/prazo/exercício e navegação contextual; a RC51.02G fechou a exposição transversal de pendências do mesmo tenant entre usuários e removeu o sucesso aparente da Minha Central quando contexto, schema ou banco estão indisponíveis; a fatia permanece sem validação runtime. RC51.02F decompôs a validação da correção `20260910120000` em cinco probes independentes. Não houve evidência runtime por ausência de `pwsh`, `.NET` e PostgreSQL 16. A evidência anterior da RC51.02C permanece histórica; upgrade legado formal e isolamento API profundo seguem pendentes. Indústria Core permanece PARCIAL (telas genéricas). Dual catálogo Commercial/SaaS permanece. GED continua por último.
+RC51.02I removeu o onboarding hardcoded e o tenant fixo da Web; ausência de jornada agora é explícita e acesso cruzado é negado. Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02H corrigiu agregação/prazo/exercício e navegação contextual; a RC51.02G fechou a exposição transversal de pendências do mesmo tenant entre usuários e removeu o sucesso aparente da Minha Central quando contexto, schema ou banco estão indisponíveis; a fatia permanece sem validação runtime. RC51.02F decompôs a validação da correção `20260910120000` em cinco probes independentes. Não houve evidência runtime por ausência de `pwsh`, `.NET` e PostgreSQL 16. A evidência anterior da RC51.02C permanece histórica; upgrade legado formal e isolamento API profundo seguem pendentes. Indústria Core permanece PARCIAL (telas genéricas). Dual catálogo Commercial/SaaS permanece. GED continua por último.

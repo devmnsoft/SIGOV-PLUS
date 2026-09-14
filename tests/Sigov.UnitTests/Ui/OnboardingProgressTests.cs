@@ -9,12 +9,12 @@ public sealed class OnboardingProgressTests
     [Fact]
     public void Onboarding_Deve_Calcular_Progresso_Medio()
     {
-        var service = new OnboardingService();
+        var steps = new[]
+        {
+            new OnboardingStepDto("organizacao", "Organização", "", 1, OnboardingStatus.Concluido, 100m, []),
+            new OnboardingStepDto("usuarios", "Usuários", "", 2, OnboardingStatus.Pendente, 0m, [])
+        };
 
-        var journey = service.GetJourney(10);
-
-        journey.TenantId.Should().Be(10);
-        journey.ProgressPercent.Should().BeGreaterThan(0);
-        journey.Steps.Should().HaveCount(12);
+        OnboardingService.CalculateProgress(steps).Should().Be(50m);
     }
 }

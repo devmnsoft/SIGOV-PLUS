@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-11. RC51.02I (onboarding contextual persistido). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `75bdee0d096d6c948f4fea9e21757eb7f6c20420`, árvore limpa e sem remoto/upstream.
+- Removidos os 12 passos e três conclusões fabricadas; Application agora agrega jornada/etapas/tarefas obtidas pelo repositório Dapper existente.
+- API e Web exigem autenticação/contexto e recusam tenant divergente; ausência de jornada retorna 404.
+- Sem migration: reutilizado schema publicado. Detalhes em `docs/entregas/RC51-02I-ONBOARDING-CONTEXTO-PERSISTIDO.md`.
+- BLOCKED: .NET, PowerShell, PostgreSQL 16, Docker e navegador ausentes; download do SDK bloqueado por HTTP 403.
+- Próximo item: executar gates e isolamento runtime do onboarding em dois tenants; depois concluir convites.
+
+---
+
 Data: 2026-09-11. RC51.02H (central e navegação contextual). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: raiz `/workspace/SIGOV-PLUS`; branch `work`; HEAD inicial `ac06642902bab7b52373cbe4473432a349cf8967`; árvore limpa; sem remoto/upstream.
