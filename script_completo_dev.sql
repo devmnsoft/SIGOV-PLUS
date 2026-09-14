@@ -207,7 +207,9 @@ select exists (
         ('20260903230000', array['2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70']::text[]),
         ('20260908120000', array['c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7']::text[]),
         ('20260909120000', array['0dbe94d680f16fd4bb2d50c5215a96fab00a4d70278f28099eaa6d078d7df52e']::text[]),
-        ('20260910120000', array['f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee']::text[])
+        ('20260910120000', array['f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee']::text[]),
+        ('20260914120000', array['465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d','0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02']::text[]),
+        ('20260914130000', array['1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -30780,6 +30782,82 @@ create index if not exists ix_industria_parada_os
     where gerou_os and os_id is not null;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'Integração idempotente entre parada industrial e manutenção canônica', '465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260914130000_corr_saas_compatibilidade_suspensao.sql
+-- CATEGORY: correction
+-- CHECKSUM_SHA256: 1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13
+-- ==================================================
+-- Correção forward-only da compatibilidade entre a contratação canônica e a projeção legada.
+-- tenant_modulo_contratado é a autoridade; nenhum estado legado concede acesso ao contrato.
+create or replace function sigov.fn_tenant_modulo_compatibilizar() returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, sigov
+as $$
+declare
+    v_modulo_id bigint;
+    v_habilitado boolean;
+begin
+    select ms.id
+      into v_modulo_id
+      from sigov.modulo_saas ms
+     where ms.codigo = new.modulo_codigo
+       and ms.ativo
+       and not ms.is_deleted
+     limit 1;
+
+    if v_modulo_id is null then
+        return new;
+    end if;
+
+    -- A projeção só fica habilitada quando contrato, vigência e registro permitem.
+    -- SUSPENSO, INADIMPLENTE, CANCELADO e EXPIRADO continuam contratualmente
+    -- distinguíveis, mas nunca são convertidos em acesso habilitado.
+    v_habilitado := new.ativo
+        and new.status in ('TRIAL', 'EM_IMPLANTACAO', 'CONTRATADO', 'HABILITADO', 'ATIVO', 'BETA')
+        and (new.vigencia_inicio is null or new.vigencia_inicio <= current_date)
+        and (new.vigencia_fim is null or new.vigencia_fim >= current_date)
+        and (new.cancelamento_agendado_para is null or new.cancelamento_agendado_para > current_date);
+
+    insert into sigov.tenant_modulo (
+        tenant_id, modulo_saas_id, habilitado, contratado, inicio_at, fim_at,
+        configuracoes, ativo, created_by, updated_by, correlation_id)
+    values (
+        new.tenant_id, v_modulo_id, v_habilitado,
+        new.ativo and new.status not in ('DISPONIVEL', 'CANCELADO', 'EXPIRADO'),
+        coalesce(new.vigencia_inicio, current_date)::timestamptz,
+        new.vigencia_fim::timestamptz, new.parametros_json, new.ativo,
+        new.created_by, new.updated_by, new.correlation_id)
+    on conflict (tenant_id, modulo_saas_id) do update set
+        habilitado = excluded.habilitado,
+        contratado = excluded.contratado,
+        inicio_at = excluded.inicio_at,
+        fim_at = excluded.fim_at,
+        configuracoes = excluded.configuracoes,
+        ativo = excluded.ativo,
+        updated_at = now(),
+        updated_by = excluded.updated_by,
+        correlation_id = excluded.correlation_id;
+
+    return new;
+end
+$$;
+
+-- Recriar corrige de forma determinística os cenários ausente, desabilitado,
+-- associado a função divergente ou instalado com eventos/momento incorretos.
+drop trigger if exists trg_tenant_modulo_compatibilizar on sigov.tenant_modulo_contratado;
+create trigger trg_tenant_modulo_compatibilizar
+after insert or update on sigov.tenant_modulo_contratado
+for each row
+execute function sigov.fn_tenant_modulo_compatibilizar();
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914130000', 'Correção da projeção SaaS com suspensão e vigência preservadas', '1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

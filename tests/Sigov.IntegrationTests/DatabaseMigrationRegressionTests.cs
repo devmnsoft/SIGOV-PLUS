@@ -136,12 +136,14 @@ public sealed class DatabaseMigrationRegressionTests
 
         var correction = entries.Single(entry => entry.GetProperty("version").GetString() == "20260910120000");
         var correctionProbes = correction.GetProperty("postConditionProbes").EnumerateArray().ToArray();
-        correctionProbes.Should().HaveCount(5);
+        correctionProbes.Should().HaveCount(9);
         correctionProbes.Select(probe => probe.GetProperty("name").GetString()).Should().Contain(new[]
         {
             "permissão saude.visita.registrar ativa", "perfil_acesso.tenant_id bigint anulável",
             "tabela de histórico SaaS canônica", "trigger SaaS de auditoria corrigido",
-            "trigger SaaS de compatibilidade corrigido"
+            "trigger SaaS existe na tabela canônica", "trigger SaaS habilitado para execução normal",
+            "trigger SaaS eventos momento e granularidade", "trigger SaaS função canônica",
+            "função SaaS contrato estrutural de projeção"
         });
         correction.GetProperty("postConditionSql").GetString().Should().Contain("is_nullable='YES'")
             .And.Contain("ativo and not is_deleted");
@@ -158,6 +160,14 @@ public sealed class DatabaseMigrationRegressionTests
         sql.Should().NotContain("update sigov.modulo_saas set");
         sql.Should().NotContain("disponivel_contratacao=true");
         sql.Should().NotContain("create table if not exists sigov.compras_fatura");
+
+        var forward = File.ReadAllText(Path.Combine(MigrationsPath, "20260914130000_corr_saas_compatibilidade_suspensao.sql"));
+        forward.Should().Contain("security invoker").And.Contain("set search_path = pg_catalog, sigov");
+        forward.Should().Contain("new.status in ('TRIAL', 'EM_IMPLANTACAO', 'CONTRATADO', 'HABILITADO', 'ATIVO', 'BETA')");
+        forward.Should().Contain("new.vigencia_fim >= current_date").And.Contain("new.cancelamento_agendado_para > current_date");
+        forward.Should().Contain("drop trigger if exists trg_tenant_modulo_compatibilizar");
+        forward.Should().NotContain("session_replication_role");
+        Regex.Matches(forward, "create trigger trg_tenant_modulo_compatibilizar", RegexOptions.IgnoreCase).Should().HaveCount(1);
     }
 
     [Fact]
