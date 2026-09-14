@@ -28,6 +28,16 @@ public sealed class EducacaoModuleSmokeTests
         code.Should().Contain("sigov.educacao_evento");
         code.Should().Contain("cast(@DadosSensiveisJson as jsonb)");
         code.Should().Contain("vagas_ocupadas = vagas_ocupadas + 1");
+        code.IndexOf("vagas_ocupadas = vagas_ocupadas + 1", StringComparison.Ordinal)
+            .Should().BeLessThan(code.IndexOf("var sql = InsertSql(recurso)", StringComparison.Ordinal),
+                "a vaga deve ser reservada atomicamente antes de inserir a matrícula");
+        code.Should().Contain("reservadas != 1")
+            .And.Contain("a.tenant_id = t.tenant_id")
+            .And.Contain("t.escola_id = @EscolaId")
+            .And.Contain("@DataAula between greatest(m.data_matricula,l.data_inicio) and l.data_fim")
+            .And.Contain("l.status <> 'ENCERRADO'")
+            .And.Contain("ExecuteScalarAsync<long?>")
+            .And.Contain("Frequência rejeitada: aluno sem matrícula elegível");
     }
 
     [Fact]

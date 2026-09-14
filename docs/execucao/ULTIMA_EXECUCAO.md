@@ -1,5 +1,17 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02L (integridade mínima de matrícula e frequência). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `dd8b2e08f7252d89b8c9c6ff5083d5de791b4fa3`, árvore limpa, sem remoto/upstream; projetos e migrations confirmados. SDK normativo `10.0.100`; `dotnet`, `psql`, Docker e navegador ausentes. O download do SDK foi tentado e bloqueado pelo proxy HTTP 403.
+- Lacuna confirmada: a matrícula era inserida antes da tentativa de incrementar a ocupação e o resultado do `UPDATE` era ignorado. Assim, a disputa pela última vaga podia confirmar duas matrículas e divergira de `vagas_ocupadas`. Identificadores de aluno/escola/ano/turma também não eram validados conjuntamente no contexto. Frequência aceitava aluno sem matrícula elegível e data fora da vigência.
+- Implementado: a mesma transação agora reserva exatamente uma vaga antes do insert, sob `UPDATE` concorrente, validando tenant, entidade, cadastros ativos, compatibilidade escola/ano/turma e período não encerrado. Zero linhas atualizadas aborta e faz rollback. O lançamento de frequência passou a ser `INSERT ... SELECT` condicionado a matrícula ativa/confirmada e data entre ingresso e fim do ano letivo; situação e justificativa são validadas no serviço. Ausência de entidade não usa mais o contexto fictício `1`.
+- Matriz: Educação permanece **PARCIAL / IMPLEMENTADA SEM VALIDAÇÃO RUNTIME**; Saúde/ACS e Jurídico foram apenas inspecionados e permanecem **PARCIAIS**, sem alteração nesta fatia. SaaS, Compras, Estoque, Indústria, Frota, Contratos e GED foram preservados; GED continua por último.
+- Testes estáticos existentes foram ampliados para proteger a ordem reserva→insert e os predicados de contexto/elegibilidade. `git diff --check` passou. **BLOCKED:** restore/build/test, PostgreSQL 16 vazio/upgrade/reexecução, OpenAPI, login/Minha Central/logout, jornadas HTTP e screenshots responsivos não foram executados por ausência de ferramentas/runtime.
+- Riscos restantes: os índices históricos de matrícula ainda impõem unicidade ampla por aluno/ano e precisam de migration corretiva sincronizada para representar oferta; transferência ainda só altera o estado da matrícula, sem criar novo vínculo preservando o anterior; não existe operação específica de correção auditada da chamada. Esses pontos impedem o aceite vertical completo.
+- Próximo item exato: implementar transferência atômica com histórico e nova matrícula por oferta, acrescentar migration forward-only que substitua a unicidade genérica e sincronizar manifesto/consolidados; aceite em PostgreSQL 16: uma vencedora na última vaga, oferta complementar legítima, transferência preservando frequência anterior e retry sem duplicação.
+
+---
+
 Data: 2026-09-14. RC51.02K (correção Razor e paginação de uso SaaS). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Projeto confirmado: `src/Sigov.Web/Sigov.Web.csproj`; branch `work`, HEAD inicial `e23e8c18a1af8e5c07386fb5cb019c6c4a47a87b`, árvore inicialmente limpa. O SDK normativo permanece .NET `10.0.100` e nenhuma alteração foi feita no Agro360.
