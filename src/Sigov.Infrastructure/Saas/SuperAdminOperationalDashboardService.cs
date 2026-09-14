@@ -21,7 +21,10 @@ public sealed class SuperAdminOperationalDashboardService(DapperContext context,
                 "select table_name||'.'||column_name from information_schema.columns where table_schema='sigov'", cancellationToken: cancellationToken))).ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (!tables.Contains("tenant")) return Unavailable(checkedAt, "Schema principal não configurado.");
 
-            var args = new { filter.TenantId, filter.FromUtc, filter.ToUtc, Module = NullIfBlank(filter.Module), Status = NullIfBlank(filter.Status) };
+            var pageNumber = Math.Max(1, filter.PageNumber);
+            var pageSize = filter.PageSize is null ? (int?)null : Math.Clamp(filter.PageSize.Value, 1, 100);
+            var args = new { filter.TenantId, filter.FromUtc, filter.ToUtc, Module = NullIfBlank(filter.Module), Status = NullIfBlank(filter.Status),
+                PageSize = pageSize, Offset = pageSize * (pageNumber - 1) };
             var tenants = (await connection.QueryAsync<SuperAdminTenantSummary>(new CommandDefinition(TenantSql, args, cancellationToken: cancellationToken))).AsList();
             var authAvailable = Has(columns, "autorizacao_decisao_auditoria", "decidido_em_utc", "tenant_id", "recurso", "acao", "permitido", "efeito", "motivo", "modulo");
             var contextAvailable = Has(columns, "contexto_operacional_auditoria", "ocorrido_at", "tenant_novo_id", "tenant_anterior_id", "resultado", "codigo_motivo");
@@ -32,6 +35,8 @@ public sealed class SuperAdminOperationalDashboardService(DapperContext context,
                 ? (await connection.QueryAsync<SuperAdminContextSummary>(new CommandDefinition(ContextSql, args, cancellationToken: cancellationToken))).AsList() : [];
             var audits = auditAvailable
                 ? (await connection.QueryAsync<SuperAdminAuditSummary>(new CommandDefinition(AuditSql, args, cancellationToken: cancellationToken))).AsList() : [];
+            var auditTotal = auditAvailable
+                ? await connection.ExecuteScalarAsync<long>(new CommandDefinition(AuditCountSql, args, cancellationToken: cancellationToken)) : 0;
 
             var operations = new List<SuperAdminOperationSummary>();
             if (Has(columns, "outbox_evento", "status", "processed_at", "created_at", "tenant_id"))
@@ -50,7 +55,7 @@ public sealed class SuperAdminOperationalDashboardService(DapperContext context,
             var alerts = tenants.Where(x => !x.ContextComplete).Select(x => new SuperAdminDashboardAlert("Contexto", "warning", $"Tenant {x.Id} sem contexto operacional completo.", x.Id)).ToList();
             if (!authAvailable) alerts.Add(new("Schema", "warning", "Área de autorização indisponível: schema incompatível."));
             if (!contextAvailable) alerts.Add(new("Schema", "warning", "Área de contexto indisponível: schema incompatível."));
-            return new(checkedAt, "Disponível", "Disponível", kpis, alerts, tenants, auth, audits, contexts, operations);
+            return new(checkedAt, "Disponível", "Disponível", kpis, alerts, tenants, auth, audits, contexts, operations, auditTotal);
         }
         catch (Exception ex)
         {
@@ -95,8 +100,17 @@ from sigov.contexto_operacional_auditoria where ocorrido_at between @FromUtc and
 and (@TenantId is null or tenant_novo_id=@TenantId or tenant_anterior_id=@TenantId) order by ocorrido_at desc limit 100
 """;
     private const string AuditSql = """
-select created_at as AtUtc,tenant_id as TenantId,'Auditoria' as Area,acao as Event,'REGISTRADO' as Result,true as Sensitive
-from sigov.auditoria_evento where created_at between @FromUtc and @ToUtc and (@TenantId is null or tenant_id=@TenantId) order by created_at desc limit 100
+select ae.created_at as AtUtc,ae.tenant_id as TenantId,'Auditoria' as Area,ae.acao as Event,'REGISTRADO' as Result,true as Sensitive,
+ coalesce(t.nome_fantasia,t.nome,t.slug) as TenantName
+from sigov.auditoria_evento ae left join sigov.tenant t on t.id=ae.tenant_id
+where ae.created_at between @FromUtc and @ToUtc and (@TenantId is null or ae.tenant_id=@TenantId)
+and (@Module is null or ae.entidade=@Module) and (@Status is null or upper(t.status)=upper(@Status))
+order by ae.created_at desc,ae.id desc limit @PageSize offset @Offset
+""";
+    private const string AuditCountSql = """
+select count(*) from sigov.auditoria_evento ae left join sigov.tenant t on t.id=ae.tenant_id
+where ae.created_at between @FromUtc and @ToUtc and (@TenantId is null or ae.tenant_id=@TenantId)
+and (@Module is null or ae.entidade=@Module) and (@Status is null or upper(t.status)=upper(@Status))
 """;
     private const string OutboxSql = """
 select 'Outbox' as Area,coalesce(status,'PENDENTE') as Status,count(*)::bigint as Count,max(coalesce(processed_at,created_at)) as LastAtUtc
