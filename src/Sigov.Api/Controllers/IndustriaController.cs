@@ -472,11 +472,15 @@ public sealed class IndustriaController : ControllerBase
         {
             if (!await HasPermission("industria.paradas.criar")) return Forbid();
             var tenantId = RequireTenant();
-            if (!_tenant.EntidadeId.HasValue || !_user.UsuarioId.HasValue)
+            // A entidade e o usuário não são dados opcionais desta integração: eles
+            // identificam, respectivamente, a unidade operacional e o solicitante da OS.
+            // Capture os valores validados para que nenhuma leitura posterior do
+            // contexto nullable possa divergir ou lançar InvalidOperationException.
+            if (_tenant.EntidadeId is not long entidadeId || _user.UsuarioId is not long usuarioId)
                 return UnprocessableEntity(ApiResponse<object>.Fail("Entidade e usuário do contexto são obrigatórios para abrir a manutenção.", cid));
             using var c = _context.CreateConnection();
             var osAtivo = await _entitlement.EvaluateAsync(new ModuleEntitlementRequest(
-                _user.UsuarioId ?? 0, "ordem_servico", _user.Roles, tenantId, CorrelationId: cid)).ConfigureAwait(false);
+                usuarioId, "ordem_servico", _user.Roles, tenantId, CorrelationId: cid)).ConfigureAwait(false);
             if (!osAtivo.Allowed) return StatusCode(403, ApiResponse<object>.Fail(osAtivo.Reason, cid));
             c.Open();
             using var tx = c.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
@@ -487,14 +491,14 @@ public sealed class IndustriaController : ControllerBase
                 return NotFound(ApiResponse<object>.Fail("Parada com recurso produtivo não encontrada no contexto atual.", cid));
             var esfera = await c.ExecuteScalarAsync<string?>(new CommandDefinition(
                 "select esfera_governo from sigov.entidade where id=@EntidadeId and tenant_id=@TenantId and ativo and not is_deleted",
-                new { EntidadeId = _tenant.EntidadeId.Value, TenantId = tenantId }, tx, cancellationToken: HttpContext.RequestAborted));
+                new { EntidadeId = entidadeId, TenantId = tenantId }, tx, cancellationToken: HttpContext.RequestAborted));
             if (esfera is not ("municipal" or "estadual" or "federal"))
                 return UnprocessableEntity(ApiResponse<object>.Fail("A entidade do contexto não possui esfera de governo válida para a manutenção.", cid));
             var osId = await c.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.manutencao_ordem_servico
 (tenant_id,entidade_id,exercicio_id,esfera_governo,alvo_tipo,alvo_id,solicitante_id,unidade_id,prioridade,descricao,categoria,status,created_by,origem_tipo,origem_id)
 values(@TenantId,@EntidadeId,@ExercicioId,@Esfera,'EQUIPAMENTO',@RecursoId,@UsuarioId,@EntidadeId,'ALTA',@Descricao,'MANUTENCAO_CORRETIVA','ABERTA',@UsuarioId,'PARADA_INDUSTRIAL',@ParadaId)
 on conflict(tenant_id,origem_tipo,origem_id) where origem_tipo is not null and origem_id is not null
-do update set updated_at=now() returning id", new { TenantId = tenantId, EntidadeId = _tenant.EntidadeId.Value, _tenant.ExercicioId, Esfera = esfera, parada.RecursoId, UsuarioId = _user.UsuarioId.Value, Descricao = $"Parada industrial no recurso {parada.RecursoNome}: {parada.Motivo}", ParadaId = id }, tx, cancellationToken: HttpContext.RequestAborted));
+            do update set updated_at=now() returning id", new { TenantId = tenantId, EntidadeId = entidadeId, _tenant.ExercicioId, Esfera = esfera, parada.RecursoId, UsuarioId = usuarioId, Descricao = $"Parada industrial no recurso {parada.RecursoNome}: {parada.Motivo}", ParadaId = id }, tx, cancellationToken: HttpContext.RequestAborted));
             await c.ExecuteAsync(new CommandDefinition("update sigov.industria_parada_producao set gerou_os=true, os_id=@OsId where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, OsId = osId }, tx, cancellationToken: HttpContext.RequestAborted));
             await Auditar(c, tx, tenantId, "PARADA_GEROU_OS", "industria_parada_producao", id, new { osId }, cid);
             tx.Commit();
@@ -643,7 +647,9 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     private static int Offset(int page, int pageSize) => (Math.Max(1, page) - 1) * Limit(pageSize);
     private async Task<bool> HasPermission(string permission)
     {
-        if (User.Identity?.IsAuthenticated != true || !_user.UsuarioId.HasValue || !_tenant.TenantId.HasValue)
+        if (User.Identity?.IsAuthenticated != true ||
+            _user.UsuarioId is not long usuarioId ||
+            _tenant.TenantId is not long tenantId)
             return false;
 
         var separator = permission.LastIndexOf('.');
@@ -655,11 +661,11 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
         var module = moduleSeparator > 0 ? qualifiedResource[..moduleSeparator] : "industria";
         var resource = moduleSeparator > 0 ? qualifiedResource[(moduleSeparator + 1)..] : qualifiedResource;
         var decision = await _authorization.EvaluateAsync(new AuthorizationRequest(
-            _user.UsuarioId.Value,
+            usuarioId,
             module,
             resource,
             permission[(separator + 1)..],
-            _tenant.TenantId,
+            tenantId,
             _tenant.EntidadeId,
             _tenant.ExercicioId,
             CorrelationId: CorrelationId(),

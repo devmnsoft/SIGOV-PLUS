@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02N (nullable da integração industrial e clareza operacional). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `84214791f4f4f42ea6ff106225e2932429ae31ad`, árvore limpa, sem remoto/upstream. O SDK normativo é `10.0.100`; `dotnet`, PostgreSQL, Docker e navegador não estão disponíveis.
+- Causa do CS8629: após testar `HasValue`, `GerarOsAsync` voltava a ler `_tenant.EntidadeId.Value` e `_user.UsuarioId.Value` dentro de expressões posteriores; a análise nullable não preservava a garantia. `null` significa contexto operacional autenticado incompleto e agora retorna 422 antes de entitlement, consulta ou gravação. Pattern matching captura `entidadeId` e `usuarioId`, usados no avaliador e SQL, sem identidade padrão.
+- Regressão: a classe existente `PostBuild06IndustriaTests` protege a validação, a mensagem contratual, o reuso dos valores tipados e a ausência de `.Value`/`?? 0` neste fluxo. Registro ausente/outro tenant, esfera inconsistente, falta de permissão e idempotência continuam protegidos pelos predicados e testes existentes.
+- Interface: a página industrial compartilhada explicita a sequência ordem → materiais/reserva → apontamento → qualidade → encerramento, inclui “Como usar” e não converte erro de consulta em lista vazia. A matriz curta e as transições foram registradas em `docs/industria-producao.md`; o módulo permanece `PARCIAL`.
+- Sem alteração de schema ou migration. **BLOCKED:** restore/build/test, OpenAPI, login/Minha Central, jornada no navegador, screenshots e provas PostgreSQL 16 não foram executados pela ausência das ferramentas/runtime.
+- Próximo item exato: implementar a unidade transacional e idempotência por conteúdo entre reserva/consumo/produção da OP e estoque canônico, seguida da reconciliação concorrente de qualidade, entrada e custo no encerramento; provar em PostgreSQL 16 duas reservas, retries e encerramento concorrente com apontamento. GED permanece por último.
+
+---
+
 Data: 2026-09-14. RC51.02M (aplicador Bash fail-closed). Estado: CORREÇÃO ESTÁTICA / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `158cef1116d2b9cc9be28757ec5ea8fc90d5fd9c`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `pwsh`, `psql`, Docker e navegador ausentes. **Erro específico não fornecido** na tarefa.

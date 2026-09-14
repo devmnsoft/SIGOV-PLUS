@@ -12,6 +12,22 @@
         <button type="button" class="btn btn-outline-primary" data-refresh>Atualizar</button>
     </div>
 
+    <nav class="card card-body bg-light border-0 mb-3" aria-label="Jornada da ordem de produção">
+        <p class="fw-semibold text-primary mb-2">Jornada operacional</p>
+        <ol class="d-flex flex-column flex-md-row flex-wrap gap-2 gap-md-3 mb-0 ps-3">
+            <li>Ordem de produção</li>
+            <li>Materiais e reserva</li>
+            <li>Apontamento</li>
+            <li>Qualidade</li>
+            <li>Encerramento</li>
+        </ol>
+    </nav>
+
+    <details class="alert alert-light border mb-3">
+        <summary class="fw-semibold">Como usar</summary>
+        <p class="mb-0 mt-2">Informe um código, descrição ou situação, consulte os registros e use a paginação. Um traço indica dado não informado; falhas de consulta são exibidas como erro, nunca como resultado vazio.</p>
+    </details>
+
     <form class="card card-body mb-3" data-filter-form>
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-7">
@@ -108,7 +124,13 @@
             status.textContent = `${rows.length} registro(s) carregado(s).`;
             next.disabled = rows.length < Number(form.pageSize.value);
         } catch (error) {
-            render([]);
+            head.replaceChildren();
+            body.replaceChildren();
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.className = 'text-center text-danger py-5';
+            cell.textContent = 'Os registros não foram carregados. Tente novamente ou informe o suporte.';
+            row.append(cell); body.append(row);
             status.className = 'alert alert-danger';
             status.textContent = error instanceof Error ? error.message : 'Falha inesperada ao consultar os dados.';
             next.disabled = true;
