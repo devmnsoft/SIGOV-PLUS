@@ -21,7 +21,7 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     { _repo = repo; _tenant = tenant; _user = user; _permissions = permissions; _modulos = modulos; _audit = audit; _lgpd = lgpd; _logger = logger; }
 
     private long TenantId => _tenant.TenantId ?? 0;
-    private long EntidadeId => _tenant.EntidadeId ?? 1;
+    private long EntidadeId => _tenant.EntidadeId ?? 0;
     private long? ExercicioId => _tenant.ExercicioId;
     private long? UsuarioId => _user.UsuarioId;
     private static Result<T> Fail<T>(string msg) => Result<T>.Failure(msg);
@@ -30,6 +30,7 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     private async Task<Result> GuardAsync(string recurso, string acao, CancellationToken ct)
     {
         if (TenantId <= 0) return Fail("Tenant obrigatório para operações de Educação.");
+        if (EntidadeId <= 0) return Fail("Entidade obrigatória para operações de Educação.");
         if (!await ModuloHabilitadoAsync(ct).ConfigureAwait(false)) return await NegarAsync(recurso, acao, "Módulo educação não contratado/habilitado para o tenant.", ct).ConfigureAwait(false);
         if (!_user.IsAuthenticated || !UsuarioId.HasValue) return await NegarAsync(recurso, acao, "Usuário autenticado obrigatório.", ct).ConfigureAwait(false);
         var ok = await _permissions.HasPermissionAsync(UsuarioId.Value, EducacaoPermissoes.Modulo, recurso, acao, ct).ConfigureAwait(false);
@@ -53,6 +54,11 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
             var id = await _repo.CriarAsync(TenantId, EntidadeId, ExercicioId, recurso, request, UsuarioId, ct).ConfigureAwait(false);
             await _audit.RegistrarAsync("educacao", "CRIAR", $"sigov.{Tabela(recurso)}", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, AuditPayload(request), ct).ConfigureAwait(false);
             return Result<long>.Success(id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Regra de criação de Educação rejeitou {Recurso} no tenant {TenantId}.", recurso, TenantId);
+            return Fail<long>(ex.Message);
         }
         catch (Exception ex)
         {
@@ -185,7 +191,11 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     Task<Result<long>> IFrequenciaService.CriarAsync(FrequenciaCreateRequest request, CancellationToken ct) =>
         request.TurmaId <= 0 || request.AlunoId <= 0
             ? Task.FromResult(Fail<long>("Frequência exige turma e aluno com matrícula ativa."))
-            : CriarAsync("diario_frequencia", "criar", request, ct);
+            : request.Status is not ("PRESENTE" or "FALTA" or "JUSTIFICADA" or "ABONADA")
+                ? Task.FromResult(Fail<long>("Situação de frequência inválida."))
+                : request.Status == "JUSTIFICADA" && string.IsNullOrWhiteSpace(request.Justificativa)
+                    ? Task.FromResult(Fail<long>("Falta justificada exige justificativa."))
+                    : CriarAsync("diario_frequencia", "criar", request, ct);
 
     Task<Result<PagedResult<AvaliacaoResponse>>> IAvaliacaoService.ListarAsync(TurmaFiltro filtro, CancellationToken ct) => ListarAsync<AvaliacaoResponse>("avaliacao", "avaliacao", filtro, ct);
     Task<Result<long>> IAvaliacaoService.CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct) => request.ValorMaximo <= 0m ? Task.FromResult(Fail<long>("Valor máximo da avaliação deve ser positivo.")) : CriarAsync("avaliacao", "criar", request, ct);

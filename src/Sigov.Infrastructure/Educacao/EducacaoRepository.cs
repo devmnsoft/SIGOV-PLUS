@@ -47,12 +47,32 @@ public sealed class EducacaoRepository : BaseRepository, IEscolaRepository, IAno
             var p = ToDictionary(request);
             p["TenantId"] = tenantId; p["EntidadeId"] = entidadeId; p["ExercicioId"] = exercicioId; p["UsuarioId"] = usuarioId;
             ApplyDefaults(recurso, p);
-            var sql = InsertSql(recurso);
-            var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (recurso == "matricula")
             {
-                await connection.ExecuteAsync(new CommandDefinition("update sigov.turma set vagas_ocupadas = vagas_ocupadas + 1, updated_by = @UsuarioId where tenant_id = @TenantId and entidade_id = @EntidadeId and id = @TurmaId and is_deleted = false and vagas_ocupadas < capacidade", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                const string reservarVaga = @"update sigov.turma t
+set vagas_ocupadas = vagas_ocupadas + 1, updated_by = @UsuarioId
+from sigov.aluno a, sigov.escola e, sigov.ano_letivo l
+where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaId
+  and t.escola_id = @EscolaId and t.ano_letivo_id = @AnoLetivoId
+  and t.status in ('PLANEJADA','ABERTA') and not t.is_deleted
+  and t.vagas_ocupadas < t.capacidade
+  and a.id = @AlunoId and a.tenant_id = t.tenant_id and a.entidade_id = t.entidade_id
+  and a.situacao = 'ATIVO' and not a.is_deleted
+  and e.id = t.escola_id and e.tenant_id = t.tenant_id and e.entidade_id = t.entidade_id
+  and e.situacao = 'ATIVA' and not e.is_deleted
+  and l.id = t.ano_letivo_id and l.tenant_id = t.tenant_id and l.entidade_id = t.entidade_id
+  and l.status <> 'ENCERRADO' and not l.is_deleted";
+                var reservadas = await connection.ExecuteAsync(new CommandDefinition(reservarVaga, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (reservadas != 1)
+                    throw new InvalidOperationException("Matrícula rejeitada: contexto incompatível, cadastro inativo, período encerrado ou turma sem vaga.");
             }
+            var sql = InsertSql(recurso);
+            var insertedId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (!insertedId.HasValue || insertedId.Value <= 0)
+                throw new InvalidOperationException(recurso == "diario_frequencia"
+                    ? "Frequência rejeitada: aluno sem matrícula elegível na turma/data ou período encerrado."
+                    : "Cadastro rejeitado por inconsistência de contexto ou estado.");
+            var id = insertedId.Value;
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso, "Criada"), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
             return id;
@@ -266,7 +286,17 @@ order by a.data_avaliacao desc, a.id desc;";
         "matricula" => "insert into sigov.matricula (tenant_id,entidade_id,exercicio_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,origem,observacao,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@AlunoId,@EscolaId,@AnoLetivoId,@TurmaId,@NumeroMatricula,coalesce(@DataMatricula,current_date),@Status,@Origem,@Observacao,@UsuarioId) returning id",
         "professor" => "insert into sigov.professor (tenant_id,entidade_id,pessoa_id,servidor_id,codigo_professor,formacao,situacao,created_by) values (@TenantId,@EntidadeId,@PessoaId,@ServidorId,@CodigoProfessor,@Formacao,@Situacao,@UsuarioId) returning id",
         "professor_turma" => "insert into sigov.professor_turma (tenant_id,entidade_id,exercicio_id,professor_id,turma_id,componente_curricular,carga_horaria_semanal,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@ProfessorId,@TurmaId,@ComponenteCurricular,@CargaHorariaSemanal,@UsuarioId) returning id",
-        "diario_frequencia" => "insert into sigov.diario_frequencia (tenant_id,entidade_id,exercicio_id,turma_id,aluno_id,professor_id,data_aula,componente_curricular,presente,situacao,justificativa,registrado_by,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@TurmaId,@AlunoId,@ProfessorId,@DataAula,@ComponenteCurricular,@Presente,@Status,@Justificativa,@UsuarioId,@UsuarioId) returning id",
+        "diario_frequencia" => @"insert into sigov.diario_frequencia
+ (tenant_id,entidade_id,exercicio_id,turma_id,aluno_id,professor_id,data_aula,componente_curricular,presente,situacao,justificativa,registrado_by,created_by)
+select @TenantId,@EntidadeId,@ExercicioId,@TurmaId,@AlunoId,@ProfessorId,@DataAula,@ComponenteCurricular,@Presente,@Status,@Justificativa,@UsuarioId,@UsuarioId
+from sigov.matricula m
+join sigov.turma t on t.id=m.turma_id and t.tenant_id=m.tenant_id and t.entidade_id=m.entidade_id and not t.is_deleted
+join sigov.ano_letivo l on l.id=m.ano_letivo_id and l.tenant_id=m.tenant_id and l.entidade_id=m.entidade_id and not l.is_deleted
+where m.tenant_id=@TenantId and m.entidade_id=@EntidadeId and m.turma_id=@TurmaId and m.aluno_id=@AlunoId
+  and m.status in ('ATIVA','CONFIRMADA') and not m.is_deleted
+  and @DataAula between greatest(m.data_matricula,l.data_inicio) and l.data_fim
+  and l.status <> 'ENCERRADO'
+returning id",
         "avaliacao" => "insert into sigov.avaliacao (tenant_id,entidade_id,exercicio_id,turma_id,professor_id,componente_curricular,titulo,data_avaliacao,valor_maximo,peso,status,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@TurmaId,@ProfessorId,@ComponenteCurricular,@Titulo,@DataAvaliacao,@ValorMaximo,@Peso,@Status,@UsuarioId) returning id",
         "nota" => "insert into sigov.nota (tenant_id,entidade_id,exercicio_id,avaliacao_id,aluno_id,valor,observacao,registrado_by,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@AvaliacaoId,@AlunoId,@Valor,@Observacao,@UsuarioId,@UsuarioId) returning id",
         "pre_matricula_inscricao" => "insert into sigov.pre_matricula_inscricao (tenant_id,entidade_id,exercicio_id,escola_preferencial_id,aluno_pessoa_id,responsavel_pessoa_id,protocolo,ano_letivo,etapa_ensino,status,pontuacao,observacao,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@EscolaPreferencialId,@AlunoPessoaId,@ResponsavelPessoaId,@Protocolo,@AnoLetivo,@EtapaEnsino,@Status,@Pontuacao,@Observacao,@UsuarioId) returning id",

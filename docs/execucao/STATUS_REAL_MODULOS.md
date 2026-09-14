@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-14 (RC51.02J); checkout `work` iniciado em `c529304e4071f7943db0b8efde446cf501f81a56`, sem remoto/upstream configurado nesta execução.
+Corte: 2026-09-14 (RC51.02L); checkout `work` iniciado em `dd8b2e08f7252d89b8c9c6ff5083d5de791b4fa3`, sem remoto/upstream configurado nesta execução.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -16,7 +16,7 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Almoxarifado, patrimônio, ativos | PARCIAL | Fluxos FUNC01/FUNC02; concorrência e isolamento runtime pendentes |
 | Financeiro público, empresarial e tributário/NFS-e | PARCIAL | Controllers/services e operações parciais; transições e provedores não homologados |
 | RH, folha, portal do servidor | PARCIAL | Contratos tipados e serviços existentes; validação integrada pendente |
-| Educação | PARCIAL | Escola/turma/diário/portal existentes; migrations órfãs e jornadas pendentes |
+| Educação | PARCIAL | Escola/turma/diário/portal existentes; criação de matrícula agora reserva a vaga antes do insert e valida aluno/escola/ano/turma no mesmo tenant e entidade; frequência exige matrícula elegível e período aberto. Transferência, correção auditada da chamada e prova PostgreSQL 16 continuam pendentes |
 | Saúde e assistência social | PARCIAL | Serviços/rotas existentes; dados sensíveis e segregação exigem prova runtime |
 | Frotas, manutenção, obras, fiscalização e engenharia | PARCIAL | Estruturas dos blocos existentes; fluxos e integração não homologados |
 | Saneamento e meio ambiente | PARCIAL | Estruturas e serviços existentes; operações ponta a ponta pendentes |
@@ -36,6 +36,9 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Indústria/estoque | Integração existia sem transação e reservava sobre saldo bruto | OP e estoque ainda não compartilham unidade transacional | `IndustriaEstoqueService` e catálogo de entitlements | saldo 10/reserva 7 rejeitar reserva 4; retry não duplicar; rollback de saldo+movimento |
 | Central | Isolamento, totais e prazos corrigidos anteriormente | Prova concorrente/runtime pendente | `MinhaCentralService` e avaliador canônico | card e lista autorizada coincidirem em PostgreSQL 16 |
 | Compras/recebimento | Serviços reais preservados | Recebimento parcial integrado não homologado | estoque canônico estabilizado | 10 receber 6+4 sem duplicação e com rollback |
+| Educação — matrícula/frequência | Parcialmente implementado | Transferência ainda não cria novo vínculo preservando o anterior; índice histórico ainda limita vínculos simultâneos; correção de chamada não possui operação própria | Gate A, PostgreSQL 16 e catálogo canônico | duas requisições na última vaga resultam em uma matrícula; referência cruzada falha; chamada fora da vigência/ano encerrado falha; lançamento ausente não cria falta |
+| Saúde/ACS | Parcialmente implementado, sem validação runtime nesta execução | escopo territorial, conclusão idempotente e encaminhamento/pendência requerem auditoria vertical | Gate A e autorização persistente | agendar e concluir uma vez, negar outro território e deduplicar encaminhamento |
+| Jurídico histórico | Parcialmente implementado, sem validação runtime nesta execução | consulta histórica, profissional inativo, impressão limitada e anexo requerem auditoria vertical | Gate A e avaliador canônico | localizar passagem anterior sem duplicar processo e negar escopo/anexo indevido |
 
 RC51.02J confirmou no checkout os indicadores/clientes fixos nas páginas SaaS Admin e as falhas de integridade da integração industrial descritas acima. As páginas paralelas foram removidas e suas rotas preservadas por redirecionamento aos fluxos canônicos. A reserva, consumo, entrada e estorno do saldo comercial passaram a ser atômicos internamente; a disponibilidade desconta reservas ativas e custo ausente não vira preço de venda ou zero. O parâmetro de lote/depósito já era persistido em `industria_producao_acabada` e foi preservado. A unidade transacional entre essa persistência da OP e o estoque continua pendente e impede promover o fluxo.
 
