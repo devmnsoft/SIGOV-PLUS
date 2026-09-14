@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-14 (RC51.02L); checkout `work` iniciado em `dd8b2e08f7252d89b8c9c6ff5083d5de791b4fa3`, sem remoto/upstream configurado nesta execução.
+Corte: 2026-09-14 (RC51.02M); checkout `work` iniciado em `158cef1116d2b9cc9be28757ec5ea8fc90d5fd9c`, sem remoto/upstream configurado nesta execução.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -31,7 +31,7 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 
 | Jornada | Estado real | Lacuna | Dependência | Critério de aceite |
 |---|---|---|---|---|
-| Fundação | Manifesto e consolidados preservados | Runtime não executado | SDK .NET 10 e PostgreSQL 16 ausentes | clean install, upgrade autorizado e reexecução convergirem |
+| Fundação | Manifesto e consolidados preservados; wrapper Bash valida checksums normalizados/compatibilidades e recusa DDL sem ledger | Runtime não executado; execução Bash aguarda paridade com o runner canônico | SDK .NET 10, PowerShell e PostgreSQL 16 ausentes | clean install, upgrade autorizado e reexecução convergirem |
 | SaaS Admin | Tenants/uso reais já existiam; cinco páginas paralelas eram fixas | Fluxos completos de usuário/cobrança ainda parciais | Serviços canônicos em `/Saas` | nenhuma rota SuperAdmin exibir cliente ou indicador inventado |
 | Indústria/estoque | Integração existia sem transação e reservava sobre saldo bruto | OP e estoque ainda não compartilham unidade transacional | `IndustriaEstoqueService` e catálogo de entitlements | saldo 10/reserva 7 rejeitar reserva 4; retry não duplicar; rollback de saldo+movimento |
 | Central | Isolamento, totais e prazos corrigidos anteriormente | Prova concorrente/runtime pendente | `MinhaCentralService` e avaliador canônico | card e lista autorizada coincidirem em PostgreSQL 16 |

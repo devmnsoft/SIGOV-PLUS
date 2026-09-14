@@ -1,5 +1,15 @@
 # Última execução
 
+Data: 2026-09-14. RC51.02M (aplicador Bash fail-closed). Estado: CORREÇÃO ESTÁTICA / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `158cef1116d2b9cc9be28757ec5ea8fc90d5fd9c`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `pwsh`, `psql`, Docker e navegador ausentes. **Erro específico não fornecido** na tarefa.
+- Matriz curta: Fundação | havia wrapper Bash que validava apenas migrations e executava todos os SQLs sem ledger/pós-condições | reaplicação e upgrade podiam alterar o banco parcialmente | normalização/checksum de migrations e compatibilidades, seguida de bloqueio explícito da execução insegura | `VALIDATE_ONLY=true`, cenários inválidos sintéticos, `bash -n` e contrato na classe de regressão existente. API/Web, Minha Central, Educação, Saúde/ACS, Jurídico e GED | preservados | Gate A runtime continua ausente | nenhuma evolução funcional posterior iniciada | restore/build/runtime/PG16 permanecem BLOCKED.
+- Causa confirmada por inspeção do primeiro executor afetado: `apply-migrations-manifest.sh` ignorava `compatibilityBefore`, `compatibilityAfterAll`, ledger, `knownChecksums` e pós-condições; ainda calculava hash com normalização diferente do runner canônico. A execução DDL foi removida do wrapper até que alcance paridade integral. O modo estático agora aceita BOM UTF-8, normaliza CRLF/CR, valida existência, confinamento e checksum das compatibilidades e recusa duplicidade por migration.
+- Sem alteração de schema, migration, manifesto ou scripts consolidados. Nenhuma jornada posterior foi promovida, e não há screenshot porque não houve mudança visual e o navegador/runtime estão indisponíveis.
+- Próximo item exato: executar `pwsh -NoProfile -File scripts/apply-migrations-manifest.ps1 -ValidateOnly`; em PostgreSQL 16, provar banco vazio/reaplicação, rejeição de versão/checksum desconhecidos, `knownChecksums` com pós-condição e upgrade legado formal. Implementar execução Bash somente com o mesmo ledger, atomicidade e pós-condições do runner canônico.
+
+---
+
 Data: 2026-09-14. RC51.02L (integridade mínima de matrícula e frequência). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `dd8b2e08f7252d89b8c9c6ff5083d5de791b4fa3`, árvore limpa, sem remoto/upstream; projetos e migrations confirmados. SDK normativo `10.0.100`; `dotnet`, `psql`, Docker e navegador ausentes. O download do SDK foi tentado e bloqueado pelo proxy HTTP 403.
