@@ -2313,8 +2313,24 @@
           "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_contrato_auditar' and not t.tgisinternal and t.tgenabled<>'D' and n.nspname='sigov' and p.proname='fn_tenant_modulo_contrato_auditar' and pg_get_functiondef(p.oid) like '%coalesce(new.usuario_responsavel_id,new.updated_by,new.created_by)%') then 'objeto=trg_tenant_modulo_contrato_auditar esperado=habilitado com função corrigida obtido=ausente, desabilitado ou divergente' end"
         },
         {
-          "name": "trigger SaaS de compatibilidade corrigido",
-          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled<>'D' and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and pg_get_functiondef(p.oid) like '%case when new.ativo and new.status%') then 'objeto=trg_tenant_modulo_compatibilizar esperado=habilitado com suspensão preservada obtido=ausente, desabilitado ou divergente' end"
+          "name": "trigger SaaS existe na tabela canônica",
+          "sql": "select case when not exists(select 1 from pg_trigger t where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal) then 'objeto=trg_tenant_modulo_compatibilizar esperado=existente em sigov.tenant_modulo_contratado obtido=ausente ou em outra tabela' end"
+        },
+        {
+          "name": "trigger SaaS habilitado para execução normal",
+          "sql": "select case when not exists(select 1 from pg_trigger t where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled in ('O','A')) then 'objeto=trg_tenant_modulo_compatibilizar esperado=habilitado para execução normal obtido=desabilitado ou restrito a réplica' end"
+        },
+        {
+          "name": "trigger SaaS eventos momento e granularidade",
+          "sql": "select case when not exists(select 1 from pg_trigger t where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and (t.tgtype & 1)=1 and (t.tgtype & 2)=0 and (t.tgtype & 4)=4 and (t.tgtype & 16)=16 and (t.tgtype & 8)=0 and (t.tgtype & 32)=0 and t.tgqual is null) then 'objeto=trg_tenant_modulo_compatibilizar esperado=AFTER INSERT OR UPDATE FOR EACH ROW sem WHEN obtido=eventos, momento, granularidade ou condição divergente' end"
+        },
+        {
+          "name": "trigger SaaS função canônica",
+          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype) then 'objeto=trg_tenant_modulo_compatibilizar esperado=sigov.fn_tenant_modulo_compatibilizar() returns trigger obtido=função, schema ou assinatura divergente' end"
+        },
+        {
+          "name": "função SaaS contrato estrutural de projeção",
+          "sql": "select case when not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype and p.prosecdef=false and array_to_string(p.proconfig,',') like '%search_path=pg_catalog, sigov%') then 'objeto=sigov.fn_tenant_modulo_compatibilizar esperado=security invoker com search_path fixo obtido=privilégio ou resolução de schema divergente' end"
         }
       ]
     },
@@ -2333,6 +2349,41 @@
         "20260901090000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='manutencao_ordem_servico' and column_name='origem_tipo') and exists(select 1 from pg_index where indexrelid=to_regclass('sigov.ux_manutencao_os_origem') and indisvalid)"
+    },
+    {
+      "version": "20260914130000",
+      "description": "Correção da projeção SaaS com suspensão e vigência preservadas",
+      "category": "correction",
+      "file": "20260914130000_corr_saas_compatibilidade_suspensao.sql",
+      "checksum": "1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260910120000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled in ('O','A') and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar')",
+      "postConditionProbes": [
+        {
+          "name": "trigger SaaS existe na tabela canônica",
+          "sql": "select case when not exists(select 1 from pg_trigger t where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal) then 'objeto=trg_tenant_modulo_compatibilizar esperado=existente em sigov.tenant_modulo_contratado obtido=ausente ou em outra tabela' end"
+        },
+        {
+          "name": "trigger SaaS habilitado para execução normal",
+          "sql": "select case when not exists(select 1 from pg_trigger t where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled in ('O','A')) then 'objeto=trg_tenant_modulo_compatibilizar esperado=habilitado para execução normal obtido=desabilitado ou restrito a réplica' end"
+        },
+        {
+          "name": "trigger SaaS eventos momento e granularidade",
+          "sql": "select case when not exists(select 1 from pg_trigger t where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and (t.tgtype & 1)=1 and (t.tgtype & 2)=0 and (t.tgtype & 4)=4 and (t.tgtype & 16)=16 and (t.tgtype & 8)=0 and (t.tgtype & 32)=0 and t.tgqual is null) then 'objeto=trg_tenant_modulo_compatibilizar esperado=AFTER INSERT OR UPDATE FOR EACH ROW sem WHEN obtido=eventos, momento, granularidade ou condição divergente' end"
+        },
+        {
+          "name": "trigger SaaS função canônica",
+          "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype) then 'objeto=trg_tenant_modulo_compatibilizar esperado=sigov.fn_tenant_modulo_compatibilizar() returns trigger obtido=função, schema ou assinatura divergente' end"
+        },
+        {
+          "name": "função SaaS contrato estrutural de projeção",
+          "sql": "select case when not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype and p.prosecdef=false and array_to_string(p.proconfig,',') like '%search_path=pg_catalog, sigov%') then 'objeto=sigov.fn_tenant_modulo_compatibilizar esperado=security invoker com search_path fixo obtido=privilégio ou resolução de schema divergente' end"
+        }
+      ]
     }
   ],
   "compatibilityAfterAll": [
