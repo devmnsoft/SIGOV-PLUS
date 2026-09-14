@@ -159,6 +159,24 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
     }
 
     [Theory]
+    [InlineData("GET", "api/compras-empresariais/requisicoes/{id}", "Requisicao", "compras_empresariais.requisicoes.visualizar")]
+    [InlineData("POST", "api/compras-empresariais/requisicoes/{id}/enviar", "Enviar", "compras_empresariais.requisicoes.enviar")]
+    public void Jornada_De_Requisicao_Deve_Expor_Rota_Unica_E_Autorizada(
+        string method,
+        string path,
+        string actionName,
+        string policy)
+    {
+        var descriptions = ApiDescriptions(method, path);
+
+        descriptions.Should().ContainSingle();
+        var action = descriptions.Single().ActionDescriptor.Should().BeOfType<ControllerActionDescriptor>().Subject;
+        action.ActionName.Should().Be(actionName);
+        action.EndpointMetadata.OfType<IAuthorizeData>().Should().Contain(metadata => metadata.Policy == policy);
+        action.EndpointMetadata.OfType<IAllowAnonymous>().Should().BeEmpty();
+    }
+
+    [Theory]
     [InlineData("api/integracoes-internas", typeof(Sigov.Api.Controllers.InternalIntegrationsController), "List")]
     [InlineData("api/governanca-transversal/integracoes-internas", typeof(Sigov.Api.Controllers.GovernancaTransversalController), "Integracoes")]
     public void Rotas_De_Integracoes_Devem_Resolver_Para_Uma_Unica_Action(
