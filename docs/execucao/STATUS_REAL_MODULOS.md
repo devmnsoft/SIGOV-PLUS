@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-14 (RC51.02M); checkout `work` iniciado em `158cef1116d2b9cc9be28757ec5ea8fc90d5fd9c`, sem remoto/upstream configurado nesta execução.
+Corte: 2026-09-14 (RC51.02P); checkout `work` iniciado em `9e4ae06a1d455ee25fd6fc93c534cdd52c7ef1a4`, sem remoto/upstream configurado nesta execução.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -42,5 +42,18 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Jurídico histórico | Parcialmente implementado, sem validação runtime nesta execução | consulta histórica, profissional inativo, impressão limitada e anexo requerem auditoria vertical | Gate A e avaliador canônico | localizar passagem anterior sem duplicar processo e negar escopo/anexo indevido |
 
 RC51.02J confirmou no checkout os indicadores/clientes fixos nas páginas SaaS Admin e as falhas de integridade da integração industrial descritas acima. As páginas paralelas foram removidas e suas rotas preservadas por redirecionamento aos fluxos canônicos. A reserva, consumo, entrada e estorno do saldo comercial passaram a ser atômicos internamente; a disponibilidade desconta reservas ativas e custo ausente não vira preço de venda ou zero. O parâmetro de lote/depósito já era persistido em `industria_producao_acabada` e foi preservado. A unidade transacional entre essa persistência da OP e o estoque continua pendente e impede promover o fluxo.
+
+### Matriz da jornada operacional — RC51.02P
+
+| Etapa | Implementação existente | Lacuna verificada | Dependência | Critério de aceite |
+|---|---|---|---|---|
+| Necessidade → requisição | Criação idempotente, itens e vínculo opcional com OS | Vínculo direto com demanda industrial e edição versionada | modelo canônico da demanda industrial | uma necessidade confirmada gerar uma requisição e preservar a origem |
+| Requisição → aprovação | Envio concorrente por `version`, detalhe real e histórico atômico | Política/alçadas não possuem configuração canônica identificada | parametrização persistida, sem aprovador fixo | devolução/decisão concorrente manter uma única versão válida |
+| Aprovação → pedido | Tabelas legadas e permissões existentes | serviço/API/UI ainda ausentes | aprovação configurada e diferenças do fluxo público | repetição não duplicar pedido nem contornar licitação |
+| Pedido → recebimento | Tabelas legadas e indicadores existentes | itens, aceite/rejeição, saldo e estorno não implementados no serviço | pedido emitido e estoque canônico | receber 6+4, rejeição não somar saldo e retry não duplicar |
+| Recebimento → produção | estoque/indústria canônicos parciais | vínculo de rastreabilidade e qualidade ponta a ponta | recebimento por item e inspeção | somente material liberado entrar na disponibilidade recalculada |
+| SaaS/navegação | entitlement e menus persistidos | prova runtime e consolidação do catálogo dual | Gate A PostgreSQL 16 | suspensão/revogação e troca de tenant falharem de modo fechado |
+
+Nesta fatia, o detalhe da requisição deixou de ser uma tela demonstrativa: cabeçalho, itens e histórico vêm do PostgreSQL, a listagem abre o registro real e o envio registra a transição e a versão analisada na mesma transação. A caixa de aprovação permanece explicitamente pendente porque nenhuma fonte canônica de alçadas/aprovadores foi encontrada; não foi criada aprovação automática. O defeito CS8629 reportado já estava corrigido no checkout pela captura semântica de `entidadeId` e `usuarioId` obrigatórios antes da integração de manutenção e foi preservado.
 
 RC51.02I removeu o onboarding hardcoded e o tenant fixo da Web; ausência de jornada agora é explícita e acesso cruzado é negado. Nenhum módulo foi promovido a FUNCIONAL, HOMOLOGADO ou PRODUCAO. RC51.02H corrigiu agregação/prazo/exercício e navegação contextual; a RC51.02G fechou a exposição transversal de pendências do mesmo tenant entre usuários e removeu o sucesso aparente da Minha Central quando contexto, schema ou banco estão indisponíveis; a fatia permanece sem validação runtime. RC51.02F decompôs a validação da correção `20260910120000` em cinco probes independentes. Não houve evidência runtime por ausência de `pwsh`, `.NET` e PostgreSQL 16. A evidência anterior da RC51.02C permanece histórica; upgrade legado formal e isolamento API profundo seguem pendentes. Indústria Core permanece PARCIAL. Dual catálogo Commercial/SaaS permanece. GED continua por último.

@@ -18,6 +18,7 @@ public sealed class FornecedorApplicationService(IFornecedorRepository repositor
 public sealed class RequisicaoCompraApplicationService(IRequisicaoCompraRepository repository):IRequisicaoCompraApplicationService
 {
  public Task<Common.PagedResult<RequisicaoResumo>> ListarAsync(ComprasContext c,int p,int s,CancellationToken ct){ComprasGuard.Context(c);return repository.ListarAsync(c.TenantId,p,s,ct);}
+ public Task<RequisicaoDetalhe?> ObterAsync(ComprasContext c,Guid id,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty)throw new ArgumentException("Requisição inválida.");return repository.ObterAsync(c.TenantId,id,ct);}
  public Task<Guid> CriarAsync(ComprasContext c,CriarRequisicaoRequest r,string key,CancellationToken ct){ComprasGuard.Context(c);ComprasGuard.Key(key);if(r.Itens.Count==0)throw new ArgumentException("Inclua ao menos um item.");if(r.Itens.Any(x=>x.Quantidade<=0||x.ValorEstimado<0))throw new ArgumentException("Quantidade e valor dos itens são inválidos.");return repository.CriarAsync(c,r,key,ct);}
  public Task EnviarAsync(ComprasContext c,Guid id,long version,CancellationToken ct){ComprasGuard.Context(c);return repository.EnviarAsync(c,id,version,ct);}
 }
