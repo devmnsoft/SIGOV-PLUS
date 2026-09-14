@@ -471,14 +471,34 @@ public sealed class IndustriaController : ControllerBase
         try
         {
             if (!await HasPermission("industria.paradas.criar")) return Forbid();
-            var tenantId = RequireTenant(); using var c = _context.CreateConnection();
+            var tenantId = RequireTenant();
+            if (!_tenant.EntidadeId.HasValue || !_user.UsuarioId.HasValue)
+                return UnprocessableEntity(ApiResponse<object>.Fail("Entidade e usuário do contexto são obrigatórios para abrir a manutenção.", cid));
+            using var c = _context.CreateConnection();
             var osAtivo = await _entitlement.EvaluateAsync(new ModuleEntitlementRequest(
                 _user.UsuarioId ?? 0, "ordem_servico", _user.Roles, tenantId, CorrelationId: cid)).ConfigureAwait(false);
             if (!osAtivo.Allowed) return StatusCode(403, ApiResponse<object>.Fail(osAtivo.Reason, cid));
-            var osId = await c.ExecuteScalarAsync<long>("select nextval(pg_get_serial_sequence('sigov.industria_ordem_producao','id'))");
-            await c.ExecuteAsync("update sigov.industria_parada_producao set gerou_os=true, os_id=@OsId where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, OsId = osId });
-            await Auditar(c, tenantId, "PARADA_GEROU_OS", "industria_parada_producao", id, new { osId }, cid);
-            return Ok(ApiResponse<object>.Ok(new { paradaId = id, osId }, "OS corretiva sinalizada para integração.", cid));
+            c.Open();
+            using var tx = c.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
+            var parada = await c.QuerySingleOrDefaultAsync<ParadaManutencao>(new CommandDefinition(
+                "select p.recurso_id as RecursoId,p.motivo as Motivo,r.nome as RecursoNome from sigov.industria_parada_producao p join sigov.industria_recurso r on r.id=p.recurso_id and r.tenant_id=p.tenant_id where p.id=@Id and p.tenant_id=@TenantId for update of p",
+                new { Id = id, TenantId = tenantId }, tx, cancellationToken: HttpContext.RequestAborted));
+            if (parada is null)
+                return NotFound(ApiResponse<object>.Fail("Parada com recurso produtivo não encontrada no contexto atual.", cid));
+            var esfera = await c.ExecuteScalarAsync<string?>(new CommandDefinition(
+                "select esfera_governo from sigov.entidade where id=@EntidadeId and tenant_id=@TenantId and ativo and not is_deleted",
+                new { EntidadeId = _tenant.EntidadeId.Value, TenantId = tenantId }, tx, cancellationToken: HttpContext.RequestAborted));
+            if (esfera is not ("municipal" or "estadual" or "federal"))
+                return UnprocessableEntity(ApiResponse<object>.Fail("A entidade do contexto não possui esfera de governo válida para a manutenção.", cid));
+            var osId = await c.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.manutencao_ordem_servico
+(tenant_id,entidade_id,exercicio_id,esfera_governo,alvo_tipo,alvo_id,solicitante_id,unidade_id,prioridade,descricao,categoria,status,created_by,origem_tipo,origem_id)
+values(@TenantId,@EntidadeId,@ExercicioId,@Esfera,'EQUIPAMENTO',@RecursoId,@UsuarioId,@EntidadeId,'ALTA',@Descricao,'MANUTENCAO_CORRETIVA','ABERTA',@UsuarioId,'PARADA_INDUSTRIAL',@ParadaId)
+on conflict(tenant_id,origem_tipo,origem_id) where origem_tipo is not null and origem_id is not null
+do update set updated_at=now() returning id", new { TenantId = tenantId, EntidadeId = _tenant.EntidadeId.Value, _tenant.ExercicioId, Esfera = esfera, parada.RecursoId, UsuarioId = _user.UsuarioId.Value, Descricao = $"Parada industrial no recurso {parada.RecursoNome}: {parada.Motivo}", ParadaId = id }, tx, cancellationToken: HttpContext.RequestAborted));
+            await c.ExecuteAsync(new CommandDefinition("update sigov.industria_parada_producao set gerou_os=true, os_id=@OsId where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, OsId = osId }, tx, cancellationToken: HttpContext.RequestAborted));
+            await Auditar(c, tx, tenantId, "PARADA_GEROU_OS", "industria_parada_producao", id, new { osId }, cid);
+            tx.Commit();
+            return Ok(ApiResponse<object>.Ok(new { paradaId = id, osId }, "Ordem de manutenção corretiva aberta.", cid));
         }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao gerar OS. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao gerar OS.", cid)); }
     }
@@ -578,7 +598,8 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     private static Task<bool> Existe(System.Data.IDbConnection c, string tabela, long tenantId, long id) => c.ExecuteScalarAsync<bool>($"select exists(select 1 from {tabela} where id=@Id and tenant_id=@TenantId)", new { Id = id, TenantId = tenantId });
     private static Task<bool> ExisteProduto(System.Data.IDbConnection c, long tenantId, long id) => c.ExecuteScalarAsync<bool>("select exists(select 1 from sigov.industria_produto where id=@Id and tenant_id=@TenantId and ativo=true)", new { Id = id, TenantId = tenantId });
     private Task Historico(System.Data.IDbConnection c, long tenantId, long ordemId, string? anterior, string novo, string origem, string observacao, string cid) => c.ExecuteAsync("insert into sigov.industria_ordem_historico(tenant_id,ordem_id,status_anterior,status_novo,usuario_id,origem,observacao,correlation_id) values(@TenantId,@OrdemId,@Anterior,@Novo,@UsuarioId,@Origem,@Observacao,cast(@CorrelationId as uuid))", new { TenantId = tenantId, OrdemId = ordemId, Anterior = anterior, Novo = novo, UsuarioId = _user.UsuarioId, Origem = origem, Observacao = observacao, CorrelationId = Guid.TryParse(cid, out var parsed) ? parsed : Guid.NewGuid() });
-    private Task Auditar(System.Data.IDbConnection c, long tenantId, string evento, string entidade, long entityId, object payload, string cid) => c.ExecuteAsync("insert into sigov.auditoria_evento(tenant_id,usuario_id,acao,entidade,entidade_id,correlation_id,depois,created_at) values(@TenantId,@UsuarioId,@Evento,@Entidade,@RegistroId,cast(@CorrelationId as uuid),cast(@Payload as jsonb),now())", new { TenantId = tenantId, UsuarioId = _user.UsuarioId, Evento = evento, Entidade = entidade, RegistroId = entityId.ToString(CultureInfo.InvariantCulture), CorrelationId = Guid.TryParse(cid, out var parsed) ? parsed : Guid.NewGuid(), Payload = JsonSerializer.Serialize(payload) });
+    private Task Auditar(System.Data.IDbConnection c, long tenantId, string evento, string entidade, long entityId, object payload, string cid) => Auditar(c, null, tenantId, evento, entidade, entityId, payload, cid);
+    private Task Auditar(System.Data.IDbConnection c, System.Data.IDbTransaction? tx, long tenantId, string evento, string entidade, long entityId, object payload, string cid) => c.ExecuteAsync("insert into sigov.auditoria_evento(tenant_id,usuario_id,acao,entidade,entidade_id,correlation_id,depois,created_at) values(@TenantId,@UsuarioId,@Evento,@Entidade,@RegistroId,cast(@CorrelationId as uuid),cast(@Payload as jsonb),now())", new { TenantId = tenantId, UsuarioId = _user.UsuarioId, Evento = evento, Entidade = entidade, RegistroId = entityId.ToString(CultureInfo.InvariantCulture), CorrelationId = Guid.TryParse(cid, out var parsed) ? parsed : Guid.NewGuid(), Payload = JsonSerializer.Serialize(payload) }, tx);
 
     private static string Projection(string table) => table switch
     {
@@ -647,6 +668,7 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     }
 
     private sealed record ProdutoOrdemValidacao(bool Ativo, bool ExigeFichaTecnica);
+    private sealed record ParadaManutencao(long RecursoId, string Motivo, string RecursoNome);
 }
 
 public sealed record IndustriaStatusRequest(bool Ativo);
