@@ -8,6 +8,7 @@ public class PostBuild06IndustriaTests
 {
     private static readonly string Migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260610150000_pos_build_06_industria_producao.sql"));
     private static readonly string EvolutionMigration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260908120000_evolucao_saas_industria_360.sql"));
+    private static readonly string MaintenanceIntegrationMigration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260914120000_corr_industria_manutencao_integracao.sql"));
     private static readonly string IndustriaApi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/IndustriaController.cs"));
     private static readonly string ComercialIntegracaoApi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/IndustriaComercialController.cs"));
     private static readonly string Sidebar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_Sidebar.cshtml"));
@@ -57,6 +58,18 @@ public class PostBuild06IndustriaTests
         IndustriaApi.Should().Contain("ordens-producao/{id:long}/calcular-custos");
         IndustriaApi.Should().Contain("paradas/{id:long}/gerar-os");
         ComercialIntegracaoApi.Should().Contain("pedidos/{id:long}/gerar-op");
+    }
+
+    [Fact]
+    public void ParadaIndustrial_DeveAbrirManutencaoReal_IdempotenteETransacional()
+    {
+        IndustriaApi.Should().Contain("insert into sigov.manutencao_ordem_servico");
+        IndustriaApi.Should().Contain("BeginTransaction(System.Data.IsolationLevel.ReadCommitted)");
+        IndustriaApi.Should().Contain("on conflict(tenant_id,origem_tipo,origem_id)");
+        IndustriaApi.Should().Contain("for update of p");
+        IndustriaApi.Should().NotContain("nextval(pg_get_serial_sequence('sigov.industria_ordem_producao','id'))");
+        MaintenanceIntegrationMigration.Should().Contain("create unique index if not exists ux_manutencao_os_origem");
+        MaintenanceIntegrationMigration.Should().Contain("check ((origem_tipo is null) = (origem_id is null))");
     }
 
     [Fact]

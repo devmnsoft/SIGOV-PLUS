@@ -30749,6 +30749,44 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260914120000_corr_industria_manutencao_integracao.sql
+-- CATEGORY: correction
+-- CHECKSUM_SHA256: 0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02
+-- ==================================================
+-- Integração idempotente e rastreável entre parada industrial e manutenção canônica.
+alter table sigov.manutencao_ordem_servico
+    add column if not exists origem_tipo varchar(40),
+    add column if not exists origem_id bigint;
+
+do $$
+begin
+    if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'sigov.manutencao_ordem_servico'::regclass
+          and conname = 'ck_manutencao_os_origem_completa'
+    ) then
+        alter table sigov.manutencao_ordem_servico
+            add constraint ck_manutencao_os_origem_completa
+            check ((origem_tipo is null) = (origem_id is null)) not valid;
+    end if;
+end $$;
+
+create unique index if not exists ux_manutencao_os_origem
+    on sigov.manutencao_ordem_servico(tenant_id, origem_tipo, origem_id)
+    where origem_tipo is not null and origem_id is not null;
+
+create index if not exists ix_industria_parada_os
+    on sigov.industria_parada_producao(tenant_id, os_id)
+    where gerou_os and os_id is not null;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'Integração idempotente entre parada industrial e manutenção canônica', '0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================

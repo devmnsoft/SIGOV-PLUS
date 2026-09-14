@@ -2317,6 +2317,19 @@
           "sql": "select case when not exists(select 1 from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where t.tgrelid=to_regclass('sigov.tenant_modulo_contratado') and t.tgname='trg_tenant_modulo_compatibilizar' and not t.tgisinternal and t.tgenabled<>'D' and n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and pg_get_functiondef(p.oid) like '%case when new.ativo and new.status%') then 'objeto=trg_tenant_modulo_compatibilizar esperado=habilitado com suspensão preservada obtido=ausente, desabilitado ou divergente' end"
         }
       ]
+    },
+    {
+      "version": "20260914120000",
+      "description": "Integração idempotente entre parada industrial e manutenção canônica",
+      "category": "correction",
+      "file": "20260914120000_corr_industria_manutencao_integracao.sql",
+      "checksum": "0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260901090000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='manutencao_ordem_servico' and column_name='origem_tipo') and exists(select 1 from pg_index where indexrelid=to_regclass('sigov.ux_manutencao_os_origem') and indisvalid)"
     }
   ],
   "compatibilityAfterAll": [
