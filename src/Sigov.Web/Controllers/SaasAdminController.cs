@@ -105,19 +105,19 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     }
 
     [HttpGet("NovoTenant"), HttpGet("Clientes/Create")]
-    public async Task<IActionResult> NovoTenant(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> NovoTenant(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Tenants") : Forbid();
 
     [HttpGet("Planos")]
-    public async Task<IActionResult> Planos(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> Planos(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Planos") : Forbid();
 
     [HttpGet("Modulos"), HttpGet("Funcionalidades"), HttpGet("Bloqueios")]
-    public async Task<IActionResult> Modulos(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> Modulos(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Modulos") : Forbid();
 
     [HttpGet("Assinaturas"), HttpGet("Cobrancas")]
-    public async Task<IActionResult> Assinaturas(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> Assinaturas(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Assinaturas") : Forbid();
 
     [HttpGet("FeatureFlags")]
-    public async Task<IActionResult> FeatureFlags(CancellationToken ct) => await Allowed("administrar", null, ct) ? View() : Forbid();
+    public async Task<IActionResult> FeatureFlags(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Modulos") : Forbid();
 
     [HttpGet("Uso")]
     public async Task<IActionResult> Uso(long? tenantId, DateTimeOffset? from, DateTimeOffset? to, string? module, int page = 1, CancellationToken ct = default)
