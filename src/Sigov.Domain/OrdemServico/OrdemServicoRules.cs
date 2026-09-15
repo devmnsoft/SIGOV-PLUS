@@ -6,6 +6,30 @@ public enum OrdemServicoOrigem { Manual, PedidoComercial, Contrato, ManutencaoPr
 
 public static class OrdemServicoRules
 {
+    private static readonly OrdemServicoStatus[] EstadosProgramaveis =
+    [
+        OrdemServicoStatus.Aberta,
+        OrdemServicoStatus.EmTriagem,
+        OrdemServicoStatus.Agendada,
+        OrdemServicoStatus.AguardandoCliente,
+        OrdemServicoStatus.AguardandoPeca,
+        OrdemServicoStatus.Reaberta
+    ];
+
+    public static void ValidarProgramacao(OrdemServicoStatus status, DateTimeOffset inicio, DateTimeOffset fim, bool reprogramacao, string? motivo)
+    {
+        if (!EstadosProgramaveis.Contains(status))
+            throw new InvalidOperationException($"Ordem no estado {status} não aceita programação.");
+        if (fim <= inicio)
+            throw new ArgumentException("O término previsto deve ser posterior ao início previsto.");
+        if (reprogramacao && string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException("O motivo da reprogramação é obrigatório.");
+    }
+
+    // Intervalos são semiabertos: [início, término). Assim, períodos adjacentes não conflitam.
+    public static bool ExisteSobreposicao(DateTimeOffset inicio, DateTimeOffset fim, DateTimeOffset outroInicio, DateTimeOffset outroFim) =>
+        inicio < outroFim && fim > outroInicio;
+
     private static readonly IReadOnlyDictionary<OrdemServicoStatus, OrdemServicoStatus[]> Transicoes = new Dictionary<OrdemServicoStatus, OrdemServicoStatus[]>
     {
         [OrdemServicoStatus.Rascunho] = [OrdemServicoStatus.Aberta, OrdemServicoStatus.Cancelada],

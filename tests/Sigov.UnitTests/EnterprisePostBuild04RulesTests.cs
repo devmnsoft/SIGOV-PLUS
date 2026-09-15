@@ -1,6 +1,7 @@
 using Sigov.Testing;
 using FluentAssertions;
 using Sigov.Application.Enterprise;
+using Sigov.Domain.OrdemServico;
 using Xunit;
 
 namespace Sigov.UnitTests;
@@ -9,6 +10,23 @@ public sealed class EnterprisePostBuild04RulesTests
 {
     private static readonly Guid TenantA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid TenantB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    [Fact]
+    public void Programacao_aceita_intervalos_adjacentes_e_reprogramacao_exige_motivo()
+    {
+        var inicio = DateTimeOffset.Parse("2026-09-15T10:00:00Z");
+        OrdemServicoRules.ExisteSobreposicao(inicio, inicio.AddHours(1), inicio.AddHours(1), inicio.AddHours(2)).Should().BeFalse();
+        var action = () => OrdemServicoRules.ValidarProgramacao(OrdemServicoStatus.Agendada, inicio, inicio.AddHours(1), true, null);
+        action.Should().Throw<InvalidOperationException>().WithMessage("*motivo*");
+    }
+
+    [Fact]
+    public void Programacao_recusa_intervalo_invalido_e_ordem_concluida()
+    {
+        var inicio = DateTimeOffset.Parse("2026-09-15T10:00:00Z");
+        FluentActions.Invoking(() => OrdemServicoRules.ValidarProgramacao(OrdemServicoStatus.Aberta, inicio, inicio, false, null)).Should().Throw<ArgumentException>();
+        FluentActions.Invoking(() => OrdemServicoRules.ValidarProgramacao(OrdemServicoStatus.Concluida, inicio, inicio.AddHours(1), false, null)).Should().Throw<InvalidOperationException>();
+    }
 
     [Fact]
     public void Cliente_comercial_respeita_tenant_id_e_mascara_dados_sensiveis()

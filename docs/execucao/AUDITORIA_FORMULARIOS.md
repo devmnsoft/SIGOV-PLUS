@@ -127,3 +127,14 @@ command -v psql docker node
 ```
 
 Checkpoint de continuidade: **591 arquivos candidatos; 0 jornadas aprovadas ponta a ponta; correção compartilhada Enterprise pronta para gate; próximo fluxo específico é Educação/aluno-responsável após P0.**
+# Ordem de Serviço / Programação — auditoria 2026-09-15
+
+| Operação | Estado | Evidência estática e prova ainda necessária |
+|---|---|---|
+| Consulta | implementada sem validação | Lista paginada de não programadas e agenda por período usam tenant, filtros parametrizados e ordenação estável; reler em PostgreSQL 16. |
+| Insert de programação | implementada sem validação | Formulário chama `POST /api/ordens-servico/{id}/agendar`; transação valida ordem, responsável, período, sobreposição e versão antes do commit. |
+| Reprogramação/update | implementada sem validação | Exige motivo; marca programação corrente como inativa e insere sucessora, sem substituir datas realizadas. Confirmar histórico com nova leitura independente. |
+| Cancelamento | não aplicável nesta tela | Cancelar a edição fecha o modal; cancelamento operacional continua na transição canônica da ordem. |
+| Auditoria/concorrência | implementada sem validação | Registros preservam `created_by`, `updated_by`, `correlation_id`; versão divergente reverte a transação. |
+
+Negativos cobertos no código: intervalo inválido, ordem concluída, responsável de outro tenant/inativo, reprogramação sem motivo, conflito sem autorização e versão concorrente. Sessão expirada e permissão são fail-closed pelas policies; duplo envio/timeout ainda exigem prova runtime e consulta posterior. O cliente informa “resultado desconhecido” em timeout em vez de afirmar falha. Sem SDK/banco/navegador neste host, persistência após recarga, dois tenants, suspensão de módulo, foco/teclado/zoom e larguras 360/390/768/1024/1366/1920 permanecem `BLOCKED`.
