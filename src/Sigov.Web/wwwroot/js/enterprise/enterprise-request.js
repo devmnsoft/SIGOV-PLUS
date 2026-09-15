@@ -33,5 +33,29 @@
     return { method: 'DELETE', headers: {} };
   }
 
-  return { resolveEnterpriseMethod, buildEnterpriseUrl, buildEnterpriseRequest, buildEnterpriseDeleteRequest };
+  async function readApiResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (response.redirected || !contentType.toLowerCase().includes('application/json')) {
+      throw new Error(response.redirected || contentType.toLowerCase().includes('text/html')
+        ? 'Sessão expirada ou resposta de autenticação inválida.'
+        : 'Resposta inesperada do servidor.');
+    }
+
+    const payload = await response.json();
+    if (!response.ok || payload.success === false || payload.Success === false) {
+      throw new Error(payload.message || payload.Message || `HTTP ${response.status}`);
+    }
+    return payload;
+  }
+
+  function responseData(payload) {
+    return payload?.data ?? payload?.Data;
+  }
+
+  function mutationId(payload, fallbackId) {
+    const data = responseData(payload);
+    return data?.id ?? data?.Id ?? fallbackId;
+  }
+
+  return { resolveEnterpriseMethod, buildEnterpriseUrl, buildEnterpriseRequest, buildEnterpriseDeleteRequest, readApiResponse, responseData, mutationId };
 }));

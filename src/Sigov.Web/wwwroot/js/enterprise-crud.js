@@ -19,8 +19,11 @@
   const statusText = root.querySelector('.enterprise-status');
   const modalElement = document.getElementById('enterpriseFormModal');
   const titleElement = modalElement?.querySelector('.modal-title');
+  const formErrors = form?.querySelector('.enterprise-form-errors');
   let currentItems = [];
   let currentPage = 1;
+  let formDirty = false;
+  let allowModalClose = false;
   const pageSize = 20;
   const areaKey = (api.split('/').filter(Boolean).pop() || 'default').toLowerCase();
   const metadata = (window.SigovEnterpriseFormMetadata && (window.SigovEnterpriseFormMetadata[areaKey] || window.SigovEnterpriseFormMetadata.default)) || { actions: [], fields: [] };
@@ -58,6 +61,15 @@
     root.classList.toggle('enterprise-busy', busy);
     root.querySelectorAll('button, input, select').forEach(el => { if (!el.closest('.toast')) el.disabled = busy; });
   };
+  async function getPersisted(id) {
+    const response = await fetch(requestFactory.buildEnterpriseUrl(actionApi, id), { headers: headers(false) });
+    const payload = await requestFactory.readApiResponse(response);
+    const persisted = requestFactory.responseData(payload);
+    if (!persisted || String(getItemValue(persisted, 'id', 'Id')) !== String(id)) {
+      throw new Error('A releitura independente não confirmou o registro persistido.');
+    }
+    return persisted;
+  }
   function renderFormFields() {
     const row = form?.querySelector('.enterprise-form-fields');
     if (!row || !metadata.fields) return;
@@ -68,7 +80,7 @@
       col.className = name === 'nome' ? 'col-md-8' : 'col-md-4';
       const labelEl = document.createElement('label');
       labelEl.className = 'form-label';
-      labelEl.textContent = label;
+      labelEl.textContent = `${label}${required ? ' *' : ''}`;
       let input;
       if (type === 'select') {
         input = document.createElement('select');
@@ -86,6 +98,8 @@
         if (field.min !== undefined) input.min = field.min;
       }
       input.name = name;
+      input.id = `enterprise-field-${name}`;
+      labelEl.htmlFor = input.id;
       if (required) input.required = true;
       if (field.max) input.maxLength = field.max;
       if (name === 'status' && !input.value) input.value = (field.options && field.options[0]) || 'ATIVO';
@@ -124,6 +138,9 @@
   }
   function fillForm(item = {}) {
     form.reset();
+    formDirty = false;
+    allowModalClose = false;
+    if (formErrors) { formErrors.textContent = ''; formErrors.classList.add('d-none'); }
     form.elements.id.value = getItemValue(item, 'id', 'Id');
     if (form.elements.nome) form.elements.nome.value = getItemValue(item, 'name', 'Name', 'nome', 'Nome');
     if (form.elements.status) { const rawStatus = getItemValue(item, 'status', 'Status') || 'ATIVO'; form.elements.status.value = String(rawStatus).split(':').pop(); }
@@ -141,11 +158,19 @@
       const request = requestFactory.buildEnterpriseRequest(id, data);
       request.headers['X-Tenant-Id'] = tenant;
       const r = await fetch(requestFactory.buildEnterpriseUrl(actionApi, id), request);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      toast('Registro salvo com auditoria.');
+      const result = await requestFactory.readApiResponse(r);
+      const persistedId = requestFactory.mutationId(result, id);
+      if (!persistedId) throw new Error('O servidor não retornou o identificador persistido.');
+      await getPersisted(persistedId);
+      toast('Registro salvo e confirmado por nova consulta.');
+      allowModalClose = true;
+      formDirty = false;
       closeModal();
       await load();
-    } catch (e) { toast(`Falha ao salvar: ${e.message}`, true); }
+    } catch (e) {
+      if (formErrors) { formErrors.textContent = e.message; formErrors.classList.remove('d-none'); formErrors.focus(); }
+      toast(`Falha ao salvar: ${e.message}`, true);
+    }
     finally { setBusy(false); }
   }
   async function lifecycle(id, restore) {
@@ -154,10 +179,22 @@
     const request = restore ? { method: 'POST', headers: headers(false) } : requestFactory.buildEnterpriseDeleteRequest();
     request.headers['X-Tenant-Id'] = tenant;
     const r = await fetch(url, request);
-    toast(r.ok ? (restore ? 'Registro restaurado com auditoria.' : 'Registro inativado com auditoria.') : 'Falha na ação de ciclo de vida.', !r.ok);
-    if (r.ok) await load();
+    try {
+      await requestFactory.readApiResponse(r);
+      const persisted = await getPersisted(id);
+      const status = String(getItemValue(persisted, 'status', 'Status')).toUpperCase();
+      const confirmed = restore ? status !== 'INATIVO' : status === 'INATIVO';
+      if (!confirmed) throw new Error('A releitura não confirmou a alteração de status.');
+      toast(restore ? 'Restauração confirmada por nova consulta.' : 'Inativação confirmada por nova consulta.');
+      await load();
+    } catch (e) { toast(`Falha na ação de ciclo de vida: ${e.message}`, true); }
   }
   form?.addEventListener('submit', submitForm);
+  form?.addEventListener('input', () => { formDirty = true; });
+  modalElement?.addEventListener('hide.bs.modal', ev => {
+    if (formDirty && !allowModalClose && !confirm('Descartar as alterações não salvas?')) ev.preventDefault();
+  });
+  modalElement?.addEventListener('hidden.bs.modal', () => { formDirty = false; allowModalClose = false; });
   filters?.addEventListener('submit', ev => { ev.preventDefault(); currentPage = 1; load(); });
   newButton?.addEventListener('click', () => fillForm());
   pager?.addEventListener('click', ev => { const btn = ev.target.closest('[data-page]'); if (!btn) return; currentPage = Math.max(1, currentPage + Number(btn.dataset.page)); filters.elements.page.value = currentPage; load(); });
