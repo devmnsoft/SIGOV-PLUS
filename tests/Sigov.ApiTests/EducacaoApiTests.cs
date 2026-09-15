@@ -16,6 +16,20 @@ public sealed class EducacaoApiTests
         service.Should().Contain("GuardAsync").And.Contain("HasPermissionAsync").And.Contain("Módulo educação não contratado/habilitado");
     }
 
+    [Fact]
+    public void Patrimonio_Movimentacao_Preserva_Cadeia_De_Custodia_E_Idempotencia()
+    {
+        var service = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Patrimonio/PatrimonioService.cs"));
+        service.Should().Contain("for update").And.Contain("correlation_id=@CorrelationId")
+            .And.Contain("A chave de idempotência já foi usada em outra movimentação")
+            .And.Contain("ObterBemDetalheAsync").And.Contain("order by data_movimentacao desc,id desc");
+        var api = File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/PatrimonioController.cs"));
+        api.Should().Contain("Idempotency-Key").And.Contain("ObterBemDetalheAsync");
+        var view = File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/Views/Patrimonio/Detalhe.cshtml"));
+        view.Should().Contain("Histórico de movimentações").And.Contain("idempotencyKey")
+            .And.Contain("data-confirm").And.Contain("Como usar");
+    }
+
     private static string FindRepositoryRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

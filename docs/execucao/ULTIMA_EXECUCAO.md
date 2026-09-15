@@ -1,5 +1,24 @@
 # Última execução
 
+Data: 2026-09-15. Evolução vertical de Patrimônio — cadeia de custódia. Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+| Funcionalidade | Estado real | Evidência | Lacuna | Ação desta execução |
+|---|---|---|---|---|
+| Template/navegação | Compartilhado, não homologado | `_Layout`, `_Sidebar` e componentes existentes | navegador ausente; catálogo nominal patrimonial incompleto | detalhe ganhou breadcrumb, hierarquia, estado vazio, foco e ação protegida |
+| Educação — matrícula/frequência | Parcial | serviços Dapper e testes estáticos existentes | transferência e correção auditada ainda pendentes | preservada, sem promoção |
+| Patrimônio — movimentação | Parcial, agora com cadeia consultável | serviço transacional, API/Web e histórico real | solicitação/recebimento e seletores nominais ainda pendentes | consulta tenant-scoped, idempotência por operação e origem serializada |
+| Patrimônio — inventário | Parcial | abertura, conferência e fechamento persistidos | fotografia temporal e movimentos durante conferência pendentes | preservado, sem promoção |
+| Compras/Almoxarifado/Indústria/SaaS | Regressões runtime aguardam Gate A | matrizes e testes existentes | SDK, PostgreSQL e navegador ausentes | nenhuma implementação paralela criada |
+
+- Preflight: branch `work`, HEAD inicial `e88132d578ea90e6964f64efe0a29354391f4fdd`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `psql`, PostgreSQL, PowerShell e navegador ausentes; Node 20 disponível.
+- Patrimônio: o detalhe passa a retornar e exibir o histórico persistido por tenant. A movimentação bloqueia destino vazio/inalterado, serializa a origem com `FOR UPDATE`, aceita chave idempotente estável (`Idempotency-Key` na API e campo por formulário), recusa reutilização com conteúdo divergente e conserva atualização, evento e auditoria na mesma transação.
+- Interface: status inclui texto, histórico tem estado vazio e tabela responsiva, formulário tem labels, orientação, confirmação, “Como usar”, foco visível e bloqueio contra duplo envio. Não houve alteração de schema.
+- Validação estática: JavaScript, JSON e `git diff --check` passaram. **BLOCKED:** restore/build/Razor/testes/Swagger, PostgreSQL 16, regressões integradas e capturas reais nas seis larguras, pois as ferramentas não estão instaladas. Nenhum módulo foi promovido.
+- Riscos restantes: IDs de unidade/responsável ainda são entrada técnica e precisam de catálogo autorizado; fluxo pendente confirmar/receber e concorrência por versão exigem migration própria; inventário ainda não preserva fotografia temporal.
+- Próximo item exato: criar o fluxo patrimonial persistido SOLICITADO → RECEBIDO/CANCELADO, com seletores autorizados e versão do bem; depois corrigir fotografia temporal do inventário. GED permanece por último.
+
+---
+
 Data: 2026-09-15. RC51.02Q (integridade do rascunho de compras). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `47b51a7a99888036dc1d3182b33d77121dc28a0c`, árvore limpa, sem remoto/upstream; SDK normativo `10.0.100`. `dotnet`, `pwsh`, `psql`, Docker e navegador permanecem ausentes.
