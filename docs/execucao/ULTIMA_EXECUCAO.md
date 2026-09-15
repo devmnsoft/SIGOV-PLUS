@@ -1,5 +1,28 @@
 # Última execução
 
+Data: 2026-09-15. Execução de OS — progresso verificável e histórico. Estado: **IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED**.
+
+| Jornada solicitada | Classificação comprovada | Evidência e limite |
+|---|---|---|
+| Login e Minha Central | implementada sem validação | rotas e serviços canônicos preservados; runtime indisponível |
+| Criar, consultar e atribuir OS | parcial | API/Dapper existentes; seletores autorizados e prova PostgreSQL pendentes |
+| Executar OS atribuída | parcial | técnico vinculado ao usuário é conferido no `UPDATE`; estado e versão são condições persistidas |
+| Salvar checklist da execução | parcial | vazio permanece pendente, domínio fechado é validado no servidor e concorrência usa `version`; modelos versionados ainda ausentes |
+| Histórico da OS | implementada sem validação | nova leitura tenant-scoped de `os_status_historico`, API autorizada e linha do tempo na execução |
+| Inspeções e revisão | ausente | não foi identificada implementação canônica completa de manutenção; não foi criado atalho paralelo |
+| Não conformidades e ações corretivas | ausente | estruturas de Qualidade não comprovam esta jornada ligada à OS; permanece backlog |
+| Materiais e custos | parcial | serviço OS usa saldo canônico e transação; homologação concorrente PostgreSQL continua pendente |
+| GED | por último | nenhuma funcionalidade GED foi criada ou antecipada |
+
+- Contrato aplicado ao checklist: usuário autenticado do tenant deve corresponder ao `usuario_id` do técnico atribuído; a OS deve estar em `AGENDADA`, `EM_DESLOCAMENTO`, `EM_EXECUCAO` ou `PAUSADA`; item, OS e versão precisam coincidir. Resposta vazia salva rascunho pendente, resposta de domínio fechado inválida falha, gravação incrementa a versão e repetição com versão antiga é recusada.
+- Contrato aplicado à conclusão já existente e preservado: somente a transição permitida pelo estado é aceita; checklist obrigatório bloqueante e apontamento aberto impedem conclusão; atualização e histórico compartilham transação e conflito de versão faz rollback.
+- Interface: detalhe ganhou breadcrumb, orientação “Como usar”, progresso real, estado explícito de salvamento e histórico cronológico. Conteúdo persistido é codificado antes de inserção no HTML.
+- Preflight: branch `work`, HEAD inicial `bf0911449f983c81be677241c478c4fbba1704de`, árvore limpa e nenhum remoto/upstream configurado. SDK .NET 10 e PostgreSQL/psql ausentes; Node 20 e Git disponíveis.
+- **BLOCKED:** restore/build/Razor/testes/Swagger, PostgreSQL 16 vazio/upgrade/reexecução, dois tenants, concorrência real e capturas nas seis larguras não puderam ser executados sem runtime e navegador. Nenhuma jornada foi declarada homologada.
+- Próximo item exato: criar, em migration aditiva, o modelo de checklist versionado canônico e a instância imutável vinculada à OS; depois implementar inspeção/revisão e somente então não conformidade/ação corretiva. GED permanece por último.
+
+---
+
 Data: 2026-09-15. Evolução vertical de Patrimônio — cadeia de custódia. Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
 
 | Funcionalidade | Estado real | Evidência | Lacuna | Ação desta execução |

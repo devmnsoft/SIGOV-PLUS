@@ -4,6 +4,7 @@ const agenda = document.querySelector('[data-tecnico-agenda]');
 const ordens = document.querySelector('[data-tecnico-ordens]');
 const execucao = document.querySelector('[data-tecnico-execucao]');
 const offline = document.querySelector('[data-offline]');
+const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[character]));
 
 function updateConnectivity() {
   offline?.classList.toggle('d-none', navigator.onLine);
@@ -39,7 +40,10 @@ async function loadExecution() {
   execucao.querySelector('[data-cliente]').textContent = current.cliente;
   execucao.querySelector('[data-descricao]').textContent = current.descricao;
   const checklist = await api(`/api/ordens-servico/${id}/checklist`);
-  execucao.querySelector('[data-checklist]').innerHTML = checklist.length ? checklist.map(item => `<label class="card card-body"><span class="fw-semibold">${item.titulo}${item.obrigatorio ? ' *' : ''}</span><input class="form-control mt-2" name="${item.id}" value="${item.resposta ?? ''}" data-version="${item.version}" ${item.obrigatorio ? 'required' : ''}></label>`).join('') : '<p class="text-secondary">Esta ordem não possui checklist.</p>';
+  execucao.querySelector('[data-progress]').textContent = `${checklist.filter(item => item.respondido).length} de ${checklist.length} respondidos`;
+  execucao.querySelector('[data-checklist]').innerHTML = checklist.length ? checklist.map(item => `<label class="card card-body"><span class="fw-semibold">${escapeHtml(item.titulo)}${item.obrigatorio ? ' <span class="text-danger">(obrigatório)</span>' : ''}</span><input class="form-control mt-2" name="${escapeHtml(item.id)}" value="${escapeHtml(item.resposta)}" data-version="${item.version}" maxlength="4000" ${item.obrigatorio ? 'required' : ''}><span class="form-text">Resposta salva individualmente. Deixe vazio para manter como pendente.</span></label>`).join('') : '<p class="text-secondary">Esta ordem não possui checklist.</p>';
+  const history = await api(`/api/ordens-servico/${id}/historico`);
+  execucao.querySelector('[data-history]').innerHTML = history.length ? history.map(item => `<li class="list-group-item"><strong>${escapeHtml(item.statusNovo)}</strong><span class="d-block small text-secondary">${new Date(item.criadoEm).toLocaleString()} · ${escapeHtml(item.criadoPor)}</span>${item.observacao ? `<span class="d-block">${escapeHtml(item.observacao)}</span>` : ''}</li>`).join('') : '<li class="list-group-item text-secondary">Nenhuma transição registrada.</li>';
 }
 
 async function transition(action) {
@@ -60,7 +64,8 @@ if (execucao) {
   });
   execucao.querySelector('[data-checklist]').addEventListener('change', async event => {
     const input = event.target;
-    try { await api(`/api/ordens-servico/${execucao.dataset.id}/checklist/respostas`, {method: 'POST', body: JSON.stringify({itemId: input.name, resposta: input.value, observacao: null, evidenciaId: null, version: Number(input.dataset.version)})}); toast('Checklist salvo.'); await loadExecution(); } catch (error) { toast(error.message, 'danger'); }
+    const state = execucao.querySelector('[data-save-state]'); state.textContent = 'Salvando…';
+    try { await api(`/api/ordens-servico/${execucao.dataset.id}/checklist/respostas`, {method: 'POST', body: JSON.stringify({itemId: input.name, resposta: input.value, observacao: null, evidenciaId: null, version: Number(input.dataset.version)})}); state.textContent = 'Progresso salvo e confirmado pelo servidor.'; toast('Progresso salvo. A ordem não foi concluída.'); await loadExecution(); } catch (error) { state.textContent = 'Não foi possível confirmar o salvamento. Consulte o estado persistido antes de repetir.'; toast(error.message, 'danger'); }
   });
   execucao.querySelector('[data-aceite]').addEventListener('submit', async event => {
     event.preventDefault(); const button = event.submitter; button.disabled = true;

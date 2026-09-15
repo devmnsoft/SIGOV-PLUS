@@ -11,6 +11,7 @@ public sealed class OrdensServicoController(IOrdemServicoApplicationService app)
     private string Key()=>Request.Headers["Idempotency-Key"].ToString();
     [HttpGet,Authorize(Policy="os.ordens.visualizar")] public async Task<IActionResult> List([FromQuery]OrdemServicoFiltro f,CancellationToken ct)=>Ok(await app.ListarAsync(Contexto(),f,ct));
     [HttpGet("{id:guid}"),Authorize(Policy="os.ordens.visualizar")] public async Task<IActionResult> Get(Guid id,CancellationToken ct){var x=await app.ObterAsync(Contexto(),id,ct);return x is null?NotFound():Ok(x);}
+    [HttpGet("{id:guid}/historico"),Authorize(Policy="os.ordens.visualizar")] public async Task<IActionResult> History(Guid id,CancellationToken ct)=>Ok(await app.HistoricoAsync(Contexto(),id,ct));
     [HttpPost,Authorize(Policy="os.ordens.criar")] public async Task<IActionResult> Create(CriarOrdemServicoRequest r,CancellationToken ct){var id=await app.CriarAsync(Contexto(),r,Key(),ct);return CreatedAtAction(nameof(Get),new{id},id);}
     [HttpPost("{id:guid}/agendar"),Authorize(Policy="os.ordens.agendar")] public async Task<IActionResult> Schedule(Guid id,AgendarOrdemServicoRequest r,CancellationToken ct){await app.AgendarAsync(Contexto(),id,r,ct);return NoContent();}
     [HttpPost("{id:guid}/atribuir"),Authorize(Policy="os.ordens.atribuir")] public async Task<IActionResult> Assign(Guid id,AtribuirTecnicoRequest r,CancellationToken ct){await app.AtribuirAsync(Contexto(),id,r,ct);return NoContent();}

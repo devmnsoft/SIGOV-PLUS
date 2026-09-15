@@ -37,6 +37,7 @@ public interface IOrdemServicoApplicationService
 {
     Task<PagedResult<OrdemServicoResumoDto>> ListarAsync(OrdemServicoContext context, OrdemServicoFiltro filtro, CancellationToken ct);
     Task<OrdemServicoDetalheDto?> ObterAsync(OrdemServicoContext context, Guid id, CancellationToken ct);
+    Task<IReadOnlyList<OrdemServicoHistoricoDto>> HistoricoAsync(OrdemServicoContext context, Guid id, CancellationToken ct);
     Task<Guid> CriarAsync(OrdemServicoContext context, CriarOrdemServicoRequest request, string idempotencyKey, CancellationToken ct);
     Task<Guid> GerarDoPedidoAsync(OrdemServicoContext context, Guid pedidoId, string idempotencyKey, CancellationToken ct);
     Task AgendarAsync(OrdemServicoContext context, Guid id, AgendarOrdemServicoRequest request, CancellationToken ct);
@@ -61,6 +62,7 @@ public interface IOrdemServicoApplicationService
 public interface IOrdemServicoRepository : IOrdemServicoAgendaRepository, IOrdemServicoChecklistRepository, IOrdemServicoApontamentoRepository, IOrdemServicoConsumoRepository
 {
     Task<PagedResult<OrdemServicoResumoDto>> ListarAsync(Guid tenantId, OrdemServicoFiltro filtro, CancellationToken ct); Task<OrdemServicoDetalheDto?> ObterAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<IReadOnlyList<OrdemServicoHistoricoDto>> HistoricoAsync(Guid tenantId, Guid id, CancellationToken ct);
     Task<Guid> CriarAsync(Guid tenantId, Guid usuarioId, CriarOrdemServicoRequest request, string key, string correlationId, CancellationToken ct); Task<Guid> GerarDoPedidoAsync(Guid tenantId, Guid usuarioId, Guid pedidoId, string key, string correlationId, CancellationToken ct);
     Task AtribuirAsync(Guid tenantId, Guid usuarioId, Guid id, AtribuirTecnicoRequest request, string correlationId, CancellationToken ct); Task TransicionarAsync(Guid tenantId, Guid usuarioId, Guid id, string destino, long version, string? motivo, DateTimeOffset? inicioReal, string correlationId, CancellationToken ct); Task<OrdemServicoDashboardDto> DashboardAsync(Guid tenantId, CancellationToken ct);
     Task<IReadOnlyList<OrdemServicoEvidenciaDto>> EvidenciasAsync(Guid tenantId, Guid id, CancellationToken ct); Task AdicionarEvidenciaAsync(Guid tenantId, Guid usuarioId, Guid id, AdicionarEvidenciaRequest request, string key, string correlationId, CancellationToken ct);
