@@ -17,6 +17,8 @@ public static class PatrimonioPermissoes
 public sealed record PatrimonioBemFiltro(string? Busca = null, long? CategoriaId = null, string? Situacao = null, long? UnidadeId = null, long? ResponsavelUsuarioId = null, int Pagina = 1, int TamanhoPagina = 25);
 public sealed record PatrimonioBemDto(long Id, string CodigoTombo, string Descricao, long? CategoriaId, string? Categoria, string TipoBem, string? Marca, string? Modelo, string? NumeroSerie, DateOnly? DataAquisicao, decimal? ValorAquisicao, decimal? ValorAtual, string EstadoConservacao, string Situacao, long? UnidadeId, long? SetorId, long? ResponsavelUsuarioId, string? Localizacao, string? Observacao, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 public sealed record PatrimonioBemInput(string CodigoTombo, string Descricao, long? CategoriaId, string TipoBem, string? CodigoAnterior, string? Marca, string? Modelo, string? NumeroSerie, DateOnly? DataAquisicao, decimal? ValorAquisicao, decimal? ValorAtual, string EstadoConservacao, long? UnidadeId, long? SetorId, long? ResponsavelUsuarioId, string? Localizacao, string? Observacao);
+public sealed record PatrimonioMovimentacaoDto(long Id, long BemId, long? UnidadeOrigemId, long? UnidadeDestinoId, long? ResponsavelOrigemId, long? ResponsavelDestinoId, string? LocalizacaoOrigem, string? LocalizacaoDestino, string TipoMovimentacao, string Justificativa, DateTimeOffset DataMovimentacao, long? UsuarioId);
+public sealed record PatrimonioBemDetalhe(PatrimonioBemDto Bem, IReadOnlyList<PatrimonioMovimentacaoDto> Movimentacoes);
 public sealed record PatrimonioMovimentacaoInput(long? UnidadeDestinoId, long? ResponsavelDestinoId, string? LocalizacaoDestino, string TipoMovimentacao, string Justificativa, DateTimeOffset? DataMovimentacao = null);
 public sealed record PatrimonioBaixaInput(string TipoBaixa, string Justificativa, DateOnly DataBaixa, decimal? ValorBaixa);
 public sealed record PatrimonioInventarioInput(string Codigo, string Descricao, long? UnidadeId, long? ResponsavelUsuarioId);
@@ -32,6 +34,7 @@ public interface IPatrimonioService
 {
     Task<PatrimonioPagina<PatrimonioBemDto>> ListarBensAsync(long tenantId, PatrimonioBemFiltro filtro, CancellationToken ct);
     Task<PatrimonioBemDto?> ObterBemAsync(long tenantId, long id, CancellationToken ct);
+    Task<PatrimonioBemDetalhe?> ObterBemDetalheAsync(long tenantId, long id, CancellationToken ct);
     Task<long> CriarBemAsync(long tenantId, long usuarioId, string correlationId, PatrimonioBemInput input, CancellationToken ct);
     Task EditarBemAsync(long tenantId, long usuarioId, string correlationId, long id, PatrimonioBemInput input, CancellationToken ct);
     Task MovimentarBemAsync(long tenantId, long usuarioId, string correlationId, long id, PatrimonioMovimentacaoInput input, CancellationToken ct);
