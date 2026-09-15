@@ -1,5 +1,28 @@
 # Última execução
 
+Data: 2026-09-15. Correção do ciclo contratual SaaS. Estado: **IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED**.
+
+| Item inspecionado | Classificação | Evidência/limite |
+|---|---|---|
+| Catálogo e contratação | parcial | `modulo_saas` e `tenant_modulo_contratado` são autoridades persistidas; catálogo Commercial legado ainda é consumidor de navegação, não autoridade contratual |
+| Administração de tenants/SuperAdmin | implementado sem validação | pesquisa, filtros, paginação, detalhe, vínculos e contratos usam Dapper; runtime indisponível |
+| Usuários, vínculos, perfis e permissões | parcial | identidade/sessão e autorização persistidas existem; jornada completa de convite e limite concorrente não foi homologada |
+| Sessões e avaliador | implementado sem validação | validação de sessão e avaliador persistente preservados; mudança P0/P1 fora desta correção |
+| Sidebar, layout e formulários | parcial | shell compartilhado preservado; confirmação contratual agora explicita cliente, módulo, efeito e consequências |
+| Auditoria de formulários | bloqueado | 591 candidatos e zero jornadas homologadas conforme checkpoint vigente |
+| Manutenção, inspeção e não conformidades | parcial/ausente | execução e histórico de OS parciais; inspeção e não conformidade ligadas à OS continuam ausentes |
+
+- Estado inicial: branch `work`, HEAD `f1b8a87bcc50aec60e4a67d25a9493e5815631bf`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `psql`, Docker e navegador ausentes.
+- Fonte canônica confirmada: leitura/escrita contratual em `tenant_modulo_contratado`; `tenant_modulo` permanece projeção legada unidirecional; catálogo comercial contratável em `modulo_saas`; histórico em `tenant_modulo_contratado_historico`; autorização em identidades/vínculos/perfis/permissões persistidos e no avaliador único.
+- Correção: contratação repetida deixa de sobrescrever contrato/histórico; suspensão exige estado elegível; reativação exige estado `SUSPENSO`, tenant ativo, dependências, vigência ainda elegível e cancelamento não efetivado. Suspender/reativar preserva a vigência original; reativar não renova contrato nem quita cobrança.
+- Interface: confirmações mostram cliente, módulo, momento e consequências; a revisão esclarece que dependências não são incluídas silenciosamente e contratação não concede permissão.
+- Sem migration: o schema canônico existente foi reutilizado. Sem alteração do avaliador, troca de contexto ou dashboard.
+- **BLOCKED:** restore/build/Razor/testes/Swagger, PostgreSQL 16, concorrência real, dois tenants e screenshots nas seis larguras não foram executados por ausência das ferramentas.
+- Riscos restantes: snapshot de preço/periodicidade e fluxo cliente solicitar → SuperAdmin aprovar ainda precisam ser unificados com a solicitação comercial canônica; cancelamento contratual não foi acrescentado sem decisão formal de política.
+- Próximo item exato: integrar `saas_solicitacao_cliente` ao detalhe canônico para aprovação idempotente que grave preço/periodicidade aceitos em `tenant_modulo_contratado`, sem ativação direta pelo administrador do cliente.
+
+---
+
 Data: 2026-09-15. Execução de OS — progresso verificável e histórico. Estado: **IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED**.
 
 | Jornada solicitada | Classificação comprovada | Evidência e limite |

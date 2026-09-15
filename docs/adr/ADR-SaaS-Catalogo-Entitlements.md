@@ -14,6 +14,16 @@ Compatibilidade legada será forward-only, auditável e sem remoção de tabelas
 
 O aplicador operacional deve recusar versões e checksums de ledger ausentes do manifesto. Um checksum histórico somente é compatível quando consta em `knownChecksums` e a migration possui pós-condição específica, reavaliada contra o estado final; configuração comercial mutável não integra essa invariável estrutural.
 
+## Fontes e sincronização
+
+- **Leitura e escrita comercial:** `sigov.modulo_saas`; ausência ou JSON inválido deve falhar, nunca recorrer ao catálogo estático legado.
+- **Leitura e escrita contratual:** `sigov.tenant_modulo_contratado`, incluindo condições congeladas, estado e vigência.
+- **Histórico:** `sigov.tenant_modulo_contratado_historico`, append-only.
+- **Compatibilidade:** `sigov.tenant_modulo` é projeção unidirecional; nunca alimenta a autoridade nova.
+- **Autorização:** identidades, vínculos, perfis e permissões persistidos, combinados pelo avaliador; menu não é fonte de decisão.
+- **Consumidores:** API, Web, sidebar e administração consultam serviços canônicos. O catálogo `Application.Commercial` remanescente atende navegação histórica e não pode contratar, habilitar ou autorizar módulos.
+- **Sincronização:** alteração nominal ou de preço do catálogo não altera a linha contratual e jamais reativa suspensão; suspensão/reativação preserva vigência e condições.
+
 ## Consequências
 
 - Catálogo não concede acesso por si só.

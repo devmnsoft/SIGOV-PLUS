@@ -83,7 +83,7 @@
           @if (canManage)
           {
             <td class="text-end">
-              <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Suspender" class="d-inline">
+              <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Suspender" class="d-inline" onsubmit="return confirm('Suspender @contract.ModuleName para @Model.Name? Novos acessos serão bloqueados imediatamente; a vigência e os dados operacionais serão preservados.');">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="moduleCode" value="@contract.ModuleCode" />
                 <input type="hidden" name="expectedUpdatedAt" value="@contract.UpdatedAt?.ToString("o")" />
@@ -91,7 +91,7 @@
                 <input id="suspender-@contract.Id" name="justification" class="form-control form-control-sm mb-1" required minlength="8" placeholder="Justificativa" />
                 <button class="btn btn-sm btn-outline-warning" type="submit">Suspender</button>
               </form>
-              <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Reativar" class="d-inline">
+              <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Reativar" class="d-inline" onsubmit="return confirm('Reativar @contract.ModuleName para @Model.Name agora? A vigência original será preservada e nenhuma cobrança será quitada ou renovada automaticamente.');">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="moduleCode" value="@contract.ModuleCode" />
                 <input type="hidden" name="expectedUpdatedAt" value="@contract.UpdatedAt?.ToString("o")" />
@@ -107,9 +107,10 @@
     }
     @if (canManage)
     {
-      <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Contratar" class="card card-body">
+      <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Contratar" class="card card-body" onsubmit="return confirm('Confirmar a contratação selecionada para @Model.Name? A ativação produz efeito na data informada e depende das permissões de cada usuário.');">
         @Html.AntiForgeryToken()
         <h2 class="h5">Contratar módulo</h2>
+        <p class="text-muted">Revise módulo, dependências e vigência. A contratação não concede permissão ao usuário e não inclui dependências silenciosamente.</p>
         <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label" for="moduleCode">Módulo</label>
