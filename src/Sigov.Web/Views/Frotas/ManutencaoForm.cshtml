@@ -1,2 +1,20 @@
-@{ViewData["Title"]="Nova manutenção";}<partial name="_Nav"/><h1 class="h3">Nova manutenção</h1><div asp-validation-summary="All" class="text-danger"></div><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label>Veículo</label><select name="VeiculoId" class="form-select">@foreach(var x in ViewBag.Veiculos){<option value="@x.Id">@x.Placa — @x.Modelo</option>}</select></div><div class="col-md-3"><label>Tipo</label><select name="Tipo" class="form-select"><option>PREVENTIVA</option><option>CORRETIVA</option><option>REVISAO</option><option>PNEU</option><option>LAVAGEM</option><option>OUTRA</option></select></div><div class="col-md-3"><label>Abertura</label><input name="DataAbertura" type="datetime-local" required class="form-control"/></div><div class="col-md-2"><label>Km abertura</label><input name="KmAbertura" type="number" min="0" step=".01" required class="form-control"/></div><div class="col-md-9"><label>Problema/serviço</label><textarea name="Descricao" required class="form-control"></textarea></div><div class="col-md-3"><label>Valor estimado</label><input name="ValorEstimado" type="number" min="0" step=".01" required class="form-control"/></div></div><input name="EntidadeId" value="0" type="hidden"/><button class="btn btn-primary mt-3 align-self-start">Abrir manutenção</button></form>
+@model Sigov.Application.Frotas.ManutencaoInput
+@{ ViewData["Title"] = "Nova manutenção"; }
+<partial name="_Nav" />
+<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Frotas/Manutencoes">Manutenções</a></li><li class="breadcrumb-item active" aria-current="page">Nova</li></ol></nav>
+<div class="mb-3"><h1 class="h3 mb-1">Nova manutenção</h1><p class="text-muted mb-0">Registre a ocorrência usando um veículo ativo do contexto atual.</p></div>
+<div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+<form method="post" class="card card-body">
+    @Html.AntiForgeryToken()
+    <div class="row g-3">
+        <div class="col-md-4"><label asp-for="VeiculoId" class="form-label">Veículo</label><select asp-for="VeiculoId" class="form-select" required><option value="">Selecione</option>@foreach(var x in ViewBag.Veiculos){<option value="@x.Id">@x.Placa — @x.Modelo</option>}</select></div>
+        <div class="col-md-3"><label asp-for="Tipo" class="form-label">Categoria</label><select asp-for="Tipo" class="form-select" required><option value="PREVENTIVA">Preventiva</option><option value="CORRETIVA">Corretiva</option><option value="REVISAO">Revisão</option><option value="PNEU">Pneu</option><option value="LAVAGEM">Lavagem</option><option value="OUTRA">Outra</option></select></div>
+        <div class="col-md-3"><label asp-for="DataAbertura" class="form-label">Data da ocorrência</label><input asp-for="DataAbertura" type="datetime-local" required class="form-control" /></div>
+        <div class="col-md-2"><label asp-for="KmAbertura" class="form-label">Km na abertura</label><input asp-for="KmAbertura" type="number" min="0" step=".01" required class="form-control" /></div>
+        <div class="col-md-9"><label asp-for="Descricao" class="form-label">Problema ou serviço</label><textarea asp-for="Descricao" required maxlength="4000" class="form-control" rows="4"></textarea></div>
+        <div class="col-md-3"><label asp-for="ValorEstimado" class="form-label">Valor estimado</label><input asp-for="ValorEstimado" type="number" min="0" step=".01" required class="form-control" /></div>
+        <div class="col-12"><label asp-for="Observacao" class="form-label">Observações</label><textarea asp-for="Observacao" maxlength="4000" class="form-control" rows="2"></textarea></div>
+    </div>
+    <input asp-for="EntidadeId" value="0" type="hidden" />
+    <div class="d-flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" type="submit">Abrir manutenção</button><a class="btn btn-outline-secondary" href="/Frotas/Manutencoes">Cancelar</a></div>
+</form>

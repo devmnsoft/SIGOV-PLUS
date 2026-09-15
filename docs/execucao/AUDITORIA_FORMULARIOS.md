@@ -115,3 +115,11 @@ command -v psql docker node
 ```
 
 Checkpoint de continuidade: **591 arquivos candidatos; 0 jornadas aprovadas ponta a ponta; correção compartilhada Enterprise pronta para gate; próximo fluxo específico é Educação/aluno-responsável após P0.**
+
+## Continuidade — manutenção de frota (2026-09-15)
+
+A inspeção posterior confirmou uma jornada parcial em Frotas: a gravação de manutenção era transacional e isolada por `tenant_id`/`entidade_id`, porém o POST descartava o identificador retornado e não oferecia consulta individual; além disso, qualquer falha de validação retornava a view sem recarregar os veículos, quebrando a renderização e perdendo a seleção.
+
+Foram corrigidos o bloqueio por `ModelState` antes do serviço, a recomposição dos catálogos autorizados em retornos inválidos e a preservação dos valores pelo binding Razor. A criação agora redireciona ao ID persistido e a consulta independente filtra ID, tenant e entidade. A conclusão existente ganhou formulário com antiforgery, permissão canônica `frotas.manutencao.concluir`, transação e releitura do detalhe. Não foram declaradas edição, cancelamento, idempotência de criação ou homologação: esses pontos seguem pendentes, assim como a prova em PostgreSQL isolado, pois o ambiente continua sem .NET, `psql` e navegador executável.
+
+Próximo item exato desta jornada: introduzir idempotência persistida para a abertura de manutenção, com migration corretiva sincronizada e cenários de mesma chave/mesmo conteúdo e mesma chave/conteúdo divergente em PostgreSQL 16 isolado.
