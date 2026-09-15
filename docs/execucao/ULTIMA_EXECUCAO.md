@@ -401,3 +401,16 @@ Não foi hipótese: a duplicidade foi confirmada nos atributos `HttpGet`. A equi
 - Não houve alteração de schema ou migration.
 
 Próximo item exato do backlog: executar o gate Web com .NET SDK `10.0.100` e PostgreSQL 16, autenticar um usuário com e sem `governanca.qualidade.visualizar` e capturar as larguras 360, 390, 768, 1024, 1366 e 1920 px.
+
+## Evolução de navegação e formulário — 2026-09-15
+
+| Arquivo | Achado observado | Impacto | Correção aplicada |
+|---|---|---|---|
+| `_Sidebar.cshtml` | Todos os grupos renderizados formavam uma única lista extensa; não havia seleção de contexto funcional. | Alto custo de varredura e navegação especialmente ruim no drawer móvel. | O próprio conjunto de grupos já autorizado/renderizado alimenta um seletor de módulo; apenas o módulo corrente fica visível e a busca temporariamente percorre todos os destinos disponíveis. |
+| `sigov-ui.js` | Estado compacto era persistido globalmente e não existia estado de módulo. | Preferência podia atravessar contextos, além de não haver segunda camada contextual. | Seleção de módulo é persistida somente na chave composta usuário/tenant/entidade/exercício; rota ativa vence preferência antiga e módulos removidos são descartados. |
+| `_Navbar.cshtml` | Ausência de claims de entidade/exercício era apresentada como entidade “padrão” e ano do relógio. | A interface afirmava um contexto operacional não selecionado. | O cabeçalho agora informa explicitamente contexto/entidade/exercício não selecionados, sem fabricar contexto. |
+| `Requisicoes/Nova.cshtml` e editor JavaScript | Formulário real não tinha resumo focável, indicação/ajuda acessível ou antiforgery disponível ao cliente; erros de API não recebiam foco. | Erros eram difíceis de localizar por teclado/leitor de tela, embora o serviço já preservasse idempotência e versão. | Campos receberam labels/ajuda/limites, agrupamento semântico, resumo, foco de erro, token antiforgery e bloqueio de envio preservado; rascunho continua reaproveitando os valores persistidos. |
+
+Hipótese não promovida a correção: o catálogo histórico da sidebar contém grupos legados cuja contratação precisa ser comprovada em runtime; esta alteração não transforma visibilidade em autorização e não altera o avaliador persistente. Não houve migration. `node --check`, `git diff --check` e varreduras estáticas passaram. Restore/build/Razor/testes e capturas continuam **BLOCKED** porque o container não dispõe do SDK .NET 10 nem de host Web executável.
+
+Próximo item exato: executar `WebRuntimeSmokeTests` e a jornada autenticada em PostgreSQL 16; validar o seletor e o formulário em 360/390/768/1024/1366/1920 px e zoom 200%, então confrontar cada grupo legado renderizado com a decisão do avaliador canônico antes de promover a navegação.

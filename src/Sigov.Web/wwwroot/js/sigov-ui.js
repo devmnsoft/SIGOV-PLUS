@@ -217,9 +217,12 @@
   const contextKey = hasOperationalContext ? contextParts.join(':') : null;
   const favoritesKey = contextKey ? `sigov.menu.favorites:${contextKey}` : null;
   const recentKey = contextKey ? `sigov.recent.routes:${contextKey}` : null;
+  const selectedModuleKey = contextKey ? `sigov.menu.module:${contextKey}` : null;
+  const compactSidebarKey = contextKey ? `sigov.sidebar.compact:${contextKey}` : null;
   // Entradas sem identidade/contexto pertencem ao formato legado e nunca são atribuídas à sessão atual.
   store.remove('sigov.menu.favorites');
   store.remove('sigov.recent.routes');
+  store.remove('sigov.sidebar.compact');
 
   function safeInternalPath(value) {
     if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
@@ -243,10 +246,54 @@
 
   const sidebar = document.getElementById('sigovSidebar');
   if (sidebar) {
-    if (store.get('sigov.sidebar.compact', false)) sidebar.classList.add('is-compact');
-    document.querySelectorAll('[data-sigov-sidebar-compact]').forEach(button => button.addEventListener('click', () => { sidebar.classList.toggle('is-compact'); store.set('sigov.sidebar.compact', sidebar.classList.contains('is-compact')); }));
+    if (compactSidebarKey && store.get(compactSidebarKey, false)) sidebar.classList.add('is-compact');
+    document.querySelectorAll('[data-sigov-sidebar-compact]').forEach(button => button.addEventListener('click', () => { sidebar.classList.toggle('is-compact'); if (compactSidebarKey) store.set(compactSidebarKey, sidebar.classList.contains('is-compact')); }));
     const filter = document.querySelector('[data-sigov-menu-filter]');
-    if (filter) filter.addEventListener('input', () => { const query = filter.value.toLowerCase(); sidebar.querySelectorAll('.sigov-nav-link').forEach(link => { link.hidden = Boolean(query) && !link.textContent.toLowerCase().includes(query); }); });
+    const moduleSelector = sidebar.querySelector('[data-sigov-module-selector]');
+    const groups = Array.from(sidebar.querySelectorAll(':scope [data-sigov-menu] > .sigov-nav-group'));
+    const normalizeModuleKey = (label, index) => `${index}-${label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+    groups.forEach((group, index) => {
+      const label = group.querySelector(':scope > summary')?.textContent.trim() || `Módulo ${index + 1}`;
+      group.dataset.sigovModule = normalizeModuleKey(label, index);
+      group.dataset.sigovModuleLabel = label;
+    });
+    const activeGroup = groups.find(group => group.querySelector('.sigov-nav-link.active'));
+    const storedModule = selectedModuleKey ? store.get(selectedModuleKey, null) : null;
+    let selectedModule = activeGroup?.dataset.sigovModule || (groups.some(group => group.dataset.sigovModule === storedModule) ? storedModule : groups[0]?.dataset.sigovModule);
+    const applyModule = () => {
+      const searching = Boolean(filter?.value.trim());
+      groups.forEach(group => { group.hidden = !searching && group.dataset.sigovModule !== selectedModule; });
+      if (moduleSelector) moduleSelector.value = selectedModule || '';
+    };
+    if (moduleSelector) {
+      moduleSelector.replaceChildren(...groups.map(group => {
+        const option = document.createElement('option');
+        option.value = group.dataset.sigovModule;
+        option.textContent = group.dataset.sigovModuleLabel;
+        return option;
+      }));
+      moduleSelector.addEventListener('change', () => {
+        selectedModule = moduleSelector.value;
+        if (selectedModuleKey) store.set(selectedModuleKey, selectedModule);
+        filter.value = '';
+        sidebar.querySelectorAll('.sigov-nav-link').forEach(link => { link.hidden = false; });
+        applyModule();
+      });
+    }
+    if (filter) filter.addEventListener('input', () => {
+      const query = filter.value.trim().toLocaleLowerCase('pt-BR');
+      groups.forEach(group => {
+        let matches = false;
+        group.querySelectorAll('.sigov-nav-link').forEach(link => {
+          const match = !query || link.textContent.toLocaleLowerCase('pt-BR').includes(query);
+          link.hidden = !match;
+          matches = matches || match;
+        });
+        group.hidden = query ? !matches : group.dataset.sigovModule !== selectedModule;
+        if (query && matches) group.open = true;
+      });
+    });
+    applyModule();
     const favorites = favoritesKey ? store.get(favoritesKey, []) : [];
     sidebar.querySelectorAll('[data-favorite-key]').forEach(row => {
       const key = row.dataset.favoriteKey, button = row.querySelector('.sigov-favorite-toggle');
