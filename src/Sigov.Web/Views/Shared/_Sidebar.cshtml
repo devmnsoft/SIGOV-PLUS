@@ -22,6 +22,11 @@
 <aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
   <div class="sigov-sidebar__header">
     <span class="sigov-sidebar__eyebrow">Área de trabalho</span><strong>Menu SIGOV+</strong>
+    <label for="sigovModuleSelector">Módulo</label>
+    <select id="sigovModuleSelector" class="sigov-module-selector" data-sigov-module-selector aria-describedby="sigovModuleHelp">
+      <option value="">Carregando módulos autorizados…</option>
+    </select>
+    <small id="sigovModuleHelp" class="sigov-sidebar__help">Selecione o módulo para ver apenas suas operações.</small>
     <label class="visually-hidden" for="sigovMenuFilter">Filtrar menu</label>
     <div class="sigov-sidebar__filter"><sigov-icon name="search" size="16" /><input id="sigovMenuFilter" type="search" placeholder="Filtrar menu" data-sigov-menu-filter /></div>
   </div>

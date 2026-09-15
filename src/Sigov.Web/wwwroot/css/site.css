@@ -27,6 +27,12 @@
 .sigov-sidebar .sigov-nav-link.active { background: rgb(59 130 246 / 24%); color: white; }
 .sigov-sidebar.is-compact { width: var(--sigov-navigation-width-compact); flex-basis: var(--sigov-navigation-width-compact); }
 .sigov-sidebar__filter { min-height: var(--sigov-control-height); }
+.sigov-sidebar__header label { color: var(--sigov-neutral-100); font-size: var(--sigov-text-sm); font-weight: 700; }
+.sigov-module-selector { width: 100%; min-height: var(--sigov-control-height); padding: 0 var(--sigov-space-3); border: 1px solid var(--sigov-neutral-600); border-radius: var(--sigov-radius-md); background: var(--sigov-neutral-800); color: var(--sigov-text-on-dark); }
+.sigov-module-selector:focus-visible { outline: 3px solid var(--sigov-focus); outline-offset: 2px; }
+.sigov-sidebar__help { color: var(--sigov-neutral-300); font-size: var(--sigov-text-caption); line-height: 1.4; }
+.sigov-nav-group[hidden] { display: none; }
+.sigov-sidebar.is-compact .sigov-module-selector, .sigov-sidebar.is-compact .sigov-sidebar__help, .sigov-sidebar.is-compact .sigov-sidebar__header label { display: none; }
 .table-responsive { max-width: 100%; overflow-x: auto; scrollbar-gutter: stable; }
 
 @media (max-width: 991.98px) {

@@ -1,9 +1,9 @@
 @{
   var usuarioNome = User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Visitante";
   var perfil = User.Claims.FirstOrDefault(c => c.Type == "perfil" || c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))?.Value ?? User.Claims.FirstOrDefault(c => c.Type.EndsWith("/role", StringComparison.OrdinalIgnoreCase))?.Value ?? "Operador";
-  var tenant = User.FindFirst("tenant_nome")?.Value ?? User.FindFirst("tenant_id")?.Value ?? "Tenant atual";
-  var entidade = User.FindFirst("entidade_nome")?.Value ?? "Entidade padrão";
-  var exercicio = User.FindFirst("exercicio")?.Value ?? DateTime.UtcNow.Year.ToString(System.Globalization.CultureInfo.InvariantCulture);
+  var tenant = User.FindFirst("tenant_nome")?.Value ?? User.FindFirst("tenant_id")?.Value ?? "Contexto global";
+  var entidade = User.FindFirst("entidade_nome")?.Value ?? "Entidade não selecionada";
+  var exercicio = User.FindFirst("exercicio")?.Value ?? "Exercício não selecionado";
   var avatar = string.IsNullOrWhiteSpace(usuarioNome) ? "S" : usuarioNome[..1].ToUpperInvariant();
 }
 <nav class="sigov-topbar" aria-label="Barra superior premium">
