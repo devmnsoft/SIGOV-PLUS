@@ -78,6 +78,12 @@ public sealed class SaasTenantAdministrationService(
         if (userId <= 0)
             return new(false, "Usuário autenticado é obrigatório.");
 
+        var requestedStart = command.EffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        if (command.EffectiveUntil.HasValue && command.EffectiveUntil < requestedStart)
+            return new(false, "A data final da vigência não pode ser anterior à data inicial.");
+        if (!string.Equals(targetStatus, "CONTRATADO", StringComparison.OrdinalIgnoreCase) && !command.ExpectedUpdatedAt.HasValue)
+            return new(false, "A versão atual do contrato é obrigatória. Recarregue o detalhe antes de executar a ação.");
+
         var module = await catalog.FindByCodeAsync(command.ModuleCode, cancellationToken).ConfigureAwait(false);
         if (module is null)
             return new(false, "Módulo inexistente no catálogo modulo_saas.");
@@ -117,12 +123,28 @@ public sealed class SaasTenantAdministrationService(
 
             var before = await connection.QuerySingleOrDefaultAsync<ContractRow>(new CommandDefinition(
                 CurrentSql, new { command.TenantId, command.ModuleCode }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var isNewContract = string.Equals(targetStatus, "CONTRATADO", StringComparison.OrdinalIgnoreCase);
+            var isSuspension = string.Equals(targetStatus, "SUSPENSO", StringComparison.OrdinalIgnoreCase);
+            var isReactivation = string.Equals(targetStatus, "HABILITADO", StringComparison.OrdinalIgnoreCase);
+
+            if (isNewContract && before is not null)
+                return Rollback(transaction, "Já existe contratação ou histórico contratual para este módulo; recarregue o detalhe e use a ação compatível com o estado atual.");
+            if ((isSuspension || isReactivation) && before is null)
+                return Rollback(transaction, "A contratação não existe ou foi alterada. Recarregue o detalhe.");
+            if (isSuspension && before!.Status is not ("CONTRATADO" or "HABILITADO" or "ATIVO" or "TRIAL" or "EM_IMPLANTACAO" or "BETA"))
+                return Rollback(transaction, $"Uma contratação no estado {before.Status} não pode ser suspensa.");
+            if (isReactivation && !string.Equals(before!.Status, "SUSPENSO", StringComparison.OrdinalIgnoreCase))
+                return Rollback(transaction, $"Somente uma contratação suspensa pode ser reativada; estado atual: {before.Status}.");
+            if (isReactivation && before.EffectiveUntil.HasValue && before.EffectiveUntil < DateOnly.FromDateTime(DateTime.UtcNow))
+                return Rollback(transaction, "A vigência terminou; reativação não renova o contrato automaticamente.");
+            if (isReactivation && before.CancellationScheduledFor.HasValue && before.CancellationScheduledFor <= DateOnly.FromDateTime(DateTime.UtcNow))
+                return Rollback(transaction, "O cancelamento agendado já produziu efeito; reativação exige nova decisão contratual.");
             if (command.ExpectedUpdatedAt.HasValue && before is not null &&
                 before.UpdatedAt != command.ExpectedUpdatedAt && before.CreatedAt != command.ExpectedUpdatedAt)
                 return Rollback(transaction, "O contrato foi alterado por outro usuário. Recarregue e tente novamente.");
 
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
-            var from = command.EffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var from = requestedStart;
             var rows = await connection.ExecuteAsync(new CommandDefinition(
                 UpsertSql,
                 new
@@ -135,7 +157,8 @@ public sealed class SaasTenantAdministrationService(
                     Motivo = command.Justification.Trim(),
                     UserId = userId,
                     CorrelationId = correlation,
-                    Ativo = !string.Equals(targetStatus, "CANCELADO", StringComparison.OrdinalIgnoreCase)
+                    Ativo = !string.Equals(targetStatus, "CANCELADO", StringComparison.OrdinalIgnoreCase),
+                    PreserveTerm = !isNewContract
                 }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             if (rows <= 0)
                 return Rollback(transaction, "Não foi possível persistir o contrato.");
@@ -179,7 +202,8 @@ public sealed class SaasTenantAdministrationService(
 
     private sealed record TenantHeader(long Id, string Name, string Status, string Esfera, string? Plan, DateTimeOffset? LastActivityUtc);
     private sealed record UserRow(long Id, string Name, string Email, bool Active, string? Profiles);
-    private sealed record ContractRow(long Id, string Status, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+    private sealed record ContractRow(long Id, string Status, DateOnly? EffectiveFrom, DateOnly? EffectiveUntil,
+        DateOnly? CancellationScheduledFor, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
 
     private const string ListSql = """
 select count(*)::int
@@ -288,7 +312,8 @@ where tm.tenant_id=@TenantId
 """;
 
     private const string CurrentSql = """
-select id as Id, status as Status, created_at as CreatedAt, updated_at as UpdatedAt
+select id as Id, status as Status, vigencia_inicio as EffectiveFrom, vigencia_fim as EffectiveUntil,
+       cancelamento_agendado_para as CancellationScheduledFor, created_at as CreatedAt, updated_at as UpdatedAt
 from sigov.tenant_modulo_contratado
 where tenant_id=@TenantId and modulo_codigo=@ModuleCode
 """;
@@ -299,8 +324,8 @@ insert into sigov.tenant_modulo_contratado (
 values (@TenantId, @ModuleCode, @Status, current_date, @VigenciaInicio, @EffectiveUntil, @Motivo, @Ativo, @UserId, @CorrelationId)
 on conflict (tenant_id, modulo_codigo) do update
 set status=excluded.status,
-    vigencia_inicio=excluded.vigencia_inicio,
-    vigencia_fim=excluded.vigencia_fim,
+    vigencia_inicio=case when @PreserveTerm then tenant_modulo_contratado.vigencia_inicio else excluded.vigencia_inicio end,
+    vigencia_fim=case when @PreserveTerm then tenant_modulo_contratado.vigencia_fim else excluded.vigencia_fim end,
     motivo_status=excluded.motivo_status,
     ativo=excluded.ativo,
     updated_at=now(),
