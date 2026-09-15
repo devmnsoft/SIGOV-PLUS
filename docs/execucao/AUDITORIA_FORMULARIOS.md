@@ -138,3 +138,14 @@ Checkpoint de continuidade: **591 arquivos candidatos; 0 jornadas aprovadas pont
 | Auditoria/concorrência | implementada sem validação | Registros preservam `created_by`, `updated_by`, `correlation_id`; versão divergente reverte a transação. |
 
 Negativos cobertos no código: intervalo inválido, ordem concluída, responsável de outro tenant/inativo, reprogramação sem motivo, conflito sem autorização e versão concorrente. Sessão expirada e permissão são fail-closed pelas policies; duplo envio/timeout ainda exigem prova runtime e consulta posterior. O cliente informa “resultado desconhecido” em timeout em vez de afirmar falha. Sem SDK/banco/navegador neste host, persistência após recarga, dois tenants, suspensão de módulo, foco/teclado/zoom e larguras 360/390/768/1024/1366/1920 permanecem `BLOCKED`.
+
+## 2026-09-15 — distribuição interna de materiais
+
+| Tela | Criação/ação | Consulta independente | Persistência/reload | Resultado |
+|---|---|---|---|---|
+| Detalhe da solicitação | separação com antiforgery e chave idempotente | serviço relê entregas/itens por tenant e entidade | implementada; runtime indisponível | implementada sem validação |
+| Revisão da entrega | expedição transacional | GET da entrega mostra itens e saldos conferidos | implementada; runtime indisponível | implementada sem validação |
+| Recebimento | quantidades recebida/recusada e divergência por campo | GET relê valores persistidos | implementada; runtime indisponível | implementada sem validação |
+| Impressão | comprovante sem navegação/botões em `@media print` | dados nominais de material/local | navegador indisponível | bloqueada |
+
+Model binding de linhas dinâmicas, antiforgery, limites decimais, SQL parametrizado, contagem de linhas, retry e locks estão presentes no código. Testes runtime de sessão expirada, módulo suspenso, referência de outro tenant, concorrência com Indústria/Manutenção e seis larguras permanecem BLOCKED por ausência das ferramentas.

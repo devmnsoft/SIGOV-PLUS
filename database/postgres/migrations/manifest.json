@@ -2397,6 +2397,19 @@
         "20260914130000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='industria_apontamento' and column_name='idempotency_key') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_industria_apontamento_idempotencia')"
+    },
+    {
+      "version": "20260915160000",
+      "description": "Distribuição interna de materiais com separação, expedição, recebimento e divergência",
+      "category": "schema",
+      "file": "20260915160000_distribuicao_interna_materiais.sql",
+      "checksum": "5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260915120000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.almoxarifado_entrega') is not null and to_regclass('sigov.almoxarifado_entrega_item') is not null and to_regclass('sigov.almoxarifado_entrega_evento') is not null"
     }
   ],
   "compatibilityAfterAll": [
