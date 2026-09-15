@@ -1,1 +1,12 @@
 .os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}.os-grid .card{transition:transform .15s,box-shadow .15s}.os-grid .card:focus-within,.os-grid .card:hover{transform:translateY(-2px);box-shadow:0 .5rem 1rem rgba(0,0,0,.12)}@media(max-width:576px){.os-grid{grid-template-columns:1fr}.modal-dialog{margin:.5rem}}
+.os-scheduling .card { border-color: #dbe4ef; box-shadow: 0 .25rem 1rem rgba(15, 38, 66, .06); }
+.os-scheduling .card-header { background: #f7f9fc; color: #0f2642; }
+.os-scheduling .list-group-item small { color: #526579; }
+.os-scheduling button:focus-visible, .os-scheduling a:focus-visible, .os-scheduling input:focus-visible, .os-scheduling select:focus-visible, .os-scheduling textarea:focus-visible { outline: 3px solid #f3b61f; outline-offset: 2px; }
+@media (max-width: 767.98px) {
+  .os-scheduling .table-responsive { overflow: visible; }
+  .os-scheduling table, .os-scheduling tbody, .os-scheduling tr, .os-scheduling td { display: block; width: 100%; }
+  .os-scheduling thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .os-scheduling tr { border-bottom: 1px solid #dbe4ef; padding: .75rem; }
+  .os-scheduling td { border: 0; padding: .25rem; }
+}

@@ -13,6 +13,7 @@ public sealed class OrdemServicoApplicationService(IOrdemServicoRepository repos
     public Task AtribuirAsync(OrdemServicoContext c, Guid id, AtribuirTecnicoRequest r, CancellationToken ct) { Validar(c); return repository.AtribuirAsync(c.TenantId, c.UsuarioId, id, r, c.CorrelationId, ct); }
     public Task TransicionarAsync(OrdemServicoContext c, Guid id, string destino, long version, string? motivo, DateTimeOffset? inicio, CancellationToken ct) { Validar(c); return repository.TransicionarAsync(c.TenantId, c.UsuarioId, id, destino, version, motivo, inicio, c.CorrelationId, ct); }
     public Task<IReadOnlyList<OrdemServicoAgendaDto>> AgendaAsync(OrdemServicoContext c, DateTimeOffset i, DateTimeOffset f, Guid? t, CancellationToken ct) { Validar(c); return repository.AgendaAsync(c.TenantId, i, f, t, ct); }
+    public Task<IReadOnlyList<OrdemServicoTecnicoDto>> TecnicosAsync(OrdemServicoContext c, CancellationToken ct) { Validar(c); return repository.TecnicosAsync(c.TenantId, ct); }
     public Task<IReadOnlyList<OrdemServicoChecklistDto>> ChecklistAsync(OrdemServicoContext c, Guid id, CancellationToken ct) { Validar(c); return repository.ChecklistAsync(c.TenantId, id, ct); }
     public Task ResponderChecklistAsync(OrdemServicoContext c, Guid id, ResponderChecklistRequest r, CancellationToken ct)
     {

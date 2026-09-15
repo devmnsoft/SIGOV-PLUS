@@ -1,1 +1,40 @@
-@{ViewData["Title"]="Agenda técnica";}<main class="container-fluid py-3" data-os-agenda><h1>Agenda técnica</h1><div class="d-flex gap-2 mb-3"><button class="btn btn-outline-primary" data-range="day">Dia</button><button class="btn btn-outline-primary" data-range="week">Semana</button><input class="form-control w-auto" type="date" data-date /></div><div class="row g-3" data-agenda aria-live="polite"></div></main><script type="module" src="~/js/ordem-servico/agenda.js"></script>
+@{ ViewData["Title"] = "Programação de ordens"; }
+<link rel="stylesheet" href="~/css/ordem-servico/ordem-servico.css" />
+<main class="container-fluid py-3 os-scheduling" data-os-agenda>
+  <nav aria-label="Navegação estrutural"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/MinhaCentral">Visão geral</a></li><li class="breadcrumb-item active" aria-current="page">Programação</li></ol></nav>
+  <header class="sigov-page-hero mb-3"><div><span class="sigov-eyebrow">Operação</span><h1>Programação de ordens</h1><p>Distribua responsáveis e datas sem alterar o estado real de execução.</p></div><a class="btn btn-outline-primary" href="/OrdemServico/Ordens">Ordens de serviço</a></header>
+
+  <section class="card mb-3" aria-labelledby="filtros-title"><div class="card-body">
+    <h2 class="h5" id="filtros-title">Período e filtros</h2>
+    <form class="row g-3 align-items-end" data-filter>
+      <div class="col-12 col-sm-6 col-lg-2"><label class="form-label" for="agenda-inicio">Início</label><input class="form-control" id="agenda-inicio" name="inicio" type="date" required /></div>
+      <div class="col-12 col-sm-6 col-lg-2"><label class="form-label" for="agenda-fim">Término</label><input class="form-control" id="agenda-fim" name="fim" type="date" required /></div>
+      <div class="col-12 col-md-4 col-lg-3"><label class="form-label" for="agenda-tecnico">Responsável</label><select class="form-select" id="agenda-tecnico" name="tecnicoId"><option value="">Todos</option></select></div>
+      <div class="col-12 col-md-4 col-lg-2"><label class="form-label" for="agenda-prioridade">Prioridade pendente</label><select class="form-select" id="agenda-prioridade" name="prioridade"><option value="">Todas</option><option>CRITICA</option><option>URGENTE</option><option>ALTA</option><option>NORMAL</option><option>BAIXA</option></select></div>
+      <div class="col-12 col-md-4 col-lg-3"><label class="form-label" for="agenda-local">Local</label><input class="form-control" id="agenda-local" name="local" maxlength="160" /></div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Aplicar filtros</button> <button class="btn btn-outline-secondary" type="button" data-today>Hoje</button></div>
+    </form>
+  </div></section>
+
+  <div class="alert alert-info" role="note"><strong>Como usar:</strong> escolha “Programar” ou “Reprogramar”, revise responsável e intervalo e confirme. Intervalos adjacentes são aceitos; sobreposições exigem revisão e justificativa.</div>
+  <div class="alert alert-danger d-none" role="alert" tabindex="-1" data-error></div>
+  <div class="row g-3">
+    <section class="col-12 col-xl-4" aria-labelledby="pendentes-title"><div class="card h-100"><div class="card-header"><h2 class="h5 mb-0" id="pendentes-title">Ordens não programadas</h2></div><div class="list-group list-group-flush" data-pending aria-live="polite"></div></div></section>
+    <section class="col-12 col-xl-8" aria-labelledby="periodo-title"><div class="card h-100"><div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0" id="periodo-title">Programadas no período</h2><span data-total></span></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Ordem</th><th>Programação</th><th>Ativo/local</th><th>Estado</th><th><span class="visually-hidden">Ações</span></th></tr></thead><tbody data-agenda></tbody></table></div></div></section>
+  </div>
+</main>
+
+<div class="modal fade" id="programarOs" tabindex="-1" aria-labelledby="programar-title" aria-hidden="true"><div class="modal-dialog modal-lg"><form class="modal-content" data-schedule novalidate>
+  <div class="modal-header"><h2 class="modal-title fs-5" id="programar-title">Programar ordem</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+  <div class="modal-body"><div class="alert alert-danger d-none" data-form-error role="alert"></div><input name="id" type="hidden" /><input name="version" type="hidden" /><input name="reprogramacao" type="hidden" />
+    <p><strong>Ordem:</strong> <span data-order-label></span></p><div class="row g-3">
+      <div class="col-12"><label class="form-label" for="programar-tecnico">Responsável <span aria-hidden="true">*</span></label><select class="form-select" id="programar-tecnico" name="tecnicoId" required></select></div>
+      <div class="col-12 col-md-6"><label class="form-label" for="programar-inicio">Início previsto <span aria-hidden="true">*</span></label><input class="form-control" id="programar-inicio" name="inicio" type="datetime-local" required /></div>
+      <div class="col-12 col-md-6"><label class="form-label" for="programar-fim">Término previsto <span aria-hidden="true">*</span></label><input class="form-control" id="programar-fim" name="fim" type="datetime-local" required /></div>
+      <div class="col-12"><label class="form-label" for="programar-local">Local</label><input class="form-control" id="programar-local" name="local" readonly /><div class="form-text">O local canônico é mantido na ordem.</div></div>
+      <div class="col-12"><label class="form-label" for="programar-observacao">Motivo da reprogramação</label><textarea class="form-control" id="programar-observacao" name="observacao" maxlength="2000"></textarea></div>
+      <div class="col-12 d-none" data-conflict-fields><div class="form-check"><input class="form-check-input" id="autorizar-conflito" name="autorizarConflito" type="checkbox" /><label class="form-check-label" for="autorizar-conflito">Confirmo que revisei a sobreposição</label></div><label class="form-label mt-2" for="justificativa-conflito">Justificativa da sobreposição</label><textarea class="form-control" id="justificativa-conflito" name="justificativa" maxlength="2000"></textarea></div>
+    </div>
+  </div><div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary" type="submit">Revisar e salvar</button></div>
+</form></div></div>
+<script type="module" src="~/js/ordem-servico/agenda.js" asp-append-version="true"></script>

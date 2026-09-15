@@ -490,3 +490,36 @@ Próximo item exato do backlog: executar o gate Web com .NET SDK `10.0.100` e Po
 Hipótese não promovida a correção: o catálogo histórico da sidebar contém grupos legados cuja contratação precisa ser comprovada em runtime; esta alteração não transforma visibilidade em autorização e não altera o avaliador persistente. Não houve migration. `node --check`, `git diff --check` e varreduras estáticas passaram. Restore/build/Razor/testes e capturas continuam **BLOCKED** porque o container não dispõe do SDK .NET 10 nem de host Web executável.
 
 Próximo item exato: executar `WebRuntimeSmokeTests` e a jornada autenticada em PostgreSQL 16; validar o seletor e o formulário em 360/390/768/1024/1366/1920 px e zoom 200%, então confrontar cada grupo legado renderizado com a decisão do avaliador canônico antes de promover a navegação.
+# Programação operacional de ordens — 2026-09-15
+
+## Retomada comprovada
+
+- Branch inicial `work`, HEAD `c237e39ae5fc44c70dc4b754bde1aca9bae3d3ba`; árvore limpa. Nenhum remoto ou upstream estava configurado no checkout.
+- `global.json` exige SDK 10.0.100 com `latestFeature`; projetos configuram `net10.0`/C# 14, ASP.NET Core MVC/Razor, Dapper e Npgsql.
+- Disponíveis: Git, Node 20 e npm. Ausentes: `dotnet`, `psql`, Docker/Podman e navegador Chromium/Playwright. Build, Razor, suites, PostgreSQL 16, Swagger/rotas runtime e capturas ficaram `BLOCKED`, sem declaração de homologação.
+
+## Revisão e classificação
+
+| Jornada | Estado nesta execução | Evidência/limite |
+|---|---|---|
+| Contratação/suspensão, usuários, perfis e sessões | implementada sem validação | Serviços/ADRs persistidos encontrados; runtime de suspensão, revogação e dois tenants bloqueado. |
+| Ordens de serviço, programação e apontamentos | parcial | Contratos, Dapper, API e Razor reais existem; esta fatia corrigiu programação/reprogramação, mas o gate runtime segue bloqueado. |
+| Inspeções e não conformidades | parcial | Há jornadas específicas por módulo, sem prova integrada com o encerramento desta OS. |
+| Estoque | parcial | Consumo/devolução canônicos existem, sem prova PostgreSQL 16 nesta execução. |
+| Minha Central | implementada sem validação | Consulta persistida e falha explícita existentes; ainda não incorpora a lista operacional de OS. |
+| Layout e navegação | implementada sem validação | MVC/Razor/Bootstrap preservados; programação ganhou lista responsiva e formulário acessível, sem captura por falta de runtime. |
+
+## Regras confirmadas e implementadas
+
+- Programação aceita `ABERTA`, `EM_TRIAGEM`, `AGENDADA`, esperas e `REABERTA`; `CONCLUIDA`/`CANCELADA` não são reabertas pela agenda. Datas realizadas permanecem intocadas.
+- Intervalos são semiabertos (`inicio < outroFim && fim > outroInicio`): término igual ao próximo início não conflita.
+- Reprogramação exige motivo, preserva o agendamento anterior por inativação auditável e grava o novo registro na mesma transação da versão da ordem.
+- Responsável é selecionado pelo cadastro canônico `os_tecnico`, dentro do tenant e não inativo. Atribuição não concede permissão; API mantém as policies `os.ordens.agendar`/`visualizar`.
+- O lock da ordem, a revalidação de versão, a consulta de sobreposição e a gravação ocorrem na mesma transação. Sobreposição de responsável é revisão autorizável, não uma afirmação de indisponibilidade; a ausência de calendário não confirma disponibilidade.
+- A tela oferece lista acessível e formulário por teclado, filtros de período/responsável/local/prioridade, estados de carregamento/vazio/erro e confirmação. Não foi introduzido drag-and-drop nem calendário como fonte de estado.
+
+## Decisões pendentes e próximo item
+
+Não existe no modelo legado desta OS vínculo canônico de ativo/recurso exclusivo, entidade/exercício, calendário institucional, feriados ou política persistida que torne toda sobreposição de pessoa bloqueante. Esses dados não foram inventados. A atribuição em lote também não foi criada sem contrato canônico de atomicidade. Indicadores existentes ainda usam `prazo_sla`; não foram renomeados nem apresentados como novos indicadores operacionais.
+
+Próximo item exato: criar uma RC própria, após Gate A, para definir no banco a política de disponibilidade/sobreposição e o vínculo multi-entidade/recurso exclusivo da OS legada; então integrar Minhas Atividades e encerramento com inspeções/não conformidades/reservas canônicas e validar dois tenants em PostgreSQL 16. GED permanece por último.

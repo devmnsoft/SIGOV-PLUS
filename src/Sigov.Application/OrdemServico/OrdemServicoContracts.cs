@@ -3,8 +3,8 @@ using Sigov.Application.Common;
 namespace Sigov.Application.OrdemServico;
 
 public sealed record OrdemServicoContext(Guid TenantId, Guid UsuarioId, string CorrelationId);
-public sealed record OrdemServicoFiltro(int Pagina = 1, int Tamanho = 20, string? Status = null, string? Busca = null, Guid? TecnicoId = null);
-public sealed record OrdemServicoResumoDto(Guid Id, string Numero, string Cliente, string Status, string Prioridade, DateTimeOffset? AgendadaInicio, Guid? TecnicoId, long Version);
+public sealed record OrdemServicoFiltro(int Pagina = 1, int Tamanho = 20, string? Status = null, string? Busca = null, Guid? TecnicoId = null, string? Prioridade = null, string? Local = null, bool? Programada = null);
+public sealed record OrdemServicoResumoDto(Guid Id, string Numero, string Cliente, string Status, string Prioridade, DateTimeOffset? AgendadaInicio, DateTimeOffset? AgendadaFim, Guid? TecnicoId, string? Endereco, long Version);
 public sealed record OrdemServicoItemDto(Guid Id, string Descricao, decimal Quantidade, string Unidade, bool Executado, string? Justificativa);
 public sealed record OrdemServicoChecklistDto(Guid Id, string Titulo, string Tipo, bool Obrigatorio, bool Respondido, string? Resposta, bool BloqueiaConclusao, long Version);
 public sealed record OrdemServicoApontamentoDto(Guid Id, Guid TecnicoId, string Atividade, DateTimeOffset Inicio, DateTimeOffset? Fim, int IntervaloMinutos);
@@ -16,6 +16,7 @@ public sealed record OrdemServicoHistoricoDto(string StatusAnterior, string Stat
 public sealed record OrdemServicoDetalheDto(Guid Id, string Numero, Guid ClienteId, string Cliente, string Status, string Prioridade, string Origem, string Descricao, string? Endereco, Guid? PedidoId, Guid? PropostaId, Guid? TecnicoId, DateTimeOffset? AgendadaInicio, DateTimeOffset? AgendadaFim, DateTimeOffset? InicioReal, DateTimeOffset? ConclusaoEm, decimal CustoReal, long Version, IReadOnlyList<OrdemServicoItemDto> Itens);
 public sealed record OrdemServicoAgendaDto(Guid Id, string Numero, string Cliente, string Prioridade, string Status, Guid? TecnicoId, DateTimeOffset Inicio, DateTimeOffset Fim, string? Endereco);
 public sealed record TecnicoAgendaDto(Guid TecnicoId, string Tecnico, IReadOnlyList<OrdemServicoAgendaDto> Ordens);
+public sealed record OrdemServicoTecnicoDto(Guid Id, string Nome, bool Ativo);
 public sealed record OrdemServicoDashboardDto(int Abertas, int Triagem, int Agendadas, int Execucao, int Pausadas, int AguardandoPeca, int Vencidas, int Concluidas, int Canceladas, decimal CustoMedio);
 public sealed record CriarOrdemServicoRequest(Guid ClienteId, string Descricao, string Prioridade, string? Endereco, DateTimeOffset? PrazoSla);
 public sealed record AtualizarOrdemServicoRequest(string Descricao, string Prioridade, string? Endereco, DateTimeOffset? PrazoSla, long Version);
@@ -44,6 +45,7 @@ public interface IOrdemServicoApplicationService
     Task AtribuirAsync(OrdemServicoContext context, Guid id, AtribuirTecnicoRequest request, CancellationToken ct);
     Task TransicionarAsync(OrdemServicoContext context, Guid id, string destino, long version, string? motivo, DateTimeOffset? inicioReal, CancellationToken ct);
     Task<IReadOnlyList<OrdemServicoAgendaDto>> AgendaAsync(OrdemServicoContext context, DateTimeOffset inicio, DateTimeOffset fim, Guid? tecnicoId, CancellationToken ct);
+    Task<IReadOnlyList<OrdemServicoTecnicoDto>> TecnicosAsync(OrdemServicoContext context, CancellationToken ct);
     Task<IReadOnlyList<OrdemServicoChecklistDto>> ChecklistAsync(OrdemServicoContext context, Guid id, CancellationToken ct);
     Task ResponderChecklistAsync(OrdemServicoContext context, Guid id, ResponderChecklistRequest request, CancellationToken ct);
     Task<IReadOnlyList<OrdemServicoApontamentoDto>> ApontamentosAsync(OrdemServicoContext context, Guid id, CancellationToken ct);
@@ -68,7 +70,7 @@ public interface IOrdemServicoRepository : IOrdemServicoAgendaRepository, IOrdem
     Task<IReadOnlyList<OrdemServicoEvidenciaDto>> EvidenciasAsync(Guid tenantId, Guid id, CancellationToken ct); Task AdicionarEvidenciaAsync(Guid tenantId, Guid usuarioId, Guid id, AdicionarEvidenciaRequest request, string key, string correlationId, CancellationToken ct);
     Task<OrdemServicoAceiteDto?> ObterAceiteAsync(Guid tenantId, Guid id, CancellationToken ct); Task RegistrarAceiteAsync(Guid tenantId, Guid usuarioId, Guid id, RegistrarAceiteClienteRequest request, string key, string correlationId, CancellationToken ct); Task<OrdemServicoCustoDto> ObterCustosAsync(Guid tenantId, Guid id, CancellationToken ct);
 }
-public interface IOrdemServicoAgendaRepository { Task AgendarAsync(Guid tenantId, Guid usuarioId, Guid id, AgendarOrdemServicoRequest request, string correlationId, CancellationToken ct); Task<IReadOnlyList<OrdemServicoAgendaDto>> AgendaAsync(Guid tenantId, DateTimeOffset inicio, DateTimeOffset fim, Guid? tecnicoId, CancellationToken ct); }
+public interface IOrdemServicoAgendaRepository { Task AgendarAsync(Guid tenantId, Guid usuarioId, Guid id, AgendarOrdemServicoRequest request, string correlationId, CancellationToken ct); Task<IReadOnlyList<OrdemServicoAgendaDto>> AgendaAsync(Guid tenantId, DateTimeOffset inicio, DateTimeOffset fim, Guid? tecnicoId, CancellationToken ct); Task<IReadOnlyList<OrdemServicoTecnicoDto>> TecnicosAsync(Guid tenantId, CancellationToken ct); }
 public interface IOrdemServicoChecklistRepository { Task<IReadOnlyList<OrdemServicoChecklistDto>> ChecklistAsync(Guid tenantId, Guid id, CancellationToken ct); Task ResponderChecklistAsync(Guid tenantId, Guid usuarioId, Guid id, ResponderChecklistRequest request, string correlationId, CancellationToken ct); }
 public interface IOrdemServicoApontamentoRepository { Task<IReadOnlyList<OrdemServicoApontamentoDto>> ApontamentosAsync(Guid tenantId, Guid id, CancellationToken ct); Task RegistrarApontamentoAsync(Guid tenantId, Guid usuarioId, Guid id, RegistrarApontamentoRequest request, string key, string correlationId, CancellationToken ct); }
 public interface IOrdemServicoConsumoRepository { Task<IReadOnlyList<OrdemServicoConsumoDto>> PecasAsync(Guid tenantId, Guid id, CancellationToken ct); Task ConsumirAsync(Guid tenantId, Guid usuarioId, Guid id, ConsumirPecaRequest request, string key, string correlationId, CancellationToken ct); Task DevolverAsync(Guid tenantId, Guid usuarioId, Guid id, DevolverPecaRequest request, string key, string correlationId, CancellationToken ct); }

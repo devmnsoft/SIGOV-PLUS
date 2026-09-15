@@ -16,6 +16,7 @@ Estados: APROVADO (escopo autorizado), EM_EXECUCAO, VALIDADO (com evidência), B
 | 8 | P3 Indústria avançada | AGUARDA_GATE | Core industrial validado |
 | 9 | P4 demais módulos na ordem do contrato | AGUARDA_GATE | Auditoria por fluxo, sem telas decorativas |
 | 10 | GED | AGUARDA_GATE | Último módulo; anteriores sem PARCIAL/ESTRUTURA pendente, salvo adiamento formal |
+| 11 | Programação operacional de OS | AGUARDA_GATE | Lista, filtros, seleção nominal, programação/reprogramação transacional e regras estáticas implementadas; faltam política persistida de recurso exclusivo/disponibilidade, entidade/exercício, lote, Minhas Atividades integrada e gate PostgreSQL 16/navegador. |
 
 Próximo item exato: validar sintaxe do aplicador com `pwsh -NoProfile -File scripts/apply-migrations-manifest.ps1 -ValidateOnly`; em PG16, provar banco vazio/reaplicação, rejeição de versão e checksum desconhecidos, aceitação do checksum histórico de `20260914120000` com pós-condição e upgrade legado formal. Depois obter evidências de revogação/tenant suspenso/acesso cruzado API; só então Gate B (SaaS). Liberado o Gate C, definir e persistir a política canônica de alçadas antes de implementar a caixa de aprovação; pedidos, recebimentos e estoque vêm na sequência. GED permanece por último.
 
