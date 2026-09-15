@@ -8,6 +8,8 @@ using Sigov.Application.Industria;
 using Sigov.Application.Saas.Modules;
 using Sigov.Infrastructure.Persistence.Dapper;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Sigov.Api.Controllers;
@@ -368,11 +370,26 @@ public sealed class IndustriaController : ControllerBase
         try
         {
             if (!await HasPermission("industria.apontamentos.criar")) return Forbid();
-            var tenantId = RequireTenant(); using var c = _context.CreateConnection();
-            if (!await Existe(c, "sigov.industria_ordem_producao", tenantId, id)) return NotFound(ApiResponse<object>.Fail("OP inválida para apontamento.", cid));
-            var apontamentoId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_apontamento(tenant_id,ordem_id,ordem_operacao_id,usuario_id,tipo,origem,inicio_at,fim_at,quantidade_boas,quantidade_refugo,observacao) values(@TenantId,@OrdemId,@OrdemOperacaoId,@UsuarioId,@Tipo,@Origem,@InicioAt,@FimAt,@QuantidadeBoas,@QuantidadeRefugo,@Observacao) returning id", new { TenantId = tenantId, OrdemId = id, r.OrdemOperacaoId, UsuarioId = _user.UsuarioId, r.Tipo, Origem = r.Origem ?? "CHAO_FABRICA", InicioAt = r.InicioAt ?? DateTimeOffset.UtcNow, r.FimAt, r.QuantidadeBoas, r.QuantidadeRefugo, r.Observacao });
-            await c.ExecuteAsync("update sigov.industria_ordem_producao set quantidade_produzida=quantidade_produzida+@Boas, quantidade_refugada=quantidade_refugada+@Refugo, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, Boas = r.QuantidadeBoas, Refugo = r.QuantidadeRefugo });
-            await Auditar(c, tenantId, "APONTAMENTO_PRODUCAO_REGISTRADO", "industria_apontamento", apontamentoId, r, cid);
+            if (r.Tipo is not ("INICIO" or "PAUSA" or "RETOMADA" or "PRODUCAO" or "FINALIZACAO")) return BadRequest(ApiResponse<object>.Fail("Tipo de apontamento inválido.", cid));
+            if (r.QuantidadeBoas < 0 || r.QuantidadeRefugo < 0 || (r.Tipo == "PRODUCAO" && r.QuantidadeBoas + r.QuantidadeRefugo <= 0)) return BadRequest(ApiResponse<object>.Fail("A produção informada deve ser positiva.", cid));
+            var key = Request.Headers["Idempotency-Key"].ToString().Trim();
+            if (string.IsNullOrWhiteSpace(key) || key.Length > 160) return BadRequest(ApiResponse<object>.Fail("Idempotency-Key válida é obrigatória.", cid));
+            var payloadHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(r)))).ToLowerInvariant();
+            var tenantId = RequireTenant(); using var c = _context.CreateConnection(); c.Open(); using var tx = c.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
+            var repetido = await c.QuerySingleOrDefaultAsync<(long Id, string PayloadHash)?>("select id, payload_hash as PayloadHash from sigov.industria_apontamento where tenant_id=@TenantId and idempotency_key=@Key for update", new { TenantId = tenantId, Key = key }, tx);
+            if (repetido.HasValue)
+            {
+                if (!string.Equals(repetido.Value.PayloadHash, payloadHash, StringComparison.Ordinal)) return Conflict(ApiResponse<object>.Fail("A chave de idempotência já foi usada com conteúdo diferente.", cid));
+                return Ok(ApiResponse<object>.Ok(new { id = repetido.Value.Id, repetido = true }, "Apontamento já confirmado.", cid));
+            }
+            var ordem = await c.QuerySingleOrDefaultAsync<OrdemApontamentoValidacao>("select status as Status, quantidade_planejada as QuantidadePlanejada, quantidade_produzida as QuantidadeProduzida from sigov.industria_ordem_producao where id=@Id and tenant_id=@TenantId for update", new { Id = id, TenantId = tenantId }, tx);
+            if (ordem is null) return NotFound(ApiResponse<object>.Fail("OP inválida para apontamento.", cid));
+            if (ordem.Status is not ("LIBERADA" or "EM_PRODUCAO" or "PAUSADA")) return UnprocessableEntity(ApiResponse<object>.Fail("O estado da OP não permite apontamento.", cid));
+            if (r.Tipo == "PRODUCAO" && ordem.QuantidadeProduzida + r.QuantidadeBoas > ordem.QuantidadePlanejada) return Conflict(ApiResponse<object>.Fail("A produção acumulada ultrapassa a quantidade planejada; nenhuma tolerância está configurada.", cid));
+            var apontamentoId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_apontamento(tenant_id,ordem_id,ordem_operacao_id,usuario_id,tipo,origem,inicio_at,fim_at,quantidade_boas,quantidade_refugo,observacao,idempotency_key,payload_hash,confirmado_at) values(@TenantId,@OrdemId,@OrdemOperacaoId,@UsuarioId,@Tipo,@Origem,@InicioAt,@FimAt,@QuantidadeBoas,@QuantidadeRefugo,@Observacao,@Key,@PayloadHash,now()) returning id", new { TenantId = tenantId, OrdemId = id, r.OrdemOperacaoId, UsuarioId = _user.UsuarioId, r.Tipo, Origem = r.Origem ?? "CHAO_FABRICA", InicioAt = r.InicioAt ?? DateTimeOffset.UtcNow, r.FimAt, r.QuantidadeBoas, r.QuantidadeRefugo, r.Observacao, Key = key, PayloadHash = payloadHash }, tx);
+            await c.ExecuteAsync("update sigov.industria_ordem_producao set quantidade_produzida=quantidade_produzida+@Boas, quantidade_refugada=quantidade_refugada+@Refugo, status=case when status='LIBERADA' then 'EM_PRODUCAO' else status end, inicio_at=coalesce(inicio_at,now()), version=version+1, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, Boas = r.QuantidadeBoas, Refugo = r.QuantidadeRefugo }, tx);
+            await Auditar(c, tx, tenantId, "APONTAMENTO_PRODUCAO_REGISTRADO", "industria_apontamento", apontamentoId, r, cid);
+            tx.Commit();
             return Ok(ApiResponse<object>.Ok(new { id = apontamentoId }, correlationId: cid));
         }
         catch (Exception ex) { _logger.LogError(ex, "Erro ao apontar produção. CorrelationId={CorrelationId}", cid); return StatusCode(500, ApiResponse<object>.Fail("Falha ao registrar apontamento.", cid)); }
@@ -408,7 +425,8 @@ public sealed class IndustriaController : ControllerBase
             if (!await Existe(c, "sigov.industria_ordem_producao", tenantId, id)) return NotFound(ApiResponse<object>.Fail("OP inválida.", cid));
             var estoque = await _estoque.RegistrarProdutoAcabadoAsync(tenantId, id, r.ProdutoId, r.AlmoxarifadoId, r.Quantidade, r.Lote, r.Validade, _user.UsuarioId, cid, HttpContext.RequestAborted);
             var producaoId = await c.ExecuteScalarAsync<long>("insert into sigov.industria_producao_acabada(tenant_id,ordem_id,produto_id,almoxarifado_id,quantidade,lote,validade,usuario_id) values(@TenantId,@OrdemId,@ProdutoId,@AlmoxarifadoId,@Quantidade,@Lote,@Validade,@UsuarioId) returning id", new { TenantId = tenantId, OrdemId = id, r.ProdutoId, r.AlmoxarifadoId, r.Quantidade, r.Lote, r.Validade, UsuarioId = _user.UsuarioId });
-            await c.ExecuteAsync("update sigov.industria_ordem_producao set quantidade_produzida=quantidade_produzida+@Quantidade, updated_at=now() where id=@Id and tenant_id=@TenantId", new { Id = id, TenantId = tenantId, r.Quantidade });
+            // A quantidade produzida é consolidada exclusivamente pelo apontamento.
+            // A entrada física não pode contabilizar a produção pela segunda vez.
             await Auditar(c, tenantId, "PRODUCAO_ACABADA_REGISTRADA", "industria_producao_acabada", producaoId, new { r, estoque }, cid);
             return Ok(ApiResponse<object>.Ok(new { id = producaoId, estoque }, correlationId: cid));
         }
@@ -674,6 +692,7 @@ from sigov.industria_ordem_producao where tenant_id=@TenantId", new { TenantId =
     }
 
     private sealed record ProdutoOrdemValidacao(bool Ativo, bool ExigeFichaTecnica);
+    private sealed record OrdemApontamentoValidacao(string Status, decimal QuantidadePlanejada, decimal QuantidadeProduzida);
     private sealed record ParadaManutencao(long RecursoId, string Motivo, string RecursoNome);
 }
 
