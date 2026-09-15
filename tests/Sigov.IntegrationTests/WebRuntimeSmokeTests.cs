@@ -46,6 +46,17 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<SigovWebFactory>
     }
 
     [Theory]
+    [InlineData("/OrdemServico/Ordens/00000000-0000-0000-0000-000000000001")]
+    [InlineData("/api/ordens-servico/00000000-0000-0000-0000-000000000001/historico")]
+    public async Task OrdemServicoExecutionRoutes_ShouldDenyAnonymousAccess(string path)
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.GetAsync(path);
+
+        response.StatusCode.Should().BeOneOf(System.Net.HttpStatusCode.Redirect, System.Net.HttpStatusCode.Found, System.Net.HttpStatusCode.Unauthorized);
+    }
+
+    [Theory]
     [InlineData("/Governanca/QualidadeDados")]
     [InlineData("/Governanca/IntegracoesInternas")]
     [InlineData("/QualidadeDados")]

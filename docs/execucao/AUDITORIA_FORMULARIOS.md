@@ -1,5 +1,17 @@
 # Auditoria de formulários — checkpoint 2026-09-15
 
+## Adendo — execução de ordem de serviço
+
+| Operação da tela `/OrdemServico/Ordens/{id}` | Estado | Cobertura desta execução |
+|---|---|---|
+| Consultar | implementada sem validação | detalhe e histórico fazem leituras independentes por tenant; acesso anônimo ganhou regressão de rota |
+| Editar progresso | implementada sem validação | binding tipado, limite textual, estado elegível, técnico atribuído e versão são verificados no servidor |
+| Validação negativa | coberta estaticamente | item vazio/inválido, resposta fechada inválida, outro responsável e versão concorrente não atualizam uma linha |
+| Duplo envio/concorrência | coberta pelo contrato, runtime bloqueado | primeiro `UPDATE` incrementa `version`; repetição com a versão anterior falha explicitamente |
+| Inativar/cancelar/estornar | não aplicável nesta tela | execução não oferece exclusão; transições administrativas permanecem nas permissões próprias |
+
+A tela mantém o valor digitado quando o salvamento falha, informa que o resultado deve ser consultado antes de repetir e não anuncia conclusão ao salvar progresso. A prova completa tela → SQL → nova leitura segue bloqueada pela ausência de .NET 10, PostgreSQL 16 e navegador.
+
 ## Escopo, método e limite da evidência
 
 Este checkpoint iniciou o inventário diretamente em `src/Sigov.Web`, sem promover documentação histórica a evidência. A unidade de inventário é um arquivo Razor ou JavaScript que contém ao menos um indício de jornada: formulário, requisição assíncrona, modal, upload, linha dinâmica, ação de ciclo de vida, filtro, paginação, impressão ou exportação. Assim, um arquivo pode conter mais de um formulário e aparecer em mais de uma categoria; a próxima passagem deve decompor esses candidatos em jornadas individuais.
