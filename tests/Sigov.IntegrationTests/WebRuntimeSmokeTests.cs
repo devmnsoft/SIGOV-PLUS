@@ -1,5 +1,8 @@
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Sigov.Infrastructure.Persistence.Dapper;
 
@@ -39,6 +42,41 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<SigovWebFactory>
         if (response.Headers.Location is not null)
         {
             response.Headers.Location.ToString().Should().Contain("/Auth/Login");
+        }
+    }
+
+    [Theory]
+    [InlineData("/Governanca/QualidadeDados")]
+    [InlineData("/Governanca/IntegracoesInternas")]
+    [InlineData("/QualidadeDados")]
+    [InlineData("/IntegracoesInternas")]
+    public async Task GovernanceNavigationRoutes_ShouldBeProtectedWithoutAmbiguousMatch(string path)
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var response = await client.GetAsync(path);
+
+        response.StatusCode.Should().BeOneOf(System.Net.HttpStatusCode.Redirect, System.Net.HttpStatusCode.Found, System.Net.HttpStatusCode.Unauthorized);
+        response.Headers.Location?.ToString().Should().Contain("/Auth/Login");
+    }
+
+    [Fact]
+    public void GovernanceRoutes_ShouldHaveOneGetEndpointAndCanonicalController()
+    {
+        var endpoints = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>().ToArray();
+
+        foreach (var route in new[] { "/Governanca/QualidadeDados", "/Governanca/IntegracoesInternas", "/QualidadeDados", "/IntegracoesInternas" })
+        {
+            var matches = endpoints.Where(endpoint =>
+                string.Equals('/' + endpoint.RoutePattern.RawText?.TrimStart('/'), route, StringComparison.OrdinalIgnoreCase) &&
+                (endpoint.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()?.HttpMethods.Contains("GET", StringComparer.OrdinalIgnoreCase) ?? true)).ToArray();
+            matches.Should().ContainSingle($"GET {route} must resolve deterministically");
+            var action = matches[0].Metadata.GetMetadata<ControllerActionDescriptor>();
+            action?.ControllerName.Should().Be("GovernancaTransversal");
+            action?.ActionName.Should().Be(route.StartsWith("/Governanca/", StringComparison.OrdinalIgnoreCase)
+                ? route.EndsWith("QualidadeDados", StringComparison.OrdinalIgnoreCase) ? "QualidadeDados" : "IntegracoesInternas"
+                : route.EndsWith("QualidadeDados", StringComparison.OrdinalIgnoreCase) ? "QualidadeDadosAlias" : "IntegracoesInternasAlias");
+            matches[0].Metadata.GetMetadata<IAuthorizeData>().Should().NotBeNull();
         }
     }
 

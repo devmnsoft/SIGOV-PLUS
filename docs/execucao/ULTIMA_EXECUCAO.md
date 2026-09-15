@@ -381,3 +381,23 @@ BLOCKED: login/isolamento runtime não executados porque dependem de banco valid
 ## Escopo ativo
 
 Governança de migrations, build e testes existentes. P1/P2/P3/P4 e GED não iniciados. Nenhuma migration histórica será alterada.
+# Correção de roteamento e shell Web — 2026-09-15
+
+## Diagnóstico confirmado
+
+| Arquivo | Problema observado | Impacto | Correção |
+|---|---|---|---|
+| `ExecutiveOperationsController.cs` e `GovernancaTransversalController.cs` | Duas actions `GET` publicavam `/QualidadeDados` e outras duas publicavam `/IntegracoesInternas`. | O matcher encontrava candidatos equivalentes e lançava `AmbiguousMatchException` antes da autorização/action. | A central transversal persistida tornou-se canônica em `/Governanca/QualidadeDados` e `/Governanca/IntegracoesInternas`; os caminhos legados são aliases GET explícitos no mesmo controller e redirecionam permanentemente. |
+| `_Sidebar.cshtml` | Links apontavam para os padrões ambíguos. | Navegação autenticada reproduzia a falha. | Links agora apontam diretamente para as rotas canônicas, sem depender do alias. |
+| `sigov-ui.js` | O clique de abertura/fechamento do drawer era registrado duas vezes e o drawer não continha/devolvia o foco. | Comportamento instável em telas estreitas e navegação incompleta por teclado. | Um único manipulador delegado controla o drawer; Escape, backdrop, contenção e devolução de foco compartilham o mesmo estado. |
+| CSS do shell | A sidebar clara contrariava o token existente de navegação e larguras estavam repetidas em valores literais. | Contraste/contexto visual inconsistentes e manutenção de responsividade frágil. | Largura e altura de controle foram tokenizadas; sidebar usa azul-marinho e tabelas rolam apenas em contêiner próprio. |
+
+Não foi hipótese: a duplicidade foi confirmada nos atributos `HttpGet`. A equivalência funcional foi decidida pela origem dos dados: `GovernancaTransversalController` usa `ITransversalGovernancaService`, autorização persistida, tenant e ocorrências reais; as actions removidas exibiam apenas o resumo executivo genérico.
+
+## Evidência e limite do ambiente
+
+- O teste existente `WebRuntimeSmokeTests` foi ampliado (sem nova classe) para inicializar o host real, auditar `EndpointDataSource`, exigir um único endpoint GET por padrão, conferir controller canônico/autorização e requisitar rotas canônicas e aliases como usuário anônimo.
+- `dotnet` não está instalado neste container (`dotnet: command not found`); restore, build, compilação Razor e testes permanecem **BLOCKED** neste ambiente e a entrega não está declarada homologada.
+- Não houve alteração de schema ou migration.
+
+Próximo item exato do backlog: executar o gate Web com .NET SDK `10.0.100` e PostgreSQL 16, autenticar um usuário com e sem `governanca.qualidade.visualizar` e capturar as larguras 360, 390, 768, 1024, 1366 e 1920 px.

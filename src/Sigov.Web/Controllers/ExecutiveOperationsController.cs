@@ -9,8 +9,6 @@ namespace Sigov.Web.Controllers;
 public sealed class ExecutiveOperationsController(IGovernancaOperacionalService governance, IExecutiveOperationsRepository repository, ICurrentTenant tenant, ICurrentUser user) : Controller
 {
     [HttpGet("/GovernancaOperacional")] public Task<IActionResult> Governance(CancellationToken ct)=>Dashboard("Governança Operacional","Visão unificada de riscos e rotinas de Educação, RH, Folha e Workflows.",null,ct);
-    [HttpGet("/IntegracoesInternas")] public Task<IActionResult> Integrations(CancellationToken ct)=>Dashboard("Integrações Internas","Eventos auditáveis entre módulos — sem alegação de homologação externa.",null,ct);
-    [HttpGet("/QualidadeDados")] public Task<IActionResult> Quality(CancellationToken ct)=>Dashboard("Qualidade de Dados","Inconsistências reais, priorizadas e protegidas pela LGPD.",null,ct);
     [HttpGet("/BuscaGlobal")] public Task<IActionResult> Search(CancellationToken ct)=>Dashboard("Busca Global","Localize módulos e rotinas autorizadas.",null,ct);
     [HttpGet("/Favoritos")] public Task<IActionResult> Favorites(CancellationToken ct)=>Dashboard("Favoritos","Seus atalhos operacionais.",null,ct);
     [HttpGet("/Educacao/GestaoExecutiva")] public Task<IActionResult> Education(CancellationToken ct)=>Dashboard("Gestão Executiva da Educação","Indicadores e pendências do ciclo educacional.","EDUCACAO",ct);
