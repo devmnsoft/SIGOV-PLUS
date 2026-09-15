@@ -9,6 +9,7 @@ public class PostBuild06IndustriaTests
     private static readonly string Migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260610150000_pos_build_06_industria_producao.sql"));
     private static readonly string EvolutionMigration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260908120000_evolucao_saas_industria_360.sql"));
     private static readonly string MaintenanceIntegrationMigration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260914120000_corr_industria_manutencao_integracao.sql"));
+    private static readonly string OperationalFlowMigration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260915120000_industria_fluxo_operacional.sql"));
     private static readonly string IndustriaApi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/IndustriaController.cs"));
     private static readonly string ComercialIntegracaoApi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/IndustriaComercialController.cs"));
     private static readonly string Sidebar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_Sidebar.cshtml"));
@@ -58,6 +59,18 @@ public class PostBuild06IndustriaTests
         IndustriaApi.Should().Contain("ordens-producao/{id:long}/calcular-custos");
         IndustriaApi.Should().Contain("paradas/{id:long}/gerar-os");
         ComercialIntegracaoApi.Should().Contain("pedidos/{id:long}/gerar-op");
+    }
+
+    [Fact]
+    public void Apontamento_DeveSerIdempotenteConcorrenteERastreavel()
+    {
+        IndustriaApi.Should().Contain("Idempotency-Key");
+        IndustriaApi.Should().Contain("for update");
+        IndustriaApi.Should().Contain("quantidade_produzida + r.QuantidadeBoas > ordem.QuantidadePlanejada");
+        IndustriaApi.Should().Contain("A quantidade produzida é consolidada exclusivamente pelo apontamento");
+        OperationalFlowMigration.Should().Contain("ux_industria_apontamento_idempotencia");
+        OperationalFlowMigration.Should().Contain("apontamento_id bigint references sigov.industria_apontamento(id)");
+        OperationalFlowMigration.Should().Contain("quantidade_aprovada numeric(14,4)");
     }
 
     [Fact]

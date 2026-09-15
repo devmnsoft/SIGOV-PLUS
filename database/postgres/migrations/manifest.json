@@ -2384,6 +2384,19 @@
           "sql": "select case when not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype and p.prosecdef=false and array_to_string(p.proconfig,',') like '%search_path=pg_catalog, sigov%') then 'objeto=sigov.fn_tenant_modulo_compatibilizar esperado=security invoker com search_path fixo obtido=privilégio ou resolução de schema divergente' end"
         }
       ]
+    },
+    {
+      "version": "20260915120000",
+      "description": "Fluxo industrial transacional, idempotente e rastreável",
+      "category": "schema",
+      "file": "20260915120000_industria_fluxo_operacional.sql",
+      "checksum": "dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260914130000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='industria_apontamento' and column_name='idempotency_key') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_industria_apontamento_idempotencia')"
     }
   ],
   "compatibilityAfterAll": [
