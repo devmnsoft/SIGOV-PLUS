@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-15. RC51.02Q (integridade do rascunho de compras). Estado: IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED.
+
+- Preflight: branch `work`, HEAD inicial `47b51a7a99888036dc1d3182b33d77121dc28a0c`, árvore limpa, sem remoto/upstream; SDK normativo `10.0.100`. `dotnet`, `pwsh`, `psql`, Docker e navegador permanecem ausentes.
+- Regressões: as URLs canônicas `/Governanca/QualidadeDados` e aliases distintos já estavam corrigidos e protegidos por `WebRuntimeSmokeTests`; `PagedResult.TotalItems`, Razor, nullable industrial e Minha Central também permanecem corrigidos no checkout. A requisição com host real ficou BLOCKED pela ausência do runtime.
+- Compras: validação de rascunho passou a ser equivalente no cliente e no servidor para justificativa, urgência, tipo, descrição, unidade, quantidade, valor, limite e duplicidade de itens. A criação conserva uma única chave de idempotência durante retry/timeout. O editor ganhou labels visíveis por item e agrupamento semântico responsivo.
+- Validação estática: JavaScript, JSON, shell e `git diff --check` passaram. **BLOCKED separadamente:** restore/build/Razor/testes/Swagger, PostgreSQL 16, host Web, screenshots e cenários concorrentes, pois as ferramentas necessárias não estão disponíveis.
+- Escopo: rascunho/listagem/detalhe/envio permanecem **PARCIAIS, implementados sem validação runtime**; aprovação configurável, pedido, recebimento/estorno e integração completa com estoque/Indústria permanecem **AUSENTES ou AGUARDA_GATE**. Nenhum módulo foi promovido. GED permanece por último.
+- Próximo item exato: executar Gate A com SDK .NET 10 e PostgreSQL 16; depois persistir a política canônica de alçadas e implementar decisão concorrente sem autoaprovação, antes de pedido e recebimento.
+
+---
+
 Data: 2026-09-14. RC51.02O (governança estática do manifesto). Estado: CORRIGIDA ESTATICAMENTE / BLOCKED.
 
 - Preflight: branch `work`, HEAD inicial `b710b05b188edbacee1cb9b30a8e9428fdc00cce`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; `dotnet`, `pwsh`, `psql`, Docker e navegador ausentes.

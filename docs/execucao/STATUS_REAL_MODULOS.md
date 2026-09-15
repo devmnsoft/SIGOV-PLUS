@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-14 (RC51.02P); checkout `work` iniciado em `9e4ae06a1d455ee25fd6fc93c534cdd52c7ef1a4`, sem remoto/upstream configurado nesta execução.
+Corte: 2026-09-15 (RC51.02Q); checkout `work` iniciado em `47b51a7a99888036dc1d3182b33d77121dc28a0c`, sem remoto/upstream configurado nesta execução.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
