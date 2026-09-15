@@ -146,6 +146,12 @@ public sealed class EnterprisePosRc07StaticTests
         Assert.Contains("'Content-Type': 'application/json'", requestModule);
         Assert.Contains("delete body.tenantId", requestModule);
         Assert.Contains("delete body.TenantId", requestModule);
+        Assert.Contains("readApiResponse", requestModule);
+        Assert.Contains("response.redirected", requestModule);
+        Assert.Contains("application/json", requestModule);
+        Assert.Contains("await getPersisted(persistedId)", client);
+        Assert.Contains("await getPersisted(id)", client);
+        Assert.Contains("nova consulta", client);
         Assert.Contains("if (!r.ok) throw new Error", client);
         Assert.Contains("await load()", client);
         Assert.DoesNotContain("endpoint DELETE estiver habilitado", client);
