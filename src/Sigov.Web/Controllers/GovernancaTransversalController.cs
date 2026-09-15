@@ -25,19 +25,25 @@ public sealed class GovernancaTransversalController : Controller
         return View("Central", Model("Central de Alertas", "Riscos operacionais, de prazo, segurança, LGPD e integração.", data.Select(x => new CentralTransversalItem(x.Modulo, x.Titulo, x.Severidade, x.Status, x.RotaAcao))));
     }
 
-    [HttpGet("/QualidadeDados")]
+    [HttpGet("/Governanca/QualidadeDados")]
     public async Task<IActionResult> QualidadeDados(CancellationToken ct)
     {
         var data = await _service.ListarQualidadeAsync(null, null, 1, 100, ct).ConfigureAwait(false);
         return View("Central", Model("Qualidade de Dados", "Inconsistências persistidas, sem interromper a operação.", data.Select(x => new CentralTransversalItem(x.Modulo, x.Descricao, x.Severidade, x.Status, x.RotaCorrecao))));
     }
 
-    [HttpGet("/IntegracoesInternas")]
+    [HttpGet("/Governanca/IntegracoesInternas")]
     public async Task<IActionResult> IntegracoesInternas(CancellationToken ct)
     {
         var data = await _service.ListarIntegracoesAsync(ct).ConfigureAwait(false);
         return View("Central", Model("Integrações Internas", "Eventos reais e integrações preparatórias identificadas explicitamente.", data.Select(x => new CentralTransversalItem(x.Origem, x.Origem + " → " + x.Destino, x.Preparatoria ? "PREPARATÓRIA" : "REAL", x.Status, x.RotaCorrecao))));
     }
+
+    [HttpGet("/QualidadeDados")]
+    public IActionResult QualidadeDadosAlias() => RedirectToActionPermanent(nameof(QualidadeDados));
+
+    [HttpGet("/IntegracoesInternas")]
+    public IActionResult IntegracoesInternasAlias() => RedirectToActionPermanent(nameof(IntegracoesInternas));
 
     [HttpGet("/Modulos/StatusFuncional")]
     public async Task<IActionResult> StatusFuncional(CancellationToken ct)

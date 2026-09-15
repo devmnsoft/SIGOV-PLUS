@@ -72,6 +72,7 @@
   --sigov-easing-standard: cubic-bezier(.2, 0, 0, 1); --sigov-easing-emphasized: cubic-bezier(.2, 0, 0, 1.2);
   --sigov-z-base: 0; --sigov-z-sticky: 100; --sigov-z-dropdown: 300; --sigov-z-sidebar: 500;
   --sigov-z-backdrop: 700; --sigov-z-modal: 800; --sigov-z-toast: 900; --sigov-z-command: 1000;
+  --sigov-control-height: 2.75rem; --sigov-navigation-width: 18rem; --sigov-navigation-width-compact: 5.375rem;
   --bs-primary: var(--sigov-primary); --bs-body-bg: var(--sigov-bg-page); --bs-body-color: var(--sigov-text-primary);
   --bs-border-color: var(--sigov-border); --bs-border-radius: var(--sigov-radius-md); --bs-link-color: var(--sigov-primary);
 }

@@ -136,15 +136,21 @@
     });
   }
 
-  function setSidebar(open) {
+  let sidebarReturnFocus = null;
+  function setSidebar(open, trigger) {
+    const sidebar = document.getElementById('sigovSidebar');
+    if (open) sidebarReturnFocus = trigger || document.activeElement;
     document.body.classList.toggle('sigov-sidebar-open', open);
     document.querySelectorAll('[data-sigov-sidebar-toggle]').forEach(button => button.setAttribute('aria-expanded', String(open)));
+    sidebar?.setAttribute('aria-modal', String(open));
+    if (open) sidebar?.querySelector('a,button,input,summary')?.focus();
+    else if (sidebarReturnFocus instanceof HTMLElement) { sidebarReturnFocus.focus(); sidebarReturnFocus = null; }
   }
 
   function handleAction(event) {
     const trigger = event.target.closest('[data-sigov-sidebar-toggle],[data-sigov-sidebar-close],[data-sigov-theme-toggle]');
     if (!trigger || trigger.disabled || trigger.getAttribute('aria-disabled') === 'true') return;
-    if (trigger.matches('[data-sigov-sidebar-toggle]')) setSidebar(!document.body.classList.contains('sigov-sidebar-open'));
+    if (trigger.matches('[data-sigov-sidebar-toggle]')) setSidebar(!document.body.classList.contains('sigov-sidebar-open'), trigger);
     if (trigger.matches('[data-sigov-sidebar-close]')) setSidebar(false);
     if (trigger.matches('[data-sigov-theme-toggle]')) {
       const next = document.documentElement.dataset.sigovTheme === 'dark' ? 'light' : 'dark';
@@ -181,6 +187,14 @@
   document.addEventListener('click', handleAction);
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape' && document.body.classList.contains('sigov-sidebar-open')) setSidebar(false);
+    if (event.key === 'Tab' && document.body.classList.contains('sigov-sidebar-open')) {
+      const sidebar = document.getElementById('sigovSidebar');
+      const focusable = Array.from(sidebar?.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),summary') || []).filter(element => !element.hidden);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
   });
   window.SigovUI = { init };
   document.addEventListener('DOMContentLoaded', () => {
@@ -230,8 +244,6 @@
   const sidebar = document.getElementById('sigovSidebar');
   if (sidebar) {
     if (store.get('sigov.sidebar.compact', false)) sidebar.classList.add('is-compact');
-    document.querySelectorAll('[data-sigov-sidebar-toggle]').forEach(button => button.addEventListener('click', () => { document.body.classList.add('sigov-sidebar-open'); button.setAttribute('aria-expanded', 'true'); }));
-    document.querySelectorAll('[data-sigov-sidebar-close]').forEach(button => button.addEventListener('click', () => document.body.classList.remove('sigov-sidebar-open')));
     document.querySelectorAll('[data-sigov-sidebar-compact]').forEach(button => button.addEventListener('click', () => { sidebar.classList.toggle('is-compact'); store.set('sigov.sidebar.compact', sidebar.classList.contains('is-compact')); }));
     const filter = document.querySelector('[data-sigov-menu-filter]');
     if (filter) filter.addEventListener('input', () => { const query = filter.value.toLowerCase(); sidebar.querySelectorAll('.sigov-nav-link').forEach(link => { link.hidden = Boolean(query) && !link.textContent.toLowerCase().includes(query); }); });
