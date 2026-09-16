@@ -1,2 +1,17 @@
 @model Sigov.Web.Models.Educacao.AvaliacaoFormViewModel
-<form id="form-avaliacao" class="card card-body" data-api="/api/educacao/avaliacoes">@Html.AntiForgeryToken()<div class="row g-3"><div class="col"><input asp-for="TurmaId" class="form-control" placeholder="Turma" /></div><div class="col"><input asp-for="ComponenteCurricular" class="form-control" placeholder="Componente" /></div><div class="col"><input asp-for="Titulo" class="form-control" placeholder="Título" /></div><div class="col"><input asp-for="DataAvaliacao" class="form-control" /></div><div class="col"><input asp-for="ValorMaximo" class="form-control" /></div><div class="col"><button class="btn btn-primary">Criar</button></div></div></form>
+<form id="form-avaliacao" class="card card-body" data-api="/api/educacao/avaliacoes">
+  @Html.AntiForgeryToken()
+  <h2 class="h5">Cadastrar avaliação</h2>
+  <p class="text-muted">Como usar: informe a escala e o peso da política vigente. O sistema não presume nota máxima, média mínima ou regra de recuperação.</p>
+  <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+  <div class="row g-3">
+    <div class="col-md-4"><label asp-for="TurmaId" class="form-label">Turma <span aria-hidden="true">*</span></label><input asp-for="TurmaId" class="form-control" required /></div>
+    <div class="col-md-4"><label asp-for="ProfessorId" class="form-label">Professor atribuído <span aria-hidden="true">*</span></label><input asp-for="ProfessorId" class="form-control" required /></div>
+    <div class="col-md-4"><label asp-for="ComponenteCurricular" class="form-label">Componente curricular <span aria-hidden="true">*</span></label><input asp-for="ComponenteCurricular" class="form-control" required /></div>
+    <div class="col-md-6"><label asp-for="Titulo" class="form-label">Descrição <span aria-hidden="true">*</span></label><input asp-for="Titulo" class="form-control" required /></div>
+    <div class="col-md-6"><label asp-for="DataAvaliacao" class="form-label">Data <span aria-hidden="true">*</span></label><input asp-for="DataAvaliacao" class="form-control" required /></div>
+    <div class="col-md-6"><label asp-for="ValorMaximo" class="form-label">Valor máximo da escala <span aria-hidden="true">*</span></label><input asp-for="ValorMaximo" class="form-control" min="0.01" step="0.01" required /></div>
+    <div class="col-md-6"><label asp-for="Peso" class="form-label">Peso <span aria-hidden="true">*</span></label><input asp-for="Peso" class="form-control" min="0.01" step="0.01" required /></div>
+    <div class="col-12 d-flex justify-content-end"><button class="btn btn-primary" type="submit">Cadastrar avaliação</button></div>
+  </div>
+</form>

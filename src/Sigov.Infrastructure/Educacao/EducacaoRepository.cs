@@ -69,9 +69,13 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
             var sql = InsertSql(recurso);
             var insertedId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (!insertedId.HasValue || insertedId.Value <= 0)
-                throw new InvalidOperationException(recurso == "diario_frequencia"
-                    ? "Frequência rejeitada: aluno sem matrícula elegível na turma/data ou período encerrado."
-                    : "Cadastro rejeitado por inconsistência de contexto ou estado.");
+                throw new InvalidOperationException(recurso switch
+                {
+                    "diario_frequencia" => "Frequência rejeitada: aluno sem matrícula elegível, professor sem atribuição na turma/componente ou período encerrado.",
+                    "avaliacao" => "Avaliação rejeitada: professor sem atribuição, data fora do ano letivo ou turma/período fechado.",
+                    "nota" => "Resultado rejeitado: aluno inelegível, avaliação fechada ou valor fora da escala configurada.",
+                    _ => "Cadastro rejeitado por inconsistência de contexto ou estado."
+                });
             var id = insertedId.Value;
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso, "Criada"), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -161,9 +165,8 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
         const string sql = @"select a.componente_curricular as ComponenteCurricular,
        a.titulo as Avaliacao, a.data_avaliacao as DataAvaliacao,
        a.valor_maximo as ValorMaximo, n.valor as Nota,
-       case when n.valor is null then 'PENDENTE'
-            when n.valor >= (a.valor_maximo * 0.6) then 'APROVADO'
-            else 'RECUPERACAO' end as Situacao
+       case when n.valor is null then 'NAO_LANCADO'
+            else 'REGISTRADO' end as Situacao
 from sigov.avaliacao a
 join sigov.matricula m on m.tenant_id=a.tenant_id and m.entidade_id=a.entidade_id
  and m.turma_id=a.turma_id and m.aluno_id=@AlunoId and m.is_deleted=false
@@ -173,8 +176,10 @@ where a.tenant_id=@TenantId and a.entidade_id=@EntidadeId and a.is_deleted=false
 order by a.data_avaliacao desc, a.id desc;";
         using var connection = _context.CreateConnection();
         var itens = (await connection.QueryAsync<BoletimItemResponse>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId, AlunoId = alunoId }, ct)).ConfigureAwait(false)).AsList();
-        var notas = itens.Where(x => x.Nota.HasValue).Select(x => x.Nota!.Value).ToArray();
-        return new BoletimResponse(alunoId, notas.Length == 0 ? 0m : decimal.Round(notas.Average(), 2), itens);
+        // Sem uma política acadêmica versionada, não há base legítima para inferir
+        // média, aprovação, recuperação ou equivalência. O relatório preserva os
+        // lançamentos e explicita a indisponibilidade do resultado calculado.
+        return new BoletimResponse(alunoId, null, itens);
     }
 
     public Task<string> ProximoAsync(string prefixo, int ano, CancellationToken ct)
@@ -292,13 +297,36 @@ select @TenantId,@EntidadeId,@ExercicioId,@TurmaId,@AlunoId,@ProfessorId,@DataAu
 from sigov.matricula m
 join sigov.turma t on t.id=m.turma_id and t.tenant_id=m.tenant_id and t.entidade_id=m.entidade_id and not t.is_deleted
 join sigov.ano_letivo l on l.id=m.ano_letivo_id and l.tenant_id=m.tenant_id and l.entidade_id=m.entidade_id and not l.is_deleted
+join sigov.professor_turma pt on pt.tenant_id=m.tenant_id and pt.entidade_id=m.entidade_id
+ and pt.turma_id=m.turma_id and pt.professor_id=@ProfessorId and not pt.is_deleted
+	 and upper(pt.componente_curricular)=upper(@ComponenteCurricular)
 where m.tenant_id=@TenantId and m.entidade_id=@EntidadeId and m.turma_id=@TurmaId and m.aluno_id=@AlunoId
   and m.status in ('ATIVA','CONFIRMADA') and not m.is_deleted
   and @DataAula between greatest(m.data_matricula,l.data_inicio) and l.data_fim
   and l.status <> 'ENCERRADO'
 returning id",
-        "avaliacao" => "insert into sigov.avaliacao (tenant_id,entidade_id,exercicio_id,turma_id,professor_id,componente_curricular,titulo,data_avaliacao,valor_maximo,peso,status,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@TurmaId,@ProfessorId,@ComponenteCurricular,@Titulo,@DataAvaliacao,@ValorMaximo,@Peso,@Status,@UsuarioId) returning id",
-        "nota" => "insert into sigov.nota (tenant_id,entidade_id,exercicio_id,avaliacao_id,aluno_id,valor,observacao,registrado_by,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@AvaliacaoId,@AlunoId,@Valor,@Observacao,@UsuarioId,@UsuarioId) returning id",
+        "avaliacao" => @"insert into sigov.avaliacao
+ (tenant_id,entidade_id,exercicio_id,turma_id,professor_id,componente_curricular,titulo,data_avaliacao,valor_maximo,peso,status,created_by)
+select @TenantId,@EntidadeId,@ExercicioId,t.id,@ProfessorId,@ComponenteCurricular,@Titulo,@DataAvaliacao,@ValorMaximo,@Peso,@Status,@UsuarioId
+from sigov.turma t
+join sigov.ano_letivo l on l.id=t.ano_letivo_id and l.tenant_id=t.tenant_id and l.entidade_id=t.entidade_id and not l.is_deleted
+join sigov.professor_turma pt on pt.tenant_id=t.tenant_id and pt.entidade_id=t.entidade_id and pt.turma_id=t.id
+ and pt.professor_id=@ProfessorId and upper(pt.componente_curricular)=upper(@ComponenteCurricular) and not pt.is_deleted
+where t.tenant_id=@TenantId and t.entidade_id=@EntidadeId and t.id=@TurmaId and not t.is_deleted
+ and t.status not in ('FECHADA','CANCELADA') and l.status<>'ENCERRADO'
+ and @DataAvaliacao between l.data_inicio and l.data_fim
+returning id",
+        "nota" => @"insert into sigov.nota
+ (tenant_id,entidade_id,exercicio_id,avaliacao_id,aluno_id,valor,observacao,registrado_by,created_by)
+select @TenantId,@EntidadeId,@ExercicioId,a.id,@AlunoId,@Valor,@Observacao,@UsuarioId,@UsuarioId
+from sigov.avaliacao a
+join sigov.matricula m on m.tenant_id=a.tenant_id and m.entidade_id=a.entidade_id and m.turma_id=a.turma_id
+ and m.aluno_id=@AlunoId and not m.is_deleted
+where a.tenant_id=@TenantId and a.entidade_id=@EntidadeId and a.id=@AvaliacaoId and not a.is_deleted
+ and a.status='ABERTA' and @Valor between 0 and a.valor_maximo
+ and m.status in ('ATIVA','CONFIRMADA','TRANSFERIDA','CONCLUIDA')
+ and m.data_matricula<=a.data_avaliacao
+returning id",
         "pre_matricula_inscricao" => "insert into sigov.pre_matricula_inscricao (tenant_id,entidade_id,exercicio_id,escola_preferencial_id,aluno_pessoa_id,responsavel_pessoa_id,protocolo,ano_letivo,etapa_ensino,status,pontuacao,observacao,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@EscolaPreferencialId,@AlunoPessoaId,@ResponsavelPessoaId,@Protocolo,@AnoLetivo,@EtapaEnsino,@Status,@Pontuacao,@Observacao,@UsuarioId) returning id",
         "educacenso_registro" => "insert into sigov.educacenso_registro (tenant_id,entidade_id,exercicio_id,escola_id,aluno_id,turma_id,tipo_registro,status,payload,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@EscolaId,@AlunoId,@TurmaId,@TipoRegistro,@Status,cast(@PayloadJson as jsonb),@UsuarioId) returning id",
         _ => throw new InvalidOperationException("Recurso de Educação não mapeado.")

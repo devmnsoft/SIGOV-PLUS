@@ -24,4 +24,30 @@ API: dashboard, CRUD/listagens de escolas/alunos/professores/turmas/matrículas,
 * Pré-matrícula recebe protocolo único; conversão transacional verifica vaga e cria matrícula, e ausência de vaga permite somente lista de espera.
 * Dashboard e CSV consultam PostgreSQL no escopo corrente; informações pessoais são mascaradas.
 
+### Matriz de continuidade (revisão 2026-09-16)
+
+| Jornada | Implementação existente | Lacuna confirmada | Mudança desta revisão | Evidência automatizada |
+|---|---|---|---|---|
+| Contexto e cadastros | `escola`, `ano_letivo`, `turma`, `aluno`, `matricula`, `professor_turma` e autorização do serviço canônico | A interface ainda permite alguns identificadores livres em vez de seletores pesquisáveis | Nenhuma estrutura paralela foi criada; os lançamentos continuam referenciando os cadastros canônicos | `EducacaoModuleSmokeTests.Repository_Usa_Dapper_Parametrizado_Tenant_Entidade_Auditoria_Outbox` |
+| Frequência | API, serviço Dapper, matrícula e ano letivo | Presença era o valor padrão; justificativa ausente era fabricada; atribuição do professor não era verificada no `INSERT` | Estado inicial agora é `NAO_LANCADO`; lançamento exige estado explícito, justificativa real, matrícula vigente, data no ano letivo e atribuição turma/componente | `EducacaoApiTests.Frequencia_Nao_Assume_Presenca_Nem_Inventa_Justificativa` e smoke de repositório |
+| Avaliação e resultado | `avaliacao`, `nota`, endpoints e auditoria em `educacao_evento` | Escala/peso tinham padrão oculto; nota dependia principalmente de constraint | Escala e peso passam a ser explícitos; avaliação valida atribuição/data/estado e resultado valida elegibilidade, avaliação aberta e limite | smoke de repositório |
+| Cálculo e boletim | Consulta de boletim | A consulta inventava corte de 60% e média aritmética, sem política acadêmica persistida | Removidas inferências: zero continua valor lançado, ausência vira `NAO_LANCADO` e a média permanece indisponível até existir política versionada | `EducacaoModuleSmokeTests.Boletim_Nao_Inventa_Regra_De_Aprovacao_Sem_Politica` |
+| Fechamento/reabertura | Diário Bloco 3 verifica conteúdo/frequência e grava histórico com justificativa | Ainda não existe política acadêmica versionada nem snapshot publicável de resultados; a conferência não cobre todos os alunos elegíveis | Mantido como parcial e sem declarar fechamento acadêmico completo | testes existentes de estrutura do Bloco 3 |
+| Painel, Minha Central e relatórios | dashboard e exportações básicas | Contagens ainda não oferecem todo o recorte escola/ano/permissão; não há integração completa com Minha Central | Sem mudança nesta revisão; não foi criada tabela paralela de tarefas | pendência registrada |
+
+### Regras e fontes adotadas
+
+* Ano letivo é obtido de `ano_letivo.data_inicio/data_fim`; a data corrente do servidor não substitui esse intervalo nos lançamentos.
+* Elegibilidade de frequência deriva da matrícula na turma e da data da matrícula. A atribuição deriva de `professor_turma` e do componente informado.
+* Escala máxima e peso são dados explícitos da avaliação. Este documento **não** define média mínima, percentual mínimo de frequência, precisão, arredondamento, recuperação ou equivalência de conceitos.
+* Na ausência de política acadêmica persistida e versionada, média e situação final ficam indisponíveis. Isso é impedimento funcional, não zero nem aprovação implícita.
+
+### Pendências deliberadamente não declaradas como concluídas
+
+1. Modelar política acadêmica multi-esfera versionada, incluindo escala numérica/conceitual, precisão, arredondamento, recuperação e publicação, mediante decisão de produto.
+2. Unificar o diário base e o diário Bloco 3 sem migração destrutiva, preservando históricos já publicados.
+3. Completar conferência atômica, snapshot do fechamento/publicação, correção versionada e concorrência otimista.
+4. Integrar os agregados autorizados à Minha Central e concluir relatórios/impressão responsivos.
+5. Validar navegador e PostgreSQL 16 quando esses runtimes estiverem disponíveis. Compras e Estoque permanecem fora desta revisão.
+
 GED/InovaGED foi explicitamente adiado para a etapa final. FUNC05 não promove a RC50.68, que continua **BLOCKED** por runtime/CI/PostgreSQL oficiais, e não inicia nem marca a RC50.69.
