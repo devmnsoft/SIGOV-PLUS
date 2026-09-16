@@ -2449,6 +2449,19 @@
         "20260916160000"
       ],
       "postConditionSql": "select to_regclass('sigov.almoxarifado_politica_reposicao') is not null and exists(select 1 from pg_constraint where conrelid='sigov.almoxarifado_politica_reposicao'::regclass and conname='ck_almox_politica_reposicao_quantidades') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ix_almox_politica_reposicao_painel')"
+    },
+    {
+      "version": "20260916210000",
+      "description": "Jornada administrativa de ingresso, oferta de vaga, matrícula e enturmação",
+      "category": "functional",
+      "file": "20260916210000_educacao_ingresso_vagas.sql",
+      "checksum": "86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260916190000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.educacao_oferta_vaga') is not null and to_regprocedure('sigov.fn_educacao_converter_oferta(bigint,bigint,bigint,bigint,bigint,bigint,text,date,bigint)') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='pre_matricula_inscricao' and column_name='versao')"
     }
   ],
   "compatibilityAfterAll": [

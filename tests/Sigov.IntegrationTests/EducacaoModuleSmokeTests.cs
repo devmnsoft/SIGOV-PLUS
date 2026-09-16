@@ -34,7 +34,7 @@ public sealed class EducacaoModuleSmokeTests
         code.Should().Contain("reservadas != 1")
             .And.Contain("a.tenant_id = t.tenant_id")
             .And.Contain("t.escola_id = @EscolaId")
-            .And.Contain("@DataAula between greatest(m.data_matricula,l.data_inicio) and l.data_fim")
+            .And.Contain("@DataAula between greatest(m.data_matricula,coalesce(m.data_enturmacao,m.data_matricula),l.data_inicio) and l.data_fim")
             .And.Contain("pt.professor_id=@ProfessorId")
             .And.Contain("upper(pt.componente_curricular)=upper(@ComponenteCurricular)")
             .And.Contain("l.status <> 'ENCERRADO'")
@@ -42,6 +42,22 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("m.data_matricula<=a.data_avaliacao")
             .And.Contain("ExecuteScalarAsync<long?>")
             .And.Contain("Frequência rejeitada: aluno sem matrícula elegível");
+    }
+
+    [Fact]
+    public void Ingresso_E_Vagas_Preserva_Concorrencia_Origem_E_Enturmacao_Opcional()
+    {
+        var repository = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "EducacaoRepository.cs"));
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20260916210000_educacao_ingresso_vagas.sql"));
+
+        repository.Should().Contain("pg_advisory_xact_lock")
+            .And.Contain("versao=@Versao")
+            .And.Contain("valida_ate>now()")
+            .And.Contain("fn_educacao_converter_oferta");
+        migration.Should().Contain("ux_matricula_origem_prematricula")
+            .And.Contain("alter column turma_id drop not null")
+            .And.Contain("vagas_ocupadas<capacidade")
+            .And.Contain("situacao='PENDENTE'");
     }
 
     [Fact]
