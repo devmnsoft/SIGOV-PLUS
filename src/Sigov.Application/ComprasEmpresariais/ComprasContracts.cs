@@ -27,6 +27,16 @@ public sealed record RequisicaoItemDetalhe(Guid Id, int Ordem, string Tipo, stri
 public sealed record RequisicaoHistorico(string Acao, string? Detalhes, DateTimeOffset CriadoEm);
 public sealed record RequisicaoDetalhe(Guid Id, string Numero, string Status, string? Setor, string Urgencia, DateOnly? DataNecessaria, string Justificativa, string? Observacoes, decimal ValorEstimado, long Version, IReadOnlyList<RequisicaoItemDetalhe> Itens, IReadOnlyList<RequisicaoHistorico> Historico);
 public sealed record ComprasDashboard(decimal TotalSolicitado, decimal ValorAprovado, int AprovacoesPendentes, int CotacoesAbertas, int PedidosAtrasados, int RecebimentosPendentes, int FaturasBloqueadas, int DocumentosVencendo);
+public sealed record RecebimentoFiltro(string? Fornecedor = null, string? Pedido = null, DateOnly? DataInicial = null, DateOnly? DataFinal = null, string? Status = null, Guid? AlmoxarifadoId = null, string? Responsavel = null, int Pagina = 1, int Tamanho = 20);
+public sealed record RecebimentoResumo(Guid Id, Guid PedidoId, string PedidoNumero, string FornecedorNome, string Status, string Documento, string AlmoxarifadoNome, DateTimeOffset CriadoEm, string Responsavel, int Divergencias);
+public sealed record RecebimentoTotais(long Aptos, long EmConferencia, long Concluidos, long Divergencias);
+public sealed record CentralRecebimentos(Common.PagedResult<RecebimentoResumo> Resultado, RecebimentoTotais Totais);
+public sealed record PedidoRecebimentoItem(long Id, Guid ProdutoId, string Produto, string Unidade, decimal QuantidadePedida, decimal QuantidadeCancelada, decimal QuantidadeFisica, decimal QuantidadeAceita, decimal QuantidadeRejeitada, decimal QuantidadeEmConferencia, decimal QuantidadePendente, bool ExigeInspecao);
+public sealed record AlmoxarifadoOpcao(Guid Id,string Nome);
+public sealed record PedidoParaRecebimento(Guid Id, string Numero, string Status, Guid FornecedorId, string Fornecedor, long Version, IReadOnlyList<PedidoRecebimentoItem> Itens,IReadOnlyList<AlmoxarifadoOpcao> Almoxarifados);
+public sealed record RecebimentoItemRequest(long PedidoItemId, decimal Quantidade, string? Lote, DateOnly? Validade, string? NumeroSerie);
+public sealed record CriarRecebimentoRequest(Guid PedidoId, Guid AlmoxarifadoId, string Documento, DateTimeOffset DataOperacao, string? Observacoes, IReadOnlyList<RecebimentoItemRequest> Itens, long PedidoVersion);
+public sealed record RecebimentoCriado(Guid Id, string Status, bool Repetido);
 
 public interface IFornecedorRepository
 {
@@ -47,6 +57,12 @@ public interface IRequisicaoCompraRepository
  Task EnviarAsync(ComprasContext context, Guid id, long version, CancellationToken ct);
 }
 public interface IComprasDashboardRepository { Task<ComprasDashboard> ObterAsync(Guid tenant, CancellationToken ct); }
+public interface IRecebimentoCompraRepository
+{
+ Task<CentralRecebimentos> ListarAsync(Guid tenant, RecebimentoFiltro filtro, CancellationToken ct);
+ Task<PedidoParaRecebimento?> ObterPedidoAsync(Guid tenant, Guid pedidoId, CancellationToken ct);
+ Task<RecebimentoCriado> CriarEConfirmarAsync(ComprasContext context, CriarRecebimentoRequest request, string key, CancellationToken ct);
+}
 public interface IFornecedorApplicationService
 {
  Task<PagedResult<FornecedorResumo>> ListarAsync(ComprasContext context, FornecedorFiltro filtro, CancellationToken ct); Task<FornecedorResumo?> ObterAsync(ComprasContext context, Guid id, CancellationToken ct);
@@ -55,3 +71,9 @@ public interface IFornecedorApplicationService
 }
 public interface IRequisicaoCompraApplicationService { Task<PagedResult<RequisicaoResumo>> ListarAsync(ComprasContext context,RequisicaoFiltro filtro,CancellationToken ct); Task<RequisicaoDetalhe?> ObterAsync(ComprasContext context,Guid id,CancellationToken ct); Task<Guid> CriarAsync(ComprasContext context,CriarRequisicaoRequest request,string key,CancellationToken ct); Task AtualizarAsync(ComprasContext context,Guid id,AtualizarRequisicaoRequest request,CancellationToken ct); Task EnviarAsync(ComprasContext context,Guid id,long version,CancellationToken ct); }
 public interface IComprasDashboardApplicationService { Task<ComprasDashboard> ObterAsync(ComprasContext context,CancellationToken ct); }
+public interface IRecebimentoCompraApplicationService
+{
+ Task<CentralRecebimentos> ListarAsync(ComprasContext context, RecebimentoFiltro filtro, CancellationToken ct);
+ Task<PedidoParaRecebimento?> ObterPedidoAsync(ComprasContext context, Guid pedidoId, CancellationToken ct);
+ Task<RecebimentoCriado> CriarEConfirmarAsync(ComprasContext context, CriarRecebimentoRequest request, string key, CancellationToken ct);
+}

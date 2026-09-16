@@ -1,5 +1,15 @@
 # Última execução
 
+Data: 2026-09-16. RC51.03 — recebimento parcial de compras empresariais. Estado: **IMPLEMENTADO SEM HOMOLOGAÇÃO RUNTIME**.
+
+- Central real com filtros, paginação no servidor, ordenação estável e totais tenant-scoped; formulário por pedido com destino nominal, quantidades e rastreio opcional.
+- Confirmação serializa pedido/itens, bloqueia excesso e estado incompatível, é idempotente, audita e grava entrada no estoque canônico apenas para quantidade aceita. Item sujeito a inspeção permanece em conferência e indisponível.
+- Migration forward-only `20260916120000` sincronizada com manifesto e scripts; novas tabelas usam bigint identity e preservam os UUIDs legados.
+- **BLOCKED:** .NET, PostgreSQL 16 e navegador ausentes; build, testes runtime, concorrência e evidências visuais não executados. Documento e matriz: `docs/entregas/RC51-03-RECEBIMENTO-COMPRAS.md`.
+- Próximo item exato: executar Gate A e cenários PostgreSQL; depois concluir decisão de conferência, devolução e estorno com verificação de movimentos posteriores.
+
+---
+
 Data: 2026-09-16. Correção de nulabilidade do ciclo contratual SaaS. Estado: **CORRIGIDA ESTATICAMENTE / GATE RUNTIME BLOCKED**.
 
 - Causa dos dois `CS8602`: `QuerySingleOrDefaultAsync<ContractRow>` admite ausência; a guarda composta para suspensão/reativação não estreitava `before` para as guardas posteriores de vigência e cancelamento. O fluxo agora entra em um bloco de mutação de contrato existente, retorna antes de qualquer `UPDATE` quando a linha não existe e usa a variável local não nula `currentContract`, sem `!`, `?.`, pragma ou mudança do contrato público.

@@ -150,6 +150,16 @@ public sealed class DatabaseMigrationRegressionTests
     }
 
     [Fact]
+    public void Recebimento_Parcial_Deve_Preservar_Quantidades_E_Rastreabilidade()
+    {
+        var sql = File.ReadAllText(Path.Combine(MigrationsPath, "20260916120000_compras_recebimento_parcial.sql"));
+        sql.Should().Contain("generated always as identity");
+        sql.Should().Contain("quantidade_aceita+quantidade_rejeitada+quantidade_conferencia=quantidade_fisica");
+        sql.Should().Contain("compras_empresarial_recebimento_evento");
+        sql.Should().NotContain("greatest(", "inconsistências de saldo não podem ser truncadas");
+    }
+
+    [Fact]
     public void Correcao_Deve_Ser_ForwardOnly_Idempotente_E_Preservar_Suspensao_Comercial()
     {
         var sql = File.ReadAllText(Path.Combine(MigrationsPath, "20260910120000_corr_postconditions_rc37b_rc5060_saas.sql"));

@@ -1,0 +1,23 @@
+@using Sigov.Application.ComprasEmpresariais
+@model CentralRecebimentos
+@{
+ ViewData["Title"]="Central de recebimentos";
+ var f=(RecebimentoFiltro?)ViewData["Filtro"]??new();
+ var first=Model.Resultado.TotalItems==0?0L:((long)Model.Resultado.Page-1)*Model.Resultado.PageSize+1;
+ var last=Math.Min((long)Model.Resultado.Page*Model.Resultado.PageSize,Model.Resultado.TotalItems);
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="../Shared/_ComprasNav" />
+<header class="compras-header"><div><span class="eyebrow">COMPRAS E SUPRIMENTOS</span><h1>Central de recebimentos</h1><p>Acompanhe conferência, divergências e entradas físicas no estoque canônico.</p></div></header>
+<section class="recebimento-totais" aria-label="Totais filtrados"><article><strong>@Model.Totais.Aptos</strong><span>Pedidos aptos</span></article><article><strong>@Model.Totais.EmConferencia</strong><span>Em conferência</span></article><article><strong>@Model.Totais.Concluidos</strong><span>Concluídos</span></article><article><strong>@Model.Totais.Divergencias</strong><span>Divergências</span></article></section>
+<section class="panel" aria-labelledby="filtros"><h2 id="filtros" class="h5">Filtros</h2><form method="get" class="recebimento-filtros">
+<div><label for="fornecedor" class="form-label">Fornecedor</label><input id="fornecedor" name="fornecedor" value="@f.Fornecedor" class="form-control" /></div>
+<div><label for="pedido" class="form-label">Pedido</label><input id="pedido" name="pedido" value="@f.Pedido" class="form-control" /></div>
+<div><label for="status" class="form-label">Situação</label><select id="status" name="status" class="form-select"><option value="">Todas</option>@foreach(var s in new[]{"RASCUNHO","EM_CONFERENCIA","CONCLUIDO","ESTORNADO"}){<option value="@s" selected="@(f.Status==s)">@s.Replace('_',' ')</option>}</select></div>
+<div><label for="dataInicial" class="form-label">De</label><input id="dataInicial" name="dataInicial" type="date" value="@f.DataInicial?.ToString("yyyy-MM-dd")" class="form-control" /></div>
+<div><label for="dataFinal" class="form-label">Até</label><input id="dataFinal" name="dataFinal" type="date" value="@f.DataFinal?.ToString("yyyy-MM-dd")" class="form-control" /></div>
+<div><label for="responsavel" class="form-label">Responsável</label><input id="responsavel" name="responsavel" value="@f.Responsavel" class="form-control" /></div>
+<div class="filter-actions"><button class="btn btn-primary">Aplicar filtros</button><a class="btn btn-outline-secondary" asp-action="Recebimentos">Limpar</a></div></form></section>
+<section class="panel"><div class="section-title"><h2 class="h5">Recebimentos</h2><p role="status">Exibindo @first–@last de @Model.Resultado.TotalItems</p></div>
+@if(Model.Resultado.Items.Count==0){<div class="empty-state"><h3 class="h5">Nenhum recebimento encontrado</h3><p>Revise os filtros ou abra um pedido confirmado para iniciar o recebimento.</p></div>}else{<div class="table-responsive"><table class="table align-middle"><thead><tr><th>Pedido</th><th>Fornecedor</th><th>Documento</th><th>Destino</th><th>Situação</th><th>Data</th><th></th></tr></thead><tbody>@foreach(var r in Model.Resultado.Items){<tr><td><a asp-action="Pedido" asp-route-id="@r.PedidoId">@r.PedidoNumero</a></td><td>@r.FornecedorNome</td><td>@r.Documento</td><td>@r.AlmoxarifadoNome</td><td><span class="status-badge">@r.Status.Replace('_',' ')</span>@if(r.Divergencias>0){<small class="d-block text-danger">@r.Divergencias divergência(s)</small>}</td><td>@r.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td><a class="btn btn-sm btn-outline-primary" asp-action="Recebimento" asp-route-id="@r.Id">Detalhes</a></td></tr>}</tbody></table></div>}
+@if(Model.Resultado.TotalPages>1){<nav aria-label="Paginação"><ul class="pagination justify-content-center">@if(Model.Resultado.HasPreviousPage){<li class="page-item"><a class="page-link" href="@Url.Action("Recebimentos",new{f.Fornecedor,f.Pedido,f.Status,f.DataInicial,f.DataFinal,f.Responsavel,pagina=Model.Resultado.Page-1})">Anterior</a></li>}<li class="page-item disabled"><span class="page-link">Página @Model.Resultado.Page de @Model.Resultado.TotalPages</span></li>@if(Model.Resultado.HasNextPage){<li class="page-item"><a class="page-link" href="@Url.Action("Recebimentos",new{f.Fornecedor,f.Pedido,f.Status,f.DataInicial,f.DataFinal,f.Responsavel,pagina=Model.Resultado.Page+1})">Próxima</a></li>}</ul></nav>}</section>
