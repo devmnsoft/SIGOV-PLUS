@@ -129,16 +129,23 @@ public sealed class SaasTenantAdministrationService(
 
             if (isNewContract && before is not null)
                 return Rollback(transaction, "Já existe contratação ou histórico contratual para este módulo; recarregue o detalhe e use a ação compatível com o estado atual.");
-            if ((isSuspension || isReactivation) && before is null)
-                return Rollback(transaction, "A contratação não existe ou foi alterada. Recarregue o detalhe.");
-            if (isSuspension && before!.Status is not ("CONTRATADO" or "HABILITADO" or "ATIVO" or "TRIAL" or "EM_IMPLANTACAO" or "BETA"))
-                return Rollback(transaction, $"Uma contratação no estado {before.Status} não pode ser suspensa.");
-            if (isReactivation && !string.Equals(before!.Status, "SUSPENSO", StringComparison.OrdinalIgnoreCase))
-                return Rollback(transaction, $"Somente uma contratação suspensa pode ser reativada; estado atual: {before.Status}.");
-            if (isReactivation && before.EffectiveUntil.HasValue && before.EffectiveUntil < DateOnly.FromDateTime(DateTime.UtcNow))
-                return Rollback(transaction, "A vigência terminou; reativação não renova o contrato automaticamente.");
-            if (isReactivation && before.CancellationScheduledFor.HasValue && before.CancellationScheduledFor <= DateOnly.FromDateTime(DateTime.UtcNow))
-                return Rollback(transaction, "O cancelamento agendado já produziu efeito; reativação exige nova decisão contratual.");
+            if (isSuspension || isReactivation)
+            {
+                if (before is null)
+                    return Rollback(transaction, "A contratação não existe ou foi alterada. Recarregue o detalhe.");
+
+                var currentContract = before;
+                if (isSuspension && currentContract.Status is not ("CONTRATADO" or "HABILITADO" or "ATIVO" or "TRIAL" or "EM_IMPLANTACAO" or "BETA"))
+                    return Rollback(transaction, $"Uma contratação no estado {currentContract.Status} não pode ser suspensa.");
+                if (isReactivation && !string.Equals(currentContract.Status, "SUSPENSO", StringComparison.OrdinalIgnoreCase))
+                    return Rollback(transaction, $"Somente uma contratação suspensa pode ser reativada; estado atual: {currentContract.Status}.");
+
+                var todayUtc = DateOnly.FromDateTime(DateTime.UtcNow);
+                if (isReactivation && currentContract.EffectiveUntil is { } effectiveUntil && effectiveUntil < todayUtc)
+                    return Rollback(transaction, "A vigência terminou; reativação não renova o contrato automaticamente.");
+                if (isReactivation && currentContract.CancellationScheduledFor is { } cancellationDate && cancellationDate <= todayUtc)
+                    return Rollback(transaction, "O cancelamento agendado já produziu efeito; reativação exige nova decisão contratual.");
+            }
             if (command.ExpectedUpdatedAt.HasValue && before is not null &&
                 before.UpdatedAt != command.ExpectedUpdatedAt && before.CreatedAt != command.ExpectedUpdatedAt)
                 return Rollback(transaction, "O contrato foi alterado por outro usuário. Recarregue e tente novamente.");

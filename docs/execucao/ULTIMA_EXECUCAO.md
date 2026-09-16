@@ -1,5 +1,17 @@
 # Última execução
 
+Data: 2026-09-16. Correção de nulabilidade do ciclo contratual SaaS. Estado: **CORRIGIDA ESTATICAMENTE / GATE RUNTIME BLOCKED**.
+
+- Causa dos dois `CS8602`: `QuerySingleOrDefaultAsync<ContractRow>` admite ausência; a guarda composta para suspensão/reativação não estreitava `before` para as guardas posteriores de vigência e cancelamento. O fluxo agora entra em um bloco de mutação de contrato existente, retorna antes de qualquer `UPDATE` quando a linha não existe e usa a variável local não nula `currentContract`, sem `!`, `?.`, pragma ou mudança do contrato público.
+- Semântica preservada: entrada inválida, módulo ausente, tenant ausente/inativo, tenant suspenso/cancelado, dependência ausente, contrato ausente, estado incompatível, versão concorrente, vigência encerrada e cancelamento efetivado falham antes da gravação. O controller continua negando falta de identidade/permissão e acesso de administrador local a outro tenant antes de chamar o serviço.
+- Matriz: contratar → SuperAdmin autorizado → tenant ativo e módulo canônico/dependências válidos → insere contrato e auditoria → `CONTRATADO`; suspender → SuperAdmin autorizado → contrato vigente em estado elegível e versão atual → preserva condições, audita → `SUSPENSO`; reativar → SuperAdmin autorizado → contrato `SUSPENSO`, tenant ativo, vigência/cancelamento elegíveis e versão atual → preserva condições, audita → `HABILITADO`.
+- Formulários no escopo: lista/detalhe são `GET` autorizados e leem via Dapper; contratar, suspender e reativar são `POST` com antiforgery, autorização persistente, validação no serviço, transação, auditoria e redirecionamento sem afirmar sucesso quando o resultado falha. Não houve alteração visual nem de schema nesta correção; o template e as jornadas persistidas existentes foram preservados.
+- Teste de regressão existente foi ampliado, sem criar classe, para exigir a guarda explícita e impedir o retorno do operador de supressão. `git diff --check` e varredura de conflitos passaram.
+- **BLOCKED:** `dotnet restore/build/test`, compilação Razor, PostgreSQL 16, navegador e capturas não foram executados porque este container não dispõe de `dotnet`, `psql`, Docker nem navegador. A entrega não é declarada homologada.
+- Risco restante e próximo item exato: instalar o SDK `10.0.100` e disponibilizar PostgreSQL 16 isolado; executar os gates da solução e provar contratação/suspensão/reativação, concorrência, rollback, duplicidade, dois tenants, permissão negada, sessão revogada e preservação do espelho legado; depois executar a jornada autenticada e as seis larguras.
+
+---
+
 Data: 2026-09-15. Correção do ciclo contratual SaaS. Estado: **IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED**.
 
 | Item inspecionado | Classificação | Evidência/limite |

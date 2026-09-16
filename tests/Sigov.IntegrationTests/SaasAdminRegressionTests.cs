@@ -16,8 +16,11 @@ public sealed class SaasAdminRegressionTests
         var service = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Saas/SaasTenantAdministrationService.cs"));
         service.Should().Contain("reativação não renova o contrato automaticamente")
             .And.Contain("Somente uma contratação suspensa pode ser reativada")
+            .And.Contain("if (before is null)")
+            .And.Contain("var currentContract = before;")
             .And.Contain("PreserveTerm = !isNewContract")
-            .And.Contain("tenant_modulo_contratado.vigencia_inicio");
+            .And.Contain("tenant_modulo_contratado.vigencia_inicio")
+            .And.NotContain("before!");
         File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/SaasAdmin/TenantDetalhe.cshtml"))
             .Should().Contain("nenhuma cobrança será quitada ou renovada automaticamente")
             .And.Contain("não inclui dependências silenciosamente");
