@@ -119,8 +119,9 @@ public sealed class FrequenciaDiariaController : EducacaoApiControllerBase
     {
         if (!StatusPermitidos.Contains(request.Status)) return BadRequest(ApiResponse<long>.Fail("Status de frequência inválido."));
         var presente = request.Status.Equals("PRESENTE", StringComparison.OrdinalIgnoreCase) || request.Status.Equals("ABONADA", StringComparison.OrdinalIgnoreCase);
-        var justificativa = request.Status.Equals("JUSTIFICADA", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(request.Justificativa) ? "Falta justificada" : request.Justificativa;
-        return FromResult(await _service.CriarAsync(new FrequenciaCreateRequest(request.TurmaId, request.AlunoId, request.ProfessorId, request.DataAula, request.ComponenteCurricular, presente, justificativa, request.Status.ToUpperInvariant()), ct).ConfigureAwait(false));
+        if (request.Status.Equals("JUSTIFICADA", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(request.Justificativa))
+            return BadRequest(ApiResponse<long>.Fail("Falta justificada exige justificativa informada pelo usuário."));
+        return FromResult(await _service.CriarAsync(new FrequenciaCreateRequest(request.TurmaId, request.AlunoId, request.ProfessorId, request.DataAula, request.ComponenteCurricular, presente, request.Justificativa, request.Status.ToUpperInvariant()), ct).ConfigureAwait(false));
     }
 }
 

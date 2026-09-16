@@ -17,6 +17,16 @@ public sealed class EducacaoApiTests
     }
 
     [Fact]
+    public void Frequencia_Nao_Assume_Presenca_Nem_Inventa_Justificativa()
+    {
+        var contracts = File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/EducacaoContracts.cs"));
+        contracts.Should().Contain("bool Presente = false").And.Contain("Status = \"NAO_LANCADO\"");
+        var api = File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoControllers.cs"));
+        api.Should().Contain("Falta justificada exige justificativa informada pelo usuário.")
+            .And.NotContain("? \"Falta justificada\"");
+    }
+
+    [Fact]
     public void Patrimonio_Movimentacao_Preserva_Cadeia_De_Custodia_E_Idempotencia()
     {
         var service = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Patrimonio/PatrimonioService.cs"));

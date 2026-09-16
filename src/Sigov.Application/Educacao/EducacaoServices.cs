@@ -189,16 +189,24 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
 
     Task<Result<PagedResult<FrequenciaResponse>>> IFrequenciaService.ListarAsync(FrequenciaFiltro filtro, CancellationToken ct) => ListarAsync<FrequenciaResponse>("diario_frequencia", "frequencia", filtro, ct);
     Task<Result<long>> IFrequenciaService.CriarAsync(FrequenciaCreateRequest request, CancellationToken ct) =>
-        request.TurmaId <= 0 || request.AlunoId <= 0
-            ? Task.FromResult(Fail<long>("Frequência exige turma e aluno com matrícula ativa."))
+        request.TurmaId <= 0 || request.AlunoId <= 0 || request.ProfessorId is null or <= 0 || string.IsNullOrWhiteSpace(request.ComponenteCurricular)
+            ? Task.FromResult(Fail<long>("Frequência exige turma, aluno com matrícula ativa, componente e professor atribuído."))
             : request.Status is not ("PRESENTE" or "FALTA" or "JUSTIFICADA" or "ABONADA")
                 ? Task.FromResult(Fail<long>("Situação de frequência inválida."))
+                : ((request.Status is "PRESENTE" or "ABONADA") && !request.Presente) ||
+                  ((request.Status is "FALTA" or "JUSTIFICADA") && request.Presente)
+                    ? Task.FromResult(Fail<long>("Presença e situação informadas são incompatíveis."))
                 : request.Status == "JUSTIFICADA" && string.IsNullOrWhiteSpace(request.Justificativa)
                     ? Task.FromResult(Fail<long>("Falta justificada exige justificativa."))
                     : CriarAsync("diario_frequencia", "criar", request, ct);
 
     Task<Result<PagedResult<AvaliacaoResponse>>> IAvaliacaoService.ListarAsync(TurmaFiltro filtro, CancellationToken ct) => ListarAsync<AvaliacaoResponse>("avaliacao", "avaliacao", filtro, ct);
-    Task<Result<long>> IAvaliacaoService.CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct) => request.ValorMaximo <= 0m ? Task.FromResult(Fail<long>("Valor máximo da avaliação deve ser positivo.")) : CriarAsync("avaliacao", "criar", request, ct);
+    Task<Result<long>> IAvaliacaoService.CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct) =>
+        request.TurmaId <= 0 || request.ProfessorId is null or <= 0 || string.IsNullOrWhiteSpace(request.ComponenteCurricular) || string.IsNullOrWhiteSpace(request.Titulo)
+            ? Task.FromResult(Fail<long>("Avaliação exige turma, componente, título e professor atribuído."))
+            : request.ValorMaximo <= 0m || request.Peso <= 0m
+                ? Task.FromResult(Fail<long>("Escala máxima e peso devem ser explicitamente informados e positivos."))
+                : CriarAsync("avaliacao", "criar", request, ct);
     Task<Result<long>> IAvaliacaoService.RegistrarNotaAsync(long avaliacaoId, NotaCreateRequest request, CancellationToken ct) => request.Valor < 0m ? Task.FromResult(Fail<long>("Nota não pode ser negativa.")) : CriarAsync("nota", "criar", new { AvaliacaoId = avaliacaoId, request.AlunoId, request.Valor, request.Observacao }, ct);
 
     async Task<Result<BoletimResponse>> IBoletimService.ObterAsync(long alunoId, CancellationToken ct)

@@ -35,9 +35,23 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("a.tenant_id = t.tenant_id")
             .And.Contain("t.escola_id = @EscolaId")
             .And.Contain("@DataAula between greatest(m.data_matricula,l.data_inicio) and l.data_fim")
+            .And.Contain("pt.professor_id=@ProfessorId")
+            .And.Contain("upper(pt.componente_curricular)=upper(@ComponenteCurricular)")
             .And.Contain("l.status <> 'ENCERRADO'")
+            .And.Contain("a.status='ABERTA' and @Valor between 0 and a.valor_maximo")
+            .And.Contain("m.data_matricula<=a.data_avaliacao")
             .And.Contain("ExecuteScalarAsync<long?>")
             .And.Contain("Frequência rejeitada: aluno sem matrícula elegível");
+    }
+
+    [Fact]
+    public void Boletim_Nao_Inventa_Regra_De_Aprovacao_Sem_Politica()
+    {
+        var code = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Educacao/EducacaoRepository.cs"));
+        code.Should().Contain("new BoletimResponse(alunoId, null, itens)")
+            .And.Contain("'NAO_LANCADO'")
+            .And.NotContain("a.valor_maximo * 0.6")
+            .And.NotContain("notas.Average()");
     }
 
     [Fact]

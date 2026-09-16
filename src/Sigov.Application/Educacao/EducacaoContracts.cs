@@ -50,18 +50,18 @@ public sealed record ProfessorCreateRequest(long PessoaId, string CodigoProfesso
 public sealed record ProfessorTurmaRequest(long TurmaId, string ComponenteCurricular, decimal? CargaHorariaSemanal = null);
 public sealed record ProfessorResponse(long Id, long PessoaId, string CodigoProfessor, string? Formacao, string Situacao);
 
-public sealed record FrequenciaCreateRequest(long TurmaId, long AlunoId, long? ProfessorId, DateOnly DataAula, string? ComponenteCurricular, bool Presente = true, string? Justificativa = null, string Status = "PRESENTE");
+public sealed record FrequenciaCreateRequest(long TurmaId, long AlunoId, long? ProfessorId, DateOnly DataAula, string? ComponenteCurricular, bool Presente = false, string? Justificativa = null, string Status = "NAO_LANCADO");
 public sealed record EducacaoFrequenciaLancamentoRequest(long TurmaId, long AlunoId, DateOnly DataAula, string Status, long? ProfessorId = null, string? ComponenteCurricular = null, string? Justificativa = null);
 public sealed record FrequenciaFiltro(int Page = 1, int PageSize = 20, long? TurmaId = null, long? AlunoId = null, DateOnly? Inicio = null, DateOnly? Fim = null);
 public sealed record FrequenciaResponse(long Id, long TurmaId, long AlunoId, DateOnly DataAula, string? ComponenteCurricular, bool Presente, string Status);
 
-public sealed record AvaliacaoCreateRequest(long TurmaId, long? ProfessorId, string ComponenteCurricular, string Titulo, DateOnly DataAvaliacao, decimal ValorMaximo = 10m, decimal Peso = 1m, string Status = "ABERTA");
+public sealed record AvaliacaoCreateRequest(long TurmaId, long? ProfessorId, string ComponenteCurricular, string Titulo, DateOnly DataAvaliacao, decimal ValorMaximo, decimal Peso, string Status = "ABERTA");
 public sealed record NotaCreateRequest(long AlunoId, decimal Valor, string? Observacao = null);
 public sealed record EducacaoNotaLancamentoRequest(long AvaliacaoId, long AlunoId, decimal Valor, string? Observacao = null);
 public sealed record AvaliacaoResponse(long Id, long TurmaId, string ComponenteCurricular, string Titulo, DateOnly DataAvaliacao, decimal ValorMaximo, decimal Peso, string Status);
 public sealed record NotaResponse(long Id, long AvaliacaoId, long AlunoId, decimal Valor, string? Observacao);
 public sealed record BoletimItemResponse(string ComponenteCurricular, string Avaliacao, DateOnly DataAvaliacao, decimal ValorMaximo, decimal? Nota, string Situacao);
-public sealed record BoletimResponse(long AlunoId, decimal MediaGeral, IReadOnlyCollection<BoletimItemResponse> Itens);
+public sealed record BoletimResponse(long AlunoId, decimal? MediaGeral, IReadOnlyCollection<BoletimItemResponse> Itens);
 
 public sealed record PreMatriculaCreateRequest(long AlunoPessoaId, long? ResponsavelPessoaId, long? EscolaPreferencialId, int AnoLetivo, string EtapaEnsino, string? Protocolo = null, string Status = "RECEBIDA", decimal? Pontuacao = null, string? Observacao = null);
 public sealed record PreMatriculaFiltro(int Page = 1, int PageSize = 20, string? Status = null, string? Protocolo = null);

@@ -21,9 +21,10 @@
       if ($(this).valid && !$(this).valid()) return;
       const data = {};
       $(this).serializeArray().forEach(function (i) { if (i.name !== '__RequestVerificationToken') { const numeric = /(^|Id$|AnoLetivo$|Capacidade$|Valor|Peso|Pontuacao)/.test(i.name); data[i.name] = numeric && i.value !== '' ? Number(i.value) : i.value; } });
+      data.Presente = data.Status === 'PRESENTE' || data.Status === 'ABONADA';
       $.ajax({ url: endpoint, method: 'POST', contentType: 'application/json', data: JSON.stringify(data), headers: { 'RequestVerificationToken': $(this).find('input[name="__RequestVerificationToken"]').val() } })
         .done(function () { toast('success', 'Registro salvo com sucesso.'); load(); })
-        .fail(function (xhr) { toast('danger', xhr.status === 403 ? 'Sem permissão.' : 'Falha ao salvar.'); });
+        .fail(function (xhr) { const msg = xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error); toast('danger', xhr.status === 403 ? 'Sem permissão.' : (msg || 'Falha ao salvar; revise os campos informados.')); });
     });
   }
   $(function () { bind(); load(); });
