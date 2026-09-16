@@ -35,3 +35,19 @@ public sealed class RequisicaoCompraApplicationService(IRequisicaoCompraReposito
 }
 public sealed class ComprasDashboardApplicationService(IComprasDashboardRepository repository):IComprasDashboardApplicationService
 { public Task<ComprasDashboard> ObterAsync(ComprasContext c,CancellationToken ct){ComprasGuard.Context(c);return repository.ObterAsync(c.TenantId,ct);} }
+
+public sealed class RecebimentoCompraApplicationService(IRecebimentoCompraRepository repository):IRecebimentoCompraApplicationService
+{
+ public Task<CentralRecebimentos> ListarAsync(ComprasContext c,RecebimentoFiltro f,CancellationToken ct){ComprasGuard.Context(c);if(f.DataInicial.HasValue&&f.DataFinal.HasValue&&f.DataInicial>f.DataFinal)throw new ArgumentException("O período informado é inválido.");return repository.ListarAsync(c.TenantId,f,ct);}
+ public Task<PedidoParaRecebimento?> ObterPedidoAsync(ComprasContext c,Guid id,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty)throw new ArgumentException("Pedido inválido.");return repository.ObterPedidoAsync(c.TenantId,id,ct);}
+ public Task<RecebimentoCriado> CriarEConfirmarAsync(ComprasContext c,CriarRecebimentoRequest r,string key,CancellationToken ct)
+ {
+  ComprasGuard.Context(c);ComprasGuard.Key(key);
+  if(r.PedidoId==Guid.Empty||r.AlmoxarifadoId==Guid.Empty||r.PedidoVersion<=0)throw new ArgumentException("Pedido, destino e versão são obrigatórios.");
+  if(string.IsNullOrWhiteSpace(r.Documento)||r.Documento.Length>100)throw new ArgumentException("Informe o documento do recebimento.");
+  if(r.Itens.Count==0||r.Itens.Count>200||r.Itens.Any(i=>i.PedidoItemId<=0||i.Quantidade<=0||decimal.Round(i.Quantidade,4)!=i.Quantidade))throw new ArgumentException("Informe quantidades positivas com até quatro casas decimais.");
+  if(r.Itens.GroupBy(i=>i.PedidoItemId).Any(g=>g.Count()>1))throw new ArgumentException("Cada item do pedido deve ser informado uma única vez.");
+  if(r.Itens.Any(i=>i.Validade.HasValue&&!string.IsNullOrWhiteSpace(i.Lote)&&i.Validade.Value<DateOnly.FromDateTime(r.DataOperacao.UtcDateTime)))throw new ArgumentException("A validade do lote não pode ser anterior ao recebimento.");
+  return repository.CriarEConfirmarAsync(c,r,key,ct);
+ }
+}

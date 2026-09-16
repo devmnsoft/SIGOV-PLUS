@@ -217,6 +217,8 @@ public static class DependencyInjection
         services.AddScoped<IFornecedorApplicationService, FornecedorApplicationService>();
         services.AddScoped<IRequisicaoCompraApplicationService, RequisicaoCompraApplicationService>();
         services.AddScoped<IComprasDashboardApplicationService, ComprasDashboardApplicationService>();
+        services.AddScoped<IRecebimentoCompraRepository, RecebimentoCompraRepository>();
+        services.AddScoped<IRecebimentoCompraApplicationService, RecebimentoCompraApplicationService>();
         services.AddScoped<IExecutiveOperationsRepository, ExecutiveOperationsRepository>();
         services.AddScoped<ICentralExecutivaRepository, CentralExecutivaRepository>();
         services.AddScoped<ICentralExecutivaService, CentralExecutivaService>();
