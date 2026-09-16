@@ -8,6 +8,8 @@ public static class AlmoxarifadoPermissoes
     public const string Saida="almoxarifado.movimentacao.saida"; public const string RequisicaoVisualizar="almoxarifado.requisicao.visualizar";
     public const string RequisicaoCriar="almoxarifado.requisicao.criar"; public const string RequisicaoAprovar="almoxarifado.requisicao.aprovar";
     public const string RequisicaoAtender="almoxarifado.requisicao.atender"; public const string RecebimentoConfirmar="almoxarifado.recebimento.confirmar"; public const string Exportar="almoxarifado.exportar";
+    public const string TransferenciaVisualizar="almoxarifado.transferencia.visualizar"; public const string TransferenciaCriar="almoxarifado.transferencia.criar";
+    public const string TransferenciaExpedir="almoxarifado.transferencia.expedir"; public const string TransferenciaReceber="almoxarifado.transferencia.receber";
 }
 public sealed record AlmoxarifadoFiltro(string? Busca=null,bool? Ativo=null,int Pagina=1,int TamanhoPagina=25);
 public sealed record MaterialDto(long Id,long EntidadeId,string Codigo,string Descricao,string TipoMaterial,string UnidadeMedida,string? Categoria,decimal EstoqueMinimo,decimal? EstoqueMaximo,bool ControlaLote,bool ControlaValidade,bool Ativo,DateTimeOffset CreatedAt,DateTimeOffset UpdatedAt);
@@ -32,6 +34,12 @@ public sealed record RequisicaoDetalhe(RequisicaoDto Requisicao,IReadOnlyList<Re
 public sealed record BaixoEstoqueDto(string MaterialCodigo,string MaterialDescricao,string LocalNome,decimal Quantidade,decimal EstoqueMinimo);
 public sealed record AlmoxarifadoDashboard(long MateriaisAtivos,long AbaixoMinimo,long RequisicoesPendentes,long EntradasMes,long SaidasMes,long PendenciasPatrimoniais,IReadOnlyList<MovimentacaoDto> UltimosMovimentos,IReadOnlyList<BaixoEstoqueDto> BaixoEstoque);
 public sealed record AlmoxarifadoPagina<T>(IReadOnlyList<T> Itens,int Pagina,int TamanhoPagina,long Total);
+public sealed record TransferenciaItemInput(long MaterialId,decimal Quantidade,string? Lote=null,DateOnly? Validade=null);
+public sealed record TransferenciaInput(long OrigemId,long DestinoId,string Justificativa,string Responsavel,string EsferaGoverno,string IdempotencyKey,IReadOnlyList<TransferenciaItemInput> Itens);
+public sealed record TransferenciaRecebimentoItemInput(long ItemId,decimal QuantidadeRecebida,decimal QuantidadeRecusada,string? Divergencia);
+public sealed record TransferenciaRecebimentoInput(string IdempotencyKey,string? Observacao,IReadOnlyList<TransferenciaRecebimentoItemInput> Itens);
+public sealed record TransferenciaItemDto(long Id,long MaterialId,string Codigo,string Descricao,string UnidadeMedida,decimal Quantidade,decimal QuantidadeRecebida,decimal QuantidadeRecusada,string? Lote,string? Divergencia);
+public sealed record TransferenciaDto(long Id,string Status,long OrigemId,string OrigemNome,long DestinoId,string DestinoNome,string Justificativa,string Responsavel,DateTimeOffset CreatedAt,DateTimeOffset? ExpedidaEm,DateTimeOffset? RecebidaEm,IReadOnlyList<TransferenciaItemDto> Itens);
 
 public interface IAlmoxarifadoService
 {
@@ -44,5 +52,10 @@ public interface IAlmoxarifadoService
  Task ExpedirAsync(long tenantId,long entidadeId,long usuarioId,string correlationId,long entregaId,CancellationToken ct);
  Task ReceberAsync(long tenantId,long entidadeId,long usuarioId,string correlationId,long entregaId,RecebimentoInput input,CancellationToken ct);
  Task<EntregaDto?> ObterEntregaAsync(long tenantId,long entidadeId,long entregaId,CancellationToken ct);
+ Task<AlmoxarifadoPagina<TransferenciaDto>> ListarTransferenciasAsync(long tenantId,long entidadeId,string? status,int pagina,CancellationToken ct);
+ Task<TransferenciaDto?> ObterTransferenciaAsync(long tenantId,long entidadeId,long id,CancellationToken ct);
+ Task<long> CriarTransferenciaAsync(long tenantId,long entidadeId,long? exercicioId,long usuarioId,string correlationId,TransferenciaInput input,CancellationToken ct);
+ Task ExpedirTransferenciaAsync(long tenantId,long entidadeId,long usuarioId,string correlationId,long id,CancellationToken ct);
+ Task ReceberTransferenciaAsync(long tenantId,long entidadeId,long usuarioId,string correlationId,long id,TransferenciaRecebimentoInput input,CancellationToken ct);
  Task<byte[]> ExportarCsvAsync(long tenantId,long entidadeId,string tipo,long usuarioId,string correlationId,CancellationToken ct);
 }

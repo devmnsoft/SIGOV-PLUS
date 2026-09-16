@@ -2423,6 +2423,19 @@
         "20260915160000"
       ],
       "postConditionSql": "select to_regclass('sigov.compras_empresarial_recebimento_item') is not null and to_regclass('sigov.compras_empresarial_recebimento_evento') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento' and column_name='almoxarifado_id')"
+    },
+    {
+      "version": "20260916160000",
+      "description": "Transferências entre almoxarifados com expedição e recebimento parcial",
+      "category": "schema",
+      "file": "20260916160000_transferencia_almoxarifados_parcial.sql",
+      "checksum": "5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260916120000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.almoxarifado_transferencia_recebimento') is not null and to_regclass('sigov.almoxarifado_transferencia_evento') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='almoxarifado_transferencia_item' and column_name='quantidade_recebida')"
     }
   ],
   "compatibilityAfterAll": [
