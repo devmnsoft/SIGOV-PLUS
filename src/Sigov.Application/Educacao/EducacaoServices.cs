@@ -178,6 +178,14 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
         string.IsNullOrWhiteSpace(request.Motivo)
             ? Task.FromResult(Fail("Cancelamento de matrícula exige justificativa."))
             : AtualizarAsync("matricula", "cancelar", id, new { Status = "CANCELADA", Motivo = request.Motivo.Trim() }, ct);
+    async Task<Result> IMatriculaService.EnturmarAsync(long id, EnturmarMatriculaRequest request, CancellationToken ct)
+    {
+        if (request.TurmaId <= 0) return Fail("Enturmação exige turma.");
+        var guard = await GuardAsync("matricula", "enturmar", ct).ConfigureAwait(false);
+        if (guard.IsFailure || !UsuarioId.HasValue) return guard;
+        try { await _repo.EnturmarAsync(TenantId, EntidadeId, id, request, UsuarioId.Value, ct).ConfigureAwait(false); return Result.Success(); }
+        catch (InvalidOperationException ex) { return Fail(ex.Message); }
+    }
     Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct) =>
         request.NovaTurmaId <= 0 || string.IsNullOrWhiteSpace(request.Motivo)
             ? Task.FromResult(Fail("Transferência exige nova turma e justificativa."))
@@ -219,9 +227,58 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
     }
 
     Task<Result<PagedResult<PreMatriculaResponse>>> IPreMatriculaService.ListarAsync(PreMatriculaFiltro filtro, CancellationToken ct) => ListarAsync<PreMatriculaResponse>("pre_matricula_inscricao", "pre_matricula", filtro, ct);
-    Task<Result<long>> IPreMatriculaService.CriarAsync(PreMatriculaCreateRequest request, CancellationToken ct) => CriarAsync("pre_matricula_inscricao", "criar", request, ct);
-    Task<Result> IPreMatriculaService.ConverterAsync(long id, ConverterPreMatriculaRequest request, CancellationToken ct) => AtualizarAsync("pre_matricula_inscricao", "converter", id, new { Status = "CONVERTIDA_MATRICULA", request.EscolaId, request.AnoLetivoId, request.TurmaId, request.NumeroMatricula }, ct);
-    Task<Result> IPreMatriculaService.IndeferirAsync(long id, CancellationToken ct) => AtualizarAsync("pre_matricula_inscricao", "editar", id, new { Status = "INDEFERIDA" }, ct);
+    Task<Result<long>> IPreMatriculaService.CriarAsync(PreMatriculaCreateRequest request, CancellationToken ct) =>
+        request.AlunoPessoaId <= 0 || request.AnoLetivo <= 0 || string.IsNullOrWhiteSpace(request.EtapaEnsino)
+            ? Task.FromResult(Fail<long>("Pré-matrícula exige aluno, ano letivo e etapa."))
+            : CriarAsync("pre_matricula_inscricao", "criar", request with { Status = "RASCUNHO" }, ct);
+
+    Task<Result> IPreMatriculaService.EditarRascunhoAsync(long id, PreMatriculaEdicaoRequest request, CancellationToken ct) =>
+        ExecutarPreMatriculaAsync(id, "editar", request.Versao, new { StatusEsperado = "RASCUNHO", request.ResponsavelPessoaId, request.EscolaPreferencialId, request.AnoLetivo, request.EtapaEnsino, request.Turno, request.Observacao }, ct);
+
+    Task<Result> IPreMatriculaService.TransicionarAsync(long id, string destino, PreMatriculaTransicaoRequest request, CancellationToken ct)
+    {
+        var normalizado = destino.Trim().ToUpperInvariant();
+        var permitidos = new[] { "EM_ANALISE", "COMPLEMENTACAO_PENDENTE", "APROVADA", "CANCELADA" };
+        if (!permitidos.Contains(normalizado, StringComparer.Ordinal)) return Task.FromResult(Fail("Transição de pré-matrícula inválida."));
+        if ((normalizado is "COMPLEMENTACAO_PENDENTE" or "CANCELADA") && string.IsNullOrWhiteSpace(request.Motivo)) return Task.FromResult(Fail("A transição exige motivo."));
+        return ExecutarPreMatriculaAsync(id, "editar", request.Versao, new { Status = normalizado, Motivo = request.Motivo?.Trim(), request.ResponsavelAnaliseId }, ct);
+    }
+
+    async Task<Result<long>> IPreMatriculaService.CriarOfertaAsync(OfertaVagaRequest request, CancellationToken ct)
+    {
+        var guard = await GuardAsync("pre_matricula", "deferir", ct).ConfigureAwait(false);
+        if (guard.IsFailure || !UsuarioId.HasValue) return Fail<long>(guard.Error ?? "Operação bloqueada.");
+        try { return Result<long>.Success(await _repo.CriarOfertaAsync(TenantId, EntidadeId, request, UsuarioId.Value, ct).ConfigureAwait(false)); }
+        catch (InvalidOperationException ex) { return Fail<long>(ex.Message); }
+    }
+
+    async Task<Result> IPreMatriculaService.DecidirOfertaAsync(long ofertaId, OfertaVagaDecisaoRequest request, CancellationToken ct)
+    {
+        var guard = await GuardAsync("pre_matricula", "editar", ct).ConfigureAwait(false);
+        if (guard.IsFailure || !UsuarioId.HasValue) return guard;
+        try { await _repo.DecidirOfertaAsync(TenantId, EntidadeId, ofertaId, request, UsuarioId.Value, ct).ConfigureAwait(false); return Result.Success(); }
+        catch (InvalidOperationException ex) { return Fail(ex.Message); }
+    }
+
+    async Task<Result> IPreMatriculaService.ConverterAsync(long id, ConverterPreMatriculaRequest request, CancellationToken ct)
+    {
+        var guard = await GuardAsync("pre_matricula", "converter", ct).ConfigureAwait(false);
+        if (guard.IsFailure || !UsuarioId.HasValue) return guard;
+        try { await _repo.ConverterOfertaAsync(TenantId, EntidadeId, ExercicioId, id, request, UsuarioId.Value, ct).ConfigureAwait(false); return Result.Success(); }
+        catch (InvalidOperationException ex) { return Fail(ex.Message); }
+    }
+
+    Task<Result> IPreMatriculaService.IndeferirAsync(long id, PreMatriculaTransicaoRequest request, CancellationToken ct) =>
+        string.IsNullOrWhiteSpace(request.Motivo) ? Task.FromResult(Fail("Indeferimento exige motivo.")) : ExecutarPreMatriculaAsync(id, "deferir", request.Versao, new { Status = "INDEFERIDA", Motivo = request.Motivo.Trim(), request.ResponsavelAnaliseId }, ct);
+
+    private async Task<Result> ExecutarPreMatriculaAsync(long id, string acao, long versao, object request, CancellationToken ct)
+    {
+        if (versao <= 0) return Fail("Versão da pré-matrícula é obrigatória.");
+        var guard = await GuardAsync("pre_matricula", acao, ct).ConfigureAwait(false);
+        if (guard.IsFailure) return guard;
+        try { await _repo.AtualizarPreMatriculaAsync(TenantId, EntidadeId, id, request, versao, UsuarioId, ct).ConfigureAwait(false); return Result.Success(); }
+        catch (InvalidOperationException ex) { return Fail(ex.Message); }
+    }
 
     Task<Result<PagedResult<EducacensoRegistroResponse>>> IEducacensoService.ListarAsync(EscolaFiltro filtro, CancellationToken ct) => ListarAsync<EducacensoRegistroResponse>("educacenso_registro", "educacenso", filtro, ct);
     Task<Result<long>> IEducacensoService.CriarAsync(EducacensoRegistroRequest request, CancellationToken ct) => CriarAsync("educacenso_registro", "registrar", request, ct);

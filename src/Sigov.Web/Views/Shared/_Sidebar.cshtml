@@ -106,8 +106,11 @@
       <a class="sigov-nav-link@(active("/Transito"))" href="/Transito/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard de Trânsito</span></a>
       <a class="sigov-nav-link" href="/Transito/Autos"><span>Autos e notificações</span></a><a class="sigov-nav-link" href="/Transito/Ocorrencias"><span>Fiscalização</span></a><a class="sigov-nav-link" href="/Transito/Linhas"><span>Transporte urbano</span></a><a class="sigov-nav-link" href="/Transito/Relatorios"><span>Relatórios</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Educacao/Secretaria","/Educacao/Diario","/Educacao/Portal"})><summary><sigov-icon name="education" size="16" />Educação • Bloco 3</summary>
-      <a class="sigov-nav-link@(active("/Educacao/Secretaria"))" href="/Educacao/Secretaria"><sigov-icon name="dashboard" size="18"/><span>Secretaria Escolar</span></a>
+    <details class="sigov-nav-group" @opened(new[]{"/Educacao/Secretaria","/Educacao/Diario","/Educacao/Portal","/Educacao/PreMatriculas","/Educacao/Matriculas","/Educacao/Turmas"})><summary><sigov-icon name="education" size="16" />Educação</summary>
+      <a class="sigov-nav-link@(active("/Educacao/Dashboard"))" href="/Educacao/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Visão geral</span></a>
+      <a class="sigov-nav-link@(active("/Educacao/PreMatriculas"))" href="/Educacao/PreMatriculas"><sigov-icon name="workflow" size="18"/><span>Ingresso e vagas</span></a>
+      <a class="sigov-nav-link@(active("/Educacao/Matriculas"))" href="/Educacao/Matriculas"><sigov-icon name="users" size="18"/><span>Matrículas e turmas</span></a>
+      <a class="sigov-nav-link@(active("/Educacao/Secretaria"))" href="/Educacao/Secretaria"><sigov-icon name="settings" size="18"/><span>Cadastros e configurações</span></a>
       <a class="sigov-nav-link@(active("/Educacao/DocumentosEscolares"))" href="/Educacao/DocumentosEscolares"><sigov-icon name="documents" size="18"/><span>Documentos Escolares</span></a>
       <a class="sigov-nav-link@(active("/Educacao/SolicitacoesEscolares"))" href="/Educacao/SolicitacoesEscolares"><sigov-icon name="workflow" size="18"/><span>Solicitações Escolares</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PendenciasDocumentais"))" href="/Educacao/PendenciasDocumentais"><sigov-icon name="notifications" size="18"/><span>Pendências Documentais</span></a>
@@ -117,6 +120,8 @@
       <a class="sigov-nav-link@(active("/Educacao/DiarioFrequencia"))" href="/Educacao/DiarioFrequencia"><sigov-icon name="active" size="18"/><span>Frequência do Diário</span></a>
       <a class="sigov-nav-link@(active("/Educacao/DiarioConteudo"))" href="/Educacao/DiarioConteudo"><sigov-icon name="education" size="18"/><span>Conteúdo Ministrado</span></a>
       <a class="sigov-nav-link@(active("/Educacao/DiarioPendencias"))" href="/Educacao/DiarioPendencias"><sigov-icon name="notifications" size="18"/><span>Pendências do Diário</span></a>
+      <a class="sigov-nav-link@(active("/Educacao/Avaliacoes"))" href="/Educacao/Avaliacoes"><sigov-icon name="audit" size="18"/><span>Avaliações e resultados</span></a>
+      <a class="sigov-nav-link@(active("/Educacao/Relatorios"))" href="/Educacao/Relatorios"><sigov-icon name="documents" size="18"/><span>Relatórios</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PortalResponsavel"))" href="/Educacao/PortalResponsavel"><sigov-icon name="users" size="18"/><span>Portal Responsável</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PortalAluno"))" href="/Educacao/PortalAluno"><sigov-icon name="home" size="18"/><span>Portal Aluno</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PortalBoletim"))" href="/Educacao/PortalBoletim"><sigov-icon name="documents" size="18"/><span>Boletim</span></a>

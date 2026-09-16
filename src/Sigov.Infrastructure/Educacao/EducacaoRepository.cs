@@ -188,6 +188,94 @@ order by a.data_avaliacao desc, a.id desc;";
         return Task.FromResult($"{prefixo}-{ano}-000001");
     }
 
+    public async Task AtualizarPreMatriculaAsync(long tenantId, long entidadeId, long id, object request, long versao, long? usuarioId, CancellationToken ct)
+    {
+        var p = ToDictionary(request);
+        p["TenantId"] = tenantId; p["EntidadeId"] = entidadeId; p["Id"] = id; p["Versao"] = versao; p["UsuarioId"] = usuarioId;
+        using var connection = (NpgsqlConnection)_context.CreateConnection();
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var atual = await connection.QuerySingleOrDefaultAsync<dynamic>(new CommandDefinition(@"select status, versao from sigov.pre_matricula_inscricao where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and not is_deleted for update", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (atual is null) throw new InvalidOperationException("Pré-matrícula não encontrada no contexto autorizado.");
+        if ((long)atual.versao != versao) throw new InvalidOperationException("A pré-matrícula foi alterada por outra pessoa. Recarregue os dados; seu conteúdo não foi sobrescrito.");
+        if (p.TryGetValue("StatusEsperado", out var esperado) && !string.Equals((string)atual.status, Convert.ToString(esperado, System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)) throw new InvalidOperationException("Somente pré-matrícula em rascunho pode ser editada.");
+        var destino = p.TryGetValue("Status", out var value) ? Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) : null;
+        if (destino is not null && !TransicaoPermitida((string)atual.status, destino)) throw new InvalidOperationException("Transição incompatível com o estado atual da pré-matrícula.");
+        const string sql = @"update sigov.pre_matricula_inscricao set
+status=coalesce(@Status,status), responsavel_pessoa_id=coalesce(@ResponsavelPessoaId,responsavel_pessoa_id),
+escola_preferencial_id=coalesce(@EscolaPreferencialId,escola_preferencial_id), ano_letivo=coalesce(@AnoLetivo,ano_letivo),
+etapa_ensino=coalesce(@EtapaEnsino,etapa_ensino), turno=coalesce(@Turno,turno),
+observacao=coalesce(@Observacao,@Motivo,observacao), responsavel_analise_id=coalesce(@ResponsavelAnaliseId,responsavel_analise_id),
+versao=versao+1, updated_by=@UsuarioId where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and versao=@Versao";
+        foreach (var key in new[] { "Status", "ResponsavelPessoaId", "EscolaPreferencialId", "AnoLetivo", "EtapaEnsino", "Turno", "Observacao", "Motivo", "ResponsavelAnaliseId" }) if (!p.ContainsKey(key)) p[key] = null;
+        if (await connection.ExecuteAsync(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false) != 1) throw new InvalidOperationException("Conflito de edição da pré-matrícula.");
+        await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, "PreMatriculaTransicionada", "pre_matricula_inscricao", id, p, usuarioId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task<long> CriarOfertaAsync(long tenantId, long entidadeId, OfertaVagaRequest request, long usuarioId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection(); await connection.OpenAsync(ct).ConfigureAwait(false); await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var p = new { TenantId=tenantId, EntidadeId=entidadeId, request.PreMatriculaId, request.EscolaId, request.AnoLetivoId, request.SerieAnoId, request.Turno, request.Inicio, request.ValidaAte, request.VersaoPreMatricula, UsuarioId=usuarioId };
+        await connection.ExecuteAsync(new CommandDefinition("select pg_advisory_xact_lock(hashtextextended(concat_ws(':',@TenantId,@EntidadeId,@EscolaId,@AnoLetivoId,@SerieAnoId,@Turno),0))", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var id = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(@"with capacidade as (
+ select coalesce(sum(t.capacidade),0) total, coalesce(sum(t.vagas_ocupadas),0) ocupadas
+ from sigov.turma t where t.tenant_id=@TenantId and t.entidade_id=@EntidadeId and t.escola_id=@EscolaId
+ and t.ano_letivo_id=@AnoLetivoId and t.serie_ano_id=@SerieAnoId and t.turno=@Turno and t.status in ('PLANEJADA','ABERTA') and not t.is_deleted),
+reservas as (select count(*) total from sigov.educacao_oferta_vaga where tenant_id=@TenantId and entidade_id=@EntidadeId and escola_id=@EscolaId and ano_letivo_id=@AnoLetivoId and serie_ano_id=@SerieAnoId and turno=@Turno and status in ('OFERTADA','ACEITA') and (valida_ate is null or valida_ate>now()) and not is_deleted),
+solicitacao as (
+ update sigov.pre_matricula_inscricao set status='OFERTA_REALIZADA',versao=versao+1,updated_by=@UsuarioId
+ where id=@PreMatriculaId and tenant_id=@TenantId and entidade_id=@EntidadeId and versao=@VersaoPreMatricula and status='APROVADA'
+ and exists(select 1 from capacidade c,reservas r where c.total>c.ocupadas+r.total) returning id)
+insert into sigov.educacao_oferta_vaga(tenant_id,entidade_id,pre_matricula_id,escola_id,ano_letivo_id,serie_ano_id,turno,inicio,valida_ate,status,responsavel_id,created_by)
+select @TenantId,@EntidadeId,id,@EscolaId,@AnoLetivoId,@SerieAnoId,@Turno,@Inicio,@ValidaAte,'OFERTADA',@UsuarioId,@UsuarioId from solicitacao returning id", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (!id.HasValue) throw new InvalidOperationException("Oferta rejeitada: solicitação alterada, não aprovada ou fora do contexto.");
+        await tx.CommitAsync(ct).ConfigureAwait(false); return id.Value;
+    }
+
+    public async Task DecidirOfertaAsync(long tenantId, long entidadeId, long id, OfertaVagaDecisaoRequest request, long usuarioId, CancellationToken ct)
+    {
+        var decisao = request.Decisao.Trim().ToUpperInvariant();
+        if (decisao is not ("ACEITA" or "RECUSADA")) throw new InvalidOperationException("Decisão da oferta deve ser ACEITA ou RECUSADA.");
+        if (decisao == "RECUSADA" && string.IsNullOrWhiteSpace(request.Motivo)) throw new InvalidOperationException("Recusa exige motivo.");
+        using var connection = _context.CreateConnection();
+        var count = await connection.ExecuteAsync(Command(@"update sigov.educacao_oferta_vaga set status=@Decisao,motivo_decisao=@Motivo,decidida_em=now(),updated_by=@UsuarioId
+where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and status='OFERTADA' and (valida_ate is null or valida_ate>now())", new { TenantId=tenantId, EntidadeId=entidadeId, Id=id, Decisao=decisao, request.Motivo, UsuarioId=usuarioId }, ct)).ConfigureAwait(false);
+        if (count != 1) throw new InvalidOperationException("Oferta indisponível, já decidida ou expirada.");
+    }
+
+    public async Task<long> ConverterOfertaAsync(long tenantId, long entidadeId, long? exercicioId, long preMatriculaId, ConverterPreMatriculaRequest request, long usuarioId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection(); await connection.OpenAsync(ct).ConfigureAwait(false); await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var p = new { TenantId=tenantId, EntidadeId=entidadeId, ExercicioId=exercicioId, PreMatriculaId=preMatriculaId, request.OfertaId, request.TurmaId, request.NumeroMatricula, request.DataMatricula, UsuarioId=usuarioId };
+        var id = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(@"select sigov.fn_educacao_converter_oferta(@TenantId,@EntidadeId,@ExercicioId,@PreMatriculaId,@OfertaId,@TurmaId,@NumeroMatricula,@DataMatricula,@UsuarioId)", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (!id.HasValue || id <= 0) throw new InvalidOperationException("Não foi possível converter a oferta em matrícula.");
+        await tx.CommitAsync(ct).ConfigureAwait(false); return id.Value;
+    }
+
+    public async Task EnturmarAsync(long tenantId, long entidadeId, long matriculaId, EnturmarMatriculaRequest request, long usuarioId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection(); await connection.OpenAsync(ct).ConfigureAwait(false); await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var p = new { TenantId=tenantId, EntidadeId=entidadeId, MatriculaId=matriculaId, request.TurmaId, request.DataEntrada, UsuarioId=usuarioId };
+        var count = await connection.ExecuteAsync(new CommandDefinition(@"with turma_valida as (
+ select t.id from sigov.turma t join sigov.matricula m on m.id=@MatriculaId and m.tenant_id=t.tenant_id and m.entidade_id=t.entidade_id
+ where t.id=@TurmaId and t.tenant_id=@TenantId and t.entidade_id=@EntidadeId and t.escola_id=m.escola_id and t.ano_letivo_id=m.ano_letivo_id
+ and t.status='ABERTA' and t.vagas_ocupadas<t.capacidade and m.status='ATIVA' and m.turma_id is null and @DataEntrada>=m.data_matricula and not t.is_deleted and not m.is_deleted for update),
+ocupada as (update sigov.turma set vagas_ocupadas=vagas_ocupadas+1,updated_by=@UsuarioId where id in(select id from turma_valida) returning id)
+update sigov.matricula set turma_id=@TurmaId,data_enturmacao=@DataEntrada,updated_by=@UsuarioId where id=@MatriculaId and tenant_id=@TenantId and entidade_id=@EntidadeId and turma_id is null and exists(select 1 from ocupada)", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (count != 1) throw new InvalidOperationException("Enturmação rejeitada: matrícula já enturmada, turma incompatível, encerrada, sem vaga ou data inválida.");
+        await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, "MatriculaEnturmada", "matricula", matriculaId, p, usuarioId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    private static bool TransicaoPermitida(string origem, string destino) => (origem, destino) switch
+    {
+        ("RASCUNHO", "EM_ANALISE") or ("RASCUNHO", "CANCELADA") or ("COMPLEMENTACAO_PENDENTE", "EM_ANALISE") or
+        ("COMPLEMENTACAO_PENDENTE", "CANCELADA") or ("EM_ANALISE", "COMPLEMENTACAO_PENDENTE") or
+        ("EM_ANALISE", "APROVADA") or ("EM_ANALISE", "INDEFERIDA") or ("EM_ANALISE", "CANCELADA") => true,
+        _ => false
+    };
+
     private static (int Page, int PageSize, int Limit, int Offset) Page(object filtro)
     {
         var dict = ToDictionary(filtro);
@@ -254,7 +342,7 @@ order by a.data_avaliacao desc, a.id desc;";
         "diario_frequencia" => "id, turma_id as TurmaId, aluno_id as AlunoId, data_aula as DataAula, componente_curricular as ComponenteCurricular, presente, situacao as Status",
         "avaliacao" => "id, turma_id as TurmaId, componente_curricular as ComponenteCurricular, titulo, data_avaliacao as DataAvaliacao, valor_maximo as ValorMaximo, peso, status",
         "nota" => "id, avaliacao_id as AvaliacaoId, aluno_id as AlunoId, valor, observacao",
-        "pre_matricula_inscricao" => "id, protocolo, aluno_pessoa_id as AlunoPessoaId, ano_letivo as AnoLetivo, etapa_ensino as EtapaEnsino, status, pontuacao",
+        "pre_matricula_inscricao" => "id, protocolo, aluno_pessoa_id as AlunoPessoaId, responsavel_pessoa_id as ResponsavelPessoaId, escola_preferencial_id as EscolaPreferencialId, ano_letivo as AnoLetivo, etapa_ensino as EtapaEnsino, turno, status, pontuacao, versao, responsavel_analise_id as ResponsavelAnaliseId, observacao",
         "educacenso_registro" => "id, tipo_registro as TipoRegistro, status, payload as Payload, erro",
         _ => "*"
     };
@@ -268,6 +356,11 @@ order by a.data_avaliacao desc, a.id desc;";
         if (d.TryGetValue("EscolaId", out var escola) && escola is not null) sql.Append(" and escola_id = @EscolaId");
         if (d.TryGetValue("AlunoId", out var aluno) && aluno is not null) sql.Append(" and aluno_id = @AlunoId");
         if (d.TryGetValue("TurmaId", out var turma) && turma is not null) sql.Append(" and turma_id = @TurmaId");
+        if (recurso == "pre_matricula_inscricao" && d.TryGetValue("EtapaEnsino", out var etapa) && etapa is not null) sql.Append(" and etapa_ensino = @EtapaEnsino");
+        if (recurso == "pre_matricula_inscricao" && d.TryGetValue("Turno", out var turno) && turno is not null) sql.Append(" and turno = @Turno");
+        if (recurso == "pre_matricula_inscricao" && d.TryGetValue("AnoLetivo", out var ano) && ano is not null) sql.Append(" and ano_letivo = @AnoLetivo");
+        if (recurso == "pre_matricula_inscricao" && d.TryGetValue("ResponsavelAnaliseId", out var responsavel) && responsavel is not null) sql.Append(" and responsavel_analise_id = @ResponsavelAnaliseId");
+        if (recurso == "pre_matricula_inscricao" && d.TryGetValue("Protocolo", out var protocolo) && !string.IsNullOrWhiteSpace(Convert.ToString(protocolo, System.Globalization.CultureInfo.InvariantCulture))) sql.Append(" and protocolo ilike '%' || @Protocolo || '%'");
         return sql.ToString();
     }
 
@@ -302,7 +395,7 @@ join sigov.professor_turma pt on pt.tenant_id=m.tenant_id and pt.entidade_id=m.e
 	 and upper(pt.componente_curricular)=upper(@ComponenteCurricular)
 where m.tenant_id=@TenantId and m.entidade_id=@EntidadeId and m.turma_id=@TurmaId and m.aluno_id=@AlunoId
   and m.status in ('ATIVA','CONFIRMADA') and not m.is_deleted
-  and @DataAula between greatest(m.data_matricula,l.data_inicio) and l.data_fim
+  and @DataAula between greatest(m.data_matricula,coalesce(m.data_enturmacao,m.data_matricula),l.data_inicio) and l.data_fim
   and l.status <> 'ENCERRADO'
 returning id",
         "avaliacao" => @"insert into sigov.avaliacao
@@ -327,7 +420,7 @@ where a.tenant_id=@TenantId and a.entidade_id=@EntidadeId and a.id=@AvaliacaoId 
  and m.status in ('ATIVA','CONFIRMADA','TRANSFERIDA','CONCLUIDA')
  and m.data_matricula<=a.data_avaliacao
 returning id",
-        "pre_matricula_inscricao" => "insert into sigov.pre_matricula_inscricao (tenant_id,entidade_id,exercicio_id,escola_preferencial_id,aluno_pessoa_id,responsavel_pessoa_id,protocolo,ano_letivo,etapa_ensino,status,pontuacao,observacao,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@EscolaPreferencialId,@AlunoPessoaId,@ResponsavelPessoaId,@Protocolo,@AnoLetivo,@EtapaEnsino,@Status,@Pontuacao,@Observacao,@UsuarioId) returning id",
+        "pre_matricula_inscricao" => "insert into sigov.pre_matricula_inscricao (tenant_id,entidade_id,exercicio_id,escola_preferencial_id,aluno_pessoa_id,responsavel_pessoa_id,protocolo,ano_letivo,etapa_ensino,turno,status,pontuacao,observacao,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@EscolaPreferencialId,@AlunoPessoaId,@ResponsavelPessoaId,@Protocolo,@AnoLetivo,@EtapaEnsino,@Turno,'RASCUNHO',@Pontuacao,@Observacao,@UsuarioId) returning id",
         "educacenso_registro" => "insert into sigov.educacenso_registro (tenant_id,entidade_id,exercicio_id,escola_id,aluno_id,turma_id,tipo_registro,status,payload,created_by) values (@TenantId,@EntidadeId,@ExercicioId,@EscolaId,@AlunoId,@TurmaId,@TipoRegistro,@Status,cast(@PayloadJson as jsonb),@UsuarioId) returning id",
         _ => throw new InvalidOperationException("Recurso de Educação não mapeado.")
     };

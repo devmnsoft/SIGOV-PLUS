@@ -45,6 +45,7 @@ public sealed record TransferirMatriculaRequest(long NovaTurmaId, string? Motivo
 public sealed record EducacaoConfirmarMatriculaRequest(string? Observacao = null);
 public sealed record EducacaoTransferirMatriculaRequest(long NovaTurmaId, string Motivo);
 public sealed record EducacaoCancelarMatriculaRequest(string Motivo);
+public sealed record EnturmarMatriculaRequest(long TurmaId, DateOnly DataEntrada);
 
 public sealed record ProfessorCreateRequest(long PessoaId, string CodigoProfessor, long? ServidorId = null, string? Formacao = null, string Situacao = "ATIVO");
 public sealed record ProfessorTurmaRequest(long TurmaId, string ComponenteCurricular, decimal? CargaHorariaSemanal = null);
@@ -63,10 +64,16 @@ public sealed record NotaResponse(long Id, long AvaliacaoId, long AlunoId, decim
 public sealed record BoletimItemResponse(string ComponenteCurricular, string Avaliacao, DateOnly DataAvaliacao, decimal ValorMaximo, decimal? Nota, string Situacao);
 public sealed record BoletimResponse(long AlunoId, decimal? MediaGeral, IReadOnlyCollection<BoletimItemResponse> Itens);
 
-public sealed record PreMatriculaCreateRequest(long AlunoPessoaId, long? ResponsavelPessoaId, long? EscolaPreferencialId, int AnoLetivo, string EtapaEnsino, string? Protocolo = null, string Status = "RECEBIDA", decimal? Pontuacao = null, string? Observacao = null);
-public sealed record PreMatriculaFiltro(int Page = 1, int PageSize = 20, string? Status = null, string? Protocolo = null);
-public sealed record PreMatriculaResponse(long Id, string Protocolo, long AlunoPessoaId, int AnoLetivo, string EtapaEnsino, string Status, decimal? Pontuacao);
-public sealed record ConverterPreMatriculaRequest(long EscolaId, long AnoLetivoId, long TurmaId, string? NumeroMatricula = null);
+public sealed record PreMatriculaCreateRequest(long AlunoPessoaId, long? ResponsavelPessoaId, long? EscolaPreferencialId, int AnoLetivo, string EtapaEnsino, string? Turno = null, string? Protocolo = null, string Status = "RASCUNHO", decimal? Pontuacao = null, string? Observacao = null);
+public sealed record PreMatriculaFiltro(int Page = 1, int PageSize = 20, string? Status = null, string? Protocolo = null, long? EscolaId = null, string? EtapaEnsino = null, string? Turno = null, int? AnoLetivo = null, long? ResponsavelAnaliseId = null, bool? ComPendencia = null);
+public sealed record PreMatriculaResponse(long Id, string Protocolo, long AlunoPessoaId, long? ResponsavelPessoaId, long? EscolaPreferencialId, int AnoLetivo, string EtapaEnsino, string? Turno, string Status, decimal? Pontuacao, long Versao, long? ResponsavelAnaliseId, string? Observacao);
+public sealed record PreMatriculaTransicaoRequest(long Versao, string? Motivo = null, long? ResponsavelAnaliseId = null);
+public sealed record PreMatriculaEdicaoRequest(long Versao, long? ResponsavelPessoaId, long? EscolaPreferencialId, int AnoLetivo, string EtapaEnsino, string? Turno, string? Observacao);
+public sealed record PreMatriculaPendenciaRequest(long Versao, string Requisito, string Observacao);
+public sealed record OfertaVagaRequest(long PreMatriculaId, long EscolaId, long AnoLetivoId, long SerieAnoId, string Turno, DateOnly Inicio, DateTimeOffset? ValidaAte, long VersaoPreMatricula);
+public sealed record OfertaVagaDecisaoRequest(string Decisao, string? Motivo = null);
+public sealed record OfertaVagaResponse(long Id, long PreMatriculaId, long EscolaId, long AnoLetivoId, long SerieAnoId, string Turno, DateOnly Inicio, DateTimeOffset? ValidaAte, string Status, long ResponsavelId);
+public sealed record ConverterPreMatriculaRequest(long OfertaId, long? TurmaId = null, string? NumeroMatricula = null, DateOnly? DataMatricula = null);
 
 public sealed record EducacensoRegistroRequest(string TipoRegistro, string Status = "PENDENTE", Dictionary<string, object?>? Payload = null, long? EscolaId = null, long? AlunoId = null, long? TurmaId = null);
 public sealed record EducacensoRegistroResponse(long Id, string TipoRegistro, string Status, Dictionary<string, object?> Payload, string? Erro);
@@ -83,6 +90,11 @@ public interface IEducacaoRepository
     Task<EducacaoDashboardResponse> DashboardAsync(long tenantId, long entidadeId, CancellationToken ct);
     Task<byte[]> ExportarAsync(long tenantId, long entidadeId, string recurso, string formato, CancellationToken ct);
     Task<BoletimResponse> ObterBoletimAsync(long tenantId, long entidadeId, long alunoId, CancellationToken ct);
+    Task AtualizarPreMatriculaAsync(long tenantId, long entidadeId, long id, object request, long versao, long? usuarioId, CancellationToken ct);
+    Task<long> CriarOfertaAsync(long tenantId, long entidadeId, OfertaVagaRequest request, long usuarioId, CancellationToken ct);
+    Task DecidirOfertaAsync(long tenantId, long entidadeId, long id, OfertaVagaDecisaoRequest request, long usuarioId, CancellationToken ct);
+    Task<long> ConverterOfertaAsync(long tenantId, long entidadeId, long? exercicioId, long preMatriculaId, ConverterPreMatriculaRequest request, long usuarioId, CancellationToken ct);
+    Task EnturmarAsync(long tenantId, long entidadeId, long matriculaId, EnturmarMatriculaRequest request, long usuarioId, CancellationToken ct);
 }
 
 public interface IEscolaRepository : IEducacaoRepository { }
@@ -105,12 +117,12 @@ public interface IAnoLetivoService { Task<Result<PagedResult<AnoLetivoResponse>>
 public interface ICursoService { Task<Result<PagedResult<CursoResponse>>> ListarAsync(EscolaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(CursoCreateRequest request, CancellationToken ct); Task<Result<long>> CriarSerieAsync(long cursoId, SerieAnoCreateRequest request, CancellationToken ct); }
 public interface ITurmaService { Task<Result<PagedResult<TurmaResponse>>> ListarAsync(TurmaFiltro filtro, CancellationToken ct); Task<Result<TurmaResponse>> ObterAsync(long id, CancellationToken ct); Task<Result<long>> CriarAsync(TurmaCreateRequest request, CancellationToken ct); Task<Result> AtualizarAsync(long id, TurmaUpdateRequest request, CancellationToken ct); Task<Result> ExcluirAsync(long id, CancellationToken ct); }
 public interface IAlunoService { Task<Result<PagedResult<AlunoResumoResponse>>> ListarAsync(AlunoFiltro filtro, CancellationToken ct); Task<Result<AlunoDetalheResponse>> ObterAsync(long id, CancellationToken ct); Task<Result<long>> CriarAsync(AlunoCreateRequest request, CancellationToken ct); Task<Result> AtualizarAsync(long id, AlunoUpdateRequest request, CancellationToken ct); Task<Result> ExcluirAsync(long id, CancellationToken ct); Task<Result<long>> AdicionarResponsavelAsync(long alunoId, ResponsavelAlunoRequest request, CancellationToken ct); }
-public interface IMatriculaService { Task<Result<PagedResult<MatriculaResponse>>> ListarAsync(MatriculaFiltro filtro, CancellationToken ct); Task<Result<MatriculaResponse>> ObterAsync(long id, CancellationToken ct); Task<Result<long>> CriarAsync(MatriculaCreateRequest request, CancellationToken ct); Task<Result> ConfirmarAsync(long id, EducacaoConfirmarMatriculaRequest request, CancellationToken ct); Task<Result> CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct); Task<Result> TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct); }
+public interface IMatriculaService { Task<Result<PagedResult<MatriculaResponse>>> ListarAsync(MatriculaFiltro filtro, CancellationToken ct); Task<Result<MatriculaResponse>> ObterAsync(long id, CancellationToken ct); Task<Result<long>> CriarAsync(MatriculaCreateRequest request, CancellationToken ct); Task<Result> ConfirmarAsync(long id, EducacaoConfirmarMatriculaRequest request, CancellationToken ct); Task<Result> EnturmarAsync(long id, EnturmarMatriculaRequest request, CancellationToken ct); Task<Result> CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct); Task<Result> TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct); }
 public interface IProfessorService { Task<Result<PagedResult<ProfessorResponse>>> ListarAsync(EscolaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(ProfessorCreateRequest request, CancellationToken ct); Task<Result<long>> VincularTurmaAsync(long professorId, ProfessorTurmaRequest request, CancellationToken ct); }
 public interface IFrequenciaService { Task<Result<PagedResult<FrequenciaResponse>>> ListarAsync(FrequenciaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(FrequenciaCreateRequest request, CancellationToken ct); }
 public interface IAvaliacaoService { Task<Result<PagedResult<AvaliacaoResponse>>> ListarAsync(TurmaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct); Task<Result<long>> RegistrarNotaAsync(long avaliacaoId, NotaCreateRequest request, CancellationToken ct); }
 public interface IBoletimService { Task<Result<BoletimResponse>> ObterAsync(long alunoId, CancellationToken ct); }
-public interface IPreMatriculaService { Task<Result<PagedResult<PreMatriculaResponse>>> ListarAsync(PreMatriculaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(PreMatriculaCreateRequest request, CancellationToken ct); Task<Result> ConverterAsync(long id, ConverterPreMatriculaRequest request, CancellationToken ct); Task<Result> IndeferirAsync(long id, CancellationToken ct); }
+public interface IPreMatriculaService { Task<Result<PagedResult<PreMatriculaResponse>>> ListarAsync(PreMatriculaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(PreMatriculaCreateRequest request, CancellationToken ct); Task<Result> EditarRascunhoAsync(long id, PreMatriculaEdicaoRequest request, CancellationToken ct); Task<Result> TransicionarAsync(long id, string destino, PreMatriculaTransicaoRequest request, CancellationToken ct); Task<Result<long>> CriarOfertaAsync(OfertaVagaRequest request, CancellationToken ct); Task<Result> DecidirOfertaAsync(long ofertaId, OfertaVagaDecisaoRequest request, CancellationToken ct); Task<Result> ConverterAsync(long id, ConverterPreMatriculaRequest request, CancellationToken ct); Task<Result> IndeferirAsync(long id, PreMatriculaTransicaoRequest request, CancellationToken ct); }
 public interface IEducacensoService { Task<Result<PagedResult<EducacensoRegistroResponse>>> ListarAsync(EscolaFiltro filtro, CancellationToken ct); Task<Result<long>> CriarAsync(EducacensoRegistroRequest request, CancellationToken ct); Task<Result> ValidarDevAsync(long id, CancellationToken ct); }
 public interface IEducacaoDashboardService { Task<Result<EducacaoDashboardResponse>> ObterAsync(CancellationToken ct); }
 public interface IEducacaoExportacaoService { Task<Result<byte[]>> ExportarAsync(string recurso, string formato, CancellationToken ct); }
