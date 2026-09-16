@@ -149,7 +149,7 @@ public sealed class MinhaCentralViewModel
 
 public sealed record AcaoRecomendadaViewModel(string Titulo, string Descricao, string Url, string CssClass);
 public sealed record ModuloResumoViewModel(string Codigo, string Nome, string Status);
-public sealed record PendenciaViewModel(string Titulo, string Descricao, string Url, DateTimeOffset? Prazo);
+public sealed record PendenciaViewModel(string Modulo, string Identificacao, string Titulo, string Descricao, string Url, DateTimeOffset? Prazo);
 public sealed record AlertaLgpdViewModel(string Titulo, string Descricao);
 public sealed class AtividadeRecenteViewModel
 {

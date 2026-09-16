@@ -149,3 +149,14 @@ Negativos cobertos no código: intervalo inválido, ordem concluída, responsáv
 | Impressão | comprovante sem navegação/botões em `@media print` | dados nominais de material/local | navegador indisponível | bloqueada |
 
 Model binding de linhas dinâmicas, antiforgery, limites decimais, SQL parametrizado, contagem de linhas, retry e locks estão presentes no código. Testes runtime de sessão expirada, módulo suspenso, referência de outro tenant, concorrência com Indústria/Manutenção e seis larguras permanecem BLOCKED por ausência das ferramentas.
+
+## Adendo — filtros da Central e distribuição (2026-09-15)
+
+| Jornada | Estado | Evidência estática | Prova pendente |
+|---|---|---|---|
+| Filtrar Minha Central | implementada sem validação | status em lista fechada; total e listagem compartilham predicado; paginação e desempate por `id` | SQL real, reload e autorização em PostgreSQL 16 |
+| Salvar/atualizar filtro | implementada sem validação | contrato JSON v1 em `usuario_preferencia`, escopo tenant/usuário/tela e antiforgery | persistência e isolamento entre dois tenants |
+| Renomear/excluir/padrão | implementada sem validação | operações server-side, nome limitado e parâmetro revalidado | navegador, teclado, foco e seis larguras |
+| Filtrar distribuição | implementada sem validação | autorização canônica antecede a consulta; status permitido; paginação preserva filtro | sessão expirada, módulo suspenso e reload |
+
+A cobertura global permanece em **591 candidatos e zero jornadas homologadas ponta a ponta**: esta passagem não promove formulários por amostragem. O próximo gate é a execução no runtime oficial; depois, a Central deve ler as seis origens canônicas sem copiar tarefas para um motor concorrente.

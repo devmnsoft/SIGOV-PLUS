@@ -23,3 +23,7 @@ Próximo item exato: validar sintaxe do aplicador com `pwsh -NoProfile -File scr
 ## Próximo item após a cadeia de custódia patrimonial (2026-09-15)
 
 Implementar, em migration forward-only sincronizada, o fluxo `SOLICITADO -> RECEBIDO/CANCELADO` com versão do bem, seleção nominal autorizada de unidade/responsável e testes concorrentes; em seguida preservar a fotografia temporal do escopo do inventário. GED permanece por último.
+
+## Central e distribuição — checkpoint 2026-09-15
+
+Filtros pessoais versionados para Minha Central e distribuição estão implementados sobre `usuario_preferencia`, com escopo tenant/usuário/tela, lista fechada de parâmetros, antiforgery e aplicação de padrão. Central possui total filtrado, paginação e ordenação determinística; distribuição preserva estado na paginação. Estado: **AGUARDA_GATE**. Próximo item exato: provar persistência/reload, isolamento de dois tenants, revogação e módulo suspenso em PostgreSQL 16; em seguida integrar as seis fontes operacionais canônicas com indisponibilidade parcial explícita, sem duplicar registros.

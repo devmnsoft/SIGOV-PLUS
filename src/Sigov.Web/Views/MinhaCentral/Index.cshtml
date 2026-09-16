@@ -25,6 +25,17 @@
 }
 @if (carregado)
 {
+<section class="sigov-filter-bar my-3" aria-labelledby="central-filters-title">
+  <h2 id="central-filters-title" class="h5">Filtrar pendências</h2>
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-sm-6 col-lg-4"><label class="form-label" for="central-status">Estado</label><select class="form-select" id="central-status" name="status"><option value="">Abertas e em tratamento</option><option value="ABERTA" selected="@(ViewBag.Status == "ABERTA")">Abertas</option><option value="EM_TRATAMENTO" selected="@(ViewBag.Status == "EM_TRATAMENTO")">Em tratamento</option></select></div>
+    <div class="col-auto"><button class="sigov-btn sigov-btn--primary" type="submit">Aplicar</button></div>
+  </form>
+  <div class="mt-3 d-flex gap-2 flex-wrap align-items-center">
+    @foreach (var filtro in (ViewBag.FiltrosSalvos as IReadOnlyList<Sigov.Web.Services.SavedFilter> ?? Array.Empty<Sigov.Web.Services.SavedFilter>())) { <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/MinhaCentral?status=@filtro.Status">@(filtro.IsDefault ? "★ " : "")@filtro.Name</a><form method="post" action="/FiltrosSalvos/Excluir" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="screen" value="minha-central"/><input type="hidden" name="name" value="@filtro.Name"/><button class="btn btn-link btn-sm text-danger" type="submit" aria-label="Excluir filtro @filtro.Name">Excluir</button></form><details><summary class="small">Renomear</summary><form method="post" action="/FiltrosSalvos/Renomear">@Html.AntiForgeryToken()<input type="hidden" name="screen" value="minha-central"/><input type="hidden" name="currentName" value="@filtro.Name"/><label class="visually-hidden" for="rename-central-@filtro.Name.GetHashCode()">Novo nome</label><input id="rename-central-@filtro.Name.GetHashCode()" name="newName" maxlength="80" required/><button type="submit" class="btn btn-link btn-sm">Confirmar</button></form></details> }
+  </div>
+  <details class="mt-2"><summary>Salvar filtro atual</summary><form method="post" action="/FiltrosSalvos/Salvar" class="row g-2 mt-1">@Html.AntiForgeryToken()<input type="hidden" name="screen" value="minha-central"/><input type="hidden" name="status" value="@ViewBag.Status"/><div class="col-sm-5"><label class="form-label" for="central-filter-name">Nome do filtro <span aria-hidden="true">*</span></label><input class="form-control" id="central-filter-name" name="name" maxlength="80" required/></div><div class="col-auto form-check align-self-end mb-2"><input class="form-check-input" id="central-default" name="isDefault" value="true" type="checkbox"/><label class="form-check-label" for="central-default">Usar como padrão</label></div><div class="col-auto align-self-end"><button class="sigov-btn sigov-btn--ghost" type="submit">Salvar</button></div></form><p class="form-text">Como usar: aplique apenas estados disponíveis e salve para reutilizar neste cliente.</p></details>
+</section>
 <section class="central-kpis sigov-grid sigov-grid--kpis my-4">
   <article class="sigov-kpi-premium"><small>Minhas pendências</small><strong>@Model.TotalPendencias</strong><span class="sigov-status-pill sigov-status-pill--info">Abertas · meu usuário</span></article>
   <article class="sigov-kpi-premium"><small>Tarefas vencidas</small><strong>@Model.TotalVencidas</strong><span class="sigov-status-pill sigov-status-pill--warning">Prazo anterior à atualização</span></article>
@@ -35,7 +46,7 @@
   <section class="central-panel central-panel--attention" aria-labelledby="meu-dia-title" data-sigov-tour="central-worklist">
     <div class="central-panel__heading"><div><span class="central-eyebrow">Meu dia</span><h2 id="meu-dia-title">Prioridades de hoje</h2></div><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="/Pendencias">Ver todas</a></div>
     @if (Model.Pendencias.Count == 0) { <div class="sigov-empty-state-premium"><sigov-icon name="success" size="34" /><strong>Nenhuma pendência atribuída a você</strong><span>Quando uma tarefa autorizada exigir sua ação, ela aparecerá aqui.</span></div> }
-    else { <ul class="sigov-timeline-premium">@foreach (var item in Model.Pendencias.Take(6)) { <li><div><strong>@item.Titulo</strong><span>@item.Descricao</span>@if(item.Prazo.HasValue){<small>Prazo: @item.Prazo.Value.ToString("dd/MM/yyyy HH:mm 'UTC'")</small>}</div><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Url">Abrir</a></li> }</ul> }
+    else { <ul class="sigov-timeline-premium">@foreach (var item in Model.Pendencias.Take(6)) { <li><div><strong>@item.Titulo</strong><small>@item.Modulo · @item.Identificacao</small><span>@item.Descricao</span>@if(item.Prazo.HasValue){<small>Prazo: @item.Prazo.Value.ToString("dd/MM/yyyy HH:mm 'UTC'")</small>}</div><a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Url">Abrir</a></li> }</ul> }
   </section>
   <section class="central-panel" aria-labelledby="continuidade-title">
     <div class="central-panel__heading"><div><span class="central-eyebrow">Continuidade</span><h2 id="continuidade-title">Recentes e favoritos</h2></div></div>
