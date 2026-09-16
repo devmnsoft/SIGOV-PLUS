@@ -87,6 +87,7 @@ public sealed class DependencyInjectionResolutionTests
         scope.ServiceProvider.GetRequiredService<IDatabaseSchemaInspector>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<ITenantContextAccessor>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<MinhaCentralService>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<SavedFilterService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<PostBuildSaasService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<OperationalDemoService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<IOperationalStatusService>().Should().NotBeNull();

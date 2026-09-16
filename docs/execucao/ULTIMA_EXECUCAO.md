@@ -523,3 +523,15 @@ Próximo item exato: executar `WebRuntimeSmokeTests` e a jornada autenticada em 
 Não existe no modelo legado desta OS vínculo canônico de ativo/recurso exclusivo, entidade/exercício, calendário institucional, feriados ou política persistida que torne toda sobreposição de pessoa bloqueante. Esses dados não foram inventados. A atribuição em lote também não foi criada sem contrato canônico de atomicidade. Indicadores existentes ainda usam `prazo_sla`; não foram renomeados nem apresentados como novos indicadores operacionais.
 
 Próximo item exato: criar uma RC própria, após Gate A, para definir no banco a política de disponibilidade/sobreposição e o vínculo multi-entidade/recurso exclusivo da OS legada; então integrar Minhas Atividades e encerramento com inspeções/não conformidades/reservas canônicas e validar dois tenants em PostgreSQL 16. GED permanece por último.
+
+---
+
+Data: 2026-09-15. Minha Central e distribuição — filtros pessoais persistidos. Estado: **IMPLEMENTADA SEM VALIDAÇÃO RUNTIME / BLOCKED**.
+
+- Estado inicial: branch `work`, HEAD `f7a7e199784983c3c0d5bcb47526db7c36cfca1b`, árvore limpa, sem remoto/upstream. SDK normativo `10.0.100`; Git, Node e `jq` disponíveis; `dotnet`, PostgreSQL/`psql`, Docker, PowerShell, `yq` e `shellcheck` ausentes.
+- Minha Central ganhou filtro de estado permitido, contagem coerente com o conjunto filtrado, paginação SQL e ordenação determinística. Itens mostram módulo e identificação persistidos; ausência de prazo continua sem classificar atraso.
+- Central e lista de distribuição agora salvam, atualizam por nome, renomeiam, excluem e definem filtro padrão no repositório canônico `usuario_preferencia`, sob chave versionada, tenant, usuário e tela. Parâmetros são validados por listas fechadas; filtro não concede autorização.
+- Distribuição ganhou cabeçalho contextual, barra de filtro, estado vazio e paginação que preserva o estado. A autorização canônica do controller continua sendo reavaliada antes da consulta.
+- Sem migration: foi reutilizada a persistência canônica existente. GED não foi alterado.
+- Validação estática: `git diff --check`, busca de conflitos e sintaxe JavaScript passaram. **BLOCKED:** restore/build/Razor/testes/Swagger, PostgreSQL 16, dois tenants, sessão/revogação, navegador e capturas nas seis larguras, pois os runtimes não existem no host.
+- Próximo item exato: executar Gate A no SDK 10.0.100/PostgreSQL 16 e provar os filtros com dois tenants, revogação e reload; depois substituir a projeção genérica `pendencia_operacional` por adaptadores de leitura das seis fontes canônicas, com falha parcial explícita por fonte.

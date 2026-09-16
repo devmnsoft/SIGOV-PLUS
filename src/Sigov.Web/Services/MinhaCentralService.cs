@@ -23,7 +23,7 @@ public sealed class MinhaCentralService
         _authorization = authorization;
     }
 
-    public async Task<MinhaCentralViewModel> ObterResumoAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
+    public async Task<MinhaCentralViewModel> ObterResumoAsync(ClaimsPrincipal user, string? status, int pagina, CancellationToken cancellationToken)
     {
         var authorization = await _authorization.GetAsync(cancellationToken).ConfigureAwait(false);
         if (!authorization.Authenticated || !authorization.TenantId.HasValue || authorization.UserId <= 0)
@@ -53,7 +53,7 @@ public sealed class MinhaCentralService
         {
             throw new UnauthorizedAccessException("O exercício selecionado não pertence ao contexto institucional ativo.");
         }
-        var pendencias = await ObterResumoPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+        var pendencias = await ObterResumoPendenciasAsync(tenantId, userId, status, pagina, cancellationToken).ConfigureAwait(false);
         var totalAlertas = await ObterTotalAlertasAsync(tenantId, cancellationToken).ConfigureAwait(false);
         return new MinhaCentralViewModel
         {
@@ -85,30 +85,36 @@ public sealed class MinhaCentralService
     {
         var tenantId = RequiredPositiveClaim(user, "tenant_id");
         var userId = RequiredPositiveClaim(user, ClaimTypes.NameIdentifier, "sub", "usuario_id");
-        return (await ObterResumoPendenciasAsync(tenantId, userId, cancellationToken).ConfigureAwait(false)).Itens;
+        return (await ObterResumoPendenciasAsync(tenantId, userId, null, 1, cancellationToken).ConfigureAwait(false)).Itens;
     }
 
-    private async Task<PendenciasResumo> ObterResumoPendenciasAsync(long tenantId, long userId, CancellationToken cancellationToken)
+    private async Task<PendenciasResumo> ObterResumoPendenciasAsync(long tenantId, long userId, string? status, int pagina, CancellationToken cancellationToken)
     {
         if (!await _schemaInspector.TableExistsAsync("sigov", "pendencia_operacional", cancellationToken).ConfigureAwait(false))
         {
             throw new InvalidOperationException("A estrutura obrigatória sigov.pendencia_operacional não está disponível.");
         }
 
+        var normalizedStatus = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToUpperInvariant();
+        if (normalizedStatus is not null && normalizedStatus is not ("ABERTA" or "EM_TRATAMENTO")) throw new ArgumentException("Status de pendência inválido.");
+        pagina = Math.Clamp(pagina, 1, 10000);
+        const int pageSize = 20;
         using var cn = _connectionFactory.CreateConnection();
         const string sql = @"select count(*) as Total,
                                     count(*) filter (where prazo < now()) as Vencidas,
                                     now() as AtualizadoEm
                              from sigov.pendencia_operacional
                              where tenant_id=@TenantId and responsavel_usuario_id=@UserId
-                               and status in ('ABERTA','EM_TRATAMENTO');
-                             select titulo as Titulo, coalesce(descricao,'') as Descricao,
+                               and status in ('ABERTA','EM_TRATAMENTO')
+                               and (@Status is null or status=@Status);
+                             select modulo as Modulo, entidade_id as Identificacao, titulo as Titulo, coalesce(descricao,'') as Descricao,
                                     rota_acao as Url, prazo as Prazo
                              from sigov.pendencia_operacional
                              where tenant_id=@TenantId and responsavel_usuario_id=@UserId
                                and status in ('ABERTA','EM_TRATAMENTO')
-                             order by prazo nulls last, created_at desc limit 8;";
-        using var results = await cn.QueryMultipleAsync(new CommandDefinition(sql, new { TenantId = tenantId, UserId = userId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                               and (@Status is null or status=@Status)
+                             order by prazo nulls last, created_at desc, id asc limit @PageSize offset @Offset;";
+        using var results = await cn.QueryMultipleAsync(new CommandDefinition(sql, new { TenantId = tenantId, UserId = userId, Status = normalizedStatus, PageSize = pageSize, Offset = (pagina - 1) * pageSize }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         var totals = await results.ReadSingleAsync<PendenciasTotals>().ConfigureAwait(false);
         var items = (await results.ReadAsync<PendenciaViewModel>().ConfigureAwait(false)).ToArray();
         return new PendenciasResumo(totals.Total, totals.Vencidas, totals.AtualizadoEm, items);

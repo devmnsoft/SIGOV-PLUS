@@ -9,19 +9,29 @@ public sealed class MinhaCentralController : Controller
 {
     private readonly MinhaCentralService _service;
     private readonly ILogger<MinhaCentralController> _logger;
+    private readonly SavedFilterService _savedFilters;
+    private readonly Sigov.Application.Abstractions.ICurrentTenant _tenant;
+    private readonly Sigov.Application.Abstractions.ICurrentUser _user;
 
-    public MinhaCentralController(MinhaCentralService service, ILogger<MinhaCentralController> logger)
+    public MinhaCentralController(MinhaCentralService service, ILogger<MinhaCentralController> logger, SavedFilterService savedFilters, Sigov.Application.Abstractions.ICurrentTenant tenant, Sigov.Application.Abstractions.ICurrentUser user)
     {
         _service = service;
         _logger = logger;
+        _savedFilters = savedFilters;
+        _tenant = tenant;
+        _user = user;
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(string? status, int pagina = 1, CancellationToken cancellationToken = default)
     {
         try
         {
-            var model = await _service.ObterResumoAsync(User, cancellationToken).ConfigureAwait(false);
+            var savedFilters = await _savedFilters.ListAsync(_tenant.TenantId ?? throw new UnauthorizedAccessException("Tenant obrigatório."), _user.UsuarioId ?? throw new UnauthorizedAccessException("Usuário obrigatório."), "minha-central", cancellationToken).ConfigureAwait(false);
+            status ??= savedFilters.FirstOrDefault(x => x.IsDefault)?.Status;
+            var model = await _service.ObterResumoAsync(User, status, pagina, cancellationToken).ConfigureAwait(false);
+            ViewBag.FiltrosSalvos = savedFilters;
+            ViewBag.Status = status;
             _logger.LogInformation("Minha Central acessada. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
             return View(model);
         }
