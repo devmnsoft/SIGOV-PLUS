@@ -23,6 +23,7 @@
     <form method="get" class="row g-2">
       <div class="col-md-3"><label class="form-label" for="busca">Tombo ou descrição</label><input id="busca" class="form-control" name="Busca" value="@filtro.Busca" maxlength="120" /></div>
       <div class="col-md-2"><label class="form-label" for="situacao">Situação</label><select id="situacao" class="form-select" name="Situacao"><option value="">Toda situação</option>@foreach (var s in new[]{"ATIVO","EM_MANUTENCAO","CEDIDO","NAO_LOCALIZADO","BAIXADO"}){<option value="@s" selected="@(filtro.Situacao==s)">@s.Replace('_',' ')</option>}</select></div>
+      <div class="col-md-3"><label class="form-label" for="categoria">Categoria</label><select id="categoria" class="form-select" name="CategoriaId"><option value="">Todas as categorias</option>@if(opcoes is not null){foreach(var x in opcoes.Categorias){<option value="@x.Id" selected="@(filtro.CategoriaId==x.Id)">@x.Nome</option>}}</select></div>
       <div class="col-md-3"><label class="form-label" for="unidade">Unidade</label><select id="unidade" class="form-select" name="UnidadeId"><option value="">Todas as unidades</option>@if(opcoes is not null){foreach(var x in opcoes.Unidades){<option value="@x.Id" selected="@(filtro.UnidadeId==x.Id)">@x.Nome</option>}}</select></div>
       <div class="col-md-3"><label class="form-label" for="responsavel">Responsável</label><select id="responsavel" class="form-select" name="ResponsavelUsuarioId"><option value="">Todos</option>@if(opcoes is not null){foreach(var x in opcoes.Responsaveis){<option value="@x.Id" selected="@(filtro.ResponsavelUsuarioId==x.Id)">@x.Nome</option>}}</select></div>
       <div class="col-md-1 d-grid align-items-end"><label class="form-label">&nbsp;</label><button class="btn btn-dark">Filtrar</button></div>
@@ -58,8 +59,8 @@
     @if (paginas > 1)
     {
       <nav class="quick-actions mt-3" aria-label="Paginação">
-        @if (Model.Pagina > 1) { <a class="btn btn-outline-secondary" href="@Url.Action("Bens", new { filtro.Busca, filtro.Situacao, filtro.UnidadeId, filtro.ResponsavelUsuarioId, Pagina = Model.Pagina - 1 })">Anterior</a> }
-        @if (Model.Pagina < paginas) { <a class="btn btn-outline-secondary" href="@Url.Action("Bens", new { filtro.Busca, filtro.Situacao, filtro.UnidadeId, filtro.ResponsavelUsuarioId, Pagina = Model.Pagina + 1 })">Próxima</a> }
+        @if (Model.Pagina > 1) { <a class="btn btn-outline-secondary" href="@Url.Action("Bens", new { filtro.Busca, filtro.Situacao, filtro.CategoriaId, filtro.UnidadeId, filtro.ResponsavelUsuarioId, Pagina = Model.Pagina - 1 })">Anterior</a> }
+        @if (Model.Pagina < paginas) { <a class="btn btn-outline-secondary" href="@Url.Action("Bens", new { filtro.Busca, filtro.Situacao, filtro.CategoriaId, filtro.UnidadeId, filtro.ResponsavelUsuarioId, Pagina = Model.Pagina + 1 })">Próxima</a> }
       </nav>
     }
     <details class="how-to"><summary>Como usar esta tela</summary><p>Filtre por tombo, situação, unidade ou responsável escolhidos nas listas do contexto. O CSV exporta no máximo 100 linhas, sem documento pessoal. Tombamento, incorporação, termo, transferência e baixa exigem permissão persistida e isolamento por tenant/entidade em qualquer esfera de governo.</p></details>

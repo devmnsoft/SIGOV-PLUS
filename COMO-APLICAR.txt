@@ -1,0 +1,13 @@
+Aplicar em C:\MNSOFT\SIGOV-PLUS
+
+1. Use os arquivos em src/ no lugar dos equivalentes do repositório.
+2. Em src/Sigov.Infrastructure/Patrimonio/ devem existir SOMENTE:
+   - PatrimonioService.cs
+   - PatrimonioService.Movimentacao.cs
+   - PatrimonioService.Inventario.cs
+   - PatrimonioService.Incorporacao.cs
+   - PatrimonioService.Transferencia.cs
+   Não deixe PatrimonioService.Custodia.cs junto com Incorporacao/Transferencia (métodos duplicados).
+3. alternativa-arquivo-unico/PatrimonioService.cs é a classe inteira em um arquivo.
+   Se usar essa versão, apague os outros PatrimonioService.*.cs da pasta.
+4. Rebuild da solution. CS0006 some quando o Infrastructure compilar.

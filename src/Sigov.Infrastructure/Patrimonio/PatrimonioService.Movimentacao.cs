@@ -32,8 +32,11 @@ public sealed partial class PatrimonioService
 
     public async Task BaixarBemAsync(long tenantId,long usuarioId,string correlationId,long id,PatrimonioBaixaInput input,CancellationToken ct)
     {
-        if(string.IsNullOrWhiteSpace(input.Justificativa)) throw new ArgumentException("A justificativa é obrigatória."); await using var c=factory.CreateConnection(); await c.OpenAsync(ct); await using var tx=await c.BeginTransactionAsync(ct);
+        if(string.IsNullOrWhiteSpace(input.Justificativa)) throw new ArgumentException("A justificativa é obrigatória.");
+        var tipo=(input.TipoBaixa??"").Trim().ToUpperInvariant();
+        if(tipo is not ("INSERVIVEL" or "DOACAO" or "ALIENACAO" or "EXTRAVIO" or "SINISTRO" or "TRANSFERENCIA_EXTERNA")) throw new ArgumentException("Tipo de baixa inválido."); await using var c=factory.CreateConnection(); await c.OpenAsync(ct); await using var tx=await c.BeginTransactionAsync(ct);
         var antes=await ObterJson(c,tx,"patrimonio_bem",tenantId,id,ct)??throw new KeyNotFoundException("Bem não encontrado."); var changed=await c.ExecuteAsync(new CommandDefinition("update sigov.patrimonio_bem set situacao='BAIXADO',ativo=false,updated_at=now(),updated_by=@Usuario where tenant_id=@Tenant and id=@Id and situacao<>'BAIXADO' and not is_deleted",new{Usuario=usuarioId,Tenant=tenantId,Id=id},tx,cancellationToken:ct)); if(changed==0) throw new InvalidOperationException("Bem já baixado ou indisponível.");
-        await c.ExecuteAsync(new CommandDefinition("insert into sigov.patrimonio_baixa(tenant_id,bem_id,tipo_baixa,justificativa,data_baixa,valor_baixa,autorizado_por_usuario_id) values(@Tenant,@Id,@Tipo,@Justificativa,@Data,@Valor,@Usuario)",new{Tenant=tenantId,Id=id,Tipo=input.TipoBaixa,Justificativa=input.Justificativa.Trim(),Data=input.DataBaixa,Valor=input.ValorBaixa,Usuario=usuarioId},tx,cancellationToken:ct)); await Auditar(c,tx,tenantId,"patrimonio_bem",id,"BAIXAR",antes,input,usuarioId,correlationId,ct); await tx.CommitAsync(ct);
+        await c.ExecuteAsync(new CommandDefinition("insert into sigov.patrimonio_baixa(tenant_id,bem_id,tipo_baixa,justificativa,data_baixa,valor_baixa,autorizado_por_usuario_id) values(@Tenant,@Id,@Tipo,@Justificativa,@Data,@Valor,@Usuario)",new{Tenant=tenantId,Id=id,Tipo=tipo,Justificativa=input.Justificativa.Trim(),Data=input.DataBaixa,Valor=input.ValorBaixa,Usuario=usuarioId},tx,cancellationToken:ct)); await Auditar(c,tx,tenantId,"patrimonio_bem",id,"BAIXAR",antes,input,usuarioId,correlationId,ct); await tx.CommitAsync(ct);
     }
+
 }

@@ -1,0 +1,29 @@
+SIGOV-PLUS — próxima evolução: fechar FUNC01 e avançar FUNC02.
+
+Contexto
+- Repo: https://github.com/devmnsoft/SIGOV-PLUS
+- FUNC01 (Patrimônio) já tem tombamento, termo, transferência, inventário, baixa, dashboard e CSV LGPD.
+- PRs recentes: #426/#427 (serviço completo / CS0103 Novo=novo) e #428 (templates e regras).
+- Não promover RC50.68 (continua BLOCKED) e não iniciar RC50.69.
+- Pilha obrigatória: ASP.NET Core MVC/Razor, Dapper/Npgsql, PostgreSQL, tenant/entidade fail-closed, permissão persistida, antiforgery, sem ID digitado, sem mock, sem catálogo em memória.
+
+1) Feche o FUNC01 (só o que ainda é buraco operacional)
+- Conferir https://github.com/devmnsoft/SIGOV-PLUS/pull/428 e completar no código o que ficou só na tela: join de UnidadeNome/ResponsavelNome no inventário, filtro de categoria em Bens, bloqueio de edição de bem BAIXADO no serviço e na action Editar.
+- Em /Patrimonio/Bens/{id}, se houver OS de manutenção APROVADA/EM_EXECUCAO/AGUARDANDO_PECA, desabilitar solicitar transferência na UI (o serviço já bloqueia).
+- Não implementar Depreciação/Imóveis/Relatórios dentro de FUNC01; manter o redirect para Ativos e deixar isso explícito no template e em docs/FUNC01-PATRIMONIO-INVENTARIO.md.
+- Não inventar schema novo.
+
+2) Evolua o FUNC02 (Almoxarifado) com regra + template
+- Base: docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md e as telas atuais de materiais, locais, movimentos e requisições.
+- Regras a reforçar no serviço e na UI:
+  - material CONSUMO vs PERMANENTE; permanente incorporável só depois do recebimento INTEGRADO (já usado pelo patrimônio);
+  - saída/requisição não baixa saldo insuficiente;
+  - requisição: RASCUNHO → ENVIADA → APROVADA/REJEITADA → ATENDIDA, com histórico e auditoria;
+  - listas por nome (material, local, unidade, solicitante), nunca ID digitado;
+  - CSV sem dado pessoal e com neutralização de fórmula.
+- Templates no padrão FUNC01: breadcrumb, “Como usar esta tela”, empty state, validação por campo, confirmação em ação irreversível, botões desabilitados quando a regra impedir.
+
+3) Entrega
+- Implementar no código, atualizar o doc da trilha e o CHANGELOG.
+- Abrir um PR único contra main, com jornadas de teste manual das telas /Almoxarifado e o vínculo Incorporações do Patrimônio.
+- Rebuild tem de ficar sem CS0103/CS0535.

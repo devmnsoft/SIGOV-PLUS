@@ -24,4 +24,5 @@ public sealed partial class PatrimonioService
 
     public async Task<PatrimonioTermoDto?> ObterTermoAsync(long tenantId,long entidadeId,long termoId,CancellationToken ct)
     { await using var c=factory.CreateConnection();return await c.QuerySingleOrDefaultAsync<PatrimonioTermoDto>(new CommandDefinition("select t.id,t.bem_id BemId,t.responsavel_proposto_id ResponsavelPropostoId,coalesce(p.nome,u.login) ResponsavelProposto,t.status,t.conteudo_snapshot::text ConteudoSnapshot,t.motivo_recusa MotivoRecusa,t.proposto_em PropostoEm,t.decidido_em DecididoEm,t.vigencia_inicio VigenciaInicio,t.vigencia_fim VigenciaFim from sigov.patrimonio_termo_responsabilidade t join sigov.usuario u on u.id=t.responsavel_proposto_id left join sigov.pessoa p on p.id=u.pessoa_id where t.tenant_id=@Tenant and t.entidade_id=@Entidade and t.id=@Id",new{Tenant=tenantId,Entidade=entidadeId,Id=termoId},cancellationToken:ct)); }
+
 }

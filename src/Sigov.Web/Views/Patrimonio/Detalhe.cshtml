@@ -1,23 +1,196 @@
 @model Sigov.Application.Patrimonio.PatrimonioBemDetalhe
 @using System.Globalization
-@{ var bem=Model.Bem; var opcoes=(Sigov.Application.Patrimonio.PatrimonioCadastroOpcoes)ViewBag.Opcoes; ViewData["Title"]=$"Bem {bem.CodigoTombo}"; }
+@using Sigov.Application.Patrimonio
+@{
+    var bem = Model.Bem;
+    var opcoes = (PatrimonioCadastroOpcoes)ViewBag.Opcoes;
+    ViewData["Title"] = $"Bem {bem.CodigoTombo}";
+    var baixado = string.Equals(bem.Situacao, "BAIXADO", StringComparison.OrdinalIgnoreCase);
+    var podeEditar = ViewBag.PodeEditar as bool? == true;
+    var podeBaixar = ViewBag.PodeBaixar as bool? == true;
+    var podeResp = ViewBag.PodeResponsabilidade as bool? == true;
+    var podeDecidir = ViewBag.PodeDecidir as bool? == true;
+    var podeOperar = ViewBag.PodeOperar as bool? == true;
+}
 <link rel="stylesheet" href="~/css/patrimonio.css"/>
 <div class="patrimonio-shell narrow">
   <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Patrimonio">Patrimônio</a></li><li class="breadcrumb-item"><a href="/Patrimonio/Bens">Bens</a></li><li class="breadcrumb-item active" aria-current="page">@bem.CodigoTombo</li></ol></nav>
-  <div class="page-heading"><div><span class="eyebrow">Tombo @bem.CodigoTombo</span><h1>@bem.Descricao</h1><span class="status status-@bem.Situacao.ToLowerInvariant()">Situação: @bem.Situacao.Replace('_',' ')</span></div><div class="quick-actions"><a class="btn btn-outline-dark" href="/Patrimonio/Bens/@bem.Id/TermoResponsabilidade">Imprimir termo</a><a class="btn btn-outline-primary" href="/Patrimonio/Bens/@bem.Id/Editar">Editar</a><a class="btn btn-light" href="/Patrimonio/Bens">Voltar</a></div></div>
-  @if(TempData["Success"] is string success){<div class="alert alert-success" role="status">@success</div>}
-  <div class="row g-3"><div class="col-lg-7"><section class="panel" aria-labelledby="dados-bem"><h2 id="dados-bem">Dados e responsabilidade atual</h2><dl class="detail-grid"><dt>Tipo</dt><dd>@bem.TipoBem</dd><dt>Categoria</dt><dd>@(bem.Categoria??"Não informada")</dd><dt>Conservação</dt><dd>@bem.EstadoConservacao</dd><dt>Localização atual</dt><dd>@(bem.Localizacao??"Não informada")</dd><dt>Unidade atual</dt><dd>@(bem.UnidadeId?.ToString(CultureInfo.InvariantCulture)??"Não informada")</dd><dt>Responsável atual</dt><dd>@(bem.ResponsavelUsuarioId?.ToString(CultureInfo.InvariantCulture)??"Não informado")</dd><dt>Valor atual</dt><dd>@(bem.ValorAtual?.ToString("C")??"Não informado")</dd></dl></section></div>
-    <div class="col-lg-5"><section class="panel"><h2>Situação operacional</h2><dl class="detail-grid"><dt>Cadastro</dt><dd>@bem.Situacao.Replace('_',' ')</dd><dt>Movimentação pendente</dt><dd>@(Model.Transferencias.Any(x=>x.Status is "SOLICITADA" or "AUTORIZADA" or "EM_TRANSITO")?"Sim":"Não")</dd><dt>Manutenção ativa</dt><dd>@(Model.Manutencoes.Any(x=>x.Status is "APROVADA" or "EM_EXECUCAO" or "AGUARDANDO_PECA")?"Restrição operacional":"Sem restrição obrigatória")</dd></dl><p class="form-guidance">Cadastro, conservação, disponibilidade, responsabilidade e processo de movimentação são apresentados separadamente.</p></section></div>
+  <div class="page-heading">
+    <div><span class="eyebrow">Tombo @bem.CodigoTombo</span><h1>@bem.Descricao</h1><span class="status status-@bem.Situacao.ToLowerInvariant()">Situação: @bem.Situacao.Replace('_',' ')</span></div>
+    <div class="quick-actions">
+      <a class="btn btn-outline-dark" href="/Patrimonio/Bens/@bem.Id/TermoResponsabilidade">Imprimir termo vigente</a>
+      @if (podeEditar && !baixado) { <a class="btn btn-outline-primary" href="/Patrimonio/Bens/@bem.Id/Editar">Editar</a> }
+      <a class="btn btn-light" href="/Patrimonio/Bens">Voltar</a>
+    </div>
   </div>
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <section class="panel" aria-labelledby="dados-bem">
+        <h2 id="dados-bem">Dados e responsabilidade atual</h2>
+        <dl class="detail-grid">
+          <dt>Tipo</dt><dd>@bem.TipoBem</dd>
+          <dt>Categoria</dt><dd>@(bem.Categoria ?? "Não informada")</dd>
+          <dt>Conservação</dt><dd>@bem.EstadoConservacao</dd>
+          <dt>Localização atual</dt><dd>@(bem.Localizacao ?? "Não informada")</dd>
+          <dt>Unidade atual</dt><dd>@(bem.UnidadeNome ?? "Não informada")</dd>
+          <dt>Responsável atual</dt><dd>@(bem.ResponsavelNome ?? "Não informado")</dd>
+          <dt>Valor atual</dt><dd>@(bem.ValorAtual?.ToString("C") ?? "Não informado")</dd>
+        </dl>
+      </section>
+    </div>
+    <div class="col-lg-5">
+      <section class="panel">
+        <h2>Situação operacional</h2>
+        <dl class="detail-grid">
+          <dt>Cadastro</dt><dd>@bem.Situacao.Replace('_',' ')</dd>
+          <dt>Movimentação pendente</dt><dd>@(Model.Transferencias.Any(x => x.Status is "SOLICITADA" or "AUTORIZADA" or "EM_TRANSITO") ? "Sim" : "Não")</dd>
+          <dt>Manutenção ativa</dt><dd>@(Model.Manutencoes.Any(x => x.Status is "APROVADA" or "EM_EXECUCAO" or "AGUARDANDO_PECA") ? "Restrição operacional" : "Sem restrição obrigatória")</dd>
+        </dl>
+        <p class="form-guidance">Cadastro, conservação, disponibilidade, responsabilidade e processo de movimentação são apresentados separadamente.</p>
+      </section>
+    </div>
+  </div>
+  @if (!baixado)
+  {
   <div class="row g-3 mt-1">
-   <div class="col-lg-6"><section class="panel"><h2>Responsabilidade</h2><p class="form-guidance">A proposta não altera o responsável vigente até o aceite autenticado no sistema.</p><form method="post" action="/Patrimonio/Bens/@bem.Id/Responsabilidade">@Html.AntiForgeryToken()<input type="hidden" name="CorrelationId" value="@Guid.NewGuid().ToString("N")"/><label class="form-label" for="responsavel-proposto">Responsável proposto</label><select id="responsavel-proposto" name="ResponsavelId" class="form-select" required><option value="">Selecione pelo nome</option>@foreach(var x in opcoes.Responsaveis){<option value="@x.Id">@x.Nome</option>}</select><button class="btn btn-primary mt-3" disabled="@(!(bool)ViewBag.PodeResponsabilidade)">Emitir termo para aceite</button></form>
-   @foreach(var termo in Model.Termos){<div class="history-entry"><strong>@termo.ResponsavelProposto</strong><span class="status">@termo.Status</span><small>Proposto em @termo.PropostoEm.ToLocalTime().ToString("g")</small><a class="btn btn-sm btn-outline-dark" href="/Patrimonio/Responsabilidade/@termo.Id/Imprimir">Imprimir versão emitida</a>@if(termo.Status=="PENDENTE"&&(bool)ViewBag.PodeDecidir){<div class="quick-actions"><form method="post" action="/Patrimonio/Responsabilidade/@termo.Id/Decidir">@Html.AntiForgeryToken()<input type="hidden" name="bemId" value="@bem.Id"/><input type="hidden" name="Aceitar" value="true"/><button class="btn btn-sm btn-success">Aceitar no sistema</button></form><form method="post" action="/Patrimonio/Responsabilidade/@termo.Id/Decidir">@Html.AntiForgeryToken()<input type="hidden" name="bemId" value="@bem.Id"/><input type="hidden" name="Aceitar" value="false"/><label class="visually-hidden" for="motivo-@termo.Id">Motivo da recusa</label><input id="motivo-@termo.Id" name="Motivo" class="form-control form-control-sm" placeholder="Motivo obrigatório" required/><button class="btn btn-sm btn-outline-danger">Recusar</button></form></div>}</div>}</section></div>
-   <div class="col-lg-6"><section class="panel"><h2>Solicitar movimentação</h2><p class="form-guidance">A localização só muda após o recebimento no destino.</p><form method="post" action="/Patrimonio/Bens/@bem.Id/Transferencias">@Html.AntiForgeryToken()<input type="hidden" name="CorrelationId" value="@Guid.NewGuid().ToString("N")"/><div class="mb-2"><label class="form-label" for="transferencia-unidade">Unidade de destino *</label><select id="transferencia-unidade" name="UnidadeDestinoId" class="form-select" required><option value="">Selecione pelo nome</option>@foreach(var x in opcoes.Unidades.Where(x=>x.Id!=bem.UnidadeId)){<option value="@x.Id">@x.Nome</option>}</select></div><div class="mb-2"><label class="form-label" for="transferencia-local">Localização no destino *</label><input id="transferencia-local" name="LocalizacaoDestino" class="form-control" required/></div><div class="mb-2"><label class="form-label" for="transferencia-motivo">Justificativa *</label><textarea id="transferencia-motivo" name="Justificativa" class="form-control" required></textarea></div><button class="btn btn-primary" disabled="@(!(bool)ViewBag.PodeOperar)">Solicitar movimentação</button></form></section></div>
+    <div class="col-lg-6">
+      <section class="panel">
+        <h2>Responsabilidade</h2>
+        <p class="form-guidance">A proposta não altera o responsável vigente até o aceite autenticado.</p>
+        <form method="post" action="/Patrimonio/Bens/@bem.Id/Responsabilidade">
+          @Html.AntiForgeryToken()
+          <input type="hidden" name="CorrelationId" value="@Guid.NewGuid().ToString("N")" />
+          <label class="form-label" for="responsavel-proposto">Responsável proposto *</label>
+          <select id="responsavel-proposto" name="ResponsavelId" class="form-select" required>
+            <option value="">Selecione pelo nome</option>
+            @foreach (var x in opcoes.Responsaveis) { <option value="@x.Id">@x.Nome</option> }
+          </select>
+          <button class="btn btn-primary mt-3" @(podeResp ? null : "disabled")>Emitir termo para aceite</button>
+        </form>
+        @foreach (var termo in Model.Termos)
+        {
+          <div class="history-entry">
+            <strong>@termo.ResponsavelProposto</strong>
+            <span class="status">@termo.Status</span>
+            <small>Proposto em @termo.PropostoEm.ToLocalTime().ToString("g")</small>
+            <a class="btn btn-sm btn-outline-dark" href="/Patrimonio/Responsabilidade/@termo.Id/Imprimir">Imprimir versão emitida</a>
+            @if (termo.Status == "PENDENTE" && podeDecidir)
+            {
+              <div class="quick-actions">
+                <form method="post" action="/Patrimonio/Responsabilidade/@termo.Id/Decidir">
+                  @Html.AntiForgeryToken()
+                  <input type="hidden" name="bemId" value="@bem.Id" />
+                  <input type="hidden" name="Aceitar" value="true" />
+                  <button class="btn btn-sm btn-success">Aceitar no sistema</button>
+                </form>
+                <form method="post" action="/Patrimonio/Responsabilidade/@termo.Id/Decidir">
+                  @Html.AntiForgeryToken()
+                  <input type="hidden" name="bemId" value="@bem.Id" />
+                  <input type="hidden" name="Aceitar" value="false" />
+                  <label class="visually-hidden" for="motivo-@termo.Id">Motivo da recusa</label>
+                  <input id="motivo-@termo.Id" name="Motivo" class="form-control form-control-sm" placeholder="Motivo obrigatório" required />
+                  <button class="btn btn-sm btn-outline-danger">Recusar</button>
+                </form>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    </div>
+    <div class="col-lg-6">
+      <section class="panel">
+        <h2>Solicitar movimentação</h2>
+        <p class="form-guidance">A localização só muda após o recebimento no destino.</p>
+        <form method="post" action="/Patrimonio/Bens/@bem.Id/Transferencias">
+          @Html.AntiForgeryToken()
+          <input type="hidden" name="CorrelationId" value="@Guid.NewGuid().ToString("N")" />
+          <div class="mb-2"><label class="form-label" for="transferencia-unidade">Unidade de destino *</label><select id="transferencia-unidade" name="UnidadeDestinoId" class="form-select" required><option value="">Selecione pelo nome</option>@foreach (var x in opcoes.Unidades.Where(x => x.Id != bem.UnidadeId)) { <option value="@x.Id">@x.Nome</option> }</select></div>
+          <div class="mb-2"><label class="form-label" for="transferencia-resp">Responsável no destino</label><select id="transferencia-resp" name="ResponsavelDestinoId" class="form-select"><option value="">Manter vigente após recebimento</option>@foreach (var x in opcoes.Responsaveis) { <option value="@x.Id">@x.Nome</option> }</select></div>
+          <div class="mb-2"><label class="form-label" for="transferencia-local">Localização no destino *</label><input id="transferencia-local" name="LocalizacaoDestino" class="form-control" required maxlength="300" /></div>
+          <div class="mb-2"><label class="form-label" for="transferencia-motivo">Justificativa *</label><textarea id="transferencia-motivo" name="Justificativa" class="form-control" required></textarea></div>
+          <button class="btn btn-primary" @(podeOperar ? null : "disabled")>Solicitar movimentação</button>
+        </form>
+      </section>
+    </div>
   </div>
-  <section class="panel mt-3"><h2>Movimentações em processo</h2>@foreach(var t in Model.Transferencias){<div class="history-entry"><div><strong>@t.UnidadeOrigem → @t.UnidadeDestino</strong> <span class="status">@t.Status.Replace('_',' ')</span></div><small>@t.Justificativa · solicitada em @t.SolicitadaEm.ToLocalTime().ToString("g")</small>@if((bool)ViewBag.PodeOperar && t.Status is ("SOLICITADA" or "AUTORIZADA" or "EM_TRANSITO")){<div class="quick-actions">@foreach(var acao in (t.Status=="SOLICITADA"?new[]{"AUTORIZAR","CANCELAR"}:t.Status=="AUTORIZADA"?new[]{"EXPEDIR","CANCELAR"}:new[]{"RECEBER","RECUSAR"})){<form method="post" action="/Patrimonio/Transferencias/@t.Id/Operar">@Html.AntiForgeryToken()<input type="hidden" name="bemId" value="@bem.Id"/><input type="hidden" name="Acao" value="@acao"/><input type="hidden" name="Versao" value="@t.Versao"/>@if(acao is "CANCELAR" or "RECUSAR"){<input name="Motivo" class="form-control form-control-sm" placeholder="Motivo obrigatório" required/>}<button class="btn btn-sm btn-outline-primary">@acao.ToLowerInvariant()</button></form>}</div>}</div>}@if(Model.Transferencias.Count==0){<div class="empty">Nenhuma movimentação processual registrada.</div>}</section>
-  <section class="panel mt-3"><h2>Origem e manutenção</h2><dl class="detail-grid"><dt>Documento de origem</dt><dd>@(Model.DocumentoOrigem??"Cadastro administrativo")</dd><dt>Ordens de manutenção</dt><dd>@Model.Manutencoes.Count</dd></dl>@foreach(var os in Model.Manutencoes){<div class="history-entry"><strong>OS @os.Id · @os.Status</strong><span>@os.Descricao</span><small>Prioridade @os.Prioridade</small></div>}</section>
-  <section class="panel mt-3" aria-labelledby="historico-mov"><div class="section-heading"><div><span class="eyebrow">Cadeia de custódia</span><h2 id="historico-mov">Histórico de movimentações</h2></div><span class="status">@Model.Movimentacoes.Count registro(s)</span></div>
-    @if(Model.Movimentacoes.Count==0){<div class="empty" role="status"><strong>Nenhuma movimentação registrada.</strong><span>O bem permanece em sua localização inicial.</span></div>}else{<div class="table-responsive"><table class="table align-middle"><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Destino</th><th>Justificativa</th></tr></thead><tbody>@foreach(var movimento in Model.Movimentacoes){<tr><td>@movimento.DataMovimentacao.ToLocalTime().ToString("g")</td><td><span class="status">Concluído · @movimento.TipoMovimentacao.Replace('_',' ')</span></td><td>@(movimento.LocalizacaoOrigem??"Não informada")</td><td>@(movimento.LocalizacaoDestino??"Não informada")</td><td>@movimento.Justificativa</td></tr>}</tbody></table></div>}
+  }
+  <section class="panel mt-3">
+    <h2>Movimentações em processo</h2>
+    @foreach (var t in Model.Transferencias)
+    {
+      <div class="history-entry">
+        <div><strong>@(t.UnidadeOrigem ?? "Origem não informada") → @t.UnidadeDestino</strong> <span class="status">@t.Status.Replace('_',' ')</span></div>
+        <small>@t.Justificativa · solicitada em @t.SolicitadaEm.ToLocalTime().ToString("g")</small>
+        @if (podeOperar && t.Status is "SOLICITADA" or "AUTORIZADA" or "EM_TRANSITO")
+        {
+          <div class="quick-actions">
+            @foreach (var acao in (t.Status == "SOLICITADA" ? new[] { "AUTORIZAR", "CANCELAR" } : t.Status == "AUTORIZADA" ? new[] { "EXPEDIR", "CANCELAR" } : new[] { "RECEBER", "RECUSAR" }))
+            {
+              <form method="post" action="/Patrimonio/Transferencias/@t.Id/Operar" data-confirm="Confirmar a ação @acao.ToLowerInvariant() nesta movimentação?">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="bemId" value="@bem.Id" />
+                <input type="hidden" name="Acao" value="@acao" />
+                <input type="hidden" name="Versao" value="@t.Versao" />
+                @if (acao is "CANCELAR" or "RECUSAR") { <input name="Motivo" class="form-control form-control-sm" placeholder="Motivo obrigatório" required /> }
+                <button class="btn btn-sm btn-outline-primary">@acao.ToLowerInvariant()</button>
+              </form>
+            }
+          </div>
+        }
+      </div>
+    }
+    @if (Model.Transferencias.Count == 0) { <div class="empty">Nenhuma movimentação processual registrada.</div> }
+  </section>
+  @if (!baixado && podeBaixar)
+  {
+    <section class="panel danger-panel mt-3">
+      <h2>Baixa patrimonial</h2>
+      <p class="form-guidance">A baixa é irreversível no fluxo operacional e impede nova movimentação ou termo.</p>
+      <form method="post" action="/Patrimonio/Bens/@bem.Id/Baixar" class="row g-2" data-confirm="Confirmar a baixa definitiva deste bem?">
+        @Html.AntiForgeryToken()
+        <div class="col-md-3"><label class="form-label" for="tipo-baixa">Tipo *</label><select id="tipo-baixa" name="TipoBaixa" class="form-select" required><option value="INSERVIVEL">Inservível</option><option value="DOACAO">Doação</option><option value="ALIENACAO">Alienação</option><option value="EXTRAVIO">Extravio</option><option value="SINISTRO">Sinistro</option><option value="TRANSFERENCIA_EXTERNA">Transferência externa</option></select></div>
+        <div class="col-md-3"><label class="form-label" for="data-baixa">Data *</label><input id="data-baixa" name="DataBaixa" type="date" class="form-control" value="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" required /></div>
+        <div class="col-md-3"><label class="form-label" for="valor-baixa">Valor residual</label><input id="valor-baixa" name="ValorBaixa" type="number" step=".01" min="0" class="form-control" /></div>
+        <div class="col-md-9"><label class="form-label" for="just-baixa">Justificativa *</label><textarea id="just-baixa" name="Justificativa" class="form-control" required></textarea></div>
+        <div class="col-md-3 d-grid align-items-end"><button class="btn btn-outline-danger">Registrar baixa</button></div>
+      </form>
+    </section>
+  }
+  <section class="panel mt-3">
+    <h2>Origem e manutenção</h2>
+    <dl class="detail-grid"><dt>Documento de origem</dt><dd>@(Model.DocumentoOrigem ?? "Cadastro administrativo")</dd><dt>Ordens de manutenção</dt><dd>@Model.Manutencoes.Count</dd></dl>
+    @foreach (var os in Model.Manutencoes) { <div class="history-entry"><strong>OS @os.Id · @os.Status</strong><span>@os.Descricao</span><small>Prioridade @os.Prioridade</small></div> }
+  </section>
+  <section class="panel mt-3" aria-labelledby="historico-mov">
+    <div class="section-heading"><div><span class="eyebrow">Cadeia de custódia</span><h2 id="historico-mov">Histórico de movimentações</h2></div><span class="status">@Model.Movimentacoes.Count registro(s)</span></div>
+    @if (Model.Movimentacoes.Count == 0)
+    {
+      <div class="empty" role="status"><strong>Nenhuma movimentação registrada.</strong><span>O bem permanece em sua localização inicial.</span></div>
+    }
+    else
+    {
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <caption class="visually-hidden">Histórico de movimentações do bem</caption>
+          <thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Destino</th><th>Justificativa</th></tr></thead>
+          <tbody>
+          @foreach (var movimento in Model.Movimentacoes)
+          {
+            <tr>
+              <td>@movimento.DataMovimentacao.ToLocalTime().ToString("g")</td>
+              <td><span class="status">Concluído · @movimento.TipoMovimentacao.Replace('_',' ')</span></td>
+              <td>@(movimento.LocalizacaoOrigem ?? "Não informada")</td>
+              <td>@(movimento.LocalizacaoDestino ?? "Não informada")</td>
+              <td>@movimento.Justificativa</td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+    <details class="how-to"><summary>Como usar esta tela</summary><p>Emita termo sem alterar o responsável até o aceite. Solicite transferência por nome de unidade; a localização muda só no recebimento. Manutenção aprovada ou em execução bloqueia a expedição. A baixa exige tipo, data e justificativa e permanece auditada.</p></details>
   </section>
 </div>
 <script src="~/js/patrimonio.js"></script>
