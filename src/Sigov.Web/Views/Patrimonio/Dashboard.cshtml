@@ -22,5 +22,15 @@
     <div class="col-lg-4"><section class="panel"><h2>Conservação</h2>@foreach (var x in Model.PorEstado) { <div class="bar-row"><span>@x.Key</span><b>@x.Value</b></div> }@if (Model.PorEstado.Count == 0) { <div class="empty">Sem classificação.</div> }</section></div>
     <div class="col-lg-4"><section class="panel"><h2>Bens por unidade</h2>@foreach (var x in Model.PorUnidade) { <div class="bar-row"><span>@x.Nome</span><b>@x.Total</b></div> }@if (Model.PorUnidade.Count == 0) { <div class="empty">Nenhum bem cadastrado.</div> }</section></div>
   </div>
+  <section class="panel mt-3" aria-labelledby="regras">
+    <h2 id="regras">Regras vigentes</h2>
+    <ul class="mb-0">
+      <li>Bem baixado não admite edição, termo nem movimentação.</li>
+      <li>Termo proposto não troca o responsável até o aceite autenticado.</li>
+      <li>Transferência só altera localização no recebimento; recusa e cancelamento exigem motivo.</li>
+      <li>Inventário só fecha com 100% de conferência; bem não localizado exige descrição da divergência.</li>
+      <li>CSV exporta no máximo 100 linhas e não inclui dado pessoal do responsável.</li>
+    </ul>
+  </section>
   <details class="how-to"><summary>Como usar esta tela</summary><p>Os indicadores leem apenas o tenant corrente. Use Bens para tombamento e consulta, Incorporações para individualizar recebimentos permanentes e Inventários para conferência física. Divergências e baixas não substituem autorização persistida nem auditoria.</p></details>
 </div>

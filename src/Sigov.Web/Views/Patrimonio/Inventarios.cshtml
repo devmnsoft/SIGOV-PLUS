@@ -1,2 +1,53 @@
 @model Sigov.Application.Patrimonio.PatrimonioPagina<Sigov.Application.Patrimonio.PatrimonioInventarioDto>
-@{ViewData["Title"]="Inventários patrimoniais";}<link rel="stylesheet" href="~/css/patrimonio.css"/><div class="patrimonio-shell"><div class="page-heading"><div><span class="eyebrow">Conferência física</span><h1>Inventários</h1><p>Campanhas e divergências do acervo real.</p></div><a href="/Patrimonio" class="btn btn-light">Dashboard</a></div>@if((bool)ViewBag.PodeCriar){<section class="panel"><h2>Abrir inventário</h2><form method="post" class="row g-2">@Html.AntiForgeryToken()<div class="col-md-2"><input name="Codigo" class="form-control" required placeholder="Código"/></div><div class="col-md-4"><input name="Descricao" class="form-control" required placeholder="Descrição"/></div><div class="col-md-2"><input name="UnidadeId" class="form-control" type="number" placeholder="Unidade (opcional)"/></div><div class="col-md-2"><input name="ResponsavelUsuarioId" class="form-control" type="number" placeholder="Responsável"/></div><div class="col-md-2 d-grid"><button class="btn btn-primary">Abrir</button></div></form></section>}<section class="panel mt-3"><h2>Campanhas</h2><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Código</th><th>Descrição</th><th>Período</th><th>Progresso</th><th>Divergências</th><th></th></tr></thead><tbody>@foreach(var i in Model.Itens){<tr><td><b>@i.Codigo</b></td><td>@i.Descricao</td><td>@i.DataAbertura.ToString("dd/MM/yyyy")</td><td>@i.Conferidos / @i.TotalItens</td><td><span class="badge text-bg-warning">@i.Divergencias</span></td><td><a class="btn btn-sm btn-outline-primary" href="/Patrimonio/Inventarios/@i.Id">Conferir</a></td></tr>}@if(Model.Itens.Count==0){<tr><td colspan="6"><div class="empty">Nenhum inventário aberto ou encerrado.</div></td></tr>}</tbody></table></div></section></div>
+@using Sigov.Application.Patrimonio
+@{
+    ViewData["Title"] = "Inventários patrimoniais";
+    var opcoes = ViewBag.Opcoes as PatrimonioCadastroOpcoes;
+}
+<link rel="stylesheet" href="~/css/patrimonio.css"/>
+<div class="patrimonio-shell">
+  <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Patrimonio">Patrimônio</a></li><li class="breadcrumb-item active">Inventários</li></ol></nav>
+  <div class="page-heading"><div><span class="eyebrow">Conferência física</span><h1>Inventários</h1><p>Campanhas e divergências do acervo real da entidade atual.</p></div><a href="/Patrimonio" class="btn btn-light">Dashboard</a></div>
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+  @if ((bool)ViewBag.PodeCriar)
+  {
+    <section class="panel">
+      <h2>Abrir inventário</h2>
+      <form method="post" class="row g-2">
+        @Html.AntiForgeryToken()
+        <div class="col-md-2"><label class="form-label" for="inv-codigo">Código *</label><input id="inv-codigo" name="Codigo" class="form-control" required maxlength="40" /></div>
+        <div class="col-md-4"><label class="form-label" for="inv-desc">Descrição *</label><input id="inv-desc" name="Descricao" class="form-control" required maxlength="200" /></div>
+        <div class="col-md-3"><label class="form-label" for="inv-unidade">Unidade (opcional)</label><select id="inv-unidade" name="UnidadeId" class="form-select"><option value="">Todas as unidades</option>@if(opcoes is not null){foreach(var x in opcoes.Unidades){<option value="@x.Id">@x.Nome</option>}}</select></div>
+        <div class="col-md-3"><label class="form-label" for="inv-resp">Responsável (opcional)</label><select id="inv-resp" name="ResponsavelUsuarioId" class="form-select"><option value="">Todos</option>@if(opcoes is not null){foreach(var x in opcoes.Responsaveis){<option value="@x.Id">@x.Nome</option>}}</select></div>
+        <div class="col-12 d-flex justify-content-end"><button class="btn btn-primary">Abrir inventário</button></div>
+      </form>
+    </section>
+  }
+  <section class="panel mt-3">
+    <h2>Campanhas</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <caption class="visually-hidden">Inventários patrimoniais</caption>
+        <thead><tr><th>Código</th><th>Descrição</th><th>Escopo</th><th>Período</th><th>Situação</th><th>Progresso</th><th>Divergências</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var i in Model.Itens)
+        {
+          <tr>
+            <td><b>@i.Codigo</b></td>
+            <td>@i.Descricao</td>
+            <td>@(i.UnidadeNome ?? "Todas as unidades")<small>@(i.ResponsavelNome ?? "Todos os responsáveis")</small></td>
+            <td>@i.DataAbertura.ToString("dd/MM/yyyy")@(i.DataFechamento is DateOnly f ? $" — {f:dd/MM/yyyy}" : "")</td>
+            <td><span class="status status-@i.Situacao.ToLowerInvariant()">@i.Situacao</span></td>
+            <td>@i.Conferidos / @i.TotalItens</td>
+            <td><span class="badge text-bg-warning">@i.Divergencias</span></td>
+            <td><a class="btn btn-sm btn-outline-primary" href="/Patrimonio/Inventarios/@i.Id">Conferir</a></td>
+          </tr>
+        }
+        @if (Model.Itens.Count == 0) { <tr><td colspan="8"><div class="empty"><strong>Nenhum inventário aberto ou encerrado.</strong><span>Abra uma campanha por unidade, responsável ou acervo geral.</span></div></td></tr> }
+        </tbody>
+      </table>
+    </div>
+    <details class="how-to"><summary>Como usar esta tela</summary><p>Código e descrição são obrigatórios. Unidade e responsável restringem o escopo aos bens ativos não baixados. O fechamento só ocorre quando todos os itens tiverem conferência. Divergência é marcada automaticamente se o bem não for localizado ou se estado/localização diferirem do cadastro.</p></details>
+  </section>
+</div>
