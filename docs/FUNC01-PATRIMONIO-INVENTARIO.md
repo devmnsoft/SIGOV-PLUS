@@ -17,7 +17,7 @@ Esta trilha é avanço funcional paralelo de produto: **não promove a RC50.68**
 
 - **Bem:** Bens → Tombar bem → preencher identificação, aquisição, conservação e responsabilidade → salvar.
 - **Movimentação:** detalhe do bem → informar destino e justificativa → confirmar. Bem baixado é bloqueado.
-- **Baixa:** detalhe → tipo, data, valor e justificativa → confirmar. A operação muda a situação para `BAIXADO` na mesma transação.
+- **Baixa:** detalhe do bem ativo → tipo, data, valor residual e justificativa → confirmar. A operação muda a situação para `BAIXADO` na mesma transação e impede nova movimentação ou termo.
 - **Inventário:** Inventários → abrir por unidade/responsável ou geral → conferir cada item → fechar quando não houver item pendente.
 - **Divergência:** não localização ou diferença de estado/localização em relação ao cadastro marca o item automaticamente.
 - **Termo de responsabilidade:** o detalhe do bem contém a responsabilidade vigente e pode ser impresso pelo navegador; movimentações preservam a cadeia auditável de origem/destino.
@@ -27,3 +27,9 @@ Esta trilha é avanço funcional paralelo de produto: **não promove a RC50.68**
 Todas as rotas exigem usuário autenticado e decisão do avaliador persistido por recurso/ação. Escritas usam queries parametrizadas, transação e `sigov.patrimonio_auditoria` com antes/depois, usuário e correlation ID. O CSV limita 100 linhas por solicitação, não inclui nome/e-mail/documentos do responsável e neutraliza células iniciadas por caracteres de fórmula.
 
 Ausência de schema ou contexto não simula sucesso: a operação falha explicitamente. Não há catálogo em memória, mock ou fallback.
+
+## Correção CS0103 e evolução de template
+
+A operação de transferência persistia `status=@Novo` com inicializador anônimo `new { Novo }`. Em C# isso exige um identificador `Novo` no escopo; a variável existente era `novo`. O parâmetro Dapper passou a ser `Novo = novo`, preservando o nome `@Novo` no SQL.
+
+As telas de FUNC01 passaram a exibir nome de unidade e responsável (não o ID técnico), filtros e abertura de inventário por listas persistidas, paginação da consulta, formulário de baixa no detalhe, validação por campo, confirmação nas ações irreversíveis e o bloco **Como usar esta tela**. O CSV inclui o nome da unidade e permanece limitado a 100 linhas, sem nome, e-mail ou documento do responsável.
