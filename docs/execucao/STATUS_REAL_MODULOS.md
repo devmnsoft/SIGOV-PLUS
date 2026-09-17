@@ -61,3 +61,14 @@ RC51.02I removeu o onboarding hardcoded e o tenant fixo da Web; ausência de jor
 ## Atualização 2026-09-15 — cadeia de custódia patrimonial
 
 Patrimônio permanece **PARCIAL / IMPLEMENTADO SEM VALIDAÇÃO RUNTIME**. O detalhe e a API consultam o histórico real por tenant; a movimentação imediata serializa a origem, é idempotente por chave e mantém movimento, localização e auditoria na mesma transação. Ainda faltam solicitação/recebimento, versão persistida do bem, seletores nominais autorizados e fotografia temporal do inventário; por isso não houve promoção.
+
+### Matriz da jornada patrimonial — 2026-09-16
+
+| Jornada | Implementação existente | Lacuna tratada | Alteração | Aceite objetivo |
+|---|---|---|---|---|
+| Recebimento → incorporação | recebimentos FUNC03, pendência do Almoxarifado e `patrimonio_bem` | não havia saldo elegível nem vínculo unitário | consulta somente permanente/integrado, lock da origem, idempotência e vínculo ao item | rejeitar quantidade fracionária/maior que saldo e retry não duplicar |
+| Bem → responsabilidade | responsável direto no bem e impressão do cadastro atual | proposta confundia-se com vigência | termo imutável em JSON, proposta pendente, aceite/recusa e vigências | proposta não troca responsável; aceite troca; recusa preserva anterior |
+| Origem → destino | movimentação concluída imediata | autorização, trânsito e aceite não eram separados | solicitação, autorização, expedição e recebimento versionados | localização muda somente no recebimento; um processo aberto por bem |
+| Bem → integrações/histórico | movimentos e OS persistidas | detalhe não reunia origem e manutenção | detalhe consulta documento de compra, termos, transferências e OS reais | nenhum dado fictício; bloqueio de OS operacional aplicado no backend |
+
+O estado continua **PARCIAL / AGUARDA GATE** enquanto PostgreSQL 16, navegador autenticado e os cenários concorrentes não forem executados no ambiente de homologação. A incorporação usa o recebimento público bigint já existente; o contrato empresarial UUID permanece legado e não é convertido.

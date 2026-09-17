@@ -2462,6 +2462,19 @@
         "20260916190000"
       ],
       "postConditionSql": "select to_regclass('sigov.educacao_oferta_vaga') is not null and to_regprocedure('sigov.fn_educacao_converter_oferta(bigint,bigint,bigint,bigint,bigint,bigint,text,date,bigint)') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='pre_matricula_inscricao' and column_name='versao')"
+    },
+    {
+      "version": "20260916230000",
+      "description": "Jornada patrimonial de incorporação, responsabilidade e transferência com aceite",
+      "category": "functional",
+      "file": "20260916230000_patrimonio_jornada_custodia.sql",
+      "checksum": "07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260916210000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.patrimonio_incorporacao') is not null and to_regclass('sigov.patrimonio_termo_responsabilidade') is not null and to_regclass('sigov.patrimonio_transferencia') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='patrimonio_bem' and column_name='recebimento_item_id')"
     }
   ],
   "compatibilityAfterAll": [
