@@ -1,8 +1,46 @@
 @model Sigov.Application.Patrimonio.PatrimonioBemInput
-@{ var id=ViewBag.Id as long?; var opcoes=(Sigov.Application.Patrimonio.PatrimonioCadastroOpcoes)ViewBag.Opcoes; ViewData["Title"]=id.HasValue?"Editar bem":"Tombar bem"; }
+@using Sigov.Application.Patrimonio
+@{
+    var id = ViewBag.Id as long?;
+    var opcoes = (PatrimonioCadastroOpcoes)ViewBag.Opcoes;
+    ViewData["Title"] = id.HasValue ? "Editar bem" : "Tombar bem";
+    string[] tipos = ["MOVEL", "IMOVEL", "VEICULO", "EQUIPAMENTO", "INTANGIVEL", "SEMOVENTES", "INFRAESTRUTURA"];
+    string[] estados = ["NOVO", "BOM", "REGULAR", "RUIM", "INSERVIVEL"];
+}
 <link rel="stylesheet" href="~/css/patrimonio.css" />
-<div class="patrimonio-shell narrow"><div class="page-heading"><div><span class="eyebrow">Cadastro patrimonial</span><h1>@ViewData["Title"]</h1><p>Campos marcados são validados no servidor.</p></div><a href="/Patrimonio/Bens" class="btn btn-outline-secondary">Voltar</a></div>
-<form method="post" class="panel needs-validation" novalidate><div asp-validation-summary="All" class="alert alert-danger"></div>@Html.AntiForgeryToken()
-<h2>Identificação e tombamento</h2><div class="row g-3"><div class="col-md-4"><label asp-for="CodigoTombo" class="form-label">Código de tombo *</label><input asp-for="CodigoTombo" class="form-control" required maxlength="80" /></div><div class="col-md-8"><label asp-for="Descricao" class="form-label">Descrição *</label><input asp-for="Descricao" class="form-control" required maxlength="500" /></div><div class="col-md-4"><label asp-for="CodigoAnterior" class="form-label">Código anterior</label><input asp-for="CodigoAnterior" class="form-control" /></div><div class="col-md-4"><label asp-for="CategoriaId" class="form-label">Categoria</label><select asp-for="CategoriaId" class="form-select"><option value="">Selecione pelo nome</option>@foreach(var x in opcoes.Categorias){<option value="@x.Id">@x.Nome</option>}</select></div><div class="col-md-4"><label asp-for="TipoBem" class="form-label">Tipo *</label><input asp-for="TipoBem" class="form-control" required /></div></div>
-<h2 class="mt-4">Características e aquisição</h2><div class="row g-3"><div class="col-md-4"><label class="form-label">Marca</label><input asp-for="Marca" class="form-control" /></div><div class="col-md-4"><label class="form-label">Modelo</label><input asp-for="Modelo" class="form-control" /></div><div class="col-md-4"><label class="form-label">Número de série</label><input asp-for="NumeroSerie" class="form-control" /></div><div class="col-md-4"><label class="form-label">Aquisição</label><input asp-for="DataAquisicao" type="date" class="form-control" /></div><div class="col-md-4"><label class="form-label">Valor de aquisição</label><input asp-for="ValorAquisicao" type="number" step=".01" min="0" class="form-control" /></div><div class="col-md-4"><label class="form-label">Valor atual</label><input asp-for="ValorAtual" type="number" step=".01" min="0" class="form-control" /></div></div>
-<h2 class="mt-4">Responsabilidade e localização</h2><div class="row g-3"><div class="col-md-3"><label asp-for="EstadoConservacao" class="form-label">Conservação *</label><select asp-for="EstadoConservacao" class="form-select" required><option value="">Selecione</option><option>NOVO</option><option>BOM</option><option>REGULAR</option><option>RUIM</option><option>INSERVIVEL</option></select></div><div class="col-md-4"><label asp-for="UnidadeId" class="form-label">Unidade</label><select asp-for="UnidadeId" class="form-select"><option value="">Selecione pelo nome</option>@foreach(var x in opcoes.Unidades){<option value="@x.Id">@x.Nome</option>}</select></div><div class="col-md-5"><label asp-for="ResponsavelUsuarioId" class="form-label">Responsável vigente</label><select asp-for="ResponsavelUsuarioId" class="form-select"><option value="">Sem responsável</option>@foreach(var x in opcoes.Responsaveis){<option value="@x.Id">@x.Nome</option>}</select><div class="form-text">Prefira emitir um termo no detalhe para preservar aceite e vigência.</div></div><div class="col-12"><label asp-for="Localizacao" class="form-label">Localização</label><input asp-for="Localizacao" class="form-control" /></div><div class="col-12"><label asp-for="Observacao" class="form-label">Observação</label><textarea asp-for="Observacao" class="form-control" rows="3"></textarea></div></div><details class="how-to"><summary>Como usar</summary><p>Identifique o bem sem inventar número de série ou valor. Campos de origem de uma incorporação permanecem no histórico.</p></details><div class="form-actions"><a href="/Patrimonio/Bens" class="btn btn-light">Cancelar</a><button class="btn btn-primary">Salvar bem</button></div></form></div><script src="~/js/patrimonio.js"></script>
+<div class="patrimonio-shell narrow">
+  <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Patrimonio">Patrimônio</a></li><li class="breadcrumb-item"><a href="/Patrimonio/Bens">Bens</a></li><li class="breadcrumb-item active">@ViewData["Title"]</li></ol></nav>
+  <div class="page-heading"><div><span class="eyebrow">Cadastro patrimonial</span><h1>@ViewData["Title"]</h1><p>Campos marcados com * são validados no servidor. Listas vêm do contexto autorizado.</p></div><a href="/Patrimonio/Bens" class="btn btn-outline-secondary">Voltar</a></div>
+  <form method="post" class="panel needs-validation" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    @Html.AntiForgeryToken()
+    <h2>Identificação e tombamento</h2>
+    <div class="row g-3">
+      <div class="col-md-4"><label asp-for="CodigoTombo" class="form-label">Código de tombo *</label><input asp-for="CodigoTombo" class="form-control" required maxlength="80" /><span asp-validation-for="CodigoTombo" class="text-danger"></span></div>
+      <div class="col-md-8"><label asp-for="Descricao" class="form-label">Descrição *</label><input asp-for="Descricao" class="form-control" required maxlength="500" /><span asp-validation-for="Descricao" class="text-danger"></span></div>
+      <div class="col-md-4"><label asp-for="CodigoAnterior" class="form-label">Código anterior</label><input asp-for="CodigoAnterior" class="form-control" maxlength="80" /></div>
+      <div class="col-md-4"><label asp-for="CategoriaId" class="form-label">Categoria</label><select asp-for="CategoriaId" class="form-select"><option value="">Selecione pelo nome</option>@foreach (var x in opcoes.Categorias) { <option value="@x.Id">@x.Nome</option> }</select></div>
+      <div class="col-md-4"><label asp-for="TipoBem" class="form-label">Tipo *</label><select asp-for="TipoBem" class="form-select" required><option value="">Selecione</option>@foreach (var t in tipos) { <option value="@t">@t</option> }@if (!string.IsNullOrWhiteSpace(Model?.TipoBem) && !tipos.Contains(Model.TipoBem, StringComparer.OrdinalIgnoreCase)) { <option value="@Model.TipoBem" selected>@Model.TipoBem</option> }</select><span asp-validation-for="TipoBem" class="text-danger"></span></div>
+    </div>
+    <h2 class="mt-4">Características e aquisição</h2>
+    <div class="row g-3">
+      <div class="col-md-4"><label asp-for="Marca" class="form-label">Marca</label><input asp-for="Marca" class="form-control" /></div>
+      <div class="col-md-4"><label asp-for="Modelo" class="form-label">Modelo</label><input asp-for="Modelo" class="form-control" /></div>
+      <div class="col-md-4"><label asp-for="NumeroSerie" class="form-label">Número de série</label><input asp-for="NumeroSerie" class="form-control" /></div>
+      <div class="col-md-4"><label asp-for="DataAquisicao" class="form-label">Data de aquisição</label><input asp-for="DataAquisicao" type="date" class="form-control" /></div>
+      <div class="col-md-4"><label asp-for="ValorAquisicao" class="form-label">Valor de aquisição</label><input asp-for="ValorAquisicao" type="number" step=".01" min="0" class="form-control" /></div>
+      <div class="col-md-4"><label asp-for="ValorAtual" class="form-label">Valor atual</label><input asp-for="ValorAtual" type="number" step=".01" min="0" class="form-control" /></div>
+    </div>
+    <h2 class="mt-4">Responsabilidade e localização</h2>
+    <div class="row g-3">
+      <div class="col-md-3"><label asp-for="EstadoConservacao" class="form-label">Conservação *</label><select asp-for="EstadoConservacao" class="form-select" required><option value="">Selecione</option>@foreach (var e in estados) { <option value="@e">@e</option> }</select><span asp-validation-for="EstadoConservacao" class="text-danger"></span></div>
+      <div class="col-md-4"><label asp-for="UnidadeId" class="form-label">Unidade</label><select asp-for="UnidadeId" class="form-select"><option value="">Selecione pelo nome</option>@foreach (var x in opcoes.Unidades) { <option value="@x.Id">@x.Nome</option> }</select></div>
+      <div class="col-md-5"><label asp-for="ResponsavelUsuarioId" class="form-label">Responsável vigente</label><select asp-for="ResponsavelUsuarioId" class="form-select"><option value="">Sem responsável</option>@foreach (var x in opcoes.Responsaveis) { <option value="@x.Id">@x.Nome</option> }</select><div class="form-text">Para aceite e vigência, emita um termo no detalhe do bem.</div></div>
+      <div class="col-12"><label asp-for="Localizacao" class="form-label">Localização</label><input asp-for="Localizacao" class="form-control" maxlength="300" /></div>
+      <div class="col-12"><label asp-for="Observacao" class="form-label">Observação</label><textarea asp-for="Observacao" class="form-control" rows="3"></textarea></div>
+    </div>
+    <details class="how-to"><summary>Como usar esta tela</summary><p>Informe tombo, descrição, tipo e conservação. Categoria, unidade e responsável saem de listas persistidas da entidade. Não invente número de série ou valor. Incorporações preservam o documento de origem no histórico; esta tela não altera situação de baixa.</p></details>
+    <div class="form-actions"><a href="/Patrimonio/Bens" class="btn btn-light">Cancelar</a><button type="submit" class="btn btn-primary">Salvar bem</button></div>
+  </form>
+</div>
+<script src="~/js/patrimonio.js"></script>
