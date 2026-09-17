@@ -33,3 +33,12 @@ Ausência de schema ou contexto não simula sucesso: a operação falha explicit
 A operação de transferência persistia `status=@Novo` com inicializador anônimo `new { Novo }`. Em C# isso exige um identificador `Novo` no escopo; a variável existente era `novo`. O parâmetro Dapper passou a ser `Novo = novo`, preservando o nome `@Novo` no SQL.
 
 As telas de FUNC01 passaram a exibir nome de unidade e responsável (não o ID técnico), filtros e abertura de inventário por listas persistidas, paginação da consulta, formulário de baixa no detalhe, validação por campo, confirmação nas ações irreversíveis e o bloco **Como usar esta tela**. O CSV inclui o nome da unidade e permanece limitado a 100 linhas, sem nome, e-mail ou documento do responsável.
+
+## Regras de negócio reforçadas na UI
+
+- Tipo de bem e estado de conservação aceitam somente catálogo fechado (`MOVEL`, `IMOVEL`, `VEICULO`, `EQUIPAMENTO`, `INTANGIVEL`, `SEMOVENTES`, `INFRAESTRUTURA` / `NOVO`–`INSERVIVEL`).
+- Bem com situação `BAIXADO` não é editável na Web nem no serviço.
+- Tipo de baixa aceita somente `INSERVIVEL`, `DOACAO`, `ALIENACAO`, `EXTRAVIO`, `SINISTRO` e `TRANSFERENCIA_EXTERNA`.
+- Inventário lista unidade e responsável do escopo pelo nome. O botão Fechar permanece desabilitado enquanto houver item sem conferência.
+- Conferência de bem não localizado exige descrição da divergência.
+- A listagem de bens filtra também por categoria persistida.

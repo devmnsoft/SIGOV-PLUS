@@ -1,0 +1,65 @@
+ANALISE DO QUE FOI FEITO — SIGOV-PLUS FUNC01
+Data de referencia: 2026-09-17
+
+1. Problema original
+- CS0103 em PatrimonioService.cs: status=@Novo no SQL com new { Novo } (variavel C# era "novo").
+- Push truncou o servico (~10 KB). O PR #426 foi mergeado incompleto e gerou CS0535 (interface) + CS0103 (Args, ValidarBem, ObterJson, Auditar, VazioNulo) + CS0006 em cascata.
+
+2. Correcao estrutural
+- Servico restaurado em partial class:
+  PatrimonioService.cs (listar/criar/editar + helpers)
+  PatrimonioService.Movimentacao.cs
+  PatrimonioService.Inventario.cs
+  PatrimonioService.Incorporacao.cs
+  PatrimonioService.Transferencia.cs (new { Novo = novo })
+- PRs: #426 (truncado no merge), #427 (servico completo), #428 (templates e regras).
+
+3. Evolucao FUNC01 ja no codigo local
+Funcionalidades: tombamento, edicao, movimentacao, transferencia em etapas, termo de responsabilidade, incorporacao de permanente, inventario, baixa, dashboard, CSV LGPD.
+Regras: bem BAIXADO nao edita/move/termo; termo so vigora no aceite; transferencia so muda local no RECEBER; inventario so fecha 100% conferido; nao localizado exige descricao; tipo/estado/baixa em catalogo fechado; CSV sem dado pessoal, max 100 linhas, antiformula.
+Templates: nomes no lugar de ID, filtros por lista, Como usar esta tela, empty state, baixa no detalhe, Fechar inventario desabilitado se pendente, Regras vigentes no dashboard.
+
+4. Fora de escopo (nao mexer)
+- RC50.68 continua BLOCKED.
+- RC50.69 nao inicia.
+- Depreciacao/Imoveis/Relatorios do patrimonio redirecionam para Ativos.
+
+5. Proxima evolucao
+Fechar residual do FUNC01 e evoluir FUNC02 (Almoxarifado): Compras -> Estoque -> Pendencia patrimonial -> Tombamento. Varias telas do almoxarifado ainda nao tem o padrao de template do FUNC01 (Dashboard, Materiais, Locais, Estoque, MovimentoForm, RequisicaoForm).
+
+
+PROMPT — COPIE E COLE NO PROXIMO PEDIDO
+================================================
+SIGOV-PLUS — proxima evolucao: fechar FUNC01 e evoluir FUNC02 (Almoxarifado).
+
+Contexto
+- Repo: https://github.com/devmnsoft/SIGOV-PLUS
+- FUNC01 (Patrimonio) ja tem tombamento, termo, transferencia, inventario, baixa, dashboard e CSV LGPD.
+- Nao promover RC50.68 (BLOCKED) e nao iniciar RC50.69.
+- Pilha: ASP.NET Core MVC/Razor, Dapper/Npgsql, PostgreSQL, tenant/entidade fail-closed, permissao persistida, antiforgery, sem ID digitado, sem mock.
+
+1) Fechar FUNC01
+- Conferir PRs #427 e #428. Completar no servico o join UnidadeNome/ResponsavelNome do inventario se ainda nao estiver no main.
+- Bloquear edicao de bem BAIXADO no servico e na action Editar.
+- Se houver OS APROVADA/EM_EXECUCAO/AGUARDANDO_PECA, desabilitar solicitar transferencia na UI.
+- Manter redirect de Depreciacao/Imoveis/Relatorios para Ativos, explicito no template.
+
+2) Evoluir FUNC02 — regras
+Base: docs/FUNC02-ALMOXARIFADO-ESTOQUE-REQUISICOES.md
+- Material CONSUMO ou PERMANENTE; codigo unico por tenant/entidade; estoque minimo >= 0 e maximo >= minimo.
+- Entrada PERMANENTE gera exatamente uma almoxarifado_pendencia_patrimonial (unique da movimentacao). Nao tombar bem incompleto no almoxarifado; o operador conclui em /Patrimonio/Bens/Novo e concilia patrimonio_bem_id.
+- Saida e atendimento de requisicao bloqueiam saldo insuficiente; quantidade nunca negativa.
+- Requisicao: RASCUNHO -> ENVIADA -> APROVADA|REJEITADA -> ATENDIDA|CANCELADA. Atendimento trava linhas, valida todos os itens e baixa saldos na mesma transacao, com historico e auditoria.
+- CSV: UTF-8 BOM, limite, antiformula, sem usuario/responsavel.
+
+3) Evoluir FUNC02 — templates
+Alinhar ao padrao FUNC01 as telas que ainda nao tem "Como usar esta tela": Dashboard, Materiais, MaterialForm, Locais, Estoque, MovimentoForm, RequisicaoForm, Reposicao, TransferenciaForm.
+- Breadcrumb, empty state, listas por nome (material, local, unidade, solicitante).
+- Botoes desabilitados quando a regra impedir (saldo, status, permissao).
+- Confirmacao em atender/cancelar/rejeitar.
+
+4) Entrega
+- Codigo + docs/FUNC02 + CHANGELOG + PR unico contra main.
+- Jornadas manuais: /Almoxarifado, entrada permanente -> pendencia -> /Patrimonio/Bens/Novo.
+- Rebuild sem CS0103/CS0535.
+================================================
