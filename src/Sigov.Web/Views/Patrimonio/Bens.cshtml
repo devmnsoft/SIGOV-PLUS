@@ -1,6 +1,67 @@
 @model Sigov.Application.Patrimonio.PatrimonioPagina<Sigov.Application.Patrimonio.PatrimonioBemDto>
-@{ ViewData["Title"]="Bens patrimoniais"; }
+@using Sigov.Application.Patrimonio
+@{
+    ViewData["Title"] = "Bens patrimoniais";
+    var filtro = ViewBag.Filtro as PatrimonioBemFiltro ?? new PatrimonioBemFiltro();
+    var opcoes = ViewBag.Opcoes as PatrimonioCadastroOpcoes;
+    var paginas = Math.Max(1, (int)Math.Ceiling(Model.Total / (double)Math.Max(1, Model.TamanhoPagina)));
+}
 <link rel="stylesheet" href="~/css/patrimonio.css" />
-<div class="patrimonio-shell"><div class="page-heading"><div><span class="eyebrow">Patrimônio</span><h1>Bens patrimoniais</h1><p>@Model.Total registro(s), com dados pessoais minimizados.</p></div><div>@if((bool)ViewBag.PodeExportar){<a class="btn btn-outline-primary" href="/Patrimonio/Bens/Exportar">Exportar CSV seguro</a>} @if((bool)ViewBag.PodeCriar){<a class="btn btn-primary" href="/Patrimonio/Bens/Novo">+ Tombar bem</a>}</div></div>
-<section class="panel"><h2>Filtros</h2><form method="get" class="row g-2"><div class="col-md-4"><input class="form-control" name="Busca" placeholder="Tombo ou descrição" /></div><div class="col-md-2"><select class="form-select" name="Situacao"><option value="">Toda situação</option><option>ATIVO</option><option>EM_MANUTENCAO</option><option>CEDIDO</option><option>NAO_LOCALIZADO</option><option>BAIXADO</option></select></div><div class="col-md-2"><input class="form-control" name="UnidadeId" type="number" placeholder="Unidade" /></div><div class="col-md-2"><input class="form-control" name="ResponsavelUsuarioId" type="number" placeholder="Responsável" /></div><div class="col-md-2 d-grid"><button class="btn btn-dark">Filtrar</button></div></form></section>
-<section class="panel mt-3"><h2>Acervo</h2><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Tombo</th><th>Descrição</th><th>Categoria</th><th>Conservação</th><th>Situação</th><th>Unidade</th><th></th></tr></thead><tbody>@foreach(var b in Model.Itens){<tr><td><b>@b.CodigoTombo</b></td><td>@b.Descricao<small>@b.Marca @b.Modelo</small></td><td>@(b.Categoria??"—")</td><td>@b.EstadoConservacao</td><td><span class="status status-@b.Situacao.ToLowerInvariant()">@b.Situacao.Replace('_',' ')</span></td><td>@(b.UnidadeId?.ToString()??"—")</td><td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Patrimonio/Bens/@b.Id">Detalhe</a></td></tr>}@if(Model.Itens.Count==0){<tr><td colspan="7"><div class="empty">Nenhum bem corresponde aos filtros. Cadastre um bem ou refine a busca.</div></td></tr>}</tbody></table></div></section></div>
+<div class="patrimonio-shell">
+  <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Patrimonio">Patrimônio</a></li><li class="breadcrumb-item active" aria-current="page">Bens</li></ol></nav>
+  <div class="page-heading">
+    <div><span class="eyebrow">Acervo institucional</span><h1>Bens patrimoniais</h1><p>@Model.Total registro(s) no tenant atual. Identificadores técnicos não são digitados nesta tela.</p></div>
+    <div class="quick-actions">
+      @if ((bool)ViewBag.PodeExportar) { <a class="btn btn-outline-primary" href="@Url.Action("Exportar", new { filtro.Busca, filtro.Situacao, filtro.UnidadeId, filtro.ResponsavelUsuarioId, filtro.CategoriaId })">Exportar CSV seguro</a> }
+      @if ((bool)ViewBag.PodeCriar) { <a class="btn btn-primary" href="/Patrimonio/Bens/Novo">Tombar bem</a> }
+    </div>
+  </div>
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+  <section class="panel" aria-labelledby="filtros-bens">
+    <h2 id="filtros-bens">Filtros</h2>
+    <form method="get" class="row g-2">
+      <div class="col-md-3"><label class="form-label" for="busca">Tombo ou descrição</label><input id="busca" class="form-control" name="Busca" value="@filtro.Busca" maxlength="120" /></div>
+      <div class="col-md-2"><label class="form-label" for="situacao">Situação</label><select id="situacao" class="form-select" name="Situacao"><option value="">Toda situação</option>@foreach (var s in new[]{"ATIVO","EM_MANUTENCAO","CEDIDO","NAO_LOCALIZADO","BAIXADO"}){<option value="@s" selected="@(filtro.Situacao==s)">@s.Replace('_',' ')</option>}</select></div>
+      <div class="col-md-3"><label class="form-label" for="unidade">Unidade</label><select id="unidade" class="form-select" name="UnidadeId"><option value="">Todas as unidades</option>@if(opcoes is not null){foreach(var x in opcoes.Unidades){<option value="@x.Id" selected="@(filtro.UnidadeId==x.Id)">@x.Nome</option>}}</select></div>
+      <div class="col-md-3"><label class="form-label" for="responsavel">Responsável</label><select id="responsavel" class="form-select" name="ResponsavelUsuarioId"><option value="">Todos</option>@if(opcoes is not null){foreach(var x in opcoes.Responsaveis){<option value="@x.Id" selected="@(filtro.ResponsavelUsuarioId==x.Id)">@x.Nome</option>}}</select></div>
+      <div class="col-md-1 d-grid align-items-end"><label class="form-label">&nbsp;</label><button class="btn btn-dark">Filtrar</button></div>
+    </form>
+  </section>
+  <section class="panel mt-3" aria-labelledby="acervo">
+    <div class="section-heading"><div><span class="eyebrow">Consulta</span><h2 id="acervo">Acervo</h2></div><span class="status">Página @Model.Pagina de @paginas</span></div>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <caption class="visually-hidden">Lista de bens patrimoniais do contexto atual</caption>
+        <thead><tr><th>Tombo</th><th>Descrição</th><th>Categoria</th><th>Conservação</th><th>Situação</th><th>Unidade</th><th>Responsável</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var b in Model.Itens)
+        {
+          <tr>
+            <td><b>@b.CodigoTombo</b></td>
+            <td>@b.Descricao<small>@b.Marca @b.Modelo</small></td>
+            <td>@(b.Categoria ?? "—")</td>
+            <td>@b.EstadoConservacao</td>
+            <td><span class="status status-@b.Situacao.ToLowerInvariant()">@b.Situacao.Replace('_',' ')</span></td>
+            <td>@(b.UnidadeNome ?? "Não informada")</td>
+            <td>@(b.ResponsavelNome ?? "Sem responsável")</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Patrimonio/Bens/@b.Id">Detalhe</a></td>
+          </tr>
+        }
+        @if (Model.Itens.Count == 0)
+        {
+          <tr><td colspan="8"><div class="empty" role="status"><strong>Nenhum bem corresponde aos filtros.</strong><span>Tombe um bem, incorpore um recebimento permanente ou refine a busca.</span></div></td></tr>
+        }
+        </tbody>
+      </table>
+    </div>
+    @if (paginas > 1)
+    {
+      <nav class="quick-actions mt-3" aria-label="Paginação">
+        @if (Model.Pagina > 1) { <a class="btn btn-outline-secondary" href="@Url.Action("Bens", new { filtro.Busca, filtro.Situacao, filtro.UnidadeId, filtro.ResponsavelUsuarioId, Pagina = Model.Pagina - 1 })">Anterior</a> }
+        @if (Model.Pagina < paginas) { <a class="btn btn-outline-secondary" href="@Url.Action("Bens", new { filtro.Busca, filtro.Situacao, filtro.UnidadeId, filtro.ResponsavelUsuarioId, Pagina = Model.Pagina + 1 })">Próxima</a> }
+      </nav>
+    }
+    <details class="how-to"><summary>Como usar esta tela</summary><p>Filtre por tombo, situação, unidade ou responsável escolhidos nas listas do contexto. O CSV exporta no máximo 100 linhas, sem documento pessoal. Tombamento, incorporação, termo, transferência e baixa exigem permissão persistida e isolamento por tenant/entidade em qualquer esfera de governo.</p></details>
+  </section>
+</div>
