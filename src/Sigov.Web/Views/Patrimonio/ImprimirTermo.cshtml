@@ -1,0 +1,9 @@
+@model Sigov.Application.Patrimonio.PatrimonioTermoDto
+@using System.Text.Json
+@{Layout=null; using var documento=JsonDocument.Parse(Model.ConteudoSnapshot); var dados=documento.RootElement;}
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"/><title>Termo de responsabilidade @Model.Id</title><link rel="stylesheet" href="~/css/modules/patrimonio-termo-responsabilidade.css" asp-append-version="true"/></head><body>
+<button class="actions" onclick="window.print()">Imprimir / salvar PDF</button><header><h1>TERMO DE RESPONSABILIDADE PATRIMONIAL</h1><p>Versão preservada na emissão em @Model.PropostoEm.ToLocalTime().ToString("g")</p></header>
+<p>Registro administrativo de atribuição de guarda. O aceite apresentado é confirmação autenticada no SIGOV PLUS e não representa assinatura digital certificada.</p>
+<div class="box"><dl><dt>Tombo</dt><dd>@dados.GetProperty("CodigoTombo").GetString()</dd><dt>Descrição</dt><dd>@dados.GetProperty("Descricao").GetString()</dd><dt>Localização emitida</dt><dd>@(dados.TryGetProperty("Localizacao",out var local)?local.GetString():"Não informada")</dd><dt>Responsável proposto</dt><dd>@Model.ResponsavelProposto</dd><dt>Situação do termo</dt><dd>@Model.Status</dd><dt>Vigência</dt><dd>@(Model.VigenciaInicio?.ToLocalTime().ToString("g")??"Aguardando aceite")</dd></dl></div>
+<div class="signatures"><div class="line">Responsável patrimonial</div><div class="line">Gestor da unidade</div></div><p><small>Autenticidade operacional: termo @Model.Id · bem @Model.BemId. Conteúdo obtido da fotografia persistida na emissão.</small></p>
+</body></html>

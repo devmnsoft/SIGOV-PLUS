@@ -12,13 +12,30 @@ public static class PatrimonioPermissoes
     public const string InventarioConferir = "patrimonio.inventario.conferir";
     public const string DashboardVisualizar = "patrimonio.dashboard.visualizar";
     public const string Exportar = "patrimonio.exportar";
+    public const string IncorporacaoVisualizar = "patrimonio.incorporacao.visualizar";
+    public const string IncorporacaoExecutar = "patrimonio.incorporacao.executar";
+    public const string ResponsabilidadePropor = "patrimonio.responsabilidade.propor";
+    public const string ResponsabilidadeAceitar = "patrimonio.responsabilidade.aceitar";
+    public const string MovimentacaoOperar = "patrimonio.movimentacao.operar";
 }
 
 public sealed record PatrimonioBemFiltro(string? Busca = null, long? CategoriaId = null, string? Situacao = null, long? UnidadeId = null, long? ResponsavelUsuarioId = null, int Pagina = 1, int TamanhoPagina = 25);
 public sealed record PatrimonioBemDto(long Id, string CodigoTombo, string Descricao, long? CategoriaId, string? Categoria, string TipoBem, string? Marca, string? Modelo, string? NumeroSerie, DateOnly? DataAquisicao, decimal? ValorAquisicao, decimal? ValorAtual, string EstadoConservacao, string Situacao, long? UnidadeId, long? SetorId, long? ResponsavelUsuarioId, string? Localizacao, string? Observacao, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 public sealed record PatrimonioBemInput(string CodigoTombo, string Descricao, long? CategoriaId, string TipoBem, string? CodigoAnterior, string? Marca, string? Modelo, string? NumeroSerie, DateOnly? DataAquisicao, decimal? ValorAquisicao, decimal? ValorAtual, string EstadoConservacao, long? UnidadeId, long? SetorId, long? ResponsavelUsuarioId, string? Localizacao, string? Observacao);
 public sealed record PatrimonioMovimentacaoDto(long Id, long BemId, long? UnidadeOrigemId, long? UnidadeDestinoId, long? ResponsavelOrigemId, long? ResponsavelDestinoId, string? LocalizacaoOrigem, string? LocalizacaoDestino, string TipoMovimentacao, string Justificativa, DateTimeOffset DataMovimentacao, long? UsuarioId);
-public sealed record PatrimonioBemDetalhe(PatrimonioBemDto Bem, IReadOnlyList<PatrimonioMovimentacaoDto> Movimentacoes);
+public sealed record PatrimonioOpcaoDto(long Id, string Nome);
+public sealed record PatrimonioRecebimentoElegivelDto(long ItemId,string Documento,string Fornecedor,string Produto,decimal QuantidadeRecebida,decimal QuantidadeAceita,long QuantidadeIncorporada,decimal SaldoElegivel,string Unidade,string? NumeroSerie);
+public sealed record PatrimonioIncorporacaoInput(long RecebimentoItemId,int Quantidade,long CategoriaId,long UnidadeId,string Localizacao,string TipoBem,string EstadoConservacao,string? Marca,string? Modelo,string? Observacao,string CorrelationId);
+public sealed record PatrimonioTermoDto(long Id,long BemId,long ResponsavelPropostoId,string ResponsavelProposto,string Status,string ConteudoSnapshot,string? MotivoRecusa,DateTimeOffset PropostoEm,DateTimeOffset? DecididoEm,DateTimeOffset? VigenciaInicio,DateTimeOffset? VigenciaFim);
+public sealed record PatrimonioTransferenciaDto(long Id,long BemId,long? UnidadeOrigemId,string? UnidadeOrigem,long UnidadeDestinoId,string UnidadeDestino,string? LocalizacaoOrigem,string? LocalizacaoDestino,long? ResponsavelDestinoId,string Status,string Justificativa,string? MotivoRecusa,DateTimeOffset SolicitadaEm,DateTimeOffset? ExpedidaEm,DateTimeOffset? RecebidaEm,long Versao);
+public sealed record PatrimonioManutencaoDto(long Id,string Status,string Prioridade,string Descricao,DateTimeOffset CreatedAt);
+public sealed record PatrimonioBemDetalhe(PatrimonioBemDto Bem, IReadOnlyList<PatrimonioMovimentacaoDto> Movimentacoes,IReadOnlyList<PatrimonioTermoDto> Termos,IReadOnlyList<PatrimonioTransferenciaDto> Transferencias,IReadOnlyList<PatrimonioManutencaoDto> Manutencoes,string? DocumentoOrigem);
+public sealed record PatrimonioTermoInput(long ResponsavelId,long? UnidadeId,string CorrelationId);
+public sealed record PatrimonioTermoDecisaoInput(bool Aceitar,string? Motivo,long Versao=1);
+public sealed record PatrimonioTransferenciaInput(long UnidadeDestinoId,string LocalizacaoDestino,long? ResponsavelDestinoId,string Justificativa,string CorrelationId);
+public sealed record PatrimonioTransferenciaAcaoInput(string Acao,long Versao,string? Motivo);
+public sealed record PatrimonioCadastroOpcoes(IReadOnlyList<PatrimonioOpcaoDto> Categorias,IReadOnlyList<PatrimonioOpcaoDto> Unidades,IReadOnlyList<PatrimonioOpcaoDto> Responsaveis);
+public sealed record PatrimonioIncorporacoesPagina(IReadOnlyList<PatrimonioRecebimentoElegivelDto> Itens,PatrimonioCadastroOpcoes Opcoes);
 public sealed record PatrimonioMovimentacaoInput(long? UnidadeDestinoId, long? ResponsavelDestinoId, string? LocalizacaoDestino, string TipoMovimentacao, string Justificativa, DateTimeOffset? DataMovimentacao = null);
 public sealed record PatrimonioBaixaInput(string TipoBaixa, string Justificativa, DateOnly DataBaixa, decimal? ValorBaixa);
 public sealed record PatrimonioInventarioInput(string Codigo, string Descricao, long? UnidadeId, long? ResponsavelUsuarioId);
@@ -46,4 +63,12 @@ public interface IPatrimonioService
     Task FecharInventarioAsync(long tenantId, long usuarioId, string correlationId, long id, CancellationToken ct);
     Task<PatrimonioDashboard> ObterDashboardAsync(long tenantId, CancellationToken ct);
     Task<byte[]> ExportarCsvAsync(long tenantId, PatrimonioBemFiltro filtro, CancellationToken ct);
+    Task<IReadOnlyList<PatrimonioRecebimentoElegivelDto>> ListarRecebimentosElegiveisAsync(long tenantId,long entidadeId,CancellationToken ct);
+    Task<IReadOnlyList<long>> IncorporarAsync(long tenantId,long entidadeId,long usuarioId,PatrimonioIncorporacaoInput input,CancellationToken ct);
+    Task<PatrimonioCadastroOpcoes> ObterOpcoesAsync(long tenantId,long entidadeId,CancellationToken ct);
+    Task<long> ProporResponsabilidadeAsync(long tenantId,long entidadeId,long usuarioId,long bemId,PatrimonioTermoInput input,CancellationToken ct);
+    Task DecidirResponsabilidadeAsync(long tenantId,long entidadeId,long usuarioId,long termoId,PatrimonioTermoDecisaoInput input,CancellationToken ct);
+    Task<long> SolicitarTransferenciaAsync(long tenantId,long entidadeId,long usuarioId,long bemId,PatrimonioTransferenciaInput input,CancellationToken ct);
+    Task OperarTransferenciaAsync(long tenantId,long entidadeId,long usuarioId,long transferenciaId,PatrimonioTransferenciaAcaoInput input,CancellationToken ct);
+    Task<PatrimonioTermoDto?> ObterTermoAsync(long tenantId,long entidadeId,long termoId,CancellationToken ct);
 }

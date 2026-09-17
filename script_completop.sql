@@ -209,7 +209,14 @@ select exists (
         ('20260909120000', array['0dbe94d680f16fd4bb2d50c5215a96fab00a4d70278f28099eaa6d078d7df52e']::text[]),
         ('20260910120000', array['f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee']::text[]),
         ('20260914120000', array['465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d','0bbefaf91b47151dc8aa839888c9d3cb7d2dcb6903649553740c3b6b1f02cd02']::text[]),
-        ('20260914130000', array['1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13']::text[])
+        ('20260914130000', array['1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13']::text[]),
+        ('20260915120000', array['dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713']::text[]),
+        ('20260915160000', array['5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc']::text[]),
+        ('20260916120000', array['ac5aaa1716837b124cfb8809f39d3620e2ac7e2d57107a3832a2199a83a2049c']::text[]),
+        ('20260916160000', array['5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae']::text[]),
+        ('20260916190000', array['5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a']::text[]),
+        ('20260916210000', array['86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c']::text[]),
+        ('20260916230000', array['07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -30865,6 +30872,467 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260915120000_industria_fluxo_operacional.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713
+-- ==================================================
+-- Fluxo industrial: concorrência, idempotência e cadeia de custódia do apontamento.
+-- Forward-only e idempotente; preserva os registros industriais publicados.
+alter table if exists sigov.industria_ordem_producao
+    add column if not exists version bigint not null default 1,
+    add column if not exists quantidade_aprovada numeric(14,4) not null default 0,
+    add column if not exists quantidade_rejeitada numeric(14,4) not null default 0;
+
+alter table if exists sigov.industria_apontamento
+    add column if not exists idempotency_key varchar(160),
+    add column if not exists payload_hash varchar(64),
+    add column if not exists unidade varchar(20),
+    add column if not exists almoxarifado_id bigint,
+    add column if not exists lote_produzido varchar(80),
+    add column if not exists confirmado_at timestamptz;
+
+alter table if exists sigov.industria_consumo_material
+    add column if not exists apontamento_id bigint references sigov.industria_apontamento(id),
+    add column if not exists lote varchar(80),
+    add column if not exists idempotency_key varchar(160);
+
+alter table if exists sigov.industria_producao_acabada
+    add column if not exists apontamento_id bigint references sigov.industria_apontamento(id),
+    add column if not exists bloqueado_qualidade boolean not null default false,
+    add column if not exists idempotency_key varchar(160);
+
+alter table if exists sigov.industria_inspecao_qualidade
+    add column if not exists apontamento_id bigint references sigov.industria_apontamento(id),
+    add column if not exists quantidade_inspecionada numeric(14,4),
+    add column if not exists quantidade_aprovada numeric(14,4),
+    add column if not exists quantidade_rejeitada numeric(14,4);
+
+create unique index if not exists ux_industria_apontamento_idempotencia
+    on sigov.industria_apontamento(tenant_id, idempotency_key)
+    where idempotency_key is not null;
+create unique index if not exists ux_industria_consumo_idempotencia
+    on sigov.industria_consumo_material(tenant_id, idempotency_key)
+    where idempotency_key is not null;
+create unique index if not exists ux_industria_producao_idempotencia
+    on sigov.industria_producao_acabada(tenant_id, idempotency_key)
+    where idempotency_key is not null;
+create index if not exists ix_industria_consumo_apontamento
+    on sigov.industria_consumo_material(tenant_id, apontamento_id);
+create index if not exists ix_industria_producao_apontamento
+    on sigov.industria_producao_acabada(tenant_id, apontamento_id);
+create index if not exists ix_industria_inspecao_apontamento
+    on sigov.industria_inspecao_qualidade(tenant_id, apontamento_id);
+
+do $$ begin
+    if not exists (select 1 from pg_constraint where conname='ck_industria_ordem_quantidades_qualidade') then
+        alter table sigov.industria_ordem_producao add constraint ck_industria_ordem_quantidades_qualidade
+            check (quantidade_aprovada >= 0 and quantidade_rejeitada >= 0
+                   and quantidade_aprovada + quantidade_rejeitada <= quantidade_produzida);
+    end if;
+    if not exists (select 1 from pg_constraint where conname='ck_industria_inspecao_quantidades') then
+        alter table sigov.industria_inspecao_qualidade add constraint ck_industria_inspecao_quantidades
+            check (quantidade_inspecionada is null or
+                   (quantidade_inspecionada > 0 and coalesce(quantidade_aprovada,0) >= 0
+                    and coalesce(quantidade_rejeitada,0) >= 0
+                    and coalesce(quantidade_aprovada,0) + coalesce(quantidade_rejeitada,0) <= quantidade_inspecionada));
+    end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915120000', 'Fluxo industrial transacional, idempotente e rastreável', 'dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260915160000_distribuicao_interna_materiais.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc
+-- ==================================================
+-- Distribuição interna: reserva, expedição, recebimento e divergência rastreáveis.
+create table if not exists sigov.almoxarifado_entrega(
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ requisicao_id bigint not null references sigov.almoxarifado_requisicao(id), almoxarifado_id bigint not null references sigov.almoxarifado_local(id),
+ status varchar(24) not null default 'SEPARADA', idempotency_key varchar(100) not null, observacao text,
+ created_at timestamptz not null default now(), created_by bigint not null, expedida_em timestamptz, expedida_por bigint, recebida_em timestamptz, recebida_por bigint,
+ constraint ck_almox_entrega_status check(status in('SEPARADA','EXPEDIDA','RECEBIDA_PARCIAL','RECEBIDA','DIVERGENCIA','CANCELADA')),
+ constraint ux_almox_entrega_idempotencia unique(tenant_id,entidade_id,idempotency_key));
+create table if not exists sigov.almoxarifado_entrega_item(
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ entrega_id bigint not null references sigov.almoxarifado_entrega(id), requisicao_item_id bigint not null references sigov.almoxarifado_requisicao_item(id),
+ quantidade_separada numeric(18,4) not null, quantidade_recebida numeric(18,4) not null default 0, quantidade_recusada numeric(18,4) not null default 0, lote varchar(100), divergencia text,
+ constraint ck_almox_entrega_item_qtd check(quantidade_separada>0 and quantidade_recebida>=0 and quantidade_recusada>=0 and quantidade_recebida+quantidade_recusada<=quantidade_separada),
+ constraint ux_almox_entrega_item unique(entrega_id,requisicao_item_id,lote));
+create table if not exists sigov.almoxarifado_entrega_evento(
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, entrega_id bigint not null references sigov.almoxarifado_entrega(id),
+ tipo varchar(30) not null, dados jsonb, usuario_id bigint not null, correlation_id varchar(100) not null, ocorrido_em timestamptz not null default now());
+create index if not exists ix_almox_entrega_fila on sigov.almoxarifado_entrega(tenant_id,entidade_id,status,created_at,id);
+create index if not exists ix_almox_entrega_req on sigov.almoxarifado_entrega(tenant_id,entidade_id,requisicao_id,id);
+insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
+select 'almoxarifado','almoxarifado.recebimento.confirmar','almoxarifado.recebimento','confirmar','Confirmar recebimento e divergências',true,false
+where not exists(select 1 from sigov.permissao where chave='almoxarifado.recebimento.confirmar');
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
+select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa join sigov.permissao p on p.chave='almoxarifado.recebimento.confirmar'
+where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
+on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915160000', 'Distribuição interna de materiais com separação, expedição, recebimento e divergência', '5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260916120000_compras_recebimento_parcial.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: ac5aaa1716837b124cfb8809f39d3620e2ac7e2d57107a3832a2199a83a2049c
+-- ==================================================
+-- Jornada canônica de recebimento parcial de compras empresariais.
+create table if not exists sigov.compras_empresarial_pedido_item(
+ id bigint generated always as identity primary key,
+ tenant_id uuid not null,
+ pedido_id uuid not null references sigov.compras_empresarial_pedido(id),
+ produto_id uuid not null references sigov.estoque_produto(id),
+ quantidade numeric(14,4) not null check(quantidade>0),
+ quantidade_cancelada numeric(14,4) not null default 0,
+ valor_unitario numeric(14,4) not null default 0,
+ exige_inspecao boolean not null default false,
+ constraint ux_compras_empresarial_pedido_item unique(tenant_id,pedido_id,id)
+);
+
+do $$ begin
+ if not exists(select 1 from pg_constraint where conname='ck_compras_pedido_item_cancelada' and conrelid='sigov.compras_empresarial_pedido_item'::regclass) then
+  alter table sigov.compras_empresarial_pedido_item add constraint ck_compras_pedido_item_cancelada check(quantidade_cancelada>=0 and quantidade_cancelada<=quantidade);
+ end if;
+end $$;
+
+alter table sigov.compras_empresarial_recebimento
+ add column if not exists status varchar(24) not null default 'RASCUNHO',
+ add column if not exists almoxarifado_id uuid references sigov.estoque_almoxarifado(id),
+ add column if not exists data_operacao timestamptz not null default now(),
+ add column if not exists observacoes text;
+
+create table if not exists sigov.compras_empresarial_recebimento_item(
+ id bigint generated always as identity primary key,
+ tenant_id uuid not null,
+ recebimento_id uuid not null references sigov.compras_empresarial_recebimento(id),
+ pedido_item_id bigint not null references sigov.compras_empresarial_pedido_item(id),
+ produto_id uuid not null references sigov.estoque_produto(id),
+ quantidade_fisica numeric(14,4) not null,
+ quantidade_aceita numeric(14,4) not null default 0,
+ quantidade_rejeitada numeric(14,4) not null default 0,
+ quantidade_conferencia numeric(14,4) not null default 0,
+ lote varchar(100), validade date, numero_serie varchar(150),
+ constraint ck_compras_recebimento_item_quantidades check(quantidade_fisica>0 and quantidade_aceita>=0 and quantidade_rejeitada>=0 and quantidade_conferencia>=0 and quantidade_aceita+quantidade_rejeitada+quantidade_conferencia=quantidade_fisica),
+ constraint ux_compras_recebimento_item unique(tenant_id,recebimento_id,pedido_item_id)
+);
+create index if not exists ix_compras_recebimento_item_pedido on sigov.compras_empresarial_recebimento_item(tenant_id,pedido_item_id,id);
+
+create table if not exists sigov.compras_empresarial_recebimento_evento(
+ id bigint generated always as identity primary key,
+ tenant_id uuid not null,
+ recebimento_id uuid not null references sigov.compras_empresarial_recebimento(id),
+ tipo varchar(40) not null, detalhes jsonb not null default '{}'::jsonb,
+ usuario_id uuid not null, correlation_id varchar(100) not null,
+ ocorrido_em timestamptz not null default now()
+);
+create index if not exists ix_compras_recebimento_evento_timeline on sigov.compras_empresarial_recebimento_evento(tenant_id,recebimento_id,ocorrido_em,id);
+create index if not exists ix_compras_recebimento_central on sigov.compras_empresarial_recebimento(tenant_id,status,data_operacao desc,id);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916120000', 'Recebimento parcial de compras empresariais com conferência e estoque canônico', 'ac5aaa1716837b124cfb8809f39d3620e2ac7e2d57107a3832a2199a83a2049c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260916160000_transferencia_almoxarifados_parcial.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae
+-- ==================================================
+-- Transferências de consumo entre almoxarifados: expedição, trânsito e recebimentos parciais.
+alter table sigov.almoxarifado_transferencia drop constraint if exists ck_rc5089_transf_status;
+alter table sigov.almoxarifado_transferencia
+ add column if not exists responsavel varchar(200),
+ add column if not exists idempotency_key varchar(100),
+ add column if not exists expedida_em timestamptz,
+ add column if not exists expedida_por bigint,
+ add column if not exists recebida_em timestamptz;
+update sigov.almoxarifado_transferencia set responsavel='Não informado (registro legado)',idempotency_key='legado-'||id where responsavel is null or idempotency_key is null;
+alter table sigov.almoxarifado_transferencia alter column responsavel set not null,alter column idempotency_key set not null;
+do $$ begin if not exists(select 1 from pg_constraint where conrelid='sigov.almoxarifado_transferencia'::regclass and conname='ck_almox_transferencia_status') then alter table sigov.almoxarifado_transferencia add constraint ck_almox_transferencia_status check(status in('RASCUNHO','PENDENTE','EM_TRANSITO','RECEBIDA_PARCIAL','DIVERGENCIA','RECEBIDA','CONFERIDA','CANCELADA')); end if; end $$;
+create unique index if not exists ux_almox_transferencia_idempotencia on sigov.almoxarifado_transferencia(tenant_id,entidade_id,idempotency_key);
+
+alter table sigov.almoxarifado_transferencia_item
+ add column if not exists quantidade_recebida numeric(18,4) not null default 0,
+ add column if not exists quantidade_recusada numeric(18,4) not null default 0,
+ add column if not exists divergencia text,
+ add column if not exists movimento_saida_id bigint references sigov.almoxarifado_movimentacao(id);
+alter table sigov.almoxarifado_transferencia_item drop constraint if exists ck_rc5089_transf_item_qtd;
+do $$ begin if not exists(select 1 from pg_constraint where conrelid='sigov.almoxarifado_transferencia_item'::regclass and conname='ck_almox_transferencia_item_qtd') then alter table sigov.almoxarifado_transferencia_item add constraint ck_almox_transferencia_item_qtd check(quantidade>0 and quantidade_recebida>=0 and quantidade_recusada>=0 and quantidade_recebida+quantidade_recusada<=quantidade); end if; end $$;
+
+create table if not exists sigov.almoxarifado_transferencia_recebimento(
+ id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,
+ transferencia_id bigint not null references sigov.almoxarifado_transferencia(id),item_id bigint not null references sigov.almoxarifado_transferencia_item(id),
+ quantidade numeric(18,4) not null,movimento_entrada_id bigint not null references sigov.almoxarifado_movimentacao(id),
+ idempotency_key varchar(100) not null,usuario_id bigint not null,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now(),
+ constraint ck_almox_transferencia_recebimento_qtd check(quantidade>0));
+create unique index if not exists ux_almox_transferencia_recebimento_mov on sigov.almoxarifado_transferencia_recebimento(movimento_entrada_id);
+
+create table if not exists sigov.almoxarifado_transferencia_evento(
+ id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,
+ transferencia_id bigint not null references sigov.almoxarifado_transferencia(id),tipo varchar(40) not null,dados jsonb not null default '{}'::jsonb,
+ usuario_id bigint not null,correlation_id varchar(100) not null,idempotency_key varchar(100),ocorrido_em timestamptz not null default now());
+create unique index if not exists ux_almox_transferencia_evento_idempotencia on sigov.almoxarifado_transferencia_evento(tenant_id,transferencia_id,idempotency_key) where idempotency_key is not null;
+create index if not exists ix_almox_transferencia_evento_timeline on sigov.almoxarifado_transferencia_evento(tenant_id,entidade_id,transferencia_id,ocorrido_em,id);
+
+insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
+select 'almoxarifado',v.chave,v.recurso,v.acao,v.descricao,true,false from(values
+('almoxarifado.transferencia.visualizar','almoxarifado.transferencia','visualizar','Visualizar transferências'),
+('almoxarifado.transferencia.criar','almoxarifado.transferencia','criar','Criar transferências'),
+('almoxarifado.transferencia.expedir','almoxarifado.transferencia','expedir','Expedir transferências'),
+('almoxarifado.transferencia.receber','almoxarifado.transferencia','receber','Receber transferências'))v(chave,recurso,acao,descricao)
+where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
+select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa join sigov.permissao p on p.modulo='almoxarifado' and p.chave like 'almoxarifado.transferencia.%'
+where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
+on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916160000', 'Transferências entre almoxarifados com expedição e recebimento parcial', '5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260916190000_planejamento_reposicao.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a
+-- ==================================================
+-- Política de reposição por material e almoxarifado, com vigência e concorrência otimista.
+create table if not exists sigov.almoxarifado_politica_reposicao(
+ id bigint generated always as identity primary key,
+ tenant_id bigint not null,
+ entidade_id bigint not null,
+ almoxarifado_id bigint not null references sigov.almoxarifado_local(id),
+ material_id bigint not null references sigov.almoxarifado_material(id),
+ estoque_minimo numeric(18,4) not null,
+ estoque_alvo numeric(18,4) not null,
+ multiplo_compra numeric(18,4),
+ quantidade_minima_pedido numeric(18,4),
+ prazo_reposicao_dias integer,
+ fornecedor_preferencial_id bigint references sigov.compras_fornecedor(id),
+ vigencia_inicio date not null,
+ vigencia_fim date,
+ ativa boolean not null default true,
+ versao bigint not null default 1,
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now(),
+ created_by bigint,
+ updated_by bigint,
+ constraint ux_almox_politica_reposicao unique(tenant_id,entidade_id,almoxarifado_id,material_id),
+ constraint ck_almox_politica_reposicao_quantidades check(estoque_minimo>=0 and estoque_alvo>=estoque_minimo and (multiplo_compra is null or multiplo_compra>0) and (quantidade_minima_pedido is null or quantidade_minima_pedido>=0)),
+ constraint ck_almox_politica_reposicao_prazo check(prazo_reposicao_dias is null or prazo_reposicao_dias>=0),
+ constraint ck_almox_politica_reposicao_vigencia check(vigencia_fim is null or vigencia_fim>=vigencia_inicio)
+);
+create index if not exists ix_almox_politica_reposicao_painel on sigov.almoxarifado_politica_reposicao(tenant_id,entidade_id,almoxarifado_id,ativa);
+insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
+select 'almoxarifado',chave,recurso,acao,descricao,true,false from (values
+ ('almoxarifado.reposicao.visualizar','almoxarifado.reposicao','visualizar','Visualizar planejamento de reposição'),
+ ('almoxarifado.reposicao.configurar','almoxarifado.reposicao','configurar','Configurar políticas de reposição')) p(chave,recurso,acao,descricao)
+on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true,is_deleted=false;
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
+select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.chave in('almoxarifado.reposicao.visualizar','almoxarifado.reposicao.configurar')
+on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916190000', 'Políticas e painel explicável de planejamento de reposição', '5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260916210000_educacao_ingresso_vagas.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c
+-- ==================================================
+-- Jornada administrativa de ingresso e vagas, sobre os cadastros canônicos da Educação.
+alter table sigov.pre_matricula_inscricao
+  add column if not exists turno varchar(40),
+  add column if not exists versao bigint not null default 1,
+  add column if not exists responsavel_analise_id bigint,
+  add column if not exists modalidade varchar(80);
+
+alter table sigov.matricula alter column turma_id drop not null;
+alter table sigov.matricula add column if not exists pre_matricula_id bigint references sigov.pre_matricula_inscricao(id);
+alter table sigov.matricula add column if not exists data_enturmacao date;
+
+create table if not exists sigov.educacao_oferta_vaga (
+ id bigint generated always as identity primary key,
+ tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id),
+ pre_matricula_id bigint not null references sigov.pre_matricula_inscricao(id), escola_id bigint not null references sigov.escola(id),
+ ano_letivo_id bigint not null references sigov.ano_letivo(id), serie_ano_id bigint not null references sigov.serie_ano(id),
+ turno varchar(40) not null, inicio date not null, valida_ate timestamptz, status varchar(20) not null,
+ responsavel_id bigint not null, motivo_decisao text, decidida_em timestamptz,
+ ativo boolean not null default true, is_deleted boolean not null default false,
+ created_at timestamptz not null default now(), created_by bigint, updated_at timestamptz, updated_by bigint,
+ constraint ck_educacao_oferta_status check(status in ('OFERTADA','ACEITA','RECUSADA','EXPIRADA','CONSUMIDA','CANCELADA')),
+ constraint ck_educacao_oferta_validade check(valida_ate is null or valida_ate > created_at)
+);
+create unique index if not exists ux_educacao_oferta_valida_solicitacao on sigov.educacao_oferta_vaga(tenant_id,entidade_id,pre_matricula_id) where status in ('OFERTADA','ACEITA') and not is_deleted;
+create index if not exists ix_educacao_oferta_capacidade on sigov.educacao_oferta_vaga(tenant_id,entidade_id,escola_id,ano_letivo_id,serie_ano_id,turno,status,valida_ate) where not is_deleted;
+create unique index if not exists ux_matricula_origem_prematricula on sigov.matricula(tenant_id,entidade_id,pre_matricula_id) where pre_matricula_id is not null and not is_deleted;
+create index if not exists ix_prematricula_analise on sigov.pre_matricula_inscricao(tenant_id,entidade_id,ano_letivo,escola_preferencial_id,etapa_ensino,turno,status,responsavel_analise_id,id) where not is_deleted;
+
+create table if not exists sigov.educacao_prematricula_pendencia (
+ id bigint generated always as identity primary key, tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id),
+ pre_matricula_id bigint not null references sigov.pre_matricula_inscricao(id), requisito varchar(200) not null,
+ situacao varchar(20) not null default 'PENDENTE', observacao text not null, responsavel_analise_id bigint not null,
+ analisada_em timestamptz not null default now(), created_at timestamptz not null default now(), created_by bigint,
+ constraint ck_educacao_pendencia_situacao check(situacao in ('PENDENTE','RESOLVIDA','CANCELADA'))
+);
+
+
+create sequence if not exists sigov.educacao_numero_seq;
+
+create or replace function sigov.fn_educacao_converter_oferta(p_tenant bigint,p_entidade bigint,p_exercicio bigint,p_prematricula bigint,p_oferta bigint,p_turma bigint,p_numero text,p_data date,p_usuario bigint)
+returns bigint language plpgsql security invoker set search_path=sigov,pg_temp as $$
+declare v_oferta sigov.educacao_oferta_vaga%rowtype; v_pre sigov.pre_matricula_inscricao%rowtype; v_aluno bigint; v_id bigint; v_numero text;
+begin
+ select * into v_oferta from sigov.educacao_oferta_vaga where id=p_oferta and tenant_id=p_tenant and entidade_id=p_entidade for update;
+ if not found or v_oferta.pre_matricula_id<>p_prematricula or v_oferta.status<>'ACEITA' or (v_oferta.valida_ate is not null and v_oferta.valida_ate<=now()) then raise exception 'Oferta não aceita, expirada ou incompatível'; end if;
+ select * into v_pre from sigov.pre_matricula_inscricao where id=p_prematricula and tenant_id=p_tenant and entidade_id=p_entidade for update;
+ select id into v_aluno from sigov.aluno where tenant_id=p_tenant and entidade_id=p_entidade and pessoa_id=v_pre.aluno_pessoa_id and situacao='ATIVO' and not is_deleted;
+ if v_aluno is null then raise exception 'Aluno canônico ativo não encontrado para a pessoa da solicitação'; end if;
+ if exists(select 1 from sigov.educacao_prematricula_pendencia where tenant_id=p_tenant and entidade_id=p_entidade and pre_matricula_id=p_prematricula and situacao='PENDENTE') then raise exception 'Solicitação possui pendência impeditiva'; end if;
+ if p_turma is not null then
+   perform 1 from sigov.turma where id=p_turma and tenant_id=p_tenant and entidade_id=p_entidade and escola_id=v_oferta.escola_id and ano_letivo_id=v_oferta.ano_letivo_id and serie_ano_id=v_oferta.serie_ano_id and turno=v_oferta.turno and status='ABERTA' and vagas_ocupadas<capacidade and not is_deleted for update;
+   if not found then raise exception 'Turma incompatível, encerrada ou sem capacidade'; end if;
+   update sigov.turma set vagas_ocupadas=vagas_ocupadas+1,updated_by=p_usuario where id=p_turma;
+ end if;
+ v_numero=coalesce(nullif(trim(p_numero),''),'MAT-'||extract(year from now())::int||'-'||lpad(nextval('sigov.educacao_numero_seq')::text,8,'0'));
+ insert into sigov.matricula(tenant_id,entidade_id,exercicio_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,origem,pre_matricula_id,created_by)
+ values(p_tenant,p_entidade,p_exercicio,v_aluno,v_oferta.escola_id,v_oferta.ano_letivo_id,p_turma,v_numero,coalesce(p_data,current_date),'ATIVA','PRE_MATRICULA',p_prematricula,p_usuario) returning id into v_id;
+ update sigov.educacao_oferta_vaga set status='CONSUMIDA',decidida_em=now(),updated_by=p_usuario where id=p_oferta;
+ update sigov.pre_matricula_inscricao set status='CONVERTIDA_MATRICULA',versao=versao+1,updated_by=p_usuario where id=p_prematricula;
+ return v_id;
+end $$;
+
+insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo)
+values ('educacao','pre_matricula','editar','educacao.pre_matricula.editar','Editar e transicionar pré-matrícula',true),
+       ('educacao','pre_matricula','deferir','educacao.pre_matricula.deferir','Analisar e ofertar vaga',true),
+       ('educacao','matricula','enturmar','educacao.matricula.enturmar','Enturmar matrícula vigente',true)
+on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916210000', 'Jornada administrativa de ingresso, oferta de vaga, matrícula e enturmação', '86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260916230000_patrimonio_jornada_custodia.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4
+-- ==================================================
+-- Jornada patrimonial: recebimento aceito -> incorporação -> responsabilidade -> transferência/aceite.
+-- A origem canônica permanece em Compras/Almoxarifado e o bem individual permanece patrimonio_bem.
+alter table sigov.patrimonio_bem
+ add column if not exists recebimento_item_id bigint,
+ add column if not exists incorporacao_id bigint,
+ add column if not exists identificacao_serial_origem varchar(160),
+ add column if not exists disponibilidade_operacional varchar(24) not null default 'DISPONIVEL',
+ add column if not exists versao bigint not null default 1;
+
+do $$ begin
+ if not exists(select 1 from pg_constraint where conname='fk_patrimonio_bem_recebimento_item') then
+  alter table sigov.patrimonio_bem add constraint fk_patrimonio_bem_recebimento_item
+   foreign key(recebimento_item_id) references sigov.compras_recebimento_item(id) not valid;
+ end if;
+ if not exists(select 1 from pg_constraint where conname='ck_patrimonio_bem_disponibilidade') then
+  alter table sigov.patrimonio_bem add constraint ck_patrimonio_bem_disponibilidade
+   check(disponibilidade_operacional in('DISPONIVEL','RESTRITO','INDISPONIVEL')) not valid;
+ end if;
+end $$;
+
+create table if not exists sigov.patrimonio_incorporacao (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ recebimento_item_id bigint not null references sigov.compras_recebimento_item(id), quantidade integer not null,
+ correlation_id varchar(100) not null, usuario_id bigint not null, incorporado_em timestamptz not null default now(),
+ constraint ck_patrimonio_incorporacao_quantidade check(quantidade>0),
+ constraint ux_patrimonio_incorporacao_idempotencia unique(tenant_id,correlation_id));
+
+do $$ begin
+ if not exists(select 1 from pg_constraint where conname='fk_patrimonio_bem_incorporacao') then
+  alter table sigov.patrimonio_bem add constraint fk_patrimonio_bem_incorporacao
+   foreign key(incorporacao_id) references sigov.patrimonio_incorporacao(id) not valid;
+ end if;
+end $$;
+
+create table if not exists sigov.patrimonio_termo_responsabilidade (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ bem_id bigint not null references sigov.patrimonio_bem(id), responsavel_proposto_id bigint not null,
+ responsavel_anterior_id bigint, unidade_id bigint, status varchar(20) not null default 'PENDENTE',
+ conteudo_snapshot jsonb not null, motivo_recusa text, proposto_em timestamptz not null default now(),
+ decidido_em timestamptz, vigencia_inicio timestamptz, vigencia_fim timestamptz, proposto_por bigint not null,
+ decidido_por bigint, correlation_id varchar(100) not null,
+ constraint ck_patrimonio_termo_status check(status in('PENDENTE','ACEITO','RECUSADO','CANCELADO')),
+ constraint ck_patrimonio_termo_recusa check(status<>'RECUSADO' or nullif(trim(motivo_recusa),'') is not null),
+ constraint ux_patrimonio_termo_idempotencia unique(tenant_id,correlation_id));
+
+create unique index if not exists ux_patrimonio_termo_pendente
+ on sigov.patrimonio_termo_responsabilidade(tenant_id,bem_id) where status='PENDENTE';
+
+create table if not exists sigov.patrimonio_transferencia (
+ id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
+ bem_id bigint not null references sigov.patrimonio_bem(id), unidade_origem_id bigint, unidade_destino_id bigint not null,
+ localizacao_origem varchar(300), localizacao_destino varchar(300), responsavel_origem_id bigint,
+ responsavel_destino_id bigint, status varchar(20) not null default 'SOLICITADA', justificativa text not null,
+ motivo_recusa text, solicitada_em timestamptz not null default now(), autorizada_em timestamptz,
+ expedida_em timestamptz, recebida_em timestamptz, cancelada_em timestamptz, solicitada_por bigint not null,
+ ultima_acao_por bigint not null, correlation_id varchar(100) not null, versao bigint not null default 1,
+ constraint ck_patrimonio_transferencia_status check(status in('SOLICITADA','AUTORIZADA','EM_TRANSITO','CONCLUIDA','RECUSADA','CANCELADA')),
+ constraint ck_patrimonio_transferencia_destino check(unidade_destino_id is distinct from unidade_origem_id),
+ constraint ck_patrimonio_transferencia_justificativa check(nullif(trim(justificativa),'') is not null),
+ constraint ux_patrimonio_transferencia_idempotencia unique(tenant_id,correlation_id));
+
+create unique index if not exists ux_patrimonio_transferencia_aberta
+ on sigov.patrimonio_transferencia(tenant_id,bem_id)
+ where status in('SOLICITADA','AUTORIZADA','EM_TRANSITO');
+create index if not exists ix_patrimonio_bem_origem on sigov.patrimonio_bem(tenant_id,recebimento_item_id);
+create index if not exists ix_patrimonio_termo_historico on sigov.patrimonio_termo_responsabilidade(tenant_id,bem_id,proposto_em desc);
+create index if not exists ix_patrimonio_transferencia_historico on sigov.patrimonio_transferencia(tenant_id,bem_id,solicitada_em desc);
+
+insert into sigov.permissao(chave,descricao,modulo,recurso,acao,ativo,is_deleted)
+select v.chave,v.nome,'patrimonio',v.recurso,v.acao,true,false from(values
+ ('patrimonio.incorporacao.visualizar','Visualizar incorporações','incorporacao','visualizar'),
+ ('patrimonio.incorporacao.executar','Executar incorporações','incorporacao','executar'),
+ ('patrimonio.responsabilidade.propor','Propor responsabilidade','responsabilidade','propor'),
+ ('patrimonio.responsabilidade.aceitar','Aceitar ou recusar responsabilidade','responsabilidade','aceitar'),
+ ('patrimonio.movimentacao.operar','Operar etapas da movimentação','movimentacao','operar'))v(chave,nome,recurso,acao)
+where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
+
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
+select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
+ and p.modulo='patrimonio' and p.chave in('patrimonio.incorporacao.visualizar','patrimonio.incorporacao.executar','patrimonio.responsabilidade.propor','patrimonio.responsabilidade.aceitar','patrimonio.movimentacao.operar')
+on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916230000', 'Jornada patrimonial de incorporação, responsabilidade e transferência com aceite', '07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================
@@ -31103,306 +31571,3 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
 -- EXCLUDED_FROM_BASELINE: 20260902000000_rc50_98_ged_workflow_branding_logo.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260902010000_corr_compras_checksum_schema.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260903130000_corr_licitapro_postconditions_schema.sql [corrective]
-
-
--- MIGRATION: 20260915120000_industria_fluxo_operacional.sql
--- Fluxo industrial: concorrência, idempotência e cadeia de custódia do apontamento.
--- Forward-only e idempotente; preserva os registros industriais publicados.
-alter table if exists sigov.industria_ordem_producao
-    add column if not exists version bigint not null default 1,
-    add column if not exists quantidade_aprovada numeric(14,4) not null default 0,
-    add column if not exists quantidade_rejeitada numeric(14,4) not null default 0;
-
-alter table if exists sigov.industria_apontamento
-    add column if not exists idempotency_key varchar(160),
-    add column if not exists payload_hash varchar(64),
-    add column if not exists unidade varchar(20),
-    add column if not exists almoxarifado_id bigint,
-    add column if not exists lote_produzido varchar(80),
-    add column if not exists confirmado_at timestamptz;
-
-alter table if exists sigov.industria_consumo_material
-    add column if not exists apontamento_id bigint references sigov.industria_apontamento(id),
-    add column if not exists lote varchar(80),
-    add column if not exists idempotency_key varchar(160);
-
-alter table if exists sigov.industria_producao_acabada
-    add column if not exists apontamento_id bigint references sigov.industria_apontamento(id),
-    add column if not exists bloqueado_qualidade boolean not null default false,
-    add column if not exists idempotency_key varchar(160);
-
-alter table if exists sigov.industria_inspecao_qualidade
-    add column if not exists apontamento_id bigint references sigov.industria_apontamento(id),
-    add column if not exists quantidade_inspecionada numeric(14,4),
-    add column if not exists quantidade_aprovada numeric(14,4),
-    add column if not exists quantidade_rejeitada numeric(14,4);
-
-create unique index if not exists ux_industria_apontamento_idempotencia
-    on sigov.industria_apontamento(tenant_id, idempotency_key)
-    where idempotency_key is not null;
-create unique index if not exists ux_industria_consumo_idempotencia
-    on sigov.industria_consumo_material(tenant_id, idempotency_key)
-    where idempotency_key is not null;
-create unique index if not exists ux_industria_producao_idempotencia
-    on sigov.industria_producao_acabada(tenant_id, idempotency_key)
-    where idempotency_key is not null;
-create index if not exists ix_industria_consumo_apontamento
-    on sigov.industria_consumo_material(tenant_id, apontamento_id);
-create index if not exists ix_industria_producao_apontamento
-    on sigov.industria_producao_acabada(tenant_id, apontamento_id);
-create index if not exists ix_industria_inspecao_apontamento
-    on sigov.industria_inspecao_qualidade(tenant_id, apontamento_id);
-
-do $$ begin
-    if not exists (select 1 from pg_constraint where conname='ck_industria_ordem_quantidades_qualidade') then
-        alter table sigov.industria_ordem_producao add constraint ck_industria_ordem_quantidades_qualidade
-            check (quantidade_aprovada >= 0 and quantidade_rejeitada >= 0
-                   and quantidade_aprovada + quantidade_rejeitada <= quantidade_produzida);
-    end if;
-    if not exists (select 1 from pg_constraint where conname='ck_industria_inspecao_quantidades') then
-        alter table sigov.industria_inspecao_qualidade add constraint ck_industria_inspecao_quantidades
-            check (quantidade_inspecionada is null or
-                   (quantidade_inspecionada > 0 and coalesce(quantidade_aprovada,0) >= 0
-                    and coalesce(quantidade_rejeitada,0) >= 0
-                    and coalesce(quantidade_aprovada,0) + coalesce(quantidade_rejeitada,0) <= quantidade_inspecionada));
-    end if;
-end $$;
-
--- Migration 20260915160000: distribuicao interna de materiais
--- Distribuição interna: reserva, expedição, recebimento e divergência rastreáveis.
-create table if not exists sigov.almoxarifado_entrega(
- id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
- requisicao_id bigint not null references sigov.almoxarifado_requisicao(id), almoxarifado_id bigint not null references sigov.almoxarifado_local(id),
- status varchar(24) not null default 'SEPARADA', idempotency_key varchar(100) not null, observacao text,
- created_at timestamptz not null default now(), created_by bigint not null, expedida_em timestamptz, expedida_por bigint, recebida_em timestamptz, recebida_por bigint,
- constraint ck_almox_entrega_status check(status in('SEPARADA','EXPEDIDA','RECEBIDA_PARCIAL','RECEBIDA','DIVERGENCIA','CANCELADA')),
- constraint ux_almox_entrega_idempotencia unique(tenant_id,entidade_id,idempotency_key));
-create table if not exists sigov.almoxarifado_entrega_item(
- id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null,
- entrega_id bigint not null references sigov.almoxarifado_entrega(id), requisicao_item_id bigint not null references sigov.almoxarifado_requisicao_item(id),
- quantidade_separada numeric(18,4) not null, quantidade_recebida numeric(18,4) not null default 0, quantidade_recusada numeric(18,4) not null default 0, lote varchar(100), divergencia text,
- constraint ck_almox_entrega_item_qtd check(quantidade_separada>0 and quantidade_recebida>=0 and quantidade_recusada>=0 and quantidade_recebida+quantidade_recusada<=quantidade_separada),
- constraint ux_almox_entrega_item unique(entrega_id,requisicao_item_id,lote));
-create table if not exists sigov.almoxarifado_entrega_evento(
- id bigint generated always as identity primary key, tenant_id bigint not null, entidade_id bigint not null, entrega_id bigint not null references sigov.almoxarifado_entrega(id),
- tipo varchar(30) not null, dados jsonb, usuario_id bigint not null, correlation_id varchar(100) not null, ocorrido_em timestamptz not null default now());
-create index if not exists ix_almox_entrega_fila on sigov.almoxarifado_entrega(tenant_id,entidade_id,status,created_at,id);
-create index if not exists ix_almox_entrega_req on sigov.almoxarifado_entrega(tenant_id,entidade_id,requisicao_id,id);
-insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
-select 'almoxarifado','almoxarifado.recebimento.confirmar','almoxarifado.recebimento','confirmar','Confirmar recebimento e divergências',true,false
-where not exists(select 1 from sigov.permissao where chave='almoxarifado.recebimento.confirmar');
-insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
-select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa join sigov.permissao p on p.chave='almoxarifado.recebimento.confirmar'
-where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
-on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
-
-
--- Migration 20260916120000: recebimento parcial de compras empresariais
--- Jornada canônica de recebimento parcial de compras empresariais.
-create table if not exists sigov.compras_empresarial_pedido_item(
- id bigint generated always as identity primary key,
- tenant_id uuid not null,
- pedido_id uuid not null references sigov.compras_empresarial_pedido(id),
- produto_id uuid not null references sigov.estoque_produto(id),
- quantidade numeric(14,4) not null check(quantidade>0),
- quantidade_cancelada numeric(14,4) not null default 0,
- valor_unitario numeric(14,4) not null default 0,
- exige_inspecao boolean not null default false,
- constraint ux_compras_empresarial_pedido_item unique(tenant_id,pedido_id,id)
-);
-
-do $$ begin
- if not exists(select 1 from pg_constraint where conname='ck_compras_pedido_item_cancelada' and conrelid='sigov.compras_empresarial_pedido_item'::regclass) then
-  alter table sigov.compras_empresarial_pedido_item add constraint ck_compras_pedido_item_cancelada check(quantidade_cancelada>=0 and quantidade_cancelada<=quantidade);
- end if;
-end $$;
-
-alter table sigov.compras_empresarial_recebimento
- add column if not exists status varchar(24) not null default 'RASCUNHO',
- add column if not exists almoxarifado_id uuid references sigov.estoque_almoxarifado(id),
- add column if not exists data_operacao timestamptz not null default now(),
- add column if not exists observacoes text;
-
-create table if not exists sigov.compras_empresarial_recebimento_item(
- id bigint generated always as identity primary key,
- tenant_id uuid not null,
- recebimento_id uuid not null references sigov.compras_empresarial_recebimento(id),
- pedido_item_id bigint not null references sigov.compras_empresarial_pedido_item(id),
- produto_id uuid not null references sigov.estoque_produto(id),
- quantidade_fisica numeric(14,4) not null,
- quantidade_aceita numeric(14,4) not null default 0,
- quantidade_rejeitada numeric(14,4) not null default 0,
- quantidade_conferencia numeric(14,4) not null default 0,
- lote varchar(100), validade date, numero_serie varchar(150),
- constraint ck_compras_recebimento_item_quantidades check(quantidade_fisica>0 and quantidade_aceita>=0 and quantidade_rejeitada>=0 and quantidade_conferencia>=0 and quantidade_aceita+quantidade_rejeitada+quantidade_conferencia=quantidade_fisica),
- constraint ux_compras_recebimento_item unique(tenant_id,recebimento_id,pedido_item_id)
-);
-create index if not exists ix_compras_recebimento_item_pedido on sigov.compras_empresarial_recebimento_item(tenant_id,pedido_item_id,id);
-
-create table if not exists sigov.compras_empresarial_recebimento_evento(
- id bigint generated always as identity primary key,
- tenant_id uuid not null,
- recebimento_id uuid not null references sigov.compras_empresarial_recebimento(id),
- tipo varchar(40) not null, detalhes jsonb not null default '{}'::jsonb,
- usuario_id uuid not null, correlation_id varchar(100) not null,
- ocorrido_em timestamptz not null default now()
-);
-create index if not exists ix_compras_recebimento_evento_timeline on sigov.compras_empresarial_recebimento_evento(tenant_id,recebimento_id,ocorrido_em,id);
-create index if not exists ix_compras_recebimento_central on sigov.compras_empresarial_recebimento(tenant_id,status,data_operacao desc,id);
-
--- Migration 20260916160000: transferências entre almoxarifados com recebimento parcial
--- Transferências de consumo entre almoxarifados: expedição, trânsito e recebimentos parciais.
-alter table sigov.almoxarifado_transferencia drop constraint if exists ck_rc5089_transf_status;
-alter table sigov.almoxarifado_transferencia
- add column if not exists responsavel varchar(200),
- add column if not exists idempotency_key varchar(100),
- add column if not exists expedida_em timestamptz,
- add column if not exists expedida_por bigint,
- add column if not exists recebida_em timestamptz;
-update sigov.almoxarifado_transferencia set responsavel='Não informado (registro legado)',idempotency_key='legado-'||id where responsavel is null or idempotency_key is null;
-alter table sigov.almoxarifado_transferencia alter column responsavel set not null,alter column idempotency_key set not null;
-do $$ begin if not exists(select 1 from pg_constraint where conrelid='sigov.almoxarifado_transferencia'::regclass and conname='ck_almox_transferencia_status') then alter table sigov.almoxarifado_transferencia add constraint ck_almox_transferencia_status check(status in('RASCUNHO','PENDENTE','EM_TRANSITO','RECEBIDA_PARCIAL','DIVERGENCIA','RECEBIDA','CONFERIDA','CANCELADA')); end if; end $$;
-create unique index if not exists ux_almox_transferencia_idempotencia on sigov.almoxarifado_transferencia(tenant_id,entidade_id,idempotency_key);
-
-alter table sigov.almoxarifado_transferencia_item
- add column if not exists quantidade_recebida numeric(18,4) not null default 0,
- add column if not exists quantidade_recusada numeric(18,4) not null default 0,
- add column if not exists divergencia text,
- add column if not exists movimento_saida_id bigint references sigov.almoxarifado_movimentacao(id);
-alter table sigov.almoxarifado_transferencia_item drop constraint if exists ck_rc5089_transf_item_qtd;
-do $$ begin if not exists(select 1 from pg_constraint where conrelid='sigov.almoxarifado_transferencia_item'::regclass and conname='ck_almox_transferencia_item_qtd') then alter table sigov.almoxarifado_transferencia_item add constraint ck_almox_transferencia_item_qtd check(quantidade>0 and quantidade_recebida>=0 and quantidade_recusada>=0 and quantidade_recebida+quantidade_recusada<=quantidade); end if; end $$;
-
-create table if not exists sigov.almoxarifado_transferencia_recebimento(
- id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,
- transferencia_id bigint not null references sigov.almoxarifado_transferencia(id),item_id bigint not null references sigov.almoxarifado_transferencia_item(id),
- quantidade numeric(18,4) not null,movimento_entrada_id bigint not null references sigov.almoxarifado_movimentacao(id),
- idempotency_key varchar(100) not null,usuario_id bigint not null,correlation_id varchar(100) not null,ocorrido_em timestamptz not null default now(),
- constraint ck_almox_transferencia_recebimento_qtd check(quantidade>0));
-create unique index if not exists ux_almox_transferencia_recebimento_mov on sigov.almoxarifado_transferencia_recebimento(movimento_entrada_id);
-
-create table if not exists sigov.almoxarifado_transferencia_evento(
- id bigint generated always as identity primary key,tenant_id bigint not null,entidade_id bigint not null,
- transferencia_id bigint not null references sigov.almoxarifado_transferencia(id),tipo varchar(40) not null,dados jsonb not null default '{}'::jsonb,
- usuario_id bigint not null,correlation_id varchar(100) not null,idempotency_key varchar(100),ocorrido_em timestamptz not null default now());
-create unique index if not exists ux_almox_transferencia_evento_idempotencia on sigov.almoxarifado_transferencia_evento(tenant_id,transferencia_id,idempotency_key) where idempotency_key is not null;
-create index if not exists ix_almox_transferencia_evento_timeline on sigov.almoxarifado_transferencia_evento(tenant_id,entidade_id,transferencia_id,ocorrido_em,id);
-
-insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
-select 'almoxarifado',v.chave,v.recurso,v.acao,v.descricao,true,false from(values
-('almoxarifado.transferencia.visualizar','almoxarifado.transferencia','visualizar','Visualizar transferências'),
-('almoxarifado.transferencia.criar','almoxarifado.transferencia','criar','Criar transferências'),
-('almoxarifado.transferencia.expedir','almoxarifado.transferencia','expedir','Expedir transferências'),
-('almoxarifado.transferencia.receber','almoxarifado.transferencia','receber','Receber transferências'))v(chave,recurso,acao,descricao)
-where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
-insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
-select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa join sigov.permissao p on p.modulo='almoxarifado' and p.chave like 'almoxarifado.transferencia.%'
-where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
-on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
-
--- Migration 20260916190000: planejamento de reposicao
--- Política de reposição por material e almoxarifado, com vigência e concorrência otimista.
-create table if not exists sigov.almoxarifado_politica_reposicao(
- id bigint generated always as identity primary key,
- tenant_id bigint not null,
- entidade_id bigint not null,
- almoxarifado_id bigint not null references sigov.almoxarifado_local(id),
- material_id bigint not null references sigov.almoxarifado_material(id),
- estoque_minimo numeric(18,4) not null,
- estoque_alvo numeric(18,4) not null,
- multiplo_compra numeric(18,4),
- quantidade_minima_pedido numeric(18,4),
- prazo_reposicao_dias integer,
- fornecedor_preferencial_id bigint references sigov.compras_fornecedor(id),
- vigencia_inicio date not null,
- vigencia_fim date,
- ativa boolean not null default true,
- versao bigint not null default 1,
- created_at timestamptz not null default now(),
- updated_at timestamptz not null default now(),
- created_by bigint,
- updated_by bigint,
- constraint ux_almox_politica_reposicao unique(tenant_id,entidade_id,almoxarifado_id,material_id),
- constraint ck_almox_politica_reposicao_quantidades check(estoque_minimo>=0 and estoque_alvo>=estoque_minimo and (multiplo_compra is null or multiplo_compra>0) and (quantidade_minima_pedido is null or quantidade_minima_pedido>=0)),
- constraint ck_almox_politica_reposicao_prazo check(prazo_reposicao_dias is null or prazo_reposicao_dias>=0),
- constraint ck_almox_politica_reposicao_vigencia check(vigencia_fim is null or vigencia_fim>=vigencia_inicio)
-);
-create index if not exists ix_almox_politica_reposicao_painel on sigov.almoxarifado_politica_reposicao(tenant_id,entidade_id,almoxarifado_id,ativa);
-insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
-select 'almoxarifado',chave,recurso,acao,descricao,true,false from (values
- ('almoxarifado.reposicao.visualizar','almoxarifado.reposicao','visualizar','Visualizar planejamento de reposição'),
- ('almoxarifado.reposicao.configurar','almoxarifado.reposicao','configurar','Configurar políticas de reposição')) p(chave,recurso,acao,descricao)
-on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true,is_deleted=false;
-insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
-select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p
-where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.chave in('almoxarifado.reposicao.visualizar','almoxarifado.reposicao.configurar')
-on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
-
-
--- MIGRATION: 20260916210000_educacao_ingresso_vagas.sql
--- Jornada administrativa de ingresso e vagas, sobre os cadastros canônicos da Educação.
-alter table sigov.pre_matricula_inscricao
-  add column if not exists turno varchar(40),
-  add column if not exists versao bigint not null default 1,
-  add column if not exists responsavel_analise_id bigint,
-  add column if not exists modalidade varchar(80);
-
-alter table sigov.matricula alter column turma_id drop not null;
-alter table sigov.matricula add column if not exists pre_matricula_id bigint references sigov.pre_matricula_inscricao(id);
-alter table sigov.matricula add column if not exists data_enturmacao date;
-
-create table if not exists sigov.educacao_oferta_vaga (
- id bigint generated always as identity primary key,
- tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id),
- pre_matricula_id bigint not null references sigov.pre_matricula_inscricao(id), escola_id bigint not null references sigov.escola(id),
- ano_letivo_id bigint not null references sigov.ano_letivo(id), serie_ano_id bigint not null references sigov.serie_ano(id),
- turno varchar(40) not null, inicio date not null, valida_ate timestamptz, status varchar(20) not null,
- responsavel_id bigint not null, motivo_decisao text, decidida_em timestamptz,
- ativo boolean not null default true, is_deleted boolean not null default false,
- created_at timestamptz not null default now(), created_by bigint, updated_at timestamptz, updated_by bigint,
- constraint ck_educacao_oferta_status check(status in ('OFERTADA','ACEITA','RECUSADA','EXPIRADA','CONSUMIDA','CANCELADA')),
- constraint ck_educacao_oferta_validade check(valida_ate is null or valida_ate > created_at)
-);
-create unique index if not exists ux_educacao_oferta_valida_solicitacao on sigov.educacao_oferta_vaga(tenant_id,entidade_id,pre_matricula_id) where status in ('OFERTADA','ACEITA') and not is_deleted;
-create index if not exists ix_educacao_oferta_capacidade on sigov.educacao_oferta_vaga(tenant_id,entidade_id,escola_id,ano_letivo_id,serie_ano_id,turno,status,valida_ate) where not is_deleted;
-create unique index if not exists ux_matricula_origem_prematricula on sigov.matricula(tenant_id,entidade_id,pre_matricula_id) where pre_matricula_id is not null and not is_deleted;
-create index if not exists ix_prematricula_analise on sigov.pre_matricula_inscricao(tenant_id,entidade_id,ano_letivo,escola_preferencial_id,etapa_ensino,turno,status,responsavel_analise_id,id) where not is_deleted;
-
-create table if not exists sigov.educacao_prematricula_pendencia (
- id bigint generated always as identity primary key, tenant_id bigint not null references sigov.tenant(id), entidade_id bigint not null references sigov.entidade(id),
- pre_matricula_id bigint not null references sigov.pre_matricula_inscricao(id), requisito varchar(200) not null,
- situacao varchar(20) not null default 'PENDENTE', observacao text not null, responsavel_analise_id bigint not null,
- analisada_em timestamptz not null default now(), created_at timestamptz not null default now(), created_by bigint,
- constraint ck_educacao_pendencia_situacao check(situacao in ('PENDENTE','RESOLVIDA','CANCELADA'))
-);
-
-
-create sequence if not exists sigov.educacao_numero_seq;
-
-create or replace function sigov.fn_educacao_converter_oferta(p_tenant bigint,p_entidade bigint,p_exercicio bigint,p_prematricula bigint,p_oferta bigint,p_turma bigint,p_numero text,p_data date,p_usuario bigint)
-returns bigint language plpgsql security invoker set search_path=sigov,pg_temp as $$
-declare v_oferta sigov.educacao_oferta_vaga%rowtype; v_pre sigov.pre_matricula_inscricao%rowtype; v_aluno bigint; v_id bigint; v_numero text;
-begin
- select * into v_oferta from sigov.educacao_oferta_vaga where id=p_oferta and tenant_id=p_tenant and entidade_id=p_entidade for update;
- if not found or v_oferta.pre_matricula_id<>p_prematricula or v_oferta.status<>'ACEITA' or (v_oferta.valida_ate is not null and v_oferta.valida_ate<=now()) then raise exception 'Oferta não aceita, expirada ou incompatível'; end if;
- select * into v_pre from sigov.pre_matricula_inscricao where id=p_prematricula and tenant_id=p_tenant and entidade_id=p_entidade for update;
- select id into v_aluno from sigov.aluno where tenant_id=p_tenant and entidade_id=p_entidade and pessoa_id=v_pre.aluno_pessoa_id and situacao='ATIVO' and not is_deleted;
- if v_aluno is null then raise exception 'Aluno canônico ativo não encontrado para a pessoa da solicitação'; end if;
- if exists(select 1 from sigov.educacao_prematricula_pendencia where tenant_id=p_tenant and entidade_id=p_entidade and pre_matricula_id=p_prematricula and situacao='PENDENTE') then raise exception 'Solicitação possui pendência impeditiva'; end if;
- if p_turma is not null then
-   perform 1 from sigov.turma where id=p_turma and tenant_id=p_tenant and entidade_id=p_entidade and escola_id=v_oferta.escola_id and ano_letivo_id=v_oferta.ano_letivo_id and serie_ano_id=v_oferta.serie_ano_id and turno=v_oferta.turno and status='ABERTA' and vagas_ocupadas<capacidade and not is_deleted for update;
-   if not found then raise exception 'Turma incompatível, encerrada ou sem capacidade'; end if;
-   update sigov.turma set vagas_ocupadas=vagas_ocupadas+1,updated_by=p_usuario where id=p_turma;
- end if;
- v_numero=coalesce(nullif(trim(p_numero),''),'MAT-'||extract(year from now())::int||'-'||lpad(nextval('sigov.educacao_numero_seq')::text,8,'0'));
- insert into sigov.matricula(tenant_id,entidade_id,exercicio_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,origem,pre_matricula_id,created_by)
- values(p_tenant,p_entidade,p_exercicio,v_aluno,v_oferta.escola_id,v_oferta.ano_letivo_id,p_turma,v_numero,coalesce(p_data,current_date),'ATIVA','PRE_MATRICULA',p_prematricula,p_usuario) returning id into v_id;
- update sigov.educacao_oferta_vaga set status='CONSUMIDA',decidida_em=now(),updated_by=p_usuario where id=p_oferta;
- update sigov.pre_matricula_inscricao set status='CONVERTIDA_MATRICULA',versao=versao+1,updated_by=p_usuario where id=p_prematricula;
- return v_id;
-end $$;
-
-insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo)
-values ('educacao','pre_matricula','editar','educacao.pre_matricula.editar','Editar e transicionar pré-matrícula',true),
-       ('educacao','pre_matricula','deferir','educacao.pre_matricula.deferir','Analisar e ofertar vaga',true),
-       ('educacao','matricula','enturmar','educacao.matricula.enturmar','Enturmar matrícula vigente',true)
-on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true;
