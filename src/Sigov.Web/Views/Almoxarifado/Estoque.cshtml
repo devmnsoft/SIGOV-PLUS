@@ -1,2 +1,99 @@
 @model IReadOnlyList<Sigov.Application.Almoxarifado.EstoqueDto>
-@{ViewData["Title"]="Estoque";}<div class="d-flex justify-content-between"><h1 class="h3">Saldos de estoque</h1><div><a class="btn btn-outline-success" href="/Almoxarifado/Movimentacoes/NovaEntrada">Entrada</a><a class="btn btn-outline-danger" href="/Almoxarifado/Movimentacoes/NovaSaida">Saída</a></div></div><form class="my-3"><input class="form-control" name="busca" placeholder="Buscar material ou local" value="@Context.Request.Query["busca"]" /></form><div class="table-responsive"><table class="table"><thead><tr><th>Material</th><th>Local</th><th>Unidade</th><th class="text-end">Saldo</th><th class="text-end">Mínimo</th></tr></thead><tbody>@foreach(var x in Model){<tr class="@(x.AbaixoMinimo?"table-danger":"")"><td>@x.MaterialCodigo — @x.MaterialDescricao</td><td>@x.LocalCodigo — @x.LocalNome</td><td>@x.UnidadeMedida</td><td class="text-end">@x.Quantidade</td><td class="text-end">@x.EstoqueMinimo</td></tr>}@if(Model.Count==0){<tr><td colspan="5" class="text-center text-muted py-5">Nenhum saldo registrado.</td></tr>}</tbody></table></div><a href="/Almoxarifado/Exportar/saldo">Exportar saldo CSV</a>
+@{
+    ViewData["Title"] = "Saldos de estoque";
+    var busca = Context.Request.Query["busca"].ToString();
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Estoque</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Posição física de materiais</span>
+      <h1>Saldos de estoque</h1>
+      <p>Quantidades disponíveis por almoxarifado no contexto da entidade atual.</p>
+    </div>
+    <div class="quick-actions">
+      <a class="btn btn-outline-primary" href="/Almoxarifado/Exportar/saldo">Exportar saldos CSV</a>
+      <a class="btn btn-outline-success" href="/Almoxarifado/Movimentacoes/NovaEntrada">+ Registrar entrada</a>
+      <a class="btn btn-outline-danger" href="/Almoxarifado/Movimentacoes/NovaSaida">- Registrar saída</a>
+    </div>
+  </div>
+
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+  <section class="panel mb-3" aria-labelledby="busca-estoque">
+    <h2 id="busca-estoque">Filtrar saldos</h2>
+    <form method="get" class="row g-2">
+      <div class="col-md-10">
+        <input class="form-control" name="busca" placeholder="Buscar por código do material, descrição ou nome do almoxarifado..." value="@busca" maxlength="120" />
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-dark">Buscar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="tabela-saldos">
+    <h2 id="tabela-saldos">Posição consolidada</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <caption class="visually-hidden">Saldos de estoque por material e almoxarifado</caption>
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>Almoxarifado / Local</th>
+            <th>Unidade</th>
+            <th class="text-end">Saldo físico</th>
+            <th class="text-end">Estoque mínimo</th>
+            <th class="text-center">Condição</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var x in Model)
+          {
+            <tr class="@(x.AbaixoMinimo ? "table-warning" : "")">
+              <td><strong>@x.MaterialCodigo</strong><small>@x.MaterialDescricao</small></td>
+              <td><strong>@x.LocalNome</strong><small>@x.LocalCodigo</small></td>
+              <td>@x.UnidadeMedida</td>
+              <td class="text-end fw-bold">@x.Quantidade.ToString("0.####")</td>
+              <td class="text-end">@x.EstoqueMinimo.ToString("0.####")</td>
+              <td class="text-center">
+                @if (x.AbaixoMinimo)
+                {
+                  <span class="badge text-bg-danger">Abaixo do mínimo</span>
+                }
+                else
+                {
+                  <span class="badge text-bg-success">Normal</span>
+                }
+              </td>
+            </tr>
+          }
+          @if (Model.Count == 0)
+          {
+            <tr>
+              <td colspan="6">
+                <div class="empty">
+                  <strong>Nenhum saldo registrado</strong>
+                  <span>Realize entradas físicas de materiais para formar estoque nos almoxarifados da entidade.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>Os saldos refletem a posição física em tempo real resultante de entradas, saídas, requisições atendidas e transferências confirmadas. Linhas em destaque amarelo/vermelho indicam produtos com quantidade inferior ao ponto de reposição configurado. Saídas que excedam o saldo disponível são bloqueadas tanto na aplicação quanto no banco de dados.</p>
+    </details>
+  </section>
+</div>

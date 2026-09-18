@@ -1,8 +1,113 @@
 @model Sigov.Application.Almoxarifado.TransferenciaDto
-@{ViewData["Title"]=$"Transferência #{Model.Id}";var podeExpedir=(bool)ViewBag.PodeExpedir;var podeReceber=(bool)ViewBag.PodeReceber;}
-<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Almoxarifado">Estoque e Distribuição</a></li><li class="breadcrumb-item"><a href="/Almoxarifado/Transferencias">Transferências</a></li><li class="breadcrumb-item active">#@Model.Id</li></ol></nav>
-<div class="d-flex flex-wrap justify-content-between gap-3 mb-4"><div><h1 class="h3 mb-1">Transferência #@Model.Id</h1><p class="text-secondary mb-0">@Model.OrigemNome → @Model.DestinoNome</p></div><span class="badge text-bg-primary align-self-start fs-6">@Model.Status.Replace('_',' ')</span></div>
-<section class="card card-body mb-3"><h2 class="h5">Resumo do documento</h2><dl class="row mb-0"><dt class="col-sm-3">Responsável</dt><dd class="col-sm-9">@Model.Responsavel</dd><dt class="col-sm-3">Justificativa</dt><dd class="col-sm-9">@Model.Justificativa</dd><dt class="col-sm-3">Criada em</dt><dd class="col-sm-9">@Model.CreatedAt.ToLocalTime().ToString("g")</dd></dl></section>
-@if(podeExpedir&&Model.Status=="RASCUNHO"){<form method="post" action="/Almoxarifado/Transferencias/@Model.Id/Expedir" class="mb-3" data-prevent-double-submit>@Html.AntiForgeryToken()<button class="btn btn-primary">Expedir transferência</button></form>}
-<form method="post" action="/Almoxarifado/Transferencias/@Model.Id/Receber" data-prevent-double-submit>@Html.AntiForgeryToken()<input type="hidden" name="idempotencyKey" value="@Guid.NewGuid().ToString("N")" /><div class="table-responsive border rounded"><table class="table align-middle mb-0"><thead><tr><th>Material</th><th>Expedido</th><th>Recebido</th><th>Recusado</th><th>Receber agora</th><th>Recusar agora</th><th>Divergência</th></tr></thead><tbody>@for(var i=0;i<Model.Itens.Count;i++){var x=Model.Itens[i];<tr><td>@x.Descricao <small class="d-block text-secondary">@x.Codigo · @x.UnidadeMedida @if(x.Lote is not null){<text>· lote @x.Lote</text>}</small><input type="hidden" name="itens[@i].ItemId" value="@x.Id" /></td><td>@x.Quantidade</td><td>@x.QuantidadeRecebida</td><td>@x.QuantidadeRecusada</td><td><label class="visually-hidden" for="rec-@x.Id">Quantidade recebida</label><input class="form-control" id="rec-@x.Id" name="itens[@i].QuantidadeRecebida" type="number" min="0" max="@(x.Quantidade-x.QuantidadeRecebida-x.QuantidadeRecusada)" step="0.0001" value="0" /></td><td><label class="visually-hidden" for="rej-@x.Id">Quantidade recusada</label><input class="form-control" id="rej-@x.Id" name="itens[@i].QuantidadeRecusada" type="number" min="0" max="@(x.Quantidade-x.QuantidadeRecebida-x.QuantidadeRecusada)" step="0.0001" value="0" /></td><td><label class="visually-hidden" for="div-@x.Id">Motivo da divergência</label><input class="form-control" id="div-@x.Id" name="itens[@i].Divergencia" value="@x.Divergencia" /></td></tr>}</tbody></table></div>@if(podeReceber && Model.Status is ("EM_TRANSITO" or "RECEBIDA_PARCIAL" or "DIVERGENCIA")){<div class="mt-3"><label class="form-label" for="observacao">Observação do recebimento</label><textarea class="form-control mb-3" id="observacao" name="observacao"></textarea><button class="btn btn-primary">Confirmar quantidades informadas</button></div>}</form>
-<details class="mt-4"><summary class="fw-semibold">Como usar</summary><p class="mt-2">Receba apenas a quantidade conferida. Recusas exigem motivo e permanecem vinculadas ao trânsito até devolução ou tratamento autorizado; elas não são baixadas como perda.</p></details>
+@{
+    ViewData["Title"] = $"Transferência #{Model.Id}";
+    var podeExpedir = (bool)ViewBag.PodeExpedir;
+    var podeReceber = (bool)ViewBag.PodeReceber;
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+        <li class="breadcrumb-item"><a href="/Almoxarifado/Transferencias">Transferências</a></li>
+        <li class="breadcrumb-item active" aria-current="page">#@Model.Id</li>
+    </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Transferência #@Model.Id</h1>
+        <p class="text-muted mb-0">@Model.OrigemNome &rarr; @Model.DestinoNome</p>
+    </div>
+    <span class="badge text-bg-primary align-self-start fs-6">@Model.Status.Replace('_', ' ')</span>
+</div>
+
+<details class="how-to mb-4">
+    <summary>Como usar esta tela</summary>
+    <div class="mt-2 text-secondary">
+        <p>Acompanhe e confirme as etapas de expedição e recebimento da transferência interna:</p>
+        <ul>
+            <li><strong>Expedição:</strong> Debita os saldos do almoxarifado de origem e coloca a carga em trânsito.</li>
+            <li><strong>Recebimento físico:</strong> Registre apenas a quantidade conferida. Divergências ou recusas exigem justificativa expressa.</li>
+            <li><strong>Garantia contábil:</strong> As quantidades recusadas não viram perda automática; ficam rastreadas no documento para devolução ou regularização.</li>
+        </ul>
+    </div>
+</details>
+
+<section class="card card-body mb-4">
+    <h2 class="h5">Resumo do documento</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Responsável</dt>
+        <dd class="col-sm-9">@Model.Responsavel</dd>
+        <dt class="col-sm-3">Justificativa</dt>
+        <dd class="col-sm-9">@Model.Justificativa</dd>
+        <dt class="col-sm-3">Criada em</dt>
+        <dd class="col-sm-9">@Model.CreatedAt.ToLocalTime().ToString("g")</dd>
+    </dl>
+</section>
+
+@if (podeExpedir && Model.Status == "RASCUNHO")
+{
+    <form method="post" action="/Almoxarifado/Transferencias/@Model.Id/Expedir" class="mb-4" data-prevent-double-submit>
+        @Html.AntiForgeryToken()
+        <button class="btn btn-primary" data-confirm="Confirma a expedição desta transferência? O saldo será debitado da origem.">Expedir transferência</button>
+    </form>
+}
+
+<form method="post" action="/Almoxarifado/Transferencias/@Model.Id/Receber" data-prevent-double-submit>
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="idempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+    <div class="table-responsive border rounded mb-3">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Material</th>
+                    <th>Expedido</th>
+                    <th>Recebido</th>
+                    <th>Recusado</th>
+                    <th>Receber agora</th>
+                    <th>Recusar agora</th>
+                    <th>Divergência</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Model.Itens.Count; i++)
+                {
+                    var x = Model.Itens[i];
+                    var saldoDisponivel = x.Quantidade - x.QuantidadeRecebida - x.QuantidadeRecusada;
+                    <tr>
+                        <td>
+                            <strong>@x.Descricao</strong>
+                            <small class="d-block text-secondary">@x.Codigo · @x.UnidadeMedida @if (x.Lote is not null) { <text>· lote @x.Lote</text> }</small>
+                            <input type="hidden" name="itens[@i].ItemId" value="@x.Id" />
+                        </td>
+                        <td>@x.Quantidade.ToString("0.####")</td>
+                        <td>@x.QuantidadeRecebida.ToString("0.####")</td>
+                        <td>@x.QuantidadeRecusada.ToString("0.####")</td>
+                        <td>
+                            <label class="visually-hidden" for="rec-@x.Id">Quantidade recebida</label>
+                            <input class="form-control" id="rec-@x.Id" name="itens[@i].QuantidadeRecebida" type="number" min="0" max="@saldoDisponivel" step="0.0001" value="0" />
+                        </td>
+                        <td>
+                            <label class="visually-hidden" for="rej-@x.Id">Quantidade recusada</label>
+                            <input class="form-control" id="rej-@x.Id" name="itens[@i].QuantidadeRecusada" type="number" min="0" max="@saldoDisponivel" step="0.0001" value="0" />
+                        </td>
+                        <td>
+                            <label class="visually-hidden" for="div-@x.Id">Motivo da divergência</label>
+                            <input class="form-control" id="div-@x.Id" name="itens[@i].Divergencia" value="@x.Divergencia" placeholder="Se houver recusa" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (podeReceber && Model.Status is ("EM_TRANSITO" or "RECEBIDA_PARCIAL" or "DIVERGENCIA"))
+    {
+        <div class="mt-3">
+            <label class="form-label" for="observacao">Observação do recebimento</label>
+            <textarea class="form-control mb-3" id="observacao" name="observacao" placeholder="Informações adicionais da conferência na chegada..."></textarea>
+            <button class="btn btn-primary" data-confirm="Confirma o recebimento físico das quantidades digitadas?">Confirmar quantidades informadas</button>
+        </div>
+    }
+</form>

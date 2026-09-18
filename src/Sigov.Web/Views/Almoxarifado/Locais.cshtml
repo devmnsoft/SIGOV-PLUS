@@ -1,3 +1,105 @@
 @model IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>
-@{ViewData["Title"]="Locais de estoque";}<h1 class="h3">Locais de estoque</h1><form method="post" class="card card-body mb-3">
-    @Html.AntiForgeryToken()<div class="row g-2"><div class="col-md-2"><input name="Codigo" class="form-control" placeholder="Código" required /></div><div class="col-md-4"><input name="Nome" class="form-control" placeholder="Nome" required /></div><div class="col-md-4"><input name="ResponsavelNome" class="form-control" placeholder="Responsável" /></div><input type="hidden" name="Ativo" value="true"/><div class="col-md-2"><button class="btn btn-primary w-100">Cadastrar</button></div></div></form><div class="table-responsive"><table class="table"><thead><tr><th>Código</th><th>Nome</th><th>Responsável</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Codigo</td><td>@x.Nome</td><td>@x.ResponsavelNome</td><td>@(x.Ativo?"Ativo":"Inativo")</td></tr>}@if(Model.Count==0){<tr><td colspan="4" class="text-center text-muted py-4">Nenhum local cadastrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Locais de estoque";
+    var unidades = ViewBag.Unidades as IReadOnlyList<Sigov.Application.Almoxarifado.AlmoxarifadoUnidadeOpcaoDto> ?? Array.Empty<Sigov.Application.Almoxarifado.AlmoxarifadoUnidadeOpcaoDto>();
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Locais de estoque</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Estrutura física de armazenagem</span>
+      <h1>Locais de estoque (Almoxarifados)</h1>
+      <p>Depósitos, almoxarifados setoriais e pontos de distribuição física vinculados à entidade.</p>
+    </div>
+    <a href="/Almoxarifado" class="btn btn-outline-secondary">Voltar ao dashboard</a>
+  </div>
+
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+  <section class="panel mb-3" aria-labelledby="cadastrar-local">
+    <h2 id="cadastrar-local">Cadastrar novo almoxarifado ou depósito</h2>
+    <form method="post" class="row g-2">
+      @Html.AntiForgeryToken()
+      <input type="hidden" name="Ativo" value="true" />
+      <div class="col-md-2">
+        <label class="form-label" for="local-codigo">Código *</label>
+        <input id="local-codigo" name="Codigo" class="form-control" placeholder="Ex.: ALM-CENTRAL" required maxlength="60" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="local-nome">Nome do local *</label>
+        <input id="local-nome" name="Nome" class="form-control" placeholder="Ex.: Almoxarifado Central" required maxlength="200" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="local-unidade">Unidade organizacional</label>
+        <select id="local-unidade" name="UnidadeId" class="form-select">
+          <option value="">Selecione pelo nome</option>
+          @foreach (var u in unidades)
+          {
+            <option value="@u.Id">@u.Nome</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="local-resp">Responsável nominal</label>
+        <input id="local-resp" name="ResponsavelNome" class="form-control" placeholder="Nome do encarregado" maxlength="200" />
+      </div>
+      <div class="col-12 d-flex justify-content-end mt-2">
+        <button class="btn btn-primary">Cadastrar almoxarifado</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="locais-existentes">
+    <h2 id="locais-existentes">Almoxarifados cadastrados</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <caption class="visually-hidden">Lista de locais de estoque</caption>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nome do almoxarifado</th>
+            <th>Responsável nominal</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var x in Model)
+          {
+            <tr>
+              <td><strong>@x.Codigo</strong></td>
+              <td>@x.Nome</td>
+              <td>@(x.ResponsavelNome ?? "Não informado")</td>
+              <td>
+                <span class="status status-@(x.Ativo ? "ativo" : "cancelada")">@(x.Ativo ? "Ativo" : "Inativo")</span>
+              </td>
+            </tr>
+          }
+          @if (Model.Count == 0)
+          {
+            <tr>
+              <td colspan="4">
+                <div class="empty">
+                  <strong>Nenhum almoxarifado ou local cadastrado</strong>
+                  <span>Cadastre ao menos um local de estoque para iniciar o registro de entradas e saídas físicas.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>Locais de estoque representam os pontos físicos de controle de saldos da entidade. Toda entrada, saída, transferência ou requisição é vinculada a um almoxarifado ativo. O código é único no contexto e não deve conter caracteres especiais.</p>
+    </details>
+  </section>
+</div>

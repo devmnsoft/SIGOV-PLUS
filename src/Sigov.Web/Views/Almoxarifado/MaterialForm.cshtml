@@ -1,3 +1,98 @@
 @model Sigov.Application.Almoxarifado.MaterialInput
-@{ViewData["Title"]=ViewBag.Id is null?"Novo material":"Editar material";}<h1 class="h3">@ViewData["Title"]</h1><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div asp-validation-summary="All" class="text-danger"></div><div class="row g-3"><div class="col-md-3"><label class="form-label">Código</label><input asp-for="Codigo" class="form-control" required /></div><div class="col-md-9"><label class="form-label">Descrição</label><input asp-for="Descricao" class="form-control" required /></div><div class="col-md-4"><label class="form-label">Tipo</label><select asp-for="TipoMaterial" class="form-select"><option>CONSUMO</option><option>PERMANENTE</option></select></div><div class="col-md-4"><label class="form-label">Unidade</label><input asp-for="UnidadeMedida" class="form-control" required /></div><div class="col-md-4"><label class="form-label">Categoria</label><input asp-for="Categoria" class="form-control" /></div><div class="col-md-3"><label class="form-label">Estoque mínimo</label><input asp-for="EstoqueMinimo" class="form-control" min="0" /></div><div class="col-md-3"><label class="form-label">Estoque máximo</label><input asp-for="EstoqueMaximo" class="form-control" min="0" /></div><div class="col-md-2 form-check mt-5"><input asp-for="ControlaLote" class="form-check-input" /><label asp-for="ControlaLote" class="form-check-label">Controla lote</label></div><div class="col-md-2 form-check mt-5"><input asp-for="ControlaValidade" class="form-check-input" /><label asp-for="ControlaValidade" class="form-check-label">Controla validade</label></div><div class="col-md-2 form-check mt-5"><input asp-for="Ativo" class="form-check-input" /><label asp-for="Ativo" class="form-check-label">Ativo</label></div></div><div class="mt-3"><button class="btn btn-primary">Salvar</button><a class="btn btn-link" href="/Almoxarifado/Materiais">Cancelar</a></div></form>
+@{
+    var editando = ViewBag.Id is not null;
+    ViewData["Title"] = editando ? "Editar material" : "Novo material";
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell narrow">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item"><a href="/Almoxarifado/Materiais">Materiais</a></li>
+      <li class="breadcrumb-item active" aria-current="page">@ViewData["Title"]</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Catálogo de suprimentos</span>
+      <h1>@ViewData["Title"]</h1>
+      <p>Campos marcados com * são obrigatórios. O código é único por tenant e entidade.</p>
+    </div>
+    <a href="/Almoxarifado/Materiais" class="btn btn-outline-secondary">Voltar aos materiais</a>
+  </div>
+
+  <form method="post" class="panel needs-validation" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    @Html.AntiForgeryToken()
+
+    <h2>Identificação do material</h2>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label asp-for="Codigo" class="form-label">Código do material *</label>
+        <input asp-for="Codigo" class="form-control" required maxlength="60" placeholder="Ex.: MAT-001" />
+        <span asp-validation-for="Codigo" class="text-danger"></span>
+      </div>
+      <div class="col-md-8">
+        <label asp-for="Descricao" class="form-label">Descrição completa *</label>
+        <input asp-for="Descricao" class="form-control" required maxlength="300" placeholder="Ex.: Papel A4 75g resma 500 folhas" />
+        <span asp-validation-for="Descricao" class="text-danger"></span>
+      </div>
+      <div class="col-md-4">
+        <label asp-for="TipoMaterial" class="form-label">Classificação / Tipo *</label>
+        <select asp-for="TipoMaterial" class="form-select" required>
+          <option value="CONSUMO">CONSUMO (Uso e distribuição corrente)</option>
+          <option value="PERMANENTE">PERMANENTE (Gera pendência patrimonial)</option>
+        </select>
+        <span asp-validation-for="TipoMaterial" class="text-danger"></span>
+      </div>
+      <div class="col-md-4">
+        <label asp-for="UnidadeMedida" class="form-label">Unidade de medida *</label>
+        <input asp-for="UnidadeMedida" class="form-control" required maxlength="30" placeholder="UN, CX, PCT, KG, L" />
+        <span asp-validation-for="UnidadeMedida" class="text-danger"></span>
+      </div>
+      <div class="col-md-4">
+        <label asp-for="Categoria" class="form-label">Categoria / Grupo</label>
+        <input asp-for="Categoria" class="form-control" maxlength="120" placeholder="Ex.: Expediente, Limpeza, TI" />
+      </div>
+    </div>
+
+    <h2 class="mt-4">Parâmetros de estoque e controle</h2>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label asp-for="EstoqueMinimo" class="form-label">Estoque mínimo *</label>
+        <input asp-for="EstoqueMinimo" type="number" min="0" step="0.0001" class="form-control" required />
+        <span class="form-text">Alerta de ressuprimento. Deve ser maior ou igual a zero.</span>
+      </div>
+      <div class="col-md-4">
+        <label asp-for="EstoqueMaximo" class="form-label">Estoque máximo</label>
+        <input asp-for="EstoqueMaximo" type="number" min="0" step="0.0001" class="form-control" />
+        <span class="form-text">Capacidade máxima. Não pode ser inferior ao mínimo.</span>
+      </div>
+      <div class="col-md-4 d-flex flex-column justify-content-center gap-2 pt-3">
+        <div class="form-check">
+          <input asp-for="ControlaLote" class="form-check-input" type="checkbox" id="controla-lote" />
+          <label class="form-check-label" for="controla-lote">Exigir controle de lote</label>
+        </div>
+        <div class="form-check">
+          <input asp-for="ControlaValidade" class="form-check-input" type="checkbox" id="controla-validade" />
+          <label class="form-check-label" for="controla-validade">Exigir controle de validade</label>
+        </div>
+        <div class="form-check">
+          <input asp-for="Ativo" class="form-check-input" type="checkbox" id="ativo" />
+          <label class="form-check-label" for="ativo">Material ativo para movimentação</label>
+        </div>
+      </div>
+    </div>
+
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>Informe código e descrição precisos. Materiais <strong>CONSUMO</strong> serão movimentados diretamente em saídas e requisições internas. Materiais <strong>PERMANENTE</strong> geram pendências patrimoniais a cada entrada física para garantir que o tombamento formal seja realizado no módulo de Patrimônio sem duplicação nem dados incompletos. O estoque mínimo impede desabastecimento e o estoque máximo não pode ser menor que o mínimo.</p>
+    </details>
+
+    <div class="form-actions">
+      <a href="/Almoxarifado/Materiais" class="btn btn-light">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar material</button>
+    </div>
+  </form>
+</div>

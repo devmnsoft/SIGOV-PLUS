@@ -1,0 +1,93 @@
+@model IReadOnlyList<Sigov.Application.Almoxarifado.PendenciaPatrimonialDto>
+@{
+    ViewData["Title"] = "Pendências patrimoniais";
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Pendências patrimoniais</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Integração Patrimonial</span>
+      <h1>Entradas permanentes aguardando tombamento</h1>
+      <p>Entradas de materiais permanentes registradas no almoxarifado que necessitam de tombamento patrimonial formal.</p>
+    </div>
+    <div class="quick-actions">
+      <a class="btn btn-outline-secondary" href="/Almoxarifado">Voltar ao dashboard</a>
+      <a class="btn btn-primary" href="/Patrimonio/Bens/Novo">Novo bem no Patrimônio</a>
+    </div>
+  </div>
+
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+  <section class="panel">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <caption class="visually-hidden">Lista de pendências patrimoniais</caption>
+        <thead>
+          <tr>
+            <th>Pendência</th>
+            <th>Material</th>
+            <th>Documento</th>
+            <th>Quantidade</th>
+            <th>Valor unitário</th>
+            <th>Data de entrada</th>
+            <th>Situação</th>
+            <th class="text-end">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var p in Model)
+          {
+            <tr>
+              <td><strong>#@p.Id</strong></td>
+              <td><strong>@p.MaterialCodigo</strong><small>@p.MaterialDescricao</small></td>
+              <td>@(p.DocumentoOrigem ?? "N/D")</td>
+              <td>@p.Quantidade @p.UnidadeMedida</td>
+              <td>@(p.ValorUnitario.HasValue ? p.ValorUnitario.Value.ToString("C2") : "—")</td>
+              <td>@p.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+              <td>
+                <span class="status status-@(p.Status == "PENDENTE" ? "enviada" : "ativo")">@p.Status</span>
+                @if (p.PatrimonioBemId.HasValue)
+                {
+                  <small><a href="/Patrimonio/Bens/@p.PatrimonioBemId">Bem #@p.PatrimonioBemId</a></small>
+                }
+              </td>
+              <td class="text-end">
+                @if (p.Status == "PENDENTE")
+                {
+                  <a class="btn btn-sm btn-primary" href="/Patrimonio/Bens/Novo?pendenciaId=@p.Id">Concluir tombamento</a>
+                }
+                else
+                {
+                  <span class="text-muted small">Conciliado</span>
+                }
+              </td>
+            </tr>
+          }
+          @if (Model.Count == 0)
+          {
+            <tr>
+              <td colspan="8">
+                <div class="empty">
+                  <strong>Nenhuma pendência patrimonial encontrada</strong>
+                  <span>Entradas de materiais do tipo permanente no almoxarifado aparecerão aqui automaticamente.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>Entradas de material do tipo PERMANENTE no Almoxarifado geram automaticamente uma pendência. O bem não é criado incompleto no almoxarifado. Clique em "Concluir tombamento" para preencher tombo, características e responsável definitivo no módulo de Patrimônio, conciliando a pendência.</p>
+    </details>
+  </section>
+</div>

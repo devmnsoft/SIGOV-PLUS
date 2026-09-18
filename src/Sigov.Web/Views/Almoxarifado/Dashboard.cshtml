@@ -1,6 +1,186 @@
 @model Sigov.Application.Almoxarifado.AlmoxarifadoDashboard
-@{ViewData["Title"]="Almoxarifado";}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h1 class="h3 mb-1">Almoxarifado</h1><p class="text-muted mb-0">Indicadores operacionais do contexto atual.</p></div><div class="btn-group"><a class="btn btn-primary" href="/Almoxarifado/Materiais/Novo">Novo material</a><a class="btn btn-outline-primary" href="/Almoxarifado/Movimentacoes/NovaEntrada">Entrada</a><a class="btn btn-outline-danger" href="/Almoxarifado/Movimentacoes/NovaSaida">Saída</a></div></div>
-<div class="row g-3">@foreach(var x in new[]{("Materiais ativos",Model.MateriaisAtivos,"primary"),("Abaixo do mínimo",Model.AbaixoMinimo,"danger"),("Requisições pendentes",Model.RequisicoesPendentes,"warning"),("Entradas no mês",Model.EntradasMes,"success"),("Saídas no mês",Model.SaidasMes,"secondary"),("Tombamentos pendentes",Model.PendenciasPatrimoniais,"info")}){<div class="col-6 col-lg-2"><div class="card h-100 border-@x.Item3"><div class="card-body"><span class="small text-muted">@x.Item1</span><div class="fs-3 fw-bold">@x.Item2</div></div></div></div>}</div>
-<div class="row g-3 mt-1"><div class="col-lg-7"><div class="card"><div class="card-header fw-semibold">Últimos movimentos</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Data</th><th>Material</th><th>Local</th><th>Tipo</th><th class="text-end">Qtd.</th></tr></thead><tbody>@foreach(var x in Model.UltimosMovimentos){<tr><td>@x.OcorridoEm.ToLocalTime().ToString("g")</td><td>@x.MaterialCodigo — @x.MaterialDescricao</td><td>@x.LocalNome</td><td><span class="badge bg-@(x.Tipo=="ENTRADA"?"success":"danger")">@x.Tipo</span></td><td class="text-end">@x.Quantidade</td></tr>}@if(Model.UltimosMovimentos.Count==0){<tr><td colspan="5" class="text-center text-muted py-4">Nenhuma movimentação registrada.</td></tr>}</tbody></table></div></div></div><div class="col-lg-5"><div class="card"><div class="card-header fw-semibold">Baixo estoque</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Material</th><th>Local</th><th>Saldo / mínimo</th></tr></thead><tbody>@foreach(var x in Model.BaixoEstoque){<tr><td>@x.MaterialCodigo — @x.MaterialDescricao</td><td>@x.LocalNome</td><td><span class="badge bg-danger">@x.Quantidade / @x.EstoqueMinimo</span></td></tr>}@if(Model.BaixoEstoque.Count==0){<tr><td colspan="3" class="text-center text-muted py-4">Nenhum item abaixo do mínimo.</td></tr>}</tbody></table></div></div></div></div>
-<nav class="mt-3 d-flex flex-wrap gap-2"><a href="/Almoxarifado/Materiais">Materiais</a><a href="/Almoxarifado/Locais">Locais</a><a href="/Almoxarifado/Estoque">Estoque</a><a href="/Almoxarifado/Reposicao">Planejamento de reposição</a><a href="/Almoxarifado/Requisicoes">Requisições</a></nav>
+@{
+    ViewData["Title"] = "Dashboard de Almoxarifado";
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell">
+  <div class="almox-hero">
+    <div>
+      <span class="eyebrow">Gestão de suprimentos e materiais</span>
+      <h1>Almoxarifado público</h1>
+      <p>Visão operacional dos depósitos, estoques físicos e requisições da entidade atual — municipal, estadual ou federal.</p>
+    </div>
+    <div class="quick-actions">
+      <a class="btn btn-light" href="/Almoxarifado/Materiais">Materiais</a>
+      <a class="btn btn-light" href="/Almoxarifado/Estoque">Estoque</a>
+      <a class="btn btn-warning" href="/Almoxarifado/Requisicoes">Requisições</a>
+      <a class="btn btn-outline-light" href="/Almoxarifado/Movimentacoes/NovaEntrada">+ Entrada</a>
+      <a class="btn btn-outline-light" href="/Almoxarifado/Movimentacoes/NovaSaida">- Saída</a>
+    </div>
+  </div>
+
+  @if (TempData["Success"] is string success) { <div class="alert alert-success mt-3" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger mt-3" role="alert">@error</div> }
+
+  <div class="row g-3 my-1">
+    <div class="col-6 col-xl-2">
+      <div class="metric">
+        <span>Materiais ativos</span>
+        <strong>@Model.MateriaisAtivos</strong>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="metric @(Model.AbaixoMinimo > 0 ? "metric-alert" : "")">
+        <span>Abaixo do mínimo</span>
+        <strong class="@(Model.AbaixoMinimo > 0 ? "text-danger" : "")">@Model.AbaixoMinimo</strong>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="metric @(Model.RequisicoesPendentes > 0 ? "metric-warning" : "")">
+        <span>Requisições pendentes</span>
+        <strong>@Model.RequisicoesPendentes</strong>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="metric metric-success">
+        <span>Entradas no mês</span>
+        <strong>@Model.EntradasMes</strong>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="metric">
+        <span>Saídas no mês</span>
+        <strong>@Model.SaidasMes</strong>
+      </div>
+    </div>
+    <div class="col-6 col-xl-2">
+      <div class="metric @(Model.PendenciasPatrimoniais > 0 ? "metric-info" : "")">
+        <span>Tombamentos pendentes</span>
+        <strong>@Model.PendenciasPatrimoniais</strong>
+      </div>
+    </div>
+  </div>
+
+  @if (Model.PendenciasPatrimoniais > 0)
+  {
+    <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2" role="status">
+      <div>
+        <strong>Integração com Patrimônio:</strong> Há <strong>@Model.PendenciasPatrimoniais</strong> entrada(s) de bens permanentes aguardando conclusão de tombamento no Patrimônio.
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Pendencias">Ver pendências</a>
+        <a class="btn btn-sm btn-primary" href="/Patrimonio/Bens/Novo">Tombar no Patrimônio</a>
+      </div>
+    </div>
+  }
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-7">
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Últimos movimentos</h2>
+          <a class="btn btn-sm btn-outline-secondary" href="/Almoxarifado/Estoque">Ver estoque</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <caption class="visually-hidden">Movimentações recentes</caption>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Material</th>
+                <th>Local</th>
+                <th>Tipo</th>
+                <th class="text-end">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var x in Model.UltimosMovimentos)
+              {
+                <tr>
+                  <td>@x.OcorridoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                  <td><strong>@x.MaterialCodigo</strong><small>@x.MaterialDescricao</small></td>
+                  <td>@x.LocalNome</td>
+                  <td>
+                    <span class="status status-@(x.Tipo.ToLowerInvariant())">@x.Tipo (@x.Motivo)</span>
+                  </td>
+                  <td class="text-end fw-semibold">@x.Quantidade</td>
+                </tr>
+              }
+              @if (Model.UltimosMovimentos.Count == 0)
+              {
+                <tr>
+                  <td colspan="5">
+                    <div class="empty">
+                      <strong>Nenhuma movimentação física registrada</strong>
+                      <span>Realize entradas ou saídas para atualizar a posição dos depósitos.</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-5">
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Baixo estoque</h2>
+          <a class="btn btn-sm btn-outline-secondary" href="/Almoxarifado/Reposicao">Planejar reposição</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <caption class="visually-hidden">Itens com estoque abaixo do mínimo</caption>
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Local</th>
+                <th class="text-end">Saldo / Mínimo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach (var x in Model.BaixoEstoque)
+              {
+                <tr>
+                  <td><strong>@x.MaterialCodigo</strong><small>@x.MaterialDescricao</small></td>
+                  <td>@x.LocalNome</td>
+                  <td class="text-end"><span class="badge text-bg-danger">@x.Quantidade / @x.EstoqueMinimo</span></td>
+                </tr>
+              }
+              @if (Model.BaixoEstoque.Count == 0)
+              {
+                <tr>
+                  <td colspan="3">
+                    <div class="empty">
+                      <strong>Nenhum item abaixo do mínimo</strong>
+                      <span>Todos os materiais cadastrados estão com estoque seguro no momento.</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel mt-3" aria-labelledby="regras-almox">
+    <h2 id="regras-almox">Regras vigentes</h2>
+    <ul class="mb-0">
+      <li>O catálogo de materiais aceita somente tipo <strong>CONSUMO</strong> ou <strong>PERMANENTE</strong>; o código é único por tenant e entidade.</li>
+      <li>Toda entrada de material permanente gera exatamente uma pendência patrimonial protegida por chave única da movimentação.</li>
+      <li>Bens permanentes não são tombados de forma incompleta no almoxarifado; o tombamento formal é concluído em <code>/Patrimonio/Bens/Novo</code>.</li>
+      <li>Saídas e atendimentos bloqueiam operações com saldo insuficiente; estoques nunca assumem valores negativos.</li>
+      <li>Requisições seguem o fluxo <code>RASCUNHO → ENVIADA → APROVADA|REJEITADA → ATENDIDA|CANCELADA</code> com baixa atômica e histórico.</li>
+      <li>Exportações CSV incluem proteção anti-fórmula, UTF-8 BOM, limite de 5.000 registros e não expõem operadores ou responsáveis nominais.</li>
+      <li>Relatórios avançados permanecem centralizados e redirecionam para o módulo de Ativos.</li>
+    </ul>
+  </section>
+
+  <details class="how-to">
+    <summary>Como usar esta tela</summary>
+    <p>O dashboard consolida contagens em tempo real filtradas pelo tenant e pela entidade autenticados. Utilize os atalhos superiores para navegar entre o catálogo de materiais, depósitos físicos, saldos em estoque, requisições de distribuição interna e planejamento de reposição. Para entradas de materiais permanentes, conclua a individualização patrimonial através do atalho de integração.</p>
+  </details>
+</div>

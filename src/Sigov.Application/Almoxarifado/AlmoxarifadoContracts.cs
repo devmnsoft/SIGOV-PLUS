@@ -22,7 +22,9 @@ public sealed record MovimentacaoInput(long EntidadeId,long AlmoxarifadoId,long 
 public sealed record MovimentacaoDto(long Id,string Tipo,string Motivo,string MaterialCodigo,string MaterialDescricao,string LocalNome,decimal Quantidade,decimal SaldoAntes,decimal SaldoDepois,DateTimeOffset OcorridoEm);
 public sealed record RequisicaoItemInput(long MaterialId,decimal QuantidadeSolicitada);
 public sealed record RequisicaoInput(long EntidadeId,long AlmoxarifadoId,long? UnidadeSolicitanteId,string? Observacao,IReadOnlyList<RequisicaoItemInput> Itens);
-public sealed record RequisicaoDto(long Id,long EntidadeId,long AlmoxarifadoId,string LocalNome,long? UnidadeSolicitanteId,string Status,string? Observacao,string? Justificativa,DateTimeOffset CreatedAt,int TotalItens);
+public sealed record RequisicaoDto(long Id,long EntidadeId,long AlmoxarifadoId,string LocalNome,long? UnidadeSolicitanteId,string Status,string? Observacao,string? Justificativa,DateTimeOffset CreatedAt,int TotalItens,string? UnidadeSolicitanteNome=null);
+public sealed record PendenciaPatrimonialDto(long Id,long MovimentacaoId,long MaterialId,string MaterialCodigo,string MaterialDescricao,string UnidadeMedida,decimal Quantidade,decimal? ValorUnitario,string? DocumentoOrigem,string Status,long? PatrimonioBemId,DateTimeOffset CreatedAt,DateTimeOffset? ResolvedAt);
+public sealed record AlmoxarifadoUnidadeOpcaoDto(long Id,string Nome);
 public sealed record RequisicaoItemDto(long Id,long MaterialId,string Codigo,string Descricao,string UnidadeMedida,decimal QuantidadeSolicitada,decimal QuantidadeAtendida);
 public sealed record SeparacaoItemInput(long RequisicaoItemId,decimal Quantidade,string? Lote=null);
 public sealed record SeparacaoInput(long AlmoxarifadoId,string IdempotencyKey,IReadOnlyList<SeparacaoItemInput> Itens);
@@ -70,4 +72,8 @@ public interface IAlmoxarifadoService
  Task ExpedirTransferenciaAsync(long tenantId,long entidadeId,long usuarioId,string correlationId,long id,CancellationToken ct);
  Task ReceberTransferenciaAsync(long tenantId,long entidadeId,long usuarioId,string correlationId,long id,TransferenciaRecebimentoInput input,CancellationToken ct);
  Task<byte[]> ExportarCsvAsync(long tenantId,long entidadeId,string tipo,long usuarioId,string correlationId,CancellationToken ct);
+ Task<IReadOnlyList<PendenciaPatrimonialDto>> ListarPendenciasPatrimoniaisAsync(long tenantId,long entidadeId,string? status,CancellationToken ct);
+ Task<PendenciaPatrimonialDto?> ObterPendenciaPatrimonialAsync(long tenantId,long entidadeId,long id,CancellationToken ct);
+ Task ConcluirPendenciaPatrimonialAsync(long tenantId,long entidadeId,long pendenciaId,long bemId,CancellationToken ct);
+ Task<IReadOnlyList<AlmoxarifadoUnidadeOpcaoDto>> ListarUnidadesOpcoesAsync(long tenantId,long entidadeId,CancellationToken ct);
 }
