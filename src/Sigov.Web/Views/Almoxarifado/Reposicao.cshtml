@@ -1,8 +1,182 @@
 @model Sigov.Application.Almoxarifado.ReposicaoPainel
-@{ViewData["Title"]="Planejamento de reposição";var locais=(IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Locais;}
-<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Almoxarifado">Estoque e distribuição</a></li><li class="breadcrumb-item active" aria-current="page">Reposição</li></ol></nav>
-<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4"><div><h1 class="h3 mb-1">Planejamento de reposição</h1><p class="text-muted mb-0">Projeções explicáveis por material e almoxarifado no contexto selecionado.</p></div></header>
-<section class="row g-3 mb-4" aria-label="Resumo do conjunto filtrado"><div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Itens</span><strong class="d-block fs-3">@Model.Resumo.Total</strong></div></div></div><div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Abaixo do mínimo</span><strong class="d-block fs-3 text-danger">@Model.Resumo.AbaixoMinimo</strong></div></div></div><div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Em andamento</span><strong class="d-block fs-3">@Model.Resumo.EmAndamento</strong></div></div></div><div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Análises incompletas</span><strong class="d-block fs-3 text-warning">@Model.Resumo.Incompletas</strong></div></div></div></section>
-<form method="get" class="card card-body mb-3"><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label" for="busca">Produto</label><input id="busca" name="busca" class="form-control" value="@Model.Filtro.Busca" placeholder="Código ou descrição" /></div><div class="col-md-3"><label class="form-label" for="almoxarifadoId">Almoxarifado</label><select id="almoxarifadoId" name="almoxarifadoId" class="form-select"><option value="">Todos</option>@foreach(var local in locais){<option value="@local.Id" selected="@(Model.Filtro.AlmoxarifadoId==local.Id)">@local.Nome</option>}</select></div><div class="col-md-3"><label class="form-label" for="situacao">Situação</label><select id="situacao" name="situacao" class="form-select"><option value="">Todas</option>@foreach(var s in new[]{"ABAIXO_MINIMO","EM_ANDAMENTO","CONFIGURACAO_PENDENTE","REGULAR"}){<option value="@s" selected="@(Model.Filtro.Situacao==s)">@s.Replace('_',' ')</option>}</select></div><div class="col-md-2 d-flex gap-2"><button class="btn btn-primary" type="submit">Filtrar</button><a class="btn btn-outline-secondary" href="/Almoxarifado/Reposicao">Limpar</a></div></div></form>
-<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Material / local</th><th>Situação</th><th class="text-end">Físico</th><th class="text-end">Compromissos</th><th class="text-end">Entradas</th><th class="text-end">Projetado</th><th class="text-end">Mínimo / alvo</th><th class="text-end">Sugestão</th><th>Ações</th></tr></thead><tbody>@foreach(var item in Model.Pagina.Itens){<tr><td><strong>@item.MaterialCodigo — @item.MaterialDescricao</strong><small class="d-block text-muted">@item.AlmoxarifadoNome · @item.UnidadeMedida · cálculo @item.CalculadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small></td><td><span class="badge text-bg-@(item.Situacao=="ABAIXO_MINIMO"?"danger":item.Situacao=="CONFIGURACAO_PENDENTE"?"warning":"secondary")">@item.Situacao.Replace('_',' ')</span>@if(item.Impedimento is not null){<small class="d-block text-danger mt-1">@item.Impedimento</small>}</td><td class="text-end">@item.SaldoFisico.ToString("0.####")</td><td class="text-end">@item.Compromissos.ToString("0.####")</td><td class="text-end">@item.EntradasElegiveis.ToString("0.####")</td><td class="text-end">@item.PosicaoProjetada.ToString("0.####")</td><td class="text-end">@(item.EstoqueMinimo?.ToString("0.####")??"—") / @(item.EstoqueAlvo?.ToString("0.####")??"—")</td><td class="text-end"><strong>@(item.QuantidadeSugerida?.ToString("0.####")??"—")</strong><details><summary class="small">Como foi calculado</summary><small>@item.Explicacao</small></details></td><td>@if((bool)ViewBag.PodeConfigurar){<a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Reposicao/Politica?almoxarifadoId=@item.AlmoxarifadoId&materialId=@item.MaterialId">Configurar política</a>}</td></tr>}@if(Model.Pagina.Itens.Count==0){<tr><td colspan="9" class="text-center text-muted py-5">Nenhum item corresponde aos filtros.</td></tr>}</tbody></table></div>
-@{var pages=(int)Math.Ceiling(Model.Pagina.Total/(double)Model.Pagina.TamanhoPagina);}<nav aria-label="Paginação"><ul class="pagination">@for(var p=1;p<=pages;p++){<li class="page-item @(p==Model.Pagina.Pagina?"active":"")"><a class="page-link" href="?pagina=@p&tamanhoPagina=@Model.Pagina.TamanhoPagina&almoxarifadoId=@Model.Filtro.AlmoxarifadoId&busca=@Uri.EscapeDataString(Model.Filtro.Busca??"")&situacao=@Model.Filtro.Situacao&horizonteDias=@Model.Filtro.HorizonteDias">@p</a></li>}</ul></nav>
+@{
+    ViewData["Title"] = "Planejamento de reposição";
+    var locais = (IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Locais;
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Reposição</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Planejamento de reposição</h1>
+        <p class="text-muted mb-0">Projeções explicáveis por material e almoxarifado no contexto selecionado.</p>
+    </div>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como usar esta tela</summary>
+    <div class="mt-2 text-secondary">
+        <p>A tela de reposição analisa os saldos físicos, compromissos de saída e entradas elegíveis para calcular se o estoque atingiu o ponto de pedido:</p>
+        <ul>
+            <li><strong>Abaixo do mínimo:</strong> Saldo projetado inferior ao estoque de segurança. Requer abertura de aquisição ou remanejamento.</li>
+            <li><strong>Em andamento:</strong> Ordens de compra ou transferências já estão previstas para suprir a demanda.</li>
+            <li><strong>Configuração pendente:</strong> Materiais sem parâmetros de estoque mínimo ou alvo definidos. Use <em>Configurar política</em>.</li>
+            <li><strong>Sugestão explicável:</strong> Clique em <em>Como foi calculado</em> para inspecionar as premissas analíticas sem opacidade.</li>
+        </ul>
+    </div>
+</details>
+
+<section class="row g-3 mb-4" aria-label="Resumo do conjunto filtrado">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <span class="text-muted">Itens monitorados</span>
+                <strong class="d-block fs-3">@Model.Resumo.Total</strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <span class="text-muted">Abaixo do mínimo</span>
+                <strong class="d-block fs-3 text-danger">@Model.Resumo.AbaixoMinimo</strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <span class="text-muted">Em andamento</span>
+                <strong class="d-block fs-3">@Model.Resumo.EmAndamento</strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <span class="text-muted">Análises incompletas</span>
+                <strong class="d-block fs-3 text-warning">@Model.Resumo.Incompletas</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+<form method="get" class="card card-body mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label" for="busca">Produto / Material</label>
+            <input id="busca" name="busca" class="form-control" value="@Model.Filtro.Busca" placeholder="Código ou descrição" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="almoxarifadoId">Almoxarifado</label>
+            <select id="almoxarifadoId" name="almoxarifadoId" class="form-select">
+                <option value="">Todos os locais</option>
+                @foreach (var local in locais)
+                {
+                    <option value="@local.Id" selected="@(Model.Filtro.AlmoxarifadoId == local.Id)">@local.Nome</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="situacao">Situação de estoque</label>
+            <select id="situacao" name="situacao" class="form-select">
+                <option value="">Todas as situações</option>
+                @foreach (var s in new[] { "ABAIXO_MINIMO", "EM_ANDAMENTO", "CONFIGURACAO_PENDENTE", "REGULAR" })
+                {
+                    <option value="@s" selected="@(Model.Filtro.Situacao == s)">@s.Replace('_', ' ')</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Filtrar</button>
+            <a class="btn btn-outline-secondary" href="/Almoxarifado/Reposicao">Limpar</a>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Material / local</th>
+                <th>Situação</th>
+                <th class="text-end">Físico</th>
+                <th class="text-end">Compromissos</th>
+                <th class="text-end">Entradas</th>
+                <th class="text-end">Projetado</th>
+                <th class="text-end">Mínimo / alvo</th>
+                <th class="text-end">Sugestão</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Pagina.Itens)
+            {
+                <tr>
+                    <td>
+                        <strong>@item.MaterialCodigo — @item.MaterialDescricao</strong>
+                        <small class="d-block text-muted">@item.AlmoxarifadoNome · @item.UnidadeMedida · cálculo @item.CalculadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                    </td>
+                    <td>
+                        <span class="badge text-bg-@(item.Situacao == "ABAIXO_MINIMO" ? "danger" : item.Situacao == "CONFIGURACAO_PENDENTE" ? "warning" : "secondary")">@item.Situacao.Replace('_', ' ')</span>
+                        @if (item.Impedimento is not null)
+                        {
+                            <small class="d-block text-danger mt-1">@item.Impedimento</small>
+                        }
+                    </td>
+                    <td class="text-end">@item.SaldoFisico.ToString("0.####")</td>
+                    <td class="text-end">@item.Compromissos.ToString("0.####")</td>
+                    <td class="text-end">@item.EntradasElegiveis.ToString("0.####")</td>
+                    <td class="text-end">@item.PosicaoProjetada.ToString("0.####")</td>
+                    <td class="text-end">@(item.EstoqueMinimo?.ToString("0.####") ?? "—") / @(item.EstoqueAlvo?.ToString("0.####") ?? "—")</td>
+                    <td class="text-end">
+                        <strong>@(item.QuantidadeSugerida?.ToString("0.####") ?? "—")</strong>
+                        <details>
+                            <summary class="small">Como foi calculado</summary>
+                            <small class="text-secondary">@item.Explicacao</small>
+                        </details>
+                    </td>
+                    <td>
+                        @if ((bool)ViewBag.PodeConfigurar)
+                        {
+                            <a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Reposicao/Politica?almoxarifadoId=@item.AlmoxarifadoId&materialId=@item.MaterialId">Configurar política</a>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (Model.Pagina.Itens.Count == 0)
+            {
+                <tr>
+                    <td colspan="9">
+                        <div class="empty-state">
+                            <p class="mb-0">Nenhum item corresponde aos filtros selecionados.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@{
+    var pages = (int)Math.Ceiling(Model.Pagina.Total / (double)Model.Pagina.TamanhoPagina);
+}
+@if (pages > 1)
+{
+    <nav aria-label="Paginação">
+        <ul class="pagination">
+            @for (var p = 1; p <= pages; p++)
+            {
+                <li class="page-item @(p == Model.Pagina.Pagina ? "active" : "")">
+                    <a class="page-link" href="?pagina=@p&tamanhoPagina=@Model.Pagina.TamanhoPagina&almoxarifadoId=@Model.Filtro.AlmoxarifadoId&busca=@Uri.EscapeDataString(Model.Filtro.Busca ?? "")&situacao=@Model.Filtro.Situacao&horizonteDias=@Model.Filtro.HorizonteDias">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

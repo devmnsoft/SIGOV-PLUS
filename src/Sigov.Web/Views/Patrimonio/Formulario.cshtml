@@ -14,6 +14,13 @@
   <form method="post" class="panel needs-validation" novalidate>
     <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
     @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="PendenciaPatrimonialId" />
+    @if (Model?.PendenciaPatrimonialId.HasValue == true)
+    {
+      <div class="alert alert-info py-2 mb-3" role="status">
+        <strong>Integração Almoxarifado:</strong> Este tombamento conciliará a pendência patrimonial <strong>#@Model.PendenciaPatrimonialId</strong> originada na entrada do almoxarifado.
+      </div>
+    }
     <h2>Identificação e tombamento</h2>
     <div class="row g-3">
       <div class="col-md-4"><label asp-for="CodigoTombo" class="form-label">Código de tombo *</label><input asp-for="CodigoTombo" class="form-control" required maxlength="80" /><span asp-validation-for="CodigoTombo" class="text-danger"></span></div>

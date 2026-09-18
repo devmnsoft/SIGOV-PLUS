@@ -1,2 +1,82 @@
-@{ViewData["Title"]="Nova requisição";}<h1 class="h3">Nova requisição</h1><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-6"><label class="form-label">Almoxarifado de atendimento</label><select name="almoxarifadoId" class="form-select" required>@foreach(var x in (IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Locais){<option value="@x.Id">@x.Codigo — @x.Nome</option>}</select></div><div class="col-md-6"><label class="form-label">Material</label><select name="materialId" class="form-select" required>@foreach(var x in (IReadOnlyList<Sigov.Application.Almoxarifado.MaterialDto>)ViewBag.Materiais){<option value="@x.Id">@x.Codigo — @x.Descricao</option>}</select></div><div class="col-md-3"><label class="form-label">Quantidade</label><input name="quantidade" type="number" min="0.0001" step="0.0001" class="form-control" required /></div><div class="col-md-9"><label class="form-label">Observação</label><input name="observacao" class="form-control" /></div></div><button class="btn btn-primary mt-3 align-self-start">Criar rascunho</button></form>
+@{
+    ViewData["Title"] = "Nova requisição de materiais";
+    var locais = (IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Locais;
+    var materiais = (IReadOnlyList<Sigov.Application.Almoxarifado.MaterialDto>)ViewBag.Materiais;
+    var unidades = ViewBag.Unidades as IReadOnlyList<Sigov.Application.Almoxarifado.AlmoxarifadoUnidadeOpcaoDto> ?? Array.Empty<Sigov.Application.Almoxarifado.AlmoxarifadoUnidadeOpcaoDto>();
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell narrow">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item"><a href="/Almoxarifado/Requisicoes">Requisições</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Nova requisição</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Distribuição e atendimento interno</span>
+      <h1>Nova solicitação de materiais</h1>
+      <p>A requisição inicia no estado de rascunho e não altera o estoque até que seja autorizada e atendida.</p>
+    </div>
+    <a href="/Almoxarifado/Requisicoes" class="btn btn-outline-secondary">Voltar às requisições</a>
+  </div>
+
+  <form method="post" class="panel needs-validation" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    @Html.AntiForgeryToken()
+
+    <h2>Parâmetros do pedido</h2>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="almoxarifado-id">Almoxarifado de atendimento *</label>
+        <select id="almoxarifado-id" name="almoxarifadoId" class="form-select" required>
+          <option value="">Selecione pelo nome</option>
+          @foreach (var x in locais)
+          {
+            <option value="@x.Id">@x.Nome (@x.Codigo)</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="unidade-solicitante">Unidade solicitante</label>
+        <select id="unidade-solicitante" name="unidadeSolicitanteId" class="form-select">
+          <option value="">Selecione pelo nome</option>
+          @foreach (var u in unidades)
+          {
+            <option value="@u.Id">@u.Nome</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label" for="material-id">Material *</label>
+        <select id="material-id" name="materialId" class="form-select" required>
+          <option value="">Selecione pelo nome</option>
+          @foreach (var x in materiais)
+          {
+            <option value="@x.Id">@x.Codigo — @x.Descricao [@x.UnidadeMedida]</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="quantidade">Quantidade solicitada *</label>
+        <input id="quantidade" name="quantidade" type="number" min="0.0001" step="0.0001" class="form-control" required />
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="observacao">Finalidade / Observação</label>
+        <textarea id="observacao" name="observacao" class="form-control" rows="3" placeholder="Descreva a destinação dos materiais solicitados..."></textarea>
+      </div>
+    </div>
+
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>Requisições nascem no status <strong>RASCUNHO</strong>. Após a criação, envie a solicitação para avaliação. O aprovador poderá autorizar ou rejeitar com justificativa obrigatória. Somente requisições aprovadas podem ser atendidas pelo operador do almoxarifado, baixando os saldos em transação única.</p>
+    </details>
+
+    <div class="form-actions">
+      <a href="/Almoxarifado/Requisicoes" class="btn btn-light">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Salvar rascunho</button>
+    </div>
+  </form>
+</div>

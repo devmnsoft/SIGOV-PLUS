@@ -4,7 +4,7 @@
 <div class="patrimonio-shell">
   <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Patrimonio">Patrimônio</a></li><li class="breadcrumb-item"><a href="/Patrimonio/Inventarios">Inventários</a></li><li class="breadcrumb-item active">@Model.Inventario.Codigo</li></ol></nav>
   <div class="page-heading">
-    <div><span class="eyebrow">@Model.Inventario.Situacao</span><h1>@Model.Inventario.Descricao</h1><p>@Model.Inventario.Conferidos de @Model.Inventario.TotalItens conferidos · @Model.Inventario.Divergencias divergências</p></div>
+    <div><span class="eyebrow">@Model.Inventario.Situacao</span><h1>@Model.Inventario.Descricao</h1><p>Escopo: <strong>@(Model.Inventario.UnidadeNome ?? "Todas as unidades")</strong> · Responsável: <strong>@(Model.Inventario.ResponsavelNome ?? "Todos os responsáveis")</strong> · @Model.Inventario.Conferidos de @Model.Inventario.TotalItens conferidos · @Model.Inventario.Divergencias divergência(s)</p></div>
     @{ var pendentes = Model.Inventario.TotalItens - Model.Inventario.Conferidos; }
     @if ((bool)ViewBag.PodeFechar && Model.Inventario.Situacao == "ABERTO")
     {

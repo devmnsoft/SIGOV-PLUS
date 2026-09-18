@@ -1,3 +1,134 @@
 @model Sigov.Application.Almoxarifado.AlmoxarifadoPagina<Sigov.Application.Almoxarifado.MaterialDto>
-@{ViewData["Title"]="Materiais";}<div class="d-flex justify-content-between"><h1 class="h3">Materiais</h1><a class="btn btn-primary" href="/Almoxarifado/Materiais/Novo">Cadastrar</a></div><form class="row g-2 my-3"><div class="col-md-8"><input class="form-control" name="Busca" placeholder="Código ou descrição" value="@Context.Request.Query["Busca"]" /></div><div class="col-md-2"><select class="form-select" name="Ativo"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">Filtrar</button></div></form>
-<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Código</th><th>Descrição</th><th>Tipo</th><th>Unidade</th><th>Categoria</th><th>Mín./Máx.</th><th>Status</th><th></th></tr></thead><tbody>@foreach(var x in Model.Itens){<tr><td>@x.Codigo</td><td>@x.Descricao</td><td><span class="badge bg-@(x.TipoMaterial=="PERMANENTE"?"info":"secondary")">@x.TipoMaterial</span></td><td>@x.UnidadeMedida</td><td>@x.Categoria</td><td>@x.EstoqueMinimo / @(x.EstoqueMaximo?.ToString()??"—")</td><td><span class="badge bg-@(x.Ativo?"success":"secondary")">@(x.Ativo?"Ativo":"Inativo")</span></td><td><a href="/Almoxarifado/Materiais/@x.Id/Editar">Editar</a></td></tr>}@if(Model.Itens.Count==0){<tr><td colspan="8" class="text-center text-muted py-5">Nenhum material encontrado.</td></tr>}</tbody></table></div>@if(ViewBag.Exportar==true){<a class="btn btn-sm btn-outline-secondary" href="/Almoxarifado/Exportar/catalogo">Exportar CSV</a>}
+@{
+    ViewData["Title"] = "Catálogo de materiais";
+    var paginas = Math.Max(1, (int)Math.Ceiling(Model.Total / (double)Math.Max(1, Model.TamanhoPagina)));
+    var busca = Context.Request.Query["Busca"].ToString();
+    var ativo = Context.Request.Query["Ativo"].ToString();
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Materiais</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Catálogo de suprimentos</span>
+      <h1>Materiais</h1>
+      <p>@Model.Total material(is) registrado(s) para a entidade atual. Identificadores técnicos não são digitados.</p>
+    </div>
+    <div class="quick-actions">
+      @if (ViewBag.Exportar == true)
+      {
+        <a class="btn btn-outline-primary" href="/Almoxarifado/Exportar/catalogo">Exportar CSV seguro</a>
+      }
+      <a class="btn btn-primary" href="/Almoxarifado/Materiais/Novo">Cadastrar material</a>
+    </div>
+  </div>
+
+  @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+  @if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+  <section class="panel mb-3" aria-labelledby="filtros-materiais">
+    <h2 id="filtros-materiais">Filtros de consulta</h2>
+    <form method="get" class="row g-2">
+      <div class="col-md-7">
+        <label class="form-label" for="busca">Código ou descrição</label>
+        <input id="busca" class="form-control" name="Busca" placeholder="Pesquisar..." value="@busca" maxlength="120" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="ativo">Situação</label>
+        <select id="ativo" class="form-select" name="Ativo">
+          <option value="">Todos os status</option>
+          <option value="true" selected="@(ativo == "true")">Apenas ativos</option>
+          <option value="false" selected="@(ativo == "false")">Apenas inativos</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-grid align-items-end">
+        <button class="btn btn-dark">Filtrar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="lista-materiais">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">Catálogo</span>
+        <h2 id="lista-materiais">Itens cadastrados</h2>
+      </div>
+      <span class="status">Página @Model.Pagina de @paginas</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <caption class="visually-hidden">Catálogo de materiais cadastrados</caption>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Descrição</th>
+            <th>Tipo</th>
+            <th>Unidade</th>
+            <th>Categoria</th>
+            <th>Estoque Mín./Máx.</th>
+            <th>Status</th>
+            <th class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var x in Model.Itens)
+          {
+            <tr>
+              <td><strong>@x.Codigo</strong></td>
+              <td>@x.Descricao</td>
+              <td>
+                <span class="status status-@(x.TipoMaterial.ToLowerInvariant())">@x.TipoMaterial</span>
+              </td>
+              <td>@x.UnidadeMedida</td>
+              <td>@(x.Categoria ?? "—")</td>
+              <td>@x.EstoqueMinimo / @(x.EstoqueMaximo?.ToString() ?? "—")</td>
+              <td>
+                <span class="status status-@(x.Ativo ? "ativo" : "cancelada")">@(x.Ativo ? "Ativo" : "Inativo")</span>
+              </td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Materiais/@x.Id/Editar">Editar</a>
+              </td>
+            </tr>
+          }
+          @if (Model.Itens.Count == 0)
+          {
+            <tr>
+              <td colspan="8">
+                <div class="empty">
+                  <strong>Nenhum material encontrado</strong>
+                  <span>Cadastre um novo item ou ajuste os filtros da pesquisa.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (paginas > 1)
+    {
+      <nav aria-label="Paginação" class="mt-3">
+        <ul class="pagination justify-content-center">
+          @for (var p = 1; p <= paginas; p++)
+          {
+            <li class="page-item @(p == Model.Pagina ? "active" : "")">
+              <a class="page-link" href="?Pagina=@p&Busca=@Uri.EscapeDataString(busca)&Ativo=@ativo">@p</a>
+            </li>
+          }
+        </ul>
+      </nav>
+    }
+
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>O catálogo define todos os itens gerenciados pelo almoxarifado. Materiais do tipo <strong>CONSUMO</strong> destinam-se ao uso e distribuição regular via requisições. Materiais do tipo <strong>PERMANENTE</strong> geram pendências patrimoniais automáticas a cada entrada para conclusão do tombamento formal no módulo de Patrimônio. Estoque mínimo é sempre não negativo e estoque máximo não pode ser inferior ao mínimo.</p>
+    </details>
+  </section>
+</div>

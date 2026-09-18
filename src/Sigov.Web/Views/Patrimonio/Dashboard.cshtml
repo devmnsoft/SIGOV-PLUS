@@ -8,6 +8,9 @@
       <a class="btn btn-light" href="/Patrimonio/Bens">Bens</a>
       <a class="btn btn-light" href="/Patrimonio/Incorporacoes">Incorporações</a>
       <a class="btn btn-warning" href="/Patrimonio/Inventarios">Conferências</a>
+      <a class="btn btn-outline-light" href="/Patrimonio/Depreciacao" title="Redireciona para Ativos/Depreciação">Depreciação ↗</a>
+      <a class="btn btn-outline-light" href="/Patrimonio/Imoveis" title="Redireciona para Ativos/Patrimônio">Imóveis ↗</a>
+      <a class="btn btn-outline-light" href="/Patrimonio/Relatorios" title="Redireciona para Ativos/Relatórios">Relatórios ↗</a>
     </div>
   </div>
   @if (TempData["Success"] is string success) { <div class="alert alert-success mt-3" role="status">@success</div> }
@@ -30,7 +33,8 @@
       <li>Transferência só altera localização no recebimento; recusa e cancelamento exigem motivo.</li>
       <li>Inventário só fecha com 100% de conferência; bem não localizado exige descrição da divergência.</li>
       <li>CSV exporta no máximo 100 linhas e não inclui dado pessoal do responsável.</li>
+      <li>Depreciação, gestão de imóveis e relatórios integrados redirecionam explicitamente para o módulo de Ativos.</li>
     </ul>
   </section>
-  <details class="how-to"><summary>Como usar esta tela</summary><p>Os indicadores leem apenas o tenant corrente. Use Bens para tombamento e consulta, Incorporações para individualizar recebimentos permanentes e Inventários para conferência física. Divergências e baixas não substituem autorização persistida nem auditoria.</p></details>
+  <details class="how-to"><summary>Como usar esta tela</summary><p>Os indicadores leem apenas o tenant corrente. Use Bens para tombamento e consulta, Incorporações para individualizar recebimentos permanentes e Inventários para conferência física. Depreciação, Imóveis e Relatórios redirecionam para Ativos. Divergências e baixas não substituem autorização persistida nem auditoria.</p></details>
 </div>

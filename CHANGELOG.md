@@ -1,5 +1,23 @@
 # Changelog
 
+## FUNC01 Fechamento & FUNC02 Evolução — 2026-09-18
+
+- **FUNC01 Fechamento:**
+  - conferidos PRs #427 e #428 e exibidos os nomes da unidade e do responsável no cabeçalho do inventário;
+  - implementado bloqueio formal e fail-closed na edição de bens com status `BAIXADO` no serviço e no controlador;
+  - desabilitado botão de solicitação de transferência/movimentação quando houver OS ativa nos status `APROVADA`, `EM_EXECUCAO` ou `AGUARDANDO_PECA`, com aviso explicativo ao usuário;
+  - mantidos redirecionamentos explícitos de Depreciação, Imóveis e Relatórios para o catálogo de Ativos.
+
+- **FUNC02 Almoxarifado, Estoque e Requisições:**
+  - validação estrita de materiais como `CONSUMO` ou `PERMANENTE` com código único por tenant/entidade e checagem de estoque mínimo/máximo (`estoque_minimo >= 0` e `estoque_maximo >= estoque_minimo`);
+  - geração atômica de `almoxarifado_pendencia_patrimonial` para toda entrada de material permanente (sem tombamento incompleto no almoxarifado);
+  - conciliação da pendência patrimonial integrada ao fluxo de cadastro de bens (`/Patrimonio/Bens/Novo`), registrando `patrimonio_bem_id` e data de resolução;
+  - validação estrita de saldo em saídas e atendimentos de requisição, garantindo atomicidade com lock de linhas e impedindo saldos negativos (`quantidade >= 0`);
+  - ciclo de vida completo de requisições (`RASCUNHO` → `ENVIADA` → `APROVADA`|`REJEITADA` → `ATENDIDA`|`CANCELADA`) com histórico auditável e justificativas obrigatórias para cancelamento e rejeição;
+  - exportação CSV com UTF-8 BOM, limite de 5.000 registros, proteção contra injeção de fórmulas (`=+-@\t\r`) e sem exposição de dados de usuários/responsáveis (LGPD);
+  - alinhamento visual de todos os templates com o design system do FUNC01 (`almoxarifado.css`), seletores por nome amigável de unidade/almoxarifado, empty states informativos, blocos "Como usar esta tela" e diálogos `data-confirm` em ações críticas;
+  - preservados os gates, RC50.68 mantida **BLOCKED** e RC50.69 não iniciada.
+
 ## RC50.68E-R6 — 2026-08-24
 
 - executada a homologação local disponível e registrada decisão **BLOCKED**, sem inventar PASS para

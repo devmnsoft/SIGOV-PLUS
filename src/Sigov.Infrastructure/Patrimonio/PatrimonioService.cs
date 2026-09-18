@@ -41,7 +41,12 @@ public sealed partial class PatrimonioService(NpgsqlConnectionFactory factory) :
     {
         ValidarBem(input); await using var c=factory.CreateConnection(); await c.OpenAsync(ct); await using var tx=await c.BeginTransactionAsync(ct);
         try { const string sql="""insert into sigov.patrimonio_bem(tenant_id,codigo_tombo,codigo_anterior,descricao,categoria_id,tipo_bem,marca,modelo,numero_serie,data_aquisicao,valor_aquisicao,valor_atual,estado_conservacao,situacao,unidade_id,setor_id,responsavel_usuario_id,localizacao,observacao,created_by,updated_by) values(@TenantId,@CodigoTombo,@CodigoAnterior,@Descricao,@CategoriaId,@TipoBem,@Marca,@Modelo,@NumeroSerie,@DataAquisicao,@ValorAquisicao,@ValorAtual,@EstadoConservacao,'ATIVO',@UnidadeId,@SetorId,@ResponsavelUsuarioId,@Localizacao,@Observacao,@UsuarioId,@UsuarioId) returning id""";
-            var id=await c.ExecuteScalarAsync<long>(new CommandDefinition(sql,Args(input,tenantId,usuarioId),tx,cancellationToken:ct)); await Auditar(c,tx,tenantId,"patrimonio_bem",id,"CRIAR",null,input,usuarioId,correlationId,ct); await tx.CommitAsync(ct); return id; }
+            var id=await c.ExecuteScalarAsync<long>(new CommandDefinition(sql,Args(input,tenantId,usuarioId),tx,cancellationToken:ct));
+            if(input.PendenciaPatrimonialId.HasValue){
+                var n=await c.ExecuteAsync(new CommandDefinition("update sigov.almoxarifado_pendencia_patrimonial set status='CONCLUIDA',patrimonio_bem_id=@BemId,resolved_at=now() where tenant_id=@Tenant and id=@PendId and status='PENDENTE'",new{Tenant=tenantId,BemId=id,PendId=input.PendenciaPatrimonialId.Value},tx,cancellationToken:ct));
+                if(n==0)throw new InvalidOperationException("A pendência patrimonial vinculada não foi localizada, não está pendente ou pertence a outro contexto.");
+            }
+            await Auditar(c,tx,tenantId,"patrimonio_bem",id,"CRIAR",null,input,usuarioId,correlationId,ct); await tx.CommitAsync(ct); return id; }
         catch(PostgresException e) when(e.SqlState==PostgresErrorCodes.UniqueViolation){await tx.RollbackAsync(ct);throw new InvalidOperationException("O código de tombo já existe neste tenant.",e);} catch{await tx.RollbackAsync(ct);throw;}
     }
 

@@ -1,10 +1,212 @@
 @model Sigov.Application.Almoxarifado.RequisicaoDetalhe
-@{ViewData["Title"]=$"Solicitação {Model.Requisicao.Id}"; var pendente=Model.Itens.Sum(x=>x.QuantidadeSolicitada-x.QuantidadeAtendida);}
-<nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li><li class="breadcrumb-item"><a href="/Almoxarifado/Requisicoes">Solicitações internas</a></li><li class="breadcrumb-item active">#@Model.Requisicao.Id</li></ol></nav>
-<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 border-bottom pb-3 mb-3"><div><h1 class="h3 mb-1">Solicitação interna #@Model.Requisicao.Id</h1><p class="text-muted mb-0">Unidade solicitante: @(Model.Requisicao.UnidadeSolicitanteId?.ToString()??"não informada") · Origem: @Model.Requisicao.LocalNome</p></div><span class="badge text-bg-primary fs-6"><span aria-hidden="true">●</span> @Model.Requisicao.Status</span></header>
-<details class="alert alert-light border mb-3"><summary class="fw-semibold">Como usar</summary><p class="mb-0 mt-2">Envie o rascunho para autorização. Depois da aprovação, informe somente as quantidades realmente separadas; revise a entrega antes de expedir. O recebimento é uma confirmação explícita e divergências ficam registradas.</p></details>
-<div class="table-responsive"><table class="table align-middle"><thead class="table-light"><tr><th>Material</th><th>Unidade</th><th class="text-end">Solicitado</th><th class="text-end">Atendido</th><th class="text-end">Pendente</th></tr></thead><tbody>@foreach(var x in Model.Itens){<tr><td>@x.Codigo — @x.Descricao</td><td>@x.UnidadeMedida</td><td class="text-end">@x.QuantidadeSolicitada</td><td class="text-end">@x.QuantidadeAtendida</td><td class="text-end fw-semibold">@(x.QuantidadeSolicitada-x.QuantidadeAtendida)</td></tr>}</tbody><tfoot><tr><th colspan="4">Pendente total</th><th class="text-end">@pendente</th></tr></tfoot></table></div>
-<div class="d-flex flex-wrap gap-2 mb-4">@if(Model.Requisicao.Status=="RASCUNHO"&&ViewBag.Criar==true){<form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/enviar">@Html.AntiForgeryToken()<button class="btn btn-primary">Enviar para autorização</button></form>}@if(Model.Requisicao.Status=="ENVIADA"&&ViewBag.Aprovar==true){<form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/aprovar">@Html.AntiForgeryToken()<button class="btn btn-success">Autorizar</button></form><form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/rejeitar" class="d-flex gap-2">@Html.AntiForgeryToken()<input name="justificativa" class="form-control" aria-label="Justificativa da rejeição" placeholder="Justificativa" required/><button class="btn btn-outline-danger">Rejeitar</button></form>}</div>
-@if(Model.Requisicao.Status=="APROVADA"&&ViewBag.Atender==true){<section class="border rounded p-3 mb-4"><h2 class="h5">Separação</h2><p class="text-muted">A confirmação reserva somente esta entrega. Quantidades em branco ou zero não serão incluídas.</p><form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/Separar">@Html.AntiForgeryToken()<input type="hidden" name="almoxarifadoId" value="@Model.Requisicao.AlmoxarifadoId"/><input type="hidden" name="idempotencyKey" value="@Guid.NewGuid().ToString("N")"/><div class="table-responsive"><table class="table"><thead><tr><th>Material</th><th>Disponível para solicitar</th><th>Quantidade a separar</th></tr></thead><tbody>@for(var i=0;i<Model.Itens.Count;i++){var x=Model.Itens[i];<tr><td>@x.Codigo — @x.Descricao</td><td>@(x.QuantidadeSolicitada-x.QuantidadeAtendida) @x.UnidadeMedida</td><td><input type="hidden" name="itens[@i].RequisicaoItemId" value="@x.Id"/><input name="itens[@i].Quantidade" type="number" min="0" max="@(x.QuantidadeSolicitada-x.QuantidadeAtendida)" step="0.0001" value="0" class="form-control" aria-label="Quantidade de @x.Descricao"/></td></tr>}</tbody></table></div><button class="btn btn-primary">Revisar entrega separada</button></form></section>}
-@if(Model.Entregas.Count>0){<section class="mb-4"><h2 class="h5">Entregas relacionadas</h2><div class="table-responsive"><table class="table"><thead><tr><th>Entrega</th><th>Situação</th><th>Criada em</th><th></th></tr></thead><tbody>@foreach(var x in Model.Entregas){<tr><td>#@x.Id</td><td>@x.Status</td><td>@x.CreatedAt.ToLocalTime().ToString("g")</td><td><a href="/Almoxarifado/Entregas/@x.Id">Abrir conferência</a></td></tr>}</tbody></table></div></section>}
-<h2 class="h5">Histórico</h2><ol class="list-group list-group-numbered">@foreach(var x in Model.Historico){<li class="list-group-item"><strong>@x.StatusNovo</strong> <span class="text-muted">@x.OcorridoEm.ToLocalTime().ToString("g")</span>@if(!string.IsNullOrWhiteSpace(x.Justificativa)){<div>@x.Justificativa</div>}</li>}</ol>
+@{
+    ViewData["Title"] = $"Solicitação interna #{Model.Requisicao.Id}";
+    var pendente = Model.Itens.Sum(x => x.QuantidadeSolicitada - x.QuantidadeAtendida);
+    var solicitanteNome = !string.IsNullOrWhiteSpace(Model.Requisicao.UnidadeSolicitanteNome) 
+        ? Model.Requisicao.UnidadeSolicitanteNome 
+        : (Model.Requisicao.UnidadeSolicitanteId?.ToString() ?? "Não informada");
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" asp-append-version="true" />
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+        <li class="breadcrumb-item"><a href="/Almoxarifado/Requisicoes">Solicitações internas</a></li>
+        <li class="breadcrumb-item active">#@Model.Requisicao.Id</li>
+    </ol>
+</nav>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+}
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 border-bottom pb-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Solicitação interna #@Model.Requisicao.Id</h1>
+        <p class="text-muted mb-0">Unidade solicitante: <strong>@solicitanteNome</strong> · Origem / Almoxarifado: <strong>@Model.Requisicao.LocalNome</strong></p>
+    </div>
+    <span class="badge text-bg-@(Model.Requisicao.Status == "ATENDIDA" ? "success" : Model.Requisicao.Status == "APROVADA" ? "primary" : Model.Requisicao.Status == "REJEITADA" || Model.Requisicao.Status == "CANCELADA" ? "danger" : "secondary") fs-6">
+        <span aria-hidden="true">●</span> @Model.Requisicao.Status
+    </span>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como usar esta tela</summary>
+    <div class="mt-2 text-secondary">
+        <p>Acompanhe o ciclo de vida completo da solicitação interna de materiais:</p>
+        <ul>
+            <li><strong>Rascunho:</strong> A requisição pode ser editada ou enviada para aprovação do gestor.</li>
+            <li><strong>Enviada:</strong> O gestor do almoxarifado pode aprovar ou rejeitar a requisição com justificativa registrada no histórico.</li>
+            <li><strong>Aprovada:</strong> O almoxarife pode realizar a separação/conferência gradual em entregas ou efetuar o atendimento integral com baixa direta nos saldos. O cancelamento pode ser feito mediante justificativa formal.</li>
+            <li><strong>Atendida:</strong> Requisição concluída. Todas as movimentações geradas constam do estoque e histórico auditável.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="table-responsive mb-4">
+    <table class="table align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Material</th>
+                <th>Unidade</th>
+                <th class="text-end">Solicitado</th>
+                <th class="text-end">Atendido</th>
+                <th class="text-end">Pendente</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var x in Model.Itens)
+            {
+                <tr>
+                    <td><strong>@x.Codigo</strong> — @x.Descricao</td>
+                    <td>@x.UnidadeMedida</td>
+                    <td class="text-end">@x.QuantidadeSolicitada.ToString("0.####")</td>
+                    <td class="text-end">@x.QuantidadeAtendida.ToString("0.####")</td>
+                    <td class="text-end fw-semibold text-@(x.QuantidadeSolicitada - x.QuantidadeAtendida > 0 ? "warning" : "muted")">
+                        @((x.QuantidadeSolicitada - x.QuantidadeAtendida).ToString("0.####"))
+                    </td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="4">Pendente total</th>
+                <th class="text-end">@pendente.ToString("0.####")</th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    @if (Model.Requisicao.Status == "RASCUNHO" && ViewBag.Criar == true)
+    {
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/enviar">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-primary" data-confirm="Confirma o envio desta requisição para autorização?">Enviar para autorização</button>
+        </form>
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/cancelar" class="d-flex gap-2">
+            @Html.AntiForgeryToken()
+            <input name="justificativa" class="form-control" aria-label="Justificativa do cancelamento" placeholder="Justificativa do cancelamento" required />
+            <button class="btn btn-outline-danger" data-confirm="Deseja realmente cancelar esta solicitação?">Cancelar requisição</button>
+        </form>
+    }
+    @if (Model.Requisicao.Status == "ENVIADA" && ViewBag.Aprovar == true)
+    {
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/aprovar">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-success" data-confirm="Confirma a aprovação desta requisição de materiais?">Autorizar / Aprovar</button>
+        </form>
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/rejeitar" class="d-flex gap-2">
+            @Html.AntiForgeryToken()
+            <input name="justificativa" class="form-control" aria-label="Justificativa da rejeição" placeholder="Justificativa da rejeição" required />
+            <button class="btn btn-outline-danger" data-confirm="Confirma a rejeição desta requisição?">Rejeitar</button>
+        </form>
+    }
+    @if (Model.Requisicao.Status == "APROVADA" && ViewBag.Atender == true)
+    {
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/atender">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-success" data-confirm="Confirma o atendimento desta requisição? Os saldos de estoque serão debitados imediatamente com base nas quantidades pendentes.">Atender requisição diretamente</button>
+        </form>
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/cancelar" class="d-flex gap-2">
+            @Html.AntiForgeryToken()
+            <input name="justificativa" class="form-control" aria-label="Justificativa do cancelamento" placeholder="Justificativa do cancelamento" required />
+            <button class="btn btn-outline-danger" data-confirm="Deseja realmente cancelar esta solicitação aprovada?">Cancelar requisição</button>
+        </form>
+    }
+</div>
+
+@if (Model.Requisicao.Status == "APROVADA" && ViewBag.Atender == true)
+{
+    <section class="border rounded p-3 mb-4 bg-light">
+        <h2 class="h5">Separação de materiais para entrega parcial</h2>
+        <p class="text-muted">A confirmação reserva somente esta entrega. Quantidades em branco ou zero não serão incluídas.</p>
+        <form method="post" action="/Almoxarifado/Requisicoes/@Model.Requisicao.Id/Separar">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="almoxarifadoId" value="@Model.Requisicao.AlmoxarifadoId" />
+            <input type="hidden" name="idempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Material</th>
+                            <th>Disponível para solicitar</th>
+                            <th>Quantidade a separar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < Model.Itens.Count; i++)
+                        {
+                            var x = Model.Itens[i];
+                            var maxQtd = x.QuantidadeSolicitada - x.QuantidadeAtendida;
+                            <tr>
+                                <td>@x.Codigo — @x.Descricao</td>
+                                <td>@maxQtd.ToString("0.####") @x.UnidadeMedida</td>
+                                <td>
+                                    <input type="hidden" name="itens[@i].RequisicaoItemId" value="@x.Id" />
+                                    <input name="itens[@i].Quantidade" type="number" min="0" max="@maxQtd" step="0.0001" value="0" class="form-control" aria-label="Quantidade de @x.Descricao" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn btn-primary" data-confirm="Confirma a geração do lote de separação para conferência?">Revisar entrega separada</button>
+        </form>
+    </section>
+}
+
+@if (Model.Entregas.Count > 0)
+{
+    <section class="mb-4">
+        <h2 class="h5">Entregas relacionadas</h2>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Entrega</th>
+                        <th>Situação</th>
+                        <th>Criada em</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var x in Model.Entregas)
+                    {
+                        <tr>
+                            <td>#@x.Id</td>
+                            <td><span class="badge bg-secondary">@x.Status</span></td>
+                            <td>@x.CreatedAt.ToLocalTime().ToString("g")</td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Entregas/@x.Id">Abrir conferência</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+<h2 class="h5">Histórico da solicitação</h2>
+<ol class="list-group list-group-numbered mb-4">
+    @foreach (var x in Model.Historico)
+    {
+        <li class="list-group-item">
+            <strong>@x.StatusNovo</strong> <span class="text-muted">@x.OcorridoEm.ToLocalTime().ToString("g")</span>
+            @if (!string.IsNullOrWhiteSpace(x.Justificativa))
+            {
+                <div class="mt-1 text-secondary">@x.Justificativa</div>
+            }
+        </li>
+    }
+</ol>

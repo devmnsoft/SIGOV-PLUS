@@ -1,3 +1,130 @@
 @model Sigov.Application.Almoxarifado.MovimentacaoInput
-@{var entrada=(bool)ViewBag.Entrada;ViewData["Title"]=entrada?"Entrada":"Saída";}<h1 class="h3">Nova @(entrada?"entrada":"saída")</h1><form method="post" action="/Almoxarifado/Movimentacoes/@(entrada?"entrada":"saida")" class="card card-body">
-    @Html.AntiForgeryToken()<div asp-validation-summary="All" class="text-danger"></div><div class="row g-3"><div class="col-md-6"><label class="form-label">Almoxarifado</label><select asp-for="AlmoxarifadoId" class="form-select" required><option value="">Selecione</option>@foreach(var x in (IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Locais){<option value="@x.Id">@x.Codigo — @x.Nome</option>}</select></div><div class="col-md-6"><label class="form-label">Material</label><select asp-for="MaterialId" class="form-select" required><option value="">Selecione</option>@foreach(var x in (IReadOnlyList<Sigov.Application.Almoxarifado.MaterialDto>)ViewBag.Materiais){<option value="@x.Id">@x.Codigo — @x.Descricao</option>}</select></div><div class="col-md-3"><label class="form-label">Quantidade</label><input asp-for="Quantidade" class="form-control" min="0.0001" step="0.0001" required /></div><div class="col-md-3"><label class="form-label">Motivo</label><select asp-for="Tipo" class="form-select">@foreach(var x in (entrada?new[]{"COMPRA","DOACAO","AJUSTE_POSITIVO","TRANSFERENCIA_RECEBIDA"}:new[]{"CONSUMO","PERDA","AJUSTE_NEGATIVO","TRANSFERENCIA"})){<option>@x</option>}</select></div><div class="col-md-3"><label class="form-label">Documento</label><input asp-for="DocumentoOrigem" class="form-control" /></div><div class="col-md-3"><label class="form-label">Lote</label><input asp-for="Lote" class="form-control" /></div><div class="col-md-3"><label class="form-label">Validade</label><input asp-for="Validade" type="date" class="form-control" /></div><div class="col-md-9"><label class="form-label">Observação</label><input asp-for="Observacao" class="form-control" /></div></div><button class="btn btn-primary mt-3 align-self-start">Registrar</button></form>
+@{
+    var entrada = (bool)ViewBag.Entrada;
+    ViewData["Title"] = entrada ? "Registrar entrada de material" : "Registrar saída de material";
+    var locais = (IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Locais;
+    var materiais = (IReadOnlyList<Sigov.Application.Almoxarifado.MaterialDto>)ViewBag.Materiais;
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" />
+<div class="almox-shell narrow">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+      <li class="breadcrumb-item"><a href="/Almoxarifado/Estoque">Estoque</a></li>
+      <li class="breadcrumb-item active" aria-current="page">@(entrada ? "Entrada" : "Saída")</li>
+    </ol>
+  </nav>
+
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Movimentação física de materiais</span>
+      <h1>@ViewData["Title"]</h1>
+      <p>Todas as operações atualizam o saldo físico e são auditadas na mesma transação.</p>
+    </div>
+    <a href="/Almoxarifado/Estoque" class="btn btn-outline-secondary">Voltar ao estoque</a>
+  </div>
+
+  <form method="post" action="/Almoxarifado/Movimentacoes/@(entrada ? "entrada" : "saida")" class="panel needs-validation" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    @Html.AntiForgeryToken()
+
+    @if (entrada)
+    {
+      <div class="alert alert-info py-2 mb-3" role="status">
+        <strong>Atenção:</strong> A entrada de material com classificação <strong>PERMANENTE</strong> gerará automaticamente uma pendência patrimonial para conclusão do tombamento formal no módulo de Patrimônio.
+      </div>
+    }
+    else
+    {
+      <div class="alert alert-warning py-2 mb-3" role="status">
+        <strong>Regra de estoque:</strong> A saída só será confirmada se houver saldo físico disponível no almoxarifado de origem. Saldo insuficiente bloqueará a transação.
+      </div>
+    }
+
+    <h2>Dados da operação</h2>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label asp-for="AlmoxarifadoId" class="form-label">Almoxarifado / Local *</label>
+        <select asp-for="AlmoxarifadoId" class="form-select" required>
+          <option value="">Selecione pelo nome</option>
+          @foreach (var x in locais)
+          {
+            <option value="@x.Id">@x.Nome (@x.Codigo)</option>
+          }
+        </select>
+        <span asp-validation-for="AlmoxarifadoId" class="text-danger"></span>
+      </div>
+      <div class="col-md-6">
+        <label asp-for="MaterialId" class="form-label">Material *</label>
+        <select asp-for="MaterialId" class="form-select" required>
+          <option value="">Selecione pelo nome e código</option>
+          @foreach (var x in materiais)
+          {
+            <option value="@x.Id">@x.Codigo — @x.Descricao [@x.TipoMaterial, @x.UnidadeMedida]</option>
+          }
+        </select>
+        <span asp-validation-for="MaterialId" class="text-danger"></span>
+      </div>
+      <div class="col-md-3">
+        <label asp-for="Quantidade" class="form-label">Quantidade *</label>
+        <input asp-for="Quantidade" type="number" min="0.0001" step="0.0001" class="form-control" required />
+        <span asp-validation-for="Quantidade" class="text-danger"></span>
+      </div>
+      <div class="col-md-3">
+        <label asp-for="Tipo" class="form-label">Motivo da operação *</label>
+        <select asp-for="Tipo" class="form-select" required>
+          @if (entrada)
+          {
+            <option value="COMPRA">Compra</option>
+            <option value="DOACAO">Doação recebida</option>
+            <option value="AJUSTE_POSITIVO">Ajuste de inventário (positivo)</option>
+            <option value="TRANSFERENCIA_RECEBIDA">Transferência recebida</option>
+          }
+          else
+          {
+            <option value="CONSUMO">Consumo interno</option>
+            <option value="PERDA">Perda / Avaria</option>
+            <option value="AJUSTE_NEGATIVO">Ajuste de inventário (negativo)</option>
+            <option value="TRANSFERENCIA">Transferência expedida</option>
+          }
+        </select>
+        <span asp-validation-for="Tipo" class="text-danger"></span>
+      </div>
+      @if (entrada)
+      {
+        <div class="col-md-3">
+          <label asp-for="ValorUnitario" class="form-label">Valor unitário (R$)</label>
+          <input asp-for="ValorUnitario" type="number" min="0" step="0.01" class="form-control" placeholder="0,00" />
+        </div>
+      }
+      <div class="col-md-@(entrada ? "3" : "6")">
+        <label asp-for="DocumentoOrigem" class="form-label">Documento de origem</label>
+        <input asp-for="DocumentoOrigem" class="form-control" placeholder="Ex.: NF 12345, Termo 89" maxlength="200" />
+      </div>
+      <div class="col-md-4">
+        <label asp-for="Lote" class="form-label">Número do lote</label>
+        <input asp-for="Lote" class="form-control" maxlength="100" />
+      </div>
+      <div class="col-md-4">
+        <label asp-for="Validade" class="form-label">Data de validade</label>
+        <input asp-for="Validade" type="date" class="form-control" />
+      </div>
+      <div class="col-md-4">
+        <label asp-for="Observacao" class="form-label">Observação / Justificativa</label>
+        <input asp-for="Observacao" class="form-control" maxlength="300" />
+      </div>
+    </div>
+
+    <details class="how-to">
+      <summary>Como usar esta tela</summary>
+      <p>Selecione o almoxarifado e o material pelo nome. A quantidade deve ser estritamente positiva. Entradas de materiais do tipo <strong>PERMANENTE</strong> geram uma pendência patrimonial vinculada à movimentação para posterior tombamento no Patrimônio. Saídas verificam o saldo no almoxarifado de origem em transação exclusiva, impedindo saldos negativos.</p>
+    </details>
+
+    <div class="form-actions">
+      <a href="/Almoxarifado/Estoque" class="btn btn-light">Cancelar</a>
+      <button type="submit" class="btn @(entrada ? "btn-success" : "btn-danger")">
+        @(entrada ? "Confirmar entrada" : "Confirmar saída")
+      </button>
+    </div>
+  </form>
+</div>

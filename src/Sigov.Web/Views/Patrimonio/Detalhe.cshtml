@@ -101,16 +101,23 @@
     </div>
     <div class="col-lg-6">
       <section class="panel">
+        @{ var temOsImpeditiva = Model.Manutencoes.Any(m => m.Status is "APROVADA" or "EM_EXECUCAO" or "AGUARDANDO_PECA"); }
         <h2>Solicitar movimentação</h2>
         <p class="form-guidance">A localização só muda após o recebimento no destino.</p>
+        @if (temOsImpeditiva)
+        {
+          <div class="alert alert-warning py-2 mb-2" role="alert">
+            Movimentação impedida: há ordem de serviço em andamento (aprovada, em execução ou aguardando peça) vinculada a este bem.
+          </div>
+        }
         <form method="post" action="/Patrimonio/Bens/@bem.Id/Transferencias">
           @Html.AntiForgeryToken()
           <input type="hidden" name="CorrelationId" value="@Guid.NewGuid().ToString("N")" />
-          <div class="mb-2"><label class="form-label" for="transferencia-unidade">Unidade de destino *</label><select id="transferencia-unidade" name="UnidadeDestinoId" class="form-select" required><option value="">Selecione pelo nome</option>@foreach (var x in opcoes.Unidades.Where(x => x.Id != bem.UnidadeId)) { <option value="@x.Id">@x.Nome</option> }</select></div>
-          <div class="mb-2"><label class="form-label" for="transferencia-resp">Responsável no destino</label><select id="transferencia-resp" name="ResponsavelDestinoId" class="form-select"><option value="">Manter vigente após recebimento</option>@foreach (var x in opcoes.Responsaveis) { <option value="@x.Id">@x.Nome</option> }</select></div>
-          <div class="mb-2"><label class="form-label" for="transferencia-local">Localização no destino *</label><input id="transferencia-local" name="LocalizacaoDestino" class="form-control" required maxlength="300" /></div>
-          <div class="mb-2"><label class="form-label" for="transferencia-motivo">Justificativa *</label><textarea id="transferencia-motivo" name="Justificativa" class="form-control" required></textarea></div>
-          <button class="btn btn-primary" @(podeOperar ? null : "disabled")>Solicitar movimentação</button>
+          <div class="mb-2"><label class="form-label" for="transferencia-unidade">Unidade de destino *</label><select id="transferencia-unidade" name="UnidadeDestinoId" class="form-select" required @(temOsImpeditiva ? "disabled" : null)><option value="">Selecione pelo nome</option>@foreach (var x in opcoes.Unidades.Where(x => x.Id != bem.UnidadeId)) { <option value="@x.Id">@x.Nome</option> }</select></div>
+          <div class="mb-2"><label class="form-label" for="transferencia-resp">Responsável no destino</label><select id="transferencia-resp" name="ResponsavelDestinoId" class="form-select" @(temOsImpeditiva ? "disabled" : null)><option value="">Manter vigente após recebimento</option>@foreach (var x in opcoes.Responsaveis) { <option value="@x.Id">@x.Nome</option> }</select></div>
+          <div class="mb-2"><label class="form-label" for="transferencia-local">Localização no destino *</label><input id="transferencia-local" name="LocalizacaoDestino" class="form-control" required maxlength="300" @(temOsImpeditiva ? "disabled" : null) /></div>
+          <div class="mb-2"><label class="form-label" for="transferencia-motivo">Justificativa *</label><textarea id="transferencia-motivo" name="Justificativa" class="form-control" required @(temOsImpeditiva ? "disabled" : null)></textarea></div>
+          <button class="btn btn-primary" @(podeOperar && !temOsImpeditiva ? null : "disabled") title="@(temOsImpeditiva ? "Movimentação impedida por manutenção em andamento." : null)">Solicitar movimentação</button>
         </form>
       </section>
     </div>

@@ -1,10 +1,103 @@
 @using Sigov.Application.Almoxarifado
-@{ViewData["Title"]="Nova transferência";var locais=(IReadOnlyList<LocalDto>)ViewBag.Locais;var materiais=(IReadOnlyList<MaterialDto>)ViewBag.Materiais;}
-<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/Almoxarifado">Estoque e Distribuição</a></li><li class="breadcrumb-item"><a href="/Almoxarifado/Transferencias">Transferências</a></li><li class="breadcrumb-item active">Nova</li></ol></nav>
-<h1 class="h3">Nova transferência</h1><p class="text-secondary">O rascunho não altera o estoque. A transferência fica restrita à entidade e ao tenant atuais.</p>
-<form method="post" class="card card-body" data-prevent-double-submit>@Html.AntiForgeryToken()<div asp-validation-summary="All" class="text-danger" role="alert"></div>
-<input type="hidden" name="idempotencyKey" value="@Guid.NewGuid().ToString("N")" />
-<div class="row g-3"><div class="col-md-6"><label class="form-label" for="origemId">Almoxarifado de origem <span aria-hidden="true">*</span></label><select class="form-select" id="origemId" name="origemId" required><option value="">Selecione</option>@foreach(var x in locais){<option value="@x.Id">@x.Nome (@x.Codigo)</option>}</select></div><div class="col-md-6"><label class="form-label" for="destinoId">Almoxarifado de destino <span aria-hidden="true">*</span></label><select class="form-select" id="destinoId" name="destinoId" required><option value="">Selecione</option>@foreach(var x in locais){<option value="@x.Id">@x.Nome (@x.Codigo)</option>}</select></div>
-<div class="col-md-6"><label class="form-label" for="materialId">Material <span aria-hidden="true">*</span></label><select class="form-select" id="materialId" name="materialId" required><option value="">Selecione</option>@foreach(var x in materiais){<option value="@x.Id">@x.Descricao (@x.Codigo) — @x.UnidadeMedida</option>}</select></div><div class="col-md-3"><label class="form-label" for="quantidade">Quantidade <span aria-hidden="true">*</span></label><input class="form-control" id="quantidade" name="quantidade" type="number" min="0.0001" step="0.0001" required /></div><div class="col-md-3"><label class="form-label" for="lote">Lote</label><input class="form-control" id="lote" name="lote" maxlength="100" /></div>
-<div class="col-md-4"><label class="form-label" for="esferaGoverno">Esfera de governo <span aria-hidden="true">*</span></label><select class="form-select" id="esferaGoverno" name="esferaGoverno" required><option value="municipal">Municipal</option><option value="estadual">Estadual</option><option value="federal">Federal</option></select></div><div class="col-md-8"><label class="form-label" for="responsavel">Responsável <span aria-hidden="true">*</span></label><input class="form-control" id="responsavel" name="responsavel" maxlength="200" required /></div><div class="col-12"><label class="form-label" for="justificativa">Justificativa <span aria-hidden="true">*</span></label><textarea class="form-control" id="justificativa" name="justificativa" rows="3" required></textarea></div></div>
-<div class="d-flex gap-2 mt-4"><button class="btn btn-primary" type="submit">Salvar rascunho</button><a class="btn btn-outline-secondary" href="/Almoxarifado/Transferencias">Cancelar</a></div></form>
+@{
+    ViewData["Title"] = "Nova transferência";
+    var locais = (IReadOnlyList<LocalDto>)ViewBag.Locais;
+    var materiais = (IReadOnlyList<MaterialDto>)ViewBag.Materiais;
+}
+<link rel="stylesheet" href="~/css/almoxarifado.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Almoxarifado">Almoxarifado</a></li>
+        <li class="breadcrumb-item"><a href="/Almoxarifado/Transferencias">Transferências</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Nova</li>
+    </ol>
+</nav>
+
+<header class="mb-4">
+    <h1 class="h3 mb-1">Nova transferência de materiais</h1>
+    <p class="text-muted mb-0">Remanejamento interno entre almoxarifados da mesma entidade governamental.</p>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como usar esta tela</summary>
+    <div class="mt-2 text-secondary">
+        <p>A criação da transferência gera um rascunho sem movimentação imediata de saldo:</p>
+        <ul>
+            <li><strong>Almoxarifado de origem e destino:</strong> Devem ser distintos e pertencer à mesma entidade e esfera.</li>
+            <li><strong>Material e saldo:</strong> Apenas materiais com saldo disponível no almoxarifado de origem poderão ser expedidos na efetivação.</li>
+            <li><strong>Rastreabilidade:</strong> Informe o responsável pela solicitação e a justificativa administrativa para auditoria.</li>
+        </ul>
+    </div>
+</details>
+
+<form method="post" class="card card-body" data-prevent-double-submit>
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <input type="hidden" name="idempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label" for="origemId">Almoxarifado de origem <span class="text-danger" aria-hidden="true">*</span></label>
+            <select class="form-select" id="origemId" name="origemId" required>
+                <option value="">Selecione o almoxarifado de origem</option>
+                @foreach (var x in locais)
+                {
+                    <option value="@x.Id">@x.Nome (@x.Codigo)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label" for="destinoId">Almoxarifado de destino <span class="text-danger" aria-hidden="true">*</span></label>
+            <select class="form-select" id="destinoId" name="destinoId" required>
+                <option value="">Selecione o almoxarifado de destino</option>
+                @foreach (var x in locais)
+                {
+                    <option value="@x.Id">@x.Nome (@x.Codigo)</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label" for="materialId">Material <span class="text-danger" aria-hidden="true">*</span></label>
+            <select class="form-select" id="materialId" name="materialId" required>
+                <option value="">Selecione o material</option>
+                @foreach (var x in materiais)
+                {
+                    <option value="@x.Id">@x.Descricao (@x.Codigo) — @x.UnidadeMedida</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="quantidade">Quantidade <span class="text-danger" aria-hidden="true">*</span></label>
+            <input class="form-control" id="quantidade" name="quantidade" type="number" min="0.0001" step="0.0001" placeholder="0.0000" required />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="lote">Lote de controle</label>
+            <input class="form-control" id="lote" name="lote" maxlength="100" placeholder="Ex.: LOTE-2026-A" />
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label" for="esferaGoverno">Esfera de governo <span class="text-danger" aria-hidden="true">*</span></label>
+            <select class="form-select" id="esferaGoverno" name="esferaGoverno" required>
+                <option value="municipal">Municipal</option>
+                <option value="estadual">Estadual</option>
+                <option value="federal">Federal</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label" for="responsavel">Responsável pela solicitação <span class="text-danger" aria-hidden="true">*</span></label>
+            <input class="form-control" id="responsavel" name="responsavel" maxlength="200" placeholder="Nome do servidor responsável" required />
+        </div>
+
+        <div class="col-12">
+            <label class="form-label" for="justificativa">Motivo / Justificativa da transferência <span class="text-danger" aria-hidden="true">*</span></label>
+            <textarea class="form-control" id="justificativa" name="justificativa" rows="3" placeholder="Informe a necessidade de remanejamento entre os almoxarifados..." required></textarea>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary" type="submit" data-confirm="Confirma o registro do rascunho de transferência?">Salvar rascunho</button>
+        <a class="btn btn-outline-secondary" href="/Almoxarifado/Transferencias">Cancelar</a>
+    </div>
+</form>
