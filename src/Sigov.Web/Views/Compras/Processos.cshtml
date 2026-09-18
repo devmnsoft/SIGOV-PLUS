@@ -1,2 +1,165 @@
 @model IReadOnlyList<Sigov.Application.Compras.ProcessoDto>
-@{ViewData["Title"]="Processos de compra";}<div class="d-flex justify-content-between"><h1 class="h3">Processos de compra</h1><a class="btn btn-primary" href="/Compras/Processos/Novo">Novo</a></div><div class="table-responsive mt-3"><table class="table"><thead><tr><th>Número</th><th>Modalidade</th><th>Objeto</th><th>Prazo</th><th>Valor</th><th>Fase</th></tr></thead><tbody>@foreach(var x in Model){<tr><td><a href="/Compras/Processos/Detalhe/@x.Id">@x.Numero/@x.Exercicio</a></td><td>@x.Modalidade</td><td>@x.Objeto</td><td>@x.DataLimite</td><td>@x.ValorEstimado.ToString("C")</td><td><span class="badge bg-primary">@x.Status</span></td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted py-4">Nenhum processo encontrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Processos de compra e licitação";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Processos</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Processos de compra e contratação</h1>
+        <p class="text-muted mb-0">Gestão do ciclo de vida das contratações públicas: planejamento, seleção e adjudicação.</p>
+    </div>
+    <div>
+        <a class="btn btn-primary" href="/Compras/Processos/Novo">
+            Novo processo
+        </a>
+    </div>
+</header>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="how-to mb-4">
+    <summary>Como usar esta tela</summary>
+    <div class="mt-2 text-secondary">
+        <p>Acompanhe e gerencie os processos de contratação de acordo com a Lei nº 14.133/2021:</p>
+        <ul>
+            <li><strong>Fases do ciclo de vida:</strong> PLANEJAMENTO &rarr; PUBLICADO &rarr; DISPUTA &rarr; JULGAMENTO &rarr; HOMOLOGADO.</li>
+            <li><strong>Desfechos terminativos:</strong> Processos podem ser marcados como ANULADO, DESERTO, FRACASSADO ou CANCELADO, exigindo justificativa obrigatória e auditável.</li>
+            <li><strong>Ponte com Almoxarifado:</strong> Demandas geradas pelo planejamento de reposição de estoque iniciam automaticamente com status <code>PLANEJAMENTO</code>.</li>
+        </ul>
+    </div>
+</details>
+
+<form method="get" class="card card-body mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label class="form-label" for="busca">Número ou objeto do processo</label>
+            <input id="busca" name="busca" class="form-control" value="@Context.Request.Query["busca"]" placeholder="Digite número, exercício ou palavras do objeto..." />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="status">Fase atual</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">Todas as fases</option>
+                <option value="PLANEJAMENTO" selected="@(Context.Request.Query["status"] == "PLANEJAMENTO")">PLANEJAMENTO</option>
+                <option value="PUBLICADO" selected="@(Context.Request.Query["status"] == "PUBLICADO")">PUBLICADO</option>
+                <option value="DISPUTA" selected="@(Context.Request.Query["status"] == "DISPUTA")">DISPUTA</option>
+                <option value="JULGAMENTO" selected="@(Context.Request.Query["status"] == "JULGAMENTO")">JULGAMENTO</option>
+                <option value="HOMOLOGADO" selected="@(Context.Request.Query["status"] == "HOMOLOGADO")">HOMOLOGADO</option>
+                <option value="ANULADO" selected="@(Context.Request.Query["status"] == "ANULADO")">ANULADO</option>
+                <option value="DESERTO" selected="@(Context.Request.Query["status"] == "DESERTO")">DESERTO</option>
+                <option value="FRACASSADO" selected="@(Context.Request.Query["status"] == "FRACASSADO")">FRACASSADO</option>
+                <option value="CANCELADO" selected="@(Context.Request.Query["status"] == "CANCELADO")">CANCELADO</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+            <a class="btn btn-outline-secondary" href="/Compras/Processos">Limpar</a>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Processo</th>
+                <th>Modalidade / Critério</th>
+                <th>Objeto</th>
+                <th>Data Limite</th>
+                <th class="text-end">Valor Estimado</th>
+                <th>Fase / Status</th>
+                <th class="text-end">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model)
+            {
+                var badgeClass = p.Status switch
+                {
+                    "PLANEJAMENTO" => "compras-badge-plan",
+                    "PUBLICADO" => "compras-badge-pub",
+                    "DISPUTA" => "compras-badge-disp",
+                    "JULGAMENTO" => "compras-badge-julg",
+                    "HOMOLOGADO" => "compras-badge-homol",
+                    "ANULADO" => "compras-badge-danger",
+                    "FRACASSADO" => "compras-badge-danger",
+                    "DESERTO" => "compras-badge-warn",
+                    "CANCELADO" => "compras-badge-danger",
+                    _ => "compras-badge-plan"
+                };
+
+                <tr>
+                    <td>
+                        <a href="/Compras/Processos/Detalhe/@p.Id" class="fw-bold text-decoration-none">
+                            @p.Numero/@p.Exercicio
+                        </a>
+                    </td>
+                    <td>
+                        <div><span class="badge bg-light text-dark border">@p.Modalidade</span></div>
+                        <small class="text-muted">@p.Criterio</small>
+                    </td>
+                    <td>
+                        <div class="text-truncate" style="max-width: 340px;" title="@p.Objeto">
+                            @p.Objeto
+                        </div>
+                    </td>
+                    <td>
+                        @(p.DataLimite?.ToString("dd/MM/yyyy") ?? "—")
+                    </td>
+                    <td class="text-end fw-semibold">
+                        @p.ValorEstimado.ToString("C")
+                    </td>
+                    <td>
+                        <span class="compras-badge @badgeClass">@p.Status</span>
+                    </td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" href="/Compras/Processos/Detalhe/@p.Id">
+                            Ver detalhes
+                        </a>
+                    </td>
+                </tr>
+            }
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="compras-empty-state">
+                            <p class="mb-0">Nenhum processo licitatório ou de compra encontrado.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<section class="compras-rules-card mt-4" aria-label="Regras de processos">
+    <h2 class="h6 mb-2">Regras Vigentes de Contratação</h2>
+    <p class="mb-1 text-muted small">1. Modalidades e critérios de julgamento são carregados diretamente do catálogo oficial persistido no PostgreSQL.</p>
+    <p class="mb-1 text-muted small">2. Finalizações terminativas (Anulado, Deserto, Fracassado, Cancelado) registram justificativa formal no histórico.</p>
+    <p class="mb-0 text-muted small">3. Processos homologados habilitam o registro de recebimento com entrega no Almoxarifado e conciliação com o Patrimônio.</p>
+</section>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

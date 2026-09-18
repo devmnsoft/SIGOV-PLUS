@@ -1,3 +1,87 @@
 @model Sigov.Application.Compras.FornecedorInput
-@{ViewData["Title"]="Novo fornecedor";}<h1 class="h3">Novo fornecedor</h1><form method="post" class="card">
-    @Html.AntiForgeryToken()<div class="card-body row g-3"><div asp-validation-summary="All" class="text-danger"></div><div class="col-md-8"><label class="form-label">Razão social / nome</label><input asp-for="Nome" class="form-control" required></div><div class="col-md-4"><label class="form-label">Tipo</label><select asp-for="TipoPessoa" class="form-select"><option>JURIDICA</option><option>FISICA</option></select></div><div class="col-md-4"><label class="form-label">CPF/CNPJ</label><input asp-for="Documento" class="form-control" required></div><div class="col-md-4"><label class="form-label">E-mail</label><input asp-for="Email" class="form-control" type="email"></div><div class="col-md-4"><label class="form-label">Telefone</label><input asp-for="Telefone" class="form-control"></div><div class="col-12"><label class="form-label">Endereço resumido</label><input asp-for="Endereco" class="form-control"></div><div class="col-12"><label class="form-label">Observações</label><textarea asp-for="Observacoes" class="form-control"></textarea></div></div><div class="card-footer"><button class="btn btn-primary">Salvar</button></div></form>
+@{
+    ViewData["Title"] = "Novo fornecedor";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Fornecedores">Fornecedores</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Novo fornecedor</li>
+    </ol>
+</nav>
+
+<header class="mb-4">
+    <h1 class="h3 mb-1">Cadastrar novo fornecedor</h1>
+    <p class="text-muted mb-0">Preencha os dados cadastrais do fornecedor para habilitação em contratações públicas.</p>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como preencher o cadastro</summary>
+    <div class="mt-2 text-secondary">
+        <p>Orientações para habilitação e conformidade:</p>
+        <ul>
+            <li><strong>Documento:</strong> Informe o CPF (11 dígitos) ou CNPJ (14 dígitos) sem caracteres especiais ou pontuação. A validação de formato e unicidade no contexto é estrita.</li>
+            <li><strong>Tipo de Pessoa:</strong> Selecione Pessoa Jurídica para empresas, MEI ou consórcios; ou Pessoa Física para profissionais autônomos e peritos.</li>
+            <li><strong>Bloqueio preventivo:</strong> O fornecedor será cadastrado com status <code>ATIVO</code> por padrão.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+        <form method="post" action="/Compras/Fornecedores/Novo" class="needs-validation">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="EntidadeId" value="@Model.EntidadeId" />
+
+            <div asp-validation-summary="All" class="alert alert-danger" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label" for="Nome">Razão Social / Nome completo <span class="text-danger">*</span></label>
+                    <input id="Nome" name="Nome" value="@Model.Nome" class="form-control" required placeholder="Ex.: Fornecedora do Brasil Ltda" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="TipoPessoa">Tipo de Pessoa <span class="text-danger">*</span></label>
+                    <select id="TipoPessoa" name="TipoPessoa" class="form-select" required>
+                        <option value="JURIDICA" selected="@(Model.TipoPessoa == "JURIDICA")">Pessoa Jurídica (CNPJ)</option>
+                        <option value="FISICA" selected="@(Model.TipoPessoa == "FISICA")">Pessoa Física (CPF)</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" for="Documento">CPF ou CNPJ <span class="text-danger">*</span></label>
+                    <input id="Documento" name="Documento" value="@Model.Documento" class="form-control" required placeholder="Somente números" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="Email">E-mail institucional</label>
+                    <input id="Email" name="Email" type="email" value="@Model.Email" class="form-control" placeholder="contato@empresa.com.br" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="Telefone">Telefone comercial</label>
+                    <input id="Telefone" name="Telefone" value="@Model.Telefone" class="form-control" placeholder="(00) 00000-0000" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="Endereco">Endereço comercial / Município / UF</label>
+                    <input id="Endereco" name="Endereco" value="@Model.Endereco" class="form-control" placeholder="Logradouro, número, bairro, cidade - UF" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="Observacoes">Observações cadastrais / Objeto social</label>
+                    <textarea id="Observacoes" name="Observacoes" class="form-control" rows="3" placeholder="Informações complementares sobre ramo de atividade ou certidões">@Model.Observacoes</textarea>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <a href="/Compras/Fornecedores" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary px-4">Salvar fornecedor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

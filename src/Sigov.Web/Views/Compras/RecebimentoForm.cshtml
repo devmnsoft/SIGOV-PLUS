@@ -1,0 +1,260 @@
+@{
+    ViewData["Title"] = "Recebimento de Materiais e Bens";
+    var p = (Sigov.Application.Compras.ProcessoDto)ViewBag.Processo;
+    var saldos = (IReadOnlyList<Sigov.Application.Compras.ProcessoRecebimentoSaldoDto>)ViewBag.Saldos;
+    var almoxarifados = (IReadOnlyList<Sigov.Application.Almoxarifado.LocalDto>)ViewBag.Almoxarifados;
+    var contratos = (IReadOnlyList<Sigov.Application.Compras.CompraLinhaDto>)ViewBag.Contratos;
+    var atas = (IReadOnlyList<Sigov.Application.Compras.CompraLinhaDto>)ViewBag.Atas;
+    var historico = (IReadOnlyList<Sigov.Application.Compras.RecebimentoDto>)ViewBag.HistoricoRecebimentos;
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos">Processos</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos/Detalhe/@p.Id">@p.Numero/@p.Exercicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Recebimento no Almoxarifado</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Recebimento Físico de Materiais e Bens</h1>
+        <p class="text-muted mb-0">Processo <strong>@p.Numero/@p.Exercicio</strong> · Integração direta Compras (FUNC03) &rarr; Almoxarifado (FUNC02) &rarr; Patrimônio (FUNC01).</p>
+    </div>
+    <div>
+        <a class="btn btn-outline-secondary" href="/Compras/Processos/Detalhe/@p.Id">
+            Voltar ao processo
+        </a>
+    </div>
+</header>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="how-to mb-4">
+    <summary>Como funciona a ponte operacional Compras &rarr; Almoxarifado &rarr; Patrimônio</summary>
+    <div class="mt-2 text-secondary">
+        <p>Entenda o fluxo integrado e rastreável de entrega pública:</p>
+        <ul>
+            <li><strong>Recebimento Parcial ou Total:</strong> Cada item pode ser recebido em parcelas, respeitando estritamente o limite do saldo pendente contratado.</li>
+            <li><strong>Material de Consumo:</strong> Gera movimentação de entrada no estoque do Almoxarifado de destino e atualiza o saldo físico imediatamente.</li>
+            <li><strong>Material Permanente:</strong> Além da entrada física no Almoxarifado, gera pendência de tombamento formal no módulo de Patrimônio (<code>sigov.almoxarifado_pendencia_patrimonial</code> com status <code>PENDENTE</code>). O bem não é tombado sem conferência pelo setor de patrimônio.</li>
+            <li><strong>Sem geração de empenho no Compras:</strong> A execução financeira/orçamentária é competência exclusiva do módulo contábil (FUNC10).</li>
+        </ul>
+    </div>
+</details>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0">Registrar Entrega e Nota Fiscal</h2>
+    </div>
+    <div class="card-body p-4">
+        <form method="post" action="/Compras/Processos/@p.Id/Recebimento" class="needs-validation" data-confirm="Confirma o recebimento físico dos itens informados? Os saldos serão incorporados ao Almoxarifado.">
+            @Html.AntiForgeryToken()
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label" for="documento">Nota Fiscal / Documento de Entrega <span class="text-danger">*</span></label>
+                    <input id="documento" name="documento" class="form-control" required placeholder="Ex.: NF 12345/2026" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="dataRecebimento">Data do Recebimento <span class="text-danger">*</span></label>
+                    <input id="dataRecebimento" name="dataRecebimento" type="date" class="form-control" required value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label" for="almoxarifadoId">Almoxarifado de Destino <span class="text-danger">*</span></label>
+                    <select id="almoxarifadoId" name="almoxarifadoId" class="form-select" required>
+                        <option value="">Selecione o almoxarifado...</option>
+                        @foreach (var alm in almoxarifados)
+                        {
+                            <option value="@alm.Id">@alm.Nome (@alm.Codigo)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label" for="contratoId">Contrato Vinculado (Opcional)</label>
+                    <select id="contratoId" name="contratoId" class="form-select">
+                        <option value="">Nenhum / Contratação direta</option>
+                        @foreach (var c in contratos)
+                        {
+                            <option value="@c.Id">Contrato @c.Numero — @c.Descricao</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="ataId">Ata de Registro de Preços (Opcional)</label>
+                    <select id="ataId" name="ataId" class="form-select">
+                        <option value="">Nenhuma / Não se aplica</option>
+                        @foreach (var a in atas)
+                        {
+                            <option value="@a.Id">Ata @a.Numero — @a.Descricao</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <h3 class="h6 text-primary border-bottom pb-2 mb-3">Itens e Saldos Pendentes de Recebimento</h3>
+            <div class="table-responsive mb-3">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item / Descrição</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Contratado</th>
+                            <th class="text-end">Recebido Anterior</th>
+                            <th class="text-end">Saldo Pendente</th>
+                            <th class="text-end" style="width: 200px;">Qtd a Receber Agora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < saldos.Count; i++)
+                        {
+                            var it = saldos[i];
+                            var maxQtd = it.SaldoPendente;
+                            <tr>
+                                <td>
+                                    <strong>@it.Descricao</strong>
+                                    <small class="d-block text-muted">Unidade: @it.Unidade · Valor Unitário: @it.ValorUnitario.ToString("C")</small>
+                                    <input type="hidden" name="itens[@i].ProcessoItemId" value="@it.ProcessoItemId" />
+                                    <input type="hidden" name="itens[@i].MaterialId" value="@(it.MaterialId ?? 0)" />
+                                    <input type="hidden" name="itens[@i].ValorUnitario" value="@it.ValorUnitario" />
+                                    <input type="hidden" name="itens[@i].TipoMaterial" value="@it.TipoMaterial" />
+                                </td>
+                                <td>
+                                    <span class="badge @(it.TipoMaterial == "PERMANENTE" ? "bg-info text-dark" : "bg-light text-dark border")">
+                                        @it.TipoMaterial
+                                    </span>
+                                </td>
+                                <td class="text-end">@it.QuantidadeContratada.ToString("0.####")</td>
+                                <td class="text-end">@it.QuantidadeRecebida.ToString("0.####")</td>
+                                <td class="text-end fw-bold text-primary">@it.SaldoPendente.ToString("0.####")</td>
+                                <td>
+                                    @if (maxQtd > 0)
+                                    {
+                                        <input type="number" name="itens[@i].Quantidade" step="0.0001" min="0" max="@maxQtd" class="form-control form-control-sm text-end" value="0" />
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">100% Entregue</span>
+                                        <input type="hidden" name="itens[@i].Quantidade" value="0" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (saldos.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    Nenhum item com saldo registrado para este processo.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                <a href="/Compras/Processos/Detalhe/@p.Id" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary px-4" @(saldos.All(x => x.SaldoPendente <= 0) ? "disabled" : "")>
+                    Confirmar Entrada no Almoxarifado
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Histórico de Recebimentos Anteriores -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0">Histórico de Entregas e Recebimentos Registrados (@historico.Count)</h2>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th># Recebimento</th>
+                        <th>Documento / NF</th>
+                        <th>Data</th>
+                        <th>Movimentação Almoxarifado</th>
+                        <th>Itens Entregues</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rec in historico)
+                    {
+                        <tr>
+                            <td><strong>#@rec.Id</strong></td>
+                            <td>@rec.Documento</td>
+                            <td>@rec.DataRecebimento.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @if (rec.AlmoxarifadoMovimentacaoId.HasValue)
+                                {
+                                    <span class="badge bg-light text-dark border">Mov #@rec.AlmoxarifadoMovimentacaoId</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                <ul class="list-unstyled mb-0 small">
+                                    @foreach (var rit in rec.Itens)
+                                    {
+                                        <li>
+                                            @rit.MaterialDescricao: <strong>@rit.Quantidade.ToString("0.####")</strong> (@rit.TipoMaterial)
+                                            @if (rit.PendenciaPatrimonialId.HasValue)
+                                            {
+                                                <a href="/Patrimonio/Pendencias" class="badge bg-warning text-dark text-decoration-none ms-1">
+                                                    Pendência Patrimonial #@rit.PendenciaPatrimonialId
+                                                </a>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </td>
+                            <td>
+                                <span class="badge bg-success">@rec.Status</span>
+                            </td>
+                        </tr>
+                    }
+                    @if (historico.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                Nenhuma entrega registrada anteriormente para este processo.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<section class="compras-rules-card" aria-label="Regras da ponte de suprimentos">
+    <h2 class="h6 mb-2">Conformidade e Rastreabilidade da Ponte Operacional</h2>
+    <p class="mb-1 text-muted small">1. A quantidade informada não pode ultrapassar o saldo pendente de cada item.</p>
+    <p class="mb-1 text-muted small">2. Materiais permanentes geram pendência no Patrimônio (FUNC01) com status <code>PENDENTE</code> para tombamento oficial.</p>
+    <p class="mb-0 text-muted small">3. O controle orçamentário e emissão de empenhos pertencem exclusivamente ao módulo contábil (FUNC10).</p>
+</section>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

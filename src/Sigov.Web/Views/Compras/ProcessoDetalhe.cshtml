@@ -1,2 +1,253 @@
 @model Sigov.Application.Compras.ProcessoDetalhe
-<h1 class="h3">Processo @Model.Processo.Numero/@Model.Processo.Exercicio</h1><div class="card"><div class="card-header d-flex justify-content-between"><strong>@Model.Processo.Objeto</strong><span class="badge bg-primary">@Model.Processo.Status</span></div><div class="card-body"><p>Modalidade: @Model.Processo.Modalidade · Critério: @Model.Processo.Criterio · Estimado: @Model.Processo.ValorEstimado.ToString("C")</p><a href="/Compras/Processos/@Model.Processo.Id/Cotacoes">Cotações</a> · <a href="/Compras/Processos/@Model.Processo.Id/Julgamento">Julgamento</a></div></div><h2 class="h5 mt-3">Histórico de fases</h2><ul class="list-group">@foreach(var x in Model.Historico){<li class="list-group-item d-flex justify-content-between">@x.Descricao <small>@x.Data.ToString("g")</small></li>}@if(Model.Historico.Count==0){<li class="list-group-item text-muted">Nenhuma mudança de fase.</li>}</ul>
+@{
+    ViewData["Title"] = $"Processo {Model.Processo.Numero}/{Model.Processo.Exercicio}";
+    var p = Model.Processo;
+    var fases = new[] { "PLANEJAMENTO", "PUBLICADO", "DISPUTA", "JULGAMENTO", "HOMOLOGADO" };
+    var terminativas = new[] { "ANULADO", "DESERTO", "FRACASSADO", "CANCELADO" };
+    var isTerminativo = terminativas.Contains(p.Status);
+    var podeAvancar = (bool)(ViewBag.PodeAvancar ?? false);
+    var podeReceber = (bool)(ViewBag.PodeReceber ?? false);
+
+    string proximaFase = p.Status switch
+    {
+        "PLANEJAMENTO" => "PUBLICADO",
+        "PUBLICADO" => "DISPUTA",
+        "DISPUTA" => "JULGAMENTO",
+        "JULGAMENTO" => "HOMOLOGADO",
+        _ => ""
+    };
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos">Processos</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@p.Numero/@p.Exercicio</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <h1 class="h3 mb-0">Processo @p.Numero/@p.Exercicio</h1>
+            <span class="compras-badge @(p.Status == "HOMOLOGADO" ? "compras-badge-homol" : isTerminativo ? "compras-badge-danger" : "compras-badge-plan")">
+                @p.Status
+            </span>
+        </div>
+        <p class="text-muted mb-0">Modalidade: <strong>@p.Modalidade</strong> · Critério: <strong>@p.Criterio</strong></p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary" href="/Compras/Processos/@p.Id/Cotacoes">
+            Cotações
+        </a>
+        <a class="btn btn-outline-secondary" href="/Compras/Processos/@p.Id/Julgamento">
+            Julgamento
+        </a>
+        @if (p.Status == "HOMOLOGADO" || podeReceber)
+        {
+            <a class="btn btn-success" href="/Compras/Processos/@p.Id/Recebimento">
+                Recebimento no Almoxarifado
+            </a>
+        }
+    </div>
+</header>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="how-to mb-4">
+    <summary>Como operar este processo</summary>
+    <div class="mt-2 text-secondary">
+        <p>Ações disponíveis de acordo com a fase atual:</p>
+        <ul>
+            <li><strong>Avançar fase:</strong> Transita ordenadamente entre PLANEJAMENTO &rarr; PUBLICADO &rarr; DISPUTA &rarr; JULGAMENTO &rarr; HOMOLOGADO.</li>
+            <li><strong>Cotações e Julgamento:</strong> Registre propostas de fornecedores ativos e homologue itens vencedores.</li>
+            <li><strong>Recebimento físico:</strong> Ao receber as entregas, o saldo é incorporado ao Almoxarifado (FUNC02), gerando pendência de tombamento em caso de material permanente (FUNC01).</li>
+            <li><strong>Encerramento terminativo:</strong> É possível anular, cancelar ou declarar o processo deserto/fracassado fornecendo justificativa motivada obrigatória.</li>
+        </ul>
+    </div>
+</details>
+
+<!-- Linha do tempo / Stepper -->
+@if (!isTerminativo)
+{
+    <div class="card card-body mb-4 bg-light border-0">
+        <div class="d-flex justify-content-between text-center position-relative">
+            @for (int i = 0; i < fases.Length; i++)
+            {
+                var f = fases[i];
+                var currentIndex = Array.IndexOf(fases, p.Status);
+                var isDone = currentIndex >= i;
+                var isCurrent = p.Status == f;
+
+                <div class="d-flex flex-column align-items-center flex-fill">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold mb-1 @(isCurrent ? "bg-primary" : isDone ? "bg-success" : "bg-secondary")" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                        @(i + 1)
+                    </div>
+                    <span class="small @(isCurrent ? "fw-bold text-primary" : isDone ? "text-dark" : "text-muted")">@f</span>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3">
+                <h2 class="h6 mb-0">Objeto e Especificações</h2>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">@p.Objeto</p>
+                <div class="row g-3 pt-2 border-top">
+                    <div class="col-sm-6">
+                        <span class="text-muted small d-block">Valor Estimado Total</span>
+                        <strong class="fs-5 text-primary">@p.ValorEstimado.ToString("C")</strong>
+                    </div>
+                    <div class="col-sm-6">
+                        <span class="text-muted small d-block">Data Limite de Propostas</span>
+                        <strong>@(p.DataLimite?.ToString("dd/MM/yyyy") ?? "Não estipulado")</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3">
+                <h2 class="h6 mb-0">Itens do Processo (@Model.Itens.Count)</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            <th>Descrição</th>
+                            <th>Fornecedor Adjudicado</th>
+                            <th class="text-end">Valor Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var it in Model.Itens)
+                        {
+                            <tr>
+                                <td><strong>#@it.Numero</strong></td>
+                                <td>@it.Descricao</td>
+                                <td>@(it.Fornecedor ?? "—")</td>
+                                <td class="text-end fw-semibold">@it.Valor.ToString("C")</td>
+                                <td><span class="badge bg-light text-dark border">@it.Status</span></td>
+                            </tr>
+                        }
+                        @if (Model.Itens.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    Nenhum item lançado neste processo.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Ações de Transição de Fase -->
+        @if (podeAvancar && !isTerminativo && !string.IsNullOrEmpty(proximaFase))
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h2 class="h6 mb-0">Tramitação de Fase</h2>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Avançar este processo da fase atual <strong>@p.Status</strong> para a próxima fase do rito licitatório.</p>
+                    <form method="post" action="/Compras/Processos/@p.Id/Avancar" data-confirm="Confirma o avanço deste processo para a fase @proximaFase?">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="fase" value="@proximaFase" />
+                        <button type="submit" class="btn btn-primary w-100">
+                            Avançar para @proximaFase
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- Finalização Terminativa (Anular / Fracassar / Desertar / Cancelar) -->
+        @if (podeAvancar && !isTerminativo)
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h2 class="h6 mb-0 text-danger">Encerramento com Justificativa</h2>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">Conforme a Lei nº 14.133/2021, anulações e declarações de deserto/fracassado exigem fundamentação técnica formal.</p>
+                    <form method="post" action="/Compras/Processos/@p.Id/Finalizar" data-confirm="Tem certeza de que deseja encerrar este processo com o status selecionado? Esta ação ficará gravada no histórico de auditoria.">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <label class="form-label small" for="statusFinal">Desfecho Terminativo</label>
+                            <select id="statusFinal" name="statusFinal" class="form-select form-select-sm" required>
+                                <option value="">Selecione o desfecho</option>
+                                <option value="DESERTO">DESERTO (Ausência de licitantes)</option>
+                                <option value="FRACASSADO">FRACASSADO (Propostas desclassificadas)</option>
+                                <option value="ANULADO">ANULADO (Ilegalidade insanável)</option>
+                                <option value="CANCELADO">CANCELADO (Revogação por conveniência)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small" for="justificativa">Justificativa Formal <span class="text-danger">*</span></label>
+                            <textarea id="justificativa" name="justificativa" class="form-control form-control-sm" rows="3" required placeholder="Fundamentação obrigatória"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                            Concluir desfecho
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- Linha do Tempo de Eventos -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h2 class="h6 mb-0">Histórico de Eventos</h2>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @foreach (var ev in Model.Historico)
+                    {
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <strong class="small text-dark">@ev.Tipo</strong>
+                                <span class="text-muted" style="font-size: 0.75rem;">@ev.Data.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+                            <p class="small text-muted mb-0">@ev.Descricao</p>
+                        </li>
+                    }
+                    @if (Model.Historico.Count == 0)
+                    {
+                        <li class="list-group-item text-center text-muted py-3 small">
+                            Nenhum evento registrado até o momento.
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

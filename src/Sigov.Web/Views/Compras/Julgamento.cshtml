@@ -1,2 +1,155 @@
 @model Sigov.Application.Compras.ProcessoDetalhe
-<h1 class="h3">Julgamento — @Model?.Processo.Numero</h1><div class="alert alert-warning">O julgamento autorizado somente aceita cotações válidas quando o processo estiver na fase JULGAMENTO. A homologação exige todos os itens julgados ou fracassados.</div><a href="/Compras/Processos/Detalhe/@ViewBag.Id">Voltar ao processo</a>
+@{
+    ViewData["Title"] = $"Julgamento — Processo {Model?.Processo.Numero}/{Model?.Processo.Exercicio}";
+    var p = Model?.Processo;
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos">Processos</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos/Detalhe/@p?.Id">@p?.Numero/@p?.Exercicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Julgamento</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Julgamento e Homologação</h1>
+        <p class="text-muted mb-0">Processo <strong>@p?.Numero/@p?.Exercicio</strong> — Adjudicação de itens e deliberação final da autoridade competente.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/Compras/Processos/Detalhe/@p?.Id">
+            Voltar ao processo
+        </a>
+        @if (p?.Status == "JULGAMENTO")
+        {
+            <form method="post" action="/Compras/Processos/@p?.Id/Homologar" data-confirm="Confirma a HOMOLOGAÇÃO deste processo licitatório? A homologação encerra a fase de seleção e autoriza contratações e recebimentos.">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-success">
+                    Homologar Processo
+                </button>
+            </form>
+        }
+    </div>
+</header>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="how-to mb-4">
+    <summary>Como operar o julgamento</summary>
+    <div class="mt-2 text-secondary">
+        <p>Regras para a fase de julgamento (Art. 71 da Lei nº 14.133/2021):</p>
+        <ul>
+            <li><strong>Fase exigida:</strong> O julgamento das cotações deve ocorrer durante a fase <code>JULGAMENTO</code>.</li>
+            <li><strong>Adjudicação do item:</strong> O agente de contratação/pregoeiro avalia a melhor proposta e declara o item adjudicado com justificativa técnica.</li>
+            <li><strong>Homologação global:</strong> A autoridade competente homologa o processo, tornando-o apto para emissão de Contrato, Ata ou Recebimento direto no Almoxarifado.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0">Itens do Processo para Julgamento</h2>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item</th>
+                        <th>Descrição</th>
+                        <th>Fornecedor Adjudicado</th>
+                        <th class="text-end">Valor Homologado</th>
+                        <th>Situação</th>
+                        <th class="text-end">Ação de Julgamento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var it in Model?.Itens ?? [])
+                    {
+                        <tr>
+                            <td><strong>#@it.Numero</strong></td>
+                            <td>@it.Descricao</td>
+                            <td>@(it.Fornecedor ?? "Pendente de julgamento")</td>
+                            <td class="text-end fw-semibold">@it.Valor.ToString("C")</td>
+                            <td>
+                                <span class="badge @(it.Status == "ADJUDICADO" ? "bg-success" : "bg-warning text-dark")">
+                                    @it.Status
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                @if (p?.Status == "JULGAMENTO" && it.Status != "ADJUDICADO")
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalJulgar-@it.Id">
+                                        Julgar item
+                                    </button>
+
+                                    <!-- Modal de Julgamento -->
+                                    <div class="modal fade" id="modalJulgar-@it.Id" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog text-start">
+                                            <div class="modal-content">
+                                                <form method="post" action="/Compras/Processos/@p?.Id/Julgar" data-confirm="Confirma a decisão de julgamento deste item?">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="ProcessoItemId" value="@it.Id" />
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Julgar Item #@it.Numero</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p class="small text-muted mb-3">Item: <strong>@it.Descricao</strong></p>
+                                                        <div class="mb-3">
+                                                            <label class="form-label small">ID da Cotação Vencedora</label>
+                                                            <input name="CotacaoId" type="number" class="form-control form-control-sm" required placeholder="Informe o ID da cotação" />
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label small">Resultado</label>
+                                                            <select name="Status" class="form-select form-select-sm" required>
+                                                                <option value="ADJUDICADO">ADJUDICADO (Proposta aceita)</option>
+                                                                <option value="FRACASSADO">FRACASSADO (Preço acima do estimado / desclassificado)</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label small">Justificativa da Decisão <span class="text-danger">*</span></label>
+                                                            <textarea name="Justificativa" class="form-control form-control-sm" rows="3" required placeholder="Fundamentação técnica do julgamento"></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <button type="submit" class="btn btn-sm btn-primary">Salvar julgamento</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Concluído</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

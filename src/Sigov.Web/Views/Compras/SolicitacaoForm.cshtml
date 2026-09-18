@@ -1,2 +1,101 @@
-@{ViewData["Title"]="Nova solicitação";}<h1 class="h3">Nova solicitação</h1><form method="post" class="card">
-    @Html.AntiForgeryToken()<div class="card-body row g-3"><div class="col-md-6"><label>Unidade solicitante</label><input name="unidadeSolicitante" class="form-control" required></div><div class="col-md-3"><label>Prioridade</label><select name="prioridade" class="form-select"><option>NORMAL</option><option>BAIXA</option><option>ALTA</option><option>URGENTE</option></select></div><div class="col-md-3"><label>Origem</label><select name="origem" class="form-select"><option>MANUAL</option><option>ALMOXARIFADO</option><option>PATRIMONIO</option></select></div><div class="col-12"><label>Justificativa</label><textarea name="justificativa" class="form-control" required></textarea></div><div class="col-md-5"><label>Descrição do item</label><input name="descricao" class="form-control" required></div><div class="col-md-2"><label>Quantidade</label><input name="quantidade" type="number" step=".0001" min=".0001" class="form-control" required></div><div class="col-md-2"><label>Unidade</label><input name="unidade" class="form-control" value="UN" required></div><div class="col-md-2"><label>Tipo</label><select name="tipo" class="form-select"><option>CONSUMO</option><option>PERMANENTE</option><option>SERVICO</option></select></div><div class="col-md-1"><label>Valor</label><input name="valorEstimado" type="number" step=".01" min="0" class="form-control"></div></div><div class="card-footer"><button class="btn btn-primary">Salvar</button></div></form>
+@{
+    ViewData["Title"] = "Nova solicitação de compra";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Solicitacoes">Solicitações</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Nova solicitação</li>
+    </ol>
+</nav>
+
+<header class="mb-4">
+    <h1 class="h3 mb-1">Cadastrar solicitação de compra</h1>
+    <p class="text-muted mb-0">Demanda interna para aquisição de suprimentos, materiais permanentes ou contratação de serviços.</p>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como registrar a solicitação</summary>
+    <div class="mt-2 text-secondary">
+        <p>Preencha com a motivação administrativa e especificação do bem ou serviço:</p>
+        <ul>
+            <li><strong>Unidade:</strong> Identifique o órgão/secretaria solicitante.</li>
+            <li><strong>Tipo de Material:</strong> Diferencie entre CONSUMO, PERMANENTE e SERVICO.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-4">
+        <form method="post" action="/Compras/Solicitacoes/Nova" class="needs-validation">
+            @Html.AntiForgeryToken()
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="unidadeSolicitante">Unidade Solicitante <span class="text-danger">*</span></label>
+                    <input id="unidadeSolicitante" name="unidadeSolicitante" class="form-control" required placeholder="Ex.: Secretaria Municipal de Saúde" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="prioridade">Prioridade <span class="text-danger">*</span></label>
+                    <select id="prioridade" name="prioridade" class="form-select" required>
+                        <option value="NORMAL">NORMAL</option>
+                        <option value="BAIXA">BAIXA</option>
+                        <option value="ALTA">ALTA</option>
+                        <option value="URGENTE">URGENTE</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="origem">Origem da Demanda <span class="text-danger">*</span></label>
+                    <select id="origem" name="origem" class="form-select" required>
+                        <option value="MANUAL">MANUAL</option>
+                        <option value="ALMOXARIFADO">ALMOXARIFADO</option>
+                        <option value="PATRIMONIO">PATRIMONIO</option>
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="justificativa">Justificativa da necessidade <span class="text-danger">*</span></label>
+                    <textarea id="justificativa" name="justificativa" class="form-control" rows="2" required placeholder="Motivação e finalidade pública da aquisição..."></textarea>
+                </div>
+
+                <h2 class="h6 text-primary border-bottom pb-2 mb-3 mt-4">Especificação do Item</h2>
+
+                <div class="col-md-5">
+                    <label class="form-label" for="descricao">Descrição do item / serviço <span class="text-danger">*</span></label>
+                    <input id="descricao" name="descricao" class="form-control" required placeholder="Nome e especificação técnica" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="quantidade">Quantidade <span class="text-danger">*</span></label>
+                    <input id="quantidade" name="quantidade" type="number" step="0.0001" min="0.0001" class="form-control" required value="1" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="unidade">Unidade <span class="text-danger">*</span></label>
+                    <input id="unidade" name="unidade" class="form-control" value="UN" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="tipo">Tipo <span class="text-danger">*</span></label>
+                    <select id="tipo" name="tipo" class="form-select" required>
+                        <option value="CONSUMO">Material de Consumo</option>
+                        <option value="PERMANENTE">Material Permanente</option>
+                        <option value="SERVICO">Serviço</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="valorEstimado">Valor Estimado Total (R$)</label>
+                    <input id="valorEstimado" name="valorEstimado" type="number" step="0.01" min="0" class="form-control" placeholder="0,00" />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <a href="/Compras/Solicitacoes" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary px-4">Salvar solicitação</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

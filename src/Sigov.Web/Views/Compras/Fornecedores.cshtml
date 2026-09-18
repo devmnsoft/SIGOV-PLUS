@@ -1,2 +1,140 @@
 @model IReadOnlyList<Sigov.Application.Compras.FornecedorDto>
-@{ViewData["Title"]="Fornecedores";}<div class="d-flex justify-content-between"><h1 class="h3">Fornecedores</h1><div><a class="btn btn-outline-secondary" href="/Compras/Fornecedores/Exportar">CSV LGPD</a> <a class="btn btn-primary" href="/Compras/Fornecedores/Novo">Novo</a></div></div><form class="row g-2 my-3"><div class="col-md-5"><input class="form-control" name="busca" placeholder="Nome"></div><div class="col-md-3"><select class="form-select" name="status"><option value="">Todos</option><option>ATIVO</option><option>SUSPENSO</option><option>INATIVO</option></select></div><div class="col"><button class="btn btn-secondary">Filtrar</button></div></form><div class="table-responsive"><table class="table"><thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>Contato</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Nome</td><td>@x.TipoPessoa</td><td>@x.DocumentoMascarado</td><td>@x.Email<br><small>@x.Telefone</small></td><td><span class="badge bg-@(x.Status=="ATIVO"?"success":"warning")">@x.Status</span></td></tr>}@if(Model.Count==0){<tr><td colspan="5" class="text-center text-muted py-4">Nenhum fornecedor encontrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Fornecedores";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Fornecedores</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Fornecedores</h1>
+        <p class="text-muted mb-0">Cadastro oficial de fornecedores, credenciamento e situação cadastral no contexto selecionado.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="/Compras/Fornecedores/Exportar">
+            Exportar CSV LGPD
+        </a>
+        <a class="btn btn-primary" href="/Compras/Fornecedores/Novo">
+            Novo fornecedor
+        </a>
+    </div>
+</header>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="how-to mb-4">
+    <summary>Como usar esta tela</summary>
+    <div class="mt-2 text-secondary">
+        <p>Esta tela gerencia as empresas e pessoas físicas habilitadas a fornecer bens e serviços à administração pública:</p>
+        <ul>
+            <li><strong>Privacidade e LGPD:</strong> Documentos (CPF/CNPJ) são apresentados e exportados exclusivamente de forma mascarada.</li>
+            <li><strong>Regra de bloqueio fail-closed:</strong> Apenas fornecedores com status <code>ATIVO</code> são elegíveis para inclusão em cotações e processos licitatórios.</li>
+            <li><strong>Exportação segura:</strong> A planilha CSV exportada conta com sanitização anti-fórmula contra injeção e codificação UTF-8 BOM para leitura correta no Excel.</li>
+        </ul>
+    </div>
+</details>
+
+<form method="get" class="card card-body mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label" for="busca">Razão social ou nome</label>
+            <input id="busca" name="busca" class="form-control" value="@Context.Request.Query["busca"]" placeholder="Digite para pesquisar..." />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="status">Situação cadastral</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">Todas as situações</option>
+                <option value="ATIVO" selected="@(Context.Request.Query["status"] == "ATIVO")">ATIVO</option>
+                <option value="SUSPENSO" selected="@(Context.Request.Query["status"] == "SUSPENSO")">SUSPENSO</option>
+                <option value="INATIVO" selected="@(Context.Request.Query["status"] == "INATIVO")">INATIVO</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+            <a class="btn btn-outline-secondary" href="/Compras/Fornecedores">Limpar</a>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Fornecedor</th>
+                <th>Tipo</th>
+                <th>Documento (LGPD)</th>
+                <th>Contato</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var f in Model)
+            {
+                <tr>
+                    <td>
+                        <strong>@f.Nome</strong>
+                        @if (!string.IsNullOrWhiteSpace(f.Endereco))
+                        {
+                            <small class="d-block text-muted">@f.Endereco</small>
+                        }
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">@f.TipoPessoa</span>
+                    </td>
+                    <td>
+                        <code>@f.DocumentoMascarado</code>
+                    </td>
+                    <td>
+                        <div>@(f.Email ?? "—")</div>
+                        <small class="text-muted">@(f.Telefone ?? "—")</small>
+                    </td>
+                    <td>
+                        <span class="compras-badge @(f.Status == "ATIVO" ? "compras-badge-homol" : f.Status == "SUSPENSO" ? "compras-badge-warn" : "compras-badge-danger")">
+                            @f.Status
+                        </span>
+                    </td>
+                </tr>
+            }
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="5">
+                        <div class="compras-empty-state">
+                            <p class="mb-0">Nenhum fornecedor encontrado no contexto selecionado.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<section class="compras-rules-card mt-4" aria-label="Regras de fornecedores">
+    <h2 class="h6 mb-2">Conformidade e Regras Operacionais de Fornecedores</h2>
+    <p class="mb-1 text-muted small">1. O cadastro é vinculado estritamente ao tenant/entidade do operador.</p>
+    <p class="mb-1 text-muted small">2. Fornecedores suspensos ou inativos não podem ser selecionados para cotações nem processos licitatórios.</p>
+    <p class="mb-0 text-muted small">3. O mascaramento de CPF/CNPJ previne vazamento de dados de pessoas físicas em conformidade com a LGPD.</p>
+</section>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

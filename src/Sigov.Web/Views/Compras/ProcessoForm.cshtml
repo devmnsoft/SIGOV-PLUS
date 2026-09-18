@@ -1,1 +1,155 @@
-@{ViewData["Title"]="Novo processo";}<h1 class="h3">Novo processo</h1><div class="alert alert-info">Modalidades e critérios são carregados exclusivamente do catálogo persistente pela API segura. Use <code>POST /api/compras/processos</code> até a seleção contextual ser disponibilizada nesta tela.</div><a href="/Compras/Processos" class="btn btn-secondary">Voltar</a>
+@{
+    ViewData["Title"] = "Novo processo de compra";
+    var modalidades = (IReadOnlyList<Sigov.Application.Compras.ParametroOpcaoDto>?)ViewBag.Modalidades ?? [];
+    var criterios = (IReadOnlyList<Sigov.Application.Compras.ParametroOpcaoDto>?)ViewBag.Criterios ?? [];
+    var materiais = (IReadOnlyList<Sigov.Application.Almoxarifado.MaterialDto>?)ViewBag.Materiais ?? [];
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos">Processos</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Novo processo</li>
+    </ol>
+</nav>
+
+<header class="mb-4">
+    <h1 class="h3 mb-1">Abertura de processo de compra</h1>
+    <p class="text-muted mb-0">Inicie um novo processo licitatório ou de contratação direta com base no catálogo persistido.</p>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como preencher o processo</summary>
+    <div class="mt-2 text-secondary">
+        <p>Normas e parâmetros oficiais de contratação:</p>
+        <ul>
+            <li><strong>Catálogo oficial:</strong> As modalidades (Pregão, Concorrência, Dispensa, etc.) e critérios (Menor Preço, Maior Desconto, etc.) são consultados diretamente dos parâmetros autorizados no banco.</li>
+            <li><strong>Itens de Almoxarifado:</strong> Você pode vincular diretamente um item do catálogo de materiais cadastrado no Almoxarifado (FUNC02), preenchendo unidade e tipo automaticamente.</li>
+            <li><strong>Status inicial:</strong> Todo processo inicia na fase <code>PLANEJAMENTO</code>.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-4">
+        <form method="post" action="/Compras/Processos/Novo" class="needs-validation">
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="All" class="alert alert-danger" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+            <h2 class="h5 text-primary border-bottom pb-2 mb-3">1. Dados do Processo</h2>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="numero">Número do Processo / Edital <span class="text-danger">*</span></label>
+                    <input id="numero" name="numero" class="form-control" required placeholder="Ex.: 001/2026" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="exercicio">Exercício <span class="text-danger">*</span></label>
+                    <input id="exercicio" name="exercicio" type="number" class="form-control" required value="@DateTime.Today.Year" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="modalidadeCodigo">Modalidade <span class="text-danger">*</span></label>
+                    <select id="modalidadeCodigo" name="modalidadeCodigo" class="form-select" required>
+                        <option value="">Selecione a modalidade</option>
+                        @foreach (var mod in modalidades)
+                        {
+                            <option value="@mod.Codigo">@mod.Nome (@mod.Codigo)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="criterioCodigo">Critério de Julgamento <span class="text-danger">*</span></label>
+                    <select id="criterioCodigo" name="criterioCodigo" class="form-select" required>
+                        <option value="">Selecione o critério</option>
+                        @foreach (var crit in criterios)
+                        {
+                            <option value="@crit.Codigo">@crit.Nome (@crit.Codigo)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="objeto">Objeto da contratação <span class="text-danger">*</span></label>
+                    <textarea id="objeto" name="objeto" class="form-control" rows="2" required placeholder="Descreva de forma clara e sucinta o objeto da aquisição..."></textarea>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="justificativa">Justificativa da necessidade pública <span class="text-danger">*</span></label>
+                    <textarea id="justificativa" name="justificativa" class="form-control" rows="2" required placeholder="Indique a motivação, interesse público e estimativa da demanda..."></textarea>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label" for="dataAbertura">Data de Abertura / Publicação</label>
+                    <input id="dataAbertura" name="dataAbertura" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="dataLimite">Data Limite de Propostas</label>
+                    <input id="dataLimite" name="dataLimite" type="date" class="form-control" value="@DateTime.Today.AddDays(15).ToString("yyyy-MM-dd")" />
+                </div>
+            </div>
+
+            <h2 class="h5 text-primary border-bottom pb-2 mb-3 mt-4">2. Item Inicial do Processo (Catálogo do Almoxarifado)</h2>
+            <p class="text-muted small">Selecione um material cadastrado no Almoxarifado para vincular automaticamente a esta compra pública, ou digite uma descrição personalizada.</p>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="selMaterial">Buscar do catálogo do Almoxarifado</label>
+                    <select id="selMaterial" class="form-select" onchange="selecionarMaterial(this)">
+                        <option value="">-- Seleção rápida de material cadastrado --</option>
+                        @foreach (var mat in materiais)
+                        {
+                            <option value="@mat.Id" data-desc="@mat.Descricao" data-unid="@mat.UnidadeMedida" data-tipo="@mat.TipoMaterial">
+                                [@mat.Codigo] @mat.Descricao (@mat.TipoMaterial)
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="itemDescricao">Descrição do Item <span class="text-danger">*</span></label>
+                    <input id="itemDescricao" name="itemDescricao" class="form-control" required placeholder="Nome ou especificação do material/serviço" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label" for="itemQuantidade">Quantidade <span class="text-danger">*</span></label>
+                    <input id="itemQuantidade" name="itemQuantidade" type="number" step="0.0001" min="0.0001" class="form-control" required value="1" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="itemUnidade">Unidade de Medida <span class="text-danger">*</span></label>
+                    <input id="itemUnidade" name="itemUnidade" class="form-control" required value="UN" placeholder="UN, CX, KG, PC..." />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="itemTipo">Tipo de Material <span class="text-danger">*</span></label>
+                    <select id="itemTipo" name="itemTipo" class="form-select" required>
+                        <option value="CONSUMO">Material de Consumo</option>
+                        <option value="PERMANENTE">Material Permanente (Gera Tombamento)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="itemValorEstimado">Valor Total Estimado (R$) <span class="text-danger">*</span></label>
+                    <input id="itemValorEstimado" name="itemValorEstimado" type="number" step="0.01" min="0.01" class="form-control" required placeholder="0,00" />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <a href="/Compras/Processos" class="btn btn-outline-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary px-4">Criar processo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function selecionarMaterial(sel) {
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    document.getElementById('itemDescricao').value = opt.getAttribute('data-desc') || '';
+    document.getElementById('itemUnidade').value = opt.getAttribute('data-unid') || 'UN';
+    var tipo = opt.getAttribute('data-tipo') || 'CONSUMO';
+    document.getElementById('itemTipo').value = tipo;
+}
+</script>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

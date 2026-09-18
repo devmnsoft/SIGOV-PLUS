@@ -1,2 +1,60 @@
 @model Sigov.Application.Compras.SolicitacaoDto
-<h1 class="h3">Solicitação #@Model.Id</h1><div class="card"><div class="card-header"><span class="badge bg-primary">@Model.Status</span></div><div class="card-body"><dl class="row"><dt class="col-3">Unidade</dt><dd class="col-9">@Model.UnidadeSolicitante</dd><dt class="col-3">Justificativa</dt><dd class="col-9">@Model.Justificativa</dd><dt class="col-3">Valor</dt><dd class="col-9">@Model.ValorEstimado.ToString("C")</dd></dl></div></div>
+@{
+    ViewData["Title"] = $"Solicitação #{Model.Id}";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Solicitacoes">Solicitações</a></li>
+        <li class="breadcrumb-item active" aria-current="page">#@Model.Id</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <h1 class="h3 mb-0">Solicitação de Compra #@Model.Id</h1>
+            <span class="compras-badge @(Model.Status == "APROVADA" ? "compras-badge-homol" : "compras-badge-plan")">
+                @Model.Status
+            </span>
+        </div>
+        <p class="text-muted mb-0">Unidade Demandante: <strong>@Model.UnidadeSolicitante</strong></p>
+    </div>
+    <div>
+        <a class="btn btn-outline-secondary" href="/Compras/Solicitacoes">
+            Voltar
+        </a>
+    </div>
+</header>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3">
+        <h2 class="h6 mb-0">Detalhes da Demanda</h2>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <span class="text-muted small d-block">Prioridade</span>
+                <strong>@Model.Prioridade</strong>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted small d-block">Origem</span>
+                <strong>@Model.Origem</strong>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted small d-block">Valor Estimado</span>
+                <strong class="text-primary fs-5">@Model.ValorEstimado.ToString("C")</strong>
+            </div>
+            <div class="col-12 pt-3 border-top">
+                <span class="text-muted small d-block">Justificativa</span>
+                <p class="mb-0">@Model.Justificativa</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}
