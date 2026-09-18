@@ -1,2 +1,86 @@
 @model IReadOnlyList<Sigov.Application.Compras.CompraLinhaDto>
-@{ViewData["Title"]="Atas";}<h1 class="h3">Atas</h1><div class="table-responsive"><table class="table"><thead><tr><th>Número</th><th>Fornecedor</th><th>Objeto</th><th>Vigência</th><th>Valor</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td><a href="/Compras/Atas/Detalhe/@x.Id">@x.Numero</a></td><td>@x.Fornecedor</td><td>@x.Descricao</td><td>@x.Inicio — @x.Fim</td><td>@x.Valor.ToString("C")</td><td><span class="badge bg-secondary">@x.Status</span></td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted py-4">Nenhum registro.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Atas de Registro de Preços";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Atas de Registro de Preços</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Atas de Registro de Preços</h1>
+        <p class="text-muted mb-0">Instrumentos vinculativos para fornecimento futuro e parcelado de bens e serviços.</p>
+    </div>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como operar atas de registro de preços</summary>
+    <div class="mt-2 text-secondary">
+        <p>Orientações sobre o Sistema de Registro de Preços (SRP):</p>
+        <ul>
+            <li><strong>Validade da Ata:</strong> Vigência improrrogável de até 1 (um) ano, podendo ser prorrogada por igual período conforme a Lei 14.133/2021.</li>
+            <li><strong>Emissão de ordens:</strong> As requisições e contratos decorrentes da ata consomem os quantitativos registrados.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Ata</th>
+                <th>Detentor / Fornecedor</th>
+                <th>Objeto Registrado</th>
+                <th>Vigência</th>
+                <th class="text-end">Valor Estimado</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var x in Model)
+            {
+                <tr>
+                    <td>
+                        <a href="/Compras/Atas/Detalhe/@x.Id" class="fw-bold text-decoration-none">
+                            @x.Numero
+                        </a>
+                    </td>
+                    <td>@(x.Fornecedor ?? "—")</td>
+                    <td>
+                        <div class="text-truncate" style="max-width: 320px;" title="@x.Descricao">
+                            @x.Descricao
+                        </div>
+                    </td>
+                    <td>
+                        @(x.Inicio?.ToString("dd/MM/yyyy") ?? "—") a @(x.Fim?.ToString("dd/MM/yyyy") ?? "—")
+                    </td>
+                    <td class="text-end fw-semibold">@x.Valor.ToString("C")</td>
+                    <td>
+                        <span class="compras-badge @(x.Status == "VIGENTE" ? "compras-badge-homol" : "compras-badge-plan")">
+                            @x.Status
+                        </span>
+                    </td>
+                </tr>
+            }
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="compras-empty-state">
+                            <p class="mb-0">Nenhuma ata cadastrada no contexto selecionado.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

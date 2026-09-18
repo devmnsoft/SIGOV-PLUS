@@ -1,0 +1,50 @@
+.compras-shell { max-width: 1440px; margin: 0 auto; padding: 1rem; }
+.compras-shell.narrow { max-width: 1120px; }
+.compras-hero { background: linear-gradient(135deg, #1e3a8a, #0f766e); color: #fff; border-radius: 1.25rem; padding: 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.compras-hero h1, .page-heading h1 { font-weight: 750; letter-spacing: -.03em; margin: .2rem 0; }
+.compras-hero p { margin: 0; color: #ccfbf1; }
+.eyebrow { text-transform: uppercase; font-size: .72rem; font-weight: 800; letter-spacing: .12em; color: #0284c7; }
+.compras-hero .eyebrow { color: #5eead4; }
+.page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+.page-heading p { color: #6c757d; margin: 0; }
+
+.metric, .panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 7px 25px rgba(30,58,138,.06); }
+.metric { padding: 1.2rem; min-height: 112px; }
+.metric span { display: block; color: #64748b; font-size: .85rem; font-weight: 500; }
+.metric strong { font-size: 1.85rem; color: #1e3a8a; }
+.metric-alert { border-left: 4px solid #dc3545; }
+.metric-warning { border-left: 4px solid #f59e0b; }
+.metric-info { border-left: 4px solid #0284c7; }
+.metric-success { border-left: 4px solid #10b981; }
+
+.panel { padding: 1.25rem; margin-bottom: 1.25rem; }
+.panel h2 { font-size: 1.05rem; font-weight: 750; margin: 0 0 1rem; color: #1e293b; }
+.empty { text-align: center; padding: 2.5rem; color: #64748b; background: #f8fafc; border-radius: .75rem; }
+.empty strong { display: block; font-size: 1.05rem; color: #1e293b; margin-bottom: .35rem; }
+.empty span { display: block; color: #64748b; font-size: .9rem; }
+
+.status { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .6rem; border-radius: 2rem; background: #e2e8f0; color: #334155; font-size: .75rem; font-weight: 700; }
+.status-ativo, .status-homologado, .status-contratado, .status-vigente, .status-integrado { background: #d1fae5; color: #065f46; }
+.status-anulado, .status-fracassado, .status-deserto, .status-cancelado, .status-inativo, .status-bloqueado { background: #fee2e2; color: #991b1b; }
+.status-planejamento, .status-rascunho, .status-pesquisa_preco { background: #fef3c7; color: #92400e; }
+.status-publicado, .status-recebendo_propostas, .status-julgamento, .status-adjudicado { background: #dbeafe; color: #1e40af; }
+.status-permanente { background: #e0f2fe; color: #0369a1; }
+.status-consumo { background: #f1f5f9; color: #475569; }
+
+.rules-card { background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6; border-radius: .75rem; padding: 1.25rem; }
+.rules-card h3 { font-size: .95rem; font-weight: 750; color: #1e3a8a; margin-bottom: .5rem; }
+.rules-card ul { margin: 0; padding-left: 1.2rem; color: #475569; font-size: .88rem; line-height: 1.6; }
+
+.how-to { margin-top: 1.25rem; border-top: 1px solid #e2e8f0; padding-top: .85rem; }
+.how-to summary { color: #1e3a8a; font-weight: 700; cursor: pointer; }
+.how-to p, .how-to ul { color: #475569; margin: .6rem 0 0; line-height: 1.5; font-size: .9rem; }
+
+.quick-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.compras-shell :focus-visible { outline: 3px solid #0284c7; outline-offset: 2px; }
+
+@media(max-width:900px) {
+  .compras-hero, .page-heading { align-items: flex-start; flex-direction: column; }
+}
+@media(max-width:576px) {
+  .quick-actions { display: grid; width: 100%; gap: .5rem; }
+}

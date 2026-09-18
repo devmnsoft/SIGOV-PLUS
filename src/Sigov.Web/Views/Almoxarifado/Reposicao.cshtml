@@ -19,6 +19,21 @@
     </div>
 </header>
 
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <details class="how-to mb-4">
     <summary>Como usar esta tela</summary>
     <div class="mt-2 text-secondary">
@@ -28,6 +43,7 @@
             <li><strong>Em andamento:</strong> Ordens de compra ou transferências já estão previstas para suprir a demanda.</li>
             <li><strong>Configuração pendente:</strong> Materiais sem parâmetros de estoque mínimo ou alvo definidos. Use <em>Configurar política</em>.</li>
             <li><strong>Sugestão explicável:</strong> Clique em <em>Como foi calculado</em> para inspecionar as premissas analíticas sem opacidade.</li>
+            <li><strong>Ponte com Compras (FUNC03):</strong> Para itens <em>Abaixo do mínimo</em>, clique em <em>Gerar demanda de compra</em> para abrir processo de compra pública oficial na fase <code>PLANEJAMENTO</code>, sem duplicidade e sem gerar empenho orçamentário.</li>
         </ul>
     </div>
 </details>
@@ -143,10 +159,23 @@
                         </details>
                     </td>
                     <td>
-                        @if ((bool)ViewBag.PodeConfigurar)
-                        {
-                            <a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Reposicao/Politica?almoxarifadoId=@item.AlmoxarifadoId&materialId=@item.MaterialId">Configurar política</a>
-                        }
+                        <div class="d-flex flex-column gap-1">
+                            @if ((bool)ViewBag.PodeConfigurar)
+                            {
+                                <a class="btn btn-sm btn-outline-primary" href="/Almoxarifado/Reposicao/Politica?almoxarifadoId=@item.AlmoxarifadoId&materialId=@item.MaterialId">Configurar política</a>
+                            }
+                            @if (item.QuantidadeSugerida > 0 && item.Situacao == "ABAIXO_MINIMO")
+                            {
+                                <form method="post" action="/Almoxarifado/Reposicao/GerarDemanda" data-confirm="Confirma a geração de demanda de compra no módulo Compras (FUNC03) para @item.MaterialDescricao com quantidade estimada de @item.QuantidadeSugerida?">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="almoxarifadoId" value="@item.AlmoxarifadoId" />
+                                    <input type="hidden" name="materialId" value="@item.MaterialId" />
+                                    <button type="submit" class="btn btn-sm btn-success w-100">
+                                        Gerar demanda
+                                    </button>
+                                </form>
+                            }
+                        </div>
                     </td>
                 </tr>
             }

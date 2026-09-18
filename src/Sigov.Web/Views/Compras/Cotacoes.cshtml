@@ -1,2 +1,164 @@
 @model Sigov.Application.Compras.ProcessoDetalhe
-<h1 class="h3">Cotações — @Model?.Processo.Numero</h1><div class="alert alert-secondary">As cotações exibidas e registradas usam dados persistentes. Inclusão disponível no endpoint autorizado do processo; propostas vencidas e desclassificações sem justificativa são bloqueadas.</div><a href="/Compras/Processos/Detalhe/@ViewBag.Id">Voltar ao processo</a>
+@{
+    ViewData["Title"] = $"Cotações — Processo {Model?.Processo.Numero}/{Model?.Processo.Exercicio}";
+    var p = Model?.Processo;
+    var fornecedores = (IReadOnlyList<Sigov.Application.Compras.FornecedorDto>?)ViewBag.Fornecedores ?? [];
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos">Processos</a></li>
+        <li class="breadcrumb-item"><a href="/Compras/Processos/Detalhe/@p?.Id">@p?.Numero/@p?.Exercicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Cotações</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Cotações e Propostas de Fornecedores</h1>
+        <p class="text-muted mb-0">Processo <strong>@p?.Numero/@p?.Exercicio</strong> — Registro de propostas recebidas de fornecedores ativos.</p>
+    </div>
+    <div>
+        <a class="btn btn-outline-secondary" href="/Compras/Processos/Detalhe/@p?.Id">
+            Voltar ao processo
+        </a>
+    </div>
+</header>
+
+@if (TempData["Sucesso"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Sucesso"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Erro"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Erro"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="how-to mb-4">
+    <summary>Como registrar e avaliar cotações</summary>
+    <div class="mt-2 text-secondary">
+        <p>Regras para submissão de cotações:</p>
+        <ul>
+            <li><strong>Bloqueio de fornecedor:</strong> Apenas fornecedores cadastrados e com status <code>ATIVO</code> aparecem para seleção. Fornecedores suspensos ou inativos são rejeitados no serviço.</li>
+            <li><strong>Itens do processo:</strong> A proposta deve ser vinculada a um item específico deste processo.</li>
+            <li><strong>Validade da proposta:</strong> Propostas com validade expirada não podem ser acolhidas no julgamento.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h2 class="h6 mb-0">Lançar Nova Cotação / Proposta</h2>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/Compras/Processos/@p?.Id/Cotacoes" class="needs-validation">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label small" for="ProcessoItemId">Item do Processo <span class="text-danger">*</span></label>
+                        <select id="ProcessoItemId" name="ProcessoItemId" class="form-select form-select-sm" required>
+                            <option value="">Selecione o item...</option>
+                            @foreach (var it in Model?.Itens ?? [])
+                            {
+                                <option value="@it.Id">#@it.Numero — @it.Descricao</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small" for="FornecedorId">Fornecedor Ativo <span class="text-danger">*</span></label>
+                        <select id="FornecedorId" name="FornecedorId" class="form-select form-select-sm" required>
+                            <option value="">Selecione o fornecedor...</option>
+                            @foreach (var forn in fornecedores)
+                            {
+                                <option value="@forn.Id">@forn.Nome (@forn.DocumentoMascarado)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small" for="Quantidade">Quantidade <span class="text-danger">*</span></label>
+                            <input id="Quantidade" name="Quantidade" type="number" step="0.0001" min="0.0001" class="form-control form-control-sm" required value="1" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small" for="ValorUnitario">Valor Unitário (R$) <span class="text-danger">*</span></label>
+                            <input id="ValorUnitario" name="ValorUnitario" type="number" step="0.01" min="0.01" class="form-control form-control-sm" required placeholder="0,00" />
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small" for="PrazoEntregaDias">Prazo de Entrega (dias)</label>
+                            <input id="PrazoEntregaDias" name="PrazoEntregaDias" type="number" class="form-control form-control-sm" placeholder="Ex.: 15" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small" for="Validade">Validade da Proposta <span class="text-danger">*</span></label>
+                            <input id="Validade" name="Validade" type="date" class="form-control form-control-sm" required value="@DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small" for="Observacao">Observações / Marca / Modelo</label>
+                        <textarea id="Observacao" name="Observacao" class="form-control form-control-sm" rows="2" placeholder="Marca ou especificações da proposta"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        Registrar Proposta
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h2 class="h6 mb-0">Itens do Processo e Propostas</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            <th>Descrição</th>
+                            <th>Vencedor / Fornecedor</th>
+                            <th class="text-end">Valor</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var it in Model?.Itens ?? [])
+                        {
+                            <tr>
+                                <td><strong>#@it.Numero</strong></td>
+                                <td>@it.Descricao</td>
+                                <td>@(it.Fornecedor ?? "Sem vencedor adjudicado")</td>
+                                <td class="text-end fw-semibold">@it.Valor.ToString("C")</td>
+                                <td>
+                                    <span class="badge @(it.Status == "ADJUDICADO" ? "bg-success" : "bg-light text-dark border")">
+                                        @it.Status
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}

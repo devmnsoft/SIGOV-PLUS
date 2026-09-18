@@ -1,6 +1,20 @@
 # Changelog
 
-## FUNC01 Fechamento & FUNC02 Evolução — 2026-09-18
+## FUNC03 Compras, Licitações, Contratos e Ponte Reposição→Estoque→Patrimônio — 2026-09-18
+
+- **FUNC03 Regras de Negócio e Serviços Autorizados:**
+  - bloqueio fail-closed de fornecedores suspensos e inativos em novos processos e cotações;
+  - exportação CSV de fornecedores com proteção LGPD (documento mascarado), sanitização anti-fórmula (`=+-@\t\r`), codificação UTF-8 BOM e limite de 5.000 registros;
+  - consulta de modalidades e critérios vinculada estritamente ao catálogo oficial parametrizado no PostgreSQL (`sigov.compras_parametro_modalidade` e `sigov.compras_parametro_criterio`);
+  - ciclo de vida do processo (`PLANEJAMENTO` → `PUBLICADO` → `DISPUTA` → `JULGAMENTO` → `HOMOLOGADO`) com tramitação progressiva e desfechos terminativos (`ANULADO`, `DESERTO`, `FRACASSADO`, `CANCELADO`) com justificativa formal obrigatória e auditada;
+- **Ponte Operacional de Suprimentos:**
+  - em `/Almoxarifado/Reposicao`, adicionada ação "Gerar demanda de compra" para itens abaixo do mínimo, gerando processo em `PLANEJAMENTO` de forma idempotente (segunda geração recusada) sem duplicidade, sem criar tabelas e sem gerar empenho contábil (FUNC10);
+  - tela `/Compras/Processos/{id}/Recebimento` para recebimento físico total ou parcial, validando estritamente `quantidade <= saldo pendente a receber`;
+  - integração automática: materiais de `CONSUMO` debitam no Almoxarifado (`sigov.almoxarifado_movimentacao` e `estoque`), enquanto materiais `PERMANENTE` geram entrada física e pendência de conciliação patrimonial (`sigov.almoxarifado_pendencia_patrimonial` com status `PENDENTE`) sem tombar o bem no compras;
+- **Templates e Interface:**
+  - padronização visual com `compras.css`, stepper de fases, badges de ciclo de vida, blocos "Como usar esta tela", conformidade estrita com o sistema canônico de ícones SVG do SIGOV (sem classes externas) e confirmações `data-confirm`;
+  - preservados os gates, RC50.68 mantida **BLOCKED** e RC50.69 não iniciada.
+
 
 - **FUNC01 Fechamento:**
   - conferidos PRs #427 e #428 e exibidos os nomes da unidade e do responsável no cabeçalho do inventário;

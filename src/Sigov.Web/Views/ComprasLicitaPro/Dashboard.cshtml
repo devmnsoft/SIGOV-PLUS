@@ -1,12 +1,48 @@
 @model Sigov.Application.Compras.LicitaProDashboard
-@{ ViewData["Title"] = "LicitaPro IA"; }
+@{
+    ViewData["Title"] = "LicitaPro IA";
+}
 <link rel="stylesheet" href="~/css/licitapro.css" asp-append-version="true" />
 <partial name="_Nav" />
+
 <header class="lp-hero">
-    <div><span>FUNC03 · inteligência assistida</span><h1>LicitaPro IA</h1><p>Radar, habilitação, proposta e contratos com decisões humanas e dados persistidos.</p></div>
-    <a class="btn btn-primary" href="/Compras/LicitaPro/Oportunidades/Nova">Registrar oportunidade</a>
+    <div>
+        <span>FUNC03 · inteligência assistida</span>
+        <h1>LicitaPro IA</h1>
+        <p>Radar, habilitação, proposta e contratos com decisões humanas e dados persistidos.</p>
+    </div>
+    <a class="btn btn-primary" href="/Compras/LicitaPro/Oportunidades/Nova">
+        Registrar oportunidade
+    </a>
 </header>
+
+<details class="how-to mb-4" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
+    <summary style="cursor: pointer; font-weight: 600; color: #1e293b;">Como opera o LicitaPro IA</summary>
+    <div class="mt-2 text-secondary" style="font-size: 0.9rem;">
+        <p>O LicitaPro combina inteligência assistida e governança pública rígida:</p>
+        <ul>
+            <li><strong>Decisão humana soberana:</strong> A IA apoia a triagem de editais, cálculo de aderência técnica e alertas de certidões, sem jamais tomar decisões automáticas de contratação.</li>
+            <li><strong>Base auditável:</strong> Indicadores e propostas refletem exclusivamente o banco de dados oficial sem dados simulados.</li>
+        </ul>
+    </div>
+</details>
+
 <section class="lp-cards" aria-label="Indicadores do LicitaPro">
-@foreach (var card in new[] { (Model.Abertas.ToString(), "Abertas"), (Model.Vencendo.ToString(), "Vencendo"), (Model.Vencidas.ToString(), "Vencidas"), (Model.Vinculadas.ToString(), "Vinculadas"), (Model.FornecedoresDocumentoVencido.ToString(), "Fornecedores com documento vencido"), (Model.ChecklistsPendentes.ToString(), "Checklists pendentes"), (Model.PropostasPreparacao.ToString(), "Propostas em preparação"), (Model.ContratosConquistados.ToString(), "Contratos conquistados"), ($"{Model.AderenciaMedia:N1}%", "Aderência média explicável") })
-{ <article><strong>@card.Item1</strong><span>@card.Item2</span></article> }
+    @foreach (var card in new[] {
+        (Model.Abertas.ToString(), "Abertas"),
+        (Model.Vencendo.ToString(), "Vencendo"),
+        (Model.Vencidas.ToString(), "Vencidas"),
+        (Model.Vinculadas.ToString(), "Vinculadas"),
+        (Model.FornecedoresDocumentoVencido.ToString(), "Fornecedores com documento vencido"),
+        (Model.ChecklistsPendentes.ToString(), "Checklists pendentes"),
+        (Model.PropostasPreparacao.ToString(), "Propostas em preparação"),
+        (Model.ContratosConquistados.ToString(), "Contratos conquistados"),
+        ($"{Model.AderenciaMedia:N1}%", "Aderência média explicável")
+    })
+    {
+        <article>
+            <strong>@card.Item1</strong>
+            <span>@card.Item2</span>
+        </article>
+    }
 </section>

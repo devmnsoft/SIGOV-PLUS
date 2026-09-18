@@ -1,2 +1,86 @@
 @model IReadOnlyList<Sigov.Application.Compras.CompraLinhaDto>
-@{ViewData["Title"]="Contratos";}<h1 class="h3">Contratos</h1><div class="table-responsive"><table class="table"><thead><tr><th>Número</th><th>Fornecedor</th><th>Objeto</th><th>Vigência</th><th>Valor</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td><a href="/Compras/Contratos/Detalhe/@x.Id">@x.Numero</a></td><td>@x.Fornecedor</td><td>@x.Descricao</td><td>@x.Inicio — @x.Fim</td><td>@x.Valor.ToString("C")</td><td><span class="badge bg-secondary">@x.Status</span></td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted py-4">Nenhum registro.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Contratos Administrativos";
+}
+<link rel="stylesheet" href="~/css/compras.css" asp-append-version="true" />
+
+<nav aria-label="Breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/Compras">Compras</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Contratos</li>
+    </ol>
+</nav>
+
+<header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Contratos Administrativos</h1>
+        <p class="text-muted mb-0">Gestão e acompanhamento da vigência e execução de termos contratuais.</p>
+    </div>
+</header>
+
+<details class="how-to mb-4">
+    <summary>Como acompanhar contratos</summary>
+    <div class="mt-2 text-secondary">
+        <p>Acompanhamento de instrumentos contratuais da administração pública:</p>
+        <ul>
+            <li><strong>Vigência e prazos:</strong> Monitore datas de término para planejar aditivos ou novas licitações sem descontinuidade dos serviços.</li>
+            <li><strong>Execução e recebimento:</strong> As entregas e notas fiscais vinculadas ao contrato debitam o saldo disponível no Almoxarifado.</li>
+        </ul>
+    </div>
+</details>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Contrato</th>
+                <th>Fornecedor</th>
+                <th>Objeto</th>
+                <th>Vigência</th>
+                <th class="text-end">Valor Global</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var x in Model)
+            {
+                <tr>
+                    <td>
+                        <a href="/Compras/Contratos/Detalhe/@x.Id" class="fw-bold text-decoration-none">
+                            @x.Numero
+                        </a>
+                    </td>
+                    <td>@(x.Fornecedor ?? "—")</td>
+                    <td>
+                        <div class="text-truncate" style="max-width: 320px;" title="@x.Descricao">
+                            @x.Descricao
+                        </div>
+                    </td>
+                    <td>
+                        @(x.Inicio?.ToString("dd/MM/yyyy") ?? "—") a @(x.Fim?.ToString("dd/MM/yyyy") ?? "—")
+                    </td>
+                    <td class="text-end fw-semibold">@x.Valor.ToString("C")</td>
+                    <td>
+                        <span class="compras-badge @(x.Status == "VIGENTE" ? "compras-badge-homol" : x.Status == "ENCERRADO" ? "compras-badge-plan" : "compras-badge-danger")">
+                            @x.Status
+                        </span>
+                    </td>
+                </tr>
+            }
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="6">
+                        <div class="compras-empty-state">
+                            <p class="mb-0">Nenhum contrato cadastrado no contexto selecionado.</p>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="~/js/compras.js" asp-append-version="true"></script>
+}
