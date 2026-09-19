@@ -1,2 +1,101 @@
 @model IReadOnlyList<Sigov.Application.Frotas.ManutencaoDto>
-@{ViewData["Title"]="Manutenções";}<partial name="_Nav"/><div class="d-flex justify-content-between"><h1 class="h3">Manutenções</h1><a class="btn btn-primary" href="/Frotas/Manutencoes/Nova">Nova manutenção</a></div><div class="table-responsive mt-3"><table class="table table-striped"><thead><tr><th>Placa</th><th>Tipo</th><th>DataAbertura</th><th>KmAbertura</th><th>ValorEstimado</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Placa</td><td>@x.Tipo</td><td>@x.DataAbertura</td><td>@x.KmAbertura</td><td>@x.ValorEstimado</td><td>@x.Status</td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Manutenções de Veículos";
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Manutenções</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    @if (TempData["Sucesso"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Sucesso"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (TempData["Erro"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Erro"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Manutenções de Frota</h1>
+            <p class="text-muted mb-0">Revisões preventivas, reparos corretivos e intervenções mecânicas.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary" href="/Frotas/Manutencoes/Nova">Nova manutenção</a>
+        </div>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Abrir coloca o veículo em manutenção. Concluir só reativa se não houver outra OS/manutenção aberta. Fornecedor pela lista do Compras.</p>
+            <ul>
+                <li><strong>Status do Veículo:</strong> A abertura de uma manutenção altera atomicamente o status do veículo para <code>EM_MANUTENCAO</code>, impedindo saídas.</li>
+                <li><strong>Reativação Automática:</strong> A conclusão da manutenção somente restabelece o status <code>ATIVO</code> do veículo se não restarem outras manutenções ou OS pendentes.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Placa</th>
+                        <th>Tipo</th>
+                        <th>Abertura em</th>
+                        <th>Km Abertura</th>
+                        <th>Valor Estimado</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var x in Model)
+                    {
+                        var badgeClass = x.Status switch
+                        {
+                            "ABERTA" => "frotas-badge-manut",
+                            "CONCLUIDA" => "frotas-badge-concluido",
+                            _ => "frotas-badge-inativo"
+                        };
+
+                        <tr>
+                            <td class="fw-bold text-dark">@x.Placa</td>
+                            <td><span class="badge bg-light text-dark border">@x.Tipo</span></td>
+                            <td>@x.DataAbertura.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@x.KmAbertura.ToString("N0") km</td>
+                            <td>@x.ValorEstimado.ToString("C")</td>
+                            <td><span class="frotas-badge @badgeClass">@x.Status</span></td>
+                        </tr>
+                    }
+                    @if (Model.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="frotas-empty-state">
+                                    <strong>Nenhuma manutenção registrada</strong>
+                                    <p class="mb-0">Clique em "Nova manutenção" para abrir uma ficha técnica ou revisão.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

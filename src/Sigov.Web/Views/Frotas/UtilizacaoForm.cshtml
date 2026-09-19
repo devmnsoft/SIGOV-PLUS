@@ -1,2 +1,102 @@
-@{ViewData["Title"]="Nova utilização";}<partial name="_Nav"/><h1 class="h3">Nova utilização</h1><div asp-validation-summary="All" class="text-danger"></div><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label>Veículo</label><select name="VeiculoId" class="form-select">@foreach(var x in ViewBag.Veiculos){<option value="@x.Id">@x.Placa — @x.Modelo</option>}</select></div><div class="col-md-4"><label>Motorista</label><select name="MotoristaId" class="form-select">@foreach(var x in ViewBag.Motoristas){<option value="@x.Id">@x.Nome</option>}</select></div><div class="col-md-4"><label>Unidade solicitante</label><input name="UnidadeSolicitante" required class="form-control"/></div><div class="col-md-4"><label>Saída</label><input name="SaidaEm" type="datetime-local" required class="form-control"/></div><div class="col-md-3"><label>Km saída</label><input name="KmSaida" type="number" min="0" step=".01" required class="form-control"/></div><div class="col-md-5"><label>Destino</label><input name="Destino" required class="form-control"/></div><div class="col-12"><label>Finalidade</label><textarea name="Finalidade" required class="form-control"></textarea></div></div><input name="EntidadeId" value="0" type="hidden"/><button class="btn btn-primary mt-3 align-self-start">Abrir utilização</button></form>
+@{
+    ViewData["Title"] = "Nova Utilização";
+    var veiculos = ViewBag.Veiculos as IEnumerable<dynamic> ?? Array.Empty<dynamic>();
+    var motoristas = ViewBag.Motoristas as IEnumerable<dynamic> ?? Array.Empty<dynamic>();
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/Utilizacoes">Utilizações</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Nova</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Abrir Utilização de Veículo</h1>
+        <p class="text-muted mb-0">Controle de saída operacional com verificação de CNH e status do veículo.</p>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Um uso aberto por veículo. Motorista ativo e CNH válida. Retorno: KM >= saída.</p>
+            <ul>
+                <li><strong>Regra do Veículo:</strong> O veículo deve estar com status <code>ATIVO</code>. Se estiver em manutenção ou já possuir viagem aberta, o serviço recusará a abertura.</li>
+                <li><strong>Regra do Condutor:</strong> O condutor deve estar com CNH regular e não vencida na data de saída.</li>
+                <li><strong>Quilometragem:</strong> Informe o hodômetro no momento da saída; o valor não pode ser inferior à quilometragem atual do veículo.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <input name="EntidadeId" value="0" type="hidden" />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Veículo Oficial <span class="text-danger">*</span></label>
+                        <select name="VeiculoId" class="form-select" required>
+                            <option value="">-- Selecione o veículo (Placa / Modelo) --</option>
+                            @foreach (var v in veiculos)
+                            {
+                                <option value="@v.Id">@v.Placa — @v.Marca @v.Modelo (@v.QuilometragemAtual km)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Motorista Condutor <span class="text-danger">*</span></label>
+                        <select name="MotoristaId" class="form-select" required>
+                            <option value="">-- Selecione o condutor autorizado --</option>
+                            @foreach (var m in motoristas)
+                            {
+                                <option value="@m.Id">@m.Nome (CNH: @m.CategoriaCnh)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Unidade Solicitante <span class="text-danger">*</span></label>
+                        <input name="UnidadeSolicitante" required class="form-control" placeholder="Ex: Gabinete / Secretaria de Saúde" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Data e Hora de Saída <span class="text-danger">*</span></label>
+                        <input name="SaidaEm" type="datetime-local" required class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Km na Saída <span class="text-danger">*</span></label>
+                        <input name="KmSaida" type="number" min="0" step="0.01" required class="form-control" placeholder="Ex: 54300" />
+                        <div class="form-text">Deve ser maior ou igual à quilometragem atual.</div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Destino Previsto <span class="text-danger">*</span></label>
+                        <input name="Destino" required class="form-control" placeholder="Ex: Hospital Regional ou Bairro Centro" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Finalidade do Deslocamento <span class="text-danger">*</span></label>
+                        <textarea name="Finalidade" required class="form-control" rows="3" placeholder="Descreva o serviço público ou missão oficial a ser atendida..."></textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a class="btn btn-outline-secondary" href="/Frotas/Utilizacoes">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">Abrir utilização</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

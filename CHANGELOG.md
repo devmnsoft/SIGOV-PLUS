@@ -1,5 +1,27 @@
 # Changelog
 
+## FUNC04 Frotas, Abastecimento e Manutenção — 2026-09-19
+
+- **FUNC04 Regras de Negócio e Serviços Autorizados:**
+  - vínculo opcional de veículo a bem patrimonial ativo de FUNC01, com bloqueio estrito de bens com status `BAIXADO` e impedimento de vínculo duplicado em veículos ativos;
+  - bloqueio de abertura de utilização para veículos com status `EM_MANUTENCAO`, `INATIVO` ou `BAIXADO`, e validação estrita de unique parcial de uso em aberto;
+  - obrigatoriedade de condutor ativo com CNH válida (`validade >= hoje`) para abertura de saída;
+  - controle estrito de hodômetro progressivo em utilizações e abastecimentos (recusa de km regressivo);
+  - abastecimento com valor total calculado no banco, sem baixa implícita de combustível em estoque;
+  - abertura de manutenção altera veículo para `EM_MANUTENCAO` atomicamente; conclusão da manutenção só reativa se não restarem outras OS ou manutenções pendentes;
+- **Ponte Atômica OS &rarr; Almoxarifado (FUNC02):**
+  - itens de peças e materiais em OS restritos a materiais do tipo `CONSUMO` ativos no Almoxarifado;
+  - conclusão de OS (`concluir`) executa lock pessimista (`SELECT FOR UPDATE`) nas linhas de `almoxarifado_estoque`, verificando disponibilidade de saldo;
+  - falta de saldo suficiente recusa a conclusão com rollback total da transação;
+  - registro atômico de débito em `almoxarifado_movimentacao` (`SAIDA`) e vinculação do ID na linha da OS (`movimentacao_almoxarifado_id`);
+  - cancelamento e recusa exigem justificativa formal gravada no histórico auditável (`frotas_ordem_servico_historico`);
+- **Segurança, LGPD e Templates (Padrão FUNC01–03):**
+  - mascaramento obrigatório de CPF de condutores em listagens, detalhes e exportações CSV;
+  - exportação CSV (`/Frotas/Exportar`) com proteção anti-fórmula (`=+-@\t\r`), codificação UTF-8 BOM e limite de 5.000 registros;
+  - 17 views elevadas ao padrão de design do SIGOV com `frotas.css`, barra `_Nav`, blocos "Como usar esta tela", seletores por nome amigável (sem IDs digitados), badges de situação e diálogos `data-confirm`;
+  - interface de detalhe da OS exibe disponibilidade de saldo em estoque e desabilita o botão de conclusão com `title` explicativo caso haja peças sem saldo;
+  - preservados os gates, RC50.68 mantida **BLOCKED** e RC50.69 não iniciada.
+
 ## FUNC03 Compras, Licitações, Contratos e Ponte Reposição→Estoque→Patrimônio — 2026-09-18
 
 - **FUNC03 Regras de Negócio e Serviços Autorizados:**

@@ -1,2 +1,269 @@
-@model Sigov.Application.Frotas.OrdemServicoDto
-@{ViewData["Title"]="Ordem de serviço";}<partial name="_Nav"/><h1 class="h3">OS @Model.Numero</h1><section class="card"><div class="card-header">@Model.Placa <span class="badge bg-secondary">@Model.Status</span></div><div class="card-body"><p>@Model.Descricao</p><strong>@Model.Itens item(ns) — @Model.ValorTotal.ToString("C")</strong></div></section>
+@model Sigov.Application.Frotas.OrdemServicoDetalheDto
+@{
+    ViewData["Title"] = $"OS {Model.Ordem.Numero}";
+    var o = Model.Ordem;
+    var badgeClass = o.Status switch
+    {
+        "ABERTA" => "frotas-badge-aberto",
+        "APROVADA" => "frotas-badge-manut",
+        "CONCLUIDA" => "frotas-badge-concluido",
+        "CANCELADA" => "frotas-badge-baixado",
+        _ => "frotas-badge-inativo"
+    };
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/OrdensServico">Ordens de Serviço</a></li>
+            <li class="breadcrumb-item active" aria-current="page">OS @o.Numero</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    @if (TempData["Sucesso"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Sucesso"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (TempData["Erro"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Erro"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h1 class="h3 fw-bold mb-0">Ordem de Serviço @o.Numero</h1>
+                <span class="frotas-badge @badgeClass">@o.Status</span>
+            </div>
+            <p class="text-muted mb-0">Veículo Oficial: <strong>@o.Placa</strong> — Abertura em @o.DataAbertura.ToString("dd/MM/yyyy HH:mm")</p>
+        </div>
+        <div>
+            <a class="btn btn-outline-secondary" href="/Frotas/OrdensServico">Voltar à lista</a>
+        </div>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Peça é material de consumo do almoxarifado. Concluir baixa o saldo de todos os itens na mesma operação. Sem saldo, não conclui.</p>
+            <ul>
+                <li><strong>Aprovação:</strong> Ordens abertas devem ser aprovadas antes da execução mecânica.</li>
+                <li><strong>Conclusão e Baixa de Estoque:</strong> Ao clicar em Concluir, o sistema debita do Almoxarifado (FUNC02) cada peça vinculada na mesma transação. Se algum item não tiver saldo suficiente, a conclusão é estritamente bloqueada.</li>
+                <li><strong>Cancelamento com Justificativa:</strong> Para cancelar uma ordem de serviço, é mandatório registrar a justificativa motivadora.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light py-3">
+                    <h2 class="h6 fw-bold mb-0">Dados da Ordem de Manutenção</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3 text-muted">Número da OS</dt>
+                        <dd class="col-sm-9 fw-bold">@o.Numero</dd>
+
+                        <dt class="col-sm-3 text-muted">Veículo Oficial</dt>
+                        <dd class="col-sm-9 fw-bold">@o.Placa</dd>
+
+                        <dt class="col-sm-3 text-muted">Abertura</dt>
+                        <dd class="col-sm-9">@o.DataAbertura.ToString("dd/MM/yyyy HH:mm")</dd>
+
+                        <dt class="col-sm-3 text-muted">Previsão</dt>
+                        <dd class="col-sm-9">@(o.PrevisaoConclusao.HasValue ? o.PrevisaoConclusao.Value.ToString("dd/MM/yyyy") : "Não informada")</dd>
+
+                        <dt class="col-sm-3 text-muted">Descrição</dt>
+                        <dd class="col-sm-9">@o.Descricao</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+                    <h2 class="h6 fw-bold mb-0">Itens e Peças da OS (Estoque Almoxarifado)</h2>
+                    <span class="badge bg-secondary">@Model.Itens.Count item(ns)</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Item / Descrição</th>
+                                <th>Tipo</th>
+                                <th class="text-center">Qtd Solicitada</th>
+                                <th>Origem no Almoxarifado</th>
+                                <th class="text-center">Saldo em Estoque</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var it in Model.Itens)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">@it.Descricao</div>
+                                        @if (!it.TemSaldo)
+                                        {
+                                            <small class="text-danger fw-semibold d-block">Saldo insuficiente no almoxarifado</small>
+                                        }
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">@it.Tipo</span></td>
+                                    <td class="text-center fw-bold">@it.Quantidade.ToString("N2")</td>
+                                    <td>
+                                        @if (it.MaterialId.HasValue)
+                                        {
+                                            <div>@(it.MaterialDescricao ?? $"Material #{it.MaterialId}")</div>
+                                            <small class="text-muted">@(it.AlmoxarifadoNome ?? $"Almoxarifado #{it.AlmoxarifadoId}")</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Sem material de estoque</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (it.MaterialId.HasValue)
+                                        {
+                                            if (it.TemSaldo)
+                                            {
+                                                <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                                                    @it.SaldoEstoqueDisponivel.ToString("N2") disponível
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle" title="Saldo insuficiente">
+                                                    @it.SaldoEstoqueDisponivel.ToString("N2") (Insuficiente)
+                                                </span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">N/A</span>
+                                        }
+                                    </td>
+                                    <td class="text-end fw-bold">@it.ValorTotal.ToString("C")</td>
+                                </tr>
+                            }
+                            @if (Model.Itens.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">Nenhum item lançado nesta OS.</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="5" class="text-end">Valor Total da OS:</th>
+                                <th class="text-end text-primary fs-5">@o.ValorTotal.ToString("C")</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light py-3">
+                    <h2 class="h6 fw-bold mb-0">Gestão e Conclusão da OS</h2>
+                </div>
+                <div class="card-body">
+                    @if (o.Status == "ABERTA")
+                    {
+                        <div class="alert alert-info py-2 small mb-3">
+                            Esta OS está aberta. É necessária a aprovação técnica para liberação dos serviços.
+                        </div>
+
+                        <form method="post" action="/Frotas/OrdensServico/@o.Id/Acao" class="mb-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="acao" value="aprovar" />
+                            <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                                Aprovar Ordem de Serviço
+                            </button>
+                        </form>
+                    }
+                    else if (o.Status == "APROVADA")
+                    {
+                        @if (!Model.TodosItensComSaldo)
+                        {
+                            <div class="alert alert-danger py-2 small mb-3">
+                                <strong>Conclusão bloqueada:</strong> @Model.MotivoBloqueioConclusao
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-success py-2 small mb-3">
+                                Todos os itens de peça possuem saldo suficiente no estoque do almoxarifado.
+                            </div>
+                        }
+
+                        <form method="post" action="/Frotas/OrdensServico/@o.Id/Acao" class="mb-3" data-confirm="Deseja realmente concluir esta OS? Os materiais de consumo serão debitados do almoxarifado atomicamente nesta transação.">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="acao" value="concluir" />
+                            @if (Model.TodosItensComSaldo)
+                            {
+                                <button type="submit" class="btn btn-success w-100 fw-semibold py-2">
+                                    Concluir OS e Baixar Estoque
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-success w-100 fw-semibold py-2" disabled title="@Model.MotivoBloqueioConclusao">
+                                    Concluir OS (Sem Saldo Suficiente)
+                                </button>
+                            }
+                        </form>
+                    }
+                    else if (o.Status == "CONCLUIDA")
+                    {
+                        <div class="alert alert-success py-2 small mb-0">
+                            <strong>Ordem de Serviço Concluída!</strong> As peças foram baixadas atomicamente no almoxarifado correspondente.
+                        </div>
+                    }
+                    else if (o.Status == "CANCELADA")
+                    {
+                        <div class="alert alert-secondary py-2 small mb-0">
+                            Esta ordem de serviço foi cancelada.
+                        </div>
+                    }
+
+                    @if (o.Status == "ABERTA" || o.Status == "APROVADA")
+                    {
+                        <hr />
+                        <h3 class="h6 fw-bold mb-2">Cancelar Ordem de Serviço</h3>
+                        <form method="post" action="/Frotas/OrdensServico/@o.Id/Acao" data-confirm="Tem certeza de que deseja cancelar esta ordem de serviço?">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="acao" value="cancelar" />
+                            <div class="mb-2">
+                                <label class="form-label small text-muted">Justificativa obrigatória:</label>
+                                <textarea name="justificativa" required class="form-control form-control-sm" rows="2" placeholder="Motivo do cancelamento..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                Cancelar OS com justificativa
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+
+            <div class="frotas-rules-card mt-0">
+                <h3>Regra de Estoque FUNC02</h3>
+                <p class="small text-muted mb-0">
+                    A baixa das peças ocorre com lock de linha <code>FOR UPDATE</code> no estoque do PostgreSQL. Qualquer inconsistência de saldo aborta toda a transação atomicamente.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

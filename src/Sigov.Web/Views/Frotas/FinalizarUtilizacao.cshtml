@@ -1,2 +1,56 @@
-@{ViewData["Title"]="Finalizar utilização";}<partial name="_Nav"/><h1 class="h3">Finalizar utilização</h1><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<label>Quilometragem de retorno</label><input name="kmRetorno" type="number" min="0" step=".01" required class="form-control"/><label class="mt-2">Retorno</label><input name="retornoEm" type="datetime-local" required class="form-control"/><button class="btn btn-primary mt-3 align-self-start">Finalizar e atualizar veículo</button></form>
+@{
+    ViewData["Title"] = "Finalizar Utilização";
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/Utilizacoes">Utilizações</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Finalizar</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Registrar Retorno de Viagem</h1>
+        <p class="text-muted mb-0">Encerramento da utilização e atualização da quilometragem do veículo.</p>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Um uso aberto por veículo. Motorista ativo e CNH válida. Retorno: KM >= saída.</p>
+            <p class="mb-0">A quilometragem informada não pode ser menor do que a quilometragem registrada na saída. A data e hora de retorno devem ser iguais ou posteriores à saída.</p>
+        </div>
+    </details>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="card shadow-sm border-0" style="max-width: 600px;">
+        <div class="card-body p-4">
+            <form method="post" data-confirm="Deseja realmente finalizar esta utilização e atualizar o hodômetro do veículo?">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Quilometragem no Retorno (Km) <span class="text-danger">*</span></label>
+                    <input name="kmRetorno" type="number" min="0" step="0.01" required class="form-control form-control-lg" placeholder="Ex: 54450" autofocus />
+                    <div class="form-text">Deve ser maior ou igual à quilometragem de saída.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Data e Hora de Retorno <span class="text-danger">*</span></label>
+                    <input name="retornoEm" type="datetime-local" required class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a class="btn btn-outline-secondary" href="/Frotas/Utilizacoes">Cancelar</a>
+                    <button type="submit" class="btn btn-success px-4 fw-semibold">Finalizar e atualizar veículo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

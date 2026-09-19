@@ -1,2 +1,143 @@
 @model IReadOnlyList<Sigov.Application.Frotas.VeiculoDto>
-@{ViewData["Title"]="Veículos";}<partial name="_Nav"/><div class="d-flex justify-content-between"><h1 class="h3">Veículos</h1><a class="btn btn-primary" href="/Frotas/Veiculos/Novo">Novo veículo</a></div><form class="row g-2 my-3"><div class="col-md-5"><input class="form-control" name="Busca" placeholder="Placa ou modelo"/></div><div class="col-md-3"><select class="form-select" name="Status"><option value="">Todos os status</option><option>ATIVO</option><option>EM_MANUTENCAO</option><option>INATIVO</option><option>BAIXADO</option></select></div><div class="col"><button class="btn btn-outline-secondary">Filtrar</button></div></form><div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Placa</th><th>Veículo</th><th>Tipo</th><th>Km</th><th>Unidade</th><th>Status</th><th></th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Placa</td><td>@x.Marca @x.Modelo</td><td>@x.Tipo</td><td>@x.QuilometragemAtual</td><td>@x.UnidadeResponsavel</td><td><span class="badge bg-secondary">@x.Status</span></td><td><a href="/Frotas/Veiculos/Detalhe/@x.Id">Detalhe</a></td></tr>}@if(Model.Count==0){<tr><td colspan="7" class="text-center text-muted py-4">Nenhum veículo encontrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Veículos da Frota";
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Veículos</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    @if (TempData["Sucesso"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Sucesso"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (TempData["Erro"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Erro"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Veículos Oficiais</h1>
+            <p class="text-muted mb-0">Catálogo de veículos automotores e máquinas com vínculo patrimonial ativo.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" href="/Frotas/Exportar?tipo=veiculos">Exportar CSV</a>
+            <a class="btn btn-primary" href="/Frotas/Veiculos/Novo">Novo veículo</a>
+        </div>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Placa única na entidade. Bem patrimonial pela lista, só ATIVO. KM não retroage. Em manutenção o veículo não sai.</p>
+            <ul>
+                <li><strong>Cadastro e Vínculo:</strong> O veículo deve ter placa única e pode ser vinculado a um bem patrimonial ativo tombado no FUNC01.</li>
+                <li><strong>Status e Regras:</strong> Veículos com status <code>EM_MANUTENCAO</code>, <code>INATIVO</code> ou <code>BAIXADO</code> não podem ter utilizações abertas.</li>
+                <li><strong>Controle de Hodômetro:</strong> A quilometragem é progressiva; qualquer registro inferior ao valor atual é impedido.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-2">
+                <div class="col-md-6">
+                    <input class="form-control" name="Busca" value="@ViewBag.Busca" placeholder="Buscar por placa, modelo ou marca..." />
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select" name="Status">
+                        <option value="">Todos os status</option>
+                        <option value="ATIVO" selected="@(ViewBag.Status == "ATIVO")">ATIVO</option>
+                        <option value="EM_MANUTENCAO" selected="@(ViewBag.Status == "EM_MANUTENCAO")">EM MANUTENÇÃO</option>
+                        <option value="INATIVO" selected="@(ViewBag.Status == "INATIVO")">INATIVO</option>
+                        <option value="BAIXADO" selected="@(ViewBag.Status == "BAIXADO")">BAIXADO</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-secondary w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Placa</th>
+                        <th>Veículo / Modelo</th>
+                        <th>Tipo</th>
+                        <th>Km Atual</th>
+                        <th>Unidade</th>
+                        <th>Bem Patrimonial</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var x in Model)
+                    {
+                        var badgeClass = x.Status switch
+                        {
+                            "ATIVO" => "frotas-badge-ativo",
+                            "EM_MANUTENCAO" => "frotas-badge-manut",
+                            "BAIXADO" => "frotas-badge-baixado",
+                            _ => "frotas-badge-inativo"
+                        };
+                        <tr>
+                            <td class="fw-bold text-dark">@x.Placa</td>
+                            <td>@x.Marca @x.Modelo</td>
+                            <td><span class="badge bg-light text-dark border">@x.Tipo</span></td>
+                            <td>@x.QuilometragemAtual.ToString("N0") km</td>
+                            <td>@x.UnidadeResponsavel</td>
+                            <td>
+                                @if (x.BemPatrimonialId.HasValue)
+                                {
+                                    <span title="@x.BemPatrimonialDescricao" class="badge bg-info-subtle text-info-emphasis border">
+                                        Nº @(x.BemPatrimonialNumero ?? x.BemPatrimonialId.ToString())
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Não vinculado</span>
+                                }
+                            </td>
+                            <td><span class="frotas-badge @badgeClass">@x.Status</span></td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" href="/Frotas/Veiculos/Detalhe/@x.Id">Detalhe</a>
+                                <a class="btn btn-sm btn-outline-primary" href="/Frotas/Veiculos/Editar/@x.Id">Editar</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (Model.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8">
+                                <div class="frotas-empty-state">
+                                    <strong>Nenhum veículo encontrado</strong>
+                                    <p class="mb-0">Altere os filtros de busca ou cadastre um novo veículo.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

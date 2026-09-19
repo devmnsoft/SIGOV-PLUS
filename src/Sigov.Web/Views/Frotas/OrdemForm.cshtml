@@ -1,2 +1,137 @@
-@{ViewData["Title"]="Nova ordem de serviço";}<partial name="_Nav"/><h1 class="h3">Nova ordem de serviço</h1><div asp-validation-summary="All" class="text-danger"></div><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-3"><label>Número</label><input name="Numero" required class="form-control"/></div><div class="col-md-2"><label>Exercício</label><input name="Exercicio" type="number" required class="form-control"/></div><div class="col-md-4"><label>Veículo</label><select name="VeiculoId" class="form-select">@foreach(var x in ViewBag.Veiculos){<option value="@x.Id">@x.Placa — @x.Modelo</option>}</select></div><div class="col-md-3"><label>Abertura</label><input name="DataAbertura" type="datetime-local" required class="form-control"/></div><div class="col-12"><label>Descrição</label><textarea name="Descricao" required class="form-control"></textarea></div></div><fieldset class="border rounded p-3 mt-3"><legend class="h6">Primeiro item</legend><div class="row g-2"><div class="col-md-4"><input name="Itens[0].Descricao" required class="form-control" placeholder="Descrição"/></div><div class="col-md-2"><select name="Itens[0].Tipo" class="form-select"><option>SERVICO</option><option>PECA</option><option>MATERIAL</option></select></div><div class="col-md-2"><input name="Itens[0].Quantidade" type="number" min=".0001" step=".0001" required class="form-control" placeholder="Quantidade"/></div><div class="col-md-2"><input name="Itens[0].ValorUnitario" type="number" min="0" step=".01" required class="form-control" placeholder="Valor"/></div><div class="col-md-2"><input name="Itens[0].MaterialId" type="number" class="form-control" placeholder="Material ID"/></div><div class="col-md-2"><input name="Itens[0].AlmoxarifadoId" type="number" class="form-control" placeholder="Almoxarifado ID"/></div></div></fieldset><input name="EntidadeId" value="0" type="hidden"/><button class="btn btn-primary mt-3 align-self-start">Criar OS</button></form>
+@{
+    ViewData["Title"] = "Nova Ordem de Serviço";
+    var veiculos = ViewBag.Veiculos as IEnumerable<dynamic> ?? Array.Empty<dynamic>();
+    var materiais = ViewBag.Materiais as IReadOnlyList<Sigov.Application.Frotas.FrotaSelect> ?? Array.Empty<Sigov.Application.Frotas.FrotaSelect>();
+    var almoxarifados = ViewBag.Almoxarifados as IReadOnlyList<Sigov.Application.Frotas.FrotaSelect> ?? Array.Empty<Sigov.Application.Frotas.FrotaSelect>();
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/OrdensServico">Ordens de Serviço</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Nova</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Emitir Ordem de Serviço</h1>
+        <p class="text-muted mb-0">Manutenção mecânica com aplicação de peças e materiais de consumo do almoxarifado.</p>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Peça é material de consumo do almoxarifado. Concluir baixa o saldo de todos os itens na mesma operação. Sem saldo, não conclui.</p>
+            <ul>
+                <li><strong>Materiais de Consumo (FUNC02):</strong> Itens cadastrados como peça ou material devem apontar para itens de consumo ativos do estoque e seu almoxarifado.</li>
+                <li><strong>Reserva e Baixa:</strong> Os itens cadastrados terão o estoque checado no detalhe da OS. Ao concluir a OS, a baixa é realizada automaticamente com bloqueio concorrencial.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <input name="EntidadeId" value="0" type="hidden" />
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Número da OS <span class="text-danger">*</span></label>
+                        <input name="Numero" required class="form-control" placeholder="Ex: OS-2026/001" />
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Exercício <span class="text-danger">*</span></label>
+                        <input name="Exercicio" type="number" required class="form-control" value="@DateTime.Now.Year" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Veículo Oficial <span class="text-danger">*</span></label>
+                        <select name="VeiculoId" class="form-select" required>
+                            <option value="">-- Selecione o veículo --</option>
+                            @foreach (var v in veiculos)
+                            {
+                                <option value="@v.Id">@v.Placa — @v.Marca @v.Modelo</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Data e Hora de Abertura <span class="text-danger">*</span></label>
+                        <input name="DataAbertura" type="datetime-local" required class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Descrição do Escopo / Diagnóstico <span class="text-danger">*</span></label>
+                        <textarea name="Descricao" required class="form-control" rows="2" placeholder="Descreva os serviços mecânicos ou peças necessárias..."></textarea>
+                    </div>
+                </div>
+
+                <fieldset class="border rounded p-3 mt-4 bg-light">
+                    <legend class="h6 fw-bold text-dark px-2">Peça / Material Inicial da OS</legend>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Descrição do Item <span class="text-danger">*</span></label>
+                            <input name="Itens[0].Descricao" required class="form-control" placeholder="Ex: Filtro de óleo ou Troca de pastilhas" />
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Tipo <span class="text-danger">*</span></label>
+                            <select name="Itens[0].Tipo" class="form-select">
+                                <option value="PECA">PEÇA</option>
+                                <option value="MATERIAL">MATERIAL</option>
+                                <option value="SERVICO">SERVIÇO</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Quantidade <span class="text-danger">*</span></label>
+                            <input name="Itens[0].Quantidade" type="number" min="0.0001" step="0.0001" required class="form-control" placeholder="1.0" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Valor Unitário Estimado (R$) <span class="text-danger">*</span></label>
+                            <input name="Itens[0].ValorUnitario" type="number" min="0" step="0.01" required class="form-control" placeholder="0.00" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Material de Consumo em Estoque (FUNC02)</label>
+                            <select name="Itens[0].MaterialId" class="form-select">
+                                <option value="">-- Sem vínculo de estoque (ex: serviço externo) --</option>
+                                @foreach (var m in materiais)
+                                {
+                                    <option value="@m.Id">@m.Texto</option>
+                                }
+                            </select>
+                            <div class="form-text">Apenas materiais do tipo CONSUMO são aceitos como peça.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Almoxarifado de Origem (FUNC02)</label>
+                            <select name="Itens[0].AlmoxarifadoId" class="form-select">
+                                <option value="">-- Selecione o almoxarifado se houver peça --</option>
+                                @foreach (var a in almoxarifados)
+                                {
+                                    <option value="@a.Id">@a.Texto</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a class="btn btn-outline-secondary" href="/Frotas/OrdensServico">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">Criar ordem de serviço</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
