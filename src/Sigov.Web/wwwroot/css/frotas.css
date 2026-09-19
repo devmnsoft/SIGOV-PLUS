@@ -1,0 +1,215 @@
+/* ==========================================================================
+   SIGOV PLUS — Módulo de Frotas, Abastecimento e Manutenção (FUNC04)
+   Padrão estético e tokens visuais integrados (FUNC01–FUNC04)
+   ========================================================================== */
+
+.frotas-shell {
+    padding: 1.5rem 0;
+}
+
+.frotas-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.frotas-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.frotas-nav-title {
+    color: #f8fafc;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.frotas-nav-badge {
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+}
+
+.frotas-nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.frotas-nav-link {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    transition: all 0.15s ease-in-out;
+}
+
+.frotas-nav-link:hover {
+    color: #ffffff;
+    background: #1e293b;
+}
+
+.frotas-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #ffffff;
+    padding: 1.75rem 2rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.frotas-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.frotas-hero p {
+    color: #94a3b8;
+    margin-bottom: 0;
+    font-size: 0.95rem;
+}
+
+.frotas-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.frotas-badge-ativo {
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.frotas-badge-manut {
+    background-color: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.frotas-badge-inativo {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.frotas-badge-baixado {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.frotas-badge-aberto {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.frotas-badge-concluido {
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.frotas-metric-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    height: 100%;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.frotas-metric-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.frotas-metric-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.frotas-metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.frotas-rules-card {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #0284c7;
+    border-radius: 6px;
+    padding: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.frotas-rules-card h2, .frotas-rules-card h3 {
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+}
+
+.frotas-rules-card ul {
+    margin-bottom: 0;
+    padding-left: 1.25rem;
+}
+
+.frotas-rules-card li {
+    margin-bottom: 0.4rem;
+    color: #334155;
+    font-size: 0.9rem;
+}
+
+.frotas-empty-state {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: #64748b;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px dashed #cbd5e1;
+}
+
+details.how-to {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+details.how-to summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #1e293b;
+    user-select: none;
+}
+
+details.how-to[open] summary {
+    margin-bottom: 0.5rem;
+}

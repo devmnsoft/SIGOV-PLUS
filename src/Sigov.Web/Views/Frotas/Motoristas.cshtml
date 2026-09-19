@@ -1,2 +1,117 @@
 @model IReadOnlyList<Sigov.Application.Frotas.MotoristaDto>
-@{ViewData["Title"]="Motoristas";}<partial name="_Nav"/><div class="d-flex justify-content-between"><h1 class="h3">Motoristas</h1><a class="btn btn-primary" href="/Frotas/Motoristas/Novo">Novo motorista</a></div><div class="table-responsive mt-3"><table class="table table-striped"><thead><tr><th>Nome</th><th>CPF protegido</th><th>CNH</th><th>Validade</th><th>Lotação</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Nome</td><td>@x.CpfMascarado</td><td>@x.Cnh / @x.CategoriaCnh</td><td>@x.ValidadeCnh.ToString("dd/MM/yyyy")</td><td>@x.VinculoLotacao</td><td><span class="badge bg-secondary">@x.Status</span></td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted">Nenhum motorista.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Motoristas e Condutores";
+    var hoje = DateTime.Today;
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Motoristas</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    @if (TempData["Sucesso"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Sucesso"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (TempData["Erro"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Erro"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Condutores Oficiais</h1>
+            <p class="text-muted mb-0">Cadastro de motoristas autorizados e monitoramento de validade de CNH.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" href="/Frotas/Exportar?tipo=motoristas">Exportar CSV</a>
+            <a class="btn btn-primary" href="/Frotas/Motoristas/Novo">Novo motorista</a>
+        </div>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>CNH vencida impede abrir utilização. CPF não aparece inteiro.</p>
+            <ul>
+                <li><strong>Proteção LGPD:</strong> O CPF é exibido estritamente mascarado (ex: <code>***.123.456-**</code>) nesta tela e em relatórios CSV.</li>
+                <li><strong>Validade de Habilitação:</strong> Motoristas com CNH vencida são bloqueados no momento de abertura de novas utilizações pelo serviço.</li>
+                <li><strong>Status do Condutor:</strong> Apenas condutores com status <code>ATIVO</code> podem ser selecionados para saídas.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome do Condutor</th>
+                        <th>CPF Mascarado</th>
+                        <th>CNH / Categoria</th>
+                        <th>Validade da CNH</th>
+                        <th>Vínculo / Lotação</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var x in Model)
+                    {
+                        var cnhVencida = x.ValidadeCnh < hoje;
+                        var cnhVenceEm30 = !cnhVencida && x.ValidadeCnh <= hoje.AddDays(30);
+
+                        var badgeStatus = x.Status switch
+                        {
+                            "ATIVO" => "frotas-badge-ativo",
+                            "SUSPENSO" => "frotas-badge-manut",
+                            _ => "frotas-badge-inativo"
+                        };
+
+                        <tr>
+                            <td class="fw-bold text-dark">@x.Nome</td>
+                            <td><code class="text-muted">@x.CpfMascarado</code></td>
+                            <td>@x.Cnh <span class="badge bg-secondary">@x.CategoriaCnh</span></td>
+                            <td>
+                                @x.ValidadeCnh.ToString("dd/MM/yyyy")
+                                @if (cnhVencida)
+                                {
+                                    <span class="badge bg-danger ms-1">Vencida</span>
+                                }
+                                else if (cnhVenceEm30)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Vence em 30d</span>
+                                }
+                            </td>
+                            <td>@(string.IsNullOrWhiteSpace(x.VinculoLotacao) ? "—" : x.VinculoLotacao)</td>
+                            <td><span class="frotas-badge @badgeStatus">@x.Status</span></td>
+                        </tr>
+                    }
+                    @if (Model.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="frotas-empty-state">
+                                    <strong>Nenhum motorista cadastrado</strong>
+                                    <p class="mb-0">Clique no botão acima para cadastrar condutores autorizados.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

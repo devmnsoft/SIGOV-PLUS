@@ -1,2 +1,96 @@
 @model IReadOnlyList<Sigov.Application.Frotas.AbastecimentoDto>
-@{ViewData["Title"]="Abastecimentos";}<partial name="_Nav"/><div class="d-flex justify-content-between"><h1 class="h3">Abastecimentos</h1><a class="btn btn-primary" href="/Frotas/Abastecimentos/Novo">Novo abastecimento</a></div><div class="table-responsive mt-3"><table class="table table-striped"><thead><tr><th>Placa</th><th>DataAbastecimento</th><th>KmAtual</th><th>TipoCombustivel</th><th>Litros</th><th>ValorTotal</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Placa</td><td>@x.DataAbastecimento</td><td>@x.KmAtual</td><td>@x.TipoCombustivel</td><td>@x.Litros</td><td>@x.ValorTotal</td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Abastecimentos";
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Abastecimentos</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    @if (TempData["Sucesso"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Sucesso"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (TempData["Erro"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Erro"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Abastecimentos</h1>
+            <p class="text-muted mb-0">Controle de consumo de combustível, custos e hodômetro.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" href="/Frotas/Exportar?tipo=abastecimentos">Exportar CSV</a>
+            <a class="btn btn-primary" href="/Frotas/Abastecimentos/Novo">Novo abastecimento</a>
+        </div>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Litros > 0. Hodômetro não reduz a KM do veículo. Não baixa combustível do estoque nesta tela.</p>
+            <ul>
+                <li><strong>Registro Financeiro:</strong> O valor total é calculado pelo produto de litros abastecidos pelo valor unitário.</li>
+                <li><strong>Controle de Estoque:</strong> Por diretriz operacional, o abastecimento de veículos não gera baixa física imediata no almoxarifado.</li>
+                <li><strong>Hodômetro:</strong> O km registrado no abastecimento atualiza a quilometragem do veículo se for maior, nunca retrocedendo.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Placa</th>
+                        <th>Data / Hora</th>
+                        <th>Hodômetro</th>
+                        <th>Combustível</th>
+                        <th class="text-end">Litros</th>
+                        <th class="text-end">Valor Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var x in Model)
+                    {
+                        <tr>
+                            <td class="fw-bold text-dark">@x.Placa</td>
+                            <td>@x.DataAbastecimento.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@x.KmAtual.ToString("N0") km</td>
+                            <td><span class="badge bg-light text-dark border">@x.TipoCombustivel</span></td>
+                            <td class="text-end">@x.Litros.ToString("N2") L</td>
+                            <td class="text-end fw-bold text-success">@x.ValorTotal.ToString("C")</td>
+                        </tr>
+                    }
+                    @if (Model.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="frotas-empty-state">
+                                    <strong>Nenhum abastecimento registrado</strong>
+                                    <p class="mb-0">Clique em "Novo abastecimento" para lançar tíquetes de combustível.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

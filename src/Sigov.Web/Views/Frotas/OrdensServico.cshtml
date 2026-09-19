@@ -1,2 +1,110 @@
 @model IReadOnlyList<Sigov.Application.Frotas.OrdemServicoDto>
-@{ViewData["Title"]="Ordens de serviço";}<partial name="_Nav"/><div class="d-flex justify-content-between"><h1 class="h3">Ordens de serviço</h1><a class="btn btn-primary" href="/Frotas/OrdensServico/Nova">Nova OS</a></div><div class="table-responsive mt-3"><table class="table table-striped"><thead><tr><th>Numero</th><th>Placa</th><th>DataAbertura</th><th>PrevisaoConclusao</th><th>ValorTotal</th><th>Status</th></tr></thead><tbody>@foreach(var x in Model){<tr><td>@x.Numero</td><td>@x.Placa</td><td>@x.DataAbertura</td><td>@x.PrevisaoConclusao</td><td>@x.ValorTotal</td><td>@x.Status</td></tr>}@if(Model.Count==0){<tr><td colspan="6" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>}</tbody></table></div>
+@{
+    ViewData["Title"] = "Ordens de Serviço";
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Ordens de Serviço</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    @if (TempData["Sucesso"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Sucesso"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (TempData["Erro"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Erro"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Ordens de Serviço</h1>
+            <p class="text-muted mb-0">Controle de reparos, serviços e baixa física de peças no estoque.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary" href="/Frotas/Exportar?tipo=ordens">Exportar CSV</a>
+            <a class="btn btn-primary" href="/Frotas/OrdensServico/Nova">Nova OS</a>
+        </div>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Peça é material de consumo do almoxarifado. Concluir baixa o saldo de todos os itens na mesma operação. Sem saldo, não conclui.</p>
+            <ul>
+                <li><strong>Fluxo da OS:</strong> Inicia em <code>ABERTA</code>, pode ser <code>APROVADA</code> ou <code>CANCELADA</code> (com justificativa obrigatória).</li>
+                <li><strong>Baixa no Almoxarifado:</strong> Ao concluir, o sistema valida os saldos de estoque e debita os materiais no Almoxarifado (FUNC02) em transação atômica.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Número</th>
+                        <th>Placa</th>
+                        <th>Abertura</th>
+                        <th>Previsão Conclusão</th>
+                        <th>Itens</th>
+                        <th class="text-end">Valor Total</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var x in Model)
+                    {
+                        var badgeClass = x.Status switch
+                        {
+                            "ABERTA" => "frotas-badge-aberto",
+                            "APROVADA" => "frotas-badge-manut",
+                            "CONCLUIDA" => "frotas-badge-concluido",
+                            "CANCELADA" => "frotas-badge-baixado",
+                            _ => "frotas-badge-inativo"
+                        };
+
+                        <tr>
+                            <td class="fw-bold"><a href="/Frotas/OrdensServico/Detalhe/@x.Id">OS @x.Numero</a></td>
+                            <td>@x.Placa</td>
+                            <td>@x.DataAbertura.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(x.PrevisaoConclusao.HasValue ? x.PrevisaoConclusao.Value.ToString("dd/MM/yyyy") : "—")</td>
+                            <td>@x.Itens item(ns)</td>
+                            <td class="text-end fw-bold">@x.ValorTotal.ToString("C")</td>
+                            <td><span class="frotas-badge @badgeClass">@x.Status</span></td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="/Frotas/OrdensServico/Detalhe/@x.Id">Visualizar</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (Model.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8">
+                                <div class="frotas-empty-state">
+                                    <strong>Nenhuma ordem de serviço registrada</strong>
+                                    <p class="mb-0">Clique em "Nova OS" para emitir uma ordem de manutenção.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

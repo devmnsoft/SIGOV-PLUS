@@ -1,2 +1,138 @@
-@{ViewData["Title"]="Veículo";}<partial name="_Nav"/><h1 class="h3">@(ViewBag.Id is null?"Novo veículo":"Editar veículo")</h1><div asp-validation-summary="All" class="text-danger"></div><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-3"><label class="form-label">Placa</label><input name="Placa" class="form-control" required/></div><div class="col-md-3"><label class="form-label">Renavam</label><input name="Renavam" class="form-control"/></div><div class="col-md-3"><label class="form-label">Chassi</label><input name="Chassi" class="form-control"/></div><div class="col-md-3"><label class="form-label">Marca</label><input name="Marca" class="form-control" required/></div><div class="col-md-4"><label class="form-label">Modelo</label><input name="Modelo" class="form-control" required/></div><div class="col-md-2"><label class="form-label">Ano fabricação</label><input name="AnoFabricacao" type="number" class="form-control"/></div><div class="col-md-2"><label class="form-label">Ano modelo</label><input name="AnoModelo" type="number" class="form-control"/></div><div class="col-md-4"><label class="form-label">Tipo</label><select name="Tipo" class="form-select">@foreach(var x in new[]{"PASSEIO","CAMINHONETE","CAMINHAO","ONIBUS","MOTOCICLETA","MAQUINA","OUTRO"}){<option>@x</option>}</select></div><div class="col-md-3"><label class="form-label">Combustível</label><input name="CombustivelPrincipal" class="form-control" required/></div><div class="col-md-3"><label class="form-label">Quilometragem</label><input name="QuilometragemAtual" type="number" step=".01" min="0" class="form-control" required/></div><div class="col-md-3"><label class="form-label">Horímetro</label><input name="HorimetroAtual" type="number" step=".01" min="0" class="form-control"/></div><div class="col-md-3"><label class="form-label">Status</label><select name="Status" class="form-select"><option>ATIVO</option><option>EM_MANUTENCAO</option><option>INATIVO</option><option>BAIXADO</option></select></div><div class="col-md-6"><label class="form-label">Unidade responsável</label><input name="UnidadeResponsavel" class="form-control" required/></div><div class="col-md-3"><label class="form-label">Bem patrimonial</label><input name="BemPatrimonialId" type="number" class="form-control"/></div><div class="col-12"><label class="form-label">Observações</label><textarea name="Observacoes" class="form-control"></textarea></div></div><input type="hidden" name="EntidadeId" value="0"/><button class="btn btn-primary mt-3 align-self-start">Salvar</button></form>
+@model Sigov.Application.Frotas.VeiculoDto
+@{
+    var isEdicao = ViewBag.Id != null;
+    ViewData["Title"] = isEdicao ? "Editar Veículo" : "Novo Veículo";
+    var bens = ViewBag.BensPatrimoniais as IReadOnlyList<Sigov.Application.Frotas.FrotaSelect> ?? Array.Empty<Sigov.Application.Frotas.FrotaSelect>();
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/Veiculos">Veículos</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@(isEdicao ? "Editar" : "Novo")</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">@(isEdicao ? "Editar Veículo" : "Cadastro de Novo Veículo")</h1>
+        <p class="text-muted mb-0">Identificação técnica, vínculo com patrimônio e quilometragem atual.</p>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Placa única na entidade. Bem patrimonial pela lista, só ATIVO. KM não retroage. Em manutenção o veículo não sai.</p>
+            <ul>
+                <li><strong>Placa Oficial:</strong> Deve ser única para o ente público federativo atual.</li>
+                <li><strong>Vínculo Patrimonial:</strong> Selecione na lista apenas bens com status <code>ATIVO</code> tombados no Patrimônio (FUNC01). Bens baixados são recusados pelo sistema.</li>
+                <li><strong>Hodômetro:</strong> Em edições, a quilometragem informada não pode ser menor que a registrada anteriormente.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="EntidadeId" value="0" />
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Placa <span class="text-danger">*</span></label>
+                        <input name="Placa" class="form-control text-uppercase" value="@Model?.Placa" required maxlength="10" placeholder="Ex: ABC-1234" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Renavam</label>
+                        <input name="Renavam" class="form-control" value="@Model?.Renavam" maxlength="20" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Chassi</label>
+                        <input name="Chassi" class="form-control text-uppercase" value="@Model?.Chassi" maxlength="30" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Marca <span class="text-danger">*</span></label>
+                        <input name="Marca" class="form-control" value="@Model?.Marca" required maxlength="50" placeholder="Ex: Toyota" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Modelo <span class="text-danger">*</span></label>
+                        <input name="Modelo" class="form-control" value="@Model?.Modelo" required maxlength="50" placeholder="Ex: Hilux 4x4" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Ano fabricação</label>
+                        <input name="AnoFabricacao" type="number" class="form-control" value="@Model?.AnoFabricacao" min="1950" max="2100" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Ano modelo</label>
+                        <input name="AnoModelo" type="number" class="form-control" value="@Model?.AnoModelo" min="1950" max="2100" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Tipo <span class="text-danger">*</span></label>
+                        <select name="Tipo" class="form-select">
+                            @foreach (var t in new[] { "PASSEIO", "CAMINHONETE", "CAMINHAO", "ONIBUS", "MOTOCICLETA", "MAQUINA", "OUTRO" })
+                            {
+                                <option value="@t" selected="@(Model?.Tipo == t)">@t</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Combustível Principal <span class="text-danger">*</span></label>
+                        <input name="CombustivelPrincipal" class="form-control" value="@(Model?.CombustivelPrincipal ?? "DIESEL")" required maxlength="30" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Quilometragem Atual <span class="text-danger">*</span></label>
+                        <input name="QuilometragemAtual" type="number" step="0.01" min="0" class="form-control" value="@(Model?.QuilometragemAtual ?? 0)" required />
+                        <div class="form-text">Hodômetro nunca pode retroceder.</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Horímetro Atual</label>
+                        <input name="HorimetroAtual" type="number" step="0.01" min="0" class="form-control" value="@(Model?.HorimetroAtual ?? 0)" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Status Operacional <span class="text-danger">*</span></label>
+                        <select name="Status" class="form-select">
+                            <option value="ATIVO" selected="@(Model?.Status == "ATIVO" || Model?.Status == null)">ATIVO</option>
+                            <option value="EM_MANUTENCAO" selected="@(Model?.Status == "EM_MANUTENCAO")">EM MANUTENÇÃO</option>
+                            <option value="INATIVO" selected="@(Model?.Status == "INATIVO")">INATIVO</option>
+                            <option value="BAIXADO" selected="@(Model?.Status == "BAIXADO")">BAIXADO</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Unidade Responsável <span class="text-danger">*</span></label>
+                        <input name="UnidadeResponsavel" class="form-control" value="@Model?.UnidadeResponsavel" required maxlength="100" placeholder="Ex: Secretaria de Obras e Serviços" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Bem Patrimonial Tombado (FUNC01)</label>
+                        <select name="BemPatrimonialId" class="form-select">
+                            <option value="">-- Não vinculado a bem patrimonial --</option>
+                            @foreach (var b in bens)
+                            {
+                                <option value="@b.Id" selected="@(Model?.BemPatrimonialId == b.Id)">@b.Texto</option>
+                            }
+                        </select>
+                        <div class="form-text">Somente bens ATIVOS da entidade. Bens baixados são recusados.</div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Observações Complementares</label>
+                        <textarea name="Observacoes" class="form-control" rows="3">@Model?.Observacoes</textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a class="btn btn-outline-secondary" href="/Frotas/Veiculos">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">Salvar veículo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

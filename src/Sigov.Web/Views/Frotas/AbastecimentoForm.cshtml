@@ -1,2 +1,113 @@
-@{ViewData["Title"]="Novo abastecimento";}<partial name="_Nav"/><h1 class="h3">Novo abastecimento</h1><div asp-validation-summary="All" class="text-danger"></div><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label>Veículo</label><select name="VeiculoId" class="form-select">@foreach(var x in ViewBag.Veiculos){<option value="@x.Id">@x.Placa — @x.Modelo</option>}</select></div><div class="col-md-3"><label>Data</label><input name="DataAbastecimento" type="datetime-local" required class="form-control"/></div><div class="col-md-2"><label>Km atual</label><input name="KmAtual" type="number" min="0" step=".01" required class="form-control"/></div><div class="col-md-3"><label>Combustível</label><input name="TipoCombustivel" required class="form-control"/></div><div class="col-md-3"><label>Litros</label><input name="Litros" type="number" min=".0001" step=".0001" required class="form-control"/></div><div class="col-md-3"><label>Valor unitário</label><input name="ValorUnitario" type="number" min="0" step=".0001" required class="form-control"/></div><div class="col-md-3"><label>Contrato (opcional)</label><input name="ContratoId" type="number" class="form-control"/></div><div class="col-md-3"><label>Documento fiscal</label><input name="DocumentoFiscal" class="form-control"/></div></div><input name="EntidadeId" value="0" type="hidden"/><button class="btn btn-primary mt-3 align-self-start">Registrar</button></form><p class="text-muted mt-2">O valor total é calculado no PostgreSQL como litros × valor unitário.</p>
+@{
+    ViewData["Title"] = "Novo Abastecimento";
+    var veiculos = ViewBag.Veiculos as IEnumerable<dynamic> ?? Array.Empty<dynamic>();
+    var contratos = ViewBag.Contratos as IReadOnlyList<Sigov.Application.Frotas.FrotaSelect> ?? Array.Empty<Sigov.Application.Frotas.FrotaSelect>();
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/Abastecimentos">Abastecimentos</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Novo</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Registrar Abastecimento</h1>
+        <p class="text-muted mb-0">Lançamento de consumo de combustível e avanço de hodômetro.</p>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>Litros > 0. Hodômetro não reduz a KM do veículo. Não baixa combustível do estoque nesta tela.</p>
+            <ul>
+                <li><strong>Hodômetro:</strong> Informe a quilometragem exibida no painel no instante do abastecimento. O valor não pode ser inferior à quilometragem atual do veículo.</li>
+                <li><strong>Cálculo do Valor:</strong> O valor total é derivado automaticamente do produto entre a quantidade em litros e o valor unitário.</li>
+                <li><strong>Contrato (Opcional):</strong> Selecione o contrato de fornecimento de combustíveis gerenciado no módulo de Compras (FUNC03) pelo nome.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <input name="EntidadeId" value="0" type="hidden" />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Veículo Oficial <span class="text-danger">*</span></label>
+                        <select name="VeiculoId" class="form-select" required>
+                            <option value="">-- Selecione o veículo --</option>
+                            @foreach (var v in veiculos)
+                            {
+                                <option value="@v.Id">@v.Placa — @v.Marca @v.Modelo (Km Atual: @v.QuilometragemAtual)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Data e Hora <span class="text-danger">*</span></label>
+                        <input name="DataAbastecimento" type="datetime-local" required class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Hodômetro no Ato (Km) <span class="text-danger">*</span></label>
+                        <input name="KmAtual" type="number" min="0" step="0.01" required class="form-control" placeholder="Km no painel" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Tipo de Combustível <span class="text-danger">*</span></label>
+                        <select name="TipoCombustivel" class="form-select" required>
+                            <option value="DIESEL S10">DIESEL S10</option>
+                            <option value="DIESEL COMUM">DIESEL COMUM</option>
+                            <option value="GASOLINA COMUM">GASOLINA COMUM</option>
+                            <option value="GASOLINA ADITIVADA">GASOLINA ADITIVADA</option>
+                            <option value="ETANOL">ETANOL</option>
+                            <option value="GNV">GNV</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Quantidade (Litros) <span class="text-danger">*</span></label>
+                        <input name="Litros" type="number" min="0.0001" step="0.0001" required class="form-control" placeholder="0.00" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Valor Unitário (R$) <span class="text-danger">*</span></label>
+                        <input name="ValorUnitario" type="number" min="0" step="0.0001" required class="form-control" placeholder="0.00" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Documento Fiscal / Cupom</label>
+                        <input name="DocumentoFiscal" class="form-control" placeholder="Ex: NF-e 123456" />
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Contrato Administrativo de Combustível (Opcional - FUNC03)</label>
+                        <select name="ContratoId" class="form-select">
+                            <option value="">-- Nenhum contrato selecionado --</option>
+                            @foreach (var c in contratos)
+                            {
+                                <option value="@c.Id">@c.Texto</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a class="btn btn-outline-secondary" href="/Frotas/Abastecimentos">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">Registrar abastecimento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

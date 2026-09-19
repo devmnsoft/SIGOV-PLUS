@@ -1,2 +1,101 @@
-@{ViewData["Title"]="Novo motorista";}<partial name="_Nav"/><h1 class="h3">Novo motorista</h1><div asp-validation-summary="All" class="text-danger"></div><form method="post" class="card card-body">
-    @Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-6"><label class="form-label">Nome</label><input name="Nome" required class="form-control"/></div><div class="col-md-3"><label class="form-label">CPF</label><input name="Cpf" required class="form-control" autocomplete="off"/></div><div class="col-md-3"><label class="form-label">CNH</label><input name="Cnh" required class="form-control"/></div><div class="col-md-3"><label class="form-label">Categoria</label><input name="CategoriaCnh" required class="form-control"/></div><div class="col-md-3"><label class="form-label">Validade</label><input name="ValidadeCnh" type="date" required class="form-control"/></div><div class="col-md-3"><label class="form-label">Telefone</label><input name="Telefone" class="form-control"/></div><div class="col-md-3"><label class="form-label">E-mail</label><input name="Email" type="email" class="form-control"/></div><div class="col-md-6"><label class="form-label">Vínculo/lotação</label><input name="VinculoLotacao" class="form-control"/></div><div class="col-md-3"><label class="form-label">Status</label><select name="Status" class="form-select"><option>ATIVO</option><option>SUSPENSO</option><option>INATIVO</option></select></div></div><input type="hidden" name="EntidadeId" value="0"/><button class="btn btn-primary mt-3 align-self-start">Salvar</button></form>
+@{
+    ViewData["Title"] = "Novo Motorista";
+}
+<link rel="stylesheet" href="~/css/frotas.css" asp-append-version="true" />
+
+<div class="frotas-shell">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Início</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas">Frotas</a></li>
+            <li class="breadcrumb-item"><a href="/Frotas/Motoristas">Motoristas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Novo</li>
+        </ol>
+    </nav>
+
+    <partial name="_Nav" />
+
+    <div class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Cadastrar Condutor</h1>
+        <p class="text-muted mb-0">Habilitação oficial e dados de contato do motorista autorizado.</p>
+    </div>
+
+    <details class="how-to mb-4">
+        <summary>Como usar esta tela</summary>
+        <div class="mt-2 text-muted">
+            <p>CNH vencida impede abrir utilização. CPF não aparece inteiro.</p>
+            <ul>
+                <li><strong>Validade da CNH:</strong> Certifique-se de registrar a data exata de vencimento; o sistema impedirá o condutor de realizar viagens após o prazo.</li>
+                <li><strong>Proteção LGPD:</strong> O CPF é armazenado com segurança e nunca é exibido integralmente nas interfaces de consulta ou relatórios.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert" style="display: @(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="EntidadeId" value="0" />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Nome Completo <span class="text-danger">*</span></label>
+                        <input name="Nome" required class="form-control" placeholder="Ex: João da Silva" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">CPF <span class="text-danger">*</span></label>
+                        <input name="Cpf" required class="form-control" autocomplete="off" placeholder="000.000.000-00" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Número da CNH <span class="text-danger">*</span></label>
+                        <input name="Cnh" required class="form-control" placeholder="Ex: 12345678900" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Categoria da CNH <span class="text-danger">*</span></label>
+                        <select name="CategoriaCnh" class="form-select" required>
+                            <option value="B">B (Passeio)</option>
+                            <option value="A">A (Moto)</option>
+                            <option value="AB">AB (Carro e Moto)</option>
+                            <option value="C">C (Carga)</option>
+                            <option value="D">D (Passageiros)</option>
+                            <option value="E">E (Articulados)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Validade da CNH <span class="text-danger">*</span></label>
+                        <input name="ValidadeCnh" type="date" required class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Telefone</label>
+                        <input name="Telefone" class="form-control" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">E-mail</label>
+                        <input name="Email" type="email" class="form-control" placeholder="motorista@sigov.gov.br" />
+                    </div>
+
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Vínculo / Lotação</label>
+                        <input name="VinculoLotacao" class="form-control" placeholder="Ex: Secretaria de Educação - Transporte Escolar" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Status Operacional <span class="text-danger">*</span></label>
+                        <select name="Status" class="form-select">
+                            <option value="ATIVO" selected>ATIVO</option>
+                            <option value="SUSPENSO">SUSPENSO</option>
+                            <option value="INATIVO">INATIVO</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a class="btn btn-outline-secondary" href="/Frotas/Motoristas">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">Salvar motorista</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

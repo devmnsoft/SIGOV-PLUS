@@ -2,34 +2,166 @@ namespace Sigov.Application.Frotas;
 
 public static class FrotasPermissoes
 {
- public const string Dashboard="frotas.dashboard.visualizar",VeiculoVer="frotas.veiculo.visualizar",VeiculoCriar="frotas.veiculo.criar",VeiculoEditar="frotas.veiculo.editar",MotoristaVer="frotas.motorista.visualizar",MotoristaCriar="frotas.motorista.criar",MotoristaEditar="frotas.motorista.editar",UtilizacaoVer="frotas.utilizacao.visualizar",UtilizacaoCriar="frotas.utilizacao.criar",UtilizacaoFinalizar="frotas.utilizacao.finalizar",AbastecimentoVer="frotas.abastecimento.visualizar",AbastecimentoCriar="frotas.abastecimento.criar",ManutencaoVer="frotas.manutencao.visualizar",ManutencaoCriar="frotas.manutencao.criar",ManutencaoConcluir="frotas.manutencao.concluir",OsVer="frotas.os.visualizar",OsCriar="frotas.os.criar",OsAprovar="frotas.os.aprovar",OsConcluir="frotas.os.concluir",DocumentoVer="frotas.documento.visualizar",DocumentoCriar="frotas.documento.criar",Exportar="frotas.exportar";
+    public const string Dashboard = "frotas.dashboard.visualizar",
+        VeiculoVer = "frotas.veiculo.visualizar",
+        VeiculoCriar = "frotas.veiculo.criar",
+        VeiculoEditar = "frotas.veiculo.editar",
+        MotoristaVer = "frotas.motorista.visualizar",
+        MotoristaCriar = "frotas.motorista.criar",
+        MotoristaEditar = "frotas.motorista.editar",
+        UtilizacaoVer = "frotas.utilizacao.visualizar",
+        UtilizacaoCriar = "frotas.utilizacao.criar",
+        UtilizacaoFinalizar = "frotas.utilizacao.finalizar",
+        AbastecimentoVer = "frotas.abastecimento.visualizar",
+        AbastecimentoCriar = "frotas.abastecimento.criar",
+        ManutencaoVer = "frotas.manutencao.visualizar",
+        ManutencaoCriar = "frotas.manutencao.criar",
+        ManutencaoConcluir = "frotas.manutencao.concluir",
+        OsVer = "frotas.os.visualizar",
+        OsCriar = "frotas.os.criar",
+        OsAprovar = "frotas.os.aprovar",
+        OsConcluir = "frotas.os.concluir",
+        DocumentoVer = "frotas.documento.visualizar",
+        DocumentoCriar = "frotas.documento.criar",
+        Exportar = "frotas.exportar";
 }
-public sealed record FrotaFiltro(string? Busca=null,string? Status=null,string? Unidade=null,long? VeiculoId=null,long? MotoristaId=null,DateTime? Inicio=null,DateTime? Fim=null,int Pagina=1,int Tamanho=100);
-public sealed record VeiculoDto(long Id,string Placa,string Marca,string Modelo,string Tipo,string CombustivelPrincipal,decimal QuilometragemAtual,decimal? HorimetroAtual,string Status,string UnidadeResponsavel,long? BemPatrimonialId,string? Renavam=null,string? Chassi=null,int? AnoFabricacao=null,int? AnoModelo=null,string? Observacoes=null);
-public sealed record VeiculoInput(long EntidadeId,string Placa,string? Renavam,string? Chassi,string Marca,string Modelo,int? AnoFabricacao,int? AnoModelo,string Tipo,string CombustivelPrincipal,decimal QuilometragemAtual,decimal? HorimetroAtual,string Status,string UnidadeResponsavel,long? BemPatrimonialId,string? Observacoes);
-public sealed record MotoristaDto(long Id,string Nome,string CpfMascarado,string Cnh,string CategoriaCnh,DateTime ValidadeCnh,string? Telefone,string? Email,string? VinculoLotacao,string Status,string? Observacoes);
-public sealed record MotoristaInput(long EntidadeId,string Nome,string Cpf,string Cnh,string CategoriaCnh,DateTime ValidadeCnh,string? Telefone,string? Email,string? VinculoLotacao,string Status,string? Observacoes);
-public sealed record UtilizacaoDto(long Id,long VeiculoId,string Placa,long MotoristaId,string MotoristaNome,DateTimeOffset SaidaEm,DateTimeOffset? RetornoEm,decimal KmSaida,decimal? KmRetorno,string Destino,string Finalidade,string Status);
-public sealed record UtilizacaoInput(long EntidadeId,long VeiculoId,long MotoristaId,string UnidadeSolicitante,DateTimeOffset SaidaEm,decimal KmSaida,string Destino,string Finalidade,string? Observacao);
-public sealed record AbastecimentoDto(long Id,long VeiculoId,string Placa,DateTimeOffset DataAbastecimento,decimal KmAtual,string TipoCombustivel,decimal Litros,decimal ValorUnitario,decimal ValorTotal,string? DocumentoFiscal);
-public sealed record AbastecimentoInput(long EntidadeId,long VeiculoId,long? MotoristaId,long? FornecedorId,long? ContratoId,DateTimeOffset DataAbastecimento,decimal KmAtual,string TipoCombustivel,decimal Litros,decimal ValorUnitario,string? DocumentoFiscal,string? Observacao);
-public sealed record ManutencaoDto(long Id,long VeiculoId,string Placa,string Tipo,DateTimeOffset DataAbertura,DateTimeOffset? DataConclusao,decimal KmAbertura,string Descricao,decimal ValorEstimado,decimal? ValorFinal,string Status,string? Observacao);
-public sealed record ManutencaoInput(long EntidadeId,long VeiculoId,string Tipo,DateTimeOffset DataAbertura,decimal KmAbertura,long? FornecedorId,long? ContratoId,string Descricao,decimal ValorEstimado,string? Observacao);
-public sealed record OrdemServicoItemInput(string Descricao,string Tipo,decimal Quantidade,decimal ValorUnitario,long? MaterialId,long? AlmoxarifadoId,long? ContratoId);
-public sealed record OrdemServicoInput(long EntidadeId,int Exercicio,string Numero,long VeiculoId,long? ManutencaoId,long? FornecedorId,DateTimeOffset DataAbertura,DateTime? PrevisaoConclusao,string Descricao,IReadOnlyList<OrdemServicoItemInput> Itens);
-public sealed record OrdemServicoDto(long Id,int Exercicio,string Numero,long VeiculoId,string Placa,DateTimeOffset DataAbertura,DateTime? PrevisaoConclusao,string Descricao,string Status,decimal ValorTotal,int Itens);
-public sealed record DocumentoDto(long Id,long VeiculoId,string Placa,string Tipo,string Numero,DateTime? DataEmissao,DateTime DataVencimento,string Status,string? Observacao);
-public sealed record DocumentoInput(long EntidadeId,long VeiculoId,string Tipo,string Numero,DateTime? DataEmissao,DateTime DataVencimento,string? Observacao);
-public sealed record FrotasDashboardDto(long VeiculosAtivos,long VeiculosEmManutencao,long CnhVencida,long CnhAVencer,long DocumentosVencidos,long DocumentosAVencer,long AbastecimentosMes,decimal CustoMensal,long ManutencoesAbertas,IReadOnlyList<UtilizacaoDto> UltimasUtilizacoes,IReadOnlyList<OrdemServicoDto> UltimasOrdens);
-public sealed record FrotaSelect(long Id,string Texto);
+
+public sealed record FrotaFiltro(string? Busca = null, string? Status = null, string? Unidade = null, long? VeiculoId = null, long? MotoristaId = null, DateTime? Inicio = null, DateTime? Fim = null, int Pagina = 1, int Tamanho = 100);
+
+public sealed record VeiculoDto(
+    long Id,
+    string Placa,
+    string Marca,
+    string Modelo,
+    string Tipo,
+    string CombustivelPrincipal,
+    decimal QuilometragemAtual,
+    decimal? HorimetroAtual,
+    string Status,
+    string UnidadeResponsavel,
+    long? BemPatrimonialId,
+    string? Renavam = null,
+    string? Chassi = null,
+    int? AnoFabricacao = null,
+    int? AnoModelo = null,
+    string? Observacoes = null,
+    string? BemPatrimonialDescricao = null,
+    string? BemPatrimonialNumero = null
+);
+
+public sealed record VeiculoInput(long EntidadeId, string Placa, string? Renavam, string? Chassi, string Marca, string Modelo, int? AnoFabricacao, int? AnoModelo, string Tipo, string CombustivelPrincipal, decimal QuilometragemAtual, decimal? HorimetroAtual, string Status, string UnidadeResponsavel, long? BemPatrimonialId, string? Observacoes);
+
+public sealed record MotoristaDto(long Id, string Nome, string CpfMascarado, string Cnh, string CategoriaCnh, DateTime ValidadeCnh, string? Telefone, string? Email, string? VinculoLotacao, string Status, string? Observacoes);
+
+public sealed record MotoristaInput(long EntidadeId, string Nome, string Cpf, string Cnh, string CategoriaCnh, DateTime ValidadeCnh, string? Telefone, string? Email, string? VinculoLotacao, string Status, string? Observacoes);
+
+public sealed record UtilizacaoDto(long Id, long VeiculoId, string Placa, long MotoristaId, string MotoristaNome, DateTimeOffset SaidaEm, DateTimeOffset? RetornoEm, decimal KmSaida, decimal? KmRetorno, string Destino, string Finalidade, string Status);
+
+public sealed record UtilizacaoInput(long EntidadeId, long VeiculoId, long MotoristaId, string UnidadeSolicitante, DateTimeOffset SaidaEm, decimal KmSaida, string Destino, string Finalidade, string? Observacao);
+
+public sealed record AbastecimentoDto(long Id, long VeiculoId, string Placa, DateTimeOffset DataAbastecimento, decimal KmAtual, string TipoCombustivel, decimal Litros, decimal ValorUnitario, decimal ValorTotal, string? DocumentoFiscal);
+
+public sealed record AbastecimentoInput(long EntidadeId, long VeiculoId, long? MotoristaId, long? FornecedorId, long? ContratoId, DateTimeOffset DataAbastecimento, decimal KmAtual, string TipoCombustivel, decimal Litros, decimal ValorUnitario, string? DocumentoFiscal, string? Observacao);
+
+public sealed record ManutencaoDto(long Id, long VeiculoId, string Placa, string Tipo, DateTimeOffset DataAbertura, DateTimeOffset? DataConclusao, decimal KmAbertura, string Descricao, decimal ValorEstimado, decimal? ValorFinal, string Status, string? Observacao);
+
+public sealed record ManutencaoInput(long EntidadeId, long VeiculoId, string Tipo, DateTimeOffset DataAbertura, decimal KmAbertura, long? FornecedorId, long? ContratoId, string Descricao, decimal ValorEstimado, string? Observacao);
+
+public sealed record OrdemServicoItemInput(string Descricao, string Tipo, decimal Quantidade, decimal ValorUnitario, long? MaterialId, long? AlmoxarifadoId, long? ContratoId);
+
+public sealed record OrdemServicoInput(long EntidadeId, int Exercicio, string Numero, long VeiculoId, long? ManutencaoId, long? FornecedorId, DateTimeOffset DataAbertura, DateTime? PrevisaoConclusao, string Descricao, IReadOnlyList<OrdemServicoItemInput> Itens);
+
+public sealed record OrdemServicoDto(long Id, int Exercicio, string Numero, long VeiculoId, string Placa, DateTimeOffset DataAbertura, DateTime? PrevisaoConclusao, string Descricao, string Status, decimal ValorTotal, int Itens);
+
+public sealed record OrdemItemDetalheDto(
+    long Id,
+    string Descricao,
+    string Tipo,
+    decimal Quantidade,
+    decimal ValorUnitario,
+    decimal ValorTotal,
+    long? MaterialId,
+    string? MaterialCodigo,
+    string? MaterialDescricao,
+    long? AlmoxarifadoId,
+    string? AlmoxarifadoNome,
+    long? ContratoId,
+    long? MovimentacaoAlmoxarifadoId,
+    decimal SaldoEstoqueDisponivel,
+    bool TemSaldo
+);
+
+public sealed record OrdemServicoDetalheDto(
+    OrdemServicoDto Ordem,
+    string? FornecedorNome,
+    long? FornecedorId,
+    long? ManutencaoId,
+    string? VeiculoModelo,
+    IReadOnlyList<OrdemItemDetalheDto> Itens,
+    bool TodosItensComSaldo,
+    string? MotivoBloqueioConclusao
+);
+
+public sealed record DocumentoDto(long Id, long VeiculoId, string Placa, string Tipo, string Numero, DateTime? DataEmissao, DateTime DataVencimento, string Status, string? Observacao);
+
+public sealed record DocumentoInput(long EntidadeId, long VeiculoId, string Tipo, string Numero, DateTime? DataEmissao, DateTime DataVencimento, string? Observacao);
+
+public sealed record FrotasDashboardDto(
+    long VeiculosAtivos,
+    long VeiculosEmManutencao,
+    long CnhVencida,
+    long CnhAVencer,
+    long DocumentosVencidos,
+    long DocumentosAVencer,
+    long AbastecimentosMes,
+    decimal CustoMensal,
+    long ManutencoesAbertas,
+    IReadOnlyList<UtilizacaoDto> UltimasUtilizacoes,
+    IReadOnlyList<OrdemServicoDto> UltimasOrdens,
+    long VeiculosIndisponiveis = 0,
+    long UsosAbertos = 0,
+    long OrdensAbertas = 0
+);
+
+public sealed record FrotaSelect(long Id, string Texto, string? Subtexto = null, bool Ativo = true, string? Detalhe = null);
 
 public interface IFrotasService
 {
- Task<FrotasDashboardDto> DashboardAsync(long tenant,long entidade,CancellationToken ct);Task<IReadOnlyList<VeiculoDto>> VeiculosAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<VeiculoDto?> VeiculoAsync(long tenant,long entidade,long id,CancellationToken ct);Task<long> CriarVeiculoAsync(long tenant,long usuario,string correlation,VeiculoInput input,CancellationToken ct);Task EditarVeiculoAsync(long tenant,long usuario,string correlation,long id,VeiculoInput input,CancellationToken ct);
- Task<IReadOnlyList<MotoristaDto>> MotoristasAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<long> CriarMotoristaAsync(long tenant,long usuario,string correlation,MotoristaInput input,CancellationToken ct);
- Task<IReadOnlyList<UtilizacaoDto>> UtilizacoesAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<long> CriarUtilizacaoAsync(long tenant,long usuario,string correlation,UtilizacaoInput input,CancellationToken ct);Task FinalizarUtilizacaoAsync(long tenant,long entidade,long usuario,string correlation,long id,decimal kmRetorno,DateTimeOffset retornoEm,CancellationToken ct);
- Task<IReadOnlyList<AbastecimentoDto>> AbastecimentosAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<long> CriarAbastecimentoAsync(long tenant,long usuario,string correlation,AbastecimentoInput input,CancellationToken ct);
- Task<IReadOnlyList<ManutencaoDto>> ManutencoesAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<long> CriarManutencaoAsync(long tenant,long usuario,string correlation,ManutencaoInput input,CancellationToken ct);Task ConcluirManutencaoAsync(long tenant,long entidade,long usuario,string correlation,long id,decimal valorFinal,CancellationToken ct);
- Task<IReadOnlyList<OrdemServicoDto>> OrdensAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<OrdemServicoDto?> OrdemAsync(long tenant,long entidade,long id,CancellationToken ct);Task<long> CriarOrdemAsync(long tenant,long usuario,string correlation,OrdemServicoInput input,CancellationToken ct);Task AlterarOrdemAsync(long tenant,long entidade,long usuario,string correlation,long id,string acao,CancellationToken ct);
- Task<IReadOnlyList<DocumentoDto>> DocumentosAsync(long tenant,long entidade,FrotaFiltro filtro,CancellationToken ct);Task<long> CriarDocumentoAsync(long tenant,long usuario,string correlation,DocumentoInput input,CancellationToken ct);
+    Task<FrotasDashboardDto> DashboardAsync(long tenant, long entidade, CancellationToken ct);
+    Task<IReadOnlyList<VeiculoDto>> VeiculosAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<VeiculoDto?> VeiculoAsync(long tenant, long entidade, long id, CancellationToken ct);
+    Task<long> CriarVeiculoAsync(long tenant, long usuario, string correlation, VeiculoInput input, CancellationToken ct);
+    Task EditarVeiculoAsync(long tenant, long usuario, string correlation, long id, VeiculoInput input, CancellationToken ct);
+
+    Task<IReadOnlyList<MotoristaDto>> MotoristasAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<long> CriarMotoristaAsync(long tenant, long usuario, string correlation, MotoristaInput input, CancellationToken ct);
+
+    Task<IReadOnlyList<UtilizacaoDto>> UtilizacoesAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<long> CriarUtilizacaoAsync(long tenant, long usuario, string correlation, UtilizacaoInput input, CancellationToken ct);
+    Task FinalizarUtilizacaoAsync(long tenant, long entidade, long usuario, string correlation, long id, decimal kmRetorno, DateTimeOffset retornoEm, CancellationToken ct);
+
+    Task<IReadOnlyList<AbastecimentoDto>> AbastecimentosAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<long> CriarAbastecimentoAsync(long tenant, long usuario, string correlation, AbastecimentoInput input, CancellationToken ct);
+
+    Task<IReadOnlyList<ManutencaoDto>> ManutencoesAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<long> CriarManutencaoAsync(long tenant, long usuario, string correlation, ManutencaoInput input, CancellationToken ct);
+    Task ConcluirManutencaoAsync(long tenant, long entidade, long usuario, string correlation, long id, decimal valorFinal, CancellationToken ct);
+
+    Task<IReadOnlyList<OrdemServicoDto>> OrdensAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<OrdemServicoDto?> OrdemAsync(long tenant, long entidade, long id, CancellationToken ct);
+    Task<OrdemServicoDetalheDto?> ObterOrdemDetalheAsync(long tenant, long entidade, long id, CancellationToken ct);
+    Task<long> CriarOrdemAsync(long tenant, long usuario, string correlation, OrdemServicoInput input, CancellationToken ct);
+    Task AlterarOrdemAsync(long tenant, long entidade, long usuario, string correlation, long id, string acao, string? justificativa, CancellationToken ct);
+    Task AlterarOrdemAsync(long tenant, long entidade, long usuario, string correlation, long id, string acao, CancellationToken ct) =>
+        AlterarOrdemAsync(tenant, entidade, usuario, correlation, id, acao, null, ct);
+
+    Task<IReadOnlyList<DocumentoDto>> DocumentosAsync(long tenant, long entidade, FrotaFiltro filtro, CancellationToken ct);
+    Task<long> CriarDocumentoAsync(long tenant, long usuario, string correlation, DocumentoInput input, CancellationToken ct);
+
+    Task<IReadOnlyList<FrotaSelect>> ObterBensAtivosSelectAsync(long tenant, long entidade, CancellationToken ct);
+    Task<IReadOnlyList<FrotaSelect>> ObterFornecedoresAtivosSelectAsync(long tenant, long entidade, CancellationToken ct);
+    Task<IReadOnlyList<FrotaSelect>> ObterContratosAtivosSelectAsync(long tenant, long entidade, CancellationToken ct);
+    Task<IReadOnlyList<FrotaSelect>> ObterMateriaisConsumoSelectAsync(long tenant, long entidade, CancellationToken ct);
+    Task<IReadOnlyList<FrotaSelect>> ObterAlmoxarifadosSelectAsync(long tenant, long entidade, CancellationToken ct);
+    Task<byte[]> ExportarCsvAsync(long tenant, long entidade, string tipo, long usuario, string correlation, CancellationToken ct);
 }
