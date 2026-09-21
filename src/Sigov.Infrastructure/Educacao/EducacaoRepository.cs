@@ -296,6 +296,55 @@ update sigov.matricula set turma_id=@TurmaId,data_enturmacao=@DataEntrada,update
         await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
+    public async Task<long> TransferirAsync(long tenantId, long entidadeId, long matriculaId, TransferirMatriculaRequest request, long usuarioId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection();
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var p = new { TenantId = tenantId, EntidadeId = entidadeId, MatriculaId = matriculaId, request.NovaTurmaId, request.Motivo, UsuarioId = usuarioId };
+
+        const string sql = @"with origem as (
+ select m.* from sigov.matricula m
+ where m.id=@MatriculaId and m.tenant_id=@TenantId and m.entidade_id=@EntidadeId
+   and m.status in ('ATIVA','CONFIRMADA') and m.turma_id is not null and not m.is_deleted
+ for update
+), destino as (
+ select t.id,t.escola_id,t.ano_letivo_id from sigov.turma t
+ join origem o on o.tenant_id=t.tenant_id and o.entidade_id=t.entidade_id
+ join sigov.escola e on e.id=t.escola_id and e.tenant_id=t.tenant_id and e.entidade_id=t.entidade_id
+ where t.id=@NovaTurmaId and t.id<>o.turma_id and t.ano_letivo_id=o.ano_letivo_id
+   and t.status='ABERTA' and t.vagas_ocupadas<t.capacidade and not t.is_deleted
+   and e.situacao='ATIVA' and not e.is_deleted
+ for update
+), libera_origem as (
+ update sigov.turma t set vagas_ocupadas=greatest(t.vagas_ocupadas-1,0),updated_by=@UsuarioId
+ from origem o,destino d where t.id=o.turma_id returning t.id
+), reserva_destino as (
+ update sigov.turma t set vagas_ocupadas=t.vagas_ocupadas+1,updated_by=@UsuarioId
+ from destino d where t.id=d.id and exists(select 1 from libera_origem) returning t.id
+), encerra as (
+ update sigov.matricula m set status='TRANSFERIDA',observacao=@Motivo,updated_at=now(),updated_by=@UsuarioId
+ from origem o where m.id=o.id and exists(select 1 from reserva_destino) returning o.*
+)
+insert into sigov.matricula
+ (tenant_id,entidade_id,exercicio_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,origem,observacao,created_by)
+select o.tenant_id,o.entidade_id,o.exercicio_id,o.aluno_id,d.escola_id,o.ano_letivo_id,d.id,
+       left(o.numero_matricula,38) || '-T' || o.id::text || '-' || d.id::text,current_date,'ATIVA',
+       'TRANSFERENCIA:' || o.id::text,@Motivo,@UsuarioId
+from encerra o cross join destino d
+returning id";
+
+        var novaMatriculaId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (!novaMatriculaId.HasValue || novaMatriculaId <= 0)
+            throw new InvalidOperationException("Transferência rejeitada: matrícula de origem inativa, turma de destino incompatível, encerrada ou sem vaga.");
+
+        var auditoria = new { MatriculaOrigemId = matriculaId, MatriculaDestinoId = novaMatriculaId.Value, TurmaDestinoId = request.NovaTurmaId, request.Motivo };
+        await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, "MatriculaTransferida", "matricula", matriculaId, auditoria, usuarioId, ct).ConfigureAwait(false);
+        await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, "MatriculaCriadaPorTransferencia", "matricula", novaMatriculaId.Value, auditoria, usuarioId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return novaMatriculaId.Value;
+    }
+
     private static bool TransicaoPermitida(string origem, string destino) => (origem, destino) switch
     {
         ("RASCUNHO", "EM_ANALISE") or ("RASCUNHO", "CANCELADA") or ("COMPLEMENTACAO_PENDENTE", "EM_ANALISE") or

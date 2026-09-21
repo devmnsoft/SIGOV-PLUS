@@ -1,5 +1,11 @@
 # Changelog
 
+## Jornada de transferência escolar — 2026-09-21
+
+- substituída a atualização destrutiva da matrícula por uma transferência transacional que encerra o vínculo de origem e cria uma nova matrícula ativa no destino;
+- validados no servidor o estado da matrícula, a compatibilidade do ano letivo, a escola ativa, a turma aberta e a disponibilidade de vaga, sempre no mesmo tenant e entidade;
+- movimentadas as vagas de origem e destino na mesma transação e registrados eventos de auditoria correlacionando as duas matrículas e a justificativa obrigatória.
+
 ## Estabilização das permissões do Jurídico — 2026-09-21
 
 - incluídas no catálogo canônico as políticas persistidas usadas pelas jornadas de advogados, partes, movimentações, intimações, audiências, consultas e dívida ativa;
