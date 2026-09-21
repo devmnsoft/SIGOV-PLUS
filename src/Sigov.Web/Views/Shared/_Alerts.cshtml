@@ -1,1 +1,40 @@
-<div id="sigov-alerts" aria-live="polite"></div>
+@{
+    var toastOk = TempData["ToastOk"] ?? TempData["Success"];
+    var toastAviso = TempData["ToastAviso"] ?? TempData["Warning"];
+    var toastErro = TempData["ToastErro"] ?? TempData["Error"];
+}
+
+<div id="sigov-alerts-wrapper" class="mb-3">
+    @if (toastOk != null)
+    {
+        <div class="sigov-banner sigov-banner--success alert alert-success alert-dismissible fade show d-flex align-items-center justify-content-between shadow-sm" role="status">
+            <div class="d-flex align-items-center gap-2">
+                <sigov-icon name="success" size="20" />
+                <span>@toastOk</span>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (toastAviso != null)
+    {
+        <div class="sigov-banner sigov-banner--warning alert alert-warning alert-dismissible fade show d-flex align-items-center justify-content-between shadow-sm" role="status">
+            <div class="d-flex align-items-center gap-2">
+                <sigov-icon name="warning" size="20" />
+                <span>@toastAviso</span>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    @if (toastErro != null)
+    {
+        <div class="sigov-banner sigov-banner--danger alert alert-danger alert-dismissible fade show d-flex align-items-center justify-content-between shadow-sm" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <sigov-icon name="cancel" size="20" />
+                <span>@toastErro</span>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+    }
+    <div id="sigov-alerts" aria-live="polite"></div>
+</div>
+

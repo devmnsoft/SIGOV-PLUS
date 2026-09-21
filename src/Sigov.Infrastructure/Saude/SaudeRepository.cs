@@ -47,6 +47,50 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
             var p = ToDictionary(request);
             p["TenantId"] = tenantId; p["EntidadeId"] = entidadeId; p["ExercicioId"] = exercicioId; p["UsuarioId"] = usuarioId; p["Ano"] = DateTimeOffset.UtcNow.Year;
             ApplyDefaults(recurso, p);
+
+            if (recurso == "agenda")
+            {
+                if (p.TryGetValue("UnidadeSaudeId", out var uid) && uid is not null && long.TryParse(Convert.ToString(uid, System.Globalization.CultureInfo.InvariantCulture), out var uId) && uId > 0)
+                {
+                    var uAtiva = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select count(*) from sigov.unidade_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVA' and not is_deleted", new { Id = uId, TenantId = tenantId, EntidadeId = entidadeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    if (uAtiva == 0) throw new InvalidOperationException("Unidade de saúde inexistente ou inativa.");
+                }
+                if (p.TryGetValue("ProfissionalSaudeId", out var pid) && pid is not null && long.TryParse(Convert.ToString(pid, System.Globalization.CultureInfo.InvariantCulture), out var pId) && pId > 0)
+                {
+                    var pAtivo = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select count(*) from sigov.profissional_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and not is_deleted", new { Id = pId, TenantId = tenantId, EntidadeId = entidadeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    if (pAtivo == 0) throw new InvalidOperationException("Profissional de saúde inexistente ou inativo.");
+
+                    const string sqlConflito = @"select count(*) from sigov.agenda_saude
+where tenant_id=@TenantId and entidade_id=@EntidadeId and profissional_saude_id=@ProfissionalSaudeId
+  and status <> 'CANCELADA' and not is_deleted and (data_inicio < @DataFim and data_fim > @DataInicio)";
+                    var conflito = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sqlConflito, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    if (conflito > 0) throw new InvalidOperationException("Este profissional já possui agenda neste horário.");
+                }
+            }
+            else if (recurso == "vacinacao")
+            {
+                if (p.TryGetValue("Validade", out var validadeObj) && validadeObj is not null)
+                {
+                    if (DateOnly.TryParse(Convert.ToString(validadeObj, System.Globalization.CultureInfo.InvariantCulture), out var dVal) && dVal < DateOnly.FromDateTime(DateTime.Today))
+                        throw new InvalidOperationException("Lote vencido. A dose não foi registrada.");
+                }
+                const string sqlDoseRepetida = @"select count(*) from sigov.vacinacao
+where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteId
+  and lower(vacina)=lower(@Vacina) and dose=@Dose and not is_deleted";
+                var repetidas = await connection.ExecuteScalarAsync<long>(new CommandDefinition(sqlDoseRepetida, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                var obs = p.TryGetValue("Observacao", out var o) ? Convert.ToString(o, System.Globalization.CultureInfo.InvariantCulture) : null;
+                if (repetidas > 0 && string.IsNullOrWhiteSpace(obs))
+                    throw new InvalidOperationException("Dose duplicada da vacina exige motivo explícito.");
+            }
+            else if (recurso == "farmacia_dispensacao")
+            {
+                if (p.TryGetValue("FarmaciaProdutoId", out var fpid) && fpid is not null && long.TryParse(Convert.ToString(fpid, System.Globalization.CultureInfo.InvariantCulture), out var fpId) && fpId > 0)
+                {
+                    var pAtivo = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select count(*) from sigov.farmacia_produto where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and ativo=true and not is_deleted", new { Id = fpId, TenantId = tenantId, EntidadeId = entidadeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    if (pAtivo == 0) throw new InvalidOperationException("Medicamento inativo para dispensação.");
+                }
+            }
+
             var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(InsertSql(recurso), p, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (recurso == "paciente") await EnsureProntuarioAsync(connection, tx, p, id, ct).ConfigureAwait(false);
             if (recurso == "farmacia_dispensacao") await BaixarEstoqueAsync(connection, tx, p, ct).ConfigureAwait(false);
@@ -70,6 +114,41 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
         await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            if (recurso == "agenda_cancelar" || (recurso == "agenda" && p.TryGetValue("Status", out var stAg) && string.Equals(Convert.ToString(stAg, System.Globalization.CultureInfo.InvariantCulture), "CANCELADA", StringComparison.OrdinalIgnoreCase)))
+            {
+                var motivo = p.TryGetValue("Observacao", out var obs) ? Convert.ToString(obs, System.Globalization.CultureInfo.InvariantCulture) : null;
+                if (string.IsNullOrWhiteSpace(motivo) && p.TryGetValue("Motivo", out var mot)) motivo = Convert.ToString(mot, System.Globalization.CultureInfo.InvariantCulture);
+                if (string.IsNullOrWhiteSpace(motivo))
+                    throw new InvalidOperationException("Cancelar este horário? Informe o motivo.");
+            }
+            else if (recurso == "atendimento" || recurso == "atendimento_conduta")
+            {
+                var statusAtual = await connection.ExecuteScalarAsync<string>(new CommandDefinition("select status from sigov.atendimento_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and not is_deleted", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (string.Equals(statusAtual, "ATENDIDO", StringComparison.OrdinalIgnoreCase))
+                {
+                    var just = p.TryGetValue("Justificativa", out var j) ? Convert.ToString(j, System.Globalization.CultureInfo.InvariantCulture) : null;
+                    if (string.IsNullOrWhiteSpace(just))
+                        throw new InvalidOperationException("Evolução finalizada. Use retificação justificada.");
+                }
+
+                if (recurso == "atendimento_conduta" || (p.TryGetValue("Status", out var stAtd) && string.Equals(Convert.ToString(stAtd, System.Globalization.CultureInfo.InvariantCulture), "ATENDIDO", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var risco = await connection.ExecuteScalarAsync<string>(new CommandDefinition("select classificacao_risco from sigov.atendimento_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    var crInformado = p.TryGetValue("ClassificacaoRisco", out var cr) ? Convert.ToString(cr, System.Globalization.CultureInfo.InvariantCulture) : null;
+                    if (string.IsNullOrWhiteSpace(risco) && string.IsNullOrWhiteSpace(crInformado))
+                        throw new InvalidOperationException("Acolhimento/atendimento exige classificação de risco para finalização.");
+                }
+            }
+            else if (recurso == "regulacao_status")
+            {
+                if (p.TryGetValue("Status", out var stReg) && string.Equals(Convert.ToString(stReg, System.Globalization.CultureInfo.InvariantCulture), "DEVOLVIDA", StringComparison.OrdinalIgnoreCase))
+                {
+                    var just = p.TryGetValue("Justificativa", out var j) ? Convert.ToString(j, System.Globalization.CultureInfo.InvariantCulture) : null;
+                    if (string.IsNullOrWhiteSpace(just))
+                        throw new InvalidOperationException("Devolução de regulação exige justificativa.");
+                }
+            }
+
             await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso), p, tx, cancellationToken: ct)).ConfigureAwait(false);
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -91,8 +170,8 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
     public async Task<SaudeDashboardResponse> DashboardAsync(long tenantId, long entidadeId, CancellationToken ct)
     {
         const string sql = @"select
-  (select count(*) from sigov.unidade_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalUnidades,
-  (select count(*) from sigov.profissional_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalProfissionais,
+  (select count(*) from sigov.unidade_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVA' and is_deleted=false) as TotalUnidades,
+  (select count(*) from sigov.profissional_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalProfissionais,
   (select count(*) from sigov.paciente where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalPacientesAtivos,
   (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento::date=current_date and is_deleted=false) as AtendimentosHoje,
   (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento>=date_trunc('month', now()) and is_deleted=false) as AtendimentosMes,
@@ -106,23 +185,42 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
   (select count(*) from sigov.acs_cadastro_domiciliar where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as DomiciliosCadastrados,
   (select count(*) from sigov.acs_cadastro_individual where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as IndividuosCadastrados,
   (select count(*) from sigov.acs_visita where tenant_id=@TenantId and entidade_id=@EntidadeId and data_visita>=date_trunc('month', now()) and is_deleted=false) as VisitasAcsMes,
-  (select count(*) from sigov.acs_sync_lote where tenant_id=@TenantId and entidade_id=@EntidadeId and status='RECEBIDO' and is_deleted=false) as SyncsPendentes;
+  (select count(*) from sigov.acs_sync_lote where tenant_id=@TenantId and entidade_id=@EntidadeId and status='RECEBIDO' and is_deleted=false) as SyncsPendentes,
+  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and classificacao_risco='LARANJA' and is_deleted=false) as TotalLaranja,
+  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and classificacao_risco='VERMELHO' and is_deleted=false) as TotalVermelho;
 ";
         using var connection = _context.CreateConnection();
         var row = await connection.QueryFirstAsync(sql, new { TenantId = tenantId, EntidadeId = entidadeId }).ConfigureAwait(false);
-        return new SaudeDashboardResponse((long)row.totalunidades, (long)row.totalprofissionais, (long)row.totalpacientesativos, (long)row.atendimentoshoje, (long)row.atendimentosmes, (long)row.agendahoje, (long)row.dispensacoesmes, (long)row.estoquebaixo, (long)row.vacinacoesmes, (long)row.examespendentes, (long)row.regulacoespendentes, (long)row.microareasativas, (long)row.domicilioscadastrados, (long)row.individuoscadastrados, (long)row.visitasacsmes, (long)row.syncspendentes, Array.Empty<object>(), Array.Empty<object>(), new[] { "Saúde/ACS base operacional carregada." });
+        var alertas = new List<string> { "Saúde/ACS base operacional carregada." };
+        if ((long)row.totallaranja > 0) alertas.Add($"Risco Laranja: {row.totallaranja} acolhimentos em atenção prioritária.");
+        if ((long)row.totalvermelho > 0) alertas.Add($"Risco Vermelho: {row.totalvermelho} acolhimentos em emergência imediata.");
+        return new SaudeDashboardResponse((long)row.totalunidades, (long)row.totalprofissionais, (long)row.totalpacientesativos, (long)row.atendimentoshoje, (long)row.atendimentosmes, (long)row.agendahoje, (long)row.dispensacoesmes, (long)row.estoquebaixo, (long)row.vacinacoesmes, (long)row.examespendentes, (long)row.regulacoespendentes, (long)row.microareasativas, (long)row.domicilioscadastrados, (long)row.individuoscadastrados, (long)row.visitasacsmes, (long)row.syncspendentes, Array.Empty<object>(), Array.Empty<object>(), alertas);
     }
 
     public async Task<byte[]> ExportarAsync(long tenantId, long entidadeId, string recurso, string formato, CancellationToken ct)
     {
         var table = recurso switch { "pacientes" => "paciente", "atendimentos" => "atendimento_saude", "acs-visitas" => "acs_visita", "farmacia" => "farmacia_dispensacao", _ => "paciente" };
-        var projection = table switch { "paciente" => "id, tenant_id, entidade_id, pessoa_id, codigo_paciente, cartao_sus, prontuario_numero, grupo_sanguineo, alergias, condicoes_cronicas, dados_sensiveis_json, situacao, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id", "atendimento_saude" => "id, tenant_id, entidade_id, exercicio_id, unidade_saude_id, paciente_id, profissional_saude_id, numero, data_atendimento, tipo_atendimento, classificacao_risco, queixa_principal, conduta, cid10, status, dados_clinicos_json, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id", "acs_visita" => "id, tenant_id, entidade_id, exercicio_id, profissional_acs_id, acs_cadastro_domiciliar_id, acs_cadastro_individual_id, paciente_id, data_visita, tipo_visita, desfecho, observacao, latitude, longitude, precisao_metros, offline_id, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id", "farmacia_dispensacao" => "id, tenant_id, entidade_id, exercicio_id, unidade_saude_id, paciente_id, farmacia_produto_id, profissional_saude_id, data_dispensacao, quantidade, lote, observacao, ativo, is_deleted, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, correlation_id", _ => throw new ArgumentOutOfRangeException(nameof(table)) };
+        var projection = table switch
+        {
+            "paciente" => "id, tenant_id, entidade_id, pessoa_id, codigo_paciente, overlay(coalesce(cartao_sus,'') placing '***' from 5 for 6) as cartao_sus, prontuario_numero, grupo_sanguineo, situacao, ativo, is_deleted, created_at",
+            "atendimento_saude" => "id, tenant_id, entidade_id, exercicio_id, unidade_saude_id, paciente_id, profissional_saude_id, numero, data_atendimento, tipo_atendimento, classificacao_risco, status, ativo, is_deleted, created_at",
+            "acs_visita" => "id, tenant_id, entidade_id, exercicio_id, profissional_acs_id, acs_cadastro_domiciliar_id, acs_cadastro_individual_id, paciente_id, data_visita, tipo_visita, desfecho, observacao, latitude, longitude, precisao_metros, offline_id, ativo, is_deleted, created_at",
+            "farmacia_dispensacao" => "id, tenant_id, entidade_id, exercicio_id, unidade_saude_id, paciente_id, farmacia_produto_id, profissional_saude_id, data_dispensacao, quantidade, lote, observacao, ativo, is_deleted, created_at",
+            _ => throw new ArgumentOutOfRangeException(nameof(table))
+        };
         var sql = $"select row_to_json(x) from (select {projection} from sigov.{table} where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false order by id desc limit 1000) x";
         using var connection = _context.CreateConnection();
         var rows = (await connection.QueryAsync<string>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId }, ct)).ConfigureAwait(false)).AsList();
         if (formato.Equals("json", StringComparison.OrdinalIgnoreCase)) return Encoding.UTF8.GetBytes("[" + string.Join(',', rows) + "]");
-        var csv = new StringBuilder("dados\n"); foreach (var row in rows) csv.Append('"').Append(row.Replace("\"", "\"\"", StringComparison.Ordinal)).AppendLine("\"");
-        return Encoding.UTF8.GetBytes(csv.ToString());
+        var csv = new StringBuilder("dados\n");
+        foreach (var row in rows)
+        {
+            var sanitized = row.Replace("\"", "\"\"", StringComparison.Ordinal);
+            if (sanitized.Length > 0 && (sanitized[0] == '=' || sanitized[0] == '+' || sanitized[0] == '-' || sanitized[0] == '@' || sanitized[0] == '\t' || sanitized[0] == '\r'))
+                sanitized = "'" + sanitized;
+            csv.Append('"').Append(sanitized).AppendLine("\"");
+        }
+        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
     }
 
     public async Task<AcsSyncLoteResponse?> ObterSyncAsync(long tenantId, long entidadeId, string loteId, CancellationToken ct)
@@ -182,8 +280,33 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
     };
     private static string UpdateSql(string recurso) => recurso switch { "unidade" => "update sigov.unidade_saude set codigo=@Codigo,nome=@Nome,cnes=@Cnes,tipo_unidade=@TipoUnidade,situacao=@Situacao,latitude=@Latitude,longitude=@Longitude,observacao=@Observacao,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "profissional" => "update sigov.profissional_saude set codigo_profissional=@CodigoProfissional,tipo_profissional=@TipoProfissional,situacao=@Situacao,servidor_id=@ServidorId,unidade_saude_id=@UnidadeSaudeId,cbo=@Cbo,conselho_classe=@ConselhoClasse,numero_conselho=@NumeroConselho,uf_conselho=@UfConselho,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "paciente" => "update sigov.paciente set codigo_paciente=@CodigoPaciente,cartao_sus=@CartaoSus,prontuario_numero=@ProntuarioNumero,grupo_sanguineo=@GrupoSanguineo,alergias=@Alergias,dados_sensiveis_json=@DadosSensiveisJson::jsonb,situacao=@Situacao,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "prontuario_paciente" => "update sigov.prontuario set resumo_clinico=@ResumoClinico,alergias=@Alergias,observacoes_sensiveis=@ObservacoesSensiveis,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@Id", "atendimento" => "update sigov.atendimento_saude set tipo_atendimento=@TipoAtendimento,status=@Status,profissional_saude_id=@ProfissionalSaudeId,classificacao_risco=@ClassificacaoRisco,queixa_principal=@QueixaPrincipal,conduta=@Conduta,cid10=@Cid10,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "atendimento_conduta" => "update sigov.atendimento_saude set conduta=@Conduta,cid10=@Cid10,status='ATENDIDO',updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id and status <> 'CANCELADO'", "atendimento_cancelar" => "update sigov.atendimento_saude set status='CANCELADO',updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "agenda_cancelar" => "update sigov.agenda_saude set status='CANCELADA',updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "laboratorio_resultado" => "update sigov.laboratorio_exame set status='CONCLUIDO',resultado_json=@ResultadoJson::jsonb,data_resultado=coalesce(@DataResultado,current_date),observacao=@Observacao,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", "regulacao_status" => "update sigov.regulacao_solicitacao set status=@Status,updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and entidade_id=@EntidadeId and id=@Id", _ => throw new InvalidOperationException("Atualização de Saúde não mapeada.") };
     private static void ApplyDefaults(string recurso, Dictionary<string, object?> p) { p.TryAdd("Numero", $"ATD-{p["Ano"]}-000001"); p.TryAdd("Status", recurso == "acs_sync" ? "PROCESSADO" : "ATIVO"); p["DadosSensiveisJson"] = Json(p.GetValueOrDefault("DadosSensiveis") ?? new Dictionary<string, object?>()); p["PoligonoGeoJson"] = Json(p.GetValueOrDefault("PoligonoGeoJson") ?? new Dictionary<string, object?>()); p["EnderecoJson"] = Json(p.GetValueOrDefault("Endereco") ?? new Dictionary<string, object?>()); p["CondicoesMoradiaJson"] = Json(p.GetValueOrDefault("CondicoesMoradia") ?? new Dictionary<string, object?>()); p["CondicoesSaudeJson"] = Json(p.GetValueOrDefault("CondicoesSaude") ?? new Dictionary<string, object?>()); p["VulnerabilidadesJson"] = Json(p.GetValueOrDefault("Vulnerabilidades") ?? new Dictionary<string, object?>()); p["ResultadoJson"] = Json(p.GetValueOrDefault("Resultado") ?? new Dictionary<string, object?>()); if (recurso == "acs_sync") { var itens = p.GetValueOrDefault("Itens") as IEnumerable<AcsSyncItemResponse> ?? Array.Empty<AcsSyncItemResponse>(); p["TotalItens"] = itens.Count(); p["TotalProcessados"] = itens.Count(i => i.Status == "PROCESSADO"); p["TotalErros"] = itens.Count(i => i.Status == "ERRO"); p["Status"] = (int)p["TotalErros"]! > 0 ? "PROCESSADO_COM_ERROS" : "PROCESSADO"; } if (recurso == "acs_visita") p["DataVisita"] ??= DateTimeOffset.UtcNow; }
-    private static async Task EnsureProntuarioAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, long pacienteId, CancellationToken ct) { p["PacienteId"] = pacienteId; p["ProntuarioNumero"] ??= $"PRONT-{p["Ano"]}-000001"; await c.ExecuteAsync(new CommandDefinition("insert into sigov.prontuario(tenant_id,entidade_id,paciente_id,numero,alergias,created_by) values(@TenantId,@EntidadeId,@PacienteId,@ProntuarioNumero,@Alergias,@UsuarioId) on conflict do nothing", p, tx, cancellationToken: ct)).ConfigureAwait(false); }
-    private static async Task BaixarEstoqueAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, CancellationToken ct) { var affected = await c.ExecuteAsync(new CommandDefinition("update sigov.farmacia_estoque set quantidade=quantidade-@Quantidade,updated_at=now() where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@UnidadeSaudeId and farmacia_produto_id=@FarmaciaProdutoId and coalesce(lote,'')=coalesce(@Lote,'') and quantidade >= @Quantidade", p, tx, cancellationToken: ct)).ConfigureAwait(false); if (affected == 0) throw new InvalidOperationException("Dispensação não pode deixar estoque negativo."); }
+    private static async Task EnsureProntuarioAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, long pacienteId, CancellationToken ct)
+    {
+        const string sql = @"insert into sigov.prontuario(tenant_id, entidade_id, paciente_id, numero, created_by)
+values(@TenantId, @EntidadeId, @PacienteId, @Numero, @UsuarioId)
+on conflict do nothing";
+        var num = p.TryGetValue("ProntuarioNumero", out var pn) && pn is not null && !string.IsNullOrWhiteSpace(pn.ToString())
+            ? pn.ToString()
+            : $"PRT-{p["Ano"]}-{pacienteId:D6}";
+        await c.ExecuteAsync(new CommandDefinition(sql, new { TenantId = p["TenantId"], EntidadeId = p["EntidadeId"], PacienteId = pacienteId, Numero = num, UsuarioId = p["UsuarioId"] }, tx, cancellationToken: ct)).ConfigureAwait(false);
+    }
+    private static async Task BaixarEstoqueAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, CancellationToken ct)
+    {
+        const string checkSql = @"select count(*), coalesce(sum(quantidade), 0) from sigov.farmacia_estoque
+where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@UnidadeSaudeId
+  and farmacia_produto_id=@FarmaciaProdutoId and coalesce(lote,'')=coalesce(@Lote,'')";
+        var (count, saldo) = await c.QueryFirstOrDefaultAsync<(long Count, decimal Saldo)>(new CommandDefinition(checkSql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (count > 0)
+        {
+            var qtd = Convert.ToDecimal(p["Quantidade"], System.Globalization.CultureInfo.InvariantCulture);
+            if (saldo < qtd)
+                throw new InvalidOperationException("Saldo insuficiente no almoxarifado. Dispensação recusada.");
+
+            var affected = await c.ExecuteAsync(new CommandDefinition("update sigov.farmacia_estoque set quantidade=quantidade-@Quantidade,updated_at=now() where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@UnidadeSaudeId and farmacia_produto_id=@FarmaciaProdutoId and coalesce(lote,'')=coalesce(@Lote,'') and quantidade >= @Quantidade", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (affected == 0)
+                throw new InvalidOperationException("Saldo insuficiente no almoxarifado. Dispensação recusada.");
+        }
+    }
     private static async Task InserirItensSyncAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, long loteId, CancellationToken ct) { if (p.GetValueOrDefault("Itens") is not IEnumerable<AcsSyncItemResponse> itens) return; foreach (var item in itens) await c.ExecuteAsync(new CommandDefinition("insert into sigov.acs_sync_item(tenant_id,entidade_id,acs_sync_lote_id,tipo_item,offline_id,status,payload,erro,processado_at,created_by) values(@TenantId,@EntidadeId,@LoteIdPk,@TipoItem,@OfflineId,@Status,'{}'::jsonb,@Erro,now(),@UsuarioId) on conflict do nothing", new { TenantId = p["TenantId"], EntidadeId = p["EntidadeId"], LoteIdPk = loteId, item.TipoItem, item.OfflineId, item.Status, item.Erro, UsuarioId = p["UsuarioId"] }, tx, cancellationToken: ct)).ConfigureAwait(false); }
     private static async Task RegistrarEventoAsync(NpgsqlConnection c, NpgsqlTransaction tx, long tenantId, long entidadeId, string tipo, string recurso, long aggregateId, object payload, long? usuarioId, CancellationToken ct) { await c.ExecuteAsync(new CommandDefinition("insert into sigov.saude_evento(tenant_id,entidade_id,tipo_evento,aggregate_type,aggregate_id,payload,created_by) values(@TenantId,@EntidadeId,@Tipo,@Recurso,@AggregateId,@Payload::jsonb,@UsuarioId)", new { TenantId = tenantId, EntidadeId = entidadeId, Tipo = tipo, Recurso = recurso, AggregateId = aggregateId, Payload = Json(payload), UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false); }
     private static string Evento(string recurso) => recurso switch { "unidade" => "UnidadeSaudeCriada", "profissional" => "ProfissionalSaudeCriado", "paciente" => "PacienteCriado", "atendimento" => "AtendimentoCriado", "atendimento_conduta" => "AtendimentoFinalizado", "farmacia_dispensacao" => "MedicamentoDispensado", "vacinacao" => "VacinacaoRegistrada", "laboratorio" => "ExameSolicitado", "laboratorio_resultado" => "ResultadoExameRegistrado", "regulacao" => "RegulacaoSolicitada", "acs_domicilio" => "AcsDomicilioCadastrado", "acs_individuo" => "AcsIndividuoCadastrado", "acs_visita" => "AcsVisitaRegistrada", "acs_sync" => "AcsSyncProcessado", _ => "SaudeEventoRegistrado" };

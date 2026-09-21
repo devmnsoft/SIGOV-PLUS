@@ -81,6 +81,8 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
             await AuditarAsync(acao.ToUpperInvariant(), recurso, id.ToString(System.Globalization.CultureInfo.InvariantCulture), anterior, MaskPayload(request), ct).ConfigureAwait(false);
             return Result.Success();
         }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        { return Fail(ex.Message); }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao atualizar recurso Saúde {Recurso} Id={Id}.", recurso, id);
@@ -138,10 +140,12 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     Task<Result<long>> IAtendimentoSaudeService.CriarAsync(AtendimentoSaudeCreateRequest r, CancellationToken ct) => CriarAsync("atendimento", "criar", r, ct);
     Task<Result> IAtendimentoSaudeService.AtualizarAsync(long id, AtendimentoSaudeUpdateRequest r, CancellationToken ct) => AtualizarAsync("atendimento", "editar", id, r, ct);
     Task<Result> IAtendimentoSaudeService.RegistrarCondutaAsync(long id, RegistrarCondutaRequest r, CancellationToken ct) => AtualizarAsync("atendimento_conduta", "editar", id, r, ct);
+    Task<Result> IAtendimentoSaudeService.RetificarAsync(long id, RetificarAtendimentoRequest r, CancellationToken ct) => string.IsNullOrWhiteSpace(r?.Justificativa) ? Task.FromResult(Fail("Evolução finalizada. Use retificação justificada.")) : AtualizarAsync("atendimento_conduta", "retificar", id, new { Conduta = r.NovaConduta, Cid10 = r.Cid10, Justificativa = r.Justificativa }, ct);
     Task<Result> IAtendimentoSaudeService.CancelarAsync(long id, CancellationToken ct) => AtualizarAsync("atendimento_cancelar", "cancelar", id, new { Status = "CANCELADO" }, ct);
     Task<Result<PagedResult<AgendaSaudeResponse>>> IAgendaSaudeService.ListarAsync(AgendaSaudeFiltro f, CancellationToken ct) => ListarAsync<AgendaSaudeResponse>("agenda", "agenda", f, ct);
     Task<Result<long>> IAgendaSaudeService.CriarAsync(AgendaSaudeCreateRequest r, CancellationToken ct) => CriarAsync("agenda", "criar", r, ct);
     Task<Result> IAgendaSaudeService.CancelarAsync(long id, CancellationToken ct) => AtualizarAsync("agenda_cancelar", "cancelar", id, new { Status = "CANCELADA" }, ct);
+    Task<Result> IAgendaSaudeService.CancelarAsync(long id, CancelarAgendaRequest r, CancellationToken ct) => string.IsNullOrWhiteSpace(r?.Motivo) ? Task.FromResult(Fail("Cancelar este horário? Informe o motivo.")) : AtualizarAsync("agenda_cancelar", "cancelar", id, new { Status = "CANCELADA", Motivo = r.Motivo, Observacao = r.Motivo }, ct);
     Task<Result<PagedResult<FarmaciaProdutoResponse>>> IFarmaciaService.ListarProdutosAsync(UnidadeSaudeFiltro f, CancellationToken ct) => ListarAsync<FarmaciaProdutoResponse>("farmacia_produto", "farmacia", f, ct);
     Task<Result<long>> IFarmaciaService.CriarProdutoAsync(FarmaciaProdutoCreateRequest r, CancellationToken ct) => CriarAsync("farmacia_produto", "produto.criar", r, ct);
     Task<Result<PagedResult<FarmaciaEstoqueResponse>>> IFarmaciaService.ListarEstoqueAsync(UnidadeSaudeFiltro f, CancellationToken ct) => ListarAsync<FarmaciaEstoqueResponse>("farmacia_estoque", "farmacia", f, ct);

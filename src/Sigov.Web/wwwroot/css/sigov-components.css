@@ -98,3 +98,73 @@
 .health-command-center{display:grid;gap:1.25rem}.health-premium-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:clamp(1.25rem,3vw,2.4rem);border-radius:24px;color:#fff;background:radial-gradient(circle at 85% 10%,rgba(45,212,191,.35),transparent 32%),linear-gradient(135deg,#073b4c,#087f8c 58%,#0f766e);box-shadow:0 20px 45px rgba(7,59,76,.2)}.health-premium-header h1{margin:.35rem 0;font-size:clamp(1.8rem,4vw,3rem)}.health-eyebrow{letter-spacing:.12em;text-transform:uppercase;font-size:.75rem}.lgpd-badge,.status-chip,.severity-badge{display:inline-flex;padding:.3rem .65rem;border-radius:999px;font-weight:700;font-size:.72rem;background:#d1fae5;color:#065f46}.health-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}.health-dashboard-card,.sync-status-card,.geopoint-card,.sla-card,.health-panel{padding:1.1rem;border:1px solid var(--sigov-border,#dbe5e8);border-radius:18px;background:var(--sigov-surface,#fff);box-shadow:0 8px 24px rgba(15,23,42,.06)}.health-kpi-grid article{display:grid;gap:.35rem}.health-kpi-grid strong{font-size:1.35rem;color:#0f766e}.filter-bar{display:flex;flex-wrap:wrap;gap:.75rem;align-items:end;margin-bottom:1rem}.filter-bar label{display:grid;gap:.3rem}.responsive-data-table{overflow:auto}.responsive-data-table table{width:100%;min-width:650px}.empty-state td{text-align:center;padding:2.5rem}.empty-state span{display:block;color:#64748b;margin-top:.35rem}.health-trust-strip{display:flex;flex-wrap:wrap;gap:1rem;color:#475569;font-size:.85rem}@media(max-width:900px){.health-kpi-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.health-premium-header{align-items:flex-start;flex-direction:column}.health-kpi-grid{grid-template-columns:1fr}}
 /* RC50.50 — Saneamento Avançado */
 .sanitation-workspace{display:grid;gap:1.25rem}.sanitation-hero{display:flex;justify-content:space-between;gap:2rem;padding:2rem;border-radius:24px;color:#fff;background:linear-gradient(135deg,#063b52,#087f8c 58%,#21a179);box-shadow:0 20px 50px rgba(6,59,82,.2)}.sanitation-hero h1{margin:.35rem 0;font-size:clamp(1.8rem,4vw,3rem)}.sanitation-eyebrow{margin:.75rem 0 0;text-transform:uppercase;letter-spacing:.12em;font-size:.75rem}.sanitation-hero__actions{display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap}.sanitation-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}.sanitation-dashboard-card{padding:1.25rem;border:1px solid var(--sigov-border,#dbe4e8);border-radius:18px;background:var(--sigov-surface,#fff);box-shadow:0 10px 28px rgba(10,54,66,.08)}.sanitation-dashboard-card span,.sanitation-dashboard-card small{display:block;color:var(--sigov-text-muted,#64748b)}.sanitation-dashboard-card strong{display:block;margin:.4rem 0;font-size:2rem;color:#087f8c}.quality-alert-card{border-left:4px solid #e6902e}.lgpd-badge,.status-chip{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .65rem;border-radius:999px;font-size:.78rem;font-weight:700}.lgpd-badge{background:rgba(255,255,255,.16)}.status-chip{background:#e8f6f2;color:#11664e}.filter-bar{display:flex;gap:1rem;align-items:end;padding:1rem;border-radius:16px;background:var(--sigov-surface,#fff)}.filter-bar label{flex:1}.responsive-data-table{overflow:auto;border-radius:16px;border:1px solid var(--sigov-border,#dbe4e8)}.responsive-data-table table{width:100%;border-collapse:collapse;background:var(--sigov-surface,#fff)}.responsive-data-table th,.responsive-data-table td{padding:.9rem;text-align:left;border-bottom:1px solid var(--sigov-border,#e5e7eb)}.empty-state,.audit-timeline{padding:2rem;text-align:center;border:1px dashed var(--sigov-border,#cbd5e1);border-radius:18px}.audit-timeline{text-align:left}.loading-skeleton{animation:sanitation-pulse 1.4s ease-in-out infinite}@keyframes sanitation-pulse{50%{opacity:.45}}@media(max-width:900px){.sanitation-hero{display:block}.sanitation-hero__actions{margin-top:1rem}.sanitation-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.sanitation-kpis{grid-template-columns:1fr}.filter-bar{align-items:stretch;flex-direction:column}}
+
+/* Sistema Transversal de Alertas e Toasts (FUNC06 e Padrão SIGOV) */
+.sigov-banner {
+  border-radius: var(--sigov-radius-lg, 14px);
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+.sigov-banner--success {
+  background-color: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+}
+.sigov-banner--warning {
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+.sigov-banner--danger {
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.sigov-toast-stack {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 1095;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  pointer-events: none;
+}
+.sigov-toast {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 420px;
+  padding: 0.85rem 1.15rem;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  animation: sigovToastIn 0.25s ease-out;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+@keyframes sigovToastIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sigov-toast--success { background: #065f46; color: #fff; }
+.sigov-toast--warning { background: #92400e; color: #fff; }
+.sigov-toast--danger { background: #991b1b; color: #fff; }
+.sigov-toast--info { background: #1e3a8a; color: #fff; }
+.sigov-toast__close {
+  background: transparent;
+  border: none;
+  color: currentColor;
+  opacity: 0.8;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.sigov-toast__close:hover { opacity: 1; }
+
