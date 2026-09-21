@@ -31,8 +31,16 @@ for kind, pattern in patterns.items():
         seen[name] = match.start()
 
 # Nomes de constraints compartilham namespace por relação no PostgreSQL.
+#
+# O identificador exige segmentos completos e espaço depois do nome. Isso evita
+# interpretar o prefixo de SQL dinâmico (por exemplo, ``ALTER TABLE sigov.%I``)
+# como se fosse a relação estática ``sigov.`` e consumir texto até o próximo
+# ADD CONSTRAINT. O gate analisa apenas DDL estático; SQL dinâmico é validado
+# pelos checks de migration e pela execução no PostgreSQL.
 constraints = {}
-for match in re.finditer(r"\balter\s+table\s+(?:only\s+)?([\w.\"]+).*?\badd\s+constraint\s+([\w\"]+)", clean, flags=re.I | re.S):
+identifier = r'(?:"[^"]+"|\w+)(?:\.(?:"[^"]+"|\w+))*'
+constraint_pattern = rf"\balter\s+table\s+(?:only\s+)?({identifier})\s+[^;]*?\badd\s+constraint\s+([\w\"]+)[^;]*;"
+for match in re.finditer(constraint_pattern, clean, flags=re.I | re.S):
     key = (match.group(1).lower().replace('"', ''), match.group(2).lower().replace('"', ''))
     fragment = re.sub(r"\s+", " ", match.group(0)).strip().lower()
     if key in constraints and constraints[key] != fragment:
