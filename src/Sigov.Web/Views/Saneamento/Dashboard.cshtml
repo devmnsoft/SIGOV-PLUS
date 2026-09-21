@@ -1,20 +1,201 @@
 @model Sigov.Web.Models.Saneamento.SaneamentoDashboardViewModel
-@{ ViewData["Title"] = "Dashboard Saneamento"; }
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div><h1 class="h3 mb-0">Dashboard Saneamento</h1><p class="text-muted mb-0">Módulo Saneamento • dados pessoais mascarados por padrão.</p></div>
-  <button class="btn btn-primary" data-permission="saneamento.dashboard.visualizar" id="btn-san-refresh">Atualizar</button>
-</div>
-<div class="card mb-3"><div class="card-body">
-  @Html.AntiForgeryToken()
-  <div class="row g-3 saneamento-form" data-endpoint="dashboard">
-    <div class="col-md-3"><label class="form-label">Identificador relacionado</label><input class="form-control" name="referenciaId" type="number" min="1"></div>
-    <div class="col-md-3"><label class="form-label">Código/Número</label><input class="form-control" name="codigo" maxlength="80"></div>
-    <div class="col-md-3"><label class="form-label">Status/Situação</label><input class="form-control" name="situacao" value="ATIVA" maxlength="40"></div>
-    <div class="col-md-3"><label class="form-label">Latitude</label><input class="form-control" name="latitude" type="number" step="0.00000001" min="-90" max="90"></div>
-    <div class="col-md-3"><label class="form-label">Longitude</label><input class="form-control" name="longitude" type="number" step="0.00000001" min="-180" max="180"></div>
-    <div class="col-md-9"><label class="form-label">Descrição/Observação</label><input class="form-control" name="descricao" maxlength="250"></div>
+@using Sigov.Application.Saneamento
+@{
+    ViewData["Title"] = "Dashboard — Saneamento Comercial e Operacional";
+    var dash = ViewBag.DashboardReal as SaneamentoDashboardResponse;
+    var alertas = dash?.Alertas ?? Array.Empty<string>();
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Saneamento</li>
+  </ol>
+</nav>
+
+<section class="education-hero mb-4" aria-labelledby="san-title">
+  <div>
+    <span class="badge text-bg-primary mb-2">Saneamento · Comercial e Operacional</span>
+    <h1 id="san-title">Saneamento Comercial e Operacional</h1>
+    <p>Leituras da competência, faturas em aberto e OS de campo. Boleto só existe com convênio bancário cadastrado.</p>
   </div>
-  <div class="mt-3"><button class="btn btn-success btn-san-save" type="button">Salvar via Ajax</button><span class="ms-2 text-muted san-loading d-none">Carregando...</span></div>
-</div></div>
-<div class="card"><div class="card-header">Registros paginados</div><div class="card-body"><div class="table-responsive"><table class="table table-striped align-middle" id="san-grid" data-endpoint="dashboard"><thead><tr><th>ID</th><th>Código/Número</th><th>Situação</th><th>Resumo</th></tr></thead><tbody></tbody></table></div><nav><ul class="pagination" id="san-pagination"></ul></nav></div></div>
-@section Scripts { <script src="~/js/modules/saneamento.dashboard.js"></script> }
+  <div class="education-hero__actions">
+    <a class="btn btn-light" href="/Saneamento/Leituras">Leituras</a>
+    <a class="btn btn-outline-light" href="/Saneamento/Exportar/dashboard">Exportar CSV</a>
+  </div>
+</section>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Indicadores operacionais e comerciais em tempo real, isolados por tenant e entidade. Dados pessoais mascarados por padrão.</p>
+    <ul>
+      <li><strong>Hidrômetros:</strong> Só um aparelho INSTALADO por ligação. Trocar substitui o atual na mesma operação.</li>
+      <li><strong>Leituras:</strong> Não lança valor menor que a leitura anterior, salvo troca já registrada. Competência fechada não recebe leitura.</li>
+      <li><strong>Faturas:</strong> Sem tarifa da entidade o faturamento é recusado. Sem convênio a linha digitável permanece vazia.</li>
+      <li><strong>Arrecadação:</strong> A baixa não supera o saldo. Parcelar pede confirmação.</li>
+    </ul>
+  </div>
+</details>
+
+<section class="card mb-4 border-info">
+  <div class="card-header bg-light fw-bold">Regras vigentes (B2–B5)</div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B2. Hidrômetro Único</strong>
+          <p class="small text-muted mb-0">No máximo um hidrômetro INSTALADO por ligação. Substituição atômica: o atual sai como SUBSTITUÍDO na mesma transação.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B3. Leitura Válida</strong>
+          <p class="small text-muted mb-0">Leitura exige hidrômetro INSTALADO e competência aberta. Valor regressivo sem ocorrência de troca é recusado.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B4. Faturamento Seguro</strong>
+          <p class="small text-muted mb-0">Recusa sem tarifa/parâmetro da entidade. Sem convênio bancário a linha digitável permanece nula — sem código fake.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B5. Arrecadação / Parcelamento</strong>
+          <p class="small text-muted mb-0">Baixa não ultrapassa saldo da fatura. Parcelamento exige quantidade de parcelas maior que 1 e valores maiores que zero.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">UCs Ativas</span>
+        <h2 class="h3 my-1">@(dash?.TotalUnidadesConsumidoras ?? 0)</h2>
+        <a href="/Saneamento/UnidadesConsumidoras" class="small text-decoration-none">Ver unidades</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Ligações Ativas</span>
+        <h2 class="h3 my-1">@(dash?.LigacoesAtivas ?? 0)</h2>
+        <a href="/Saneamento/Ligacoes" class="small text-decoration-none">Ver ligações</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Hidrômetros Instalados</span>
+        <h2 class="h3 my-1">@(dash?.HidrometrosAtivos ?? 0)</h2>
+        <a href="/Saneamento/Hidrometros" class="small text-decoration-none">Ver hidrômetros</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Leituras Pendentes</span>
+        <h2 class="h3 my-1">@(dash?.LeiturasPendentes ?? 0)</h2>
+        <a href="/Saneamento/Leituras" class="small text-decoration-none">Ver leituras</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100 border-warning">
+      <div class="card-header bg-warning-subtle fw-bold text-dark">Faturamento e Inadimplência</div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-4">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Faturas Abertas</span>
+              <div class="fs-4 fw-bold text-warning mt-1">@(dash?.FaturasAbertas ?? 0)</div>
+              <a href="/Saneamento/Faturas?status=ABERTA" class="small">Ver abertas</a>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Faturas Vencidas</span>
+              <div class="fs-4 fw-bold text-danger mt-1">@(dash?.FaturasVencidas ?? 0)</div>
+              <a href="/Saneamento/Faturas?status=VENCIDA" class="small">Ver vencidas</a>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Inadimplência (R$)</span>
+              <div class="fs-4 fw-bold text-danger mt-1">@(dash?.InadimplenciaMes.ToString("N2") ?? "0,00")</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100 border-success">
+      <div class="card-header bg-success-subtle fw-bold text-dark">Ordens de Serviço</div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-4">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">OS Abertas</span>
+              <div class="fs-3 fw-bold text-warning mt-1">@(dash?.OrdensAbertas ?? 0)</div>
+              <a href="/Saneamento/OrdensServico?status=ABERTA" class="small">Ver abertas</a>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Em Campo</span>
+              <div class="fs-3 fw-bold text-primary mt-1">@(dash?.OrdensEmCampo ?? 0)</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Executadas/Mês</span>
+              <div class="fs-3 fw-bold text-success mt-1">@(dash?.OrdensExecutadasMes ?? 0)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+@if (alertas.Any())
+{
+<div class="card mb-4 border-warning">
+  <div class="card-header bg-warning-subtle fw-bold text-dark">Alertas</div>
+  <div class="card-body">
+    <ul class="mb-0">
+    @foreach (var alerta in alertas)
+    {
+      <li class="text-muted">@alerta</li>
+    }
+    </ul>
+  </div>
+</div>
+}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-bold">Acesso Rápido</div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary" href="/Saneamento/Consumidores">Consumidores</a>
+      <a class="btn btn-outline-primary" href="/Saneamento/Ligacoes">Ligações</a>
+      <a class="btn btn-outline-primary" href="/Saneamento/Hidrometros">Hidrômetros</a>
+      <a class="btn btn-outline-primary" href="/Saneamento/Leituras">Leituras</a>
+      <a class="btn btn-outline-primary" href="/Saneamento/Faturas">Faturas</a>
+      <a class="btn btn-outline-primary" href="/Saneamento/Arrecadacao">Arrecadação</a>
+      <a class="btn btn-outline-primary" href="/Saneamento/OrdensServico">Ordens de Serviço</a>
+      <a class="btn btn-outline-secondary" href="/Saneamento/Relatorios">Relatórios CSV</a>
+    </div>
+  </div>
+</div>
