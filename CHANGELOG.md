@@ -1,5 +1,12 @@
 # Changelog
 
+## Estabilização das permissões do Jurídico — 2026-09-21
+
+- incluídas no catálogo canônico as políticas persistidas usadas pelas jornadas de advogados, partes, movimentações, intimações, audiências, consultas e dívida ativa;
+- registrada a política administrativa de consulta à auditoria jurídica, mantendo a decisão de autorização no serviço persistido;
+- eliminada a falha de política inexistente nas ações de listagem e manutenção do controlador Jurídico, sem criar permissões hardcoded como autoridade.
+- restaurada a proteção antifalsificação explícita no formulário de política de reposição do Almoxarifado, detectada pelo gate estático de views.
+
 ## Estabilização do smoke local — 2026-09-21
 
 - alinhados os defaults do gate de páginas críticas ao contrato oficial local: Web em `http://localhost:5000` e API em `http://localhost:5001`;
