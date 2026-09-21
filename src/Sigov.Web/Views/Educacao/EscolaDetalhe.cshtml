@@ -1,5 +1,29 @@
 @model Sigov.Web.Models.Educacao.EscolaFormViewModel
 @{ ViewData["Title"] = "Detalhe da Escola"; }
-<partial name="_PageHeader" model='new Sigov.Web.Models.Ui.PageHeaderViewModel("Detalhe da Escola", "Operação padronizada com LGPD, auditoria, permissões e tenant isolation.")' />
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao">Educação</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao/Escolas">Escolas</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Detalhe</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3">Detalhe da Escola</h1>
+    <p class="text-muted mb-0">Informações cadastrais, capacidade de atendimento e situação da unidade escolar.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/Educacao/Escolas">Voltar para escolas</a>
+</div>
+
+<details class="how-to mb-3">
+  <summary>Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Escola inativa não recebe matrícula nova. Abra o ano letivo antes de lançar frequência. Mantenha os dados cadastrais da unidade atualizados para o censo escolar.</p>
+  </div>
+</details>
+
 <partial name="_FormEscola" model="Model" />
 @section Scripts { <script src="~/js/modules/educacao.escolas.js"></script> }

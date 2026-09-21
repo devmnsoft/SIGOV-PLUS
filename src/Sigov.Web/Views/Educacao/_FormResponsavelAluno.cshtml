@@ -1,2 +1,23 @@
 @model Sigov.Web.Models.Educacao.ResponsavelAlunoViewModel
-<form id="form-responsavel-aluno" class="card card-body">@Html.AntiForgeryToken()<div class="row g-3"><div class="col"><input asp-for="PessoaId" class="form-control" placeholder="PessoaId" /></div><div class="col"><input asp-for="Parentesco" class="form-control" placeholder="Parentesco" /></div><div class="col"><button class="btn btn-primary">Adicionar</button></div></div></form>
+<form id="form-responsavel-aluno" class="card card-body">
+  @Html.AntiForgeryToken()
+  <div class="row g-3 align-items-end">
+    <div class="col-md-5">
+      <label asp-for="PessoaId" class="form-label">Pessoa Responsável *</label>
+      <input asp-for="PessoaId" class="form-control" type="number" min="1" required placeholder="ID da Pessoa responsável" />
+    </div>
+    <div class="col-md-4">
+      <label asp-for="Parentesco" class="form-label">Grau de Parentesco *</label>
+      <select asp-for="Parentesco" class="form-select" required>
+        <option value="MÃE">Mãe</option>
+        <option value="PAI">Pai</option>
+        <option value="AVÓ/AVÔ">Avó / Avô</option>
+        <option value="TUTOR LEGAL">Tutor(a) Legal</option>
+        <option value="OUTRO">Outro</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100" type="submit">Vincular responsável</button>
+    </div>
+  </div>
+</form>

@@ -47,8 +47,24 @@ public sealed class EducacaoRepository : BaseRepository, IEscolaRepository, IAno
             var p = ToDictionary(request);
             p["TenantId"] = tenantId; p["EntidadeId"] = entidadeId; p["ExercicioId"] = exercicioId; p["UsuarioId"] = usuarioId;
             ApplyDefaults(recurso, p);
+            if (recurso == "pre_matricula_inscricao" && p.TryGetValue("EscolaPreferencialId", out var espId) && espId is not null && long.TryParse(Convert.ToString(espId, System.Globalization.CultureInfo.InvariantCulture), out var eid) && eid > 0)
+            {
+                var escolaAtiva = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select count(*) from sigov.escola where id=@EscolaId and tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVA' and not is_deleted", new { EscolaId = eid, TenantId = tenantId, EntidadeId = entidadeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (escolaAtiva != 1)
+                    throw new InvalidOperationException("Pré-matrícula rejeitada: escola preferencial inexistente ou inativa.");
+            }
             if (recurso == "matricula")
             {
+                const string checarDuplicada = @"select count(*) from sigov.matricula m
+join sigov.turma t on t.id = m.turma_id and t.tenant_id = m.tenant_id and t.entidade_id = m.entidade_id
+where m.tenant_id = @TenantId and m.entidade_id = @EntidadeId and m.aluno_id = @AlunoId
+  and m.escola_id = @EscolaId and m.ano_letivo_id = @AnoLetivoId
+  and t.serie_ano_id = (select serie_ano_id from sigov.turma where id = @TurmaId and tenant_id = @TenantId and entidade_id = @EntidadeId)
+  and m.status in ('ATIVA','CONFIRMADA') and not m.is_deleted";
+                var duplicadas = await connection.ExecuteScalarAsync<long>(new CommandDefinition(checarDuplicada, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (duplicadas > 0)
+                    throw new InvalidOperationException("Matrícula rejeitada: o aluno já possui matrícula ativa nesta escola, ano letivo e série.");
+
                 const string reservarVaga = @"update sigov.turma t
 set vagas_ocupadas = vagas_ocupadas + 1, updated_by = @UsuarioId
 from sigov.aluno a, sigov.escola e, sigov.ano_letivo l
@@ -101,6 +117,10 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
             await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso, p), p, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (recurso == "matricula" && p.TryGetValue("Status", out var status) && string.Equals(Convert.ToString(status, System.Globalization.CultureInfo.InvariantCulture), "CANCELADA", StringComparison.OrdinalIgnoreCase))
             {
+                var justificativa = p.TryGetValue("Observacao", out var obs) ? Convert.ToString(obs, System.Globalization.CultureInfo.InvariantCulture) : null;
+                if (string.IsNullOrWhiteSpace(justificativa))
+                    throw new InvalidOperationException("Cancelamento de matrícula exige justificativa obrigatória.");
+
                 await connection.ExecuteAsync(new CommandDefinition("update sigov.turma t set vagas_ocupadas = greatest(vagas_ocupadas - 1, 0), updated_by = @UsuarioId from sigov.matricula m where m.turma_id = t.id and m.id = @Id and m.tenant_id = @TenantId and m.entidade_id = @EntidadeId", p, tx, cancellationToken: ct)).ConfigureAwait(false);
             }
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso, "Atualizada"), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
@@ -123,7 +143,7 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
     public async Task<EducacaoDashboardResponse> DashboardAsync(long tenantId, long entidadeId, CancellationToken ct)
     {
         const string sql = @"select
-  (select count(*) from sigov.escola where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as TotalEscolas,
+  (select count(*) from sigov.escola where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVA' and is_deleted=false) as TotalEscolas,
   (select count(*) from sigov.aluno where tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and is_deleted=false) as TotalAlunosAtivos,
   (select count(*) from sigov.matricula where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ATIVA' and is_deleted=false) as TotalMatriculasAtivas,
   (select count(*) from sigov.turma where tenant_id=@TenantId and entidade_id=@EntidadeId and status='ABERTA' and is_deleted=false) as TotalTurmasAbertas,
@@ -156,8 +176,14 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
         var rows = (await connection.QueryAsync<string>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId }, ct)).ConfigureAwait(false)).AsList();
         if (formato.Equals("json", StringComparison.OrdinalIgnoreCase)) return Encoding.UTF8.GetBytes("[" + string.Join(',', rows) + "]");
         var csv = new StringBuilder("dados\n");
-        foreach (var row in rows) csv.Append('"').Append(row.Replace("\"", "\"\"", StringComparison.Ordinal)).AppendLine("\"");
-        return Encoding.UTF8.GetBytes(csv.ToString());
+        foreach (var row in rows)
+        {
+            var sanitized = row.Replace("\"", "\"\"", StringComparison.Ordinal);
+            if (sanitized.Length > 0 && (sanitized[0] == '=' || sanitized[0] == '+' || sanitized[0] == '-' || sanitized[0] == '@' || sanitized[0] == '\t' || sanitized[0] == '\r'))
+                sanitized = "'" + sanitized;
+            csv.Append('"').Append(sanitized).AppendLine("\"");
+        }
+        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
     }
 
     public async Task<BoletimResponse> ObterBoletimAsync(long tenantId, long entidadeId, long alunoId, CancellationToken ct)
@@ -258,7 +284,9 @@ where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and status='OFE
         using var connection = (NpgsqlConnection)_context.CreateConnection(); await connection.OpenAsync(ct).ConfigureAwait(false); await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
         var p = new { TenantId=tenantId, EntidadeId=entidadeId, MatriculaId=matriculaId, request.TurmaId, request.DataEntrada, UsuarioId=usuarioId };
         var count = await connection.ExecuteAsync(new CommandDefinition(@"with turma_valida as (
- select t.id from sigov.turma t join sigov.matricula m on m.id=@MatriculaId and m.tenant_id=t.tenant_id and m.entidade_id=t.entidade_id
+ select t.id from sigov.turma t
+ join sigov.matricula m on m.id=@MatriculaId and m.tenant_id=t.tenant_id and m.entidade_id=t.entidade_id
+ join sigov.escola e on e.id=t.escola_id and e.tenant_id=t.tenant_id and e.entidade_id=t.entidade_id and e.situacao='ATIVA' and not e.is_deleted
  where t.id=@TurmaId and t.tenant_id=@TenantId and t.entidade_id=@EntidadeId and t.escola_id=m.escola_id and t.ano_letivo_id=m.ano_letivo_id
  and t.status='ABERTA' and t.vagas_ocupadas<t.capacidade and m.status='ATIVA' and m.turma_id is null and @DataEntrada>=m.data_matricula and not t.is_deleted and not m.is_deleted for update),
 ocupada as (update sigov.turma set vagas_ocupadas=vagas_ocupadas+1,updated_by=@UsuarioId where id in(select id from turma_valida) returning id)

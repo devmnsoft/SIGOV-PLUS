@@ -1,2 +1,62 @@
 @model Sigov.Web.Models.Educacao.MatriculaFormViewModel
-<form id="form-matricula" class="card card-body" data-api="/api/educacao/matriculas">@Html.AntiForgeryToken()<div class="row g-3"><div class="col"><input asp-for="AlunoId" class="form-control" placeholder="Aluno" /></div><div class="col"><input asp-for="EscolaId" class="form-control" placeholder="Escola" /></div><div class="col"><input asp-for="AnoLetivoId" class="form-control" placeholder="Ano letivo" /></div><div class="col"><input asp-for="TurmaId" class="form-control" placeholder="Turma" /></div><div class="col"><input asp-for="NumeroMatricula" class="form-control" placeholder="Matrícula" /></div><div class="col"><button class="btn btn-primary">Matricular</button></div></div></form>
+@using Sigov.Application.Educacao
+@{
+    var alunos = ViewBag.Alunos as IEnumerable<AlunoResumoResponse> ?? Array.Empty<AlunoResumoResponse>();
+    var escolas = ViewBag.Escolas as IEnumerable<EscolaResponse> ?? Array.Empty<EscolaResponse>();
+    var anos = ViewBag.AnosLetivos as IEnumerable<AnoLetivoResponse> ?? Array.Empty<AnoLetivoResponse>();
+    var turmas = ViewBag.Turmas as IEnumerable<TurmaResponse> ?? Array.Empty<TurmaResponse>();
+}
+<form id="form-matricula" class="card card-body" data-api="/api/educacao/matriculas">
+  @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label asp-for="AlunoId" class="form-label">Aluno *</label>
+      <select asp-for="AlunoId" class="form-select" required>
+        <option value="">Selecione o aluno</option>
+        @foreach (var a in alunos)
+        {
+          <option value="@a.Id">Aluno @a.CodigoAluno (ID: @a.Id)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label asp-for="EscolaId" class="form-label">Escola de Destino *</label>
+      <select asp-for="EscolaId" class="form-select" required>
+        <option value="">Selecione a escola ativa</option>
+        @foreach (var e in escolas)
+        {
+          <option value="@e.Id" disabled="@(e.Situacao != "ATIVA")">@e.Nome (@e.Situacao)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="AnoLetivoId" class="form-label">Ano Letivo *</label>
+      <select asp-for="AnoLetivoId" class="form-select" required>
+        <option value="">Selecione o ano</option>
+        @foreach (var a in anos)
+        {
+          <option value="@a.Id" disabled="@(a.Status == "ENCERRADO")">Ano @a.Ano (@a.Status)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="TurmaId" class="form-label">Turma com vaga *</label>
+      <select asp-for="TurmaId" class="form-select" required>
+        <option value="">Selecione a turma</option>
+        @foreach (var t in turmas)
+        {
+          var semVaga = t.VagasOcupadas >= t.Capacidade || t.Status == "FECHADA";
+          <option value="@t.Id" disabled="@semVaga">@t.Nome (@t.Turno) - Vagas: @(t.Capacidade - t.VagasOcupadas)/@t.Capacidade - @t.Status</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label asp-for="NumeroMatricula" class="form-label">Número da Matrícula</label>
+      <input asp-for="NumeroMatricula" class="form-control" placeholder="Automático ou preencha" maxlength="50" />
+    </div>
+    <div class="col-md-9 d-flex align-items-end justify-content-end">
+      <button class="btn btn-primary" type="submit">Efetivar matrícula</button>
+    </div>
+  </div>
+</form>

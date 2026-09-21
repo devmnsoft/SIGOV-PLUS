@@ -1,11 +1,158 @@
 @model Sigov.Web.Models.Educacao.EducacaoDashboardViewModel
-@{ ViewData["Title"] = "Dashboard Educação"; }
-<section class="education-hero" aria-labelledby="education-title"><div><span class="education-eyebrow">Gestão educacional · visão operacional</span><h1 id="education-title">Educação em tempo real</h1><p>Acompanhe capacidade, matrículas, frequência e pendências com dados persistidos e isolados por tenant.</p></div><div class="education-hero__actions"><a class="btn btn-light" href="/Educacao/Relatorios">Relatórios</a><a class="btn btn-outline-light" href="/api/educacao/export/alunos.csv">Exportar CSV</a></div></section>
-<form class="education-filters" id="education-filters" aria-label="Filtros do dashboard"><label>Ano letivo <select class="form-select" name="anoLetivo"><option value="">Todos</option><option selected>@DateTime.Today.Year</option></select></label><label>Escola <select class="form-select" name="escolaId"><option value="">Todas as escolas</option></select></label><label>Série <select class="form-select" name="serie"><option value="">Todas as séries</option></select></label><label>Turno <select class="form-select" name="turno"><option value="">Todos</option><option>MATUTINO</option><option>VESPERTINO</option><option>NOTURNO</option></select></label><button class="btn btn-primary" type="submit">Aplicar filtros</button></form>
-<div id="education-loading" class="education-kpis" aria-label="Carregando indicadores">@for (var i = 0; i < 8; i++) { <div class="education-skeleton"></div> }</div>
+@using Sigov.Application.Educacao
+@{
+    ViewData["Title"] = "Dashboard Educação";
+    var dash = ViewBag.DashboardReal as EducacaoDashboardResponse;
+    var escolas = ViewBag.Escolas as IEnumerable<EscolaResponse> ?? Array.Empty<EscolaResponse>();
+    var anos = ViewBag.AnosLetivos as IEnumerable<AnoLetivoResponse> ?? Array.Empty<AnoLetivoResponse>();
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Educação</li>
+  </ol>
+</nav>
+
+<section class="education-hero" aria-labelledby="education-title">
+  <div>
+    <span class="education-eyebrow">Gestão educacional · visão operacional</span>
+    <h1 id="education-title">Educação e Gestão Escolar</h1>
+    <p>Acompanhe capacidade, matrículas, frequência e pendências com dados persistidos e isolados por tenant.</p>
+  </div>
+  <div class="education-hero__actions">
+    <a class="btn btn-light" href="/Educacao/Relatorios">Relatórios</a>
+    <a class="btn btn-outline-light" href="/api/educacao/export/alunos.csv">Exportar CSV</a>
+  </div>
+</section>
+
+<details class="how-to mb-4">
+  <summary>Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Acompanhe escolas ativas, matrículas do ano, pré-matrículas em análise e diários sem lançamento. Vaga só é consumida na conversão da oferta. O boletim não inventa média.</p>
+    <ul>
+      <li><strong>Rede Escolar e Vagas:</strong> Acompanhe escolas ativas, capacidade total e vagas ocupadas em tempo real com dados isolados por tenant.</li>
+      <li><strong>Pré-matrículas e Ofertas:</strong> A inscrição inicial não reduz vagas; a reserva ocorre na oferta válida e o consumo definitivo na conversão.</li>
+      <li><strong>Diário e Frequência:</strong> Nada assume presença por omissão. O lançamento exige professor vinculado à turma e componente em período aberto.</li>
+      <li><strong>Boletim e Avaliações:</strong> Sem política acadêmica persistida e versionada, médias e cortes não são calculados pelo sistema.</li>
+    </ul>
+  </div>
+</details>
+
+<section class="card mb-4 border-info">
+  <div class="card-header bg-light fw-bold">Regras vigentes (B3, B4, B5, B6)</div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B3. Matrícula Única</strong>
+          <p class="small text-muted mb-0">Ativa é única por aluno + escola + ano + série. Cancelamento exige justificativa não vazia e transferência não deixa duas ativas.</p>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B4. Ingresso e Vagas</strong>
+          <p class="small text-muted mb-0">Pré-matrícula não ocupa capacidade. Oferta OFERTADA/ACEITA válida reserva. Conversão consome oferta de forma idempotente; sem vaga = lista de espera.</p>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B5. Frequência Estrita</strong>
+          <p class="small text-muted mb-0">Estado inicial NAO_LANCADO. Nunca grava presença por omissão. Exige matrícula vigente, período aberto e professor vinculado à turma.</p>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B6. Avaliação e Boletim</strong>
+          <p class="small text-muted mb-0">Escala máxima e peso da avaliação. Avaliação fechada não recebe nota. Sem política acadêmica persistida a média não é inventada.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<form class="education-filters" id="education-filters" aria-label="Filtros do dashboard">
+  <label>Ano letivo
+    <select class="form-select" name="anoLetivo">
+      <option value="">Todos</option>
+      @if (anos.Any())
+      {
+        foreach (var a in anos)
+        {
+          <option value="@a.Ano" selected="@(a.Ano == DateTime.Today.Year)">@a.Ano (@a.Status)</option>
+        }
+      }
+      else
+      {
+        <option selected>@DateTime.Today.Year</option>
+      }
+    </select>
+  </label>
+  <label>Escola
+    <select class="form-select" name="escolaId">
+      <option value="">Todas as escolas</option>
+      @foreach (var e in escolas)
+      {
+        <option value="@e.Id">@e.Nome</option>
+      }
+    </select>
+  </label>
+  <label>Série
+    <select class="form-select" name="serie">
+      <option value="">Todas as séries</option>
+    </select>
+  </label>
+  <label>Turno
+    <select class="form-select" name="turno">
+      <option value="">Todos</option>
+      <option>MATUTINO</option>
+      <option>VESPERTINO</option>
+      <option>NOTURNO</option>
+    </select>
+  </label>
+  <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+</form>
+
+<div id="education-loading" class="education-kpis" aria-label="Carregando indicadores">
+  @for (var i = 0; i < 8; i++) { <div class="education-skeleton"></div> }
+</div>
+
 <div id="education-content" class="d-none">
- <div class="education-kpis"><article class="education-kpi"><span>Escolas</span><strong data-field="totalEscolas">0</strong><small>unidades monitoradas</small></article><article class="education-kpi"><span>Alunos ativos</span><strong data-field="totalAlunosAtivos">0</strong><small>cadastros ativos</small></article><article class="education-kpi"><span>Matrículas ativas</span><strong data-field="totalMatriculasAtivas">0</strong><small>no ano letivo</small></article><article class="education-kpi"><span>Turmas abertas</span><strong data-field="totalTurmasAbertas">0</strong><small>em operação</small></article><article class="education-kpi education-kpi--accent"><span>Frequência média</span><strong><span data-field="frequenciaMediaMes">0</span>%</strong><small>mês corrente</small></article><article class="education-kpi"><span>Pré-matrículas</span><strong data-field="preMatriculasPendentes">0</strong><small>aguardando análise</small></article><article class="education-kpi"><span>Avaliações abertas</span><strong data-field="avaliacoesAbertas">0</strong><small>com lançamentos</small></article><article class="education-kpi"><span>Ocupação</span><strong id="education-occupancy">0%</strong><small><span data-field="vagasOcupadas">0</span> de <span data-field="vagasTotais">0</span> vagas</small></article></div>
- <div class="education-grid"><section class="central-panel central-panel--wide"><div class="central-panel__heading"><div><span class="central-eyebrow">Capacidade</span><h2>Ocupação da rede</h2></div><span class="status-chip">Atualização online</span></div><div class="education-capacity"><div class="sigov-css-bar"><span id="education-capacity-bar"></span></div><p id="education-capacity-copy">Nenhuma vaga ocupada no recorte atual.</p></div></section><aside class="central-panel central-panel--attention"><div class="central-panel__heading"><div><span class="central-eyebrow">Atenção</span><h2>Alertas operacionais</h2></div></div><ul id="educacao-alertas" class="education-alerts"></ul><div id="education-empty" class="central-empty d-none"><strong>Nenhum alerta no período</strong><span>A rede está sem pendências operacionais.</span></div></aside><section class="central-panel"><div class="central-panel__heading"><div><span class="central-eyebrow">Atalhos</span><h2>Rotinas diárias</h2></div></div><nav class="central-shortcuts"><a href="/Educacao/Frequencias"><span class="central-shortcuts__mark"></span><div><strong>Realizar chamada</strong><small>Frequência diária por turma</small></div></a><a href="/Educacao/Notas"><span class="central-shortcuts__mark"></span><div><strong>Lançar notas</strong><small>Avaliações e grade</small></div></a><a href="/Educacao/Matriculas"><span class="central-shortcuts__mark"></span><div><strong>Gerir matrículas</strong><small>Confirmações e transferências</small></div></a></nav></section></div>
+  <div class="education-kpis">
+    <article class="education-kpi"><span>Escolas ativas</span><strong data-field="totalEscolas">@(dash?.TotalEscolas ?? 0)</strong><small>unidades ativas</small></article>
+    <article class="education-kpi"><span>Alunos ativos</span><strong data-field="totalAlunosAtivos">@(dash?.TotalAlunosAtivos ?? 0)</strong><small>cadastros ativos</small></article>
+    <article class="education-kpi"><span>Matrículas ativas</span><strong data-field="totalMatriculasAtivas">@(dash?.TotalMatriculasAtivas ?? 0)</strong><small>no ano letivo</small></article>
+    <article class="education-kpi"><span>Turmas abertas</span><strong data-field="totalTurmasAbertas">@(dash?.TotalTurmasAbertas ?? 0)</strong><small>em operação</small></article>
+    <article class="education-kpi education-kpi--accent"><span>Frequência média</span><strong><span data-field="frequenciaMediaMes">@(dash?.FrequenciaMediaMes ?? 0)</span>%</strong><small>mês corrente</small></article>
+    <article class="education-kpi"><span>Pré-matrículas</span><strong data-field="preMatriculasPendentes">@(dash?.PreMatriculasPendentes ?? 0)</strong><small>aguardando análise</small></article>
+    <article class="education-kpi"><span>Avaliações abertas</span><strong data-field="avaliacoesAbertas">@(dash?.AvaliacoesAbertas ?? 0)</strong><small>com lançamentos</small></article>
+    <article class="education-kpi"><span>Ocupação</span><strong id="education-occupancy">0%</strong><small><span data-field="vagasOcupadas">@(dash?.VagasOcupadas ?? 0)</span> de <span data-field="vagasTotais">@(dash?.VagasTotais ?? 0)</span> vagas</small></article>
+  </div>
+  <div class="education-grid">
+    <section class="central-panel central-panel--wide">
+      <div class="central-panel__heading">
+        <div><span class="central-eyebrow">Capacidade</span><h2>Ocupação da rede</h2></div>
+        <span class="status-chip">Atualização online</span>
+      </div>
+      <div class="education-capacity">
+        <div class="sigov-css-bar"><span id="education-capacity-bar"></span></div>
+        <p id="education-capacity-copy">Nenhuma vaga ocupada no recorte atual.</p>
+      </div>
+    </section>
+    <aside class="central-panel central-panel--attention">
+      <div class="central-panel__heading"><div><span class="central-eyebrow">Atenção</span><h2>Alertas operacionais</h2></div></div>
+      <ul id="educacao-alertas" class="education-alerts"></ul>
+      <div id="education-empty" class="central-empty d-none"><strong>Nenhum alerta no período</strong><span>A rede está sem pendências operacionais.</span></div>
+    </aside>
+    <section class="central-panel">
+      <div class="central-panel__heading"><div><span class="central-eyebrow">Atalhos</span><h2>Rotinas diárias</h2></div></div>
+      <nav class="central-shortcuts">
+        <a href="/Educacao/Frequencias"><span class="central-shortcuts__mark"></span><div><strong>Realizar chamada</strong><small>Frequência diária por turma</small></div></a>
+        <a href="/Educacao/Notas"><span class="central-shortcuts__mark"></span><div><strong>Lançar notas</strong><small>Avaliações e grade</small></div></a>
+        <a href="/Educacao/Matriculas"><span class="central-shortcuts__mark"></span><div><strong>Gerir matrículas</strong><small>Confirmações e transferências</small></div></a>
+      </nav>
+    </section>
+  </div>
 </div>
 <div id="education-error" class="sigov-feedback sigov-feedback--danger d-none" role="alert">Não foi possível carregar os indicadores. Tente novamente.</div>
 @section Scripts { <script src="~/js/modules/educacao.dashboard.js" asp-append-version="true"></script> }

@@ -112,7 +112,7 @@
         }
         <form method="post" action="/Patrimonio/Bens/@bem.Id/Transferencias">
           @Html.AntiForgeryToken()
-          <input type="hidden" name="CorrelationId" value="@Guid.NewGuid().ToString("N")" />
+          <input type="hidden" name="CorrelationId" id="idempotencyKey" value="@Guid.NewGuid().ToString("N")" />
           <div class="mb-2"><label class="form-label" for="transferencia-unidade">Unidade de destino *</label><select id="transferencia-unidade" name="UnidadeDestinoId" class="form-select" required @(temOsImpeditiva ? "disabled" : null)><option value="">Selecione pelo nome</option>@foreach (var x in opcoes.Unidades.Where(x => x.Id != bem.UnidadeId)) { <option value="@x.Id">@x.Nome</option> }</select></div>
           <div class="mb-2"><label class="form-label" for="transferencia-resp">Responsável no destino</label><select id="transferencia-resp" name="ResponsavelDestinoId" class="form-select" @(temOsImpeditiva ? "disabled" : null)><option value="">Manter vigente após recebimento</option>@foreach (var x in opcoes.Responsaveis) { <option value="@x.Id">@x.Nome</option> }</select></div>
           <div class="mb-2"><label class="form-label" for="transferencia-local">Localização no destino *</label><input id="transferencia-local" name="LocalizacaoDestino" class="form-control" required maxlength="300" @(temOsImpeditiva ? "disabled" : null) /></div>

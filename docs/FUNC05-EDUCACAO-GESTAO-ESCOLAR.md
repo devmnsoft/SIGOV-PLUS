@@ -45,6 +45,22 @@ API: dashboard, CRUD/listagens de escolas/alunos/professores/turmas/matrículas,
 * Não há classificação automática: pontuação preexistente não decide a fila. Aprovação, indeferimento, complementação e cancelamento são decisões administrativas autorizadas, versionadas e, quando afetam o solicitante, exigem motivo.
 * Na ausência de política acadêmica persistida e versionada, média e situação final ficam indisponíveis. Isso é impedimento funcional, não zero nem aprovação implícita.
 
+### Evolução de Interface, Regras e Templates (Revisão 2026-09-19)
+
+Nesta evolução, a trilha FUNC05 foi alinhada integralmente ao padrão arquitetural e visual estabelecido nas trilhas FUNC01 a FUNC04:
+
+* **Padrão visual unificado:** Breadcrumb canônico (`Início > Educação > [Página]`), título H1 único por tela, bloco retrátil `<details class="how-to">` com orientações operacionais em todas as views alvo, e ícones SVG canônicos do sistema SIGOV (sem classes de fontes externas como `bi-`).
+* **Eliminação de IDs técnicos manuais:** Todos os formulários operacionais substituíram inputs numéricos de ID por seletores pesquisáveis (`<select>`) vinculados aos catálogos persistidos por nome (escolas ativas, anos letivos, turmas com indicação de saldo de vagas, alunos com nome e documento mascarado, professores e cursos).
+* **Bloqueios e autoridade no serviço:**
+  - **Escola e ano:** Escola inativa não recebe matrícula nova, enturmação nem pré-matrícula. Ano letivo respeita `data_inicio/data_fim` persistidos em banco.
+  - **Turma e vagas:** Turma fechada recusa enturmação. Saldo de vagas é validado rigorosamente no serviço (capacidade menos matrículas ativas menos ofertas reservadas).
+  - **Matrícula:** Matrícula ativa única por aluno + escola + ano + série. Cancelamento exige justificativa formal não vazia gravada no histórico. Transferência garante que não fiquem duas ativas simultaneamente.
+  - **Ingresso e pré-matrícula:** Inscrição gera protocolo e não ocupa capacidade. Oferta válida (`OFERTADA`/`ACEITA`) reserva capacidade. Conversão transacional consome apenas a oferta de origem (idempotente). Esgotada a capacidade, direciona exclusivamente à lista de espera.
+  - **Diário de frequência:** Estado inicial `NAO_LANCADO`. Nunca assume presença por omissão. Lançamento exige professor com atribuição na turma/componente (`professor_turma`), data dentro do ano letivo e período aberto. Falta justificada exige motivo real.
+  - **Avaliações e boletim:** Escala máxima e peso explícitos da avaliação. Avaliação fechada recusa notas. **Sem política acadêmica persistida e versionada em banco, o sistema não calcula médias aritméticas, notas de corte ou aprovação implícita.** Exibição explícita de "média indisponível até haver política". Ausência de nota aparece como `NAO_LANCADO`, nunca como zero.
+  - **Dashboard e CSV:** Dashboard com dados reais no escopo tenant/entidade e painel de "Regras vigentes (B3, B4, B5, B6)". Exportações CSV com proteção anti-fórmula (`=+-@\t\r`), codificação UTF-8 BOM, limite explícito e documentos mascarados (LGPD).
+  - **Isolamento de Escopo:** Sem ponte, referência ou dependência com FUNC06 (Saúde).
+
 ### Pendências deliberadamente não declaradas como concluídas
 
 1. Modelar política acadêmica multi-esfera versionada, incluindo escala numérica/conceitual, precisão, arredondamento, recuperação e publicação, mediante decisão de produto.
@@ -54,3 +70,4 @@ API: dashboard, CRUD/listagens de escolas/alunos/professores/turmas/matrículas,
 5. Validar navegador e PostgreSQL 16 quando esses runtimes estiverem disponíveis. Compras e Estoque permanecem fora desta revisão.
 
 GED/InovaGED foi explicitamente adiado para a etapa final. FUNC05 não promove a RC50.68, que continua **BLOCKED** por runtime/CI/PostgreSQL oficiais, e não inicia nem marca a RC50.69.
+

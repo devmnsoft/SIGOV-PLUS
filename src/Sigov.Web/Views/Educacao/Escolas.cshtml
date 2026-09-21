@@ -1,12 +1,18 @@
 @model Sigov.Web.Models.Educacao.EscolaFormViewModel
-@{ ViewData["Title"] = "Escolas"; }
-@{
-    ViewData["Title"] = ViewData["Title"] ?? "Educação";
-}
+@{ ViewData["Title"] = "Escolas da Rede"; }
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao">Educação</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Escolas</li>
+  </ol>
+</nav>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
-    <h1 class="h3">@ViewData["Title"]</h1>
-    <p class="text-muted mb-0">Módulo Educação Base com dados paginados, LGPD, auditoria e tenant_id.</p>
+    <h1 class="h3">Escolas da Rede</h1>
+    <p class="text-muted mb-0">Gestão das unidades de ensino do tenant, com controle de situação cadastral e integração operacional.</p>
   </div>
   <div class="btn-group">
     <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
@@ -14,6 +20,19 @@
     <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.json">JSON</a>
   </div>
 </div>
+
+<details class="how-to mb-3">
+  <summary>Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Escola inativa não recebe matrícula nova. Abra o ano letivo antes de lançar frequência. Mantenha os dados cadastrais da unidade atualizados para o censo escolar.</p>
+    <ul>
+      <li><strong>Situação da Unidade:</strong> Unidades em situação INATIVA têm bloqueio total para novas matrículas, enturmações e pré-matrículas.</li>
+      <li><strong>Código INEP:</strong> Deve corresponder ao identificador oficial junto ao Ministério da Educação.</li>
+    </ul>
+  </div>
+</details>
+
 <div id="educacao-toast" class="alert d-none" role="alert"></div>
-<partial name="_FormEscola" model="Model" /><div id="grid-escolas" class="mt-3"></div>
+<partial name="_FormEscola" model="Model" />
+<div id="grid-escolas" class="mt-3"></div>
 @section Scripts { <script src="~/js/modules/educacao.escolas.js"></script> }

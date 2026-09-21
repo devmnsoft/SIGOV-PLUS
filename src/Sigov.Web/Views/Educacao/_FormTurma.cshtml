@@ -1,9 +1,79 @@
 @model Sigov.Web.Models.Educacao.TurmaFormViewModel
+@using Sigov.Application.Educacao
+@{
+    var escolas = ViewBag.Escolas as IEnumerable<EscolaResponse> ?? Array.Empty<EscolaResponse>();
+    var anos = ViewBag.AnosLetivos as IEnumerable<AnoLetivoResponse> ?? Array.Empty<AnoLetivoResponse>();
+    var cursos = ViewBag.Cursos as IEnumerable<CursoResponse> ?? Array.Empty<CursoResponse>();
+}
 <form id="form-turma" class="card card-body" data-api="/api/educacao/turmas">
   @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
   <div class="row g-3">
-    <div class="col-md-1"><input asp-for="EscolaId" class="form-control" placeholder="Escola" /></div><div class="col-md-1"><input asp-for="AnoLetivoId" class="form-control" placeholder="Ano" /></div><div class="col-md-1"><input asp-for="CursoId" class="form-control" placeholder="Curso" /></div><div class="col-md-1"><input asp-for="SerieAnoId" class="form-control" placeholder="Série" /></div>
-    <div class="col-md-2"><input asp-for="Codigo" class="form-control" placeholder="Código" required /></div><div class="col-md-2"><input asp-for="Nome" class="form-control" placeholder="Nome" required /></div><div class="col-md-1"><input asp-for="Turno" class="form-control" /></div><div class="col-md-1"><input asp-for="Capacidade" class="form-control" /></div><div class="col-md-1"><input asp-for="Status" class="form-control" /></div>
-    <div class="col-md-1"><button class="btn btn-primary w-100">Salvar</button></div>
+    <div class="col-md-3">
+      <label asp-for="EscolaId" class="form-label">Escola *</label>
+      <select asp-for="EscolaId" class="form-select" required>
+        <option value="">Selecione a escola ativa</option>
+        @foreach (var e in escolas)
+        {
+          <option value="@e.Id" disabled="@(e.Situacao != "ATIVA")">@e.Nome (@e.Situacao)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="AnoLetivoId" class="form-label">Ano Letivo *</label>
+      <select asp-for="AnoLetivoId" class="form-select" required>
+        <option value="">Selecione o ano</option>
+        @foreach (var a in anos)
+        {
+          <option value="@a.Id" disabled="@(a.Status == "ENCERRADO")">Ano @a.Ano (@a.Status)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="CursoId" class="form-label">Curso *</label>
+      <select asp-for="CursoId" class="form-select" required>
+        <option value="">Selecione o curso</option>
+        @foreach (var c in cursos)
+        {
+          <option value="@c.Id">@c.Nome</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="SerieAnoId" class="form-label">Série / Etapa *</label>
+      <input asp-for="SerieAnoId" class="form-control" type="number" min="1" required placeholder="ID da série" />
+    </div>
+    <div class="col-md-3">
+      <label asp-for="Codigo" class="form-label">Código da Turma *</label>
+      <input asp-for="Codigo" class="form-control" placeholder="Ex: TURM-1A" required maxlength="50" />
+    </div>
+    <div class="col-md-4">
+      <label asp-for="Nome" class="form-label">Nome da Turma *</label>
+      <input asp-for="Nome" class="form-control" placeholder="Ex: 1º Ano A - Fundamental" required maxlength="200" />
+    </div>
+    <div class="col-md-3">
+      <label asp-for="Turno" class="form-label">Turno</label>
+      <select asp-for="Turno" class="form-select">
+        <option value="MATUTINO">Matutino</option>
+        <option value="VESPERTINO">Vespertino</option>
+        <option value="NOTURNO">Noturno</option>
+        <option value="INTEGRAL">Integral</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="Capacidade" class="form-label">Capacidade *</label>
+      <input asp-for="Capacidade" class="form-control" type="number" min="1" required placeholder="Vagas" />
+    </div>
+    <div class="col-md-3">
+      <label asp-for="Status" class="form-label">Status da Turma</label>
+      <select asp-for="Status" class="form-select">
+        <option value="PLANEJADA">Planejada</option>
+        <option value="ABERTA">Aberta</option>
+        <option value="FECHADA">Fechada</option>
+      </select>
+    </div>
+    <div class="col-12 d-flex justify-content-end">
+      <button class="btn btn-primary" type="submit">Salvar turma</button>
+    </div>
   </div>
 </form>
