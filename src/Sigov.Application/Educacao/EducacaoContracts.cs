@@ -95,6 +95,7 @@ public interface IEducacaoRepository
     Task DecidirOfertaAsync(long tenantId, long entidadeId, long id, OfertaVagaDecisaoRequest request, long usuarioId, CancellationToken ct);
     Task<long> ConverterOfertaAsync(long tenantId, long entidadeId, long? exercicioId, long preMatriculaId, ConverterPreMatriculaRequest request, long usuarioId, CancellationToken ct);
     Task EnturmarAsync(long tenantId, long entidadeId, long matriculaId, EnturmarMatriculaRequest request, long usuarioId, CancellationToken ct);
+    Task<long> TransferirAsync(long tenantId, long entidadeId, long matriculaId, TransferirMatriculaRequest request, long usuarioId, CancellationToken ct);
 }
 
 public interface IEscolaRepository : IEducacaoRepository { }

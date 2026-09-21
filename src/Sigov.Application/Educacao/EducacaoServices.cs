@@ -186,10 +186,20 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
         try { await _repo.EnturmarAsync(TenantId, EntidadeId, id, request, UsuarioId.Value, ct).ConfigureAwait(false); return Result.Success(); }
         catch (InvalidOperationException ex) { return Fail(ex.Message); }
     }
-    Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct) =>
-        request.NovaTurmaId <= 0 || string.IsNullOrWhiteSpace(request.Motivo)
-            ? Task.FromResult(Fail("Transferência exige nova turma e justificativa."))
-            : AtualizarAsync("matricula", "transferir", id, new { Status = "TRANSFERIDA", request.NovaTurmaId, Motivo = request.Motivo.Trim() }, ct);
+    async Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct)
+    {
+        if (request.NovaTurmaId <= 0 || string.IsNullOrWhiteSpace(request.Motivo))
+            return Fail("Transferência exige nova turma e justificativa.");
+
+        var guard = await GuardAsync("matricula", "transferir", ct).ConfigureAwait(false);
+        if (guard.IsFailure || !UsuarioId.HasValue) return guard;
+        try
+        {
+            await _repo.TransferirAsync(TenantId, EntidadeId, id, request with { Motivo = request.Motivo.Trim() }, UsuarioId.Value, ct).ConfigureAwait(false);
+            return Result.Success();
+        }
+        catch (InvalidOperationException ex) { return Fail(ex.Message); }
+    }
 
     Task<Result<PagedResult<ProfessorResponse>>> IProfessorService.ListarAsync(EscolaFiltro filtro, CancellationToken ct) => ListarAsync<ProfessorResponse>("professor", "professor", filtro, ct);
     Task<Result<long>> IProfessorService.CriarAsync(ProfessorCreateRequest request, CancellationToken ct) => CriarAsync("professor", "criar", request, ct);
