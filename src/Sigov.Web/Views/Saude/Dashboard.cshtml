@@ -1,8 +1,187 @@
 @model Sigov.Web.Models.Saude.SaudeDashboardViewModel
-@{ ViewData["Title"] = Model.Titulo; }
-<div class="alert alert-info"><strong>Como usar esta tela</strong><br />Selecione o contexto multi-esfera e os filtros operacionais. Os indicadores usam exclusivamente dados persistidos e autorizados para o tenant.</div>
-<div class="d-flex flex-wrap justify-content-between gap-3 align-items-start mb-4"><div><span class="badge text-bg-success mb-2">Saúde360 + ACS360</span><h1 class="h2">@Model.Titulo</h1><p class="text-muted">Atenção básica, território, produção ACS, sincronização e vigilâncias no contexto autorizado.</p></div><a class="btn btn-success" href="/Saude/ACS">Abrir operação ACS360</a></div>
-<div class="card border-0 shadow-sm mb-4"><div class="card-body"><div class="row g-3"><div class="col-md-3"><label class="form-label">Período</label><select class="form-select"><option>Hoje</option><option>Últimos 30 dias</option><option>Competência atual</option></select></div><div class="col-md-3"><label class="form-label">Status</label><select class="form-select"><option>Todos</option><option>Pendente</option><option>Realizada</option><option>Recusada/ausente</option></select></div><div class="col-md-3"><label class="form-label">Condição acompanhada</label><select class="form-select"><option>Todas</option><option>Gestante</option><option>Hipertensão</option><option>Diabetes</option><option>Acamado</option></select></div><div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100" type="button">Atualizar indicadores</button></div></div></div></div>
-<div id="saude-dashboard" class="row g-3" data-api="/api/saude/dashboard"></div>
-<div class="row g-3 mt-1"><div class="col-lg-8"><div class="card h-100"><div class="card-header"><strong>Cobertura e produtividade</strong></div><div class="card-body text-muted">Os consolidados são calculados exclusivamente a partir dos cadastros e visitas persistidos. Use Territórios para detalhar área, microárea, equipe e ACS.</div></div></div><div class="col-lg-4"><div class="card h-100 border-warning"><div class="card-header"><strong>Alertas operacionais</strong></div><div class="card-body"><a href="/Saude/ACS/Conflitos" class="d-block mb-2">Conflitos de sincronização</a><a href="/Saude/ACS/ExportacaoEsus" class="d-block mb-2">Inconsistências e-SUS/SISAB</a><a href="/Saude/Vigilancias/Alertas" class="d-block">Alertas de vigilância</a></div></div></div></div>
-@section Scripts { <script src="~/js/modules/saude.dashboard.js"></script> }
+@using Sigov.Application.Saude
+@{
+    ViewData["Title"] = "Saúde360 — Atenção Básica e Regulação";
+    var dash = ViewBag.DashboardReal as SaudeDashboardResponse;
+    var alertas = dash?.Alertas ?? Array.Empty<string>();
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Saúde</li>
+  </ol>
+</nav>
+
+<section class="education-hero mb-4" aria-labelledby="saude-title">
+  <div>
+    <span class="badge text-bg-success mb-2">Saúde360 · Atenção Básica</span>
+    <h1 id="saude-title">Saúde, Atenção Básica e Regulação</h1>
+    <p>Acompanhe unidades, agenda, acolhimentos de risco e imunização com dados reais persistidos e isolados por tenant.</p>
+  </div>
+  <div class="education-hero__actions">
+    <a class="btn btn-light" href="/Saude/Agenda">Agenda do Dia</a>
+    <a class="btn btn-outline-light" href="/api/saude/export/atendimentos.csv">Exportar CSV</a>
+  </div>
+</section>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Unidades ativas, agenda do dia, acolhimentos de risco e filas. Laranja e vermelho aparecem como contagem, sem texto clínico.</p>
+    <ul>
+      <li><strong>Unidades e Profissionais:</strong> Somente cadastros ativos podem agendar, acolher, atender e dispensar medicamentos.</li>
+      <li><strong>Classificação de Risco:</strong> Acolhimento finalizado exige classificação (AZUL, VERDE, AMARELO, LARANJA, VERMELHO). Casos graves priorizam fila sem expor prontuário.</li>
+      <li><strong>Imutabilidade da Evolução:</strong> Evolução SOAP concluída é definitiva; eventuais correções são efetuadas por retificação justificada e auditada.</li>
+      <li><strong>Farmácia e Vacinação:</strong> Dispensação valida saldo caso vinculado ao estoque almoxarifado. Lote vencido e dose duplicada sem motivo são recusados.</li>
+    </ul>
+  </div>
+</details>
+
+<section class="card mb-4 border-info">
+  <div class="card-header bg-light fw-bold">Regras vigentes (B3–B7)</div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B3. Agenda e Conflito</strong>
+          <p class="small text-muted mb-0">Impede sobreposição do profissional no mesmo intervalo. Cancelamento exige motivo obrigatório.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B4. Acolhimento de Risco</strong>
+          <p class="small text-muted mb-0">Classificação obrigatória ao finalizar. Casos LARANJA e VERMELHO contados sem revelar conteúdo clínico.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B5. Prontuário / SOAP</strong>
+          <p class="small text-muted mb-0">Evolução finalizada é imutável. Correção exige retificação vinculada com justificativa auditada.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B6. Imunização Segura</strong>
+          <p class="small text-muted mb-0">Recusa lote com data de validade vencida e bloqueia dose duplicada do mesmo imunizante sem justificativa.</p>
+        </div>
+      </div>
+      <div class="col-md">
+        <div class="p-2 border rounded bg-white h-100">
+          <strong>B7. Farmácia Integrada</strong>
+          <p class="small text-muted mb-0">Quantidade maior que zero. Baixa atômica de estoque apenas se o medicamento possuir vínculo com almoxarifado.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Unidades Ativas</span>
+        <h2 class="h3 my-1">@(dash?.TotalUnidades ?? 0)</h2>
+        <a href="/Saude/Unidades" class="small text-decoration-none">Ver unidades</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Profissionais Ativos</span>
+        <h2 class="h3 my-1">@(dash?.TotalProfissionais ?? 0)</h2>
+        <a href="/Saude/Profissionais" class="small text-decoration-none">Ver profissionais</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Agenda de Hoje</span>
+        <h2 class="h3 my-1">@(dash?.AgendaHoje ?? 0)</h2>
+        <a href="/Saude/Agenda" class="small text-decoration-none">Abrir agenda</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <span class="text-muted small">Atendimentos Hoje</span>
+        <h2 class="h3 my-1">@(dash?.AtendimentosHoje ?? 0)</h2>
+        <a href="/Saude/Atendimentos" class="small text-decoration-none">Ver atendimentos</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100 border-warning">
+      <div class="card-header bg-warning-subtle fw-bold text-dark">Acolhimentos Prioritários (Classificação de Risco)</div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">Contagem em tempo real sem exposição de dados clínicos identificáveis.</p>
+        <div class="d-flex gap-3 align-items-center">
+          <div class="p-3 border rounded text-center flex-fill bg-light">
+            <span class="badge text-bg-warning fs-6 px-3 py-2">Risco LARANJA</span>
+            <div class="fs-4 fw-bold mt-2">
+              @{
+                var alLaranja = alertas.FirstOrDefault(a => a.Contains("Risco Laranja", StringComparison.OrdinalIgnoreCase));
+              }
+              @(alLaranja ?? "0 acolhimentos")
+            </div>
+          </div>
+          <div class="p-3 border rounded text-center flex-fill bg-light">
+            <span class="badge text-bg-danger fs-6 px-3 py-2">Risco VERMELHO</span>
+            <div class="fs-4 fw-bold mt-2">
+              @{
+                var alVermelho = alertas.FirstOrDefault(a => a.Contains("Risco Vermelho", StringComparison.OrdinalIgnoreCase));
+              }
+              @(alVermelho ?? "0 acolhimentos")
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100 border-success">
+      <div class="card-header bg-success-subtle fw-bold text-dark">Imunização e Farmácia no Mês</div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-6">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Doses Aplicadas</span>
+              <div class="fs-3 fw-bold text-success mt-1">@(dash?.VacinacoesMes ?? 0)</div>
+              <a href="/Saude/Vacinacao" class="small">Registrar dose</a>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-3 border rounded bg-light">
+              <span class="text-muted small">Dispensações</span>
+              <div class="fs-3 fw-bold text-primary mt-1">@(dash?.DispensacoesMes ?? 0)</div>
+              <a href="/Saude/Farmacia" class="small">Farmácia</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-bold">Acesso Rápido aos Módulos de Saúde</div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary" href="/Saude/Pacientes">Pacientes</a>
+      <a class="btn btn-outline-primary" href="/Saude/Agenda">Agenda</a>
+      <a class="btn btn-outline-primary" href="/Saude/Atendimentos">Atendimentos / SOAP</a>
+      <a class="btn btn-outline-primary" href="/Saude/Vacinacao">Vacinação</a>
+      <a class="btn btn-outline-primary" href="/Saude/Farmacia">Farmácia</a>
+      <a class="btn btn-outline-primary" href="/Saude/Regulacao">Regulação</a>
+      <a class="btn btn-outline-secondary" href="/Saude/Unidades">Unidades de Saúde</a>
+      <a class="btn btn-outline-secondary" href="/Saude/Profissionais">Profissionais</a>
+    </div>
+  </div>
+</div>
+

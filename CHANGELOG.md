@@ -1,6 +1,25 @@
 # Changelog
 
+## FUNC06 Saúde, Atenção Básica e Regulação — 2026-09-21
+
+- **FUNC06 — jornada básica servidor-first no padrão FUNC01–05; alertas/toasts/confirm no layout; LGPD em lista/CSV; RC50.68 BLOCKED:**
+  - padronização transversal de alertas e mensageria no layout compartilhado (`_Alerts.cshtml`, `sigov-alerts.js`, `sigov-components.css`) com suporte a banners TempData de sucesso/aviso/erro após POST-Redirect-Get, auto-dismiss em 8 segundos, toasts acessíveis empilháveis e diálogos modal `data-confirm` para ações destrutivas ou irreversíveis;
+  - reestruturação de todas as views de Saúde em renderização server-first com degradação graciosa em empty states, eliminando placeholders e containers ocos dependentes exclusivamente de JS de módulo;
+  - seletores amigáveis por nome em todos os formulários (`Unidades`, `Profissionais`, `Pacientes`, `Agenda`, `Atendimentos`, `Vacinacao`, `Farmacia`, `Regulacao`), sem IDs técnicos digitados;
+  - validações de autoridade no serviço:
+    - bloqueio estrito de unidades e profissionais inativos em agendamentos, acolhimentos, atendimentos e dispensações;
+    - bloqueio de sobreposição de horários da agenda para o mesmo profissional e obrigatoriedade de motivo em cancelamentos;
+    - classificação de risco Manchester obrigatória na finalização de acolhimentos; contagem agregada de risco LARANJA/VERMELHO no dashboard sem exposição de queixa ou dado clínico;
+    - imutabilidade formal de evolução de atendimento com status `ATENDIDO`, com fluxo auditado de retificação vinculada com justificativa (`saude.prontuario.retificar`);
+    - recusa de vacinação com lote vencido ou cancelamento sem motivo, e bloqueio de dose duplicada sem justificativa;
+    - dispensação de farmácia com validação de saldo quando vinculada a material de estoque (`material_id`); quando sem vínculo, registro sem baixa automática e exibição de aviso persistente explícito na UI;
+    - rastreamento de histórico e obrigatoriedade de justificativa na devolução ou cancelamento de solicitações de regulação;
+  - conformidade estrita com a LGPD: mascaramento de CPF e CNS em listas, detalhes e exportações CSV; sanitização anti-fórmula (`=+-@\t\r`), codificação UTF-8 com BOM e limite de registros; supressão de queixa e SOAP de relatórios tabulares;
+  - dashboard operacional `/Saude` alimentado com indicadores reais e bloco "Regras vigentes (B3–B7)";
+  - sem abertura de GED/InovaGED, sem criação de novas migrações DDL e sem reabrir FUNC01–05; RC50.68 mantida **BLOCKED** e RC50.69 não iniciada.
+
 ## FUNC05 Educação e Gestão Escolar — 2026-09-19
+
 
 - **FUNC05 — templates no padrão FUNC01–04; seletores por nome; pré-matrícula/vaga/frequência/boletim sem inferência; CSV LGPD:**
   - padronização visual das views com breadcrumbs canônicos (`Início > Educação > [Página]`), títulos H1 únicos, blocos informativos "Como usar esta tela", empty states e ícones canônicos SVG (sem classes `bi-`);

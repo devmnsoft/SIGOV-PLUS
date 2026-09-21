@@ -1,6 +1,170 @@
 @model Sigov.Web.Models.Saude.RegulacaoFormViewModel
-@{ ViewData["Title"] = "Regulação"; }
-<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Regulação</h1><p class="text-muted">Dados sensíveis são mascarados por padrão e carregados via Ajax.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saudeFormModal">Novo</button></div>
-<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-striped" id="saude-grid" data-api="/api/saude/regulacao"><thead><tr><th>ID</th><th>Descrição</th><th>Status</th></tr></thead><tbody><tr><td colspan="3">Carregando...</td></tr></tbody></table></div></div></div>
-<div class="modal fade" id="saudeFormModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Regulação</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">@Html.AntiForgeryToken()<partial name="_AuditoriaSaude" model="Model" /></div></div></div></div>
-@section Scripts { <script src="~/js/modules/saude.regulacao.js"></script> }
+@using Sigov.Application.Saude
+@{
+    ViewData["Title"] = "Regulação do SUS";
+    var regulacoes = ViewBag.Regulacoes as IEnumerable<RegulacaoSolicitacaoResponse> ?? Array.Empty<RegulacaoSolicitacaoResponse>();
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Saude">Saúde</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Regulação</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1>Central de Regulação e Acesso</h1>
+    <p class="text-muted mb-0">Gestão de filas, encaminhamentos especializados e regulação de vagas hospitalares e ambulatoriais.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#regulacaoModal">Nova Solicitação</button>
+</div>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Devolver pede justificativa. Destino, profissional e data no agendamento.</p>
+    <ul>
+      <li><strong>Critérios de Prioridade:</strong> Casos classificados em VERMELHO e LARANJA possuem tramitação imediata na central de regulação.</li>
+      <li><strong>Devolução com Justificativa:</strong> Recusa ou devolução ao solicitante exige justificativa explícita informando a inconformidade clínica.</li>
+      <li><strong>Histórico Transparente:</strong> Toda mudança de status na regulação gera registro de auditoria e trilha no prontuário do paciente.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+    <span>Solicitações na Fila de Regulação</span>
+    <span class="badge text-bg-secondary">Total: @regulacoes.Count()</span>
+  </div>
+  <div class="card-body p-0">
+    @if (!regulacoes.Any())
+    {
+      <div class="text-center py-5">
+        <p class="text-muted mb-3">Nenhuma solicitação de regulação pendente no momento.</p>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#regulacaoModal">Criar Primeira Solicitação</button>
+      </div>
+    }
+    else
+    {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Data</th>
+              <th>Tipo de Solicitação</th>
+              <th>Prioridade</th>
+              <th>Status</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in regulacoes)
+            {
+              <tr>
+                <td class="fw-semibold">#@r.Id</td>
+                <td>@r.DataSolicitacao.ToString("dd/MM/yyyy")</td>
+                <td>@r.TipoSolicitacao</td>
+                <td>
+                  @if (r.Prioridade == "VERMELHO")
+                  {
+                    <span class="badge text-bg-danger">VERMELHO (EMERGÊNCIA)</span>
+                  }
+                  else if (r.Prioridade == "LARANJA")
+                  {
+                    <span class="badge text-bg-warning">LARANJA (URGENTE)</span>
+                  }
+                  else if (r.Prioridade == "AMARELO")
+                  {
+                    <span class="badge text-bg-info">AMARELO</span>
+                  }
+                  else
+                  {
+                    <span class="badge text-bg-light border">@r.Prioridade</span>
+                  }
+                </td>
+                <td>
+                  @if (r.Status == "AUTORIZADA")
+                  {
+                    <span class="badge text-bg-success">AUTORIZADA</span>
+                  }
+                  else if (r.Status == "DEVOLVIDA")
+                  {
+                    <span class="badge text-bg-secondary">DEVOLVIDA</span>
+                  }
+                  else
+                  {
+                    <span class="badge text-bg-primary">@r.Status</span>
+                  }
+                </td>
+                <td class="text-end">
+                  @if (r.Status != "DEVOLVIDA" && r.Status != "CANCELADA")
+                  {
+                    <form method="post" action="/Saude/Regulacao/Status/@r.Id" class="d-inline">
+                      @Html.AntiForgeryToken()
+                      <input type="hidden" name="status" value="AUTORIZADA" />
+                      <button type="submit" class="btn btn-sm btn-outline-success me-1">
+                        Autorizar
+                      </button>
+                    </form>
+
+                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#devolverModal-@r.Id">
+                      Devolver
+                    </button>
+
+                    <div class="modal fade" id="devolverModal-@r.Id" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content text-start">
+                          <form method="post" action="/Saude/Regulacao/Status/@r.Id">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="status" value="DEVOLVIDA" />
+                            <div class="modal-header">
+                              <h5 class="modal-title">Devolver Solicitação #@r.Id</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                              <p class="text-danger fw-semibold">Devolver pede justificativa. Informe o motivo clínico/administrativo:</p>
+                              <div class="mb-3">
+                                <label class="form-label">Justificativa da Devolução <span class="text-danger">*</span></label>
+                                <textarea name="justificativa" class="form-control" rows="3" placeholder="Motivo da devolução (ex: laudo incompleto, ausência de exame prévio)" required></textarea>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <button type="submit" class="btn btn-danger" data-confirm="Devolver pede justificativa. Confirma a devolução ao solicitante?">Confirmar Devolução</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                  else
+                  {
+                    <span class="text-muted small">Finalizada</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<div class="modal fade" id="regulacaoModal" tabindex="-1" aria-labelledby="regulacaoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="regulacaoModalLabel">Nova Solicitação de Regulação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <partial name="_ModalRegulacao" />
+      </div>
+    </div>
+  </div>
+</div>
+

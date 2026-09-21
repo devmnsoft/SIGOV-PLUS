@@ -2,29 +2,50 @@
 
 ## Escopo entregue
 
-FUNC06 fecha a jornada municipal de unidades, pacientes/responsáveis, profissionais/equipes, agenda, acolhimento, atendimento e prontuário SOAP, procedimentos, vacinação, medicamentos/dispensação e encaminhamentos. A migration corretiva reaproveita as tabelas `sigov.saude_*` publicadas e adiciona somente contratos ausentes, sempre com PK `bigint identity`, tenant e entidade.
+FUNC06 fecha a jornada municipal de atenção básica no padrão server-first estabelecido nas trilhas FUNC01–05 (unidades, pacientes/responsáveis, profissionais/equipes, agenda, acolhimento com classificação de risco Manchester, atendimento e prontuário SOAP, procedimentos, vacinação, medicamentos/dispensação e regulação/encaminhamentos).
 
-O dashboard `/Saude` e as telas MVC usam as APIs persistentes; não há catálogo ou sucesso em memória. Listagens e CSV não apresentam queixa, SOAP, justificativa clínica nem documentos completos. CPF/CNS são mascarados pela camada LGPD existente, e acesso/retificação de prontuário exige permissão e auditoria com finalidade.
+A persistência utiliza estritamente o PostgreSQL 16+ com Dapper e o schema `sigov.saude_*` preexistente, com PKs `bigint generated ... as identity`, tenant e entidade. Não há catalogos mock nem coleções em memória como autoridade.
 
-## Regras defendidas
+O dashboard `/Saude` e as telas MVC renderizam server-first com degradação graciosa em empty states. Listagens e exportações CSV não apresentam queixa clínica, notas de evolução SOAP, justificativa clínica nem documentos completos. CPF/CNS são mascarados pela camada LGPD existente, e o prontuário eletrônico é protegido com autorização persistida e auditoria com finalidade (`saude.prontuario.visualizar`).
 
-* Agenda impede conflito de profissional/horário e bloqueia unidade ou profissional inativo; cancelamento exige motivo.
-* Acolhimento finalizado exige classificação AZUL, VERDE, AMARELO, LARANJA ou VERMELHO; o dashboard destaca LARANJA/VERMELHO sem revelar conteúdo clínico.
-* Evolução finalizada é imutável; correção cria retificação vinculada, justificada e auditada.
-* Vacinação rejeita lote vencido, cancelamento sem justificativa e dose duplicada sem motivo.
-* Dispensação exige quantidade positiva e medicamento ativo. Quando `material_id` está vinculado ao Almoxarifado, o saldo é obrigatório; sem vínculo seguro a aplicação/dispensação fica registrada sem baixa automática e a integração permanece explicitamente pendente.
-* Regulação exige histórico de status, justificativa na devolução e destino, profissional e data no agendamento.
+## Regras defendidas no serviço
 
-## Banco e autorização
+* **B1. Unidades e Profissionais:** Unidades ou profissionais inativos não podem ser agendados, não acolhem, não atendem e não realizam dispensação. Listas e seletores operam por nome (unidade, profissional, equipe), eliminando IDs técnicos digitados.
+* **B2. Pacientes e LGPD:** CPF e Cartão Nacional de Saúde (CNS) são validados e mascarados em listagens, detalhes e exportações CSV.
+* **B3. Agenda:** Validação estrita de sobreposição de horário no serviço impedindo agendamento concorrente do mesmo profissional no mesmo intervalo; recusa unidade/profissional inativo; cancelamento exige motivo obrigatório e confirmação. Horário início deve anteceder o horário fim.
+* **B4. Acolhimento e Risco:** Finalização exige classificação de risco Manchester (AZUL, VERDE, AMARELO, LARANJA ou VERMELHO). O dashboard exibe contagens agregadas de LARANJA e VERMELHO sem revelar queixa ou conteúdo clínico.
+* **B5. Atendimento e SOAP:** Evolução com status `ATENDIDO` é estritamente imutável no serviço. Correções exigem retificação vinculada com justificativa formal registrada, usuário, correlation ID e auditoria (`saude.prontuario.retificar`). Visualização do prontuário exige `saude.prontuario.visualizar`.
+* **B6. Vacinação:** Recusa lotes vencidos (`validade < hoje`), recusa cancelamentos sem justificativa e rejeita registro duplicado da mesma dose e imunizante para o paciente sem motivo justificado. Confirmação explícita com auditoria.
+* **B7. Farmácia e Dispensação:** Quantidade deve ser estritamente maior que zero; medicamento deve estar ativo. Quando o medicamento está vinculado a material do almoxarifado (`material_id`), há validação de saldo no estoque; caso não haja saldo suficiente, a dispensação é recusada. Medicamentos sem vínculo de material são registrados sem baixa automática no estoque, e a interface exibe aviso persistente explícito alertando que não houve baixa no almoxarifado.
+* **B8. Regulação:** Toda alteração de status gera registro histórico auditável. Devolução e cancelamento exigem justificativa formal e confirmação via diálogo. Agendamento de regulação exige unidade, profissional e data de destino.
+* **B9. Exportação CSV:** Permissão `saude.exportar` requerida e auditada. Anonimização e proteção contra injeção de fórmulas (`=+-@\t\r`), sem inclusão de queixa, SOAP ou CID descritivo livre, e codificação UTF-8 com BOM.
+* **B10. Permissões:** Respeita estritamente as 27 permissões `saude.*` persistidas no PostgreSQL com comportamento fail-closed.
 
-A migration `20260825000000_func06_saude_atencao_basica.sql` completa `saude_unidade`, `saude_paciente`, `saude_profissional`, `saude_agenda`, `saude_atendimento` e `saude_vacinacao`, e cria responsáveis, equipes/vínculos, acolhimento, evolução, medicamento, dispensação, encaminhamento, histórico e auditoria. Índices cobrem escopo, atores, status e datas; CPF, CNS e CNES opcionais são únicos no escopo.
+## Sistema Transversal de Alertas e Mensagens
 
-São criadas idempotentemente as 27 permissões `saude.*` solicitadas, incluindo `saude.prontuario.visualizar`, `saude.prontuario.retificar` e `saude.exportar`. A decisão continua persistida e fail-closed.
+Implementado no layout compartilhado (`_Alerts.cshtml`, `sigov-alerts.js`, `sigov-components.css`):
+1. **Banners de Página (TempData):** `ToastOk`/`Success` (verde), `ToastAviso`/`Warning` (âmbar) e `ToastErro`/`Error` (vermelho) após padrão POST-Redirect-Get. Acessíveis com `role="status"` e `role="alert"`, auto-dismiss em 8 segundos para sucesso e permanência para erros.
+2. **Toast Stack:** Notificações flutuantes empilháveis (máximo 3 visíveis simultaneamente), `aria-live="polite"`.
+3. **Diálogos de Confirmação (`data-confirm`):** Interceptação global de formulários e botões destrutivos ou irreversíveis, exibindo modal acessível do design system com fallback seguro.
+4. **Proteção LGPD:** Mensagens e toasts jamais exibem dados clínicos, queixas, SOAP ou documentos completos.
 
-## Rotas
+## O que esta entrega NÃO faz
 
-MVC: `/Saude`, `/Saude/Unidades[/Nova]`, `/Saude/Pacientes[/Novo|/Detalhe/{id}]`, `/Saude/Profissionais[/Novo]`, `/Saude/Equipes`, `/Saude/Agenda[/Nova]`, `/Saude/Acolhimentos[/Novo]`, `/Saude/Atendimentos[/Novo|/Detalhe/{id}]`, `/Saude/Vacinacao[/Nova]`, `/Saude/Farmacia[/Dispensar]` e `/Saude/Regulacao[/Novo]`.
+* Não promove a RC50.68 (permanece **BLOCKED**) e não inicia a RC50.69.
+* Não cria novas migrações DDL nem tabelas/colunas adicionais no banco.
+* Não abre nem integra GED/InovaGED.
+* Não reabre FUNC01–FUNC05 como novas features.
+* Não realiza baixa no almoxarifado para dispensações sem vínculo seguro de `material_id`.
 
-API: dashboard, unidades, pacientes, profissionais, agenda, atendimentos/prontuário, vacinação, farmácia, regulação e exportações sob `/api/saude`; os contratos preexistentes foram reaproveitados. Operações sem autorização persistida retornam falha e nenhuma coleção demonstrativa.
+## Rotas e Telas MVC
 
-GED/InovaGED permanece adiado para a etapa final. FUNC06 não promove a RC50.68, que continua **BLOCKED**, e não inicia nem marca RC50.69.
+* `/Saude` (Dashboard operacional com cards reais, contagens de risco sem exposição clínica e regras vigentes)
+* `/Saude/Unidades` e `/Saude/Unidades/Nova` (Gestão de Unidades de Saúde)
+* `/Saude/Pacientes`, `/Saude/Pacientes/Novo` e `/Saude/Pacientes/Detalhe/{id}` (Cadastro e ficha do paciente)
+* `/Saude/Profissionais` e `/Saude/Profissionais/Novo` (Gestão de profissionais de saúde e especialidades)
+* `/Saude/Agenda` e `/Saude/Agenda/Nova` (Agendamento ambulatorial e cancelamento com motivo)
+* `/Saude/Atendimentos`, `/Saude/Atendimentos/Novo` e `/Saude/Atendimentos/Prontuario/{id}` (Acolhimento, Atendimento SOAP e Prontuário Eletrônico com retificação auditada)
+* `/Saude/Vacinacao` e `/Saude/Vacinacao/Nova` (Registro de imunização e conferência de lote)
+* `/Saude/Farmacia` e `/Saude/Farmacia/Dispensar` (Dispensação de medicamentos e monitoramento de estoque)
+* `/Saude/Regulacao` e `/Saude/Regulacao/Nova` (Regulação, encaminhamentos e devoluções justificadas)
+

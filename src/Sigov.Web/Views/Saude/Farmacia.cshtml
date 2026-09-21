@@ -1,6 +1,107 @@
 @model Sigov.Web.Models.Saude.FarmaciaProdutoFormViewModel
-@{ ViewData["Title"] = "Farmácia"; }
-<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Farmácia</h1><p class="text-muted">Dados sensíveis são mascarados por padrão e carregados via Ajax.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saudeFormModal">Novo</button></div>
-<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-striped" id="saude-grid" data-api="/api/saude/farmacia/produtos"><thead><tr><th>ID</th><th>Descrição</th><th>Status</th></tr></thead><tbody><tr><td colspan="3">Carregando...</td></tr></tbody></table></div></div></div>
-<div class="modal fade" id="saudeFormModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Farmácia</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">@Html.AntiForgeryToken()<partial name="_FormFarmaciaProduto" model="Model" /></div></div></div></div>
-@section Scripts { <script src="~/js/modules/saude.farmacia.js"></script> }
+@using Sigov.Application.Saude
+@{
+    ViewData["Title"] = "Farmácia Municipal";
+    var estoque = ViewBag.Estoque as IEnumerable<FarmaciaEstoqueResponse> ?? Array.Empty<FarmaciaEstoqueResponse>();
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Saude">Saúde</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Farmácia</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1>Farmácia e Dispensação de Medicamentos</h1>
+    <p class="text-muted mb-0">Controle de dispensação de medicamentos e insumos de atenção básica.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#dispensacaoModal">Dispensar Medicamento</button>
+</div>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Quantidade > 0. Só baixa estoque se o medicamento estiver vinculado ao almoxarifado.</p>
+    <ul>
+      <li><strong>Controle de Saldo:</strong> Caso o item possua saldo controlado no almoxarifado, o sistema exige saldo suficiente para autorizar a entrega.</li>
+      <li><strong>Sem Vínculo de Estoque:</strong> Itens cadastrados exclusivamente no catálogo clínico registram a dispensação para o prontuário sem dedução de estoque.</li>
+      <li><strong>Medicamento Ativo:</strong> Medicamentos inativados na rede municipal têm a dispensação automaticamente bloqueada.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="alert alert-warning mb-4" role="status">
+  <div class="d-flex align-items-center">
+    <div>
+      <strong>Aviso de Estoque Integrado:</strong> Sem vínculo de estoque. Dispensação não baixa almox. O abatimento físico só ocorre em itens vinculados ao almoxarifado municipal.
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+    <span>Saldos em Estoque por Estabelecimento</span>
+    <span class="badge text-bg-secondary">Registros: @estoque.Count()</span>
+  </div>
+  <div class="card-body p-0">
+    @if (!estoque.Any())
+    {
+      <div class="text-center py-5">
+        <p class="text-muted mb-3">Nenhum estoque registrado na unidade atual.</p>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#dispensacaoModal">Efetivar Dispensação</button>
+      </div>
+    }
+    else
+    {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Unidade</th>
+              <th>Produto ID</th>
+              <th>Lote</th>
+              <th>Validade</th>
+              <th>Quantidade Disponível</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var e in estoque)
+            {
+              <tr>
+                <td class="fw-semibold">#@e.Id</td>
+                <td>Unidade #@e.UnidadeSaudeId</td>
+                <td>Medicamento #@e.FarmaciaProdutoId</td>
+                <td>@(string.IsNullOrWhiteSpace(e.Lote) ? "—" : e.Lote)</td>
+                <td>@(e.Validade.HasValue ? e.Validade.Value.ToString("dd/MM/yyyy") : "—")</td>
+                <td>
+                  <span class="fw-bold @(e.Quantidade <= 10 ? "text-danger" : "text-success")">
+                    @e.Quantidade.ToString("N0")
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<div class="modal fade" id="dispensacaoModal" tabindex="-1" aria-labelledby="dispensacaoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="dispensacaoModalLabel">Dispensar Medicamento ao Paciente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <partial name="_ModalDispensacao" />
+      </div>
+    </div>
+  </div>
+</div>
+

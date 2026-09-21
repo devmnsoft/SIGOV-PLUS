@@ -1,2 +1,49 @@
 @model Sigov.Web.Models.Saude.UnidadeSaudeFormViewModel
-<form id="form-unidade-saude" class="saude-ajax-form" data-api="/api/saude/unidades">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-4"><label asp-for="Codigo" class="form-label"></label><input asp-for="Codigo" class="form-control" /></div><div class="col-md-8"><label asp-for="Nome" class="form-label"></label><input asp-for="Nome" class="form-control" /></div><div class="col-md-4"><label asp-for="TipoUnidade" class="form-label"></label><input asp-for="TipoUnidade" class="form-control" /></div><div class="col-md-4"><label asp-for="Cnes" class="form-label"></label><input asp-for="Cnes" class="form-control" /></div><div class="col-md-2"><label asp-for="Latitude" class="form-label"></label><input asp-for="Latitude" class="form-control" /></div><div class="col-md-2"><label asp-for="Longitude" class="form-label"></label><input asp-for="Longitude" class="form-control" /></div></div><button class="btn btn-primary mt-3">Salvar</button></form>
+
+<form method="post" action="/Saude/Unidades/Nova">
+  @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label asp-for="Codigo" class="form-label">Código <span class="text-danger">*</span></label>
+      <input asp-for="Codigo" class="form-control" placeholder="ex: UBS-CENTRO" required />
+      <span asp-validation-for="Codigo" class="text-danger small"></span>
+    </div>
+    <div class="col-md-8">
+      <label asp-for="Nome" class="form-label">Nome da Unidade <span class="text-danger">*</span></label>
+      <input asp-for="Nome" class="form-control" placeholder="Nome completo do estabelecimento" required />
+      <span asp-validation-for="Nome" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="TipoUnidade" class="form-label">Tipo de Estabelecimento</label>
+      <select asp-for="TipoUnidade" class="form-select">
+        <option value="BASICA">Unidade Básica de Saúde (UBS)</option>
+        <option value="POLICLINICA">Policlínica Municipal</option>
+        <option value="PRONTO_ATENDIMENTO">Pronto Atendimento (PA / UPA)</option>
+        <option value="HOSPITAL">Hospital Geral / Regional</option>
+        <option value="CAPS">Centro de Atenção Psicossocial (CAPS)</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="Cnes" class="form-label">CNES</label>
+      <input asp-for="Cnes" class="form-control" placeholder="Número CNES (7 dígitos)" maxlength="20" />
+      <span asp-validation-for="Cnes" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Situação</label>
+      <select name="Situacao" class="form-select">
+        <option value="ATIVA" selected>ATIVA</option>
+        <option value="INATIVA">INATIVA</option>
+      </select>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Observação</label>
+      <input type="text" name="Observacao" class="form-control" placeholder="Informações de funcionamento, horário ou território" />
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-primary">Salvar Unidade</button>
+  </div>
+</form>
+

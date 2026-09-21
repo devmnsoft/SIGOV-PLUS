@@ -1,1 +1,73 @@
-<div class="alert alert-secondary">Componente estrutural Saúde/ACS com proteção LGPD e auditoria.</div>
+@using Sigov.Application.Saude
+@{
+    var unidades = ViewBag.Unidades as IEnumerable<UnidadeSaudeResponse> ?? Array.Empty<UnidadeSaudeResponse>();
+    var produtos = ViewBag.Produtos as IEnumerable<FarmaciaProdutoResponse> ?? Array.Empty<FarmaciaProdutoResponse>();
+    var pacientes = ViewBag.Pacientes as IEnumerable<PacienteResumoResponse> ?? Array.Empty<PacienteResumoResponse>();
+    var profissionais = ViewBag.Profissionais as IEnumerable<ProfissionalSaudeResponse> ?? Array.Empty<ProfissionalSaudeResponse>();
+}
+
+<form method="post" action="/Saude/Farmacia/Dispensar">
+  @Html.AntiForgeryToken()
+  <div class="alert alert-warning small mb-3">
+    <strong>Aviso de Integração:</strong> Medicamentos sem vínculo direto ao almoxarifado registram a dispensação sem baixa atômica de saldo.
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label">Unidade Dispensadora <span class="text-danger">*</span></label>
+      <select name="UnidadeSaudeId" class="form-select" required>
+        <option value="">Selecione a unidade...</option>
+        @foreach (var u in unidades)
+        {
+          <option value="@u.Id">@u.Nome (@u.Codigo)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Paciente <span class="text-danger">*</span></label>
+      <select name="PacienteId" class="form-select" required>
+        <option value="">Selecione o paciente...</option>
+        @foreach (var pac in pacientes)
+        {
+          <option value="@pac.Id">@pac.CodigoPaciente (CNS: @pac.CartaoSus)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Medicamento / Produto <span class="text-danger">*</span></label>
+      <select name="FarmaciaProdutoId" class="form-select" required>
+        <option value="">Selecione o medicamento...</option>
+        @foreach (var prod in produtos)
+        {
+          <option value="@prod.Id">@prod.Nome (@prod.Codigo - @prod.UnidadeMedida)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Profissional Prescritor</label>
+      <select name="ProfissionalSaudeId" class="form-select">
+        <option value="">Selecione o prescritor...</option>
+        @foreach (var pr in profissionais)
+        {
+          <option value="@pr.Id">@pr.CodigoProfissional (@pr.TipoProfissional)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Quantidade a Dispensar <span class="text-danger">*</span></label>
+      <input type="number" name="Quantidade" class="form-control" min="1" step="1" value="1" required />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Lote (se controlado)</label>
+      <input type="text" name="Lote" class="form-control" placeholder="Número do lote do insumo" />
+    </div>
+    <div class="col-12">
+      <label class="form-label">Observações / Posologia</label>
+      <input type="text" name="Observacao" class="form-control" placeholder="Instruções de uso ou número da receita médica" />
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-primary">Efetivar Dispensação</button>
+  </div>
+</form>
+
