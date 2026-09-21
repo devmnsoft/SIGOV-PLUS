@@ -1,20 +1,114 @@
 @model Sigov.Web.Models.Saneamento.SaneamentoConsumidorFormViewModel
-@{ ViewData["Title"] = "Consumidores"; }
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div><h1 class="h3 mb-0">Consumidores</h1><p class="text-muted mb-0">Módulo Saneamento • dados pessoais mascarados por padrão.</p></div>
-  <button class="btn btn-primary" data-permission="saneamento.dashboard.visualizar" id="btn-san-refresh">Atualizar</button>
-</div>
-<div class="card mb-3"><div class="card-body">
-  @Html.AntiForgeryToken()
-  <div class="row g-3 saneamento-form" data-endpoint="consumidores">
-    <div class="col-md-3"><label class="form-label">Identificador relacionado</label><input class="form-control" name="referenciaId" type="number" min="1"></div>
-    <div class="col-md-3"><label class="form-label">Código/Número</label><input class="form-control" name="codigo" maxlength="80"></div>
-    <div class="col-md-3"><label class="form-label">Status/Situação</label><input class="form-control" name="situacao" value="ATIVA" maxlength="40"></div>
-    <div class="col-md-3"><label class="form-label">Latitude</label><input class="form-control" name="latitude" type="number" step="0.00000001" min="-90" max="90"></div>
-    <div class="col-md-3"><label class="form-label">Longitude</label><input class="form-control" name="longitude" type="number" step="0.00000001" min="-180" max="180"></div>
-    <div class="col-md-9"><label class="form-label">Descrição/Observação</label><input class="form-control" name="descricao" maxlength="250"></div>
+@using Sigov.Application.Saneamento
+@using Sigov.Domain.Common
+@{
+    ViewData["Title"] = "Consumidores — Saneamento";
+    var lista = ViewBag.Consumidores as PagedResult<SaneamentoConsumidorResponse>;
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Saneamento">Saneamento</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Consumidores</li>
+  </ol>
+</nav>
+
+<section class="education-hero mb-4" aria-labelledby="consumidor-title">
+  <div>
+    <span class="badge text-bg-primary mb-2">Saneamento · Cadastro</span>
+    <h1 id="consumidor-title">Consumidores</h1>
+    <p>Matrícula é única na entidade. Cliente inativo não fatura.</p>
   </div>
-  <div class="mt-3"><button class="btn btn-success btn-san-save" type="button">Salvar via Ajax</button><span class="ms-2 text-muted san-loading d-none">Carregando...</span></div>
-</div></div>
-<div class="card"><div class="card-header">Registros paginados</div><div class="card-body"><div class="table-responsive"><table class="table table-striped align-middle" id="san-grid" data-endpoint="consumidores"><thead><tr><th>ID</th><th>Código/Número</th><th>Situação</th><th>Resumo</th></tr></thead><tbody></tbody></table></div><nav><ul class="pagination" id="san-pagination"></ul></nav></div></div>
-@section Scripts { <script src="~/js/modules/saneamento.consumidores.js"></script> }
+</section>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Cadastre e consulte consumidores de saneamento. Documentos pessoais são mascarados por padrão. Para acesso completo, solicite permissão <code>saneamento.consumidor.visualizar_dados_completos</code>.</p>
+  </div>
+</details>
+
+<div class="card mb-4">
+  <div class="card-header bg-white fw-bold">Novo Consumidor</div>
+  <div class="card-body">
+    <form method="post" action="/Saneamento/Consumidores/Criar">
+      @Html.AntiForgeryToken()
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label" for="pessoaId">Pessoa (ID)</label>
+          <input class="form-control" id="pessoaId" name="PessoaId" type="number" min="1" required />
+          <span asp-validation-for="PessoaId" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="codigoConsumidor">Código / Matrícula</label>
+          <input class="form-control" id="codigoConsumidor" name="CodigoConsumidor" maxlength="30" placeholder="Automático se vazio" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="tipoConsumidor">Tipo</label>
+          <select class="form-select" id="tipoConsumidor" name="TipoConsumidor">
+            <option value="PESSOA_FISICA" selected>Pessoa Física</option>
+            <option value="PESSOA_JURIDICA">Pessoa Jurídica</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label" for="situacaoCons">Situação</label>
+          <select class="form-select" id="situacaoCons" name="Situacao">
+            <option value="ATIVO" selected>Ativo</option>
+            <option value="INATIVO">Inativo</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Cadastrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+    <span>Consumidores Cadastrados</span>
+    <a class="btn btn-sm btn-outline-secondary" href="/Saneamento/Exportar/consumidores">Exportar CSV</a>
+  </div>
+  <div class="card-body">
+    @if (lista is null || !lista.Items.Any())
+    {
+      <div class="text-center py-4 text-muted">
+        <p class="mb-1 fw-bold">Nenhum consumidor cadastrado.</p>
+        <p>Utilize o formulário acima para cadastrar o primeiro consumidor.</p>
+      </div>
+    }
+    else
+    {
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Situação</th><th>Ações</th></tr>
+          </thead>
+          <tbody>
+          @foreach (var c in lista.Items)
+          {
+            <tr>
+              <td>@c.CodigoConsumidor</td>
+              <td>@(c.NomePessoa ?? "—")</td>
+              <td><span class="badge text-bg-secondary">@c.TipoConsumidor</span></td>
+              <td>
+                @if (c.Situacao == "ATIVO")
+                {
+                  <span class="badge text-bg-success">Ativo</span>
+                }
+                else
+                {
+                  <span class="badge text-bg-danger">Inativo</span>
+                }
+              </td>
+              <td><a class="btn btn-sm btn-outline-primary" href="/Saneamento/ConsumidorDetalhe?id=@c.Id">Detalhe</a></td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
