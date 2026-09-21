@@ -8,8 +8,30 @@
     <span class="badge text-bg-warning mb-2">SaaS Admin</span>
     <h1 class="h2">@Model.Name</h1>
     <p class="text-muted">Entidades, usuários, perfis e contratos vigentes. Catálogo e preço global permanecem exclusivos do SuperAdmin.</p>
+  <div class="d-flex gap-2">
+    @if (canManage)
+    {
+      <form method="post" action="/SaasAdmin/Tenants/@Model.Id/AlternarContexto" class="d-inline">
+        @Html.AntiForgeryToken()
+        <button class="btn btn-outline-primary" type="submit" title="Assumir o contexto deste cliente para testes autorizados">
+          Alternar Contexto
+        </button>
+      </form>
+      @if (Model.Status == "BLOQUEADO")
+      {
+        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalDesbloquearTenant">
+          Desbloquear Cliente
+        </button>
+      }
+      else
+      {
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalBloquearTenant">
+          Bloquear Cliente
+        </button>
+      }
+    }
+    <a class="btn btn-outline-secondary" href="/SaasAdmin/Tenants">Voltar</a>
   </div>
-  <a class="btn btn-outline-secondary" href="/SaasAdmin/Tenants">Voltar</a>
 </section>
 @if (TempData["SaasAdminError"] is string error)
 {
@@ -49,16 +71,74 @@
     }
   </div>
   <div class="tab-pane fade" id="tab-usuarios" role="tabpanel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="h5 mb-0">Usuários vinculados</h3>
+      @if (canManage)
+      {
+        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoUsuario">
+          + Novo Usuário
+        </button>
+      }
+    </div>
     @if (Model.Users.Count == 0)
     {
       <div class="alert alert-info" role="status">Nenhum usuário neste tenant.</div>
     }
     else
     {
-      <div class="card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Usuário</th><th>E-mail</th><th>Perfis</th><th>Status</th></tr></thead><tbody>
+      <div class="card"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Usuário</th><th>E-mail</th><th>Perfis</th><th>Status</th>@if (canManage) { <th>Ações</th> }</tr></thead><tbody>
       @foreach (var user in Model.Users)
       {
-        <tr><td>@user.Name</td><td>@user.Email</td><td>@(user.Profiles.Count == 0 ? "—" : string.Join(", ", user.Profiles))</td><td>@(user.Active ? "Ativo" : "Inativo")</td></tr>
+        <tr>
+          <td><strong>@user.Name</strong></td>
+          <td>@user.Email</td>
+          <td>@(user.Profiles.Count == 0 ? "—" : string.Join(", ", user.Profiles))</td>
+          <td>
+            @if (user.Blocked)
+            {
+              <span class="badge bg-danger">Bloqueado</span>
+            }
+            else if (user.Active)
+            {
+              <span class="badge bg-success">Ativo</span>
+            }
+            else
+            {
+              <span class="badge bg-secondary">Inativo</span>
+            }
+          </td>
+          @if (canManage)
+          {
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                @if (user.Blocked)
+                {
+                  <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Usuarios/@user.Id/Desbloquear" class="d-inline" onsubmit="return confirm('Desbloquear o acesso do usuário @user.Name?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="justification" value="Desbloqueio efetuado pelo SuperAdmin" />
+                    <button class="btn btn-outline-success btn-sm" type="submit">Desbloquear</button>
+                  </form>
+                }
+                else
+                {
+                  <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Usuarios/@user.Id/Bloquear" class="d-inline" onsubmit="return confirm('Bloquear temporariamente o acesso do usuário @user.Name?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="justification" value="Bloqueio administrativo pelo SuperAdmin" />
+                    <button class="btn btn-outline-warning btn-sm" type="submit">Bloquear</button>
+                  </form>
+                }
+                @if (user.Active)
+                {
+                  <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Usuarios/@user.Id/Inativar" class="d-inline ms-1" onsubmit="return confirm('Inativar o cadastro do usuário @user.Name?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="justification" value="Inativação administrativa pelo SuperAdmin" />
+                    <button class="btn btn-outline-secondary btn-sm" type="submit">Inativar</button>
+                  </form>
+                }
+              </div>
+            </td>
+          }
+        </tr>
       }
       </tbody></table></div></div>
     }
@@ -145,7 +225,96 @@
   </div>
   <div class="tab-pane fade" id="tab-auditoria" role="tabpanel">
     <div class="card card-body">
-      <p class="mb-0">Cada contratação, suspensão e reativação grava auditoria antes/depois, usuário e correlation id. O histórico imutável permanece em tenant_modulo_contratado_historico.</p>
+      <p class="mb-0">Cada contratação, suspensão, bloqueio e reativação grava auditoria antes/depois, usuário e correlation id. O histórico imutável permanece em tenant_modulo_contratado_historico e sigov.auditoria_evento.</p>
     </div>
   </div>
 </div>
+
+@if (canManage)
+{
+  <div class="modal fade" id="modalBloquearTenant" tabindex="-1" aria-labelledby="lblBloquearTenant" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Bloquear">
+          @Html.AntiForgeryToken()
+          <div class="modal-header">
+            <h5 class="modal-title" id="lblBloquearTenant">Bloquear Cliente</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <p>O bloqueio impede o acesso de todos os usuários deste cliente. A vigência dos contratos e os dados persistidos serão mantidos intactos.</p>
+            <div class="mb-3">
+              <label for="justBloqueio" class="form-label">Justificativa obrigatória</label>
+              <textarea id="justBloqueio" name="justification" class="form-control" required minlength="5" placeholder="Motivo administrativo do bloqueio"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger">Confirmar Bloqueio</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalDesbloquearTenant" tabindex="-1" aria-labelledby="lblDesbloquearTenant" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Desbloquear">
+          @Html.AntiForgeryToken()
+          <div class="modal-header">
+            <h5 class="modal-title" id="lblDesbloquearTenant">Desbloquear Cliente</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <p>O desbloqueio reativa o acesso normal para todos os usuários autorizados deste cliente.</p>
+            <div class="mb-3">
+              <label for="justDesbloqueio" class="form-label">Justificativa</label>
+              <textarea id="justDesbloqueio" name="justification" class="form-control" required minlength="5" placeholder="Motivo do desbloqueio"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Confirmar Desbloqueio</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalNovoUsuario" tabindex="-1" aria-labelledby="lblNovoUsuario" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="/SaasAdmin/Tenants/@Model.Id/Usuarios/Criar">
+          @Html.AntiForgeryToken()
+          <div class="modal-header">
+            <h5 class="modal-title" id="lblNovoUsuario">Criar Usuário no Cliente</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="novoNome" class="form-label">Nome Completo</label>
+              <input id="novoNome" name="name" class="form-control" required maxlength="150" />
+            </div>
+            <div class="mb-3">
+              <label for="novoEmail" class="form-label">E-mail Institucional</label>
+              <input id="novoEmail" name="email" type="email" class="form-control" required maxlength="250" />
+            </div>
+            <div class="mb-3">
+              <label for="novoLogin" class="form-label">Login (opcional, padrão: e-mail)</label>
+              <input id="novoLogin" name="login" class="form-control" maxlength="100" />
+            </div>
+            <div class="mb-3">
+              <label for="novoPerfil" class="form-label">Código do Perfil Inicial (opcional)</label>
+              <input id="novoPerfil" name="perfilCodigo" class="form-control" placeholder="Ex: ADMIN_TENANT, OPERADOR" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Cadastrar Usuário</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

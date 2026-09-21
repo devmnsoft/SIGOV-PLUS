@@ -16,7 +16,7 @@ public sealed record SaasTenantListItem(
 public sealed record SaasTenantListPage(IReadOnlyList<SaasTenantListItem> Items, int Page, int PageSize, int Total);
 
 public sealed record SaasTenantEntityItem(long Id, string Name, string? Type, string? Esfera);
-public sealed record SaasTenantUserItem(long Id, string Name, string Email, bool Active, IReadOnlyList<string> Profiles);
+public sealed record SaasTenantUserItem(long Id, string Name, string Email, bool Active, IReadOnlyList<string> Profiles, bool Blocked = false);
 public sealed record SaasTenantContractItem(
     long Id,
     string ModuleCode,
@@ -52,6 +52,33 @@ public sealed record SaasModuleContractCommand(
     string Justification,
     DateTimeOffset? ExpectedUpdatedAt = null);
 
+public sealed record SaasTenantStatusChangeCommand(
+    long TenantId,
+    string TargetStatus,
+    string Justification,
+    DateTimeOffset? ExpectedUpdatedAt = null);
+
+public sealed record SaasCreateUserCommand(
+    long TenantId,
+    string Name,
+    string Email,
+    string? Login = null,
+    string? TipoUsuario = "TENANT_USER",
+    string? PerfilCodigo = null);
+
+public sealed record SaasUpdateUserCommand(
+    long TenantId,
+    long UserId,
+    string Name,
+    string Email);
+
+public sealed record SaasUserStatusChangeCommand(
+    long TenantId,
+    long UserId,
+    bool Active,
+    bool Blocked,
+    string Justification);
+
 public sealed record SaasModuleContractResult(bool Success, string Message, SaasTenantContractItem? Contract = null);
 
 public interface ISaasTenantAdministrationService
@@ -61,4 +88,8 @@ public interface ISaasTenantAdministrationService
     Task<SaasModuleContractResult> ContractAsync(SaasModuleContractCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
     Task<SaasModuleContractResult> SuspendAsync(SaasModuleContractCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
     Task<SaasModuleContractResult> ReactivateAsync(SaasModuleContractCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
+    Task<SaasModuleContractResult> ChangeTenantStatusAsync(SaasTenantStatusChangeCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
+    Task<SaasModuleContractResult> CreateUserAsync(SaasCreateUserCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
+    Task<SaasModuleContractResult> UpdateUserAsync(SaasUpdateUserCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
+    Task<SaasModuleContractResult> ChangeUserStatusAsync(SaasUserStatusChangeCommand command, long userId, string correlationId, CancellationToken cancellationToken = default);
 }

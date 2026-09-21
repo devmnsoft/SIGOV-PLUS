@@ -104,6 +104,100 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         return RedirectToAction(nameof(TenantDetalhe), new { id });
     }
 
+    [HttpPost("Tenants/{id:long}/Bloquear")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BloquearTenant(long id, string justification, DateTimeOffset? expectedUpdatedAt, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ChangeTenantStatusAsync(new(id, "BLOQUEADO", justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Desbloquear")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DesbloquearTenant(long id, string justification, DateTimeOffset? expectedUpdatedAt, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ChangeTenantStatusAsync(new(id, "ATIVO", justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Usuarios/Criar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CriarUsuario(long id, string name, string email, string? login, string? perfilCodigo, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.CreateUserAsync(new(id, name, email, login, "TENANT_USER", perfilCodigo), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Usuarios/{userId:long}/Editar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarUsuario(long id, long userId, string name, string email, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.UpdateUserAsync(new(id, userId, name, email), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Usuarios/{userId:long}/Bloquear")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BloquearUsuario(long id, long userId, string justification, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ChangeUserStatusAsync(new(id, userId, true, true, justification ?? string.Empty), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Usuarios/{userId:long}/Desbloquear")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DesbloquearUsuario(long id, long userId, string justification, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ChangeUserStatusAsync(new(id, userId, true, false, justification ?? string.Empty), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/Usuarios/{userId:long}/Inativar")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> InativarUsuario(long id, long userId, string justification, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        var identity = CurrentUserId();
+        if (identity is null) return Forbid();
+        var result = await tenants.ChangeUserStatusAsync(new(id, userId, false, false, justification ?? string.Empty), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
+        return RedirectToAction(nameof(TenantDetalhe), new { id });
+    }
+
+    [HttpPost("Tenants/{id:long}/AlternarContexto")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AlternarContexto(long id, CancellationToken ct)
+    {
+        if (!await Allowed("administrar", id, ct)) return Forbid();
+        Response.Cookies.Append("sigov_tenant_override", id.ToString(CultureInfo.InvariantCulture), new() { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = Request.IsHttps });
+        TempData["SaasAdminSuccess"] = $"Contexto alternado para o tenant #{id}.";
+        return Redirect("/Dashboard");
+    }
+
     [HttpGet("NovoTenant"), HttpGet("Clientes/Create")]
     public async Task<IActionResult> NovoTenant(CancellationToken ct) => await Allowed("administrar", null, ct) ? Redirect("/Saas/Tenants") : Forbid();
 

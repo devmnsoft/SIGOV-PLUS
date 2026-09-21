@@ -49,7 +49,7 @@ public sealed class SaasTenantAdministrationService(
             header.Plan,
             header.LastActivityUtc,
             entities,
-            users.Select(user => new SaasTenantUserItem(user.Id, user.Name, user.Email, user.Active, SplitProfiles(user.Profiles))).ToArray(),
+            users.Select(user => new SaasTenantUserItem(user.Id, user.Name, user.Email, user.Active, SplitProfiles(user.Profiles), user.Blocked)).ToArray(),
             contracts,
             catalogItems.Select(item => new ModuleCatalogOption(item.Codigo, item.Nome, item.Dependencias)).ToArray());
     }
@@ -62,6 +62,208 @@ public sealed class SaasTenantAdministrationService(
 
     public Task<SaasModuleContractResult> ReactivateAsync(SaasModuleContractCommand command, long userId, string correlationId, CancellationToken cancellationToken = default) =>
         MutateAsync(command, userId, correlationId, "HABILITADO", "SAAS_MODULO_REATIVAR", cancellationToken);
+
+    public async Task<SaasModuleContractResult> ChangeTenantStatusAsync(SaasTenantStatusChangeCommand command, long userId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        if (command.TenantId <= 0) return new(false, "Tenant obrigatório.");
+        if (string.IsNullOrWhiteSpace(command.Justification) || command.Justification.Trim().Length < 5)
+            return new(false, "Justificativa obrigatória com no mínimo 5 caracteres.");
+        var target = command.TargetStatus?.ToUpperInvariant();
+        if (target is not ("ATIVO" or "BLOQUEADO" or "SUSPENSO" or "INATIVO"))
+            return new(false, "Status inválido para o tenant.");
+
+        using var connection = context.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+        try
+        {
+            var current = await connection.QuerySingleOrDefaultAsync<string>("select upper(status) from sigov.tenant where id=@TenantId and not is_deleted for update", new { command.TenantId }, tx);
+            if (current is null) return Rollback(tx, "Tenant não encontrado.");
+            if (current == target) return new(true, $"Tenant já se encontra no status {target}.");
+
+            var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
+            var ativo = target != "INATIVO";
+            await connection.ExecuteAsync(new CommandDefinition(
+                "update sigov.tenant set status=@Status, ativo=@Ativo, updated_at=now(), updated_by=@UserId, correlation_id=@CorrelationId where id=@TenantId",
+                new { command.TenantId, Status = target, Ativo = ativo, UserId = userId, CorrelationId = correlation }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                AuditSql,
+                new {
+                    command.TenantId,
+                    UserId = userId,
+                    Acao = target == "BLOQUEADO" ? "SAAS_TENANT_BLOQUEAR" : target == "ATIVO" ? "SAAS_TENANT_DESBLOQUEAR" : "SAAS_TENANT_ALTERAR_STATUS",
+                    EntidadeId = command.TenantId.ToString(),
+                    CorrelationId = correlation,
+                    Antes = JsonSerializer.Serialize(new { status = current }),
+                    Depois = JsonSerializer.Serialize(new { status = target, justificativa = command.Justification })
+                }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            tx.Commit();
+            return new(true, $"Status do cliente alterado para {target}.");
+        }
+        catch (Exception)
+        {
+            tx.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<SaasModuleContractResult> CreateUserAsync(SaasCreateUserCommand command, long userId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        if (command.TenantId <= 0) return new(false, "Tenant obrigatório.");
+        if (string.IsNullOrWhiteSpace(command.Name) || string.IsNullOrWhiteSpace(command.Email))
+            return new(false, "Nome e e-mail são obrigatórios.");
+
+        var login = string.IsNullOrWhiteSpace(command.Login) ? command.Email.Trim().ToLowerInvariant() : command.Login.Trim();
+        using var connection = context.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+        try
+        {
+            var exists = await connection.ExecuteScalarAsync<bool>(
+                "select exists(select 1 from sigov.usuario where (email=@Email or login=@Login) and tenant_id=@TenantId and not is_deleted)",
+                new { command.TenantId, Email = command.Email.Trim(), Login = login }, tx);
+            if (exists) return Rollback(tx, "Já existe usuário cadastrado com este e-mail ou login neste cliente.");
+
+            var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
+            var hash = "$2a$11$e8p2i4/rA3vU9bkWc0H3z.qV9eFm7xU2vS0LzP5iU9j0eO2yP6yG2";
+            var newUserId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                """
+                insert into sigov.usuario (tenant_id, nome, login, email, senha_hash, ativo, bloqueado, tipo_usuario, created_by, correlation_id)
+                values (@TenantId, @Name, @Login, @Email, @Hash, true, false, @TipoUsuario, @UserId, @CorrelationId)
+                returning id
+                """,
+                new { command.TenantId, Name = command.Name.Trim(), Login = login, Email = command.Email.Trim().ToLowerInvariant(), Hash = hash, TipoUsuario = command.TipoUsuario ?? "TENANT_USER", UserId = userId, CorrelationId = correlation }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(command.PerfilCodigo))
+            {
+                var perfilId = await connection.ExecuteScalarAsync<long?>(
+                    "select id from sigov.perfil_acesso where (codigo_externo=@Codigo or nome=@Codigo) and ativo and not is_deleted limit 1",
+                    new { Codigo = command.PerfilCodigo }, tx);
+                if (perfilId.HasValue)
+                {
+                    var grupoId = await connection.ExecuteScalarAsync<long?>(
+                        "select gp.grupo_acesso_id from sigov.grupo_perfil gp where gp.perfil_acesso_id=@PerfilId and gp.ativo and not gp.is_deleted limit 1",
+                        new { PerfilId = perfilId.Value }, tx);
+                    if (grupoId.HasValue)
+                    {
+                        await connection.ExecuteAsync(
+                            "insert into sigov.usuario_grupo(usuario_id, grupo_acesso_id, ativo, created_by, correlation_id) values (@UserId, @GrupoId, true, @CreatedBy, @CorrelationId) on conflict do nothing",
+                            new { UserId = newUserId, GrupoId = grupoId.Value, CreatedBy = userId, CorrelationId = correlation }, tx);
+                    }
+                }
+            }
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                AuditSql,
+                new {
+                    command.TenantId,
+                    UserId = userId,
+                    Acao = "SAAS_USUARIO_CRIAR",
+                    EntidadeId = newUserId.ToString(),
+                    CorrelationId = correlation,
+                    Antes = "{}",
+                    Depois = JsonSerializer.Serialize(new { userId = newUserId, name = command.Name, email = command.Email, login })
+                }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            tx.Commit();
+            return new(true, $"Usuário {command.Name} criado com sucesso.");
+        }
+        catch (Exception)
+        {
+            tx.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<SaasModuleContractResult> UpdateUserAsync(SaasUpdateUserCommand command, long userId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        if (command.TenantId <= 0 || command.UserId <= 0) return new(false, "Tenant e usuário são obrigatórios.");
+        if (string.IsNullOrWhiteSpace(command.Name) || string.IsNullOrWhiteSpace(command.Email))
+            return new(false, "Nome e e-mail são obrigatórios.");
+
+        using var connection = context.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+        try
+        {
+            var before = await connection.QuerySingleOrDefaultAsync<UserRow>(
+                "select id as Id, coalesce(nome, login) as Name, email as Email, (ativo and not is_deleted) as Active, coalesce(bloqueado, false) as Blocked, null as Profiles from sigov.usuario where id=@UserId and tenant_id=@TenantId and not is_deleted for update",
+                new { command.UserId, command.TenantId }, tx);
+            if (before is null) return Rollback(tx, "Usuário não encontrado.");
+
+            var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
+            await connection.ExecuteAsync(new CommandDefinition(
+                "update sigov.usuario set nome=@Name, email=@Email, updated_at=now(), updated_by=@UserId, correlation_id=@CorrelationId where id=@TargetUserId and tenant_id=@TenantId",
+                new { Name = command.Name.Trim(), Email = command.Email.Trim().ToLowerInvariant(), UserId = userId, CorrelationId = correlation, TargetUserId = command.UserId, command.TenantId }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                AuditSql,
+                new {
+                    command.TenantId,
+                    UserId = userId,
+                    Acao = "SAAS_USUARIO_EDITAR",
+                    EntidadeId = command.UserId.ToString(),
+                    CorrelationId = correlation,
+                    Antes = JsonSerializer.Serialize(before),
+                    Depois = JsonSerializer.Serialize(new { name = command.Name, email = command.Email })
+                }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            tx.Commit();
+            return new(true, "Dados do usuário atualizados com sucesso.");
+        }
+        catch (Exception)
+        {
+            tx.Rollback();
+            throw;
+        }
+    }
+
+    public async Task<SaasModuleContractResult> ChangeUserStatusAsync(SaasUserStatusChangeCommand command, long userId, string correlationId, CancellationToken cancellationToken = default)
+    {
+        if (command.TenantId <= 0 || command.UserId <= 0) return new(false, "Tenant e usuário são obrigatórios.");
+        if (string.IsNullOrWhiteSpace(command.Justification) || command.Justification.Trim().Length < 5)
+            return new(false, "Justificativa obrigatória com no mínimo 5 caracteres.");
+
+        using var connection = context.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+        try
+        {
+            var before = await connection.QuerySingleOrDefaultAsync<UserRow>(
+                "select id as Id, coalesce(nome, login) as Name, email as Email, (ativo and not is_deleted) as Active, coalesce(bloqueado, false) as Blocked, null as Profiles from sigov.usuario where id=@UserId and tenant_id=@TenantId and not is_deleted for update",
+                new { command.UserId, command.TenantId }, tx);
+            if (before is null) return Rollback(tx, "Usuário não encontrado.");
+
+            var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
+            await connection.ExecuteAsync(new CommandDefinition(
+                "update sigov.usuario set ativo=@Active, bloqueado=@Blocked, updated_at=now(), updated_by=@UserId, correlation_id=@CorrelationId where id=@TargetUserId and tenant_id=@TenantId",
+                new { Active = command.Active, Blocked = command.Blocked, UserId = userId, CorrelationId = correlation, TargetUserId = command.UserId, command.TenantId }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            var acao = command.Blocked ? "SAAS_USUARIO_BLOQUEAR" : (!command.Active ? "SAAS_USUARIO_INATIVAR" : "SAAS_USUARIO_ATIVAR");
+            await connection.ExecuteAsync(new CommandDefinition(
+                AuditSql,
+                new {
+                    command.TenantId,
+                    UserId = userId,
+                    Acao = acao,
+                    EntidadeId = command.UserId.ToString(),
+                    CorrelationId = correlation,
+                    Antes = JsonSerializer.Serialize(before),
+                    Depois = JsonSerializer.Serialize(new { active = command.Active, blocked = command.Blocked, justificativa = command.Justification })
+                }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            tx.Commit();
+            var desc = command.Blocked ? "bloqueado" : (!command.Active ? "inativado" : "desbloqueado/ativado");
+            return new(true, $"Usuário {desc} com sucesso.");
+        }
+        catch (Exception)
+        {
+            tx.Rollback();
+            throw;
+        }
+    }
 
     private async Task<SaasModuleContractResult> MutateAsync(
         SaasModuleContractCommand command,
@@ -208,7 +410,7 @@ public sealed class SaasTenantAdministrationService(
         string.IsNullOrWhiteSpace(value) ? Array.Empty<string>() : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private sealed record TenantHeader(long Id, string Name, string Status, string Esfera, string? Plan, DateTimeOffset? LastActivityUtc);
-    private sealed record UserRow(long Id, string Name, string Email, bool Active, string? Profiles);
+    private sealed record UserRow(long Id, string Name, string Email, bool Active, string? Profiles, bool Blocked = false);
     private sealed record ContractRow(long Id, string Status, DateOnly? EffectiveFrom, DateOnly? EffectiveUntil,
         DateOnly? CancellationScheduledFor, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
 
@@ -298,13 +500,14 @@ order by e.nome
 
     private const string UsersSql = """
 select u.id as Id, coalesce(u.nome, u.login) as Name, u.email as Email, (u.ativo and not u.is_deleted) as Active,
+       coalesce(u.bloqueado, false) as Blocked,
        string_agg(distinct coalesce(pa.codigo_externo, pa.nome), ',') as Profiles
 from sigov.usuario u
 left join sigov.usuario_grupo ug on ug.usuario_id=u.id and ug.ativo and not ug.is_deleted
 left join sigov.grupo_perfil gp on gp.grupo_acesso_id=ug.grupo_acesso_id and gp.ativo and not gp.is_deleted
 left join sigov.perfil_acesso pa on pa.id=gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
 where u.tenant_id=@TenantId
-group by u.id, u.nome, u.email, u.ativo, u.is_deleted
+group by u.id, u.nome, u.email, u.ativo, u.is_deleted, u.bloqueado
 order by u.nome
 """;
 
