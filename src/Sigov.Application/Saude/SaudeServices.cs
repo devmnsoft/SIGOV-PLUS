@@ -71,8 +71,11 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     }
 
     private async Task<Result> AtualizarAsync(string recurso, string acao, long id, object request, CancellationToken ct)
+        => await AtualizarComPermissaoAsync(recurso, recurso, acao, id, request, ct).ConfigureAwait(false);
+
+    private async Task<Result> AtualizarComPermissaoAsync(string recurso, string permissao, string acao, long id, object request, CancellationToken ct)
     {
-        var guard = await GuardAsync(recurso, acao, ct).ConfigureAwait(false);
+        var guard = await GuardAsync(permissao, acao, ct).ConfigureAwait(false);
         if (guard.IsFailure) return guard;
         try
         {
@@ -140,7 +143,7 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     Task<Result<long>> IAtendimentoSaudeService.CriarAsync(AtendimentoSaudeCreateRequest r, CancellationToken ct) => CriarAsync("atendimento", "criar", r, ct);
     Task<Result> IAtendimentoSaudeService.AtualizarAsync(long id, AtendimentoSaudeUpdateRequest r, CancellationToken ct) => AtualizarAsync("atendimento", "editar", id, r, ct);
     Task<Result> IAtendimentoSaudeService.RegistrarCondutaAsync(long id, RegistrarCondutaRequest r, CancellationToken ct) => AtualizarAsync("atendimento_conduta", "editar", id, r, ct);
-    Task<Result> IAtendimentoSaudeService.RetificarAsync(long id, RetificarAtendimentoRequest r, CancellationToken ct) => string.IsNullOrWhiteSpace(r?.Justificativa) ? Task.FromResult(Fail("Evolução finalizada. Use retificação justificada.")) : AtualizarAsync("atendimento_conduta", "retificar", id, new { Conduta = r.NovaConduta, Cid10 = r.Cid10, Justificativa = r.Justificativa }, ct);
+    Task<Result> IAtendimentoSaudeService.RetificarAsync(long id, RetificarAtendimentoRequest r, CancellationToken ct) => string.IsNullOrWhiteSpace(r?.Justificativa) ? Task.FromResult(Fail("Evolução finalizada. Use retificação justificada.")) : AtualizarComPermissaoAsync("atendimento_retificacao", "prontuario", "retificar", id, new { Conduta = r.NovaConduta, Cid10 = r.Cid10, Justificativa = r.Justificativa }, ct);
     Task<Result> IAtendimentoSaudeService.CancelarAsync(long id, CancellationToken ct) => AtualizarAsync("atendimento_cancelar", "cancelar", id, new { Status = "CANCELADO" }, ct);
     Task<Result<PagedResult<AgendaSaudeResponse>>> IAgendaSaudeService.ListarAsync(AgendaSaudeFiltro f, CancellationToken ct) => ListarAsync<AgendaSaudeResponse>("agenda", "agenda", f, ct);
     Task<Result<long>> IAgendaSaudeService.CriarAsync(AgendaSaudeCreateRequest r, CancellationToken ct) => CriarAsync("agenda", "criar", r, ct);
@@ -215,5 +218,5 @@ public sealed class SaudeService : IUnidadeSaudeService, IProfissionalSaudeServi
     private static bool IsSensivel(string recurso) => recurso.Contains("paciente", StringComparison.OrdinalIgnoreCase) || recurso.Contains("prontuario", StringComparison.OrdinalIgnoreCase) || recurso.Contains("atendimento", StringComparison.OrdinalIgnoreCase) || recurso.Contains("acs_individuo", StringComparison.OrdinalIgnoreCase) || recurso.Contains("vacinacao", StringComparison.OrdinalIgnoreCase) || recurso.Contains("laboratorio", StringComparison.OrdinalIgnoreCase);
     private Task AuditarAsync(string acao, string recurso, string chave, object? anterior, object? novo, CancellationToken ct) => _audit.RegistrarAsync("saude", acao, $"sigov.{Tabela(recurso)}", chave, anterior, novo, ct);
     private Task RegistrarAcessoPessoalAsync(string recurso, string chave, CancellationToken ct) => _audit.RegistrarAsync("saude", "ACESSO_DADO_PESSOAL", $"sigov.{Tabela(recurso)}", chave, null, new { recurso, mascarado = true }, ct);
-    private static string Tabela(string recurso) => recurso switch { "unidade" => "unidade_saude", "profissional" => "profissional_saude", "prontuario_paciente" => "prontuario", "atendimento_conduta" or "atendimento_cancelar" => "atendimento_saude", "agenda_cancelar" => "agenda_saude", "laboratorio" or "laboratorio_resultado" => "laboratorio_exame", "regulacao" or "regulacao_status" => "regulacao_solicitacao", "acs_domicilio" => "acs_cadastro_domiciliar", "acs_individuo" => "acs_cadastro_individual", _ => recurso };
+    private static string Tabela(string recurso) => recurso switch { "unidade" => "unidade_saude", "profissional" => "profissional_saude", "prontuario_paciente" => "prontuario", "atendimento_conduta" or "atendimento_retificacao" or "atendimento_cancelar" => "atendimento_saude", "agenda_cancelar" => "agenda_saude", "laboratorio" or "laboratorio_resultado" => "laboratorio_exame", "regulacao" or "regulacao_status" => "regulacao_solicitacao", "acs_domicilio" => "acs_cadastro_domiciliar", "acs_individuo" => "acs_cadastro_individual", _ => recurso };
 }

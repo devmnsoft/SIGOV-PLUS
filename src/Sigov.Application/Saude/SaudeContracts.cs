@@ -42,14 +42,14 @@ public sealed record FarmaciaEstoqueResponse(long Id, long UnidadeSaudeId, long 
 public sealed record FarmaciaDispensacaoCreateRequest(long UnidadeSaudeId, long PacienteId, long FarmaciaProdutoId, decimal Quantidade, long? ProfissionalSaudeId = null, string? Lote = null, string? Observacao = null);
 public sealed record FarmaciaDispensacaoResponse(long Id, long PacienteId, long FarmaciaProdutoId, decimal Quantidade, DateTimeOffset DataDispensacao);
 
-public sealed record VacinacaoCreateRequest(long UnidadeSaudeId, long PacienteId, string Vacina, string Dose, DateOnly DataAplicacao, long? ProfissionalSaudeId = null, string? Lote = null, string? Fabricante = null, string? Observacao = null);
+public sealed record VacinacaoCreateRequest(long UnidadeSaudeId, long PacienteId, string Vacina, string Dose, DateOnly DataAplicacao, long? ProfissionalSaudeId = null, string? Lote = null, string? Fabricante = null, string? Observacao = null, DateOnly? Validade = null);
 public sealed record VacinacaoResponse(long Id, long PacienteId, string Vacina, string Dose, DateOnly DataAplicacao);
 public sealed record LaboratorioExameCreateRequest(long PacienteId, string TipoExame, long? UnidadeSaudeId = null, long? ProfissionalSolicitanteId = null, string? Observacao = null);
 public sealed record LaboratorioResultadoRequest(Dictionary<string, object?> Resultado, DateOnly? DataResultado = null, string? Observacao = null);
 public sealed record LaboratorioExameResponse(long Id, long PacienteId, string TipoExame, string Status, DateOnly DataSolicitacao, DateOnly? DataResultado);
 public sealed record RegulacaoSolicitacaoCreateRequest(long PacienteId, string TipoSolicitacao, string Prioridade, string Justificativa, long? UnidadeOrigemId = null, string? Especialidade = null);
 public sealed record RegulacaoSolicitacaoResponse(long Id, long PacienteId, string TipoSolicitacao, string Prioridade, string Status, DateOnly DataSolicitacao);
-public sealed record AlterarStatusRequest(string Status);
+public sealed record AlterarStatusRequest(string Status, string? Justificativa = null);
 
 public sealed record AcsMicroareaCreateRequest(long UnidadeSaudeId, string Codigo, string Nome, long? ProfissionalAcsId = null, Dictionary<string, object?>? PoligonoGeoJson = null);
 public sealed record AcsMicroareaResponse(long Id, string Codigo, string Nome, bool Ativo);

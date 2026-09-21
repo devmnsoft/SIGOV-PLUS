@@ -1,14 +1,26 @@
 @model Sigov.Web.Models.Saude.ProfissionalSaudeFormViewModel
 @using Sigov.Application.Saude
+@using Sigov.Application.Core
 @{
     var unidades = ViewBag.Unidades as IEnumerable<UnidadeSaudeResponse> ?? Array.Empty<UnidadeSaudeResponse>();
+    var pessoas = ViewBag.Pessoas as IEnumerable<PessoaResumoResponse> ?? Array.Empty<PessoaResumoResponse>();
 }
 
 <form method="post" action="/Saude/Profissionais/Novo">
   @Html.AntiForgeryToken()
   <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
-  <input type="hidden" name="PessoaId" value="1" />
   <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label">Pessoa <span class="text-danger">*</span></label>
+      <select name="PessoaId" class="form-select" required>
+        <option value="">Selecione a pessoa cadastrada...</option>
+        @foreach (var pessoa in pessoas)
+        {
+          <option value="@pessoa.Id">@pessoa.Nome (@(string.IsNullOrWhiteSpace(pessoa.Documento) ? $"ID {pessoa.Id}" : pessoa.Documento))</option>
+        }
+      </select>
+      <span class="form-text">O profissional será vinculado a esta pessoa no cadastro oficial.</span>
+    </div>
     <div class="col-md-4">
       <label asp-for="CodigoProfissional" class="form-label">Código do Profissional <span class="text-danger">*</span></label>
       <input asp-for="CodigoProfissional" class="form-control" placeholder="ex: MED-0012" required />
@@ -63,4 +75,3 @@
     <button type="submit" class="btn btn-primary">Salvar Profissional</button>
   </div>
 </form>
-
