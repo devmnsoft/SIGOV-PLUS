@@ -17,8 +17,12 @@ if command -v psql >/dev/null 2>&1; then
   if [[ "$pg_major" == 16 ]]; then report PostgreSQL OK "major $pg_major"; else report PostgreSQL INVALID_VERSION "esperado 16; encontrado $pg_major"; status=1; fi
 fi
 
-if [[ -n "${SIGOV_DB_PASSWORD:-}" ]]; then report SIGOV_DB_PASSWORD OK definido; else report SIGOV_DB_PASSWORD MISSING_ENV 'defina sem registrar o valor'; status=1; fi
-[[ -f .env.local ]] && report .env.local OK presente || { report .env.local MISSING_ENV 'copie .env.local.example'; status=1; }
+if [[ -n "${ConnectionStrings__DefaultConnection:-}" ]]; then
+  report ConnectionString OK 'ConnectionStrings__DefaultConnection definida'
+else
+  report ConnectionString MISSING_ENV 'defina ConnectionStrings__DefaultConnection sem registrar o valor'
+  status=1
+fi
 [[ -f global.json ]] && report global.json OK presente || { report global.json MISSING_ENV ausente; status=1; }
 
 port_used() {
@@ -26,7 +30,7 @@ port_used() {
   elif command -v lsof >/dev/null 2>&1; then lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
   else return 2; fi
 }
-for port in 7000 7001 5432; do
+for port in 5000 5001 5432; do
   if port_used "$port"; then report "port:$port" PORT_IN_USE 'há um listener'; status=1
   elif [[ $? -eq 2 ]]; then report "port:$port" MISSING_TOOL 'ss/lsof indisponível'; status=1
   else report "port:$port" OK disponível; fi
