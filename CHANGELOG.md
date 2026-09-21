@@ -1,5 +1,11 @@
 # Changelog
 
+## Estabilização do smoke local — 2026-09-21
+
+- alinhados os defaults do gate de páginas críticas ao contrato oficial local: Web em `http://localhost:5000` e API em `http://localhost:5001`;
+- substituída a sonda inexistente `/health` pelo endpoint público canônico `/api/health/live`;
+- preservados os overrides de ambiente usados pelo gate de produção, inclusive a porta Web alternativa configurada explicitamente pelo workflow.
+
 ## Estabilização de contexto do Kanban — 2026-09-21
 
 - removido o UUID de tenant de desenvolvimento usado como fallback no Kanban operacional;
