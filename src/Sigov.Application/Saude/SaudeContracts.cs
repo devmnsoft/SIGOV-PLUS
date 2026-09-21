@@ -49,7 +49,7 @@ public sealed record LaboratorioResultadoRequest(Dictionary<string, object?> Res
 public sealed record LaboratorioExameResponse(long Id, long PacienteId, string TipoExame, string Status, DateOnly DataSolicitacao, DateOnly? DataResultado);
 public sealed record RegulacaoSolicitacaoCreateRequest(long PacienteId, string TipoSolicitacao, string Prioridade, string Justificativa, long? UnidadeOrigemId = null, string? Especialidade = null);
 public sealed record RegulacaoSolicitacaoResponse(long Id, long PacienteId, string TipoSolicitacao, string Prioridade, string Status, DateOnly DataSolicitacao);
-public sealed record AlterarStatusRequest(string Status);
+public sealed record AlterarStatusRequest(string Status, string? Justificativa = null);
 
 public sealed record AcsMicroareaCreateRequest(long UnidadeSaudeId, string Codigo, string Nome, long? ProfissionalAcsId = null, Dictionary<string, object?>? PoligonoGeoJson = null);
 public sealed record AcsMicroareaResponse(long Id, string Codigo, string Nome, bool Ativo);

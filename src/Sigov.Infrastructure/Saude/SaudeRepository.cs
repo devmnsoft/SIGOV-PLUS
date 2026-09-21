@@ -48,6 +48,18 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
             p["TenantId"] = tenantId; p["EntidadeId"] = entidadeId; p["ExercicioId"] = exercicioId; p["UsuarioId"] = usuarioId; p["Ano"] = DateTimeOffset.UtcNow.Year;
             ApplyDefaults(recurso, p);
 
+            if (recurso is "paciente" or "profissional")
+            {
+                var pessoaId = p.TryGetValue("PessoaId", out var pessoa) && long.TryParse(Convert.ToString(pessoa, System.Globalization.CultureInfo.InvariantCulture), out var parsed)
+                    ? parsed
+                    : 0;
+                var pessoaValida = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                    "select count(*) from sigov.pessoa where id=@PessoaId and tenant_id=@TenantId and ativo=true and not is_deleted",
+                    new { PessoaId = pessoaId, TenantId = tenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (pessoaValida == 0)
+                    throw new InvalidOperationException("Pessoa inexistente ou inativa no tenant atual.");
+            }
+
             if (recurso == "agenda")
             {
                 if (p.TryGetValue("UnidadeSaudeId", out var uid) && uid is not null && long.TryParse(Convert.ToString(uid, System.Globalization.CultureInfo.InvariantCulture), out var uId) && uId > 0)
@@ -127,9 +139,11 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteI
                 if (string.IsNullOrWhiteSpace(motivo))
                     throw new InvalidOperationException("Cancelar este horário? Informe o motivo.");
             }
-            else if (recurso == "atendimento" || recurso == "atendimento_conduta")
+            else if (recurso == "atendimento" || recurso == "atendimento_conduta" || recurso == "atendimento_retificacao")
             {
                 var statusAtual = await connection.ExecuteScalarAsync<string>(new CommandDefinition("select status from sigov.atendimento_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and not is_deleted", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (recurso == "atendimento_retificacao" && !string.Equals(statusAtual, "ATENDIDO", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Somente uma evolução finalizada pode ser retificada.");
                 if (string.Equals(statusAtual, "ATENDIDO", StringComparison.OrdinalIgnoreCase))
                 {
                     var just = p.TryGetValue("Justificativa", out var j) ? Convert.ToString(j, System.Globalization.CultureInfo.InvariantCulture) : null;
@@ -137,7 +151,7 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteI
                         throw new InvalidOperationException("Evolução finalizada. Use retificação justificada.");
                 }
 
-                if (recurso == "atendimento_conduta" || (p.TryGetValue("Status", out var stAtd) && string.Equals(Convert.ToString(stAtd, System.Globalization.CultureInfo.InvariantCulture), "ATENDIDO", StringComparison.OrdinalIgnoreCase)))
+                if (recurso != "atendimento_retificacao" && (recurso == "atendimento_conduta" || (p.TryGetValue("Status", out var stAtd) && string.Equals(Convert.ToString(stAtd, System.Globalization.CultureInfo.InvariantCulture), "ATENDIDO", StringComparison.OrdinalIgnoreCase))))
                 {
                     var risco = await connection.ExecuteScalarAsync<string>(new CommandDefinition("select classificacao_risco from sigov.atendimento_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId", p, tx, cancellationToken: ct)).ConfigureAwait(false);
                     var crInformado = p.TryGetValue("ClassificacaoRisco", out var cr) ? Convert.ToString(cr, System.Globalization.CultureInfo.InvariantCulture) : null;
@@ -155,7 +169,27 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteI
                 }
             }
 
-            await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso), p, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (recurso == "atendimento_retificacao")
+            {
+                const string sql = @"insert into sigov.saude_prontuario_evolucao
+    (tenant_id, entidade_id, atendimento_id, plano, cid, finalizado,
+     retifica_evolucao_id, justificativa_retificacao, created_by)
+select @TenantId, @EntidadeId, @Id, @Conduta, @Cid10, true,
+       (select e.id from sigov.saude_prontuario_evolucao e
+        where e.tenant_id=@TenantId and e.entidade_id=@EntidadeId and e.atendimento_id=@Id
+          and e.finalizado=true
+        order by e.id desc limit 1),
+       @Justificativa, @UsuarioId
+where exists (select 1 from sigov.atendimento_saude a
+              where a.tenant_id=@TenantId and a.entidade_id=@EntidadeId and a.id=@Id
+                and a.status='ATENDIDO' and not a.is_deleted);";
+                var affected = await connection.ExecuteAsync(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (affected == 0) throw new InvalidOperationException("Atendimento finalizado não encontrado para retificação.");
+            }
+            else
+            {
+                await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso), p, tx, cancellationToken: ct)).ConfigureAwait(false);
+            }
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
         }
@@ -261,7 +295,7 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteI
         "acs_visita" => "id as Id,profissional_acs_id as ProfissionalAcsId,data_visita as DataVisita,tipo_visita as TipoVisita,desfecho as Desfecho",
         _ => "id as Id"
     };
-    private static string Table(string recurso) => recurso switch { "unidade" => "unidade_saude", "profissional" => "profissional_saude", "prontuario_paciente" => "prontuario", "atendimento" or "atendimento_conduta" or "atendimento_cancelar" => "atendimento_saude", "agenda" or "agenda_cancelar" => "agenda_saude", "laboratorio" or "laboratorio_resultado" => "laboratorio_exame", "regulacao" or "regulacao_status" => "regulacao_solicitacao", "acs_domicilio" => "acs_cadastro_domiciliar", "acs_individuo" => "acs_cadastro_individual", _ => recurso };
+    private static string Table(string recurso) => recurso switch { "unidade" => "unidade_saude", "profissional" => "profissional_saude", "prontuario_paciente" => "prontuario", "atendimento" or "atendimento_conduta" or "atendimento_retificacao" or "atendimento_cancelar" => "atendimento_saude", "agenda" or "agenda_cancelar" => "agenda_saude", "laboratorio" or "laboratorio_resultado" => "laboratorio_exame", "regulacao" or "regulacao_status" => "regulacao_solicitacao", "acs_domicilio" => "acs_cadastro_domiciliar", "acs_individuo" => "acs_cadastro_individual", _ => recurso };
     private static string ExtraWhere(string recurso, object filtro) { var d = ToDictionary(filtro); var sb = new StringBuilder(); if (d.TryGetValue("Termo", out var termo) && !string.IsNullOrWhiteSpace(Convert.ToString(termo, System.Globalization.CultureInfo.InvariantCulture))) sb.Append(" and id is not null"); if (d.TryGetValue("Situacao", out var s) && !string.IsNullOrWhiteSpace(Convert.ToString(s, System.Globalization.CultureInfo.InvariantCulture))) sb.Append(" and situacao=@Situacao"); if (d.TryGetValue("Status", out var st) && !string.IsNullOrWhiteSpace(Convert.ToString(st, System.Globalization.CultureInfo.InvariantCulture))) sb.Append(" and status=@Status"); if (d.TryGetValue("PacienteId", out var pac) && pac is not null) sb.Append(" and paciente_id=@PacienteId"); if (d.TryGetValue("UnidadeSaudeId", out var uni) && uni is not null) sb.Append(" and unidade_saude_id=@UnidadeSaudeId"); _ = recurso; return sb.ToString(); }
 
     private static string InsertSql(string recurso) => recurso switch
@@ -312,7 +346,7 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@Unid
     }
     private static async Task InserirItensSyncAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, long loteId, CancellationToken ct) { if (p.GetValueOrDefault("Itens") is not IEnumerable<AcsSyncItemResponse> itens) return; foreach (var item in itens) await c.ExecuteAsync(new CommandDefinition("insert into sigov.acs_sync_item(tenant_id,entidade_id,acs_sync_lote_id,tipo_item,offline_id,status,payload,erro,processado_at,created_by) values(@TenantId,@EntidadeId,@LoteIdPk,@TipoItem,@OfflineId,@Status,'{}'::jsonb,@Erro,now(),@UsuarioId) on conflict do nothing", new { TenantId = p["TenantId"], EntidadeId = p["EntidadeId"], LoteIdPk = loteId, item.TipoItem, item.OfflineId, item.Status, item.Erro, UsuarioId = p["UsuarioId"] }, tx, cancellationToken: ct)).ConfigureAwait(false); }
     private static async Task RegistrarEventoAsync(NpgsqlConnection c, NpgsqlTransaction tx, long tenantId, long entidadeId, string tipo, string recurso, long aggregateId, object payload, long? usuarioId, CancellationToken ct) { await c.ExecuteAsync(new CommandDefinition("insert into sigov.saude_evento(tenant_id,entidade_id,tipo_evento,aggregate_type,aggregate_id,payload,created_by) values(@TenantId,@EntidadeId,@Tipo,@Recurso,@AggregateId,@Payload::jsonb,@UsuarioId)", new { TenantId = tenantId, EntidadeId = entidadeId, Tipo = tipo, Recurso = recurso, AggregateId = aggregateId, Payload = Json(payload), UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false); }
-    private static string Evento(string recurso) => recurso switch { "unidade" => "UnidadeSaudeCriada", "profissional" => "ProfissionalSaudeCriado", "paciente" => "PacienteCriado", "atendimento" => "AtendimentoCriado", "atendimento_conduta" => "AtendimentoFinalizado", "farmacia_dispensacao" => "MedicamentoDispensado", "vacinacao" => "VacinacaoRegistrada", "laboratorio" => "ExameSolicitado", "laboratorio_resultado" => "ResultadoExameRegistrado", "regulacao" => "RegulacaoSolicitada", "acs_domicilio" => "AcsDomicilioCadastrado", "acs_individuo" => "AcsIndividuoCadastrado", "acs_visita" => "AcsVisitaRegistrada", "acs_sync" => "AcsSyncProcessado", _ => "SaudeEventoRegistrado" };
+    private static string Evento(string recurso) => recurso switch { "unidade" => "UnidadeSaudeCriada", "profissional" => "ProfissionalSaudeCriado", "paciente" => "PacienteCriado", "atendimento" => "AtendimentoCriado", "atendimento_conduta" => "AtendimentoFinalizado", "atendimento_retificacao" => "AtendimentoRetificado", "farmacia_dispensacao" => "MedicamentoDispensado", "vacinacao" => "VacinacaoRegistrada", "laboratorio" => "ExameSolicitado", "laboratorio_resultado" => "ResultadoExameRegistrado", "regulacao" => "RegulacaoSolicitada", "acs_domicilio" => "AcsDomicilioCadastrado", "acs_individuo" => "AcsIndividuoCadastrado", "acs_visita" => "AcsVisitaRegistrada", "acs_sync" => "AcsSyncProcessado", _ => "SaudeEventoRegistrado" };
     private static (int Page, int PageSize, int Limit, int Offset) Page(object filtro) { var d = ToDictionary(filtro); var page = GetInt(d, "Page", 1); var size = GetInt(d, "PageSize", 20); page = page < 1 ? 1 : page; size = size is < 1 or > 100 ? 20 : size; return (page, size, size, (page - 1) * size); }
     private static object Params(long tenantId, long entidadeId, long? exercicioId, object filtro, object extra) { var d = ToDictionary(filtro); foreach (var prop in extra.GetType().GetProperties()) d[prop.Name] = prop.GetValue(extra); d["TenantId"] = tenantId; d["EntidadeId"] = entidadeId; d["ExercicioId"] = exercicioId; return d; }
     private static Dictionary<string, object?> ToDictionary(object value) { if (value is Dictionary<string, object?> dict) return new Dictionary<string, object?>(dict, StringComparer.OrdinalIgnoreCase); var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase); foreach (var prop in value.GetType().GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)) result[prop.Name] = prop.GetValue(value); return result; }
