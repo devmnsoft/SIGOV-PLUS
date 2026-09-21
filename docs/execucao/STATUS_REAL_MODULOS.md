@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte funcional: 2026-09-15 (RC51.02Q). Gate técnico reexecutado em 2026-09-21 no branch `work`; sem promoção funcional porque o ambiente não possui .NET 10, PowerShell, PostgreSQL 16/`psql`, credencial nem navegador autenticado.
+Corte funcional: 2026-09-15 (RC51.02Q). Gate técnico reexecutado em 2026-09-21 no branch `work`; sem promoção funcional porque o ambiente não possui .NET 10, PowerShell, PostgreSQL 16/`psql`, credencial nem navegador autenticado. O smoke local foi corrigido para sondar as portas oficiais 5000/5001 e o endpoint canônico `/api/health/live`, mas sua execução HTTP permanece bloqueada sem o runtime.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
