@@ -1,17 +1,48 @@
 @{ ViewData["Title"] = "Detalhe do Aluno"; }
-@{
-    ViewData["Title"] = ViewData["Title"] ?? "Educação";
-}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao">Educação</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao/Alunos">Alunos</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Detalhe</li>
+  </ol>
+</nav>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
-    <h1 class="h3">@ViewData["Title"]</h1>
-    <p class="text-muted mb-0">Módulo Educação Base com dados paginados, LGPD, auditoria e tenant_id.</p>
+    <h1 class="h3">Detalhe do Aluno</h1>
+    <p class="text-muted mb-0">Visualização de cadastro escolar, responsáveis legais e histórico acadêmico.</p>
   </div>
   <div class="btn-group">
+    <a class="btn btn-outline-secondary" href="/Educacao/Alunos">Voltar para alunos</a>
     <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
-    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.csv">CSV</a>
-    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.json">JSON</a>
   </div>
 </div>
+
+<details class="how-to mb-3">
+  <summary>Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Documento mascarado. Responsável pela lista. Matrícula ativa é única na escola/ano/série. Cadastre e vincule responsáveis sem expor dados sensíveis.</p>
+  </div>
+</details>
+
 <div id="educacao-toast" class="alert d-none" role="alert"></div>
-<div class="card"><div class="card-body"><h2 class="h5">Detalhe do Aluno</h2><p>Estrutura inicial navegável do módulo Educação Base.</p><div class="table-responsive"><table class="table table-sm"><tbody id="grid-alunodetalhe"></tbody></table></div></div></div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Identificação do Aluno</div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <tbody id="grid-alunodetalhe"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header fw-semibold">Vincular Responsável</div>
+  <div class="card-body">
+    <partial name="_FormResponsavelAluno" model="new Sigov.Web.Models.Educacao.ResponsavelAlunoViewModel()" />
+  </div>
+</div>

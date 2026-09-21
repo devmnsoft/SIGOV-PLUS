@@ -1,17 +1,45 @@
 @{ ViewData["Title"] = "Detalhe da Turma"; }
-@{
-    ViewData["Title"] = ViewData["Title"] ?? "Educação";
-}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao">Educação</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao/Turmas">Turmas</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Detalhe</li>
+  </ol>
+</nav>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
-    <h1 class="h3">@ViewData["Title"]</h1>
-    <p class="text-muted mb-0">Módulo Educação Base com dados paginados, LGPD, auditoria e tenant_id.</p>
+    <h1 class="h3">Detalhe da Turma</h1>
+    <p class="text-muted mb-0">Informações de capacidade, vagas ocupadas, turno e alunos enturmados.</p>
   </div>
   <div class="btn-group">
+    <a class="btn btn-outline-secondary" href="/Educacao/Turmas">Voltar para turmas</a>
     <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
-    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.csv">CSV</a>
-    <a class="btn btn-outline-secondary" href="/api/educacao/export/alunos.json">JSON</a>
   </div>
 </div>
+
+<details class="how-to mb-3">
+  <summary>Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Turma fechada não enturma. Capacidade é a da base; sem vaga o aluno espera. A gestão de turmas respeita o calendário do ano letivo e os turnos autorizados.</p>
+    <ul>
+      <li><strong>Saldo de Vagas:</strong> A enturmação de novas matrículas só é permitida enquanto vagas ocupadas for menor que a capacidade.</li>
+      <li><strong>Status da Turma:</strong> Turmas com status <code>FECHADA</code> têm novas matrículas e avaliações bloqueadas.</li>
+    </ul>
+  </div>
+</details>
+
 <div id="educacao-toast" class="alert d-none" role="alert"></div>
-<div class="card"><div class="card-body"><h2 class="h5">Detalhe da Turma</h2><p>Estrutura inicial navegável do módulo Educação Base.</p><div class="table-responsive"><table class="table table-sm"><tbody id="grid-turmadetalhe"></tbody></table></div></div></div>
+
+<div class="card">
+  <div class="card-header fw-semibold">Informações da Turma e Enturmação</div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <tbody id="grid-turmadetalhe"></tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,8 +1,37 @@
 @model Sigov.Web.Models.Educacao.PreMatriculaFormViewModel
-@{ ViewData["Title"] = "Ingresso e vagas"; }
-<section class="education-hero" aria-labelledby="ingresso-title"><div><span class="education-eyebrow">Educação · jornada administrativa</span><h1 id="ingresso-title">Pré-matrículas e análise</h1><p>Salve o rascunho, envie para análise e acompanhe a oferta sem confundir solicitação com matrícula efetiva.</p></div><a class="btn btn-light" href="/Educacao/Dashboard">Visão geral</a></section>
+@{ ViewData["Title"] = "Pré-matrículas e Ingresso"; }
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Educacao">Educação</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Pré-matrículas</li>
+  </ol>
+</nav>
+
+<section class="education-hero" aria-labelledby="ingresso-title">
+  <div>
+    <span class="education-eyebrow">Educação · jornada administrativa</span>
+    <h1 id="ingresso-title">Pré-matrículas e Ingresso</h1>
+    <p>Salve o rascunho, envie para análise e acompanhe a oferta sem confundir solicitação com matrícula efetiva.</p>
+  </div>
+  <a class="btn btn-light" href="/Educacao/Dashboard">Visão geral</a>
+</section>
+
 <div id="educacao-toast" class="alert d-none mt-3" role="status" aria-live="polite"></div>
-<div class="card mt-3"><div class="card-header fw-semibold">Como usar</div><div class="card-body">Cadastre usando a pessoa já existente. O envio para análise é uma ação posterior e não ocupa vaga. Campos marcados com <span aria-hidden="true">*</span> são obrigatórios.</div></div>
+
+<details class="how-to my-3">
+  <summary>Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Protocolo não ocupa vaga. Oferta reserva. Converter consome a oferta. Sem vaga = lista de espera. Motivo obrigatório ao indeferir.</p>
+    <ul>
+      <li><strong>Sem Retenção Antecipada:</strong> O protocolo serve para controle e transparência; a vaga não é debitada antes da oferta formal.</li>
+      <li><strong>Reserva e Conversão:</strong> Apenas ofertas OFERTADA ou ACEITA, dentro da validade, reservam capacidade na turma. A conversão em matrícula é atômica e idempotente.</li>
+      <li><strong>Indeferimento Fundamentado:</strong> Indeferir a solicitação exige motivo cadastrado na trilha de auditoria.</li>
+    </ul>
+  </div>
+</details>
+
 <partial name="_ModalPreMatricula" model="Model" />
 <section class="card mt-3" aria-labelledby="fila-title"><div class="card-body"><h2 id="fila-title" class="h5">Fila de análise</h2>
 <form id="filtros-pre-matricula" class="row g-3" role="search"><div class="col-md-4"><label for="filtro-protocolo" class="form-label">Protocolo</label><input id="filtro-protocolo" name="protocolo" class="form-control" /></div><div class="col-md-3"><label for="filtro-status" class="form-label">Situação</label><select id="filtro-status" name="status" class="form-select"><option value="">Todas</option><option>RASCUNHO</option><option>EM_ANALISE</option><option>COMPLEMENTACAO_PENDENTE</option><option>APROVADA</option><option>OFERTA_REALIZADA</option><option>CONVERTIDA_MATRICULA</option><option>INDEFERIDA</option><option>CANCELADA</option></select></div><div class="col-md-3"><label for="filtro-ano" class="form-label">Ano letivo</label><input id="filtro-ano" name="anoLetivo" type="number" class="form-control" /></div><div class="col-md-2 d-flex align-items-end gap-2"><button class="btn btn-primary" type="submit">Filtrar</button><button class="btn btn-outline-secondary" type="reset">Limpar</button></div></form></div>

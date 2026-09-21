@@ -29,7 +29,8 @@ public sealed class EducacaoApiTests
     [Fact]
     public void Patrimonio_Movimentacao_Preserva_Cadeia_De_Custodia_E_Idempotencia()
     {
-        var service = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Patrimonio/PatrimonioService.cs"));
+        var service = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Patrimonio/PatrimonioService.cs"))
+            + File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Patrimonio/PatrimonioService.Movimentacao.cs"));
         service.Should().Contain("for update").And.Contain("correlation_id=@CorrelationId")
             .And.Contain("A chave de idempotência já foi usada em outra movimentação")
             .And.Contain("ObterBemDetalheAsync").And.Contain("order by data_movimentacao desc,id desc");

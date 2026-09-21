@@ -1,17 +1,74 @@
 @model Sigov.Web.Models.Educacao.AvaliacaoFormViewModel
+@using Sigov.Application.Educacao
+@{
+    var turmas = ViewBag.Turmas as IEnumerable<TurmaResponse> ?? Array.Empty<TurmaResponse>();
+    var professores = ViewBag.Professores as IEnumerable<ProfessorResponse> ?? Array.Empty<ProfessorResponse>();
+}
 <form id="form-avaliacao" class="card card-body" data-api="/api/educacao/avaliacoes">
   @Html.AntiForgeryToken()
   <h2 class="h5">Cadastrar avaliação</h2>
   <p class="text-muted">Como usar: informe a escala e o peso da política vigente. O sistema não presume nota máxima, média mínima ou regra de recuperação.</p>
-  <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+  <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
   <div class="row g-3">
-    <div class="col-md-4"><label asp-for="TurmaId" class="form-label">Turma <span aria-hidden="true">*</span></label><input asp-for="TurmaId" class="form-control" required /></div>
-    <div class="col-md-4"><label asp-for="ProfessorId" class="form-label">Professor atribuído <span aria-hidden="true">*</span></label><input asp-for="ProfessorId" class="form-control" required /></div>
-    <div class="col-md-4"><label asp-for="ComponenteCurricular" class="form-label">Componente curricular <span aria-hidden="true">*</span></label><input asp-for="ComponenteCurricular" class="form-control" required /></div>
-    <div class="col-md-6"><label asp-for="Titulo" class="form-label">Descrição <span aria-hidden="true">*</span></label><input asp-for="Titulo" class="form-control" required /></div>
-    <div class="col-md-6"><label asp-for="DataAvaliacao" class="form-label">Data <span aria-hidden="true">*</span></label><input asp-for="DataAvaliacao" class="form-control" required /></div>
-    <div class="col-md-6"><label asp-for="ValorMaximo" class="form-label">Valor máximo da escala <span aria-hidden="true">*</span></label><input asp-for="ValorMaximo" class="form-control" min="0.01" step="0.01" required /></div>
-    <div class="col-md-6"><label asp-for="Peso" class="form-label">Peso <span aria-hidden="true">*</span></label><input asp-for="Peso" class="form-control" min="0.01" step="0.01" required /></div>
-    <div class="col-12 d-flex justify-content-end"><button class="btn btn-primary" type="submit">Cadastrar avaliação</button></div>
+    <div class="col-md-4">
+      <label asp-for="TurmaId" class="form-label">Turma *</label>
+      <select asp-for="TurmaId" class="form-select" required>
+        <option value="">Selecione a turma</option>
+        @foreach (var t in turmas)
+        {
+          <option value="@t.Id" disabled="@(t.Status == "FECHADA")">@t.Nome (@t.Turno - @t.Status)</option>
+        }
+      </select>
+      <span asp-validation-for="TurmaId" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="ProfessorId" class="form-label">Professor atribuído *</label>
+      <select asp-for="ProfessorId" class="form-select" required>
+        <option value="">Selecione o professor</option>
+        @foreach (var p in professores)
+        {
+          <option value="@p.Id">Docente @p.CodigoProfessor (@p.Formacao)</option>
+        }
+      </select>
+      <span asp-validation-for="ProfessorId" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="ComponenteCurricular" class="form-label">Componente curricular *</label>
+      <select asp-for="ComponenteCurricular" class="form-select" required>
+        <option value="">Selecione a disciplina</option>
+        <option value="Língua Portuguesa">Língua Portuguesa</option>
+        <option value="Matemática">Matemática</option>
+        <option value="Ciências">Ciências</option>
+        <option value="História">História</option>
+        <option value="Geografia">Geografia</option>
+        <option value="Artes">Artes</option>
+        <option value="Educação Física">Educação Física</option>
+        <option value="Inglês">Inglês</option>
+      </select>
+      <span asp-validation-for="ComponenteCurricular" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+      <label asp-for="Titulo" class="form-label">Descrição da Avaliação *</label>
+      <input asp-for="Titulo" class="form-control" placeholder="Ex: Prova Bimestral 1" required maxlength="200" />
+      <span asp-validation-for="Titulo" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+      <label asp-for="DataAvaliacao" class="form-label">Data da Aplicação *</label>
+      <input asp-for="DataAvaliacao" class="form-control" type="date" value="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" required />
+      <span asp-validation-for="DataAvaliacao" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+      <label asp-for="ValorMaximo" class="form-label">Valor máximo da escala *</label>
+      <input asp-for="ValorMaximo" class="form-control" type="number" min="0.01" step="0.01" value="10.00" required />
+      <span asp-validation-for="ValorMaximo" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+      <label asp-for="Peso" class="form-label">Peso da atividade *</label>
+      <input asp-for="Peso" class="form-control" type="number" min="0.01" step="0.01" value="1.00" required />
+      <span asp-validation-for="Peso" class="text-danger"></span>
+    </div>
+    <div class="col-12 d-flex justify-content-end">
+      <button class="btn btn-primary" type="submit">Cadastrar avaliação</button>
+    </div>
   </div>
 </form>

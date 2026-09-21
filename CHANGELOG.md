@@ -1,5 +1,19 @@
 # Changelog
 
+## FUNC05 Educação e Gestão Escolar — 2026-09-19
+
+- **FUNC05 — templates no padrão FUNC01–04; seletores por nome; pré-matrícula/vaga/frequência/boletim sem inferência; CSV LGPD:**
+  - padronização visual das views com breadcrumbs canônicos (`Início > Educação > [Página]`), títulos H1 únicos, blocos informativos "Como usar esta tela", empty states e ícones canônicos SVG (sem classes `bi-`);
+  - eliminação completa de campos manuais de ID técnico digitado nos formulários operacionais (`Escolas`, `Turmas`, `Matriculas`, `Frequencias`, `Avaliacoes`, `Boletins`, `PreMatriculas`), substituídos por seletores amigáveis por nome;
+  - autoridade no serviço: verificação rigorosa de escola ativa em matrículas, pré-matrículas e enturmações;
+  - garantia de unicidade de matrícula ativa por aluno + escola + ano letivo + série; cancelamento de matrícula exige justificativa formal não vazia;
+  - fluxo de ingresso/pré-matrícula: inscrição gera protocolo sem ocupar capacidade; oferta válida (`OFERTADA`/`ACEITA`) reserva capacidade; conversão atômica e idempotente consome a oferta de origem; ausência de vaga destina exclusivamente à lista de espera;
+  - diário de frequência: estado inicial estritamente `NAO_LANCADO` (sem presença por omissão); lançamento restrito a professor com atribuição na turma/componente (`professor_turma`), data dentro do ano letivo e período aberto; falta justificada exige motivo real;
+  - avaliações e boletins: escala e peso explícitos da avaliação; ausência de nota exibida como `NAO_LANCADO`; sem política acadêmica persistida e aprovada em banco, médias, cortes e aprovações permanecem indisponíveis sem fabricação de números;
+  - dashboard operacional alimentado com dados reais do PostgreSQL no escopo do tenant e entidade; bloco de "Regras vigentes (B3, B4, B5, B6)";
+  - exportação CSV (`/api/educacao/export/alunos.csv`) em conformidade com LGPD: documentos/CPFs mascarados, proteção contra injeção de fórmulas (`=+-@\t\r`), codificação UTF-8 com BOM e limite de registros;
+  - preservados 100% dos testes existentes; build limpo sem CS0103, CS0535 e CS0006; sem pontes com FUNC06; RC50.68 mantida **BLOCKED** e RC50.69 não iniciada.
+
 ## FUNC04 Frotas, Abastecimento e Manutenção — 2026-09-19
 
 - **FUNC04 Regras de Negócio e Serviços Autorizados:**

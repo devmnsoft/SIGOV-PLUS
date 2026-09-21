@@ -1,10 +1,58 @@
 @model Sigov.Web.Models.Educacao.PreMatriculaFormViewModel
-<form id="form-pre-matricula" class="card card-body mt-3" data-api="/api/educacao/pre-matriculas">@Html.AntiForgeryToken()
-<h2 class="h5">Novo rascunho</h2><div asp-validation-summary="ModelOnly" class="text-danger"></div><div class="row g-3">
-<div class="col-md-6"><label asp-for="AlunoPessoaId" class="form-label">Pessoa do aluno <span aria-hidden="true">*</span></label><input asp-for="AlunoPessoaId" class="form-control" required /><span asp-validation-for="AlunoPessoaId" class="text-danger"></span><div class="form-text">Informe o cadastro de pessoa existente; CPF não é obrigatório nesta etapa.</div></div>
-<div class="col-md-6"><label asp-for="ResponsavelPessoaId" class="form-label">Pessoa responsável</label><input asp-for="ResponsavelPessoaId" class="form-control" /></div>
-<div class="col-md-4"><label asp-for="AnoLetivo" class="form-label">Ano letivo <span aria-hidden="true">*</span></label><input asp-for="AnoLetivo" class="form-control" required /></div>
-<div class="col-md-4"><label asp-for="EtapaEnsino" class="form-label">Etapa <span aria-hidden="true">*</span></label><input asp-for="EtapaEnsino" class="form-control" required /><span asp-validation-for="EtapaEnsino" class="text-danger"></span></div>
-<div class="col-md-4"><label asp-for="Turno" class="form-label">Turno pretendido</label><select asp-for="Turno" class="form-select"><option value="">Sem preferência</option><option value="MATUTINO">Matutino</option><option value="VESPERTINO">Vespertino</option><option value="NOTURNO">Noturno</option><option value="INTEGRAL">Integral</option></select></div>
-<div class="col-md-6"><label asp-for="EscolaPreferencialId" class="form-label">Escola preferencial</label><input asp-for="EscolaPreferencialId" class="form-control" /></div><div class="col-12"><label asp-for="Observacao" class="form-label">Observações</label><textarea asp-for="Observacao" class="form-control" rows="3"></textarea></div>
-<div class="col-12 d-flex justify-content-end"><button class="btn btn-primary" type="submit">Salvar rascunho</button></div></div></form>
+@using Sigov.Application.Educacao
+@{
+    var escolas = ViewBag.Escolas as IEnumerable<EscolaResponse> ?? Array.Empty<EscolaResponse>();
+}
+<form id="form-pre-matricula" class="card card-body mt-3" data-api="/api/educacao/pre-matriculas">
+  @Html.AntiForgeryToken()
+  <h2 class="h5">Novo rascunho de pré-matrícula</h2>
+  <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label asp-for="AlunoPessoaId" class="form-label">Pessoa do aluno <span aria-hidden="true">*</span></label>
+      <input asp-for="AlunoPessoaId" class="form-control" type="number" min="1" required placeholder="ID da pessoa do aluno" />
+      <span asp-validation-for="AlunoPessoaId" class="text-danger"></span>
+      <div class="form-text">Informe o cadastro de pessoa existente; CPF não é obrigatório nesta etapa.</div>
+    </div>
+    <div class="col-md-6">
+      <label asp-for="ResponsavelPessoaId" class="form-label">Pessoa responsável</label>
+      <input asp-for="ResponsavelPessoaId" class="form-control" type="number" min="1" placeholder="ID da pessoa responsável" />
+    </div>
+    <div class="col-md-4">
+      <label asp-for="AnoLetivo" class="form-label">Ano letivo <span aria-hidden="true">*</span></label>
+      <input asp-for="AnoLetivo" class="form-control" type="number" value="@DateTime.Today.Year" required />
+    </div>
+    <div class="col-md-4">
+      <label asp-for="EtapaEnsino" class="form-label">Etapa de Ensino <span aria-hidden="true">*</span></label>
+      <input asp-for="EtapaEnsino" class="form-control" required placeholder="Ex: Ensino Fundamental I" />
+      <span asp-validation-for="EtapaEnsino" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="Turno" class="form-label">Turno pretendido</label>
+      <select asp-for="Turno" class="form-select">
+        <option value="">Sem preferência</option>
+        <option value="MATUTINO">Matutino</option>
+        <option value="VESPERTINO">Vespertino</option>
+        <option value="NOTURNO">Noturno</option>
+        <option value="INTEGRAL">Integral</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label asp-for="EscolaPreferencialId" class="form-label">Escola preferencial</label>
+      <select asp-for="EscolaPreferencialId" class="form-select">
+        <option value="">Selecione a escola ativa preferencial</option>
+        @foreach (var e in escolas)
+        {
+          <option value="@e.Id" disabled="@(e.Situacao != "ATIVA")">@e.Nome (@e.Situacao)</option>
+        }
+      </select>
+    </div>
+    <div class="col-12">
+      <label asp-for="Observacao" class="form-label">Observações</label>
+      <textarea asp-for="Observacao" class="form-control" rows="2" placeholder="Observações e justificativas pedagógicas ou de saúde"></textarea>
+    </div>
+    <div class="col-12 d-flex justify-content-end">
+      <button class="btn btn-primary" type="submit">Salvar rascunho</button>
+    </div>
+  </div>
+</form>

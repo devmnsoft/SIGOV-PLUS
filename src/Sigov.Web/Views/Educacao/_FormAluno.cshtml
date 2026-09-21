@@ -1,6 +1,41 @@
 @model Sigov.Web.Models.Educacao.AlunoFormViewModel
 <form id="form-aluno" class="card card-body" data-api="/api/educacao/alunos">
   @Html.AntiForgeryToken()
-  <div class="alert alert-info py-2">Dados pessoais são mascarados por padrão; dados sensíveis do aluno não são exibidos no grid.</div>
-  <div class="row g-3"><div class="col-md-2"><input asp-for="PessoaId" class="form-control" placeholder="PessoaId" /></div><div class="col-md-3"><input asp-for="CodigoAluno" class="form-control" placeholder="Código aluno" required /></div><div class="col-md-2"><input asp-for="Nis" class="form-control" placeholder="NIS" /></div><div class="col-md-2"><input asp-for="CartaoSus" class="form-control" placeholder="Cartão SUS" /></div><div class="col-md-2"><input asp-for="Situacao" class="form-control" /></div><div class="col-md-1"><button class="btn btn-primary w-100">Salvar</button></div></div>
+  <div class="alert alert-info py-2 mb-3">
+    <strong>LGPD e Privacidade:</strong> Documentos e dados sensíveis são protegidos por padrão. Selecione a pessoa pelo cadastro prévio no tenant.
+  </div>
+  <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label asp-for="PessoaId" class="form-label">Pessoa do Aluno *</label>
+      <input asp-for="PessoaId" class="form-control" type="number" min="1" required placeholder="ID da Pessoa física" />
+      <span asp-validation-for="PessoaId" class="text-danger"></span>
+    </div>
+    <div class="col-md-3">
+      <label asp-for="CodigoAluno" class="form-label">Código do Aluno *</label>
+      <input asp-for="CodigoAluno" class="form-control" placeholder="Ex: ALU-2026-001" required maxlength="50" />
+      <span asp-validation-for="CodigoAluno" class="text-danger"></span>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="Nis" class="form-label">NIS (Social)</label>
+      <input asp-for="Nis" class="form-control" placeholder="Número NIS" maxlength="20" />
+      <span asp-validation-for="Nis" class="text-danger"></span>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="CartaoSus" class="form-label">Cartão SUS</label>
+      <input asp-for="CartaoSus" class="form-control" placeholder="Número SUS" maxlength="20" />
+      <span asp-validation-for="CartaoSus" class="text-danger"></span>
+    </div>
+    <div class="col-md-2">
+      <label asp-for="Situacao" class="form-label">Situação</label>
+      <select asp-for="Situacao" class="form-select">
+        <option value="ATIVO">Ativo</option>
+        <option value="INATIVO">Inativo</option>
+        <option value="TRANSFERIDO">Transferido</option>
+      </select>
+    </div>
+    <div class="col-12 d-flex justify-content-end">
+      <button class="btn btn-primary" type="submit">Salvar cadastro</button>
+    </div>
+  </div>
 </form>
