@@ -12,7 +12,10 @@ migrations ou cenários HTTP autenticados.
 O inventário encontrou os seis projetos de runtime (`Domain`, `Application`,
 `Infrastructure`, `Api`, `Web` e `Worker`) e quatro projetos sob `tests`. O gate
 estático percorreu 630 rotas da API. Esta rodada não alterou schema, migrations,
-manifesto nem scripts consolidados.
+manifesto nem scripts consolidados. A auditoria também encontrou um tenant UUID
+fixo usado pelo Kanban fora de produção. O fallback foi removido: sem claim de
+tenant válida, a consulta permanece vazia, a interface informa o bloqueio e o
+POST já existente continua recusando a alteração.
 
 ## Resultado dos gates
 
@@ -33,7 +36,7 @@ manifesto nem scripts consolidados.
 
 | Módulo | O que já existia | O que foi corrigido | O que foi evoluído | O que permanece parcial | Evidência | Risco | Próximo passo |
 |---|---|---|---|---|---|---|---|
-| Core / IAM / contexto | Cookie compacto, snapshot request-scoped, avaliador persistido e troca de contexto | Nada nesta rodada | Inventário e bloqueios registrados sem simular PASS | Login, revogação, troca de contexto e isolamento ponta a ponta | Projetos e código presentes; runtime não executado | Alto | Executar Gate A e cenário A/B com dois tenants |
+| Core / IAM / contexto | Cookie compacto, snapshot request-scoped, avaliador persistido e troca de contexto | Removido tenant de desenvolvimento fixo do Kanban; ausência da claim agora falha fechada em todos os ambientes | Estado vazio explícito orienta a seleção de contexto autorizado | Login, revogação, troca de contexto e isolamento ponta a ponta | Inspeção estática confirma ausência do UUID fixo; runtime não executado | Alto | Executar Gate A e cenário A/B com dois tenants |
 | SaaS / SuperAdmin | Catálogo, entitlements, tenants e fluxos administrativos persistidos | Nada nesta rodada | Classificação mantida como `PARCIAL` | Planos, cobrança, bloqueios, auditoria e menu contratado em runtime | Matriz oficial e inventário estático | Alto | Homologar suspensão, inadimplência e negação a cliente comum em RC própria |
 | Patrimônio / Ativos | Incorporação, termos e transferência com aceite | Nada nesta rodada | Gate de colisões deixa de emitir falso positivo por SQL dinâmico | Concorrência, OS ativa, fotografia e custódia em banco real | Migration e camadas presentes; sem PostgreSQL | Alto | Homologar recebimento até aceite e retry |
 | Almoxarifado | Estoque, requisições, entregas, transferências e reposição | Nada nesta rodada | Gate estático estabilizado | Saldo concorrente, recebimento parcial e rollback | Estruturas presentes; sem execução transacional | Alto | Testar locks, saldo e idempotência em PostgreSQL 16 |
