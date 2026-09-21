@@ -1,5 +1,11 @@
 # Changelog
 
+## Estabilização de contexto do Kanban — 2026-09-21
+
+- removido o UUID de tenant de desenvolvimento usado como fallback no Kanban operacional;
+- consultas sem claim `tenant_id`/`tenant` válida agora retornam estado vazio explícito em todos os ambientes, enquanto alterações continuam bloqueadas;
+- a tela informa que o contexto autorizado deve ser selecionado, sem simular dados ou sucesso.
+
 ## FUNC06 Saúde, Atenção Básica e Regulação — 2026-09-21
 
 - **FUNC06 — jornada básica servidor-first no padrão FUNC01–05; alertas/toasts/confirm no layout; LGPD em lista/CSV; RC50.68 BLOCKED:**

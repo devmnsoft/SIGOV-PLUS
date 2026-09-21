@@ -6,10 +6,16 @@
 }
 <section class="sigov-card p-4 mb-3">
   <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-    <div><span class="sigov-badge sigov-badge--@sourceBadge">Fonte: @Model.Fonte</span><h1 class="h3 mt-2">Kanban @Model.Tipo por tenant e permissão</h1><p class="text-muted mb-0">Cards reais são carregados quando o schema existe. Fallback honesto não declara persistência sem banco.</p></div>
+    <div><span class="sigov-badge sigov-badge--@sourceBadge">Fonte: @Model.Fonte</span><h1 class="h3 mt-2">Kanban @Model.Tipo por tenant e permissão</h1><p class="text-muted mb-0">Cards reais são carregados somente com um tenant autenticado. A ausência de contexto não é substituída por dados de demonstração.</p></div>
     <div class="d-flex gap-2 flex-wrap"><a class="sigov-btn sigov-btn--ghost" href="/Kanban/Tarefas">Tarefas</a><a class="sigov-btn sigov-btn--ghost" href="/Kanban/OS">OS</a><a class="sigov-btn sigov-btn--ghost" href="/Kanban/Propostas">Propostas</a></div>
   </div>
 </section>
+@if (Model.Fonte == "tenant_obrigatorio")
+{
+  <div class="alert alert-danger" role="alert">
+    <strong>Contexto obrigatório ausente.</strong> Selecione um tenant autorizado antes de consultar ou alterar o Kanban.
+  </div>
+}
 <form method="get" class="sigov-card p-3 mb-3 row g-2"><div class="col-md-4"><input class="form-control" name="responsavel" value="@Model.Responsavel" placeholder="Responsável" /></div><div class="col-md-4"><select class="form-select" name="sla"><option value="">SLA: todos</option><option value="VENCIDO">Vencido</option><option value="NO_PRAZO">No prazo</option></select></div><div class="col-md-4"><button class="btn btn-primary" type="submit">Filtrar</button></div></form>
 <div class="row g-3">
 @foreach (var col in Model.Colunas) {

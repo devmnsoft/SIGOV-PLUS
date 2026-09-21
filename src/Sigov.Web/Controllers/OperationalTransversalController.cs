@@ -136,16 +136,13 @@ public sealed class MobileCampoController : Controller
 [Authorize]
 public sealed class KanbanController : Controller
 {
-    private static readonly Guid DevelopmentTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private readonly IAuditTrailService _auditTrail;
     private readonly IEnterpriseCrudService _crud;
-    private readonly IWebHostEnvironment _environment;
 
-    public KanbanController(IAuditTrailService auditTrail, IEnterpriseCrudService crud, IWebHostEnvironment environment)
+    public KanbanController(IAuditTrailService auditTrail, IEnterpriseCrudService crud)
     {
         _auditTrail = auditTrail;
         _crud = crud;
-        _environment = environment;
     }
 
     [HttpGet("/Kanban")]
@@ -225,8 +222,12 @@ public sealed class KanbanController : Controller
 
     private Guid ResolveTenantId()
     {
-        if (Guid.TryParse(User.FindFirst("tenant_id")?.Value ?? User.FindFirst("tenant")?.Value, out var tenant)) return tenant;
-        return _environment.IsProduction() ? Guid.Empty : DevelopmentTenantId;
+        if (Guid.TryParse(User.FindFirst("tenant_id")?.Value ?? User.FindFirst("tenant")?.Value, out var tenant) && tenant != Guid.Empty)
+        {
+            return tenant;
+        }
+
+        return Guid.Empty;
     }
 
     private static string ResolveTipo(string? value) => (value ?? string.Empty).Contains("OS", StringComparison.OrdinalIgnoreCase) ? "OS" : (value ?? string.Empty).Contains("Propostas", StringComparison.OrdinalIgnoreCase) ? "Propostas" : "Tarefas";
