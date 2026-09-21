@@ -1,6 +1,6 @@
 # Status real dos módulos
 
-Corte: 2026-09-15 (RC51.02Q); checkout `work` iniciado em `47b51a7a99888036dc1d3182b33d77121dc28a0c`, sem remoto/upstream configurado nesta execução.
+Corte funcional: 2026-09-15 (RC51.02Q). Gate técnico reexecutado em 2026-09-21 no branch `work`; sem promoção funcional porque o ambiente não possui .NET 10, PowerShell, PostgreSQL 16/`psql`, credencial nem navegador autenticado.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 
 | Domínio/módulos existentes | Status | Evidência existente e lacuna de aprovação |
@@ -26,6 +26,24 @@ Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_
 | Integrações, mobilidade/offline, observabilidade | PARCIAL | Outbox, adapters e rotas; providers/isolamento/runtime pendentes |
 | Legislativo, transparência, diário oficial, convênios, trânsito, defesa | PARCIAL | Inventários e controllers existentes; verificar cada fluxo após P0–P3 |
 | GED e assinaturas | PARCIAL | Estrutura histórica existente; catálogo rebaixado para não promover GED na RC51.00; implementação bloqueada até última fase |
+
+## Auditoria de estabilização — 2026-09-21
+
+Nenhum domínio foi classificado como **PRONTO COM EVIDÊNCIA** nesta execução. A existência de artefatos foi separada de evidência de runtime: os builds, as suítes .NET, clean install, reaplicação, upgrade, rotas autenticadas, telas, auditoria e isolamento entre dois tenants ficaram **BLOQUEADOS** pela ausência das ferramentas e da configuração listadas acima. Isso impede promover um módulo apenas por controller, view, migration, seed ou documentação.
+
+| Módulo | Estado antes | Correção feita | Evolução feita | O que falta | Evidência | Risco | Próximo passo |
+|---|---|---|---|---|---|---|---|
+| Fundação/build | BLOQUEADO | Gate Bash passou a verificar a connection string oficial e as portas reais 5000/5001 | Nenhuma | Instalar SDK 10.0.100 e PowerShell; executar clean/restore/build/test | `global.json`; diagnóstico `check-prerequisites.sh` | Alto: compilação não demonstrada | Reexecutar integralmente os comandos normativos do README |
+| Banco/migrations | BLOQUEADO | Nenhuma alteração de schema | Nenhuma | PostgreSQL 16, `psql`, credencial; clean install, reaplicação e upgrade representativo | Manifesto JSON válido; 181 checksums validados; colisões estáticas aprovadas | Alto: convergência runtime não demonstrada e gates estáticos emitiram avisos legados | Executar runner canônico e comparar todos os consolidados |
+| Core/IAM/SaaS/SuperAdmin | PARCIAL | Nenhuma nesta fatia | Nenhuma | Login CPF/CNPJ/e-mail, sessão, bloqueios, cobrança, negação global e isolamento A/B em runtime | Artefatos persistidos inventariados na matriz principal; sem acesso HTTP autenticado | Crítico: autorização e segregação sem prova ponta a ponta | Homologar com dois tenants e usuário comum/SuperAdmin |
+| Educação | PARCIAL | Nenhuma nesta fatia | Nenhuma | Concorrência da última vaga, transferência auditável, correção de chamada e política acadêmica persistida | Serviço/migration existentes; runtime indisponível | Alto: concorrência e histórico ainda pendentes | Executar cenários da matriz RC51.02J em PostgreSQL 16 |
+| Saúde/ACS | PARCIAL | Nenhuma nesta fatia | Nenhuma | Território, agenda concorrente, retificação, lote, estoque, encaminhamento idempotente e LGPD em runtime | Serviço/rotas existentes; runtime indisponível | Alto: dado clínico e segregação | Auditoria vertical com perfis e dois tenants |
+| Compras/almoxarifado/patrimônio | PARCIAL | Nenhuma nesta fatia | Nenhuma | Pedido, recebimento parcial, rejeição/rollback, retry e incorporação ponta a ponta | Jornadas parciais descritas abaixo; sem banco executável | Alto: duplicidade/saldo sem prova concorrente | Homologar transações e falhas injetadas |
+| Protocolo/jurídico | PARCIAL | Nenhuma nesta fatia | Nenhuma | PDF/impressão, anexos, histórico sensível, filtros e auditoria de visualização | Estrutura inventariada; sem navegador/DB | Alto: acesso indevido a conteúdo sensível | Homologar matriz de perfil, tenant e anexo |
+| Financeiro/RH/saneamento/meio ambiente | PARCIAL | Nenhuma nesta fatia | Nenhuma | Regras parametrizadas e fluxos reais por domínio | Código/migrations existentes, sem execução integrada | Alto: regras legais não homologadas | Auditar somente fluxos com autoridade persistida |
+| GED/InovaGED | PARCIAL | Nenhuma nesta fatia | Nenhuma | Fase final, salvo compatibilidade obrigatória | Catálogo mantido sem promoção | Médio: frente deliberadamente adiada | Manter fora da frente principal |
+
+Verificações estáticas concluídas: sintaxe dos scripts Bash, JSON do manifesto, 630 rotas API sem conflito direto, ausência de artefatos indevidos rastreados, teste JavaScript e gate de colisões do SQL consolidado. Os verificadores de índices retornaram sucesso com avisos conservadores/legados; esses avisos não constituem aprovação do banco. A tentativa de validação genérica dos workflows não foi usada como evidência porque o validador exige um workflow específico com contrato de artefato. Nenhuma rota ou tela foi declarada validada sem aplicação executável.
 
 ### Matriz executável RC51.02J
 
