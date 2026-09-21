@@ -1,1 +1,62 @@
-<div class="alert alert-secondary">Componente estrutural Saúde/ACS com proteção LGPD e auditoria.</div>
+@using Sigov.Application.Saude
+@{
+    var unidades = ViewBag.Unidades as IEnumerable<UnidadeSaudeResponse> ?? Array.Empty<UnidadeSaudeResponse>();
+    var pacientes = ViewBag.Pacientes as IEnumerable<PacienteResumoResponse> ?? Array.Empty<PacienteResumoResponse>();
+}
+
+<form method="post" action="/Saude/Regulacao/Nova">
+  @Html.AntiForgeryToken()
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label">Paciente Solicitante <span class="text-danger">*</span></label>
+      <select name="PacienteId" class="form-select" required>
+        <option value="">Selecione o paciente...</option>
+        @foreach (var pac in pacientes)
+        {
+          <option value="@pac.Id">@pac.CodigoPaciente (CNS: @pac.CartaoSus)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Unidade de Origem / Solicitante <span class="text-danger">*</span></label>
+      <select name="UnidadeOrigemId" class="form-select" required>
+        <option value="">Selecione a unidade de origem...</option>
+        @foreach (var u in unidades)
+        {
+          <option value="@u.Id">@u.Nome (@u.Codigo)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Tipo de Solicitação <span class="text-danger">*</span></label>
+      <select name="TipoSolicitacao" class="form-select" required>
+        <option value="CONSULTA_ESPECIALIZADA" selected>Consulta Especializada</option>
+        <option value="EXAME_ALTA_COMPLEXIDADE">Exame de Alta Complexidade</option>
+        <option value="CIRURGIA_ELETIVA">Procedimento Cirúrgico Eletivo</option>
+        <option value="LEITO_INTERNACAO">Regulação de Leito Hospitalar</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Prioridade Clínica <span class="text-danger">*</span></label>
+      <select name="Prioridade" class="form-select" required>
+        <option value="VERDE">VERDE — Eletiva / Rotina</option>
+        <option value="AMARELO" selected>AMARELO — Prioritária</option>
+        <option value="LARANJA">LARANJA — Urgência Relativa</option>
+        <option value="VERMELHO">VERMELHO — Imediata / Emergência</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Especialidade Desejada</label>
+      <input type="text" name="Especialidade" class="form-control" placeholder="ex: Cardiologia, Ortopedia, Neurologia" />
+    </div>
+    <div class="col-12">
+      <label class="form-label">Justificativa Clínica e Indicação <span class="text-danger">*</span></label>
+      <textarea name="Justificativa" class="form-control" rows="3" placeholder="Quadro clínico, hipótese diagnóstica e exames já realizados" required></textarea>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-primary">Encaminhar para Regulação</button>
+  </div>
+</form>
+

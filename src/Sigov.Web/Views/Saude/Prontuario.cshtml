@@ -1,3 +1,108 @@
-@{ ViewData["Title"] = "Prontuário Estrutural"; var id = ViewData["PacienteId"]; }
-<h1>Prontuário Estrutural</h1><div class="alert alert-info">Prontuário inicial; conteúdo sensível protegido por LGPD.</div><div id="prontuario" data-paciente-id="@id"></div>
-@section Scripts { <script src="~/js/modules/saude.pacientes.js"></script> }
+@using Sigov.Application.Saude
+@{
+    ViewData["Title"] = "Prontuário Eletrônico do Cidadão";
+    var paciente = ViewBag.Paciente as PacienteDetalheResponse;
+    var prontuario = ViewBag.Prontuario as ProntuarioResponse;
+    var id = ViewData["PacienteId"];
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Saude">Saúde</a></li>
+    <li class="breadcrumb-item"><a href="/Saude/Pacientes">Pacientes</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Prontuário</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1>Prontuário Eletrônico do Cidadão (PEC)</h1>
+    <p class="text-muted mb-0">Registro clínico estruturado, histórico de acolhimentos e imunização.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/Saude/Pacientes" class="btn btn-outline-secondary">Voltar aos Pacientes</a>
+    <a href="/Saude/Atendimentos" class="btn btn-primary">Atendimentos</a>
+  </div>
+</div>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Acolhimento e SOAP: classificação é obrigatória ao finalizar. Evolução finalizada não se edita; correção vira retificação auditada.</p>
+    <ul>
+      <li><strong>Imutabilidade Clínica:</strong> As anotações médicas finalizadas não podem ser excluídas nem alteradas diretamente.</li>
+      <li><strong>Retificação de Evolução:</strong> Se houver necessidade de retificar conduta, registre uma retificação auditada com justificativa formal.</li>
+      <li><strong>Rastreabilidade e LGPD:</strong> Toda visualização de prontuário gera registro de auditoria vinculado ao usuário operador.</li>
+    </ul>
+  </div>
+</details>
+
+@if (paciente is null && prontuario is null)
+{
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body text-center py-5">
+      <p class="text-muted mb-3">Prontuário eletrônico do paciente ID #@id não localizado ou aguardando primeiro acolhimento.</p>
+      <div class="d-flex justify-content-center gap-2">
+        <a href="/Saude/Pacientes" class="btn btn-outline-primary">Ver Pacientes</a>
+        <a href="/Saude/Atendimentos" class="btn btn-primary">Iniciar Acolhimento</a>
+      </div>
+    </div>
+  </div>
+}
+else
+{
+  var cnsMask = paciente is not null && !string.IsNullOrWhiteSpace(paciente.CartaoSus)
+      ? (paciente.CartaoSus.Length > 7 ? paciente.CartaoSus[..3] + "******" + paciente.CartaoSus[^4..] : "***")
+      : "—";
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold">Dados do Paciente</div>
+        <div class="card-body">
+          <p class="mb-1"><strong class="text-muted small">Código:</strong> @(paciente?.CodigoPaciente ?? $"ID #{id}")</p>
+          <p class="mb-1"><strong class="text-muted small">Cartão SUS:</strong> <code>@cnsMask</code></p>
+          <p class="mb-1"><strong class="text-muted small">Grupo Sanguíneo:</strong> @(paciente?.GrupoSanguineo ?? "Não informado")</p>
+          <p class="mb-1"><strong class="text-muted small">Situação:</strong> <span class="badge text-bg-success">@(paciente?.Situacao ?? "ATIVO")</span></p>
+          <hr />
+          <p class="mb-0"><strong class="text-muted small">Alergias:</strong></p>
+          <div class="p-2 border rounded bg-light small mt-1">
+            @(string.IsNullOrWhiteSpace(paciente?.Alergias) ? "Sem alergias registradas." : paciente.Alergias)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+          <span>Prontuário Eletrônico: @(prontuario?.Numero ?? "PRT-ATUAL")</span>
+          <span class="badge text-bg-info">Histórico Clínico</span>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <strong class="text-muted small d-block">Resumo Clínico / Antecedentes:</strong>
+            <div class="p-3 border rounded bg-light mt-1">
+              @(string.IsNullOrWhiteSpace(prontuario?.ResumoClinico) ? "Nenhum histórico pregresso registrado até o momento." : prontuario.ResumoClinico)
+            </div>
+          </div>
+          <div class="mb-3">
+            <strong class="text-muted small d-block">Último Atendimento Registrado:</strong>
+            <p class="mt-1 mb-0">@(prontuario?.UltimoAtendimentoAt.HasValue == true ? prontuario.UltimoAtendimentoAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Primeiro atendimento em aberto")</p>
+          </div>
+          <div class="alert alert-secondary small mb-0">
+            Acesso com finalidade assistencial auditado sob a permissão <code>saude.prontuario.visualizar</code>.
+          </div>
+        </div>
+        <div class="card-footer bg-white d-flex flex-wrap gap-2">
+          <a href="/Saude/Atendimentos" class="btn btn-sm btn-primary">Registrar Acolhimento / SOAP</a>
+          <a href="/Saude/Vacinacao" class="btn btn-sm btn-outline-success">Vacinação</a>
+          <a href="/Saude/Farmacia" class="btn btn-sm btn-outline-primary">Dispensar Farmácia</a>
+          <a href="/Saude/Regulacao" class="btn btn-sm btn-outline-secondary">Regulação SUS</a>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+

@@ -1,6 +1,188 @@
 @model Sigov.Web.Models.Saude.AtendimentoSaudeFormViewModel
-@{ ViewData["Title"] = "Atendimentos de Saúde"; }
-<div class="d-flex justify-content-between align-items-center mb-3"><div><h1>Atendimentos de Saúde</h1><p class="text-muted">Dados sensíveis são mascarados por padrão e carregados via Ajax.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saudeFormModal">Novo</button></div>
-<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-striped" id="saude-grid" data-api="/api/saude/atendimentos"><thead><tr><th>ID</th><th>Descrição</th><th>Status</th></tr></thead><tbody><tr><td colspan="3">Carregando...</td></tr></tbody></table></div></div></div>
-<div class="modal fade" id="saudeFormModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Atendimentos de Saúde</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">@Html.AntiForgeryToken()<partial name="_FormAtendimento" model="Model" /></div></div></div></div>
-@section Scripts { <script src="~/js/modules/saude.atendimentos.js"></script> }
+@using Sigov.Application.Saude
+@{
+    ViewData["Title"] = "Atendimentos de Saúde";
+    var atendimentos = ViewBag.Atendimentos as IEnumerable<AtendimentoSaudeResponse> ?? Array.Empty<AtendimentoSaudeResponse>();
+}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Início</a></li>
+    <li class="breadcrumb-item"><a href="/Saude">Saúde</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Atendimentos</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1>Atendimentos e Acolhimento Clínico</h1>
+    <p class="text-muted mb-0">Classificação de risco, triagem assistencial e acompanhamento de evolução médica.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#atendimentoModal">Novo Acolhimento</button>
+</div>
+
+<details class="how-to mb-4" open>
+  <summary class="fw-bold">Como usar esta tela</summary>
+  <div class="mt-2 text-muted">
+    <p>Classificação é obrigatória ao finalizar. SOAP finalizado não se edita; correção vira retificação auditada.</p>
+    <ul>
+      <li><strong>Classificação de Risco (Manchester):</strong> AZUL, VERDE, AMARELO, LARANJA e VERMELHO determinam a urgência sem expor dados clínicos na fila.</li>
+      <li><strong>Imutabilidade de Prontuário:</strong> Evoluções médicas e desfechos concluídos não aceitam alteração direta de texto.</li>
+      <li><strong>Retificação Auditada:</strong> Correções exigem motivo formal e geram aditivo vinculado com rastreabilidade total.</li>
+    </ul>
+  </div>
+</details>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+    <span>Fila de Acolhimento e Atendimentos</span>
+    <span class="badge text-bg-secondary">Total: @atendimentos.Count()</span>
+  </div>
+  <div class="card-body p-0">
+    @if (!atendimentos.Any())
+    {
+      <div class="text-center py-5">
+        <p class="text-muted mb-3">Nenhum atendimento em andamento no momento.</p>
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#atendimentoModal">Iniciar Primeiro Acolhimento</button>
+      </div>
+    }
+    else
+    {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Número</th>
+              <th>Data / Hora</th>
+              <th>Tipo</th>
+              <th>Status</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var at in atendimentos)
+            {
+              <tr>
+                <td class="fw-semibold">@at.Numero</td>
+                <td>@at.DataAtendimento.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                <td><span class="badge text-bg-light border">@at.TipoAtendimento</span></td>
+                <td>
+                  @if (at.Status == "ATENDIDO")
+                  {
+                    <span class="badge text-bg-success">ATENDIDO (FINALIZADO)</span>
+                  }
+                  else if (at.Status == "AGENDADO")
+                  {
+                    <span class="badge text-bg-primary">AGENDADO</span>
+                  }
+                  else if (at.Status == "CANCELADO")
+                  {
+                    <span class="badge text-bg-secondary">CANCELADO</span>
+                  }
+                  else
+                  {
+                    <span class="badge text-bg-info">@at.Status</span>
+                  }
+                </td>
+                <td class="text-end">
+                  <a href="/Saude/Prontuario/@at.PacienteId" class="btn btn-sm btn-outline-primary me-1">Prontuário</a>
+
+                  @if (at.Status == "ATENDIDO")
+                  {
+                    <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#retificarModal-@at.Id">
+                      Retificar Evolução
+                    </button>
+
+                    <div class="modal fade" id="retificarModal-@at.Id" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content text-start">
+                          <form method="post" action="/Saude/Atendimentos/Retificar/@at.Id">
+                            @Html.AntiForgeryToken()
+                            <div class="modal-header">
+                              <h5 class="modal-title">Retificar Atendimento @at.Numero</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                              <div class="alert alert-warning small">
+                                A evolução original permanece inalterada. Será registrada uma retificação auditada com sua identificação.
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Justificativa da Retificação <span class="text-danger">*</span></label>
+                                <textarea name="Justificativa" class="form-control" rows="2" placeholder="Motivo clínico ou administrativo da retificação" required></textarea>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">Nova Conduta / Aditamento <span class="text-danger">*</span></label>
+                                <textarea name="NovaConduta" class="form-control" rows="3" placeholder="Informações adicionais ou correção" required></textarea>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">CID-10 (Opcional)</label>
+                                <input type="text" name="Cid10" class="form-control" placeholder="ex: J06.9" maxlength="10" />
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <button type="submit" class="btn btn-warning" data-confirm="A evolução original permanece. Será criada uma retificação auditada.">Registrar Retificação</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                  else if (at.Status != "CANCELADO")
+                  {
+                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#condutaModal-@at.Id">
+                      Finalizar Conduta
+                    </button>
+
+                    <div class="modal fade" id="condutaModal-@at.Id" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog">
+                        <div class="modal-content text-start">
+                          <form method="post" action="/Saude/Atendimentos/Conduta/@at.Id">
+                            @Html.AntiForgeryToken()
+                            <div class="modal-header">
+                              <h5 class="modal-title">Registrar Conduta — @at.Numero</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                              <div class="mb-3">
+                                <label class="form-label">Conduta Médica / Plano de Cuidado <span class="text-danger">*</span></label>
+                                <textarea name="Conduta" class="form-control" rows="4" placeholder="Prescrições, orientações e encaminhamentos" required></textarea>
+                              </div>
+                              <div class="mb-3">
+                                <label class="form-label">CID-10</label>
+                                <input type="text" name="Cid10" class="form-control" placeholder="ex: K29.7" maxlength="10" />
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <button type="submit" class="btn btn-success">Finalizar Atendimento</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<div class="modal fade" id="atendimentoModal" tabindex="-1" aria-labelledby="atendimentoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="atendimentoModalLabel">Novo Acolhimento com Classificação de Risco</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <partial name="_FormAtendimento" model="Model" />
+      </div>
+    </div>
+  </div>
+</div>
+

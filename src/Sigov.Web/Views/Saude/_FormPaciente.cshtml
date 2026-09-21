@@ -1,2 +1,53 @@
 @model Sigov.Web.Models.Saude.PacienteFormViewModel
-<form class="saude-ajax-form" data-api="/api/saude/pacientes">@Html.AntiForgeryToken()<div class="row g-3"><div class="col-md-3"><label asp-for="PessoaId" class="form-label"></label><input asp-for="PessoaId" class="form-control" /></div><div class="col-md-3"><label asp-for="CodigoPaciente" class="form-label"></label><input asp-for="CodigoPaciente" class="form-control" /></div><div class="col-md-3"><label asp-for="CartaoSus" class="form-label"></label><input asp-for="CartaoSus" class="form-control" /></div><div class="col-md-3"><label asp-for="GrupoSanguineo" class="form-label"></label><input asp-for="GrupoSanguineo" class="form-control" /></div><div class="col-12"><label asp-for="Alergias" class="form-label"></label><textarea asp-for="Alergias" class="form-control"></textarea></div></div><button class="btn btn-primary mt-3">Salvar</button></form>
+
+<form method="post" action="/Saude/Pacientes/Novo">
+  @Html.AntiForgeryToken()
+  <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+  <input type="hidden" name="PessoaId" value="1" />
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label asp-for="CodigoPaciente" class="form-label">Código do Paciente <span class="text-danger">*</span></label>
+      <input asp-for="CodigoPaciente" class="form-control" placeholder="ex: PAC-000123" required />
+      <span asp-validation-for="CodigoPaciente" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="CartaoSus" class="form-label">Cartão SUS (CNS)</label>
+      <input asp-for="CartaoSus" class="form-control" placeholder="15 dígitos" maxlength="15" />
+      <span asp-validation-for="CartaoSus" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+      <label asp-for="ProntuarioNumero" class="form-label">Número do Prontuário</label>
+      <input asp-for="ProntuarioNumero" class="form-control" placeholder="Automático ou institucional" />
+      <span asp-validation-for="ProntuarioNumero" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Grupo Sanguíneo</label>
+      <select name="GrupoSanguineo" class="form-select">
+        <option value="">Não informado</option>
+        <option value="A+">A+</option>
+        <option value="A-">A-</option>
+        <option value="B+">B+</option>
+        <option value="B-">B-</option>
+        <option value="AB+">AB+</option>
+        <option value="AB-">AB-</option>
+        <option value="O+">O+</option>
+        <option value="O-">O-</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Situação</label>
+      <select name="Situacao" class="form-select">
+        <option value="ATIVO" selected>ATIVO</option>
+        <option value="INATIVO">INATIVO</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Alergias Conhecidas</label>
+      <input type="text" name="Alergias" class="form-control" placeholder="ex: Penicilina, Dipirona" />
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-primary">Salvar Paciente</button>
+  </div>
+</form>

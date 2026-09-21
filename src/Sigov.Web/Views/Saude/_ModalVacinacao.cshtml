@@ -1,1 +1,83 @@
-<div class="alert alert-secondary">Componente estrutural Saúde/ACS com proteção LGPD e auditoria.</div>
+@using Sigov.Application.Saude
+@{
+    var unidades = ViewBag.Unidades as IEnumerable<UnidadeSaudeResponse> ?? Array.Empty<UnidadeSaudeResponse>();
+    var profissionais = ViewBag.Profissionais as IEnumerable<ProfissionalSaudeResponse> ?? Array.Empty<ProfissionalSaudeResponse>();
+    var pacientes = ViewBag.Pacientes as IEnumerable<PacienteResumoResponse> ?? Array.Empty<PacienteResumoResponse>();
+    var hoje = DateOnly.FromDateTime(DateTime.Today);
+}
+
+<form method="post" action="/Saude/Vacinacao/Nova">
+  @Html.AntiForgeryToken()
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label">Unidade de Saúde <span class="text-danger">*</span></label>
+      <select name="UnidadeSaudeId" class="form-select" required>
+        <option value="">Selecione a unidade...</option>
+        @foreach (var u in unidades)
+        {
+          <option value="@u.Id">@u.Nome (@u.Codigo)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Profissional Vacinador <span class="text-danger">*</span></label>
+      <select name="ProfissionalSaudeId" class="form-select" required>
+        <option value="">Selecione o profissional...</option>
+        @foreach (var pr in profissionais)
+        {
+          <option value="@pr.Id">@pr.CodigoProfissional (@pr.TipoProfissional)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Paciente <span class="text-danger">*</span></label>
+      <select name="PacienteId" class="form-select" required>
+        <option value="">Selecione o paciente...</option>
+        @foreach (var pac in pacientes)
+        {
+          <option value="@pac.Id">@pac.CodigoPaciente (CNS: @pac.CartaoSus)</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Imunobiológico / Vacina <span class="text-danger">*</span></label>
+      <input type="text" name="Vacina" class="form-control" placeholder="ex: COVID-19, Influenza, Hepatite B" required />
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Dose <span class="text-danger">*</span></label>
+      <select name="Dose" class="form-select" required>
+        <option value="1ª DOSE">1ª DOSE</option>
+        <option value="2ª DOSE">2ª DOSE</option>
+        <option value="3ª DOSE">3ª DOSE</option>
+        <option value="REFORÇO">REFORÇO</option>
+        <option value="DOSE UNICA">DOSE ÚNICA</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Número do Lote <span class="text-danger">*</span></label>
+      <input type="text" name="Lote" class="form-control" placeholder="ex: LOT-2026-X" required />
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Data de Validade do Lote <span class="text-danger">*</span></label>
+      <input type="date" name="Validade" class="form-control" value="@hoje.AddMonths(6).ToString("yyyy-MM-dd")" required />
+      <span class="text-muted small">Lote com validade vencida é recusado.</span>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Data de Aplicação <span class="text-danger">*</span></label>
+      <input type="date" name="DataAplicacao" class="form-control" value="@hoje.ToString("yyyy-MM-dd")" required />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Fabricante / Laboratório</label>
+      <input type="text" name="Fabricante" class="form-control" placeholder="ex: Fiocruz, Butantan, Pfizer" />
+    </div>
+    <div class="col-12">
+      <label class="form-label">Observações / Motivo de Dose Repetida</label>
+      <textarea name="Observacao" class="form-control" rows="2" placeholder="Obrigatório caso seja aplicada dose repetida do mesmo imunizante"></textarea>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-primary" data-confirm="Registrar dose. Lote e paciente serão auditados.">Confirmar Aplicação</button>
+  </div>
+</form>
+
