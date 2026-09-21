@@ -60,6 +60,12 @@ public sealed class SaudeRepository : BaseRepository, ISaudeCrudRepository, IUni
                     var pAtivo = await connection.ExecuteScalarAsync<long>(new CommandDefinition("select count(*) from sigov.profissional_saude where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and situacao='ATIVO' and not is_deleted", new { Id = pId, TenantId = tenantId, EntidadeId = entidadeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
                     if (pAtivo == 0) throw new InvalidOperationException("Profissional de saúde inexistente ou inativo.");
 
+                    // Serialize bookings for this professional inside the transaction so that
+                    // two concurrent overlap checks cannot both observe an empty interval.
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "select pg_advisory_xact_lock(hashtextextended(@Key, @TenantId # @EntidadeId))",
+                        new { TenantId = tenantId, EntidadeId = entidadeId, Key = $"agenda_saude:{pId}" }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
                     const string sqlConflito = @"select count(*) from sigov.agenda_saude
 where tenant_id=@TenantId and entidade_id=@EntidadeId and profissional_saude_id=@ProfissionalSaudeId
   and status <> 'CANCELADA' and not is_deleted and (data_inicio < @DataFim and data_fim > @DataInicio)";
@@ -186,8 +192,8 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteI
   (select count(*) from sigov.acs_cadastro_individual where tenant_id=@TenantId and entidade_id=@EntidadeId and is_deleted=false) as IndividuosCadastrados,
   (select count(*) from sigov.acs_visita where tenant_id=@TenantId and entidade_id=@EntidadeId and data_visita>=date_trunc('month', now()) and is_deleted=false) as VisitasAcsMes,
   (select count(*) from sigov.acs_sync_lote where tenant_id=@TenantId and entidade_id=@EntidadeId and status='RECEBIDO' and is_deleted=false) as SyncsPendentes,
-  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and classificacao_risco='LARANJA' and is_deleted=false) as TotalLaranja,
-  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and classificacao_risco='VERMELHO' and is_deleted=false) as TotalVermelho;
+  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento::date=current_date and status in ('AGENDADO','EM_ATENDIMENTO') and classificacao_risco='LARANJA' and is_deleted=false) as TotalLaranja,
+  (select count(*) from sigov.atendimento_saude where tenant_id=@TenantId and entidade_id=@EntidadeId and data_atendimento::date=current_date and status in ('AGENDADO','EM_ATENDIMENTO') and classificacao_risco='VERMELHO' and is_deleted=false) as TotalVermelho;
 ";
         using var connection = _context.CreateConnection();
         var row = await connection.QueryFirstAsync(sql, new { TenantId = tenantId, EntidadeId = entidadeId }).ConfigureAwait(false);
@@ -282,13 +288,13 @@ where tenant_id=@TenantId and entidade_id=@EntidadeId and paciente_id=@PacienteI
     private static void ApplyDefaults(string recurso, Dictionary<string, object?> p) { p.TryAdd("Numero", $"ATD-{p["Ano"]}-000001"); p.TryAdd("Status", recurso == "acs_sync" ? "PROCESSADO" : "ATIVO"); p["DadosSensiveisJson"] = Json(p.GetValueOrDefault("DadosSensiveis") ?? new Dictionary<string, object?>()); p["PoligonoGeoJson"] = Json(p.GetValueOrDefault("PoligonoGeoJson") ?? new Dictionary<string, object?>()); p["EnderecoJson"] = Json(p.GetValueOrDefault("Endereco") ?? new Dictionary<string, object?>()); p["CondicoesMoradiaJson"] = Json(p.GetValueOrDefault("CondicoesMoradia") ?? new Dictionary<string, object?>()); p["CondicoesSaudeJson"] = Json(p.GetValueOrDefault("CondicoesSaude") ?? new Dictionary<string, object?>()); p["VulnerabilidadesJson"] = Json(p.GetValueOrDefault("Vulnerabilidades") ?? new Dictionary<string, object?>()); p["ResultadoJson"] = Json(p.GetValueOrDefault("Resultado") ?? new Dictionary<string, object?>()); if (recurso == "acs_sync") { var itens = p.GetValueOrDefault("Itens") as IEnumerable<AcsSyncItemResponse> ?? Array.Empty<AcsSyncItemResponse>(); p["TotalItens"] = itens.Count(); p["TotalProcessados"] = itens.Count(i => i.Status == "PROCESSADO"); p["TotalErros"] = itens.Count(i => i.Status == "ERRO"); p["Status"] = (int)p["TotalErros"]! > 0 ? "PROCESSADO_COM_ERROS" : "PROCESSADO"; } if (recurso == "acs_visita") p["DataVisita"] ??= DateTimeOffset.UtcNow; }
     private static async Task EnsureProntuarioAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, long pacienteId, CancellationToken ct)
     {
-        const string sql = @"insert into sigov.prontuario(tenant_id, entidade_id, paciente_id, numero, created_by)
-values(@TenantId, @EntidadeId, @PacienteId, @Numero, @UsuarioId)
+        const string sql = @"insert into sigov.prontuario(tenant_id, entidade_id, paciente_id, numero, alergias, created_by)
+values(@TenantId, @EntidadeId, @PacienteId, @Numero, @Alergias, @UsuarioId)
 on conflict do nothing";
         var num = p.TryGetValue("ProntuarioNumero", out var pn) && pn is not null && !string.IsNullOrWhiteSpace(pn.ToString())
             ? pn.ToString()
             : $"PRT-{p["Ano"]}-{pacienteId:D6}";
-        await c.ExecuteAsync(new CommandDefinition(sql, new { TenantId = p["TenantId"], EntidadeId = p["EntidadeId"], PacienteId = pacienteId, Numero = num, UsuarioId = p["UsuarioId"] }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(sql, new { TenantId = p["TenantId"], EntidadeId = p["EntidadeId"], PacienteId = pacienteId, Numero = num, Alergias = p.GetValueOrDefault("Alergias"), UsuarioId = p["UsuarioId"] }, tx, cancellationToken: ct)).ConfigureAwait(false);
     }
     private static async Task BaixarEstoqueAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, CancellationToken ct)
     {
@@ -296,16 +302,13 @@ on conflict do nothing";
 where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@UnidadeSaudeId
   and farmacia_produto_id=@FarmaciaProdutoId and coalesce(lote,'')=coalesce(@Lote,'')";
         var (count, saldo) = await c.QueryFirstOrDefaultAsync<(long Count, decimal Saldo)>(new CommandDefinition(checkSql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
-        if (count > 0)
-        {
-            var qtd = Convert.ToDecimal(p["Quantidade"], System.Globalization.CultureInfo.InvariantCulture);
-            if (saldo < qtd)
-                throw new InvalidOperationException("Saldo insuficiente no almoxarifado. Dispensação recusada.");
+        var qtd = Convert.ToDecimal(p["Quantidade"], System.Globalization.CultureInfo.InvariantCulture);
+        if (count == 0 || saldo < qtd)
+            throw new InvalidOperationException("Saldo insuficiente no almoxarifado. Dispensação recusada.");
 
-            var affected = await c.ExecuteAsync(new CommandDefinition("update sigov.farmacia_estoque set quantidade=quantidade-@Quantidade,updated_at=now() where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@UnidadeSaudeId and farmacia_produto_id=@FarmaciaProdutoId and coalesce(lote,'')=coalesce(@Lote,'') and quantidade >= @Quantidade", p, tx, cancellationToken: ct)).ConfigureAwait(false);
-            if (affected == 0)
-                throw new InvalidOperationException("Saldo insuficiente no almoxarifado. Dispensação recusada.");
-        }
+        var affected = await c.ExecuteAsync(new CommandDefinition("update sigov.farmacia_estoque set quantidade=quantidade-@Quantidade,updated_at=now() where tenant_id=@TenantId and entidade_id=@EntidadeId and unidade_saude_id=@UnidadeSaudeId and farmacia_produto_id=@FarmaciaProdutoId and coalesce(lote,'')=coalesce(@Lote,'') and quantidade >= @Quantidade", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (affected == 0)
+            throw new InvalidOperationException("Saldo insuficiente no almoxarifado. Dispensação recusada.");
     }
     private static async Task InserirItensSyncAsync(NpgsqlConnection c, NpgsqlTransaction tx, Dictionary<string, object?> p, long loteId, CancellationToken ct) { if (p.GetValueOrDefault("Itens") is not IEnumerable<AcsSyncItemResponse> itens) return; foreach (var item in itens) await c.ExecuteAsync(new CommandDefinition("insert into sigov.acs_sync_item(tenant_id,entidade_id,acs_sync_lote_id,tipo_item,offline_id,status,payload,erro,processado_at,created_by) values(@TenantId,@EntidadeId,@LoteIdPk,@TipoItem,@OfflineId,@Status,'{}'::jsonb,@Erro,now(),@UsuarioId) on conflict do nothing", new { TenantId = p["TenantId"], EntidadeId = p["EntidadeId"], LoteIdPk = loteId, item.TipoItem, item.OfflineId, item.Status, item.Erro, UsuarioId = p["UsuarioId"] }, tx, cancellationToken: ct)).ConfigureAwait(false); }
     private static async Task RegistrarEventoAsync(NpgsqlConnection c, NpgsqlTransaction tx, long tenantId, long entidadeId, string tipo, string recurso, long aggregateId, object payload, long? usuarioId, CancellationToken ct) { await c.ExecuteAsync(new CommandDefinition("insert into sigov.saude_evento(tenant_id,entidade_id,tipo_evento,aggregate_type,aggregate_id,payload,created_by) values(@TenantId,@EntidadeId,@Tipo,@Recurso,@AggregateId,@Payload::jsonb,@UsuarioId)", new { TenantId = tenantId, EntidadeId = entidadeId, Tipo = tipo, Recurso = recurso, AggregateId = aggregateId, Payload = Json(payload), UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false); }

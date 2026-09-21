@@ -42,7 +42,7 @@ public sealed record FarmaciaEstoqueResponse(long Id, long UnidadeSaudeId, long 
 public sealed record FarmaciaDispensacaoCreateRequest(long UnidadeSaudeId, long PacienteId, long FarmaciaProdutoId, decimal Quantidade, long? ProfissionalSaudeId = null, string? Lote = null, string? Observacao = null);
 public sealed record FarmaciaDispensacaoResponse(long Id, long PacienteId, long FarmaciaProdutoId, decimal Quantidade, DateTimeOffset DataDispensacao);
 
-public sealed record VacinacaoCreateRequest(long UnidadeSaudeId, long PacienteId, string Vacina, string Dose, DateOnly DataAplicacao, long? ProfissionalSaudeId = null, string? Lote = null, string? Fabricante = null, string? Observacao = null);
+public sealed record VacinacaoCreateRequest(long UnidadeSaudeId, long PacienteId, string Vacina, string Dose, DateOnly DataAplicacao, long? ProfissionalSaudeId = null, string? Lote = null, string? Fabricante = null, string? Observacao = null, DateOnly? Validade = null);
 public sealed record VacinacaoResponse(long Id, long PacienteId, string Vacina, string Dose, DateOnly DataAplicacao);
 public sealed record LaboratorioExameCreateRequest(long PacienteId, string TipoExame, long? UnidadeSaudeId = null, long? ProfissionalSolicitanteId = null, string? Observacao = null);
 public sealed record LaboratorioResultadoRequest(Dictionary<string, object?> Resultado, DateOnly? DataResultado = null, string? Observacao = null);
