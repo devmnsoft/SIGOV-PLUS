@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Core;
 using Sigov.Application.Saude;
 using Sigov.Web.Models.Saude;
 
@@ -18,6 +19,7 @@ public sealed class SaudeController : Controller
     private readonly IRegulacaoService _regulacaoService;
     private readonly ISaudeDashboardService _dashboardService;
     private readonly IProntuarioService _prontuarioService;
+    private readonly IPessoaCadastroService _pessoaService;
 
     public SaudeController(
         IUnidadeSaudeService unidadeService,
@@ -29,7 +31,8 @@ public sealed class SaudeController : Controller
         IFarmaciaService farmaciaService,
         IRegulacaoService regulacaoService,
         ISaudeDashboardService dashboardService,
-        IProntuarioService prontuarioService)
+        IProntuarioService prontuarioService,
+        IPessoaCadastroService pessoaService)
     {
         _unidadeService = unidadeService;
         _profissionalService = profissionalService;
@@ -41,6 +44,7 @@ public sealed class SaudeController : Controller
         _regulacaoService = regulacaoService;
         _dashboardService = dashboardService;
         _prontuarioService = prontuarioService;
+        _pessoaService = pessoaService;
     }
 
     [HttpGet("/Saude")]
@@ -77,6 +81,7 @@ public sealed class SaudeController : Controller
     [HttpGet("/Saude/Pacientes/Novo")]
     public async Task<IActionResult> Pacientes(CancellationToken ct)
     {
+        await CarregarPessoasAsync(ct).ConfigureAwait(false);
         var res = await _pacienteService.ListarAsync(new PacienteFiltro(1, 50), ct).ConfigureAwait(false);
         ViewBag.Pacientes = res.IsSuccess && res.Value is not null ? res.Value.Items : Array.Empty<PacienteResumoResponse>();
         return View("Pacientes", new PacienteFormViewModel());
@@ -109,6 +114,7 @@ public sealed class SaudeController : Controller
     public async Task<IActionResult> Profissionais(CancellationToken ct)
     {
         await CarregarOpcoesAsync(ct).ConfigureAwait(false);
+        await CarregarPessoasAsync(ct).ConfigureAwait(false);
         var res = await _profissionalService.ListarAsync(new ProfissionalSaudeFiltro(1, 50), ct).ConfigureAwait(false);
         ViewBag.Profissionais = res.IsSuccess && res.Value is not null ? res.Value.Items : Array.Empty<ProfissionalSaudeResponse>();
         return View("Profissionais", new ProfissionalSaudeFormViewModel());
@@ -340,7 +346,7 @@ public sealed class SaudeController : Controller
             TempData["ToastErro"] = "Devolução de regulação exige justificativa.";
             return RedirectToAction(nameof(Regulacao));
         }
-        var res = await _regulacaoService.AlterarStatusAsync(id, new AlterarStatusRequest(status), ct).ConfigureAwait(false);
+        var res = await _regulacaoService.AlterarStatusAsync(id, new AlterarStatusRequest(status, justificativa), ct).ConfigureAwait(false);
         if (res.IsFailure)
             TempData["ToastErro"] = res.Error ?? "Falha ao alterar status da regulação.";
         else
@@ -361,6 +367,12 @@ public sealed class SaudeController : Controller
 
         var fRes = await _farmaciaService.ListarProdutosAsync(new UnidadeSaudeFiltro(1, 100), ct).ConfigureAwait(false);
         ViewBag.Produtos = fRes.IsSuccess && fRes.Value is not null ? fRes.Value.Items : Array.Empty<FarmaciaProdutoResponse>();
+    }
+
+    private async Task CarregarPessoasAsync(CancellationToken ct)
+    {
+        var res = await _pessoaService.ListarAsync(new PessoaFiltro(1, 100, TipoPessoa: "FISICA", Ativo: true), ct).ConfigureAwait(false);
+        ViewBag.Pessoas = res.IsSuccess && res.Value is not null ? res.Value.Items : Array.Empty<PessoaResumoResponse>();
     }
 
     [HttpGet("/Saude/Procedimentos")]

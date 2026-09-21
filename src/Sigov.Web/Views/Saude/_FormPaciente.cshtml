@@ -1,10 +1,24 @@
 @model Sigov.Web.Models.Saude.PacienteFormViewModel
+@using Sigov.Application.Core
+@{
+    var pessoas = ViewBag.Pessoas as IEnumerable<PessoaResumoResponse> ?? Array.Empty<PessoaResumoResponse>();
+}
 
 <form method="post" action="/Saude/Pacientes/Novo">
   @Html.AntiForgeryToken()
   <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
-  <input type="hidden" name="PessoaId" value="1" />
   <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label">Pessoa <span class="text-danger">*</span></label>
+      <select name="PessoaId" class="form-select" required>
+        <option value="">Selecione a pessoa cadastrada...</option>
+        @foreach (var pessoa in pessoas)
+        {
+          <option value="@pessoa.Id">@pessoa.Nome (@(string.IsNullOrWhiteSpace(pessoa.Documento) ? $"ID {pessoa.Id}" : pessoa.Documento))</option>
+        }
+      </select>
+      <span class="form-text">O paciente será vinculado a esta pessoa no cadastro oficial.</span>
+    </div>
     <div class="col-md-4">
       <label asp-for="CodigoPaciente" class="form-label">Código do Paciente <span class="text-danger">*</span></label>
       <input asp-for="CodigoPaciente" class="form-control" placeholder="ex: PAC-000123" required />

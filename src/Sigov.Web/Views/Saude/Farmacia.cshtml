@@ -1,7 +1,7 @@
 @model Sigov.Web.Models.Saude.FarmaciaProdutoFormViewModel
 @using Sigov.Application.Saude
 @{
-    ViewData["Title"] = "Farmácia Municipal";
+    ViewData["Title"] = "Farmácia Institucional";
     var estoque = ViewBag.Estoque as IEnumerable<FarmaciaEstoqueResponse> ?? Array.Empty<FarmaciaEstoqueResponse>();
 }
 
@@ -28,7 +28,7 @@
     <ul>
       <li><strong>Controle de Saldo:</strong> Caso o item possua saldo controlado no almoxarifado, o sistema exige saldo suficiente para autorizar a entrega.</li>
       <li><strong>Sem Vínculo de Estoque:</strong> Itens cadastrados exclusivamente no catálogo clínico registram a dispensação para o prontuário sem dedução de estoque.</li>
-      <li><strong>Medicamento Ativo:</strong> Medicamentos inativados na rede municipal têm a dispensação automaticamente bloqueada.</li>
+      <li><strong>Medicamento Ativo:</strong> Medicamentos inativados na rede institucional têm a dispensação automaticamente bloqueada.</li>
     </ul>
   </div>
 </details>
@@ -36,7 +36,7 @@
 <div class="alert alert-warning mb-4" role="status">
   <div class="d-flex align-items-center">
     <div>
-      <strong>Aviso de Estoque Integrado:</strong> Sem vínculo de estoque. Dispensação não baixa almox. O abatimento físico só ocorre em itens vinculados ao almoxarifado municipal.
+      <strong>Aviso de Estoque Integrado:</strong> Sem vínculo de estoque. Dispensação não baixa almox. O abatimento físico só ocorre em itens vinculados ao almoxarifado institucional.
     </div>
   </div>
 </div>
@@ -104,4 +104,3 @@
     </div>
   </div>
 </div>
-
