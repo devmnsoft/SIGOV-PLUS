@@ -56,7 +56,14 @@ public sealed class SaneamentoController : Controller
     public async Task<IActionResult> Dashboard(CancellationToken ct = default)
     {
         var result = await _dashboard.ObterAsync(ct);
-        ViewBag.DashboardReal = result.IsSuccess ? result.Value : null;
+        if (result.IsFailure)
+        {
+            return result.Error == "403"
+                ? Forbid()
+                : Problem(detail: result.Error, statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        ViewBag.DashboardReal = result.Value;
         return View(new SaneamentoDashboardViewModel());
     }
 
