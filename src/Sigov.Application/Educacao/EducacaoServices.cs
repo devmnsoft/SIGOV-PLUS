@@ -60,7 +60,7 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
             _logger.LogWarning(ex, "Regra de criação de Educação rejeitou {Recurso} no tenant {TenantId}.", recurso, TenantId);
             return Fail<long>(ex.Message);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Erro ao criar recurso de Educação {Recurso} no tenant {TenantId}.", recurso, TenantId);
             return Fail<long>("Falha ao executar operação de Educação.");
@@ -74,11 +74,17 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
         try
         {
             var anterior = await _repo.ObterAsync<object>(TenantId, EntidadeId, recurso, id, ct).ConfigureAwait(false);
+            if (anterior is null) return Fail("Registro não encontrado.");
             await _repo.AtualizarAsync(TenantId, EntidadeId, recurso, id, request, UsuarioId, ct).ConfigureAwait(false);
             await _audit.RegistrarAsync("educacao", acao.ToUpperInvariant(), $"sigov.{Tabela(recurso)}", id.ToString(System.Globalization.CultureInfo.InvariantCulture), anterior, AuditPayload(request), ct).ConfigureAwait(false);
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Regra de atualização de Educação rejeitou {Recurso} Id={Id}.", recurso, id);
+            return Fail(ex.Message);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Erro ao atualizar recurso de Educação {Recurso} Id={Id}.", recurso, id);
             return Fail("Falha ao executar operação de Educação.");

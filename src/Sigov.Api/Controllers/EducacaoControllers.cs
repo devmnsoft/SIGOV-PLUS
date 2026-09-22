@@ -14,14 +14,18 @@ public abstract class EducacaoApiControllerBase : ControllerBase
     {
         if (result.IsSuccess) return Ok(ApiResponse<T>.Ok(result.Value!));
         var error = result.Error ?? "Falha na operação.";
-        return error.Contains("permiss", StringComparison.OrdinalIgnoreCase) ? StatusCode(StatusCodes.Status403Forbidden, ApiResponse<T>.Fail(error)) : BadRequest(ApiResponse<T>.Fail(error));
+        if (error.Contains("permiss", StringComparison.OrdinalIgnoreCase)) return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<T>.Fail(error));
+        if (error.Contains("não encontrad", StringComparison.OrdinalIgnoreCase)) return NotFound(ApiResponse<T>.Fail(error));
+        return BadRequest(ApiResponse<T>.Fail(error));
     }
 
     protected ActionResult<ApiResponse<object>> FromResult(Result result)
     {
         if (result.IsSuccess) return Ok(ApiResponse<object>.Ok(new { }));
         var error = result.Error ?? "Falha na operação.";
-        return error.Contains("permiss", StringComparison.OrdinalIgnoreCase) ? StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(error)) : BadRequest(ApiResponse<object>.Fail(error));
+        if (error.Contains("permiss", StringComparison.OrdinalIgnoreCase)) return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(error));
+        if (error.Contains("não encontrad", StringComparison.OrdinalIgnoreCase)) return NotFound(ApiResponse<object>.Fail(error));
+        return BadRequest(ApiResponse<object>.Fail(error));
     }
 }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Sigov.Application.Educacao;
 
 namespace Sigov.Web.Models.Educacao;
 
@@ -9,7 +10,8 @@ public sealed class SerieAnoFormViewModel { public long CursoId { get; set; } [R
 public sealed class TurmaFormViewModel { public long EscolaId { get; set; } public long AnoLetivoId { get; set; } public long CursoId { get; set; } public long SerieAnoId { get; set; } [Required] public string Codigo { get; set; } = string.Empty; [Required] public string Nome { get; set; } = string.Empty; public string Turno { get; set; } = "MATUTINO"; public int Capacidade { get; set; } = 30; public string Status { get; set; } = "ABERTA"; }
 public sealed class AlunoFormViewModel { public long PessoaId { get; set; } [Required] public string CodigoAluno { get; set; } = string.Empty; public string? Nis { get; set; } public string? CartaoSus { get; set; } public bool NecessidadeEspecial { get; set; } public string Situacao { get; set; } = "ATIVO"; }
 public sealed class ResponsavelAlunoViewModel { public long PessoaId { get; set; } public string Parentesco { get; set; } = string.Empty; public bool ResponsavelLegal { get; set; } public bool Financeiro { get; set; } public bool AutorizadoBuscar { get; set; } public bool ContatoEmergencia { get; set; } }
-public sealed class MatriculaFormViewModel { public long AlunoId { get; set; } public long EscolaId { get; set; } public long AnoLetivoId { get; set; } public long TurmaId { get; set; } public string? NumeroMatricula { get; set; } public string Status { get; set; } = "ATIVA"; }
+public sealed class MatriculaFormViewModel { [Range(1, long.MaxValue)] public long AlunoId { get; set; } [Range(1, long.MaxValue)] public long EscolaId { get; set; } [Range(1, long.MaxValue)] public long AnoLetivoId { get; set; } [Range(1, long.MaxValue)] public long TurmaId { get; set; } [StringLength(50)] public string? NumeroMatricula { get; set; } public string Status { get; set; } = "ATIVA"; }
+public sealed record MatriculaDetalheViewModel(MatriculaResponse Matricula);
 public sealed class ProfessorFormViewModel { public long PessoaId { get; set; } public string CodigoProfessor { get; set; } = string.Empty; public long? ServidorId { get; set; } public string? Formacao { get; set; } public string Situacao { get; set; } = "ATIVO"; }
 public sealed class FrequenciaFormViewModel { public long TurmaId { get; set; } public long AlunoId { get; set; } public long? ProfessorId { get; set; } public DateOnly DataAula { get; set; } public string? ComponenteCurricular { get; set; } public bool Presente { get; set; } public string Status { get; set; } = "NAO_LANCADO"; public string? Justificativa { get; set; } }
 public sealed class AvaliacaoFormViewModel { public long TurmaId { get; set; } public long? ProfessorId { get; set; } public string ComponenteCurricular { get; set; } = string.Empty; public string Titulo { get; set; } = string.Empty; public DateOnly DataAvaliacao { get; set; } public decimal ValorMaximo { get; set; } public decimal Peso { get; set; } public string Status { get; set; } = "ABERTA"; }
