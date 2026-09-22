@@ -11,8 +11,8 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
-    <h1 class="h3">Matrículas da Rede</h1>
-    <p class="text-muted mb-0">Gestão das matrículas escolares, controle de vagas em turmas e histórico de transferências.</p>
+    <h1 class="h3">Matrículas</h1>
+    <p class="text-muted mb-0">Gestão de matrículas no contexto educacional ativo, com controle de vagas e histórico de transferências.</p>
   </div>
   <div class="btn-group">
     <a class="btn btn-outline-primary" href="/Educacao/Dashboard">Dashboard</a>
@@ -21,18 +21,27 @@
 </div>
 
 <details class="how-to mb-3">
-  <summary>Como usar esta tela</summary>
+  <summary><strong>Para que serve:</strong> consultar e efetivar matrículas</summary>
   <div class="mt-2 text-muted">
-    <p>Cancelar pede justificativa. Transferência não deixa duas ativas. Matrícula ativa é única por aluno, escola, ano letivo e série.</p>
+    <p><strong>Como funciona:</strong> filtre a relação ou selecione aluno, escola, ano letivo e uma turma compatível para efetivar uma matrícula.</p>
+    <p><strong>Antes de começar:</strong> o aluno e a escola precisam estar ativos; o ano letivo não pode estar encerrado e a turma precisa ter vaga.</p>
     <ul>
-      <li><strong>Unicidade da Matrícula:</strong> Tentativas de registrar segunda matrícula ativa para o mesmo aluno e ciclo anual são recusadas no serviço.</li>
-      <li><strong>Cancelamento com Justificativa:</strong> Exige motivo formal não vazio e decrementa a lotação da turma atomicamente.</li>
-      <li><strong>Transferência Segura:</strong> Registra a saída da turma de origem antes de ingressar na nova turma de destino.</li>
+      <li><strong>Regras importantes:</strong> matrícula ativa é única por aluno, escola, ano letivo e série; a vaga é reservada atomicamente.</li>
+      <li>Cancelamento exige justificativa e transferência preserva a matrícula de origem no histórico.</li>
     </ul>
+    <p><strong>Próximo passo:</strong> após salvar, confira o registro persistido na página de detalhe.</p>
   </div>
 </details>
 
 <div id="educacao-toast" class="alert d-none" role="alert"></div>
 <partial name="_FormMatricula" model="Model" />
+<form id="filtros-matriculas" class="card card-body mt-3" aria-label="Filtros de matrículas">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-4"><label for="filtro-aluno" class="form-label">Aluno</label><select id="filtro-aluno" name="AlunoId" class="form-select"><option value="">Todos</option>@foreach (var a in (ViewBag.Alunos as IEnumerable<Sigov.Application.Educacao.AlunoResumoResponse> ?? [])) { <option value="@a.Id">Aluno @a.CodigoAluno</option> }</select></div>
+    <div class="col-md-4"><label for="filtro-turma" class="form-label">Turma</label><select id="filtro-turma" name="TurmaId" class="form-select"><option value="">Todas</option>@foreach (var t in (ViewBag.Turmas as IEnumerable<Sigov.Application.Educacao.TurmaResponse> ?? [])) { <option value="@t.Id">@t.Nome — @t.Turno</option> }</select></div>
+    <div class="col-md-2"><label for="filtro-status" class="form-label">Situação</label><select id="filtro-status" name="Status" class="form-select"><option value="">Todas</option><option>ATIVA</option><option>CONFIRMADA</option><option>TRANSFERIDA</option><option>CANCELADA</option></select></div>
+    <div class="col-md-2 d-grid"><button type="submit" class="btn btn-outline-primary">Aplicar filtros</button></div>
+  </div>
+</form>
 <partial name="_GridMatriculas" />
 @section Scripts { <script src="~/js/modules/educacao.matriculas.js"></script> }

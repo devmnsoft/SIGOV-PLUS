@@ -56,6 +56,9 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("fn_educacao_converter_oferta");
         repository.Should().Contain("pg_advisory_xact_lock(hashtextextended")
             .And.Contain("nextval('sigov.educacao_numero_seq')")
+            .And.Contain("ExecuteScalarAsync<string?>")
+            .And.Contain("string.IsNullOrWhiteSpace(numero)")
+            .And.Contain("A sequência obrigatória de Educação não produziu um número válido.")
             .And.Contain("Somente matrícula ativa ou confirmada pode ser cancelada.")
             .And.NotContain("DateTime.UtcNow.Ticks % 1000000")
             .And.Contain("'PRE-' || @AnoLetivo");
@@ -78,9 +81,11 @@ public sealed class EducacaoModuleSmokeTests
     [Fact]
     public void Api_E_Web_Exposicoes_Estruturais_Existem()
     {
-        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoControllers.cs")).Should().Contain("api/educacao/escolas").And.Contain("api/educacao/dashboard").And.Contain("api/educacao/export");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoControllers.cs")).Should().Contain("api/educacao/escolas").And.Contain("api/educacao/dashboard").And.Contain("api/educacao/export").And.Contain("NotFound(ApiResponse");
         File.Exists(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/Dashboard.cshtml")).Should().BeTrue();
         File.Exists(Path.Combine(Root, "src/Sigov.Web/wwwroot/js/modules/educacao.dashboard.js")).Should().BeTrue();
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/MatriculaDetalhe.cshtml"))
+            .Should().Contain("Para que serve:").And.Contain("Próximo passo:").And.Contain("data-matricula-id");
     }
 
     private static string FindRepositoryRoot()

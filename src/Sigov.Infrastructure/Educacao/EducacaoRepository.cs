@@ -31,7 +31,6 @@ public sealed class EducacaoRepository : BaseRepository, IEscolaRepository, IAno
 
     public async Task<T?> ObterAsync<T>(long tenantId, long entidadeId, string recurso, long id, CancellationToken ct)
     {
-        if (typeof(T) == typeof(object)) return default;
         var sql = $"select {Select(recurso)} from sigov.{Table(recurso)} where tenant_id = @TenantId and entidade_id = @EntidadeId and id = @Id and is_deleted = false;";
         using var connection = _context.CreateConnection();
         return await connection.QueryFirstOrDefaultAsync<T>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId, Id = id }, ct)).ConfigureAwait(false);
@@ -163,7 +162,9 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
             }
             else
             {
-                await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso, p), p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                var atualizadas = await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso, p), p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (atualizadas != 1)
+                    throw new InvalidOperationException("Registro não encontrado no contexto autorizado ou estado incompatível.");
             }
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso, "Atualizada"), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -253,9 +254,13 @@ order by a.data_avaliacao desc, a.id desc;";
     public async Task<string> ProximoAsync(string prefixo, int ano, CancellationToken ct)
     {
         using var connection = _context.CreateConnection();
-        return await connection.ExecuteScalarAsync<string>(Command(
+        var numero = await connection.ExecuteScalarAsync<string?>(Command(
             "select @Prefixo || '-' || @Ano || '-' || lpad(nextval('sigov.educacao_numero_seq')::text, 8, '0')",
             new { Prefixo = prefixo, Ano = ano }, ct)).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(numero))
+            throw new InvalidOperationException("A sequência obrigatória de Educação não produziu um número válido.");
+
+        return numero;
     }
 
     public async Task AtualizarPreMatriculaAsync(long tenantId, long entidadeId, long id, object request, long versao, long? usuarioId, CancellationToken ct)

@@ -71,7 +71,7 @@ public sealed class EducacaoController : Controller
             var cursosResult = await _cursos.ListarAsync(new EscolaFiltro(PageSize: 100), ct).ConfigureAwait(false);
             ViewBag.Cursos = cursosResult.Value?.Items ?? Array.Empty<CursoResponse>();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Falha ao carregar os cadastros canônicos da jornada de Educação.");
             ViewBag.OpcoesEducacaoErro = "Os cadastros necessários não puderam ser consultados. A operação foi bloqueada; verifique a disponibilidade e o schema do banco.";
@@ -138,7 +138,18 @@ public sealed class EducacaoController : Controller
     [HttpGet("/Educacao/Matriculas")]
     public async Task<IActionResult> Matriculas(CancellationToken ct) { await CarregarOpcoesAsync(ct); return View(new MatriculaFormViewModel()); }
 
-    public async Task<IActionResult> MatriculaDetalhe(long id, CancellationToken ct) { ViewData["MatriculaId"] = id; await CarregarOpcoesAsync(ct); return View(new MatriculaFormViewModel()); }
+    public async Task<IActionResult> MatriculaDetalhe(long id, CancellationToken ct)
+    {
+        var result = await _matriculas.ObterAsync(id, ct).ConfigureAwait(false);
+        if (result.IsFailure || result.Value is null)
+        {
+            if (result.Error?.Contains("permiss", StringComparison.OrdinalIgnoreCase) == true) return Forbid();
+            return NotFound();
+        }
+
+        await CarregarOpcoesAsync(ct);
+        return View(new MatriculaDetalheViewModel(result.Value));
+    }
     public async Task<IActionResult> Professores(CancellationToken ct) { await CarregarOpcoesAsync(ct); return View(new ProfessorFormViewModel()); }
     public async Task<IActionResult> ProfessorDetalhe(long id, CancellationToken ct) { ViewData["ProfessorId"] = id; await CarregarOpcoesAsync(ct); return View(new ProfessorFormViewModel()); }
 

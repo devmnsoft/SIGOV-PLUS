@@ -1,5 +1,31 @@
-@model Sigov.Web.Models.Educacao.MatriculaFormViewModel
-@{ ViewData["Title"] = "Detalhe da Matrícula"; }
-<partial name="_PageHeader" model='new Sigov.Web.Models.Ui.PageHeaderViewModel("Detalhe da Matrícula", "Operação padronizada com LGPD, auditoria, permissões e tenant isolation.")' />
-<partial name="_FormMatricula" model="Model" />
+@model Sigov.Web.Models.Educacao.MatriculaDetalheViewModel
+@using Sigov.Application.Educacao
+@{
+    ViewData["Title"] = "Detalhe da matrícula";
+    var m = Model.Matricula;
+    var turma = (ViewBag.Turmas as IEnumerable<TurmaResponse> ?? []).FirstOrDefault(x => x.Id == m.TurmaId);
+    var escola = (ViewBag.Escolas as IEnumerable<EscolaResponse> ?? []).FirstOrDefault(x => x.Id == m.EscolaId);
+    var ano = (ViewBag.AnosLetivos as IEnumerable<AnoLetivoResponse> ?? []).FirstOrDefault(x => x.Id == m.AnoLetivoId);
+}
+<nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/">Início</a></li><li class="breadcrumb-item"><a href="/Educacao">Educação</a></li><li class="breadcrumb-item"><a href="/Educacao/Matriculas">Matrículas</a></li><li class="breadcrumb-item active" aria-current="page">@m.NumeroMatricula</li></ol></nav>
+<partial name="_PageHeader" model='new Sigov.Web.Models.Ui.PageHeaderViewModel("Detalhe da matrícula", "Registro persistido no contexto educacional autorizado.")' />
+@if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+<div id="educacao-toast" class="alert d-none" role="alert"></div>
+<details class="how-to mb-3">
+  <summary><strong>Para que serve:</strong> conferir e administrar esta matrícula</summary>
+  <div class="mt-2 text-muted"><p><strong>Como funciona:</strong> confira o estado persistido e use somente as ações habilitadas.</p><p><strong>Antes de começar:</strong> confirmação exige matrícula ativa; transferência exige turma compatível com vaga.</p><p><strong>Regras importantes:</strong> cancelar ou transferir exige justificativa e preserva o histórico.</p><p><strong>Próximo passo:</strong> após uma ação, o registro é relido para apresentar o estado confirmado pelo banco.</p></div>
+</details>
+<section class="card card-body" data-matricula-id="@m.Id">
+  @Html.AntiForgeryToken()
+  <div class="d-flex justify-content-between align-items-start"><div><h2 class="h5 mb-1">@m.NumeroMatricula</h2><span class="badge bg-secondary">@m.Status</span></div><a class="btn btn-outline-secondary" href="/Educacao/Matriculas">Voltar à listagem</a></div>
+  <dl class="row mt-4 mb-0"><dt class="col-sm-3">Aluno</dt><dd class="col-sm-9">Código @m.AlunoId</dd><dt class="col-sm-3">Escola</dt><dd class="col-sm-9">@(escola?.Nome ?? $"Código {m.EscolaId}")</dd><dt class="col-sm-3">Ano letivo</dt><dd class="col-sm-9">@(ano is null ? $"Código {m.AnoLetivoId}" : ano.Ano)</dd><dt class="col-sm-3">Turma</dt><dd class="col-sm-9">@(turma?.Nome ?? $"Código {m.TurmaId}")</dd><dt class="col-sm-3">Data da matrícula</dt><dd class="col-sm-9">@m.DataMatricula.ToString("dd/MM/yyyy")</dd></dl>
+</section>
+@if (m.Status is "ATIVA" or "CONFIRMADA")
+{
+  <section class="card card-body mt-3" aria-labelledby="acoes-matricula"><h2 id="acoes-matricula" class="h5">Ações permitidas</h2>
+    @if (m.Status == "ATIVA") { <button type="button" id="confirmar-matricula" class="btn btn-primary mb-3">Confirmar matrícula</button> }
+    <form id="transferir-matricula" class="row g-2 mb-3"><div class="col-md-5"><label for="nova-turma" class="form-label">Nova turma</label><select id="nova-turma" class="form-select" required><option value="">Selecione</option>@foreach (var t in (ViewBag.Turmas as IEnumerable<TurmaResponse> ?? []).Where(x => x.Id != m.TurmaId && x.AnoLetivoId == m.AnoLetivoId && x.Status == "ABERTA" && x.VagasOcupadas < x.Capacidade)) { <option value="@t.Id">@t.Nome — @t.Turno (@(t.Capacidade-t.VagasOcupadas) vagas)</option> }</select></div><div class="col-md-5"><label for="motivo-transferencia" class="form-label">Justificativa da transferência</label><input id="motivo-transferencia" class="form-control" required maxlength="500" /></div><div class="col-md-2 d-grid align-self-end"><button class="btn btn-outline-primary" type="submit">Transferir</button></div></form>
+    <form id="cancelar-matricula" class="row g-2"><div class="col-md-10"><label for="motivo-cancelamento" class="form-label">Justificativa do cancelamento</label><input id="motivo-cancelamento" class="form-control" required maxlength="500" /></div><div class="col-md-2 d-grid align-self-end"><button class="btn btn-outline-danger" type="submit">Cancelar</button></div></form>
+  </section>
+}
 @section Scripts { <script src="~/js/modules/educacao.matriculas.js"></script> }
