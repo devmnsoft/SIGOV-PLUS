@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-22 — nova execução do Gate A solicitada
+
+- repetida a auditoria antes de qualquer alteração funcional, confirmando a ausência
+  de .NET 10, PowerShell, PostgreSQL/`psql`, connection string e aplicações ativas;
+- executados novamente os gates portáveis de catálogo, consolidados, rotas,
+  artefatos, sintaxe e JavaScript, todos aprovados dentro do seu escopo estático;
+- mantidos código, schema, migrations, menus e telas sem alteração: o Gate A
+  obrigatório continua **BLOCKED**, portanto nenhuma funcionalidade foi promovida
+  com base apenas em inspeção estática.
+
 ## 2026-09-22 — auditoria do ciclo funcional condicionada ao Gate A
 
 - reexecutados os pré-requisitos e gates portáveis antes de qualquer implementação;

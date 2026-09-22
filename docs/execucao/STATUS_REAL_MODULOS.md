@@ -1,5 +1,13 @@
 # Status real dos módulos
 
+Nova execução do Gate A em 2026-09-22: os comandos normativos de restore, build e
+testes não iniciaram porque `dotnet` não está instalado; PostgreSQL/`psql`,
+PowerShell, `ConnectionStrings__DefaultConnection` e Web/API também permanecem
+indisponíveis. Os gates portáveis de catálogo/paridade, rotas, colisões SQL,
+artefatos, sintaxe Bash, manifesto JSON e JavaScript passaram. O gate HTTP registrou
+**BLOCKED** com HTTP 000. Em respeito à condição de avanço recebida, nenhuma regra,
+tela, migration, script consolidado ou menu foi alterado ou promovido.
+
 Revalidação do ciclo funcional em 2026-09-22: o Gate A permaneceu **BLOCKED** antes
 de qualquer implementação porque o ambiente não possui .NET 10, PowerShell,
 PostgreSQL/`psql`, connection string nem Web/API iniciadas. Catálogo/paridade

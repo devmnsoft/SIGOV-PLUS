@@ -13,6 +13,15 @@ gate.
 Os gates estáticos disponíveis foram reexecutados. Eles ajudam a detectar regressões
 estruturais, mas não demonstram comportamento runtime e não promovem nenhum módulo.
 
+### Reexecução desta solicitação
+
+O Gate A foi reexecutado nesta solicitação, antes de tocar código de produto. As
+tentativas explícitas de `dotnet restore`, `dotnet build` e `dotnet test` terminaram
+com exit 127 porque o executável não existe. O catálogo pôde ser enumerado, mas não
+aplicado: não há `psql`, connection string nem PostgreSQL 16 disponível. A suíte
+JavaScript existente passou. O gate HTTP terminou com exit 2 e HTTP 000 em todas as
+sondas. A decisão permanece **BLOCKED**, logo não foi lícito avançar aos Blocos A–F.
+
 ## 1. O que foi auditado
 
 - instruções do repositório, `README.md`, `CHANGELOG.md`, status real dos módulos,
@@ -87,6 +96,11 @@ Nenhum menu foi alterado, pois sua navegação autorizada não pôde ser exercit
 | `./scripts/check-tracked-artifacts.sh` | PASS | nenhum artefato proibido rastreado |
 | `bash -n scripts/check-prerequisites.sh scripts/check-migration-catalog.sh scripts/check-api-route-conflicts.sh scripts/check-one-shot-object-collisions.sh scripts/check-critical-pages.sh` | PASS | sintaxe Bash válida nos gates executados |
 | `python3 -m json.tool database/postgres/migrations/manifest.json` | PASS | manifesto JSON sintaticamente válido |
+| `node --test tests/js/*.test.js` | PASS | uma suíte, um teste, nenhuma falha |
+| `dotnet restore sigov.sln --locked-mode` | BLOCKED (exit 127) | SDK .NET ausente |
+| `dotnet build sigov.sln --configuration Release --no-restore --nologo -warnaserror` | BLOCKED (exit 127) | SDK .NET ausente |
+| `dotnet test tests/Sigov.UnitTests/Sigov.UnitTests.csproj --configuration Release --no-build` | BLOCKED (exit 127) | SDK .NET ausente |
+| `./scripts/apply-migrations-manifest.sh` | somente enumeração | sem argumento de conexão, listou as 181 migrations do baseline; não aplicou banco |
 | `./scripts/check-critical-pages.sh` | BLOCKED (exit 2) | API e Web indisponíveis; todas as sondas retornaram HTTP 000 |
 
 ## 12. Evidências de build
@@ -144,4 +158,3 @@ aplicação não iniciou. Nenhuma captura de tela seria evidência válida nesse
 | Protocolo | tramitação, prazos e histórico | Parcial | Parcial, não promovido | Não verificado | sem runtime/banco | homologar escopo, reabertura e histórico |
 | Jurídico | parecer, movimentações, anexos e relatórios | Parcial | Parcial, não promovido | Não verificado | sem runtime/banco | homologar alçadas, histórico e auditoria |
 | Template/UX | login, menus, formulários e responsividade | Parcial | Parcial, não promovido | Lacuna conhecida | páginas críticas HTTP 000 | executar navegação autenticada e padronizar ajuda |
-
