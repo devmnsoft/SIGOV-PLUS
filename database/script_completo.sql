@@ -216,7 +216,8 @@ select exists (
         ('20260916160000', array['5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae']::text[]),
         ('20260916190000', array['5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a']::text[]),
         ('20260916210000', array['86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c']::text[]),
-        ('20260916230000', array['07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4']::text[])
+        ('20260916230000', array['07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4']::text[]),
+        ('20260922120000', array['ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -31326,6 +31327,60 @@ where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is
 on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916230000', 'Jornada patrimonial de incorporação, responsabilidade e transferência com aceite', '07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260922120000_educacao_fechamento_academico.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c
+-- ==================================================
+-- Fechamento acadêmico versionado: prévia/concorrência, snapshot imutável e reabertura auditada.
+set search_path to sigov;
+
+alter table sigov.educacao_diario_fechamento
+    add column if not exists versao integer,
+    add column if not exists token_conferencia varchar(64),
+    add column if not exists retifica_fechamento_id bigint references sigov.educacao_diario_fechamento(id);
+
+-- Numera uma única vez o histórico legado, na ordem em que foi efetivamente criado.
+with legado as (
+  select id, row_number() over(partition by tenant_id,diario_id order by created_at,id)::integer as versao_calculada
+  from sigov.educacao_diario_fechamento where versao is null
+)
+update sigov.educacao_diario_fechamento f set versao=legado.versao_calculada from legado where legado.id=f.id;
+alter table sigov.educacao_diario_fechamento alter column versao set default 1;
+alter table sigov.educacao_diario_fechamento alter column versao set not null;
+
+-- Interrompe a migration se dados já versionados forem incompatíveis.
+do $$
+begin
+  if exists (
+    select 1 from sigov.educacao_diario_fechamento
+    group by tenant_id, diario_id, versao having count(*) > 1
+  ) then
+    raise exception 'Fechamentos acadêmicos possuem versões duplicadas; saneamento explícito é obrigatório.';
+  end if;
+end $$;
+
+create unique index if not exists ux_educacao_diario_fechamento_versao
+    on sigov.educacao_diario_fechamento(tenant_id, diario_id, versao);
+create index if not exists ix_educacao_diario_fechamento_retificacao
+    on sigov.educacao_diario_fechamento(tenant_id, retifica_fechamento_id)
+    where retifica_fechamento_id is not null;
+
+insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo,is_deleted)
+values
+ ('educacao','diario','conferir','educacao.diario.conferir','Conferir lançamentos e prévia do período',true,false),
+ ('educacao','diario','fechar','educacao.diario.fechar','Confirmar fechamento acadêmico do período',true,false),
+ ('educacao','diario','reabrir','educacao.diario.reabrir','Reabrir período acadêmico com justificativa',true,false),
+ ('educacao','boletim','emitir','educacao.boletim.emitir','Emitir boletim vinculado ao fechamento',true,false)
+on conflict(modulo,chave) do update set recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922120000', 'Fechamento acadêmico versionado com conferência, concorrência e reabertura auditada', 'ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

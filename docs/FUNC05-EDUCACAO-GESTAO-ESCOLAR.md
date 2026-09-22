@@ -129,3 +129,28 @@ Decisões ainda indispensáveis: política acadêmica versionada por esfera/etap
 unidade oficial de frequência, regras de recuperação/arredondamento/classificação
 e contrato de snapshot/reabertura. Até serem parametrizadas, fechamento definitivo,
 média e situação final continuam indisponíveis, em vez de receber valores arbitrários.
+
+## Jornada de conferência e fechamento versionado (22/09/2026)
+
+A conferência canônica do diário está em `GET /api/educacao/diario-classe/{id}/conferencia`. Ela usa aulas não canceladas, matrículas da mesma turma/ano letivo cuja data de ingresso alcança o período observado, conteúdo e frequência persistidos. Matrículas canceladas ou transferidas não são inferidas como vigentes: quando o histórico disponível não permite provar a vigência, o caso deve ser corrigido na matrícula antes do fechamento. Falta de lançamento é pendência e nunca é convertida em falta; aulas canceladas não compõem os totais.
+
+A prévia é somente leitura e produz um token SHA-256 dos dados conferidos. O fechamento bloqueia o diário, recalcula a mesma conferência dentro da transação e rejeita token divergente. Em sucesso grava snapshot, versão, autor, instante e histórico atomicamente. Repetição sobre diário já fechado devolve o fechamento vigente sem duplicar versão. A reabertura exige permissão e justificativa, preserva o snapshot anterior e o fechamento posterior referencia a versão precedente como retificação.
+
+### Inventário verificado da jornada
+
+| Etapa | Classificação | Evidência e limite |
+|---|---|---|
+| consultar turma/período | IMPLEMENTADA COM EVIDÊNCIA | diário persistente, consulta tenant-scoped e tela de conferência |
+| identificar pendências | IMPLEMENTADA COM EVIDÊNCIA | conteúdo e frequência esperada por aluno/aula são detalhados com ação de correção |
+| corrigir lançamentos | PARCIAL | atalhos existentes levam a conteúdo/frequência; notas do diário ainda não possuem vínculo canônico com `nota` |
+| validar resultados | PARCIAL | consistência de diário/frequência é revalidada; política acadêmica versionada para média/aprovação continua ausente |
+| fechar período | IMPLEMENTADA COM EVIDÊNCIA ESTÁTICA | transação, lock, token de concorrência, snapshot e idempotência; execução PostgreSQL depende de ambiente |
+| emitir boletim definitivo | PARCIAL | consulta de lançamentos preservada, sem inventar média; emissão vinculada ao snapshot ainda depende da política acadêmica |
+| reabrir/retificar | IMPLEMENTADA COM EVIDÊNCIA ESTÁTICA | permissão específica, justificativa, histórico e encadeamento de versões |
+| central de pendências | PARCIAL | pendências do diário refletem banco; deduplicação transversal da central não foi alterada |
+
+O contrato `IEducacaoSequencialService.ProximoAsync` permanece não nulo. A consulta usa `ExecuteScalarAsync<string?>`, valida `null`/vazio e lança inconsistência explícita, sem `null!` ou supressão; indisponibilidade do banco continua propagada como falha. Assim, o CS8603 anteriormente associado ao retorno foi corrigido de acordo com a obrigatoriedade do número sequencial.
+
+### Limites não mascarados
+
+Não foram criadas nota de corte, média aritmética, equivalência curricular ou aprovação implícita. Até existir política acadêmica persistida e versionada, o boletim continua parcial, distingue zero de `NAO_LANCADO` e não pode ser promovido a documento acadêmico definitivo. A execução limpa/upgrade/reaplicação da migration requer PostgreSQL 16 e deve ser registrada como bloqueada quando `psql` não estiver disponível.

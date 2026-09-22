@@ -1,9 +1,54 @@
-@{ ViewData["Title"] = "Detalhe do diário"; }
-<section class="edu-b3" data-endpoint="/api/educacao/diario-classe">
- <header class="edu-b3__hero"><div><span class="lgpd-badge">LGPD • acesso auditado</span><h1>Detalhe do diário</h1><p>Operação educacional persistente, isolada por tenant e protegida por permissões.</p></div><button class="btn btn-primary" data-reload>Atualizar</button></header>
- <div class="edu-b3__kpis"><article><strong data-total>—</strong><span>Registros</span></article><article><strong>100%</strong><span>Rastreabilidade</span></article><article><strong>Ativo</strong><span>Fluxo operacional</span></article></div>
- <div class="filter-bar"><label>Busca<input type="search" data-filter placeholder="Filtrar registros"></label><label>Status<select><option>Todos</option><option>Aberto</option><option>Pendente</option><option>Concluído</option></select></label></div>
- <div class="responsive-data-table"><div class="loading-skeleton" data-loading>Consultando dados reais…</div><table hidden><thead><tr><th>Identificador</th><th>Tipo / título</th><th>Status</th><th>Atualização</th></tr></thead><tbody></tbody></table><div class="empty-state" hidden><strong>Nenhum registro disponível</strong><p>Quando houver dados autorizados, eles aparecerão aqui. Nenhum dado de terceiros é exibido.</p></div></div>
- <div class="audit-timeline"><span></span><div><strong>Trilha de auditoria habilitada</strong><small>Alterações registram usuário, tenant e correlation id.</small></div></div>
+@{ ViewData["Title"] = "Conferência e fechamento do período"; }
+<section class="edu-b3" aria-labelledby="titulo-conferencia">
+  <header class="edu-b3__hero">
+    <div><span class="lgpd-badge">Acesso autorizado e auditado</span><h1 id="titulo-conferencia">Conferência e fechamento do período</h1><p>Confira turma, período, componente, alunos elegíveis e lançamentos antes de produzir um fechamento versionado.</p></div>
+    <button class="btn btn-outline-primary" type="button" data-conferir>Atualizar conferência</button>
+  </header>
+
+  <div class="alert alert-info" role="note"><strong>Para que serve:</strong> identificar pendências, obter uma prévia sem alterar dados e confirmar o fechamento do diário selecionado.</div>
+  <details class="how-to mb-4">
+    <summary class="fw-semibold">Ajuda da jornada</summary>
+    <div class="card card-body bg-light border-0 mt-2">
+      <p><strong>Como funciona:</strong> informe o diário, confira os totais e corrija cada item pelo atalho indicado. A confirmação revalida no servidor exatamente os mesmos dados.</p>
+      <p><strong>Antes de começar:</strong> escola, ano letivo, turma, componente, aulas, conteúdo, matrículas vigentes e frequência devem estar cadastrados; conferir, fechar e reabrir exigem permissões próprias.</p>
+      <p><strong>Regras importantes:</strong> nota zero não é pendência; frequência não lançada não vira falta; aula cancelada não participa; uma alteração depois da prévia invalida a confirmação.</p>
+      <p class="mb-0"><strong>Próximo passo:</strong> após fechar, consulte o histórico e emita documentos vinculados à versão. Para corrigir, reabra com justificativa e faça um novo fechamento.</p>
+    </div>
+  </details>
+
+  <form class="filter-bar" data-filtros novalidate>
+    <label for="diario-id">Diário <input class="form-control" id="diario-id" name="diarioId" type="number" min="1" required inputmode="numeric" /></label>
+    <button class="btn btn-primary align-self-end" type="submit">Conferir período</button>
+  </form>
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Calculando a prévia com dados persistidos…</div>
+
+  <div data-resultado hidden>
+    <div class="edu-b3__kpis" aria-label="Resumo da conferência">
+      <article><strong data-status>—</strong><span>Situação</span></article><article><strong data-alunos>—</strong><span>Alunos abrangidos</span></article>
+      <article><strong data-completos>—</strong><span>Lançamentos completos</span></article><article><strong data-pendentes>—</strong><span>Pendências impeditivas</span></article>
+    </div>
+    <p class="text-muted">Última atualização: <time data-atualizacao>—</time></p>
+    <div class="responsive-data-table"><table class="table"><caption class="visually-hidden">Pendências impeditivas e ações para correção</caption><thead><tr><th>Problema</th><th>Registro afetado</th><th>Ação necessária</th><th>Correção</th></tr></thead><tbody data-detalhes></tbody></table></div>
+    <div class="alert alert-warning"><strong>Confirmação:</strong> serão versionados <span data-quantidade>0</span> lançamentos do escopo conferido. Boletins definitivos devem referenciar esta versão; reabertura posterior não apaga o histórico.</div>
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-primary" type="button" data-fechar disabled>Confirmar fechamento</button>
+      <button class="btn btn-outline-danger" type="button" data-reabrir>Reabrir para correção</button>
+      <button class="btn btn-outline-secondary" type="button" data-historico>Consultar histórico</button>
+    </div>
+    <div class="mt-3" data-historico-lista aria-live="polite"></div>
+  </div>
 </section>
-<script src="~/js/educacao-bloco3.js" asp-append-version="true"></script>
+
+<script>
+(() => {
+ const root=document.currentScript.previousElementSibling, form=root.querySelector('[data-filtros]'), id=root.querySelector('#diario-id'), loading=root.querySelector('[data-loading]'), result=root.querySelector('[data-resultado]'), message=root.querySelector('[data-mensagem]'); let preview=null;
+ const envelope=async response=>{const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.message||body.error||body.errors?.[0]||'Não foi possível concluir a operação.');return body.data??body;};
+ const notice=(text,kind='danger')=>{message.className=`alert alert-${kind}`;message.textContent=text;};
+ async function confer() { if(!form.reportValidity())return; loading.hidden=false;message.classList.add('d-none');try{preview=await envelope(await fetch(`/api/educacao/diario-classe/${id.value}/conferencia`,{credentials:'same-origin'}));root.querySelector('[data-status]').textContent=preview.status;root.querySelector('[data-alunos]').textContent=preview.alunosAbrangidos;root.querySelector('[data-completos]').textContent=`${preview.lancamentosRealizados}/${preview.lancamentosEsperados}`;root.querySelector('[data-pendentes]').textContent=preview.pendencias;root.querySelector('[data-atualizacao]').textContent=new Date(preview.ultimaAtualizacao).toLocaleString();root.querySelector('[data-quantidade]').textContent=preview.lancamentosRealizados;root.querySelector('[data-fechar]').disabled=!preview.podeFechar;const body=root.querySelector('[data-detalhes]');body.replaceChildren(...preview.detalhes.map(x=>{const tr=document.createElement('tr');[x.problema,x.registro,x.acao].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});const td=document.createElement('td');if(x.urlCorrecao){const a=document.createElement('a');a.className='btn btn-sm btn-outline-primary';a.href=x.urlCorrecao;a.textContent='Corrigir lançamento';td.append(a)}else td.textContent='—';tr.append(td);return tr}));if(!preview.detalhes.length)body.innerHTML='<tr><td colspan="4">Nenhuma pendência impeditiva. A confirmação está disponível para usuários autorizados.</td></tr>';result.hidden=false;}catch(e){notice(e.message);result.hidden=true}finally{loading.hidden=true}}
+ form.addEventListener('submit',e=>{e.preventDefault();confer()});root.querySelector('[data-conferir]').addEventListener('click',confer);
+ root.querySelector('[data-fechar]').addEventListener('click',async()=>{if(!preview)return;const observacao=prompt('Informe a observação obrigatória do fechamento:');if(!observacao)return;try{await envelope(await fetch(`/api/educacao/diario-classe/${id.value}/fechar-periodo`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({observacao,tokenConferencia:preview.tokenConferencia})}));notice('Fechamento confirmado e versionado.','success');await confer()}catch(e){notice(e.message)}});
+ root.querySelector('[data-reabrir]').addEventListener('click',async()=>{const justificativa=prompt('Informe a justificativa obrigatória da reabertura:');if(!justificativa)return;try{await envelope(await fetch(`/api/educacao/diario-classe/${id.value}/reabrir`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({justificativa})}));notice('Período reaberto. O fechamento anterior foi preservado.','success');await confer()}catch(e){notice(e.message)}});
+ root.querySelector('[data-historico]').addEventListener('click',async()=>{try{const rows=await envelope(await fetch(`/api/educacao/diario-classe/${id.value}/historico-fechamentos`,{credentials:'same-origin'}));root.querySelector('[data-historico-lista]').textContent=rows.length?rows.map(x=>`Versão ${x.versao} — ${x.status} — ${new Date(x.createdAt).toLocaleString()} — ${x.justificativa}`).join('\n'):'Nenhum fechamento emitido.'}catch(e){notice(e.message)}});
+})();
+</script>
