@@ -24,7 +24,7 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         if (recurso == "portal-ocorrencia") where += " and x.visivel_portal=true and x.sensivel=false";
         if (!administrativo && recurso == "portal-solicitacao") where += " and x.usuario_id=@UsuarioId";
         if (!administrativo && recurso == "portal-mensagem") where += " and x.usuario_id=@UsuarioId";
-        if (!administrativo && recurso == "portal-comunicado") where += " and exists (select 1 from sigov.educacao_comunicado_destinatario d where d.tenant_id=x.tenant_id and d.comunicado_id=x.id and d.usuario_id=@UsuarioId)";
+        if (!administrativo && recurso == "portal-comunicado") where += " and exists (select 1 from sigov.educacao_comunicado_destinatario d where d.tenant_id=x.tenant_id and d.comunicado_id=x.id and d.usuario_id=@UsuarioId and (@AlunoId is null or d.aluno_id=@AlunoId) and exists(select 1 from sigov.educacao_portal_vinculo v where v.tenant_id=d.tenant_id and v.usuario_id=d.usuario_id and v.aluno_id=d.aluno_id and v.status='ATIVO' and v.is_deleted=false))";
         var sql = $"select {definition.Colunas} from sigov.{definition.Tabela} x where {where} order by x.id desc limit 250";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<T>(new CommandDefinition(sql, new { TenantId = tenantId, filtro.AlunoId, filtro.Status, filtro.Tipo, UsuarioId = usuarioId }, cancellationToken: ct)).ConfigureAwait(false);
@@ -42,6 +42,16 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         var p = Parametros(dados); p.Add("TenantId", tenantId); p.Add("EntidadeId", entidadeId); p.Add("ExercicioId", exercicioId); p.Add("UsuarioId", usuarioId); p.Add("CorrelationId", correlationId); p.Add("Dados", JsonSerializer.Serialize(dados));
         var sql = Insercao(recurso);
         using var connection = _context.CreateConnection();
+        if (recurso == "portal-comunicado")
+        {
+            connection.Open(); using var tx=connection.BeginTransaction();
+            var id=await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql,p,tx,cancellationToken:ct)).ConfigureAwait(false);
+            await connection.ExecuteAsync(new CommandDefinition(@"insert into sigov.educacao_comunicado_destinatario(tenant_id,comunicado_id,usuario_id,aluno_id,versao,created_by)
+select distinct @TenantId,@Id,v.usuario_id,v.aluno_id,1,@UsuarioId from sigov.educacao_portal_vinculo v
+join sigov.matricula m on m.tenant_id=v.tenant_id and m.aluno_id=v.aluno_id and m.is_deleted=false and m.status in ('ATIVA','CONFIRMADA')
+where v.tenant_id=@TenantId and v.status='ATIVO' and v.is_deleted=false and (@EscolaId is null or m.escola_id=@EscolaId) and (@TurmaId is null or m.turma_id=@TurmaId)",new{TenantId=tenantId,Id=id,UsuarioId=usuarioId,EscolaId=p.Get<long?>("EscolaId"),TurmaId=p.Get<long?>("TurmaId")},tx,cancellationToken:ct)).ConfigureAwait(false);
+            tx.Commit(); return id;
+        }
         if (new[] { "aula", "conteudo", "frequencia", "avaliacao", "reposicao" }.Contains(recurso, StringComparer.OrdinalIgnoreCase))
         {
             var diarioId = p.Get<long>("DiarioId");
@@ -88,8 +98,8 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         "avaliacao" => "insert into sigov.educacao_diario_avaliacao(tenant_id,diario_id,aula_id,titulo,valor_maximo,peso,dados,auditoria,correlation_id,created_by) values(@TenantId,@DiarioId,@AulaId,@Titulo,@ValorMaximo,@Peso,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
         "reposicao" => "insert into sigov.educacao_diario_reposicao(tenant_id,diario_id,aula_id,data_reposicao,justificativa,dados,auditoria,correlation_id,created_by) values(@TenantId,@DiarioId,@AulaId,@DataReposicao,@Justificativa,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
         "portal-solicitacao" => "insert into sigov.educacao_portal_solicitacao(tenant_id,usuario_id,aluno_id,tipo,descricao,dados,auditoria,correlation_id,created_by) values(@TenantId,@UsuarioId,@AlunoId,@Tipo,@Descricao,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
-        "portal-vinculo" => "insert into sigov.educacao_portal_vinculo(tenant_id,usuario_id,aluno_id,responsavel_id,dados,auditoria,created_by) values(@TenantId,@UsuarioVinculadoId,@AlunoId,@ResponsavelId,cast(@Dados as jsonb),jsonb_build_object('created_by',@UsuarioId),@UsuarioId) returning id",
-        "portal-comunicado" => "insert into sigov.educacao_comunicado(tenant_id,escola_id,turma_id,titulo,mensagem,dados,auditoria,created_by) values(@TenantId,@EscolaId,@TurmaId,@Titulo,@Mensagem,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@UsuarioId) returning id",
+        "portal-vinculo" => "insert into sigov.educacao_portal_vinculo(tenant_id,usuario_id,aluno_id,responsavel_id,dados,auditoria,created_by) select @TenantId,u.id,r.aluno_id,r.id,cast(@Dados as jsonb),jsonb_build_object('created_by',@UsuarioId,'origem','CONFERENCIA_SECRETARIA'),@UsuarioId from sigov.usuario u join sigov.responsavel_aluno r on r.pessoa_id=u.pessoa_id and r.aluno_id=@AlunoId and r.id=@ResponsavelId and r.tenant_id=@TenantId and r.ativo=true and r.is_deleted=false where u.tenant_id=@TenantId and u.id=@UsuarioVinculadoId and u.ativo=true and u.is_deleted=false returning id",
+        "portal-comunicado" => "insert into sigov.educacao_comunicado(tenant_id,escola_id,turma_id,titulo,mensagem,status,versao,exige_ciencia,dados,auditoria,created_by) values(@TenantId,@EscolaId,@TurmaId,@Titulo,@Mensagem,'PUBLICADO',1,@ExigeCiencia,cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId,'publico','SNAPSHOT_PUBLICACAO'),@UsuarioId) returning id",
         _ => throw new ArgumentOutOfRangeException(nameof(r), "Recurso sem operação de criação.")
     };
 
@@ -104,7 +114,7 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         "diario" => new("educacao_diario_classe","x.id as \"Id\",x.escola_id as \"EscolaId\",x.turma_id as \"TurmaId\",x.disciplina_id as \"DisciplinaId\",x.professor_id as \"ProfessorId\",x.periodo as \"Periodo\",x.status as \"Status\"",false,true,false,false),
         "diario-pendencia" => new("educacao_diario_pendencia","x.id as \"Id\",x.diario_id as \"DiarioId\",x.tipo as \"Tipo\",x.descricao as \"Descricao\",x.status as \"Status\"",false,true,true,false),
         "portal-solicitacao" => new("educacao_portal_solicitacao","x.id as \"Id\",x.aluno_id as \"AlunoId\",x.tipo as \"Tipo\",x.status as \"Status\",x.descricao as \"Descricao\",x.created_at as \"CreatedAt\"",true,true,true,true),
-        "portal-comunicado" => new("educacao_comunicado","x.id as \"Id\",x.titulo as \"Titulo\",x.mensagem as \"Mensagem\",x.created_at as \"CreatedAt\"",false,true,true,false),
+        "portal-comunicado" => new("educacao_comunicado","x.id as \"Id\",coalesce((select d.aluno_id from sigov.educacao_comunicado_destinatario d where d.tenant_id=x.tenant_id and d.comunicado_id=x.id and d.usuario_id=@UsuarioId and (@AlunoId is null or d.aluno_id=@AlunoId) order by d.id limit 1),0) as \"AlunoId\",x.titulo as \"Titulo\",x.mensagem as \"Mensagem\",x.status as \"Status\",x.versao as \"Versao\",x.exige_ciencia as \"ExigeCiencia\",(select d.lido_at from sigov.educacao_comunicado_destinatario d where d.tenant_id=x.tenant_id and d.comunicado_id=x.id and d.usuario_id=@UsuarioId and (@AlunoId is null or d.aluno_id=@AlunoId) order by d.id limit 1) as \"LidoEm\",(select d.ciencia_at from sigov.educacao_comunicado_destinatario d where d.tenant_id=x.tenant_id and d.comunicado_id=x.id and d.usuario_id=@UsuarioId and (@AlunoId is null or d.aluno_id=@AlunoId) order by d.id limit 1) as \"CienciaEm\",x.created_at as \"CreatedAt\"",false,true,true,false),
         "portal-mensagem" => new("educacao_portal_mensagem","x.id as \"Id\",x.titulo as \"Titulo\",x.mensagem as \"Mensagem\",(x.status='LIDA') as \"Lida\",x.created_at as \"CreatedAt\"",false,true,true,false),
         "portal-vinculo" => new("educacao_portal_vinculo","x.id as \"Id\",x.usuario_id as \"UsuarioId\",x.aluno_id as \"AlunoId\",x.responsavel_id as \"ResponsavelId\",x.status as \"Status\"",true,true,true,false),
         _ => throw new ArgumentOutOfRangeException(nameof(r), "Recurso de consulta inválido.")
@@ -191,6 +201,71 @@ from sigov.educacao_diario_classe d where d.tenant_id=@TenantId and d.id=@Diario
         using var connection = _context.CreateConnection();
         return (await connection.QueryAsync<EducacaoDiarioFechamentoDto>(new CommandDefinition(sql, new { TenantId=tenantId, DiarioId=diarioId }, cancellationToken:ct)).ConfigureAwait(false)).AsList();
     }
+
+    public async Task<IReadOnlyCollection<EducacaoPortalAlunoDto>> ListarAlunosAutorizadosAsync(long tenantId, long usuarioId, CancellationToken ct)
+    {
+        const string sql = @"select a.id as ""Id"",p.nome as ""Nome"",a.codigo_aluno as ""CodigoAluno"",a.situacao as ""Situacao"",
+ e.nome as ""Escola"",t.nome as ""Turma"",al.ano as ""AnoLetivo""
+from sigov.educacao_portal_vinculo v
+join sigov.aluno a on a.tenant_id=v.tenant_id and a.id=v.aluno_id and a.is_deleted=false
+join sigov.pessoa p on p.tenant_id=a.tenant_id and p.id=a.pessoa_id and p.is_deleted=false
+left join lateral (select m.escola_id,m.turma_id,m.ano_letivo_id from sigov.matricula m where m.tenant_id=v.tenant_id and m.aluno_id=v.aluno_id and m.is_deleted=false and m.status in ('ATIVA','CONFIRMADA','CONCLUIDA') order by (m.status in ('ATIVA','CONFIRMADA')) desc,m.id desc limit 1) m on true
+left join sigov.escola e on e.tenant_id=v.tenant_id and e.id=m.escola_id
+left join sigov.turma t on t.tenant_id=v.tenant_id and t.id=m.turma_id
+left join sigov.ano_letivo al on al.tenant_id=v.tenant_id and al.id=m.ano_letivo_id
+where v.tenant_id=@TenantId and v.usuario_id=@UsuarioId and v.status='ATIVO' and v.is_deleted=false order by p.nome,a.id";
+        using var connection = _context.CreateConnection();
+        return (await connection.QueryAsync<EducacaoPortalAlunoDto>(new CommandDefinition(sql,new{TenantId=tenantId,UsuarioId=usuarioId},cancellationToken:ct)).ConfigureAwait(false)).AsList();
+    }
+
+    public async Task<EducacaoPortalVidaEscolarDto?> ObterVidaEscolarAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct)
+    {
+        const string sql = @"select a.id as ""AlunoId"",m.id as ""MatriculaId"",m.status as ""Situacao"",e.nome as ""Escola"",t.nome as ""Turma"",al.ano as ""AnoLetivo"",
+ count(f.id)::int as ""AulasLancadas"",count(f.id) filter(where f.presente)::int as ""Presencas"",count(f.id) filter(where not f.presente)::int as ""Faltas"",
+ round(100.0*count(f.id) filter(where f.presente)/nullif(count(f.id),0),2) as ""PercentualFrequencia"",greatest(coalesce(m.updated_at,m.created_at),coalesce(max(f.updated_at),max(f.created_at),m.created_at)) as ""AtualizadoEm""
+from sigov.educacao_portal_vinculo v join sigov.aluno a on a.tenant_id=v.tenant_id and a.id=v.aluno_id and a.is_deleted=false
+join lateral(select * from sigov.matricula x where x.tenant_id=v.tenant_id and x.aluno_id=v.aluno_id and x.is_deleted=false order by (x.status in ('ATIVA','CONFIRMADA')) desc,x.id desc limit 1)m on true
+join sigov.escola e on e.tenant_id=m.tenant_id and e.id=m.escola_id join sigov.turma t on t.tenant_id=m.tenant_id and t.id=m.turma_id join sigov.ano_letivo al on al.tenant_id=m.tenant_id and al.id=m.ano_letivo_id
+left join sigov.diario_frequencia f on f.tenant_id=m.tenant_id and f.aluno_id=a.id and f.is_deleted=false
+where v.tenant_id=@TenantId and v.usuario_id=@UsuarioId and v.aluno_id=@AlunoId and v.status='ATIVO' and v.is_deleted=false
+group by a.id,m.id,m.status,e.nome,t.nome,al.ano,m.updated_at,m.created_at";
+        using var connection=_context.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<EducacaoPortalVidaEscolarDto>(new CommandDefinition(sql,new{TenantId=tenantId,UsuarioId=usuarioId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false);
+    }
+
+    public async Task<EducacaoPortalBoletimDto?> ObterBoletimPortalAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct)
+    {
+        const string header = @"select h.id,h.status as ""Situacao"",coalesce((h.dados->>'versao')::int,1) as ""Versao"",coalesce(h.updated_at,h.created_at) as ""AtualizadoEm"" from sigov.educacao_portal_vinculo v join sigov.educacao_historico_escolar h on h.tenant_id=v.tenant_id and h.aluno_id=v.aluno_id and h.is_deleted=false and h.status in ('PUBLICADO','DEFINITIVO') where v.tenant_id=@TenantId and v.usuario_id=@UsuarioId and v.aluno_id=@AlunoId and v.status='ATIVO' and v.is_deleted=false order by h.id desc limit 1";
+        using var connection=_context.CreateConnection();
+        var h=await connection.QuerySingleOrDefaultAsync<BoletimHeader>(new CommandDefinition(header,new{TenantId=tenantId,UsuarioId=usuarioId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false);
+        if(h is null)return null;
+        var itens=(await connection.QueryAsync<EducacaoHistoricoEscolarItemDto>(new CommandDefinition("select componente_curricular as \"ComponenteCurricular\",nota as \"Nota\",frequencia as \"Frequencia\" from sigov.educacao_historico_escolar_item where tenant_id=@TenantId and historico_id=@Id order by id",new{TenantId=tenantId,h.Id},cancellationToken:ct)).ConfigureAwait(false)).AsList();
+        return new(alunoId,h.Situacao,h.Versao,h.AtualizadoEm,itens);
+    }
+
+    public async Task<EducacaoPortalCienciaDto> RegistrarCienciaAsync(long tenantId,long usuarioId,long comunicadoId,long alunoId,CancellationToken ct)
+    {
+        const string sql=@"with autorizado as (select min(d.id) id from sigov.educacao_comunicado_destinatario d join sigov.educacao_comunicado c on c.tenant_id=d.tenant_id and c.id=d.comunicado_id and c.status='PUBLICADO' and c.exige_ciencia=true where d.tenant_id=@TenantId and d.comunicado_id=@ComunicadoId and d.usuario_id=@UsuarioId and d.aluno_id=@AlunoId and exists(select 1 from sigov.educacao_portal_vinculo v where v.tenant_id=d.tenant_id and v.usuario_id=@UsuarioId and v.aluno_id=@AlunoId and v.status='ATIVO' and v.is_deleted=false)) update sigov.educacao_comunicado_destinatario d set lido_at=coalesce(lido_at,now()),ciencia_at=coalesce(ciencia_at,now()) from autorizado a where d.id=a.id returning d.comunicado_id as ""ComunicadoId"",d.aluno_id as ""AlunoId"",d.versao as ""Versao"",d.ciencia_at as ""ConfirmadaEm""";
+        using var connection=_context.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<EducacaoPortalCienciaDto>(new CommandDefinition(sql,new{TenantId=tenantId,UsuarioId=usuarioId,ComunicadoId=comunicadoId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false) ?? throw new InvalidOperationException("Comunicado não exige ciência ou não pertence ao público autorizado vigente.");
+    }
+
+    public async Task RegistrarLeituraAsync(long tenantId,long usuarioId,long comunicadoId,long alunoId,CancellationToken ct)
+    {
+        const string sql=@"update sigov.educacao_comunicado_destinatario d set lido_at=coalesce(lido_at,now()) where d.id=(select min(x.id) from sigov.educacao_comunicado_destinatario x join sigov.educacao_comunicado c on c.tenant_id=x.tenant_id and c.id=x.comunicado_id and c.status='PUBLICADO' where x.tenant_id=@TenantId and x.comunicado_id=@ComunicadoId and x.usuario_id=@UsuarioId and x.aluno_id=@AlunoId and exists(select 1 from sigov.educacao_portal_vinculo v where v.tenant_id=x.tenant_id and v.usuario_id=@UsuarioId and v.aluno_id=@AlunoId and v.status='ATIVO' and v.is_deleted=false))";
+        using var connection=_context.CreateConnection(); var changed=await connection.ExecuteAsync(new CommandDefinition(sql,new{TenantId=tenantId,UsuarioId=usuarioId,ComunicadoId=comunicadoId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false);
+        if(changed!=1)throw new InvalidOperationException("Comunicado não encontrado no público autorizado vigente.");
+    }
+
+    public async Task AlterarVinculoAsync(long tenantId,long vinculoId,string status,string justificativa,long usuarioId,string correlationId,CancellationToken ct)
+    {
+        using var connection=(NpgsqlConnection)_context.CreateConnection(); await connection.OpenAsync(ct).ConfigureAwait(false); await using var tx=await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var entidadeId=await connection.ExecuteScalarAsync<long?>(new CommandDefinition("update sigov.educacao_portal_vinculo v set status=@Status,updated_at=now(),updated_by=@UsuarioId,auditoria=coalesce(auditoria,'{}'::jsonb)||jsonb_build_object('ultima_acao',@Status,'justificativa',@Justificativa,'usuario_id',@UsuarioId) from sigov.aluno a where v.tenant_id=@TenantId and v.id=@Id and v.aluno_id=a.id and a.tenant_id=v.tenant_id and v.is_deleted=false returning a.entidade_id",new{TenantId=tenantId,Id=vinculoId,Status=status,Justificativa=justificativa,UsuarioId=usuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+        if(!entidadeId.HasValue)throw new InvalidOperationException("Vínculo não encontrado no contexto autorizado.");
+        await connection.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_secretaria_evento(tenant_id,entidade_id,tipo,agregado,agregado_id,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,'PORTAL_VINCULO_STATUS','educacao_portal_vinculo',@Id,jsonb_build_object('status',@Status,'justificativa',@Justificativa),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId)",new{TenantId=tenantId,EntidadeId=entidadeId.Value,Id=vinculoId,Status=status,Justificativa=justificativa,UsuarioId=usuarioId,CorrelationId=correlationId},tx,cancellationToken:ct)).ConfigureAwait(false); await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    private sealed class BoletimHeader { public long Id {get;set;} public string Situacao {get;set;}=""; public int Versao {get;set;} public DateTimeOffset AtualizadoEm {get;set;} }
 
     private static async Task<EducacaoDiarioConferenciaDto?> ConferirAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction? tx, long tenantId, long diarioId, CancellationToken ct)
     {

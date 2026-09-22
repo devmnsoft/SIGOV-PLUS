@@ -198,3 +198,50 @@ O cancelamento de matrícula passou a bloquear quando há frequência, notas ou 
 | template | seis etapas, ajuda, contexto e seleção explícita | view e JavaScript do módulo |
 
 **Limite de validação:** restore/build/testes e cenários transacionais reais permanecem **BLOQUEADOS** quando o SDK .NET 10 ou PostgreSQL 16 não estão instalados. Evidência estática não é homologação.
+
+## Jornada Secretaria Escolar → responsáveis (22/09/2026)
+
+### Auditoria e classificação
+
+| Capacidade | Classificação | Evidência e limite verificado |
+|---|---|---|
+| nulabilidade de `EducacaoRepository` | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | `GetByIdAsync<T>` possui retorno `Task<T?>`; o significado de ausência está preservado, sem `null!` ou objeto fictício. Build ficou bloqueado pela ausência do SDK .NET 10 no ambiente. |
+| matrícula e vínculos cadastrais | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | `matricula` e `responsavel_aluno` são canônicos; a liberação do portal agora exige usuário cuja `pessoa_id` corresponda ao responsável cadastral informado. |
+| fechamento acadêmico | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | conferência, token, snapshot, reabertura e versões permanecem inalterados. |
+| boletim | PARCIAL | o portal entrega somente histórico com status `PUBLICADO`/`DEFINITIVO`, preserva nota nula e a versão; a política acadêmica que produz/publica o histórico continua dependência do módulo interno. |
+| rematrícula | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | simulação e confirmação existentes foram preservadas; regressão executável ficou bloqueada sem .NET/PostgreSQL. |
+| autenticação e permissões | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | contexto autenticado é obrigatório, administração exige perfil/permissão persistida e cada consulta externa revalida vínculo ativo no banco. |
+| portal de responsáveis/alunos | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | lista nominal autorizada, contexto de matrícula e frequência, boletim publicado e comunicados por aluno. |
+| comunicados e notificações | PARCIAL | publicação cria fotografia dos destinatários por escola/turma e vínculo ativo; revisão, anexos, retirada e retificação versionada não foram implementados neste incremento. Mensagens existentes foram preservadas. |
+| documentos | PARCIAL | cadastro escolar persistente existente; download protegido e gerador definitivo ainda não possuem contrato canônico suficiente para ampliação segura. |
+| template e ajuda contextual | PARCIAL | telas trabalhadas possuem navegação, seletor nominal, estados e ajuda; não foi auditada cobertura de todas as telas alcançáveis do módulo. |
+
+### Regras implementadas
+
+Contato cadastral, responsabilidade, identidade e autorização são estados distintos. A Secretaria libera acesso somente ao combinar `usuario.pessoa_id`, `responsavel_aluno` ativo e aluno no mesmo tenant. Ativação e revogação exigem justificativa e produzem evento histórico; a revogação afeta apenas o vínculo escolhido e toda leitura posterior consulta o estado atual no banco.
+
+A seleção de aluno nunca concede acesso: os endpoints de vida escolar, boletim, comunicados e ciência repetem a validação `tenant + usuário + aluno + vínculo ATIVO`. No navegador, a troca aborta a requisição anterior e usa um número de sequência por aba, descartando resposta tardia.
+
+O público do comunicado é uma fotografia criada atomicamente na publicação, por destinatário (usuário + aluno), usando matrículas ativas/confirmadas e os filtros de escola/turma. Alterações posteriores de turma não reescrevem a fotografia; novos vínculos não entram retroativamente; vínculo revogado bloqueia a consulta mesmo que o destinatário histórico permaneça. A contagem, portanto, é por destinatário usuário-aluno, não por pessoa isolada.
+
+Leitura (`lido_at`) e ciência (`ciencia_at`) são independentes. Consultar não grava ciência. A confirmação explícita é idempotente (`coalesce` mantém o primeiro instante), identifica comunicado, aluno, usuário e versão, e só ocorre se a publicação exigir ciência e o vínculo continuar ativo. Ciência não é assinatura digital nem concordância jurídica.
+
+### Aceite verificável
+
+| Cenário | Resultado | Evidência/pendência |
+|---|---|---|
+| autorizado consulta aluno; troca de ID; revogação | PASSOU (estático) | todas as queries correlacionam tenant, usuário, aluno e vínculo ativo; revogação altera somente o ID selecionado |
+| troca de aluno não mistura respostas | PASSOU (estático) | `AbortController` e sequência local por aba |
+| registro não publicado; parcial/definitivo | PASSOU (estático) | boletim aceita apenas `PUBLICADO`/`DEFINITIVO`, expõe situação/versão e preserva nulos |
+| comunicado somente ao público | PASSOU (estático) | snapshot transacional e revalidação do vínculo vigente |
+| abrir não confirma; ciência repetida | PASSOU (estático) | GET sem escrita; UPDATE mantém primeiro instante |
+| retificação preserva versão | NÃO EXECUTADO | fluxo de retificação permanece fora deste incremento por falta de regra de produto para nova ciência |
+| anexo restrito | NÃO EXECUTADO | anexos de comunicado não foram expostos nem simulados |
+| totais/listagens | NÃO EXECUTADO | painel administrativo de acompanhamento permanece pendente |
+| celular/tablet/desktop/impressão | BLOQUEADO | runtime .NET ausente; inspeção visual e captura não puderam ser executadas |
+| matrícula/fechamento/rematrícula | BLOQUEADO | build/testes e banco indisponíveis no ambiente |
+| migration limpa/upgrade/reaplicação | BLOQUEADO | catálogo/checksum estático passou; `psql` PostgreSQL 16 não está disponível |
+
+### Decisões pendentes
+
+A natureza documental da comprovação de guarda/representação, o fluxo de revisão, a política de retificação que exige nova ciência, anexos e a publicação definitiva do boletim precisam de decisão formal do produto. Nenhuma dessas regras foi inferida ou simulada.

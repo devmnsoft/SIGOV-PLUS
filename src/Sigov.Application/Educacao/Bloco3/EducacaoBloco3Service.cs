@@ -115,6 +115,55 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
         return Result<IReadOnlyCollection<EducacaoDiarioFechamentoDto>>.Success(await _repository.HistoricoFechamentoAsync(_tenant.TenantId!.Value, diarioId, ct).ConfigureAwait(false));
     }
 
+    public async Task<Result<IReadOnlyCollection<EducacaoPortalAlunoDto>>> ListarAlunosAsync(CancellationToken ct)
+    {
+        var guard = Guard("portal-aluno");
+        if (guard is not null) return Result<IReadOnlyCollection<EducacaoPortalAlunoDto>>.Failure(guard);
+        return Result<IReadOnlyCollection<EducacaoPortalAlunoDto>>.Success(
+            await _repository.ListarAlunosAutorizadosAsync(_tenant.TenantId!.Value, _user.UsuarioId!.Value, ct).ConfigureAwait(false));
+    }
+
+    public async Task<Result<EducacaoPortalVidaEscolarDto>> ObterVidaEscolarAsync(long alunoId, CancellationToken ct)
+    {
+        var guard = Guard("portal-aluno");
+        if (guard is not null) return Result<EducacaoPortalVidaEscolarDto>.Failure(guard);
+        var item = await _repository.ObterVidaEscolarAsync(_tenant.TenantId!.Value, _user.UsuarioId!.Value, alunoId, ct).ConfigureAwait(false);
+        return item is null ? Result<EducacaoPortalVidaEscolarDto>.Failure("Aluno não encontrado no vínculo ativo do usuário autenticado.") : Result<EducacaoPortalVidaEscolarDto>.Success(item);
+    }
+
+    public async Task<Result<EducacaoPortalBoletimDto>> ObterBoletimAsync(long alunoId, CancellationToken ct)
+    {
+        var guard = Guard("portal-boletim");
+        if (guard is not null) return Result<EducacaoPortalBoletimDto>.Failure(guard);
+        var item = await _repository.ObterBoletimPortalAsync(_tenant.TenantId!.Value, _user.UsuarioId!.Value, alunoId, ct).ConfigureAwait(false);
+        return item is null ? Result<EducacaoPortalBoletimDto>.Failure("Boletim não publicado ou aluno fora do vínculo ativo.") : Result<EducacaoPortalBoletimDto>.Success(item);
+    }
+
+    public async Task<Result<EducacaoPortalCienciaDto>> ConfirmarCienciaAsync(long comunicadoId, long alunoId, CancellationToken ct)
+    {
+        var guard = Guard("portal-comunicado");
+        if (guard is not null) return Result<EducacaoPortalCienciaDto>.Failure(guard);
+        try { return Result<EducacaoPortalCienciaDto>.Success(await _repository.RegistrarCienciaAsync(_tenant.TenantId!.Value, _user.UsuarioId!.Value, comunicadoId, alunoId, ct).ConfigureAwait(false)); }
+        catch (InvalidOperationException ex) { return Result<EducacaoPortalCienciaDto>.Failure(ex.Message); }
+    }
+
+    public async Task<Result> RegistrarLeituraAsync(long comunicadoId, long alunoId, CancellationToken ct)
+    {
+        var guard = Guard("portal-comunicado"); if (guard is not null) return Result.Failure(guard);
+        try { await _repository.RegistrarLeituraAsync(_tenant.TenantId!.Value,_user.UsuarioId!.Value,comunicadoId,alunoId,ct).ConfigureAwait(false); return Result.Success(); }
+        catch(InvalidOperationException ex){ return Result.Failure(ex.Message); }
+    }
+
+    public async Task<Result> AlterarVinculoAsync(long vinculoId, bool ativar, string justificativa, CancellationToken ct)
+    {
+        var guard = Guard("portal-vinculo");
+        if (guard is not null) return Result.Failure(guard);
+        if (!Administrativo) return Result.Failure("Permissão administrativa da Secretaria Escolar é obrigatória.");
+        if (string.IsNullOrWhiteSpace(justificativa)) return Result.Failure("A justificativa é obrigatória para ativar ou revogar acesso.");
+        try { await _repository.AlterarVinculoAsync(_tenant.TenantId!.Value, vinculoId, ativar ? "ATIVO" : "REVOGADO", justificativa.Trim(), _user.UsuarioId!.Value, _correlation.CorrelationId.ToString(), ct).ConfigureAwait(false); return Result.Success(); }
+        catch (InvalidOperationException ex) { return Result.Failure(ex.Message); }
+    }
+
     private bool Pode(string permissao) => Administrativo || _user.Permissions.Any(x => x.Equals(permissao, StringComparison.OrdinalIgnoreCase));
 
     private string? Guard(string recurso)
@@ -129,6 +178,8 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
     {
         if ((recurso == "documento" || recurso == "documento-frequencia" || recurso == "solicitacao" || recurso == "pendencia" || recurso == "transferencia" || recurso == "ocorrencia" || recurso == "portal-solicitacao")
             && (!LerLong(request, "AlunoId").HasValue || LerLong(request, "AlunoId") <= 0)) return "Aluno é obrigatório.";
+        if (recurso == "portal-vinculo" && (!LerLong(request, "UsuarioVinculadoId").HasValue || !LerLong(request, "AlunoId").HasValue || !LerLong(request, "ResponsavelId").HasValue))
+            return "Usuário, aluno e vínculo cadastral do responsável são obrigatórios para a liberação.";
         if (recurso == "documento-frequencia" && LerValor(request, "Inicio") is DateOnly inicio && LerValor(request, "Fim") is DateOnly fim && inicio > fim)
             return "O início do período de frequência não pode ser posterior ao fim.";
         if ((recurso == "solicitacao" || recurso == "pendencia" || recurso == "ocorrencia" || recurso == "portal-solicitacao")
