@@ -74,6 +74,17 @@ psql -v ON_ERROR_STOP=1 -h localhost -p 5432 -U sigov -d sigov -f script_complet
 
 Toda alteracao de schema exige migration PostgreSQL idempotente, forward-only, sincronizada com manifesto e scripts consolidados. Migrations publicadas nao devem ser editadas.
 
+Quando PowerShell não estiver disponível, a integridade estrutural do catálogo e das
+migrations históricas excluídas pode ser verificada sem banco por:
+
+```bash
+./scripts/check-migration-catalog.sh
+```
+
+Esse comando é apenas um gate estático. A mensagem `BLOCKED` ao final registra que
+aplicação, reaplicação, pós-condições e equivalência ainda exigem PostgreSQL 16 e o
+runner canônico.
+
 ## Build e testes
 
 Build runtime:

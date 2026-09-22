@@ -47,21 +47,32 @@ serviço, view ou menu.
 | Almoxarifado | entrada, saída, transferência e inventário | Parcial | Parcial | serviço com locks e telas existentes | provar saldo não negativo, retry e inventário concorrente |
 | Patrimônio | tombamento, custódia, transferência e baixa | Parcial | Parcial | serviços, histórico e views existentes | baixa motivada e bloqueio de transferência do bem baixado em runtime |
 | Frotas | veículos, utilização, abastecimento e manutenção | Parcial | Parcial | regras de hodômetro/OS e views existentes | concorrência, justificativa e veículo inativo em PostgreSQL |
+| RH/Folha/Portal do Servidor | servidor, vínculo, frequência, rubricas, folha e autoatendimento | Parcial | Parcial | migrations, contratos, serviços, controllers e páginas existentes | fechamento/reabertura, segregação de dado pessoal e acesso exclusivo do servidor em runtime |
+| Saneamento | unidades, ligações, hidrômetros, leituras, faturamento e OS | Parcial | Parcial | migrations FUNC07/RC50.50 e superfícies Application/API/Web existentes | leitura regressiva tratada, competência, inatividade e troca de hidrômetro em PostgreSQL |
+| Meio Ambiente | requerimentos, licenças, condicionantes, fiscalização e pareceres | Parcial | Parcial | migration FUNC14, serviços, rotas e páginas existentes | alertas, bloqueio por condicionante, histórico de parecer e auditoria da fiscalização |
 | Relatórios | filtros, paginação, CSV e totalizadores | Parcial | Parcial | exportações distribuídas entre módulos | matriz completa de escopo, empty/error state e auditoria sensível |
 | Dashboards | SuperAdmin, entidade e pendências | Parcial | Parcial | consultas e views existentes | origem real de cada KPI, falha explícita e segregação por perfil |
 | Template/Menu | layout, navegação, formulários e responsividade | Parcial | Parcial | layouts, partials, assets e menus existentes | navegador real, entitlement, rotas, mobile e mensagens obrigatórias |
 
-Nenhuma área foi classificada como **pronto com evidência**, **quebrado** ou
-**ausente** sem execução capaz de sustentar essa conclusão. Os artefatos existem, mas
-as jornadas permanecem **parciais**.
+Nenhuma das dezoito áreas obrigatórias foi classificada como **pronto com evidência**,
+**quebrado** ou **ausente** sem execução capaz de sustentar essa conclusão. Os
+artefatos existem, mas as jornadas permanecem **parciais**.
 
 ## 4. O que estava quebrado e o que foi corrigido
 
-Nenhum novo defeito de produto foi confirmado nesta execução. Os problemas de gate
+Nenhum novo defeito de produto foi confirmado nesta execução. Foi corrigida uma
+lacuna do próprio gate: a governança estática do catálogo de migrations só podia ser
+executada por PowerShell, indisponível neste host. O novo verificador Bash valida JSON,
+ordenação e unicidade das versões, dependências declaradas, flags, nomes seguros,
+checksums normalizados, exceções de prefixo e as dez migrations históricas excluídas
+sob governança explícita. Ele não tenta substituir o lexer C# nem a execução no banco
+e termina registrando `BLOCKED` para a etapa semântica PostgreSQL.
+
+Os problemas de gate
 identificados na auditoria imediatamente anterior (portas, endpoint de health, contrato
 da connection string e aceitação de PostgreSQL posterior ao 16) já estão corrigidos no
-checkout. Não foi aplicada correção especulativa para contornar ferramenta, banco ou
-credencial ausente.
+checkout. Não foi aplicada correção de produto especulativa para contornar ferramenta,
+banco ou credencial ausente.
 
 ## 5. Validações realizadas
 
@@ -69,6 +80,8 @@ Passaram as verificações que independem do runtime ausente:
 
 - sintaxe de todos os scripts Bash;
 - sintaxe JSON do manifesto;
+- catálogo com 195 arquivos SQL, 185 migrations registradas e dez órfãs históricas
+  classificadas e protegidas por checksum;
 - 630 rotas API sem conflito direto detectável pelo gate;
 - ausência de artefatos proibidos rastreados;
 - colisões estáticas do SQL consolidado;
@@ -83,11 +96,11 @@ tenants e navegação manual.
 
 1. **Auditado:** documentação normativa, catálogo de banco e superfícies das camadas.
 2. **Quebrado:** nenhum defeito novo confirmado; o ambiente do gate está incompleto.
-3. **Corrigido:** nenhuma mudança de produto nesta fatia.
-4. **Implementado:** apenas este registro auditável do ciclo.
-5. **Parcial:** todas as quinze áreas da matriz.
+3. **Corrigido:** gate estático do catálogo agora executável também sem PowerShell.
+4. **Implementado:** verificador Bash fail-closed e este registro auditável do ciclo.
+5. **Parcial:** todas as dezoito áreas obrigatórias da matriz.
 6. **Regras consolidadas:** nenhuma regra foi promovida sem execução.
-7. **Arquivos alterados:** documentação de auditoria, status real e changelog.
+7. **Arquivos alterados:** gate Bash, documentação de auditoria, status real e changelog.
 8. **Migrations criadas:** nenhuma.
 9. **Scripts consolidados atualizados:** nenhum; não houve DDL.
 10. **Telas alteradas:** nenhuma.
