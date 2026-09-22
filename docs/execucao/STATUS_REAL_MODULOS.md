@@ -1,5 +1,12 @@
 # Status real dos módulos
 
+Revalidação de paridade em 2026-09-22: o gate portável do catálogo também passou a
+validar os quatro aliases de produção e os dois consolidados de desenvolvimento,
+incluindo ordem, checksum e conteúdo normalizado das 181 migrations do baseline,
+exclusões declaradas e seeds fictícios. O resultado estático foi **PASS**. A
+execução, reaplicação e equivalência semântica permanecem **BLOCKED** sem PostgreSQL
+16/`psql`; nenhum módulo foi promovido por essa evidência.
+
 Reexecução do gate de páginas críticas em 2026-09-22: a indisponibilidade completa
 da API/Web agora é registrada como **BLOCKED** (HTTP 000), em vez de ser confundida
 com defeito funcional. Respostas HTTP efetivamente inesperadas continuam sendo

@@ -15,6 +15,7 @@ migration_dir = root / "database/postgres/migrations"
 manifest_path = migration_dir / "manifest.json"
 governance_path = root / "database/postgres/migration-governance.json"
 failures: list[str] = []
+baseline_entries: list[dict] = []
 
 
 def fail(message: str) -> None:
@@ -109,6 +110,8 @@ for index, entry in enumerate(migrations, start=1):
             fail(f"PREFIX_UNJUSTIFIED {version}/{name}")
     if not isinstance(entry.get("applyAutomatically"), bool) or not isinstance(entry.get("includeInBaseline"), bool):
         fail(f"ENTRY_FLAGS {name}")
+    if entry.get("includeInBaseline") is True:
+        baseline_entries.append(entry)
     for dependency in entry.get("dependencies", []) or []:
         if dependency not in seen_versions or dependency == version:
             fail(f"DEPENDENCY_NOT_PRIOR {name}/{dependency}")
@@ -159,8 +162,75 @@ for prefix, names in prefix_groups.items():
     if sorted(decision.get("files", [])) != sorted(names) or not str(decision.get("reason", "")).strip():
         fail(f"PREFIX_COLLISION_UNRESOLVED {prefix}")
 
+# The four production aliases are part of the published database contract.  Keep
+# this check portable: the canonical PowerShell generator remains authoritative,
+# but CI/minimal Linux hosts must still fail when an alias or concatenated
+# migration drifts.
+production_scripts = [
+    root / "database/postgres/script_completo.sql",
+    root / "database/script_completo.sql",
+    root / "script_completo.sql",
+    root / "script_completop.sql",
+]
+production_texts: dict[pathlib.Path, str] = {}
+for path in production_scripts:
+    try:
+        production_texts[path] = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
+    except OSError as error:
+        fail(f"CONSOLIDATED_MISSING {path.relative_to(root)}: {error}")
+
+canonical_path = production_scripts[0]
+canonical = production_texts.get(canonical_path, "")
+for path, content in production_texts.items():
+    if canonical and content != canonical:
+        fail(f"CONSOLIDATED_ALIAS_DRIFT {path.relative_to(root)}")
+
+cursor = -1
+if canonical:
+    for entry in baseline_entries:
+        marker = f"-- MIGRATION: {entry['file']}"
+        position = canonical.find(marker)
+        if position < 0:
+            fail(f"CONSOLIDATED_MIGRATION_MISSING {entry['file']}")
+            continue
+        if position <= cursor:
+            fail(f"CONSOLIDATED_ORDER {entry['file']}")
+        cursor = position
+        checksum_marker = f"-- CHECKSUM_SHA256: {str(entry.get('checksum', '')).lower()}"
+        body = (migration_dir / entry["file"]).read_text(encoding="utf-8-sig").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if checksum_marker not in canonical[position:position + len(marker) + 256]:
+            fail(f"CONSOLIDATED_CHECKSUM {entry['file']}")
+        if body not in canonical[position:]:
+            fail(f"CONSOLIDATED_BODY_DRIFT {entry['file']}")
+    for entry in migrations:
+        if entry.get("includeInBaseline") is False:
+            if f"-- MIGRATION: {entry['file']}" in canonical:
+                fail(f"CONSOLIDATED_EXCLUDED_INCLUDED {entry['file']}")
+            if f"-- EXCLUDED_FROM_BASELINE: {entry['file']} [{entry['category']}]" not in canonical:
+                fail(f"CONSOLIDATED_EXCLUSION_MISSING {entry['file']}")
+
+dev_paths = [root / "database/postgres/script_completo_dev.sql", root / "script_completo_dev.sql"]
+seed_paths = [
+    root / "database/postgres/seeds/development/999_super_admin_access_guard.sql",
+    root / "database/postgres/seeds/rc50_68a_perfis_autorizacao.sql",
+]
+if canonical:
+    expected_dev = canonical + "\n-- DEVELOPMENT ONLY: seeds fictícias idempotentes\n"
+    for seed_path in seed_paths:
+        try:
+            expected_dev += seed_path.read_text(encoding="utf-8-sig").replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+        except OSError as error:
+            fail(f"DEVELOPMENT_SEED_MISSING {seed_path.relative_to(root)}: {error}")
+    for path in dev_paths:
+        try:
+            content = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
+            if content != expected_dev:
+                fail(f"DEVELOPMENT_CONSOLIDATED_DRIFT {path.relative_to(root)}")
+        except OSError as error:
+            fail(f"DEVELOPMENT_CONSOLIDATED_MISSING {path.relative_to(root)}: {error}")
+
 status = "PASS" if not failures else "FAIL"
-print(f"Migration catalog: SQL={len(sql_files)} manifest={len(migrations)} governed_orphans={len(orphan_by_file)} static={status}")
+print(f"Migration catalog: SQL={len(sql_files)} manifest={len(migrations)} baseline={len(baseline_entries)} governed_orphans={len(orphan_by_file)} static={status}")
 for failure in failures:
     print(f"FAIL: {failure}")
 if failures:
