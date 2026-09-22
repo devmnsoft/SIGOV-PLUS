@@ -1,6 +1,8 @@
 using System.Data;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Dapper;
+using Sigov.Application.Abstractions;
 using Sigov.Application.Saas.Modules;
 using Sigov.Application.Saas.SuperAdmin;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -9,7 +11,8 @@ namespace Sigov.Infrastructure.Saas;
 
 public sealed class SaasTenantAdministrationService(
     DapperContext context,
-    IModuleCatalogService catalog) : ISaasTenantAdministrationService
+    IModuleCatalogService catalog,
+    IPasswordHashService passwordHashService) : ISaasTenantAdministrationService
 {
     public async Task<SaasTenantListPage> ListAsync(SaasTenantListFilter filter, CancellationToken cancellationToken = default)
     {
@@ -87,6 +90,11 @@ public sealed class SaasTenantAdministrationService(
                 "update sigov.tenant set status=@Status, ativo=@Ativo, updated_at=now(), updated_by=@UserId, correlation_id=@CorrelationId where id=@TenantId",
                 new { command.TenantId, Status = target, Ativo = ativo, UserId = userId, CorrelationId = correlation }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
 
+            if (target is "BLOQUEADO" or "SUSPENSO" or "INATIVO")
+            {
+                await RevokeTenantSessionsAsync(connection, tx, command.TenantId, userId, $"TENANT_{target}", cancellationToken).ConfigureAwait(false);
+            }
+
             await connection.ExecuteAsync(new CommandDefinition(
                 AuditSql,
                 new {
@@ -127,32 +135,34 @@ public sealed class SaasTenantAdministrationService(
             if (exists) return Rollback(tx, "Já existe usuário cadastrado com este e-mail ou login neste cliente.");
 
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
-            var hash = "$2a$11$e8p2i4/rA3vU9bkWc0H3z.qV9eFm7xU2vS0LzP5iU9j0eO2yP6yG2";
+            // A credencial aleatória não é revelada nem reutilizável. O titular define a
+            // própria senha pelo fluxo canônico, temporário e de uso único de recuperação.
+            var hash = passwordHashService.HashPassword(Convert.ToBase64String(RandomNumberGenerator.GetBytes(48)));
             var newUserId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
                 """
-                insert into sigov.usuario (tenant_id, nome, login, email, senha_hash, ativo, bloqueado, tipo_usuario, created_by, correlation_id)
-                values (@TenantId, @Name, @Login, @Email, @Hash, true, false, @TipoUsuario, @UserId, @CorrelationId)
+                insert into sigov.usuario (tenant_id, nome, login, email, senha_hash, ativo, bloqueado, deve_alterar_senha, tipo_usuario, created_by, correlation_id)
+                values (@TenantId, @Name, @Login, @Email, @Hash, true, false, true, @TipoUsuario, @UserId, @CorrelationId)
                 returning id
                 """,
-                new { command.TenantId, Name = command.Name.Trim(), Login = login, Email = command.Email.Trim().ToLowerInvariant(), Hash = hash, TipoUsuario = command.TipoUsuario ?? "TENANT_USER", UserId = userId, CorrelationId = correlation }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                new { command.TenantId, Name = command.Name.Trim(), Login = login, Email = command.Email.Trim().ToLowerInvariant(), Hash = hash, TipoUsuario = "TENANT_USER", UserId = userId, CorrelationId = correlation }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(command.PerfilCodigo))
             {
                 var perfilId = await connection.ExecuteScalarAsync<long?>(
-                    "select id from sigov.perfil_acesso where (codigo_externo=@Codigo or nome=@Codigo) and ativo and not is_deleted limit 1",
-                    new { Codigo = command.PerfilCodigo }, tx);
-                if (perfilId.HasValue)
-                {
-                    var grupoId = await connection.ExecuteScalarAsync<long?>(
-                        "select gp.grupo_acesso_id from sigov.grupo_perfil gp where gp.perfil_acesso_id=@PerfilId and gp.ativo and not gp.is_deleted limit 1",
-                        new { PerfilId = perfilId.Value }, tx);
-                    if (grupoId.HasValue)
-                    {
-                        await connection.ExecuteAsync(
-                            "insert into sigov.usuario_grupo(usuario_id, grupo_acesso_id, ativo, created_by, correlation_id) values (@UserId, @GrupoId, true, @CreatedBy, @CorrelationId) on conflict do nothing",
-                            new { UserId = newUserId, GrupoId = grupoId.Value, CreatedBy = userId, CorrelationId = correlation }, tx);
-                    }
-                }
+                    "select id from sigov.perfil_acesso where tenant_id=@TenantId and (codigo_externo=@Codigo or nome=@Codigo) and ativo and not is_deleted limit 1",
+                    new { command.TenantId, Codigo = command.PerfilCodigo.Trim() }, tx);
+                if (!perfilId.HasValue)
+                    return Rollback(tx, "O perfil inicial não existe ou não pertence ao cliente informado.");
+
+                var grupoId = await connection.ExecuteScalarAsync<long?>(
+                    "select gp.grupo_acesso_id from sigov.grupo_perfil gp where gp.tenant_id=@TenantId and gp.perfil_acesso_id=@PerfilId and gp.ativo and not gp.is_deleted limit 1",
+                    new { command.TenantId, PerfilId = perfilId.Value }, tx);
+                if (!grupoId.HasValue)
+                    return Rollback(tx, "O perfil inicial não possui grupo ativo no cliente informado.");
+
+                await connection.ExecuteAsync(
+                    "insert into sigov.usuario_grupo(tenant_id, usuario_id, grupo_acesso_id, ativo, created_by, correlation_id) values (@TenantId, @UserId, @GrupoId, true, @CreatedBy, @CorrelationId) on conflict do nothing",
+                    new { command.TenantId, UserId = newUserId, GrupoId = grupoId.Value, CreatedBy = userId, CorrelationId = correlation }, tx);
             }
 
             await connection.ExecuteAsync(new CommandDefinition(
@@ -168,7 +178,7 @@ public sealed class SaasTenantAdministrationService(
                 }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
 
             tx.Commit();
-            return new(true, $"Usuário {command.Name} criado com sucesso.");
+            return new(true, $"Usuário {command.Name} criado. O titular deve usar Recuperar acesso para definir a senha inicial.");
         }
         catch (Exception)
         {
@@ -240,6 +250,12 @@ public sealed class SaasTenantAdministrationService(
             await connection.ExecuteAsync(new CommandDefinition(
                 "update sigov.usuario set ativo=@Active, bloqueado=@Blocked, updated_at=now(), updated_by=@UserId, correlation_id=@CorrelationId where id=@TargetUserId and tenant_id=@TenantId",
                 new { Active = command.Active, Blocked = command.Blocked, UserId = userId, CorrelationId = correlation, TargetUserId = command.UserId, command.TenantId }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            if (command.Blocked || !command.Active)
+            {
+                await RevokeUserSessionsAsync(connection, tx, command.TenantId, command.UserId, userId,
+                    command.Blocked ? "USUARIO_BLOQUEADO" : "USUARIO_INATIVO", cancellationToken).ConfigureAwait(false);
+            }
 
             var acao = command.Blocked ? "SAAS_USUARIO_BLOQUEAR" : (!command.Active ? "SAAS_USUARIO_INATIVAR" : "SAAS_USUARIO_ATIVAR");
             await connection.ExecuteAsync(new CommandDefinition(
@@ -404,6 +420,24 @@ public sealed class SaasTenantAdministrationService(
         transaction.Rollback();
         return new(false, message);
     }
+
+    private static Task<int> RevokeTenantSessionsAsync(IDbConnection connection, IDbTransaction transaction, long tenantId,
+        long actorId, string reason, CancellationToken cancellationToken) => connection.ExecuteAsync(new CommandDefinition(
+        """
+        update sigov.identidade_sessao
+           set encerrada_at=coalesce(encerrada_at, now()), revogada_at=coalesce(revogada_at, now()),
+               motivo_encerramento=left(@Reason, 80), updated_at=now(), updated_by=@ActorId
+         where tenant_id=@TenantId and encerrada_at is null
+        """, new { TenantId = tenantId, ActorId = actorId, Reason = reason }, transaction, cancellationToken: cancellationToken));
+
+    private static Task<int> RevokeUserSessionsAsync(IDbConnection connection, IDbTransaction transaction, long tenantId,
+        long targetUserId, long actorId, string reason, CancellationToken cancellationToken) => connection.ExecuteAsync(new CommandDefinition(
+        """
+        update sigov.identidade_sessao
+           set encerrada_at=coalesce(encerrada_at, now()), revogada_at=coalesce(revogada_at, now()),
+               motivo_encerramento=left(@Reason, 80), updated_at=now(), updated_by=@ActorId
+         where tenant_id=@TenantId and usuario_id=@TargetUserId and encerrada_at is null
+        """, new { TenantId = tenantId, TargetUserId = targetUserId, ActorId = actorId, Reason = reason }, transaction, cancellationToken: cancellationToken));
 
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static IReadOnlyList<string> SplitProfiles(string? value) =>

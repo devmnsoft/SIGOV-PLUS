@@ -20,9 +20,17 @@ public sealed class SaasAdminRegressionTests
             .And.Contain("var currentContract = before;")
             .And.Contain("PreserveTerm = !isNewContract")
             .And.Contain("tenant_modulo_contratado.vigencia_inicio")
+            .And.Contain("RandomNumberGenerator.GetBytes(48)")
+            .And.Contain("deve_alterar_senha")
+            .And.Contain("tenant_id=@TenantId and (codigo_externo=@Codigo or nome=@Codigo)")
+            .And.Contain("RevokeTenantSessionsAsync")
+            .And.Contain("RevokeUserSessionsAsync")
+            .And.NotContain("$2a$11$")
             .And.NotContain("before!");
         File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/SaasAdmin/TenantDetalhe.cshtml"))
             .Should().Contain("nenhuma cobrança será quitada ou renovada automaticamente")
-            .And.Contain("não inclui dependências silenciosamente");
+            .And.Contain("não inclui dependências silenciosamente")
+            .And.Contain("o cadastro não gera nem exibe senha provisória")
+            .And.Contain("Recuperar acesso");
     }
 }
