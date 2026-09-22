@@ -54,6 +54,11 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("versao=@Versao")
             .And.Contain("valida_ate>now()")
             .And.Contain("fn_educacao_converter_oferta");
+        repository.Should().Contain("pg_advisory_xact_lock(hashtextextended")
+            .And.Contain("nextval('sigov.educacao_numero_seq')")
+            .And.Contain("Somente matrícula ativa ou confirmada pode ser cancelada.")
+            .And.NotContain("DateTime.UtcNow.Ticks % 1000000")
+            .And.Contain("'PRE-' || @AnoLetivo");
         migration.Should().Contain("ux_matricula_origem_prematricula")
             .And.Contain("alter column turma_id drop not null")
             .And.Contain("vagas_ocupadas<capacidade")

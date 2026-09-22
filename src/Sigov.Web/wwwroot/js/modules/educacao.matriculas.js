@@ -5,6 +5,20 @@
   const form = '#form-matricula';
   function toast(type, msg) { const el = $('#educacao-toast'); el.removeClass('d-none alert-success alert-danger alert-warning').addClass('alert-' + type).text(msg || 'Operação concluída.'); }
   function mask(v) { return v ? String(v).replace(/.(?=.{4})/g, '*') : ''; }
+  function syncContext() {
+    const escola = $('#EscolaId').val();
+    const ano = $('#AnoLetivoId').val();
+    $('#AnoLetivoId option[data-escola]').each(function () {
+      const pertence = !this.dataset.escola || !escola || this.dataset.escola === escola;
+      $(this).prop('hidden', !pertence);
+      if (!pertence && this.selected) $('#AnoLetivoId').val('');
+    });
+    $('#TurmaId option[data-escola]').each(function () {
+      const pertence = (!escola || this.dataset.escola === escola) && (!ano || this.dataset.ano === ano);
+      $(this).prop('hidden', !pertence);
+      if (!pertence && this.selected) $('#TurmaId').val('');
+    });
+  }
   function load() {
     if (!grid) return;
     $(grid).html('<tr><td colspan="6">Carregando...</td></tr>');
@@ -23,8 +37,10 @@
       $(this).serializeArray().forEach(function (i) { if (i.name !== '__RequestVerificationToken') { const numeric = /(^|Id$|AnoLetivo$|Capacidade$|Valor|Peso|Pontuacao)/.test(i.name); data[i.name] = numeric && i.value !== '' ? Number(i.value) : i.value; } });
       $.ajax({ url: endpoint, method: 'POST', contentType: 'application/json', data: JSON.stringify(data), headers: { 'RequestVerificationToken': $(this).find('input[name="__RequestVerificationToken"]').val() } })
         .done(function () { toast('success', 'Registro salvo com sucesso.'); load(); })
-        .fail(function (xhr) { toast('danger', xhr.status === 403 ? 'Sem permissão.' : 'Falha ao salvar.'); });
+        .fail(function (xhr) { toast('danger', xhr.status === 403 ? 'Sem permissão.' : (xhr.responseJSON?.message || 'Falha ao salvar. Nenhuma vaga foi consumida.')); });
     });
+    $('#EscolaId, #AnoLetivoId').on('change', syncContext);
+    syncContext();
   }
   $(function () { bind(); load(); });
 })(jQuery);

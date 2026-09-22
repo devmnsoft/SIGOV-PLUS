@@ -23,6 +23,7 @@ public sealed class EducacaoController : Controller
     private readonly ICursoService _cursos;
     private readonly IPreMatriculaService _preMatriculas;
     private readonly IEducacaoDashboardService _dashboard;
+    private readonly ILogger<EducacaoController> _logger;
 
     public EducacaoController(
         IAlunoService alunos,
@@ -33,7 +34,8 @@ public sealed class EducacaoController : Controller
         IProfessorService professores,
         ICursoService cursos,
         IPreMatriculaService preMatriculas,
-        IEducacaoDashboardService dashboard)
+        IEducacaoDashboardService dashboard,
+        ILogger<EducacaoController> logger)
     {
         _alunos = alunos;
         _escolas = escolas;
@@ -44,6 +46,7 @@ public sealed class EducacaoController : Controller
         _cursos = cursos;
         _preMatriculas = preMatriculas;
         _dashboard = dashboard;
+        _logger = logger;
     }
 
     private async Task CarregarOpcoesAsync(CancellationToken ct)
@@ -68,8 +71,10 @@ public sealed class EducacaoController : Controller
             var cursosResult = await _cursos.ListarAsync(new EscolaFiltro(PageSize: 100), ct).ConfigureAwait(false);
             ViewBag.Cursos = cursosResult.Value?.Items ?? Array.Empty<CursoResponse>();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Falha ao carregar os cadastros canônicos da jornada de Educação.");
+            ViewBag.OpcoesEducacaoErro = "Os cadastros necessários não puderam ser consultados. A operação foi bloqueada; verifique a disponibilidade e o schema do banco.";
             ViewBag.Escolas ??= Array.Empty<EscolaResponse>();
             ViewBag.AnosLetivos ??= Array.Empty<AnoLetivoResponse>();
             ViewBag.Turmas ??= Array.Empty<TurmaResponse>();

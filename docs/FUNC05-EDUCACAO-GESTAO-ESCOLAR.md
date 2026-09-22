@@ -71,3 +71,61 @@ Nesta evolução, a trilha FUNC05 foi alinhada integralmente ao padrão arquitet
 
 GED/InovaGED foi explicitamente adiado para a etapa final. FUNC05 não promove a RC50.68, que continua **BLOCKED** por runtime/CI/PostgreSQL oficiais, e não inicia nem marca a RC50.69.
 
+## Auditoria operacional do ciclo 2026-09-22
+
+Baseline auditada: branch `work`, commit `4824442`. A árvore estava limpa antes da
+alteração. Foram inspecionados os fluxos MVC/API/aplicação/Dapper das escolas, anos
+letivos, turmas, alunos, professores, matrículas, pré-matrículas, frequência,
+avaliações e boletim; as migrations `021_educacao_base.sql`,
+`20260824230000_func05_educacao_gestao_escolar.sql` e
+`20260916210000_educacao_ingresso_vagas.sql`; o manifest; as views e scripts do
+núcleo; e os testes existentes de Educação. Transporte, merenda, biblioteca,
+integrações oficiais e GED não foram auditados funcionalmente neste ciclo.
+
+| Capacidade | Estado e evidência | Lacuna/risco observado | Regra e origem | Alteração/validação deste ciclo |
+|---|---|---|---|---|
+| Configuração escolar | **Parcial**: escola, ano, curso/série, turma e professor persistem no schema canônico e passam pelo guard de permissão | Períodos e componentes ainda não formam um cadastro versionado único; carregamento MVC ocultava indisponibilidade | Falha de schema/configuração deve ser explícita (regra do repositório) | A carga de seletores registra o erro e bloqueia a efetivação em vez de simular catálogo vazio; build ficou bloqueado pela ausência do SDK |
+| Vagas e ingresso | **Implementada com evidência estática**: oferta, validade, estados, espera e conversão transacional estão na migration `20260916210000` | PostgreSQL concorrente não pôde ser executado neste ambiente | Oferta válida reserva; pré-matrícula não ocupa; fonte: configuração/migration vigente | Preservada; reaplicação e corrida real permanecem bloqueadas sem PostgreSQL |
+| Matrícula/enturmação | **Parcial, corrigida**: reserva condicional de vaga, contexto, enturmação e auditoria existiam | Duas criações concorrentes do mesmo aluno podiam passar pela leitura de duplicidade; número direto usava relógio; cancelamento repetido liberava mais de uma vaga | Idempotência, última vaga e histórico (requisito unificado); sequência já publicada é autoridade vigente | Trava consultiva transacional por aluno/contexto, sequência PostgreSQL na mesma transação, status inicial controlado pelo servidor e cancelamento idempotente com `FOR UPDATE` |
+| Transferência | **Implementada com evidência estática**: origem e destino são travados, vaga é movida e nova matrícula referencia a origem | Equivalência curricular não configurada; cenário real não executado | Não transportar notas/frequência implicitamente (requisito unificado) | Preservada; não foi inventada equivalência |
+| Diário/frequência | **Parcial**: elegibilidade por vigência, atribuição professor/turma/componente e estados explícitos estão no SQL | Diário base e Bloco 3 ainda são modelos paralelos; lote/revisão e conflito de edição não foram concluídos | Regras documentadas na revisão de 2026-09-16 | Preservado; não declarado concluído |
+| Avaliações/resultados | **Parcial**: escala, peso e limite são validados; ausência não vira zero | Falta política acadêmica versionada para arredondamento, recuperação e cálculo final | Decisão de produto pendente, registrada na documentação canônica | Nenhum critério pedagógico foi inventado |
+| Fechamento/reabertura | **Parcial** no Bloco 3 | Sem snapshot acadêmico publicável, conferência integral ou versão anterior homologada | Requisito unificado; depende de decisão da política acadêmica | Não alterado; permanece bloqueado para conclusão acadêmica |
+| Boletim/portal | **Parcial**: consulta autorizada lista lançamentos e explicita `NAO_LANCADO` | Sem política/snapshot não há média nem documento definitivo; impressão não foi validada | Ausência não equivale a zero; política pendente | Preservado sem resultado fictício |
+| Pendências/indicadores | **Parcial**: dashboard usa agregados reais por tenant/entidade | Recortes de escola/ano e integração completa com Minha Central ausentes | Requisito unificado | Não ampliado antes do núcleo |
+| Template/ajuda | **Parcial**: núcleo possui breadcrumb e ajuda específica | Nem todas as views genéricas do Bloco 3 possuem orientação específica | Requisito de usabilidade deste ciclo | Matrícula agora filtra ano/turma pelo contexto escolhido, remove ID técnico visível e anuncia falha persistente |
+
+### Rastreabilidade do fluxo principal inspecionado
+
+`_Sidebar` → rotas de `EducacaoController` → views `PreMatriculas` e
+`Matriculas` → `PreMatriculasController`/`MatriculasController` da API →
+`EducacaoService` (guard persistente) → `EducacaoRepository` → tabelas
+`pre_matricula_inscricao`, `educacao_oferta_vaga`, `matricula`, `turma` e
+`educacao_evento`. O isolamento verificado no código usa `tenant_id` e
+`entidade_id` em leituras e mutações; escola/turma/ano são novamente conferidos
+no SQL. Não foi declarado isolamento homologado porque não houve banco executável.
+
+### Matriz dos cenários mínimos desta revisão
+
+| Cenário | Esperado | Método | Observado |
+|---|---|---|---|
+| Matrícula válida | persistir no contexto e consumir uma vaga | leitura de serviço/repositório e teste estrutural existente | **PASSOU (estático)**; execução SQL bloqueada |
+| Duplicidade | repetição não criar vínculo nem consumir vaga | inspeção da trava consultiva e busca após a trava | **PASSOU (estático)** |
+| Última vaga | atualizações concorrentes não excederem capacidade | `UPDATE ... vagas_ocupadas < capacidade` | **PASSOU (estático)**; corrida real bloqueada |
+| Enturmação inválida | nenhuma alteração parcial | CTE transacional e contagem igual a um | **PASSOU (estático)** |
+| Transferência | preservar origem e vigências | inspeção da transação e eventos | **PASSOU (estático)** |
+| Frequência | respeitar vigência na data | inspeção do predicado entre matrícula/enturmação/calendário | **PASSOU (estático)** |
+| Registro ausente | não virar falta/zero | contratos, SQL e teste existente | **PASSOU (estático)** |
+| Avaliação | escala/peso persistidos, sem cálculo arbitrário | serviço, SQL e teste existente | **PASSOU (estático)**; arredondamento **BLOQUEADO** por política |
+| Fechamento | bloquear pendências e versionar resultado | inspeção do Bloco 3 | **FALHOU para fechamento acadêmico completo** |
+| Reabertura | exigir permissão/justificativa e preservar versão | busca no Bloco 3/schema | **FALHOU para snapshot acadêmico completo** |
+| Acesso | professor/responsável limitados ao vínculo | guards e joins inspecionados | **PASSOU (estático)**; HTTP real bloqueado |
+| Isolamento | não cruzar tenants/entidades/escolas | predicados SQL inspecionados | **PASSOU (estático)**; dois tenants reais bloqueados |
+| Interface | seletores, contexto, mensagens e impressão | inspeção Razor/JS | filtros/mensagens **PASSARAM (estático)**; navegador/impressão **NÃO EXECUTADOS** |
+| Migração | instalação, upgrade e reaplicação compatíveis | manifest e scripts inspecionados | sem schema novo neste ciclo; PostgreSQL **BLOQUEADO** |
+| Regressão | preservar componentes impactados | `git diff --check` e testes existentes | diff **PASSOU**; testes .NET **BLOQUEADOS** sem SDK |
+
+Decisões ainda indispensáveis: política acadêmica versionada por esfera/etapa,
+unidade oficial de frequência, regras de recuperação/arredondamento/classificação
+e contrato de snapshot/reabertura. Até serem parametrizadas, fechamento definitivo,
+média e situação final continuam indisponíveis, em vez de receber valores arbitrários.
