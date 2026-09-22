@@ -71,8 +71,11 @@ e termina registrando `BLOCKED` para a etapa semântica PostgreSQL.
 Os problemas de gate
 identificados na auditoria imediatamente anterior (portas, endpoint de health, contrato
 da connection string e aceitação de PostgreSQL posterior ao 16) já estão corrigidos no
-checkout. Não foi aplicada correção de produto especulativa para contornar ferramenta,
-banco ou credencial ausente.
+checkout. Nesta reexecução, o gate Bash de páginas críticas também passou a distinguir
+falha funcional (`FAIL`, resposta HTTP inesperada) de infraestrutura indisponível
+(`BLOCKED`, HTTP 000 ou `curl` ausente), a suprimir o ruído de conexão do `curl` e a
+registrar um resumo inequívoco no artefato. Não foi aplicada correção de produto
+especulativa para contornar ferramenta, banco ou credencial ausente.
 
 ## 5. Validações realizadas
 
@@ -100,7 +103,7 @@ tenants e navegação manual.
 4. **Implementado:** verificador Bash fail-closed e este registro auditável do ciclo.
 5. **Parcial:** todas as dezoito áreas obrigatórias da matriz.
 6. **Regras consolidadas:** nenhuma regra foi promovida sem execução.
-7. **Arquivos alterados:** gate Bash, documentação de auditoria, status real e changelog.
+7. **Arquivos alterados:** gates Bash e documentação de auditoria/status/changelog.
 8. **Migrations criadas:** nenhuma.
 9. **Scripts consolidados atualizados:** nenhum; não houve DDL.
 10. **Telas alteradas:** nenhuma.

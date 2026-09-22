@@ -1,5 +1,11 @@
 # Status real dos módulos
 
+Reexecução do gate de páginas críticas em 2026-09-22: a indisponibilidade completa
+da API/Web agora é registrada como **BLOCKED** (HTTP 000), em vez de ser confundida
+com defeito funcional. Respostas HTTP efetivamente inesperadas continuam sendo
+**FAIL**, e o gate permanece fail-closed nos dois casos. A alteração não promove
+nenhum módulo nem substitui a navegação autenticada.
+
 Revalidação das jornadas prioritárias em 2026-09-22: o Gate A permaneceu **BLOCKED**
 pela ausência de .NET 10, PowerShell, PostgreSQL/`psql`, connection string e navegador
 autenticado. Os gates estáticos (manifesto JSON, Bash, rotas, artefatos, colisões SQL e

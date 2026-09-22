@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-22 — gate de páginas críticas fail-closed
+
+- O verificador Bash de páginas críticas agora registra `BLOCKED` quando `curl`, API
+  ou Web estão indisponíveis, preservando `FAIL` para respostas HTTP inesperadas.
+- O artefato do smoke passou a conter resumo final explícito e não expõe o ruído de
+  conexão do cliente HTTP.
+- A auditoria permanece conservadora: nenhum módulo foi promovido sem .NET 10,
+  PostgreSQL 16, credencial e navegação autenticada.
+
 ## 2026-09-22 — gate estático portável do catálogo de migrations
 
 - Adicionado `scripts/check-migration-catalog.sh` para validar, sem PowerShell,
