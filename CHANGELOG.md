@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-22 — paridade portável dos scripts PostgreSQL consolidados
+
+- O gate Bash do catálogo passou a comparar os quatro aliases de produção e os
+  dois consolidados de desenvolvimento, além de conferir ordem, checksum e corpo
+  normalizado de cada migration incluída no baseline.
+- Migrations excluídas continuam fora do baseline e agora precisam manter sua
+  decisão explícita no consolidado; os seeds fictícios de desenvolvimento também
+  são comparados deterministicamente.
+- O catálogo e os seis scripts estavam sincronizados. A aplicação limpa,
+  reaplicação e upgrade permanecem bloqueados sem PostgreSQL 16 e `psql`.
+
 ## 2026-09-22 — gate de páginas críticas fail-closed
 
 - O verificador Bash de páginas críticas agora registra `BLOCKED` quando `curl`, API
