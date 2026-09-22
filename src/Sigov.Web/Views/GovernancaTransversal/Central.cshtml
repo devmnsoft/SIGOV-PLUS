@@ -1,15 +1,54 @@
 @model Sigov.Web.Models.Governanca.CentralTransversalViewModel
-@{ ViewData["Title"] = Model.Titulo; }
+@{ ViewData["Title"] = Model.Titulo; var isQuality = Model.Tipo == "qualidade"; var isPending = Model.Tipo == "pendencia"; }
 <header class="sigov-page-hero"><div><span class="sigov-eyebrow">Governança transversal</span><h1>@Model.Titulo</h1><p>@Model.Descricao</p></div></header>
-<section class="central-panel central-panel--wide mt-4">
-  @if (Model.Itens.Count == 0)
+
+<div class="alert @(Model.ContextoSelecionado ? "alert-info" : "alert-warning") mt-4" role="status" aria-live="polite">
+  <strong>Contexto:</strong> @(Model.ContextoSelecionado ? Model.ContextoNome : "nenhum contexto operacional selecionado")
+</div>
+
+@if (!Model.ContextoSelecionado && (isPending || isQuality))
+{
+  <section class="central-panel central-panel--wide" aria-labelledby="context-required-title">
+    <h2 id="context-required-title" class="h4">Selecione um cliente autorizado</h2>
+    <p>O contexto define a barreira de isolamento dos dados. Esta tela não executa consultas nem interpreta a ausência de contexto como resultado vazio.</p>
+    <a class="sigov-btn sigov-btn--primary" href="/SaasConfiguracao/ContextoGlobal">Selecionar contexto operacional</a>
+  </section>
+}
+else
+{
+  @if (isPending || isQuality)
   {
-    <div class="sigov-empty-state-premium"><sigov-icon name="success" size="34" /><strong>Nenhuma ocorrência disponível</strong><span>A estrutura está pronta e não há registros reais visíveis para seu tenant e permissões.</span></div>
+    <details class="central-panel central-panel--wide mb-3">
+      <summary><strong>Como usar esta tela</strong></summary>
+      <div class="mt-3">
+        <p><strong>Para que serve:</strong> @(isPending ? "organizar trabalhos exigidos pelos módulos de origem" : "explicar inconsistências verificadas nos dados de origem").</p>
+        <p><strong>Como funciona:</strong> os filtros e a paginação são aplicados dentro do contexto ativo. Uma pendência representa trabalho ainda exigido; um problema de qualidade representa uma regra de dados violada.</p>
+        <p><strong>Pré-requisitos:</strong> contexto ativo, vínculo vigente e permissão. Uma ação pode estar indisponível quando não há rota segura ou quando o estado mudou.</p>
+        <p><strong>Regras importantes:</strong> corrija no módulo de origem. @(isQuality ? "Depois, revalide consultando os dados reais; abrir a ação não marca a ocorrência como corrigida." : "Abrir ou ler um item não o resolve automaticamente.")</p>
+        <p><strong>Próximo passo:</strong> filtre, abra a ação permitida e retorne para conferir o estado atualizado.</p>
+      </div>
+    </details>
+    <form method="get" class="central-panel central-panel--wide mb-3" aria-label="Filtros da listagem">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4"><label class="form-label" for="filter-module">Módulo</label><input id="filter-module" class="form-control" name="modulo" value="@Model.Modulo" maxlength="80" /></div>
+        <div class="col-md-4"><label class="form-label" for="filter-classification">@(isQuality ? "Severidade" : "Gravidade")</label><select id="filter-classification" class="form-select" name="@(isQuality ? "severidade" : "gravidade")"><option value="">Todas</option>@foreach(var value in new[]{"CRITICA","ALTA","MEDIA","BAIXA"}){<option value="@value" selected="@(Model.Classificacao == value)">@value</option>}</select></div>
+        <div class="col-md-2"><label class="form-label" for="filter-size">Itens</label><select id="filter-size" class="form-select" name="tamanho">@foreach(var size in new[]{25,50,100}){<option value="@size" selected="@(Model.Tamanho == size)">@size</option>}</select></div>
+        <div class="col-md-2"><button class="sigov-btn sigov-btn--primary w-100" type="submit">Aplicar</button></div>
+      </div>
+    </form>
   }
-  else
-  {
-    <div class="table-responsive"><table class="table"><thead><tr><th>Módulo/origem</th><th>Ocorrência</th><th>Classificação</th><th>Status</th><th>Ação</th></tr></thead><tbody>
-    @foreach (var item in Model.Itens) { <tr><td>@item.Modulo</td><td>@item.Titulo</td><td>@item.Classificacao</td><td><span class="sigov-status-pill sigov-status-pill--info">@item.Status</span></td><td>@if (!string.IsNullOrWhiteSpace(item.Rota)) { <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Rota">Abrir</a> } else { <span>Sem ação aplicável</span> }</td></tr> }
-    </tbody></table></div>
-  }
-</section>
+  <section class="central-panel central-panel--wide">
+    <div class="d-flex justify-content-between align-items-center mb-3"><span>Atualizado nesta requisição</span><span class="sigov-status-pill sigov-status-pill--info">@Model.Itens.Count item(ns)</span></div>
+    @if (Model.Itens.Count == 0)
+    {
+      <div class="sigov-empty-state-premium"><sigov-icon name="success" size="34" /><strong>Nenhum resultado para os filtros</strong><span>A consulta foi executada no contexto ativo. Ajuste os filtros ou atualize a página.</span></div>
+    }
+    else
+    {
+      <div class="table-responsive"><table class="table"><thead><tr><th>Módulo/origem</th><th>Ocorrência e motivo</th><th>Classificação</th><th>Status</th>@if(isPending){<th>Responsável / prazo</th>}<th>Ação</th></tr></thead><tbody>
+      @foreach (var item in Model.Itens) { <tr><td>@item.Modulo</td><td><strong>@item.Titulo</strong>@if(!string.IsNullOrWhiteSpace(item.Motivo)){<div class="small text-muted">@item.Motivo</div>}@if(item.VerificadoEm.HasValue){<div class="small">Última verificação: @item.VerificadoEm.Value.ToLocalTime().ToString("g")</div>}</td><td>@item.Classificacao</td><td><span class="sigov-status-pill sigov-status-pill--info">@item.Status</span></td>@if(isPending){<td>@item.Responsavel<br/><small>@(item.Prazo?.ToLocalTime().ToString("g") ?? "Sem prazo configurado")</small></td>}<td>@if (!string.IsNullOrWhiteSpace(item.Rota)) { <a class="sigov-btn sigov-btn--ghost sigov-btn--sm" href="@item.Rota">Corrigir na origem</a> } else { <span title="Não existe ação autorizada configurada para esta ocorrência">Sem ação aplicável</span> }</td></tr> }
+      </tbody></table></div>
+      <nav class="d-flex justify-content-between mt-3" aria-label="Paginação"><a class="sigov-btn sigov-btn--ghost @(Model.Pagina <= 1 ? "disabled" : "")" aria-disabled="@(Model.Pagina <= 1)" href="?modulo=@Uri.EscapeDataString(Model.Modulo ?? "")&@(isQuality ? "severidade" : "gravidade")=@Uri.EscapeDataString(Model.Classificacao ?? "")&pagina=@(Math.Max(1,Model.Pagina-1))&tamanho=@Model.Tamanho">Anterior</a><span>Página @Model.Pagina</span><a class="sigov-btn sigov-btn--ghost @(Model.Itens.Count < Model.Tamanho ? "disabled" : "")" aria-disabled="@(Model.Itens.Count < Model.Tamanho)" href="?modulo=@Uri.EscapeDataString(Model.Modulo ?? "")&@(isQuality ? "severidade" : "gravidade")=@Uri.EscapeDataString(Model.Classificacao ?? "")&pagina=@(Model.Pagina+1)&tamanho=@Model.Tamanho">Próxima</a></nav>
+    }
+  </section>
+}
