@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-22 — auditoria do ciclo funcional condicionada ao Gate A
+
+- reexecutados os pré-requisitos e gates portáveis antes de qualquer implementação;
+- confirmado o bloqueio por ausência de .NET 10, PowerShell, PostgreSQL/`psql`,
+  connection string e aplicações iniciadas, com páginas críticas em HTTP 000;
+- publicado o relatório nas 16 seções solicitadas e a matriz final obrigatória,
+  preservando o estado parcial dos módulos e sem alterar código, schema, scripts
+  consolidados, menus ou telas antes do Gate A verde.
+
 ## 2026-09-22 — revalidação do Gate A e do guia de telas
 
 - reexecutados os gates portáveis antes de qualquer evolução funcional, mantendo o

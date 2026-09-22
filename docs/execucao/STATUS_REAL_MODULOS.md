@@ -1,5 +1,14 @@
 # Status real dos módulos
 
+Revalidação do ciclo funcional em 2026-09-22: o Gate A permaneceu **BLOCKED** antes
+de qualquer implementação porque o ambiente não possui .NET 10, PowerShell,
+PostgreSQL/`psql`, connection string nem Web/API iniciadas. Catálogo/paridade
+estática, rotas, colisões SQL, artefatos, sintaxe Bash e manifesto JSON passaram; as
+páginas críticas retornaram HTTP 000. O relatório de entrega com as 16 seções e a
+matriz obrigatória está em
+`docs/execucao/AUDITORIA_CICLO_FUNCIONAL_2026-09-22.md`. Nenhum módulo, tela,
+migration, menu ou regra foi alterado ou promovido sem o gate obrigatório.
+
 Revalidação dirigida em 2026-09-22: o Gate A continuou **BLOCKED** sem .NET 10,
 PowerShell, PostgreSQL/`psql`, connection string e aplicação autenticada. A auditoria
 do Bloco A confirmou que `_PageIntro.cshtml` existe, porém não cobre explicitamente os
