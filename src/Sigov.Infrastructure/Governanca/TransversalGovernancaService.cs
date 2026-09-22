@@ -30,7 +30,7 @@ public sealed class TransversalGovernancaService : ITransversalGovernancaService
 descricao, prazo, responsavel_usuario_id as ResponsavelUsuarioId, rota_acao as RotaAcao, status, created_at as CreatedAt
 from sigov.pendencia_operacional where tenant_id=@TenantId and status in ('ABERTA','EM_TRATAMENTO')
 and (@Modulo is null or modulo=@Modulo) and (@Gravidade is null or gravidade=@Gravidade)
-order by case gravidade when 'CRITICA' then 1 when 'ALTA' then 2 when 'MEDIA' then 3 when 'BAIXA' then 4 else 5 end, prazo nulls last
+order by case gravidade when 'CRITICA' then 1 when 'ALTA' then 2 when 'MEDIA' then 3 when 'BAIXA' then 4 else 5 end, prazo nulls last, id
 limit @Limit offset @Offset";
         return await QuerySafe<PendenciaOperacionalDto>(sql, new { TenantId = Tenant(), Modulo = Normalize(modulo), Gravidade = Normalize(gravidade), Limit = Size(tamanho), Offset = Offset(pagina, tamanho) }, ct).ConfigureAwait(false);
     }
@@ -54,7 +54,7 @@ limit @Limit offset @Offset";
         const string sql = @"select id, modulo, regra, entidade, entidade_id as EntidadeId, severidade, descricao,
 rota_correcao as RotaCorrecao, status, detected_at as DetectedAt from sigov.qualidade_dados_ocorrencia
 where tenant_id=@TenantId and status in ('ABERTA','EM_CORRECAO') and (@Modulo is null or modulo=@Modulo)
-and (@Severidade is null or severidade=@Severidade) order by detected_at desc limit @Limit offset @Offset";
+and (@Severidade is null or severidade=@Severidade) order by detected_at desc, id limit @Limit offset @Offset";
         return await QuerySafe<QualidadeDadosDto>(sql, new { TenantId = Tenant(), Modulo = Normalize(modulo), Severidade = Normalize(severidade), Limit = Size(tamanho), Offset = Offset(pagina, tamanho) }, ct).ConfigureAwait(false);
     }
 
@@ -106,7 +106,11 @@ justificativa=@Justificativa where id=@Id and tenant_id=@TenantId and status in 
     private async Task<IReadOnlyCollection<T>> QuerySafe<T>(string sql, object parameters, CancellationToken ct)
     {
         try { using var connection = _connections.CreateConnection(); return (await connection.QueryAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: ct)).ConfigureAwait(false)).ToArray(); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Central transversal indisponível para o tenant {TenantId}.", _tenant.TenantId); return Array.Empty<T>(); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ao consultar a central transversal. TenantId={TenantId}", _tenant.TenantId);
+            throw;
+        }
     }
     private Task<bool> Exists(string table, CancellationToken ct) => _inspector.TableExistsAsync("sigov", table, ct);
     private long Tenant() => _tenant.TenantId is > 0 ? _tenant.TenantId.Value : throw new UnauthorizedAccessException("Tenant obrigatório.");
