@@ -117,8 +117,8 @@ if (Test-SigovCommand dotnet) {
 if ($dbSafe -and (Test-SigovCommand psql)) {
     $version = Invoke-SigovPsql @('-Atqc','show server_version_num')
     $serverNumber = 0
-    if ($version.Ok -and [int]::TryParse($version.Output, [ref]$serverNumber) -and $serverNumber -ge 160000 -and $serverNumber -lt 170000) {
-        Add-SigovResult postgres-version PASS "PostgreSQL 16 confirmado (server_version_num=$serverNumber)"
+    if ($version.Ok -and [int]::TryParse($version.Output, [ref]$serverNumber) -and $serverNumber -ge 160000) {
+        Add-SigovResult postgres-version PASS "PostgreSQL 16+ confirmado (server_version_num=$serverNumber)"
         $apply = Invoke-SigovPsql @('-f',(Join-Path $Root 'script_completop.sql'))
         if ($apply.Ok) { Add-SigovResult baseline-apply PASS 'Baseline aplicado' } else { Add-SigovResult baseline-apply FAIL 'Primeira aplicação falhou' }
         $reapply = Invoke-SigovPsql @('-f',(Join-Path $Root 'script_completop.sql'))
@@ -145,7 +145,7 @@ end $$;
             if ($ledger.Ok) { Add-SigovResult ledger-manifest PASS 'Ledger corresponde ao manifest para migrations do baseline' } else { Add-SigovResult ledger-manifest FAIL 'Ledger/checksum diverge do manifest' }
         } else { Add-SigovResult ledger-manifest BLOCKED 'Manifest inválido' }
     } else {
-        Add-SigovResult postgres-version FAIL 'É obrigatório servidor PostgreSQL 16.x'
+        Add-SigovResult postgres-version FAIL 'É obrigatório servidor PostgreSQL 16 ou superior'
         foreach ($name in @('baseline-apply','baseline-reapply','database-authority','ledger-manifest')) { Add-SigovResult $name BLOCKED 'Versão do servidor recusada' }
     }
 } else {
@@ -167,7 +167,7 @@ if (-not $Smoke) {
     $env:ConnectionStrings__DefaultConnection = "Host=$env:SIGOV_DB_HOST;Port=$env:SIGOV_DB_PORT;Database=$env:SIGOV_DB_NAME;Username=$env:SIGOV_DB_USER;Password=$env:SIGOV_DB_PASSWORD"
     & (Join-Path $PSScriptRoot 'start-local.ps1') -SkipBuild 2>&1 | ForEach-Object { Add-Content $Log (Protect-SigovText ($_ | Out-String)) }
     Start-Sleep -Seconds 5
-    try { Invoke-WebRequest "${env:SIGOV_API_URL}/api/health" -UseBasicParsing | Out-Null; Add-SigovResult smoke-health PASS 'API health respondeu' } catch { Add-SigovResult smoke-health FAIL 'Health não respondeu' }
+    try { Invoke-WebRequest "${env:SIGOV_API_URL}/api/health/live" -UseBasicParsing | Out-Null; Add-SigovResult smoke-health PASS 'API health respondeu' } catch { Add-SigovResult smoke-health FAIL 'Health não respondeu' }
     try { $response=Invoke-WebRequest "${env:SIGOV_WEB_URL}/SaasAdmin/Autorizacao" -MaximumRedirection 0 -SkipHttpErrorCheck; if ($response.StatusCode -in 302,401,403) { Add-SigovResult smoke-unauthenticated PASS "Rota protegida recusou acesso anônimo ($($response.StatusCode))" } else { Add-SigovResult smoke-unauthenticated FAIL "Resposta anônima inesperada ($($response.StatusCode))" } } catch { Add-SigovResult smoke-unauthenticated FAIL 'Consulta anônima falhou de forma inesperada' }
     if ([string]::IsNullOrWhiteSpace($env:SIGOV_LOCAL_AUTH_COOKIE)) { Add-SigovResult smoke-authenticated BLOCKED 'SIGOV_LOCAL_AUTH_COOKIE não fornecido; nenhum PASS autenticado foi inferido' }
     else { try { $headers=@{Cookie=$env:SIGOV_LOCAL_AUTH_COOKIE}; $r=Invoke-WebRequest "${env:SIGOV_WEB_URL}/SaasAdmin/Autorizacao" -Headers $headers -SkipHttpErrorCheck; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 300) { Add-SigovResult smoke-authenticated PASS "Tela autenticada respondeu $($r.StatusCode) (cookie omitido)" } else { Add-SigovResult smoke-authenticated FAIL "Tela autenticada respondeu $($r.StatusCode) (cookie omitido)" } } catch { Add-SigovResult smoke-authenticated FAIL 'Tela autenticada falhou (cookie omitido)' } }

@@ -14,7 +14,7 @@ done
 if command -v node >/dev/null 2>&1; then report node OK "$(node --version)"; else missing node 'necessário para as verificações JavaScript'; fi
 if command -v psql >/dev/null 2>&1; then
   pg_major="$(psql --version | sed -E 's/.* ([0-9]+).*/\1/')"
-  if [[ "$pg_major" == 16 ]]; then report PostgreSQL OK "major $pg_major"; else report PostgreSQL INVALID_VERSION "esperado 16; encontrado $pg_major"; status=1; fi
+  if [[ "$pg_major" =~ ^[0-9]+$ ]] && ((pg_major >= 16)); then report PostgreSQL OK "major $pg_major"; else report PostgreSQL INVALID_VERSION "esperado 16 ou superior; encontrado $pg_major"; status=1; fi
 fi
 
 if [[ -n "${ConnectionStrings__DefaultConnection:-}" ]]; then
