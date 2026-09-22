@@ -10,6 +10,7 @@ public abstract class ProcessosControllerBase : ControllerBase
     {
         if (result.IsSuccess && result.Value is not null) return Ok(ApiResponse<T>.Ok(result.Value));
         if (result.Error == "403") return Forbid();
+        if (result.Error?.StartsWith("409", StringComparison.Ordinal) == true) return Conflict(ApiResponse<T>.Fail(result.Error[3..].TrimStart(':', ' ')));
         if (result.Error?.Contains("autenticado", StringComparison.OrdinalIgnoreCase) == true) return Unauthorized(ApiResponse<T>.Fail(result.Error));
         if (result.Error?.Contains("não encontrado", StringComparison.OrdinalIgnoreCase) == true) return NotFound(ApiResponse<T>.Fail(result.Error));
         return BadRequest(ApiResponse<T>.Fail(result.Error ?? "Requisição inválida."));
@@ -19,6 +20,7 @@ public abstract class ProcessosControllerBase : ControllerBase
     {
         if (result.IsSuccess) return Ok(ApiResponse<object>.Ok(new { ok = true }));
         if (result.Error == "403") return Forbid();
+        if (result.Error?.StartsWith("409", StringComparison.Ordinal) == true) return Conflict(ApiResponse<object>.Fail(result.Error[3..].TrimStart(':', ' ')));
         if (result.Error?.Contains("autenticado", StringComparison.OrdinalIgnoreCase) == true) return Unauthorized(ApiResponse<object>.Fail(result.Error));
         return BadRequest(ApiResponse<object>.Fail(result.Error ?? "Requisição inválida."));
     }

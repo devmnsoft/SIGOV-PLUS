@@ -76,11 +76,34 @@ public sealed class TipoProcessoRepository : BaseRepository, ITipoProcessoReposi
 public sealed class ProcessoDigitalRepository : BaseRepository, IProcessoDigitalRepository
 {
     private readonly DapperContext _context; public ProcessoDigitalRepository(DapperContext context) => _context = context;
-    public async Task<PagedResult<ProcessoResumoResponse>> ListarAsync(long tenantId, long? entidadeId, long? exercicioId, ProcessoFiltro f, CancellationToken ct) { var p = new PaginationQuery(f.Page, f.PageSize); var where = "where p.tenant_id = @TenantId and p.is_deleted = false and (@Numero is null or p.numero ilike @Numero) and (@Assunto is null or p.assunto ilike @Assunto) and (@TipoProcessoId is null or p.tipo_processo_id = @TipoProcessoId) and (@Status is null or p.status = @Status) and (@Prioridade is null or p.prioridade = @Prioridade) and (@InteressadoPessoaId is null or p.interessado_pessoa_id = @InteressadoPessoaId) and (@UnidadeAtualId is null or p.unidade_atual_id = @UnidadeAtualId) and (@Sigiloso is null or p.sigiloso = @Sigiloso)"; var countSql = $"select count(*) from sigov.processo_digital p {where};"; var sql = $"select p.id, p.numero, p.assunto, tp.nome as TipoProcesso, pe.nome as Interessado, p.status, p.prioridade, p.data_abertura as DataAbertura, p.prazo_resposta_at as PrazoRespostaAt, p.sigiloso from sigov.processo_digital p join sigov.tipo_processo tp on tp.id=p.tipo_processo_id and tp.tenant_id=p.tenant_id left join sigov.pessoa pe on pe.id=p.interessado_pessoa_id and pe.tenant_id=p.tenant_id {where} order by p.data_abertura desc limit @Limit offset @Offset;"; var prm = new { TenantId = tenantId, Numero = Like(f.Numero), Assunto = Like(f.Assunto), f.TipoProcessoId, f.Status, f.Prioridade, f.InteressadoPessoaId, f.UnidadeAtualId, f.Sigiloso, Limit = p.SafePageSize, Offset = p.Offset }; using var cn = _context.CreateConnection(); var total = await cn.ExecuteScalarAsync<long>(Command(countSql, prm, ct)).ConfigureAwait(false); var rows = await cn.QueryAsync<ProcessoResumoResponse>(Command(sql, prm, ct)).ConfigureAwait(false); return new PagedResult<ProcessoResumoResponse>(rows.AsList(), p.SafePage, p.SafePageSize, total); }
+    public async Task<PagedResult<ProcessoResumoResponse>> ListarAsync(long tenantId, long? entidadeId, long? exercicioId, ProcessoFiltro f, CancellationToken ct) { var p = new PaginationQuery(f.Page, f.PageSize); var where = "where p.tenant_id = @TenantId and p.is_deleted = false and (@EntidadeId is null or p.entidade_id=@EntidadeId) and (@ExercicioId is null or p.exercicio_id=@ExercicioId) and (@Numero is null or p.numero ilike @Numero) and (@Assunto is null or p.assunto ilike @Assunto) and (@TipoProcessoId is null or p.tipo_processo_id = @TipoProcessoId) and (@Status is null or p.status = @Status) and (@Prioridade is null or p.prioridade = @Prioridade) and (@InteressadoPessoaId is null or p.interessado_pessoa_id = @InteressadoPessoaId) and (@UnidadeAtualId is null or p.unidade_atual_id = @UnidadeAtualId) and (@Inicio is null or p.data_abertura >= @Inicio) and (@Fim is null or p.data_abertura < @Fim) and (@Sigiloso is null or p.sigiloso = @Sigiloso)"; var countSql = $"select count(*) from sigov.processo_digital p {where};"; var sql = $"select p.id, p.numero, p.assunto, tp.nome as TipoProcesso, pe.nome as Interessado, p.status, p.prioridade, p.data_abertura as DataAbertura, p.prazo_resposta_at as PrazoRespostaAt, p.sigiloso from sigov.processo_digital p join sigov.tipo_processo tp on tp.id=p.tipo_processo_id and tp.tenant_id=p.tenant_id left join sigov.pessoa pe on pe.id=p.interessado_pessoa_id and pe.tenant_id=p.tenant_id {where} order by p.data_abertura desc, p.id desc limit @Limit offset @Offset;"; var prm = new { TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, Numero = Like(f.Numero), Assunto = Like(f.Assunto), f.TipoProcessoId, f.Status, f.Prioridade, f.InteressadoPessoaId, f.UnidadeAtualId, f.Inicio, f.Fim, f.Sigiloso, Limit = p.SafePageSize, Offset = p.Offset }; using var cn = _context.CreateConnection(); var total = await cn.ExecuteScalarAsync<long>(Command(countSql, prm, ct)).ConfigureAwait(false); var rows = await cn.QueryAsync<ProcessoResumoResponse>(Command(sql, prm, ct)).ConfigureAwait(false); return new PagedResult<ProcessoResumoResponse>(rows.AsList(), p.SafePage, p.SafePageSize, total); }
     public async Task<ProcessoDetalheResponse?> ObterAsync(long tenantId, long id, CancellationToken ct) { const string sql = "select p.id, p.numero, p.assunto, p.descricao, tp.nome as TipoProcesso, pe.nome as Interessado, p.status, p.prioridade, p.data_abertura as DataAbertura, p.prazo_resposta_at as PrazoRespostaAt, p.sigiloso from sigov.processo_digital p join sigov.tipo_processo tp on tp.id=p.tipo_processo_id and tp.tenant_id=p.tenant_id left join sigov.pessoa pe on pe.id=p.interessado_pessoa_id and pe.tenant_id=p.tenant_id where p.tenant_id=@TenantId and p.id=@Id and p.is_deleted=false;"; using var cn = _context.CreateConnection(); var row = await cn.QuerySingleOrDefaultAsync<ProcessoDetalheRow>(Command(sql, new { TenantId = tenantId, Id = id }, ct)).ConfigureAwait(false); if (row is null) return null; var mov = await cn.QueryAsync<ProcessoMovimentacaoResponse>(Command("select id, despacho, status_anterior as StatusAnterior, status_novo as StatusNovo, movimentado_at as MovimentadoAt from sigov.processo_movimentacao where tenant_id=@TenantId and processo_digital_id=@Id and is_deleted=false order by movimentado_at desc;", new { TenantId = tenantId, Id = id }, ct)).ConfigureAwait(false); var par = await cn.QueryAsync<ProcessoParecerResponse>(Command("select id, titulo, texto, tipo_parecer as TipoParecer, sigiloso, parecer_at as ParecerAt from sigov.processo_parecer where tenant_id=@TenantId and processo_digital_id=@Id and is_deleted=false order by parecer_at desc;", new { TenantId = tenantId, Id = id }, ct)).ConfigureAwait(false); return new ProcessoDetalheResponse(row.Id, row.Numero, row.Assunto, row.Descricao, row.TipoProcesso, row.Interessado, row.Status, row.Prioridade, row.DataAbertura, row.PrazoRespostaAt, row.Sigiloso, mov.AsList(), par.AsList()); }
     public async Task<long> CriarAsync(long tenantId, long? entidadeId, long? exercicioId, string numero, int ano, CriarProcessoRequest r, long usuarioId, Guid correlationId, CancellationToken ct) { const string sql = "insert into sigov.processo_digital (tenant_id, entidade_id, exercicio_id, tipo_processo_id, numero, ano, assunto, descricao, interessado_pessoa_id, unidade_origem_id, unidade_atual_id, usuario_abertura_id, status, prioridade, sigiloso, prazo_resposta_at, created_by, correlation_id) values (@TenantId, @EntidadeId, @ExercicioId, @TipoProcessoId, @Numero, @Ano, @Assunto, @Descricao, @InteressadoPessoaId, @UnidadeOrigemId, @UnidadeOrigemId, @UsuarioId, 'ABERTO', @Prioridade, @Sigiloso, @PrazoRespostaAt, @UsuarioId, @CorrelationId) returning id;"; using var cn = _context.CreateConnection(); return await cn.ExecuteScalarAsync<long>(Command(sql, new { TenantId = tenantId, EntidadeId = entidadeId, ExercicioId = exercicioId, Numero = numero, Ano = ano, r.TipoProcessoId, r.Assunto, r.Descricao, r.InteressadoPessoaId, r.UnidadeOrigemId, UsuarioId = usuarioId, r.Prioridade, r.Sigiloso, r.PrazoRespostaAt, CorrelationId = correlationId }, ct)).ConfigureAwait(false); }
     public async Task AtualizarAsync(long tenantId, long id, AtualizarProcessoRequest r, long? usuarioId, CancellationToken ct) { const string sql = "update sigov.processo_digital set tipo_processo_id=@TipoProcessoId, assunto=@Assunto, descricao=@Descricao, prioridade=@Prioridade, sigiloso=@Sigiloso, prazo_resposta_at=@PrazoRespostaAt, updated_at=now(), updated_by=@UsuarioId where tenant_id=@TenantId and id=@Id and is_deleted=false and status not in ('ENCERRADO','CANCELADO');"; using var cn = _context.CreateConnection(); await cn.ExecuteAsync(Command(sql, new { TenantId = tenantId, Id = id, r.TipoProcessoId, r.Assunto, r.Descricao, r.Prioridade, r.Sigiloso, r.PrazoRespostaAt, UsuarioId = usuarioId }, ct)).ConfigureAwait(false); }
-    public async Task AlterarStatusAsync(long tenantId, long id, string status, long? usuarioId, CancellationToken ct) { const string sql = "update sigov.processo_digital set status=@Status, data_encerramento=case when @Status in ('ENCERRADO','CANCELADO') then now() else data_encerramento end, updated_at=now(), updated_by=@UsuarioId where tenant_id=@TenantId and id=@Id and is_deleted=false;"; using var cn = _context.CreateConnection(); await cn.ExecuteAsync(Command(sql, new { TenantId = tenantId, Id = id, Status = status, UsuarioId = usuarioId }, ct)).ConfigureAwait(false); }
+    public async Task<bool> AlterarStatusAsync(long tenantId, long id, string status, string justificativa, string? statusEsperado, long usuarioId, CancellationToken ct)
+    {
+        const string sql = @"with atual as (
+    select * from sigov.processo_digital
+    where tenant_id=@TenantId and id=@Id and is_deleted=false
+      and status not in ('ENCERRADO','CANCELADO')
+      and (@StatusEsperado is null or status=@StatusEsperado)
+    for update
+), historico as (
+    insert into sigov.processo_movimentacao
+        (tenant_id, entidade_id, exercicio_id, processo_digital_id, unidade_origem_id,
+         unidade_destino_id, usuario_origem_id, despacho, status_anterior, status_novo, created_by)
+    select tenant_id, entidade_id, exercicio_id, id, unidade_atual_id, unidade_atual_id,
+           @UsuarioId, @Justificativa, status, @Status, @UsuarioId
+    from atual
+    returning processo_digital_id
+)
+update sigov.processo_digital p
+set status=@Status, data_encerramento=now(), updated_at=now(), updated_by=@UsuarioId
+from historico h
+where p.tenant_id=@TenantId and p.id=h.processo_digital_id;";
+        using var cn = _context.CreateConnection();
+        return await cn.ExecuteAsync(Command(sql, new { TenantId = tenantId, Id = id, Status = status, Justificativa = justificativa, StatusEsperado = statusEsperado, UsuarioId = usuarioId }, ct)).ConfigureAwait(false) == 1;
+    }
     public async Task ExcluirAsync(long tenantId, long id, long? usuarioId, CancellationToken ct) { const string sql = "update sigov.processo_digital set is_deleted=true, ativo=false, deleted_at=now(), deleted_by=@UsuarioId where tenant_id=@TenantId and id=@Id and is_deleted=false;"; using var cn = _context.CreateConnection(); await cn.ExecuteAsync(Command(sql, new { TenantId = tenantId, Id = id, UsuarioId = usuarioId }, ct)).ConfigureAwait(false); }
     private static string? Like(string? value) => string.IsNullOrWhiteSpace(value) ? null : $"%{value}%";
     private sealed record ProcessoDetalheRow(long Id, string Numero, string Assunto, string? Descricao, string TipoProcesso, string? Interessado, string Status, string Prioridade, DateTimeOffset DataAbertura, DateTimeOffset? PrazoRespostaAt, bool Sigiloso);
@@ -89,7 +112,32 @@ public sealed class ProcessoDigitalRepository : BaseRepository, IProcessoDigital
 public sealed class ProcessoMovimentacaoRepository : BaseRepository, IProcessoMovimentacaoRepository
 {
     private readonly DapperContext _context; public ProcessoMovimentacaoRepository(DapperContext context) => _context = context;
-    public async Task<long> CriarAsync(long tenantId, long processoId, MovimentarProcessoRequest r, long usuarioId, CancellationToken ct) { const string sql = "insert into sigov.processo_movimentacao (tenant_id, entidade_id, exercicio_id, processo_digital_id, unidade_origem_id, unidade_destino_id, usuario_origem_id, usuario_destino_id, despacho, status_anterior, status_novo, created_by) select tenant_id, entidade_id, exercicio_id, id, unidade_atual_id, @UnidadeDestinoId, @UsuarioId, @UsuarioDestinoId, @Despacho, status, coalesce(@StatusNovo, 'EM_TRAMITACAO'), @UsuarioId from sigov.processo_digital where tenant_id=@TenantId and id=@ProcessoId and is_deleted=false and status not in ('ENCERRADO','CANCELADO') returning id; update sigov.processo_digital set unidade_atual_id=@UnidadeDestinoId, status=coalesce(@StatusNovo, 'EM_TRAMITACAO'), updated_at=now(), updated_by=@UsuarioId where tenant_id=@TenantId and id=@ProcessoId and is_deleted=false and status not in ('ENCERRADO','CANCELADO');"; using var cn = _context.CreateConnection(); return await cn.ExecuteScalarAsync<long>(Command(sql, new { TenantId = tenantId, ProcessoId = processoId, r.UnidadeDestinoId, UsuarioId = usuarioId, r.UsuarioDestinoId, r.Despacho, r.StatusNovo }, ct)).ConfigureAwait(false); }
+    public async Task<long?> CriarAsync(long tenantId, long processoId, MovimentarProcessoRequest r, long usuarioId, CancellationToken ct)
+    {
+        const string sql = @"with atual as (
+    select * from sigov.processo_digital
+    where tenant_id=@TenantId and id=@ProcessoId and is_deleted=false
+      and status not in ('ENCERRADO','CANCELADO')
+      and (@StatusEsperado is null or status=@StatusEsperado)
+    for update
+), alterado as (
+    update sigov.processo_digital p
+    set unidade_atual_id=coalesce(@UnidadeDestinoId, p.unidade_atual_id),
+        status=@StatusNovo, updated_at=now(), updated_by=@UsuarioId
+    from atual a where p.id=a.id and p.tenant_id=a.tenant_id
+    returning a.*
+)
+insert into sigov.processo_movimentacao
+    (tenant_id, entidade_id, exercicio_id, processo_digital_id, unidade_origem_id,
+     unidade_destino_id, usuario_origem_id, usuario_destino_id, despacho,
+     status_anterior, status_novo, created_by)
+select tenant_id, entidade_id, exercicio_id, id, unidade_atual_id,
+       coalesce(@UnidadeDestinoId, unidade_atual_id), @UsuarioId, @UsuarioDestinoId,
+       @Despacho, status, @StatusNovo, @UsuarioId
+from alterado returning id;";
+        using var cn = _context.CreateConnection();
+        return await cn.QuerySingleOrDefaultAsync<long?>(Command(sql, new { TenantId = tenantId, ProcessoId = processoId, r.UnidadeDestinoId, UsuarioId = usuarioId, r.UsuarioDestinoId, r.Despacho, r.StatusNovo, r.StatusEsperado }, ct)).ConfigureAwait(false);
+    }
 }
 
 public sealed class ProcessoParecerRepository : BaseRepository, IProcessoParecerRepository

@@ -50,21 +50,48 @@ public sealed class ProcessoDigitalService : ProcessosServiceBase, IProcessoDigi
     public async Task<Result<long>> CriarAsync(CriarProcessoRequest r, CancellationToken ct) { if (!Tenant.TenantId.HasValue) return TenantFailureLong(); if (!UsuarioId.HasValue) return AuthFailureLong(); if (!await CanAsync(ProcessosPermissoes.ProcessoCriar, ct).ConfigureAwait(false)) return Result<long>.Failure("403"); if (string.IsNullOrWhiteSpace(r.Assunto)) return Result<long>.Failure("Assunto obrigatório."); try { var ano = DateTimeOffset.UtcNow.Year; var numero = await _seq.ProximoAsync(Tenant.TenantId.Value, Tenant.EntidadeId, Tenant.ExercicioId, ano, "processo_digital", "PROC", ct).ConfigureAwait(false); var id = await _repo.CriarAsync(Tenant.TenantId.Value, Tenant.EntidadeId, Tenant.ExercicioId, numero, ano, r, UsuarioId.Value, Guid.NewGuid(), ct).ConfigureAwait(false); await Audit.RegistrarAsync("processos", "CRIAR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, r, ct).ConfigureAwait(false); return Result<long>.Success(id); } catch (Exception ex) { _logger.LogError(ex, "Erro ao criar processo."); return Result<long>.Failure("Erro ao criar processo."); } }
     public async Task<Result> AtualizarAsync(long id, AtualizarProcessoRequest r, CancellationToken ct) { if (!Tenant.TenantId.HasValue) return TenantFailure(); if (!await CanAsync(ProcessosPermissoes.ProcessoEditar, ct).ConfigureAwait(false)) return Result.Failure("403"); await _repo.AtualizarAsync(Tenant.TenantId.Value, id, r, UsuarioId, ct).ConfigureAwait(false); await Audit.RegistrarAsync("processos", "EDITAR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, r, ct).ConfigureAwait(false); return Result.Success(); }
     public async Task<Result> ExcluirAsync(long id, CancellationToken ct) { if (!Tenant.TenantId.HasValue) return TenantFailure(); if (!await CanAsync(ProcessosPermissoes.ProcessoExcluir, ct).ConfigureAwait(false)) return Result.Failure("403"); await _repo.ExcluirAsync(Tenant.TenantId.Value, id, UsuarioId, ct).ConfigureAwait(false); await Audit.RegistrarAsync("processos", "EXCLUIR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, null, ct).ConfigureAwait(false); return Result.Success(); }
-    public async Task<Result<long>> MovimentarAsync(long id, MovimentarProcessoRequest r, CancellationToken ct) { if (!Tenant.TenantId.HasValue) return TenantFailureLong(); if (!UsuarioId.HasValue) return AuthFailureLong(); if (!await CanAsync(ProcessosPermissoes.ProcessoMovimentar, ct).ConfigureAwait(false)) return Result<long>.Failure("403"); _ = new ProcessoMovimentacao(r.Despacho); var mid = await _mov.CriarAsync(Tenant.TenantId.Value, id, r, UsuarioId.Value, ct).ConfigureAwait(false); await Audit.RegistrarAsync("processos", "MOVIMENTAR_PROCESSO", "sigov.processo_movimentacao", mid.ToString(System.Globalization.CultureInfo.InvariantCulture), null, r, ct).ConfigureAwait(false); return Result<long>.Success(mid); }
+    public async Task<Result<long>> MovimentarAsync(long id, MovimentarProcessoRequest r, CancellationToken ct)
+    {
+        if (!Tenant.TenantId.HasValue) return TenantFailureLong();
+        if (!UsuarioId.HasValue) return AuthFailureLong();
+        if (!await CanAsync(ProcessosPermissoes.ProcessoMovimentar, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
+        _ = new ProcessoMovimentacao(r.Despacho);
+        if (!r.UnidadeDestinoId.HasValue && !r.UsuarioDestinoId.HasValue)
+            return Result<long>.Failure("Informe a unidade ou o responsável de destino.");
+        var statusNovo = string.IsNullOrWhiteSpace(r.StatusNovo) ? "EM_TRAMITACAO" : r.StatusNovo.Trim().ToUpperInvariant();
+        if (statusNovo is not ("EM_TRAMITACAO" or "AGUARDANDO_DOCUMENTO" or "AGUARDANDO_ASSINATURA" or "SUSPENSO"))
+            return Result<long>.Failure("Situação de destino inválida para movimentação.");
+        var request = r with { StatusNovo = statusNovo, StatusEsperado = NormalizeStatus(r.StatusEsperado) };
+        var mid = await _mov.CriarAsync(Tenant.TenantId.Value, id, request, UsuarioId.Value, ct).ConfigureAwait(false);
+        if (!mid.HasValue) return Result<long>.Failure("409: O processo foi alterado por outra operação ou não admite movimentação. Recarregue os dados.");
+        await Audit.RegistrarAsync("processos", "MOVIMENTAR_PROCESSO", "sigov.processo_movimentacao", mid.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), null, request, ct).ConfigureAwait(false);
+        return Result<long>.Success(mid.Value);
+    }
     public async Task<Result<long>> EmitirParecerAsync(long id, EmitirParecerRequest r, CancellationToken ct) { if (!Tenant.TenantId.HasValue) return TenantFailureLong(); if (!UsuarioId.HasValue) return AuthFailureLong(); if (!await CanAsync(ProcessosPermissoes.ProcessoParecer, ct).ConfigureAwait(false)) return Result<long>.Failure("403"); _ = new ProcessoParecer(r.Titulo, r.Texto); var pid = await _parecer.CriarAsync(Tenant.TenantId.Value, id, r, UsuarioId.Value, ct).ConfigureAwait(false); await Audit.RegistrarAsync("processos", "EMITIR_PARECER", "sigov.processo_parecer", pid.ToString(System.Globalization.CultureInfo.InvariantCulture), null, r, ct).ConfigureAwait(false); return Result<long>.Success(pid); }
-    public async Task<Result> EncerrarAsync(long id, CancellationToken ct) { if (!Tenant.TenantId.HasValue) return TenantFailure(); if (!await CanAsync(ProcessosPermissoes.ProcessoEncerrar, ct).ConfigureAwait(false)) return Result.Failure("403"); await _repo.AlterarStatusAsync(Tenant.TenantId.Value, id, "ENCERRADO", UsuarioId, ct).ConfigureAwait(false); await Audit.RegistrarAsync("processos", "ENCERRAR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, new { Status = "ENCERRADO" }, ct).ConfigureAwait(false); return Result.Success(); }
+    public async Task<Result> EncerrarAsync(long id, EncerrarProcessoRequest request, CancellationToken ct)
+    {
+        if (!Tenant.TenantId.HasValue) return TenantFailure();
+        if (!UsuarioId.HasValue) return AuthFailure();
+        if (!await CanAsync(ProcessosPermissoes.ProcessoEncerrar, ct).ConfigureAwait(false)) return Result.Failure("403");
+        if (string.IsNullOrWhiteSpace(request.Justificativa)) return Result.Failure("Justificativa de conclusão é obrigatória.");
+        var ok = await _repo.AlterarStatusAsync(Tenant.TenantId.Value, id, "ENCERRADO", request.Justificativa.Trim(), NormalizeStatus(request.StatusEsperado), UsuarioId.Value, ct).ConfigureAwait(false);
+        if (!ok) return Result.Failure("409: O processo foi alterado por outra operação ou já está encerrado/cancelado. Recarregue os dados.");
+        await Audit.RegistrarAsync("processos", "ENCERRAR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, new { Status = "ENCERRADO", Justificativa = request.Justificativa.Trim() }, ct).ConfigureAwait(false);
+        return Result.Success();
+    }
     public async Task<Result> CancelarAsync(long id, CancelarProcessoRequest request, CancellationToken ct)
     {
         if (!Tenant.TenantId.HasValue) return TenantFailure();
         if (!await CanAsync(ProcessosPermissoes.ProcessoCancelar, ct).ConfigureAwait(false)) return Result.Failure("403");
         if (string.IsNullOrWhiteSpace(request.Justificativa)) return Result.Failure("Justificativa de cancelamento é obrigatória.");
-        var atual = await _repo.ObterAsync(Tenant.TenantId.Value, id, ct).ConfigureAwait(false);
-        if (atual is null) return Result.Failure("Processo não encontrado.");
-        if (atual.Status is "ENCERRADO" or "CANCELADO") return Result.Failure("Processo encerrado ou cancelado não admite cancelamento.");
-        await _repo.AlterarStatusAsync(Tenant.TenantId.Value, id, "CANCELADO", UsuarioId, ct).ConfigureAwait(false);
-        await Audit.RegistrarAsync("processos", "CANCELAR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), new { atual.Status }, new { Status = "CANCELADO", Justificativa = request.Justificativa.Trim() }, ct).ConfigureAwait(false);
+        if (!UsuarioId.HasValue) return AuthFailure();
+        var ok = await _repo.AlterarStatusAsync(Tenant.TenantId.Value, id, "CANCELADO", request.Justificativa.Trim(), NormalizeStatus(request.StatusEsperado), UsuarioId.Value, ct).ConfigureAwait(false);
+        if (!ok) return Result.Failure("409: O processo foi alterado por outra operação ou já está encerrado/cancelado. Recarregue os dados.");
+        await Audit.RegistrarAsync("processos", "CANCELAR_PROCESSO", "sigov.processo_digital", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, new { Status = "CANCELADO", Justificativa = request.Justificativa.Trim() }, ct).ConfigureAwait(false);
         return Result.Success();
     }
+
+    private static string? NormalizeStatus(string? status) => string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToUpperInvariant();
 }
 
 public sealed class ProtocoloAtendimentoService : ProcessosServiceBase, IProtocoloAtendimentoService
