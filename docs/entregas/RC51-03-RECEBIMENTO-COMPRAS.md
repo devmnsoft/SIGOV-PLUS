@@ -39,3 +39,11 @@ Passaram: JSON do manifesto, `git diff --check`, varredura precisa de marcadores
 ## Riscos e próximo backlog exato
 
 O cabeçalho legado do pedido e do recebimento mantém UUID por compatibilidade; os novos itens do pedido, itens do recebimento e eventos usam bigint identity. A etapa de decisão da conferência, devolução física e estorno com bloqueio por movimentos posteriores ainda não foi implementada. Próximo item exato: disponibilizar SDK 10.0.100 e PostgreSQL 16, executar Gate A e os cenários concorrentes; em seguida implementar `EM_CONFERENCIA → CONCLUIDO/COM_DIVERGENCIA` e devolução/estorno sem reabrir automaticamente o pedido.
+
+## Correção RC51.03A — retry concorrente (2026-09-22)
+
+A auditoria da ordem dos comandos confirmou uma janela no contrato de idempotência: a consulta inicial da chave ocorria antes de `FOR UPDATE`. Duas transações podiam ler “ausente”; a segunda aguardava o lock e, depois do commit da primeira, era recusada pela versão do pedido já incrementada. Isso não duplicava o movimento, mas convertia um retry válido em erro e contrariava a transição documentada para chave já persistida.
+
+A consulta de idempotência foi centralizada e repetida imediatamente após a aquisição do lock, ainda na mesma transação e antes da validação de estado/versão. Em `READ COMMITTED`, o segundo comando passa a enxergar o recebimento confirmado e retorna seu identificador/status sem inserir item, evento, saldo ou movimento novamente. Chaves diferentes continuam submetidas ao lock, à versão e ao saldo pendente; não foi introduzida tolerância nem regra financeira.
+
+Uma regressão foi adicionada à classe de teste existente para proteger a ordem consulta → lock → nova consulta. Os gates estáticos passaram. A prova concorrente em PostgreSQL 16 e o teste .NET permaneceram **BLOCKED** porque o ambiente não contém `dotnet`, `psql`, connection string nem aplicações iniciadas; portanto, esta correção permanece sem homologação runtime. A interface não mudou e não houve captura de tela aplicável.

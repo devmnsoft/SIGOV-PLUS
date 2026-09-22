@@ -43,4 +43,26 @@ public sealed class PostBuild01RegressionTests
         File.Exists(TestRepoPath.Get("scripts/check-local.ps1")).Should().BeTrue();
         File.Exists(TestRepoPath.Get("scripts/demo-local.ps1")).Should().BeTrue();
     }
+
+    [Fact]
+    public void Recebimento_Deve_Revalidar_Idempotencia_Depois_Do_Lock_Do_Pedido()
+    {
+        var repository = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        var methodStart = repository.IndexOf("public async Task<RecebimentoCriado> CriarEConfirmarAsync", StringComparison.Ordinal);
+        methodStart.Should().BeGreaterThanOrEqualTo(0);
+
+        var methodEnd = repository.IndexOf("private static string? Clean", methodStart, StringComparison.Ordinal);
+        methodEnd.Should().BeGreaterThan(methodStart);
+
+        var method = repository[methodStart..methodEnd];
+        var lockPosition = method.IndexOf("for update", StringComparison.OrdinalIgnoreCase);
+        var queryPositions = System.Text.RegularExpressions.Regex.Matches(method, "new CommandDefinition\\(idempotencyQuery,idempotencyArgs")
+            .Select(match => match.Index)
+            .ToArray();
+
+        lockPosition.Should().BeGreaterThanOrEqualTo(0);
+        queryPositions.Should().HaveCount(2);
+        queryPositions[0].Should().BeLessThan(lockPosition);
+        queryPositions[1].Should().BeGreaterThan(lockPosition);
+    }
 }
