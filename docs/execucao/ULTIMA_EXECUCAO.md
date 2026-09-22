@@ -568,3 +568,7 @@ Data: 2026-09-15. Minha Central e distribuição — filtros pessoais persistido
 - Sem migration: foi reutilizada a persistência canônica existente. GED não foi alterado.
 - Validação estática: `git diff --check`, busca de conflitos e sintaxe JavaScript passaram. **BLOCKED:** restore/build/Razor/testes/Swagger, PostgreSQL 16, dois tenants, sessão/revogação, navegador e capturas nas seis larguras, pois os runtimes não existem no host.
 - Próximo item exato: executar Gate A no SDK 10.0.100/PostgreSQL 16 e provar os filtros com dois tenants, revogação e reload; depois substituir a projeção genérica `pendencia_operacional` por adaptadores de leitura das seis fontes canônicas, com falha parcial explícita por fonte.
+
+## Incremento da jornada de processos — 2026-09-22
+
+A auditoria dirigida da jornada canônica `Processos` identificou falta de atomicidade e concorrência otimista em movimentação/conclusão/cancelamento, filtros de entidade/exercício/período ignorados e renderização dinâmica sem codificação. O incremento independente corrige esses pontos, registra encerramento/cancelamento na timeline e revisa a ajuda/ações do detalhe. Build e integração continuam bloqueados pela ausência de .NET 10, PostgreSQL, connection string e aplicação autenticada. Evidências, classificação conservadora e pendências estão em `docs/execucao/AUDITORIA_JORNADA_PROCESSOS_2026-09-22.md`.
