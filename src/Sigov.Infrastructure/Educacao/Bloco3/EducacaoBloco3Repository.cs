@@ -1,4 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using Npgsql;
 using Dapper;
 using Sigov.Application.Educacao.Bloco3;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -39,6 +42,12 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         var p = Parametros(dados); p.Add("TenantId", tenantId); p.Add("EntidadeId", entidadeId); p.Add("ExercicioId", exercicioId); p.Add("UsuarioId", usuarioId); p.Add("CorrelationId", correlationId); p.Add("Dados", JsonSerializer.Serialize(dados));
         var sql = Insercao(recurso);
         using var connection = _context.CreateConnection();
+        if (new[] { "aula", "conteudo", "frequencia", "avaliacao", "reposicao" }.Contains(recurso, StringComparer.OrdinalIgnoreCase))
+        {
+            var diarioId = p.Get<long>("DiarioId");
+            var editavel = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_diario_classe where tenant_id=@TenantId and id=@DiarioId and status in ('ABERTO','PENDENTE','REABERTO') and is_deleted=false)", new { TenantId=tenantId, DiarioId=diarioId }, cancellationToken:ct)).ConfigureAwait(false);
+            if (!editavel) throw new InvalidOperationException("Somente diário aberto, pendente ou reaberto do contexto autorizado aceita lançamentos.");
+        }
         return await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, p, cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -125,4 +134,99 @@ public sealed class EducacaoBloco3Repository : IEducacaoSecretariaRepository, IE
         using var connection = _context.CreateConnection();
         return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(sql, new { TenantId = tenantId, DiarioId = diarioId }, cancellationToken: ct)).ConfigureAwait(false);
     }
+
+    public async Task<EducacaoDiarioConferenciaDto?> ConferirDiarioAsync(long tenantId, long diarioId, CancellationToken ct)
+    {
+        using var connection = _context.CreateConnection();
+        return await ConferirAsync(connection, null, tenantId, diarioId, ct).ConfigureAwait(false);
+    }
+
+    public async Task<long> FecharDiarioAsync(long tenantId, long diarioId, string tokenConferencia, string justificativa, long usuarioId, string correlationId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection();
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var status = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "select status from sigov.educacao_diario_classe where tenant_id=@TenantId and id=@DiarioId and is_deleted=false for update",
+            new { TenantId = tenantId, DiarioId = diarioId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (status is null) throw new InvalidOperationException("Diário não encontrado no contexto autorizado.");
+        if (status == "FECHADO")
+        {
+            var existente = await connection.ExecuteScalarAsync<long?>(new CommandDefinition("select id from sigov.educacao_diario_fechamento where tenant_id=@TenantId and diario_id=@DiarioId and status='FECHADO' order by versao desc limit 1", new { TenantId=tenantId, DiarioId=diarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+            if (existente.HasValue) { await tx.CommitAsync(ct).ConfigureAwait(false); return existente.Value; }
+        }
+        if (status is not ("ABERTO" or "PENDENTE" or "REABERTO")) throw new InvalidOperationException($"O diário em estado {status} não pode ser fechado.");
+        var conferencia = await ConferirAsync(connection, tx, tenantId, diarioId, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Diário não encontrado no contexto autorizado.");
+        if (tokenConferencia.Length != conferencia.TokenConferencia.Length || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(conferencia.TokenConferencia), Encoding.UTF8.GetBytes(tokenConferencia)))
+            throw new InvalidOperationException("Os lançamentos mudaram após a prévia. Faça uma nova conferência antes de confirmar.");
+        if (!conferencia.PodeFechar) throw new InvalidOperationException("O fechamento está bloqueado pelas pendências obrigatórias apresentadas na conferência.");
+        var anterior = await connection.ExecuteScalarAsync<long?>(new CommandDefinition("select id from sigov.educacao_diario_fechamento where tenant_id=@TenantId and diario_id=@DiarioId order by versao desc limit 1", new { TenantId=tenantId, DiarioId=diarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        var versao = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(versao),0)+1 from sigov.educacao_diario_fechamento where tenant_id=@TenantId and diario_id=@DiarioId", new { TenantId=tenantId, DiarioId=diarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        var snapshot = JsonSerializer.Serialize(conferencia);
+        var id = await connection.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.educacao_diario_fechamento
+(tenant_id,diario_id,periodo,status,justificativa,dados,auditoria,correlation_id,created_by,versao,token_conferencia,retifica_fechamento_id)
+select @TenantId,d.id,d.periodo,'FECHADO',@Justificativa,cast(@Snapshot as jsonb),jsonb_build_object('usuario_id',@UsuarioId,'acao','FECHAMENTO'),@CorrelationId,@UsuarioId,@Versao,@Token,@Anterior
+from sigov.educacao_diario_classe d where d.tenant_id=@TenantId and d.id=@DiarioId returning id", new { TenantId=tenantId, DiarioId=diarioId, Justificativa=justificativa, Snapshot=snapshot, UsuarioId=usuarioId, CorrelationId=correlationId, Versao=versao, Token=conferencia.TokenConferencia, Anterior=anterior }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition("update sigov.educacao_diario_classe set status='FECHADO',updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and id=@DiarioId", new { TenantId=tenantId, DiarioId=diarioId, UsuarioId=usuarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_diario_historico(tenant_id,diario_id,status,justificativa,auditoria,correlation_id,created_by) values(@TenantId,@DiarioId,'FECHADO',@Justificativa,jsonb_build_object('usuario_id',@UsuarioId,'fechamento_id',@Id),@CorrelationId,@UsuarioId)", new { TenantId=tenantId, DiarioId=diarioId, Justificativa=justificativa, UsuarioId=usuarioId, Id=id, CorrelationId=correlationId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return id;
+    }
+
+    public async Task ReabrirDiarioAsync(long tenantId, long diarioId, string justificativa, long usuarioId, string correlationId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection();
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var changed = await connection.ExecuteAsync(new CommandDefinition("update sigov.educacao_diario_classe set status='REABERTO',updated_at=now(),updated_by=@UsuarioId where tenant_id=@TenantId and id=@DiarioId and status='FECHADO' and is_deleted=false", new { TenantId=tenantId, DiarioId=diarioId, UsuarioId=usuarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        if (changed != 1) throw new InvalidOperationException("Somente um diário fechado do contexto autorizado pode ser reaberto.");
+        await connection.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_diario_historico(tenant_id,diario_id,status,justificativa,auditoria,correlation_id,created_by) values(@TenantId,@DiarioId,'REABERTO',@Justificativa,jsonb_build_object('usuario_id',@UsuarioId,'acao','REABERTURA'),@CorrelationId,@UsuarioId)", new { TenantId=tenantId, DiarioId=diarioId, Justificativa=justificativa, UsuarioId=usuarioId, CorrelationId=correlationId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyCollection<EducacaoDiarioFechamentoDto>> HistoricoFechamentoAsync(long tenantId, long diarioId, CancellationToken ct)
+    {
+        const string sql = "select id as \"Id\",diario_id as \"DiarioId\",versao as \"Versao\",status as \"Status\",justificativa as \"Justificativa\",created_at as \"CreatedAt\",created_by as \"CreatedBy\",retifica_fechamento_id as \"RetificaFechamentoId\" from sigov.educacao_diario_fechamento where tenant_id=@TenantId and diario_id=@DiarioId order by versao desc";
+        using var connection = _context.CreateConnection();
+        return (await connection.QueryAsync<EducacaoDiarioFechamentoDto>(new CommandDefinition(sql, new { TenantId=tenantId, DiarioId=diarioId }, cancellationToken:ct)).ConfigureAwait(false)).AsList();
+    }
+
+    private static async Task<EducacaoDiarioConferenciaDto?> ConferirAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction? tx, long tenantId, long diarioId, CancellationToken ct)
+    {
+        const string summarySql = @"with d as (
+ select * from sigov.educacao_diario_classe where tenant_id=@TenantId and id=@DiarioId and is_deleted=false
+), aulas as (
+ select a.* from sigov.educacao_diario_aula a join d on d.id=a.diario_id where a.tenant_id=@TenantId and a.is_deleted=false and a.status<>'CANCELADA'
+), elegiveis as (
+ select distinct m.aluno_id from sigov.matricula m join d on d.turma_id=m.turma_id and d.ano_letivo_id=m.ano_letivo_id
+ where m.tenant_id=@TenantId and m.is_deleted=false and m.status in ('ATIVA','CONFIRMADA','ENCERRADA')
+ and (not exists(select 1 from aulas) or m.data_matricula<=(select max(data_aula) from aulas))
+)
+select d.status as ""Status"",count(distinct e.aluno_id) as ""Alunos"",count(distinct a.id) as ""Aulas"",
+ count(distinct e.aluno_id)*count(distinct a.id) as ""Esperados"",
+ (select count(*) from sigov.educacao_diario_frequencia f join aulas ax on ax.id=f.aula_id join elegiveis ex on ex.aluno_id=f.aluno_id where f.tenant_id=@TenantId and f.is_deleted=false) as ""Realizados"",
+ coalesce(greatest(d.updated_at,d.created_at),d.created_at) as ""Atualizado""
+from d left join aulas a on true left join elegiveis e on true group by d.status,d.updated_at,d.created_at";
+        var row = await connection.QuerySingleOrDefaultAsync<dynamic>(new CommandDefinition(summarySql, new { TenantId=tenantId, DiarioId=diarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        if (row is null) return null;
+        long alunos=(long)row.Alunos, aulas=(long)row.Aulas, esperados=(long)row.Esperados, realizados=(long)row.Realizados;
+        var details = new List<EducacaoDiarioPendenciaDetalheDto>();
+        if (aulas == 0) details.Add(new("SEM_AULA", $"Diário {diarioId}", "Nenhuma aula válida foi registrada no período.", "Registre ao menos uma aula antes da conferência.", $"/Educacao/DiarioAulas?diarioId={diarioId}"));
+        if (alunos == 0) details.Add(new("SEM_MATRICULA_ELEGIVEL", $"Diário {diarioId}", "Nenhuma matrícula vigente foi localizada para a turma e ano letivo.", "Confira matrículas, enturmação e vigências.", $"/Educacao/Matriculas?diarioId={diarioId}"));
+        var missingContent = await connection.QueryAsync<long>(new CommandDefinition("select a.id from sigov.educacao_diario_aula a where a.tenant_id=@TenantId and a.diario_id=@DiarioId and a.is_deleted=false and a.status<>'CANCELADA' and not exists(select 1 from sigov.educacao_diario_conteudo c where c.tenant_id=a.tenant_id and c.aula_id=a.id and c.is_deleted=false) order by a.id", new { TenantId=tenantId, DiarioId=diarioId }, tx, cancellationToken:ct)).ConfigureAwait(false);
+        details.AddRange(missingContent.Select(id => new EducacaoDiarioPendenciaDetalheDto("CONTEUDO_PENDENTE", $"Aula {id}", "Conteúdo ministrado não lançado.", "Informe o conteúdo da aula.", $"/Educacao/DiarioConteudo?diarioId={diarioId}&aulaId={id}")));
+        if (realizados < esperados) details.Add(new("FREQUENCIA_PENDENTE", $"Diário {diarioId}", $"Faltam {esperados-realizados} lançamentos de frequência; ausência de lançamento não equivale a falta.", "Complete a chamada dos alunos elegíveis.", $"/Educacao/DiarioFrequencia?diarioId={diarioId}"));
+        var lancamentos = await connection.ExecuteScalarAsync<string>(new CommandDefinition(@"select concat_ws('|',
+ coalesce((select string_agg(concat_ws(':',a.id,a.data_aula,a.status,a.updated_at,a.created_at),',' order by a.id) from sigov.educacao_diario_aula a where a.tenant_id=@TenantId and a.diario_id=@DiarioId and a.is_deleted=false),''),
+ coalesce((select string_agg(concat_ws(':',c.aula_id,c.conteudo,c.updated_at,c.created_at),',' order by c.aula_id,c.id) from sigov.educacao_diario_conteudo c where c.tenant_id=@TenantId and c.diario_id=@DiarioId and c.is_deleted=false),''),
+ coalesce((select string_agg(concat_ws(':',f.aula_id,f.aluno_id,f.status,f.justificativa,f.updated_at,f.created_at),',' order by f.aula_id,f.aluno_id) from sigov.educacao_diario_frequencia f where f.tenant_id=@TenantId and f.diario_id=@DiarioId and f.is_deleted=false),''))", new { TenantId=tenantId, DiarioId=diarioId }, tx, cancellationToken:ct)).ConfigureAwait(false) ?? string.Empty;
+        var raw = $"{diarioId}|{row.Status}|{alunos}|{aulas}|{esperados}|{realizados}|{string.Join(',', missingContent)}|{lancamentos}";
+        var token = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
+        var atualizado = row.Atualizado is DateTimeOffset dto ? dto : new DateTimeOffset(DateTime.SpecifyKind((DateTime)row.Atualizado, DateTimeKind.Utc));
+        var statusAtual = (string)row.Status;
+        var podeFechar = details.Count == 0 && statusAtual is ("ABERTO" or "PENDENTE" or "REABERTO");
+        return new(diarioId,statusAtual,alunos,aulas,esperados,realizados,details.Count,details,token,atualizado,podeFechar);
+    }
+
 }

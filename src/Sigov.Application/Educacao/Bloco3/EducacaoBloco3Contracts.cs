@@ -29,7 +29,10 @@ public sealed record EducacaoDiarioFrequenciaItemRequest(long AlunoId, string St
 public sealed record EducacaoDiarioFrequenciaRequest(long AulaId, IReadOnlyCollection<EducacaoDiarioFrequenciaItemRequest> Alunos);
 public sealed record EducacaoDiarioAvaliacaoRequest(long? AulaId, string Titulo, decimal ValorMaximo, decimal Peso);
 public sealed record EducacaoDiarioReposicaoRequest(long AulaId, DateOnly DataReposicao, string Justificativa);
-public sealed record EducacaoDiarioFechamentoRequest(string Observacao);
+public sealed record EducacaoDiarioFechamentoRequest(string Observacao, string TokenConferencia);
+public sealed record EducacaoDiarioConferenciaDto(long DiarioId, string Status, long AlunosAbrangidos, long Aulas, long LancamentosEsperados, long LancamentosRealizados, long Pendencias, IReadOnlyCollection<EducacaoDiarioPendenciaDetalheDto> Detalhes, string TokenConferencia, DateTimeOffset UltimaAtualizacao, bool PodeFechar);
+public sealed record EducacaoDiarioPendenciaDetalheDto(string Tipo, string Registro, string Problema, string Acao, string? UrlCorrecao);
+public sealed record EducacaoDiarioFechamentoDto(long Id, long DiarioId, int Versao, string Status, string Justificativa, DateTimeOffset CreatedAt, long CreatedBy, long? RetificaFechamentoId);
 public sealed record EducacaoDiarioReaberturaRequest(string Justificativa);
 public sealed record EducacaoDiarioPendenciaDto(long Id, long DiarioId, string Tipo, string Descricao, string Status);
 
@@ -57,6 +60,10 @@ public interface IEducacaoBloco3Repository
     Task<bool> UsuarioVinculadoAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct);
     Task<string?> ObterStatusAsync(long tenantId, string recurso, long id, CancellationToken ct);
     Task<bool> DiarioProntoParaFechamentoAsync(long tenantId, long diarioId, CancellationToken ct);
+    Task<EducacaoDiarioConferenciaDto?> ConferirDiarioAsync(long tenantId, long diarioId, CancellationToken ct);
+    Task<long> FecharDiarioAsync(long tenantId, long diarioId, string tokenConferencia, string justificativa, long usuarioId, string correlationId, CancellationToken ct);
+    Task ReabrirDiarioAsync(long tenantId, long diarioId, string justificativa, long usuarioId, string correlationId, CancellationToken ct);
+    Task<IReadOnlyCollection<EducacaoDiarioFechamentoDto>> HistoricoFechamentoAsync(long tenantId, long diarioId, CancellationToken ct);
 }
 
 public interface IEducacaoSecretariaRepository : IEducacaoBloco3Repository { }
@@ -68,6 +75,10 @@ public interface IEducacaoSecretariaService
     Task<Result<IReadOnlyCollection<T>>> ListarAsync<T>(string recurso, EducacaoBloco3Filtro filtro, CancellationToken ct);
     Task<Result<long>> CriarAsync(string recurso, object request, CancellationToken ct);
     Task<Result> DecidirAsync(string recurso, long id, string status, string justificativa, CancellationToken ct);
+    Task<Result<EducacaoDiarioConferenciaDto>> ConferirDiarioAsync(long diarioId, CancellationToken ct);
+    Task<Result<long>> FecharDiarioAsync(long diarioId, EducacaoDiarioFechamentoRequest request, CancellationToken ct);
+    Task<Result> ReabrirDiarioAsync(long diarioId, EducacaoDiarioReaberturaRequest request, CancellationToken ct);
+    Task<Result<IReadOnlyCollection<EducacaoDiarioFechamentoDto>>> HistoricoFechamentoAsync(long diarioId, CancellationToken ct);
 }
 public interface IEducacaoDocumentoEscolarService : IEducacaoSecretariaService { }
 public interface IEducacaoTransferenciaService : IEducacaoSecretariaService { }

@@ -40,6 +40,7 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
         var guard = Guard(recurso);
         if (guard is not null) return Result<long>.Failure(guard);
         if ((recurso == "portal-vinculo" || recurso == "portal-comunicado") && !Administrativo) return Result<long>.Failure("Permissão administrativa é obrigatória para esta operação.");
+        if (new[] { "diario", "aula", "conteudo", "frequencia", "avaliacao", "reposicao" }.Contains(recurso, StringComparer.OrdinalIgnoreCase) && !Pode("educacao.diario.editar") && !Pode("educacao.diario.lancar")) return Result<long>.Failure("Permissão para lançar ou editar o diário é obrigatória.");
         var erro = Validar(recurso, request);
         if (erro is not null) return Result<long>.Failure(erro);
         var alunoId = LerLong(request, "AlunoId");
@@ -69,6 +70,52 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
         await _repository.AlterarStatusAsync(_tenant.TenantId!.Value, recurso, id, destino, justificativa.Trim(), _user.UsuarioId!.Value, _correlation.CorrelationId.ToString(), ct).ConfigureAwait(false);
         return Result.Success();
     }
+
+    public async Task<Result<EducacaoDiarioConferenciaDto>> ConferirDiarioAsync(long diarioId, CancellationToken ct)
+    {
+        var guard = Guard("diario");
+        if (guard is not null) return Result<EducacaoDiarioConferenciaDto>.Failure(guard);
+        if (!Pode("educacao.diario.conferir")) return Result<EducacaoDiarioConferenciaDto>.Failure("Permissão para conferir o período é obrigatória.");
+        var conferencia = await _repository.ConferirDiarioAsync(_tenant.TenantId!.Value, diarioId, ct).ConfigureAwait(false);
+        return conferencia is null
+            ? Result<EducacaoDiarioConferenciaDto>.Failure("Diário não encontrado no contexto autorizado.")
+            : Result<EducacaoDiarioConferenciaDto>.Success(conferencia);
+    }
+
+    public async Task<Result<long>> FecharDiarioAsync(long diarioId, EducacaoDiarioFechamentoRequest request, CancellationToken ct)
+    {
+        var guard = Guard("diario");
+        if (guard is not null) return Result<long>.Failure(guard);
+        if (!Pode("educacao.diario.fechar")) return Result<long>.Failure("Permissão específica para fechar o período é obrigatória.");
+        if (string.IsNullOrWhiteSpace(request.Observacao)) return Result<long>.Failure("A observação do fechamento é obrigatória.");
+        if (string.IsNullOrWhiteSpace(request.TokenConferencia)) return Result<long>.Failure("Faça uma nova conferência antes de fechar.");
+        try
+        {
+            var id = await _repository.FecharDiarioAsync(_tenant.TenantId!.Value, diarioId, request.TokenConferencia, request.Observacao.Trim(), _user.UsuarioId!.Value, _correlation.CorrelationId.ToString(), ct).ConfigureAwait(false);
+            return Result<long>.Success(id);
+        }
+        catch (InvalidOperationException ex) { return Result<long>.Failure(ex.Message); }
+    }
+
+    public async Task<Result> ReabrirDiarioAsync(long diarioId, EducacaoDiarioReaberturaRequest request, CancellationToken ct)
+    {
+        var guard = Guard("diario");
+        if (guard is not null) return Result.Failure(guard);
+        if (!Pode("educacao.diario.reabrir")) return Result.Failure("Permissão específica para reabrir o período é obrigatória.");
+        if (string.IsNullOrWhiteSpace(request.Justificativa)) return Result.Failure("A justificativa da reabertura é obrigatória.");
+        try { await _repository.ReabrirDiarioAsync(_tenant.TenantId!.Value, diarioId, request.Justificativa.Trim(), _user.UsuarioId!.Value, _correlation.CorrelationId.ToString(), ct).ConfigureAwait(false); return Result.Success(); }
+        catch (InvalidOperationException ex) { return Result.Failure(ex.Message); }
+    }
+
+    public async Task<Result<IReadOnlyCollection<EducacaoDiarioFechamentoDto>>> HistoricoFechamentoAsync(long diarioId, CancellationToken ct)
+    {
+        var guard = Guard("diario");
+        if (guard is not null) return Result<IReadOnlyCollection<EducacaoDiarioFechamentoDto>>.Failure(guard);
+        if (!Pode("educacao.diario.conferir")) return Result<IReadOnlyCollection<EducacaoDiarioFechamentoDto>>.Failure("Permissão para consultar o histórico é obrigatória.");
+        return Result<IReadOnlyCollection<EducacaoDiarioFechamentoDto>>.Success(await _repository.HistoricoFechamentoAsync(_tenant.TenantId!.Value, diarioId, ct).ConfigureAwait(false));
+    }
+
+    private bool Pode(string permissao) => Administrativo || _user.Permissions.Any(x => x.Equals(permissao, StringComparison.OrdinalIgnoreCase));
 
     private string? Guard(string recurso)
     {
