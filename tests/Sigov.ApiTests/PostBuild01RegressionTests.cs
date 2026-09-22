@@ -65,4 +65,24 @@ public sealed class PostBuild01RegressionTests
         queryPositions[0].Should().BeLessThan(lockPosition);
         queryPositions[1].Should().BeGreaterThan(lockPosition);
     }
+
+    [Fact]
+    public void Conferencia_Deve_Ser_Atomica_E_Integrada_A_Central()
+    {
+        var repository = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        var detail = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Recebimentos/Detalhe.cshtml"));
+
+        repository.Should().Contain("public async Task<RecebimentoCriado> ConcluirInspecaoAsync")
+            .And.Contain("for update")
+            .And.Contain("INSPECAO_RECEBIMENTO_COMPRA")
+            .And.Contain("pendencia_operacional")
+            .And.Contain("status='RESOLVIDA'");
+        controller.Should().Contain("compras_empresariais.recebimentos.inspecionar")
+            .And.Contain("ExportarRecebimentos");
+        detail.Should().Contain("Para que serve")
+            .And.Contain("Como funciona")
+            .And.Contain("Regras importantes")
+            .And.Contain("Próximo passo");
+    }
 }

@@ -37,6 +37,11 @@ public sealed record PedidoParaRecebimento(Guid Id, string Numero, string Status
 public sealed record RecebimentoItemRequest(long PedidoItemId, decimal Quantidade, string? Lote, DateOnly? Validade, string? NumeroSerie);
 public sealed record CriarRecebimentoRequest(Guid PedidoId, Guid AlmoxarifadoId, string Documento, DateTimeOffset DataOperacao, string? Observacoes, IReadOnlyList<RecebimentoItemRequest> Itens, long PedidoVersion);
 public sealed record RecebimentoCriado(Guid Id, string Status, bool Repetido);
+public sealed record RecebimentoItemDetalhe(long Id, string Produto, string Unidade, decimal QuantidadeFisica, decimal QuantidadeAceita, decimal QuantidadeRejeitada, decimal QuantidadeConferencia, string? Lote, DateOnly? Validade, string? NumeroSerie);
+public sealed record RecebimentoEvento(string Tipo, string? Detalhes, DateTimeOffset OcorridoEm);
+public sealed record RecebimentoDetalhe(Guid Id, Guid PedidoId, string PedidoNumero, string Fornecedor, string Documento, string Almoxarifado, DateTimeOffset DataOperacao, string Status, string ResultadoInspecao, string? Observacoes, long Version, IReadOnlyList<RecebimentoItemDetalhe> Itens, IReadOnlyList<RecebimentoEvento> Historico);
+public sealed record InspecaoItemRequest(long RecebimentoItemId, decimal QuantidadeAceita, decimal QuantidadeRejeitada);
+public sealed record ConcluirInspecaoRequest(long Version, string? Justificativa, IReadOnlyList<InspecaoItemRequest> Itens);
 
 public interface IFornecedorRepository
 {
@@ -61,7 +66,9 @@ public interface IRecebimentoCompraRepository
 {
  Task<CentralRecebimentos> ListarAsync(Guid tenant, RecebimentoFiltro filtro, CancellationToken ct);
  Task<PedidoParaRecebimento?> ObterPedidoAsync(Guid tenant, Guid pedidoId, CancellationToken ct);
+ Task<RecebimentoDetalhe?> ObterAsync(Guid tenant, Guid id, CancellationToken ct);
  Task<RecebimentoCriado> CriarEConfirmarAsync(ComprasContext context, CriarRecebimentoRequest request, string key, CancellationToken ct);
+ Task<RecebimentoCriado> ConcluirInspecaoAsync(ComprasContext context, Guid id, ConcluirInspecaoRequest request, CancellationToken ct);
 }
 public interface IFornecedorApplicationService
 {
@@ -75,5 +82,7 @@ public interface IRecebimentoCompraApplicationService
 {
  Task<CentralRecebimentos> ListarAsync(ComprasContext context, RecebimentoFiltro filtro, CancellationToken ct);
  Task<PedidoParaRecebimento?> ObterPedidoAsync(ComprasContext context, Guid pedidoId, CancellationToken ct);
+ Task<RecebimentoDetalhe?> ObterAsync(ComprasContext context, Guid id, CancellationToken ct);
  Task<RecebimentoCriado> CriarEConfirmarAsync(ComprasContext context, CriarRecebimentoRequest request, string key, CancellationToken ct);
+ Task<RecebimentoCriado> ConcluirInspecaoAsync(ComprasContext context, Guid id, ConcluirInspecaoRequest request, CancellationToken ct);
 }

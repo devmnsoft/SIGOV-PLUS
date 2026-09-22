@@ -25,7 +25,14 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Pedidos"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public IActionResult Pedidos()=>Workspace("Pedidos","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Pedidos/{id:guid}"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public IActionResult Pedido(Guid id)=>Workspace("Pedidos","Detalhe 360, histórico e ações autorizadas.");
  [HttpGet("Recebimentos"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Index",await recebimentos.ListarAsync(Contexto(),filtro,ct));}
- [HttpGet("Recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public IActionResult Recebimento(Guid id)=>Workspace("Recebimentos","Detalhe 360, histórico e ações autorizadas.");
+ [HttpGet("Recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimento(Guid id,CancellationToken ct){var item=await recebimentos.ObterAsync(Contexto(),id,ct);return item is null?NotFound():View("Recebimentos/Detalhe",item);}
+ [HttpPost("Recebimentos/{id:guid}/ConcluirInspecao"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.recebimentos.inspecionar")]
+ public async Task<IActionResult> ConcluirInspecao(Guid id,long version,string? justificativa,List<InspecaoItemRequest> itens,CancellationToken ct)
+ {
+  try{var result=await recebimentos.ConcluirInspecaoAsync(Contexto(),id,new(version,justificativa,itens),ct);TempData["Success"]=result.Repetido?"A conferência já havia sido concluída; exibindo o estado persistido.":"Conferência concluída e estoque atualizado com sucesso.";return RedirectToAction(nameof(Recebimento),new{id});}
+  catch(ArgumentException ex){ModelState.AddModelError(string.Empty,ex.Message);}catch(InvalidOperationException ex){ModelState.AddModelError(string.Empty,ex.Message);}
+  var item=await recebimentos.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();return View("Recebimentos/Detalhe",item);
+ }
  [HttpGet("Pedidos/{pedidoId:guid}/Receber"),Authorize(Policy="compras_empresariais.recebimentos.registrar")]public async Task<IActionResult> NovoRecebimento(Guid pedidoId,CancellationToken ct){var pedido=await recebimentos.ObterPedidoAsync(Contexto(),pedidoId,ct);if(pedido is null)return NotFound();ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Recebimentos/Novo",pedido);}
  [HttpPost("Pedidos/{pedidoId:guid}/Receber"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.recebimentos.registrar")]
  public async Task<IActionResult> ConfirmarRecebimento(Guid pedidoId,Guid almoxarifadoId,string documento,DateTimeOffset dataOperacao,string? observacoes,long pedidoVersion,string idempotencyKey,List<RecebimentoItemRequest> itens,CancellationToken ct)
@@ -38,7 +45,12 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Faturas/{id:guid}"),Authorize(Policy="compras_empresariais.faturas.visualizar")]public IActionResult Fatura(Guid id)=>Workspace("Faturas","Detalhe 360, histórico e ações autorizadas.");
  [HttpGet("Devolucoes"),Authorize(Policy="compras_empresariais.devolucoes.visualizar")]public IActionResult Devolucoes()=>Workspace("Devoluções","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Avaliacoes"),Authorize(Policy="compras_empresariais.avaliacoes.gerenciar")]public IActionResult Avaliacoes()=>Workspace("Avaliações","Operação integrada à jornada procure-to-pay.");
- [HttpGet("Relatorios"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public IActionResult Relatorios()=>Workspace("Relatórios","Operação integrada à jornada procure-to-pay.");
+ [HttpGet("Relatorios"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> Relatorios([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Relatorio",await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=1,Tamanho=100},ct));}
+ [HttpGet("Relatorios/Recebimentos.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]
+ public async Task<IActionResult> ExportarRecebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct)
+ {
+  var data=await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=1,Tamanho=100},ct);static string C(string? value){value??="";if(value.Length>0&&"=+-@\t\r".Contains(value[0]))value="'"+value;return "\""+value.Replace("\"","\"\"")+"\"";}var lines=new List<string>{"Pedido;Fornecedor;Documento;Destino;Situação;Data;Divergências"};lines.AddRange(data.Resultado.Items.Select(x=>string.Join(";",C(x.PedidoNumero),C(x.FornecedorNome),C(x.Documento),C(x.AlmoxarifadoNome),C(x.Status),C(x.CriadoEm.ToString("O")),x.Divergencias.ToString(System.Globalization.CultureInfo.InvariantCulture))));return File(System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(string.Join(Environment.NewLine,lines))).ToArray(),"text/csv; charset=utf-8",$"recebimentos-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+ }
  [HttpGet("Configuracao"),Authorize(Policy="compras_empresariais.configuracao.gerenciar")]public IActionResult Configuracao()=>Workspace("Configuração","Operação integrada à jornada procure-to-pay.");
  private IActionResult Workspace(string title,string description){ViewData["Title"]=title;ViewData["Description"]=description;return View("Workspace");}
 }

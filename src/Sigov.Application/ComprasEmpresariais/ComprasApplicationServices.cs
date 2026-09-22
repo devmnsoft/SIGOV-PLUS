@@ -38,8 +38,9 @@ public sealed class ComprasDashboardApplicationService(IComprasDashboardReposito
 
 public sealed class RecebimentoCompraApplicationService(IRecebimentoCompraRepository repository):IRecebimentoCompraApplicationService
 {
- public Task<CentralRecebimentos> ListarAsync(ComprasContext c,RecebimentoFiltro f,CancellationToken ct){ComprasGuard.Context(c);if(f.DataInicial.HasValue&&f.DataFinal.HasValue&&f.DataInicial>f.DataFinal)throw new ArgumentException("O período informado é inválido.");return repository.ListarAsync(c.TenantId,f,ct);}
+ public Task<CentralRecebimentos> ListarAsync(ComprasContext c,RecebimentoFiltro f,CancellationToken ct){ComprasGuard.Context(c);if(f.DataInicial.HasValue&&f.DataFinal.HasValue&&f.DataInicial>f.DataFinal)throw new ArgumentException("O período informado é inválido.");var status=string.IsNullOrWhiteSpace(f.Status)?null:f.Status.Trim().ToUpperInvariant();if(status is not null and not ("EM_CONFERENCIA" or "CONCLUIDO" or "COM_DIVERGENCIA" or "ESTORNADO"))throw new ArgumentException("A situação informada é inválida.");return repository.ListarAsync(c.TenantId,f with{Status=status},ct);}
  public Task<PedidoParaRecebimento?> ObterPedidoAsync(ComprasContext c,Guid id,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty)throw new ArgumentException("Pedido inválido.");return repository.ObterPedidoAsync(c.TenantId,id,ct);}
+ public Task<RecebimentoDetalhe?> ObterAsync(ComprasContext c,Guid id,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty)throw new ArgumentException("Recebimento inválido.");return repository.ObterAsync(c.TenantId,id,ct);}
  public Task<RecebimentoCriado> CriarEConfirmarAsync(ComprasContext c,CriarRecebimentoRequest r,string key,CancellationToken ct)
  {
   ComprasGuard.Context(c);ComprasGuard.Key(key);
@@ -49,5 +50,15 @@ public sealed class RecebimentoCompraApplicationService(IRecebimentoCompraReposi
   if(r.Itens.GroupBy(i=>i.PedidoItemId).Any(g=>g.Count()>1))throw new ArgumentException("Cada item do pedido deve ser informado uma única vez.");
   if(r.Itens.Any(i=>i.Validade.HasValue&&!string.IsNullOrWhiteSpace(i.Lote)&&i.Validade.Value<DateOnly.FromDateTime(r.DataOperacao.UtcDateTime)))throw new ArgumentException("A validade do lote não pode ser anterior ao recebimento.");
   return repository.CriarEConfirmarAsync(c,r,key,ct);
+ }
+ public Task<RecebimentoCriado> ConcluirInspecaoAsync(ComprasContext c,Guid id,ConcluirInspecaoRequest r,CancellationToken ct)
+ {
+  ComprasGuard.Context(c);
+  if(id==Guid.Empty||r.Version<=0)throw new ArgumentException("Recebimento ou versão inválida.");
+  if(r.Itens.Count==0||r.Itens.Count>200||r.Itens.Any(i=>i.RecebimentoItemId<=0||i.QuantidadeAceita<0||i.QuantidadeRejeitada<0||decimal.Round(i.QuantidadeAceita,4)!=i.QuantidadeAceita||decimal.Round(i.QuantidadeRejeitada,4)!=i.QuantidadeRejeitada))throw new ArgumentException("Informe a decisão dos itens com valores não negativos e até quatro casas decimais.");
+  if(r.Itens.GroupBy(i=>i.RecebimentoItemId).Any(g=>g.Count()>1))throw new ArgumentException("Cada item deve possuir uma única decisão.");
+  if(r.Itens.Any(i=>i.QuantidadeRejeitada>0)&&string.IsNullOrWhiteSpace(r.Justificativa))throw new ArgumentException("A justificativa é obrigatória quando houver rejeição.");
+  if(r.Justificativa?.Length>1000)throw new ArgumentException("A justificativa deve ter no máximo 1.000 caracteres.");
+  return repository.ConcluirInspecaoAsync(c,id,r,ct);
  }
 }

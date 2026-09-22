@@ -5,7 +5,7 @@ using Sigov.Application.ComprasEmpresariais;
 namespace Sigov.Api.Controllers.ComprasEmpresariais;
 
 [ApiController,Authorize,Route("api/compras-empresariais")]
-public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard):ControllerBase
+public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos):ControllerBase
 {
  private ComprasContext Contexto(){if(!Guid.TryParse(User.FindFirst("enterprise_tenant_id")?.Value??User.FindFirst("tenant_id")?.Value,out var t)||t==Guid.Empty)throw new UnauthorizedAccessException("Tenant não resolvido.");if(!Guid.TryParse(User.FindFirst("sub")?.Value,out var u)||u==Guid.Empty)throw new UnauthorizedAccessException("Usuário não resolvido.");return new(t,u,HttpContext.TraceIdentifier);}
  private string Key()=>Request.Headers["Idempotency-Key"].ToString();
@@ -22,4 +22,7 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpPost("requisicoes"),Authorize(Policy="compras_empresariais.requisicoes.criar")]public async Task<IActionResult> CriarRequisicao(CriarRequisicaoRequest request,CancellationToken ct){var id=await requisicoes.CriarAsync(Contexto(),request,Key(),ct);return Created($"/api/compras-empresariais/requisicoes/{id}",new{id});}
  [HttpPut("requisicoes/{id:guid}"),Authorize(Policy="compras_empresariais.requisicoes.editar")]public async Task<IActionResult> AtualizarRequisicao(Guid id,AtualizarRequisicaoRequest request,CancellationToken ct){await requisicoes.AtualizarAsync(Contexto(),id,request,ct);return NoContent();}
  [HttpPost("requisicoes/{id:guid}/enviar"),Authorize(Policy="compras_empresariais.requisicoes.enviar")]public async Task<IActionResult> Enviar(Guid id,[FromQuery]long version,CancellationToken ct){await requisicoes.EnviarAsync(Contexto(),id,version,ct);return NoContent();}
+ [HttpGet("recebimentos"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct)=>Ok(await recebimentos.ListarAsync(Contexto(),filtro,ct));
+ [HttpGet("recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimento(Guid id,CancellationToken ct){var item=await recebimentos.ObterAsync(Contexto(),id,ct);return item is null?NotFound():Ok(item);}
+ [HttpPost("recebimentos/{id:guid}/inspecao"),Authorize(Policy="compras_empresariais.recebimentos.inspecionar")]public async Task<IActionResult> Inspecionar(Guid id,ConcluirInspecaoRequest request,CancellationToken ct)=>Ok(await recebimentos.ConcluirInspecaoAsync(Contexto(),id,request,ct));
 }
