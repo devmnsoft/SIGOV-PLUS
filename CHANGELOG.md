@@ -1,5 +1,12 @@
 # Changelog
 
+## Estabilização dos gates locais — 2026-09-22
+
+- alinhados os diagnósticos de pré-requisitos Bash e PowerShell ao contrato oficial de configuração, portas e PostgreSQL 16 ou superior;
+- removida do diagnóstico PowerShell a exigência paralela de senha isolada e arquivo `.env.local`, preservando `ConnectionStrings__DefaultConnection` como contrato único;
+- corrigidos os smokes RC50.68 nas duas plataformas para consultar `/api/health/live` e aceitar versões PostgreSQL futuras compatíveis;
+- reexecutada a auditoria conservadora dos 18 domínios solicitados, mantendo todos como parciais ou não verificados enquanto build, banco, login, autorização e navegação estiverem bloqueados pelos pré-requisitos ausentes.
+
 ## Jornada de transferência escolar — 2026-09-21
 
 - substituída a atualização destrutiva da matrícula por uma transferência transacional que encerra o vínculo de origem e cria uma nova matrícula ativa no destino;

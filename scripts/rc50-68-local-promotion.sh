@@ -166,8 +166,8 @@ else step runtime-build BLOCKED '.NET indisponível'; fi
 psql_sigov() { PGPASSWORD="$SIGOV_DB_PASSWORD" PGHOST="$SIGOV_DB_HOST" PGPORT="$SIGOV_DB_PORT" PGDATABASE="$SIGOV_DB_NAME" PGUSER="$SIGOV_DB_USER" psql -X -v ON_ERROR_STOP=1 "$@"; }
 if $DB_SAFE && have psql; then
   server_num="$(psql_sigov -Atqc 'show server_version_num' 2>>"$LOG" || true)"
-  if [[ "$server_num" =~ ^[0-9]+$ ]] && ((server_num >= 160000 && server_num < 170000)); then
-    step postgres-version PASS "PostgreSQL 16 confirmado (server_version_num=$server_num)"
+  if [[ "$server_num" =~ ^[0-9]+$ ]] && ((server_num >= 160000)); then
+    step postgres-version PASS "PostgreSQL 16+ confirmado (server_version_num=$server_num)"
     if run_logged 'psql ON_ERROR_STOP=1 -f script_completop.sql (1ª aplicação)' psql_sigov -f "$ROOT/script_completop.sql"; then step baseline-apply PASS 'Baseline aplicado'; else step baseline-apply FAIL 'Primeira aplicação falhou'; fi
     if run_logged 'psql ON_ERROR_STOP=1 -f script_completop.sql (reexecução)' psql_sigov -f "$ROOT/script_completop.sql"; then step baseline-reapply PASS 'Reexecução idempotente concluída'; else step baseline-reapply FAIL 'Reexecução falhou'; fi
     read -r -d '' VALIDATE_SQL <<'SQL' || true
@@ -194,7 +194,7 @@ vals=','.join("('%s','%s')"%(a.replace("'","''"),b.replace("'","''")) for a,b in
 print("do $$ declare bad text; begin select string_agg(v.version, ', ') into bad from (values %s) v(version,checksum) left join sigov.schema_migrations sm on sm.version=v.version and sm.success where sm.version is null or sm.checksum<>v.checksum; if bad is not null then raise exception 'ledger/manifest divergente: %%',bad; end if; end $$;"%vals)
 PY
     then step ledger-manifest PASS 'Ledger corresponde ao manifest para migrations do baseline'; else step ledger-manifest FAIL 'Ledger/checksum diverge do manifest'; fi
-  else step postgres-version FAIL 'É obrigatório servidor PostgreSQL 16.x'; step baseline-apply BLOCKED 'Versão do servidor recusada'; step baseline-reapply BLOCKED 'Versão do servidor recusada'; step database-authority BLOCKED 'Baseline não validado'; step ledger-manifest BLOCKED 'Baseline não validado'; fi
+  else step postgres-version FAIL 'É obrigatório servidor PostgreSQL 16 ou superior'; step baseline-apply BLOCKED 'Versão do servidor recusada'; step baseline-reapply BLOCKED 'Versão do servidor recusada'; step database-authority BLOCKED 'Baseline não validado'; step ledger-manifest BLOCKED 'Baseline não validado'; fi
 else
   step postgres-version BLOCKED 'Conexão segura não confirmada ou psql ausente'
   step baseline-apply BLOCKED 'Banco não disponível com confirmação explícita'
@@ -210,7 +210,7 @@ if $RUN_SMOKE && $DB_SAFE && have dotnet && have curl; then
   ASPNETCORE_URLS="$api_url" dotnet run --project "$ROOT/src/Sigov.Api/Sigov.Api.csproj" --no-launch-profile --no-build --configuration Release > >(sanitize >>"$LOG") 2> >(sanitize >>"$LOG") & api_pid=$!
   ASPNETCORE_URLS="$web_url" dotnet run --project "$ROOT/src/Sigov.Web/Sigov.Web.csproj" --no-launch-profile --no-build --configuration Release > >(sanitize >>"$LOG") 2> >(sanitize >>"$LOG") & web_pid=$!
   trap 'kill ${api_pid:-} ${web_pid:-} 2>/dev/null || true' EXIT
-  ready=false; for _ in {1..30}; do if curl -fsS "$api_url/api/health" >/dev/null 2>>"$LOG" || curl -fsS "$api_url/health" >/dev/null 2>>"$LOG"; then ready=true; break; fi; sleep 2; done
+  ready=false; for _ in {1..30}; do if curl -fsS "$api_url/api/health/live" >/dev/null 2>>"$LOG"; then ready=true; break; fi; sleep 2; done
   if $ready; then step smoke-health PASS 'API health respondeu'; else step smoke-health FAIL 'Health não respondeu'; fi
   code="$(curl -sS -o /dev/null -w '%{http_code}' "$web_url/SaasAdmin/Autorizacao" 2>>"$LOG" || printf 000)"
   if [[ "$code" =~ ^(302|401|403)$ ]]; then step smoke-unauthenticated PASS "Rota protegida recusou acesso anônimo ($code)"; else step smoke-unauthenticated FAIL "Resposta anônima inesperada ($code)"; fi
