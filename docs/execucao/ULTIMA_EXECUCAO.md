@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-09-22. RC51.03A — retry concorrente do recebimento de compras. Estado: **CORRIGIDO ESTATICAMENTE / GATE RUNTIME BLOCKED**.
+
+- Baseline: branch `work`, HEAD inicial `7443a8a4b7cb62173e6bb28083dbdaca9ffd3a77`, árvore limpa. O fluxo selecionado foi rastreado da navegação de Compras Empresariais às rotas MVC, application service, repositório Dapper, tabelas de recebimento/eventos e efeitos em saldo/movimento de estoque.
+- Defeito confirmado por inspeção da ordem transacional: dois comandos simultâneos com a mesma chave podiam ambos observar ausência antes do lock do pedido; após o primeiro commit, o segundo avaliava a versão já incrementada e falhava, em vez de devolver o recebimento persistido. O repositório agora repete a leitura da chave após adquirir o lock e antes de validar estado/versão.
+- O teste de regressão estático foi acrescentado à classe existente `PostBuild01RegressionTests` e exige as leituras de idempotência antes e depois de `FOR UPDATE`; nenhuma classe de teste nova foi criada. Não houve alteração de schema, migration, scripts consolidados, permissão, regra financeira ou interface.
+- PASSOU: catálogo/paridade estática das migrations, conflitos de rotas, colisões SQL, artefatos rastreados, sintaxe Bash/JSON, JavaScript e `git diff --check`.
+- **BLOCKED:** restore, build, teste .NET, PostgreSQL 16, concorrência real, dois tenants, Web/API, navegação e capturas; não há `dotnet`, `psql`, PowerShell, connection string ou aplicações iniciadas. A correção não é declarada homologada.
+- Próximo incremento: provisionar o Gate A, executar duas confirmações simultâneas da mesma chave e chaves distintas sobre o mesmo saldo, e só então concluir a decisão de inspeção/devolução/estorno já registrada no backlog RC51.03.
+
+---
+
 Data: 2026-09-16. RC51.03 — recebimento parcial de compras empresariais. Estado: **IMPLEMENTADO SEM HOMOLOGAÇÃO RUNTIME**.
 
 - Central real com filtros, paginação no servidor, ordenação estável e totais tenant-scoped; formulário por pedido com destino nominal, quantidades e rastreio opcional.
