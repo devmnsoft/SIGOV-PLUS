@@ -1,5 +1,12 @@
 # Status real dos módulos
 
+Revalidação das jornadas prioritárias em 2026-09-22: o Gate A permaneceu **BLOCKED**
+pela ausência de .NET 10, PowerShell, PostgreSQL/`psql`, connection string e navegador
+autenticado. Os gates estáticos (manifesto JSON, Bash, rotas, artefatos, colisões SQL e
+JavaScript) passaram, mas não substituem evidência runtime. A matriz solicitada e a
+decisão de não iniciar evolução funcional estão registradas em
+`docs/execucao/AUDITORIA_JORNADAS_PRIORITARIAS_2026-09-22.md`.
+
 Corte funcional: 2026-09-15 (RC51.02Q). Gate técnico reexecutado em 2026-09-22 no branch `work`; sem promoção funcional porque o ambiente não possui .NET 10, PowerShell, PostgreSQL 16+/`psql`, connection string nem navegador autenticado. Os diagnósticos Bash e PowerShell foram alinhados ao contrato oficial (`ConnectionStrings__DefaultConnection`, portas 5000/5001 e PostgreSQL 16+), e o smoke RC50.68 passou a usar somente o endpoint canônico `/api/health/live`; sua execução HTTP permanece bloqueada sem o runtime. A auditoria consolidada e sua matriz de aceite estão registradas em `docs/execucao/AUDITORIA_CICLO_ESTABILIZACAO_2026-09-22.md`; por falha do Gate A, nenhuma funcionalidade nova foi iniciada.
 Inventário documental: docs/inventario-modulos-sigov.md, docs/execucao/rc50_67_plano_homologacao_integrada_real.md e docs/roadmap/saas-industria-auditoria.md. Classificação conservadora: os 15 requisitos do contrato não foram demonstrados conjuntamente em runtime.
 

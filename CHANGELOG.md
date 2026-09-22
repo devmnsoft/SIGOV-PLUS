@@ -1,5 +1,16 @@
 # Changelog
 
+## Auditoria das jornadas prioritárias — 2026-09-22
+
+- reauditadas, de forma conservadora, as jornadas de Educação, Saúde/ACS, Protocolo,
+  Jurídico e suas integrações administrativas, além de segurança, relatórios,
+  dashboards e template/menu;
+- mantidos todos os módulos como parciais, sem promover presença estática a evidência
+  funcional e sem iniciar alterações antes do Gate A obrigatório;
+- registrados os gates estáticos aprovados e os gates runtime bloqueados pela ausência
+  de SDK .NET 10, PowerShell, PostgreSQL/`psql`, connection string e navegador
+  autenticado; nenhuma migration, script consolidado, tela ou menu foi alterado.
+
 ## Estabilização dos gates locais — 2026-09-22
 
 - alinhados os diagnósticos de pré-requisitos Bash e PowerShell ao contrato oficial de configuração, portas e PostgreSQL 16 ou superior;
