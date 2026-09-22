@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-22 — gate estático portável do catálogo de migrations
+
+- Adicionado `scripts/check-migration-catalog.sh` para validar, sem PowerShell,
+  estrutura, ordenação, flags, dependências, checksums normalizados e governança das
+  migrations excluídas do manifesto.
+- Corrigida a matriz da auditoria prioritária para enumerar explicitamente as dezoito
+  áreas obrigatórias, mantendo todas como parciais enquanto o Gate A runtime estiver
+  bloqueado.
+- Nenhuma migration, DDL, script consolidado, tela, menu ou regra de produto foi
+  alterada neste ciclo.
+
 ## Auditoria das jornadas prioritárias — 2026-09-22
 
 - reauditadas, de forma conservadora, as jornadas de Educação, Saúde/ACS, Protocolo,
