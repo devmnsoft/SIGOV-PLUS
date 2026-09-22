@@ -87,3 +87,126 @@ PostgreSQL 16+ descartável e a connection string oficial; depois executar build
 clean install/reaplicação/upgrade, startup e uma matriz autenticada com SuperAdmin,
 admin e operador em dois tenants, duas entidades e exercícios aberto/encerrado. Somente
 com o Gate A verde deve ser escolhida uma jornada vertical para evolução funcional.
+
+## 6. Reexecução solicitada e classificação dos artefatos
+
+Na reexecução deste ciclo foram inventariados 288 controllers, 201 arquivos de serviço
+ou repositório, 1.013 views Razor e 199 fontes de teste C#/JavaScript. Esses números
+demonstram somente a superfície inspecionada; não são evidência de jornada concluída.
+
+| Item exigido | Classificação | Evidência desta execução |
+|---|---|---|
+| README, regras, status e changelogs | Pronto com evidência | arquivos lidos e confrontados com o checkout |
+| Manifesto e scripts consolidados | Pronto apenas no gate estático | JSON válido e catálogo/paridade estática aprovados |
+| C# e Razor | Não verificado em compilação | SDK .NET 10 ausente |
+| DI, startup e rotas runtime | Não verificado | aplicação não pôde iniciar |
+| Banco limpo, reaplicação e upgrade | Não verificado | PostgreSQL 16+, `psql` e connection string ausentes |
+| Login, menu, SuperAdmin e perfis | Não verificado | runtime e sessão autenticada indisponíveis |
+| Isolamento e módulos contratados | Não verificado | exige dois tenants e acesso HTTP autenticado |
+| Jornadas funcionais dos Blocos A–F | Parcial | artefatos existem, mas falta evidência conjunta ponta a ponta |
+| Gate de páginas críticas | Bloqueado, não quebrado | todas as sondas retornaram HTTP 000 com os processos parados |
+| Teste JavaScript disponível | Pronto com evidência | uma suíte/um teste aprovados |
+
+## 7. Regras de negócio consolidadas
+
+Nenhuma regra recebeu promoção nesta reexecução. As regras de tenant, entidade,
+exercício, permissões, auditoria, saldo, liquidação, calendário, tramitação e histórico
+continuam classificadas como **parciais** até serem exercitadas no servidor e no
+PostgreSQL com casos positivos, negativos e concorrentes. Não foi removida validação,
+relaxada autorização nem criada autoridade hardcoded.
+
+## 8. Migrations criadas
+
+Nenhuma. O ciclo ficou no Gate A e não houve necessidade comprovada de DDL. As 185
+migrations registradas (181 no baseline) e os dez SQLs históricos excluídos permaneceram
+inalterados.
+
+## 9. Scripts de banco atualizados
+
+Nenhum. Como não houve alteração de schema, `manifest.json`, `script_completo.sql`,
+`script_completo_dev.sql`, `database/script_completo.sql` e `script_completop.sql`
+foram preservados. O gate portátil confirmou a paridade estática dos seis consolidados;
+equivalência semântica continua bloqueada sem banco.
+
+## 10. Telas alteradas
+
+Nenhuma. Alterar UI antes de build, banco e autorização passarem violaria a ordem do
+ciclo. Login, dashboards, formulários, estados vazios, responsividade e mensagens
+obrigatórias não foram declarados validados.
+
+## 11. Menus alterados
+
+Nenhum. A existência de links e controllers não comprova contratação, permissão ou
+navegação. A validação de menu por SuperAdmin, admin e operador continua pendente.
+
+## 12. Relatórios criados
+
+Nenhum. As exportações existentes permanecem parciais até prova de filtro por tenant,
+entidade e exercício, autorização, sanitização e auditoria de dado sensível.
+
+## 13. Dashboards criados
+
+Nenhum. Não foram adicionados indicadores sem uma fonte PostgreSQL executável. Os
+dashboards existentes continuam parciais e não foram promovidos por inspeção estática.
+
+## 14. Testes e verificações executados
+
+- `bash -n` aprovou os scripts Bash selecionados para preflight, catálogo, rotas,
+  páginas críticas, colisões e artefatos;
+- `python3 -m json.tool database/postgres/migrations/manifest.json` aprovou o JSON;
+- `bash scripts/check-migration-catalog.sh` aprovou catálogo e paridade estática;
+- `bash scripts/check-api-route-conflicts.sh` não encontrou conflito direto nas 630
+  rotas inventariadas;
+- `bash scripts/check-one-shot-object-collisions.sh` aprovou o consolidado canônico;
+- `bash scripts/check-tracked-artifacts.sh` aprovou o gate de artefatos;
+- `node --test tests/js/*.test.js` aprovou uma suíte/um teste;
+- `bash scripts/check-critical-pages.sh` retornou código 2/**BLOCKED**, corretamente,
+  porque API e Web não estavam em execução;
+- `bash scripts/check-prerequisites.sh` retornou código 1 e registrou as dependências
+  ausentes sem imprimir segredo.
+
+Uma chamada inicial com o padrão inexistente `tests/js/*.test.mjs` retornou erro de
+comando. Ela foi corrigida e não foi contabilizada como defeito do produto.
+
+## 15. Evidências de build
+
+**BLOCKED.** `dotnet restore`, `dotnet build` e `dotnet test` não foram simulados:
+`dotnet` não existe no `PATH`, embora `global.json` fixe o SDK 10.0.100. Assim, erros
+C#, Razor, DI e nulidade não podem ser considerados descartados nesta execução.
+
+## 16. Evidências de migrations
+
+O gate estrutural passou com `SQL=195`, `manifest=185`, `baseline=181` e
+`governed_orphans=10`. Aplicação limpa, reaplicação, pós-condições e upgrade continuam
+**BLOCKED** pela ausência de PostgreSQL 16+, `psql` e
+`ConnectionStrings__DefaultConnection`.
+
+## 17. Evidências de login, autorização e navegação
+
+Não verificadas. As sondas de páginas críticas retornaram HTTP 000 e o verificador
+classificou corretamente a indisponibilidade como **BLOCKED**, não como PASS ou defeito
+funcional. Não há evidência desta execução para login SuperAdmin/admin/operador,
+usuário bloqueado, tenant inativo, módulo não contratado, acesso negado, isolamento
+A/B, menu, navegação manual ou mobile.
+
+## 18. Riscos restantes
+
+- **Crítico:** segregação tenant/entidade/exercício e decisão persistida de autorização
+  ainda sem prova runtime conjunta;
+- **Alto:** convergência do baseline e upgrades representativos não executados;
+- **Alto:** regras financeiras, estoque, calendário escolar, protocolo e Jurídico não
+  exercitadas com rollback e concorrência reais;
+- **Alto:** cobertura de auditoria das operações e exportações sensíveis não comprovada;
+- **Médio:** rotas e templates passam apenas por verificações estáticas parciais.
+
+## 19. Próximo ciclo recomendado e critério de saída
+
+Provisionar exatamente o SDK 10.0.100, PowerShell, PostgreSQL 16+ descartável,
+`psql`, a connection string oficial e navegador. Em seguida: restore/build/test;
+clean install/reaplicação/upgrade; startup; matriz autenticada com SuperAdmin, admin e
+operador em dois tenants, duas entidades e exercícios aberto/encerrado; navegação
+desktop/mobile. Se, e somente se, tudo passar, selecionar uma única jornada vertical
+parcial e fechá-la com banco, Dapper, regra, permissão, auditoria, UI e relatório.
+
+O ciclo solicitado **não está concluído**. O estado final correto é **BLOCKED no Gate
+A**, sem promoção funcional artificial.

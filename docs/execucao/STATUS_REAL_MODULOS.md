@@ -1,5 +1,15 @@
 # Status real dos módulos
 
+Reexecução do ciclo essencial em 2026-09-22: o inventário estático cobriu 288
+controllers, 201 serviços/repositórios, 1.013 views e 199 fontes de teste, sem usar
+essas contagens como prova funcional. Catálogo, paridade dos consolidados, rotas,
+artefatos e a suíte JavaScript passaram; o gate de páginas críticas registrou
+**BLOCKED** com HTTP 000. O Gate A permanece bloqueado pela ausência de .NET 10,
+PowerShell, PostgreSQL/`psql`, connection string e sessão autenticada. O relatório
+com as 19 seções e a matriz obrigatória está em
+`docs/execucao/AUDITORIA_CICLO_ESTABILIZACAO_2026-09-22.md`; nenhuma funcionalidade,
+migration, tela, menu, relatório ou dashboard foi promovido.
+
 Revalidação de paridade em 2026-09-22: o gate portável do catálogo também passou a
 validar os quatro aliases de produção e os dois consolidados de desenvolvimento,
 incluindo ordem, checksum e conteúdo normalizado das 181 migrations do baseline,

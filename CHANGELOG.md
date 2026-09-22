@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-22 — reexecução do ciclo de funcionalidades essenciais
+
+- reexecutados os gates portáveis de catálogo/paridade, rotas, colisões SQL,
+  artefatos, páginas críticas e a suíte JavaScript disponível;
+- ampliado o relatório de estabilização para as 19 seções requeridas, distinguindo
+  evidência estática, item parcial, não verificado e bloqueio de infraestrutura;
+- mantido o Gate A como **BLOCKED** sem .NET 10, PowerShell, PostgreSQL/`psql`,
+  connection string e sessão autenticada, sem promover módulo nem alterar migrations,
+  scripts consolidados, telas, menus, relatórios ou dashboards.
+
 ## 2026-09-22 — paridade portável dos scripts PostgreSQL consolidados
 
 - O gate Bash do catálogo passou a comparar os quatro aliases de produção e os
