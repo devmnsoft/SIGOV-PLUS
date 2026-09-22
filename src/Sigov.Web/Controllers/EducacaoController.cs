@@ -137,6 +137,8 @@ public sealed class EducacaoController : Controller
 
     [HttpGet("/Educacao/Matriculas")]
     public async Task<IActionResult> Matriculas(CancellationToken ct) { await CarregarOpcoesAsync(ct); return View(new MatriculaFormViewModel()); }
+    [HttpGet("/Educacao/Rematriculas")]
+    public async Task<IActionResult> Rematriculas(CancellationToken ct) { await CarregarOpcoesAsync(ct); return View(); }
 
     public async Task<IActionResult> MatriculaDetalhe(long id, CancellationToken ct)
     {

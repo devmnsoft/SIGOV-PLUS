@@ -100,6 +100,16 @@ public sealed class MatriculasController : EducacaoApiControllerBase
     [HttpPost("{id:long}/transferir")] public async Task<ActionResult<ApiResponse<object>>> Transferir(long id, [FromBody] TransferirMatriculaRequest request, CancellationToken ct) => FromResult(await _service.TransferirAsync(id, request, ct).ConfigureAwait(false));
 }
 
+[Route("api/educacao/rematriculas")]
+public sealed class RematriculasController : EducacaoApiControllerBase
+{
+    private readonly IRematriculaService _service;
+    public RematriculasController(IRematriculaService service) => _service = service;
+    [HttpGet("simulacao")] public async Task<ActionResult<ApiResponse<RematriculaSimulacaoResponse>>> Simular([FromQuery] RematriculaFiltro filtro, CancellationToken ct) => FromResult(await _service.SimularAsync(filtro, ct).ConfigureAwait(false));
+    [HttpPost("confirmacao")] public async Task<ActionResult<ApiResponse<RematriculaConfirmacaoResponse>>> Confirmar([FromBody] RematriculaConfirmacaoRequest request, CancellationToken ct) => FromResult(await _service.ConfirmarAsync(request, ct).ConfigureAwait(false));
+    [HttpGet("operacoes")] public async Task<ActionResult<ApiResponse<IReadOnlyCollection<RematriculaOperacaoResponse>>>> Operacoes(CancellationToken ct) => FromResult(await _service.ListarOperacoesAsync(ct).ConfigureAwait(false));
+}
+
 [Route("api/educacao/professores")]
 public sealed class ProfessoresController : EducacaoApiControllerBase
 {

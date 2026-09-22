@@ -6,7 +6,7 @@ using Sigov.Domain.Common;
 
 namespace Sigov.Application.Educacao;
 
-public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoService, ITurmaService, IAlunoService, IMatriculaService, IProfessorService, IFrequenciaService, IAvaliacaoService, IBoletimService, IPreMatriculaService, IEducacensoService, IEducacaoDashboardService, IEducacaoExportacaoService
+public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoService, ITurmaService, IAlunoService, IMatriculaService, IRematriculaService, IProfessorService, IFrequenciaService, IAvaliacaoService, IBoletimService, IPreMatriculaService, IEducacensoService, IEducacaoDashboardService, IEducacaoExportacaoService
 {
     private readonly IEducacaoRepository _repo;
     private readonly ICurrentTenant _tenant;
@@ -182,10 +182,13 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
         if (matricula.Value.Status.Equals("CONFIRMADA", StringComparison.OrdinalIgnoreCase)) return Result.Success();
         return await AtualizarAsync("matricula", "confirmar", id, new { Status = "CONFIRMADA", request.Observacao }, ct).ConfigureAwait(false);
     }
-    Task<Result> IMatriculaService.CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct) =>
-        string.IsNullOrWhiteSpace(request.Motivo)
-            ? Task.FromResult(Fail("Cancelamento de matrícula exige justificativa."))
-            : AtualizarAsync("matricula", "cancelar", id, new { Status = "CANCELADA", Motivo = request.Motivo.Trim() }, ct);
+    async Task<Result> IMatriculaService.CancelarAsync(long id, CancelarMatriculaRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Motivo)) return Fail("Cancelamento de matrícula exige justificativa.");
+        var guard=await GuardAsync("matricula","cancelar",ct).ConfigureAwait(false); if(guard.IsFailure||!UsuarioId.HasValue)return guard;
+        try { await _repo.CancelarMatriculaAsync(TenantId,EntidadeId,id,request.Motivo.Trim(),UsuarioId.Value,ct).ConfigureAwait(false); return Result.Success(); }
+        catch(InvalidOperationException ex){ return Fail(ex.Message); }
+    }
     async Task<Result> IMatriculaService.EnturmarAsync(long id, EnturmarMatriculaRequest request, CancellationToken ct)
     {
         if (request.TurmaId <= 0) return Fail("Enturmação exige turma.");
@@ -207,6 +210,37 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
             return Result.Success();
         }
         catch (InvalidOperationException ex) { return Fail(ex.Message); }
+    }
+
+    async Task<Result<RematriculaSimulacaoResponse>> IRematriculaService.SimularAsync(RematriculaFiltro filtro, CancellationToken ct)
+    {
+        var guard = await GuardAsync("rematricula", "simular", ct).ConfigureAwait(false);
+        if (guard.IsFailure) return Fail<RematriculaSimulacaoResponse>(guard.Error ?? "Operação bloqueada.");
+        if (filtro.EscolaId <= 0 || filtro.AnoLetivoOrigemId <= 0 || filtro.AnoLetivoDestinoId <= 0 || filtro.AnoLetivoOrigemId == filtro.AnoLetivoDestinoId)
+            return Fail<RematriculaSimulacaoResponse>("Escola e anos letivos de origem e destino distintos são obrigatórios.");
+        try { return Result<RematriculaSimulacaoResponse>.Success(await _repo.SimularRematriculaAsync(TenantId, EntidadeId, filtro, ct).ConfigureAwait(false)); }
+        catch (InvalidOperationException ex) { return Fail<RematriculaSimulacaoResponse>(ex.Message); }
+    }
+
+    async Task<Result<RematriculaConfirmacaoResponse>> IRematriculaService.ConfirmarAsync(RematriculaConfirmacaoRequest request, CancellationToken ct)
+    {
+        var guard = await GuardAsync("rematricula", "confirmar", ct).ConfigureAwait(false);
+        if (guard.IsFailure || !UsuarioId.HasValue) return Fail<RematriculaConfirmacaoResponse>(guard.Error ?? "Operação bloqueada.");
+        if (string.IsNullOrWhiteSpace(request.ChaveOperacao) || request.Itens is null || request.Itens.Count == 0)
+            return Fail<RematriculaConfirmacaoResponse>("A confirmação exige chave de operação e ao menos um item explicitamente selecionado.");
+        try
+        {
+            var value = await _repo.ConfirmarRematriculaAsync(TenantId, EntidadeId, ExercicioId, request, UsuarioId.Value, ct).ConfigureAwait(false);
+            await _audit.RegistrarAsync("educacao", "CONFIRMAR_REMATRICULA", "sigov.educacao_rematricula_operacao", value.OperacaoId.ToString(System.Globalization.CultureInfo.InvariantCulture), null, new { request.ChaveOperacao, selecionados = request.Itens.Count, value.Concluidos, value.Falhas }, ct).ConfigureAwait(false);
+            return Result<RematriculaConfirmacaoResponse>.Success(value);
+        }
+        catch (InvalidOperationException ex) { return Fail<RematriculaConfirmacaoResponse>(ex.Message); }
+    }
+
+    async Task<Result<IReadOnlyCollection<RematriculaOperacaoResponse>>> IRematriculaService.ListarOperacoesAsync(CancellationToken ct)
+    {
+        var guard = await GuardAsync("rematricula", "visualizar", ct).ConfigureAwait(false);
+        return guard.IsFailure ? Fail<IReadOnlyCollection<RematriculaOperacaoResponse>>(guard.Error ?? "Operação bloqueada.") : Result<IReadOnlyCollection<RematriculaOperacaoResponse>>.Success(await _repo.ListarOperacoesRematriculaAsync(TenantId, EntidadeId, ct).ConfigureAwait(false));
     }
 
     Task<Result<PagedResult<ProfessorResponse>>> IProfessorService.ListarAsync(EscolaFiltro filtro, CancellationToken ct) => ListarAsync<ProfessorResponse>("professor", "professor", filtro, ct);
