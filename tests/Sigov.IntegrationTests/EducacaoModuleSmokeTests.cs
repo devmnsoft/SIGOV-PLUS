@@ -81,11 +81,17 @@ public sealed class EducacaoModuleSmokeTests
     [Fact]
     public void Api_E_Web_Exposicoes_Estruturais_Existem()
     {
-        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoControllers.cs")).Should().Contain("api/educacao/escolas").And.Contain("api/educacao/dashboard").And.Contain("api/educacao/export").And.Contain("NotFound(ApiResponse");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoControllers.cs")).Should().Contain("api/educacao/escolas").And.Contain("api/educacao/dashboard").And.Contain("api/educacao/export").And.Contain("api/educacao/rematriculas").And.Contain("NotFound(ApiResponse");
         File.Exists(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/Dashboard.cshtml")).Should().BeTrue();
         File.Exists(Path.Combine(Root, "src/Sigov.Web/wwwroot/js/modules/educacao.dashboard.js")).Should().BeTrue();
         File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/MatriculaDetalhe.cshtml"))
             .Should().Contain("Para que serve:").And.Contain("Próximo passo:").And.Contain("data-matricula-id");
+        File.ReadAllText(Path.Combine(Root, "database/postgres/migrations/20260922160000_educacao_transicao_ano_letivo.sql"))
+            .Should().Contain("origem_matricula_id").And.Contain("fn_educacao_confirmar_rematricula")
+            .And.Contain("for update").And.Contain("vagas_ocupadas>=v_t.capacidade")
+            .And.Contain("request_hash").And.Contain("educacao_resultado_final");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/Rematriculas.cshtml"))
+            .Should().Contain("Prévia sem efeitos acadêmicos").And.Contain("6. Resultado").And.Contain("itens marcados");
     }
 
     private static string FindRepositoryRoot()

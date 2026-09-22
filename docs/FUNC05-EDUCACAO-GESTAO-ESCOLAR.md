@@ -154,3 +154,47 @@ O contrato `IEducacaoSequencialService.ProximoAsync` permanece não nulo. A cons
 ### Limites não mascarados
 
 Não foram criadas nota de corte, média aritmética, equivalência curricular ou aprovação implícita. Até existir política acadêmica persistida e versionada, o boletim continua parcial, distingue zero de `NAO_LANCADO` e não pode ser promovido a documento acadêmico definitivo. A execução limpa/upgrade/reaplicação da migration requer PostgreSQL 16 e deve ser registrada como bloqueada quando `psql` não estiver disponível.
+
+## Transição de ano letivo e rematrícula (22/09/2026)
+
+A jornada canônica passou a reutilizar `matricula`, `turma`, `ano_letivo`, capacidade e histórico já existentes. A tela `/Educacao/Rematriculas` guia origem/destino, candidatos, pendências, revisão, confirmação e resultado. `GET /api/educacao/rematriculas/simulacao` é somente leitura; `POST /api/educacao/rematriculas/confirmacao` executa o conjunto explicitamente marcado, e `GET /api/educacao/rematriculas/operacoes` apresenta o histórico no mesmo escopo de tenant e entidade.
+
+Resultado final e progressão são fontes persistidas explícitas (`educacao_resultado_final` e `educacao_progressao_config`). Não há progressão por número ou nome de turma. Resultado ausente/não publicado gera `DEPENDENTE_ANALISE`; regra ou oferta ausente gera `SEM_OFERTA_COMPATIVEL` com “destino não definido”; matrícula de destino existente gera `JA_REMATRICULADO`. Reprovação não exclui automaticamente: ela só se torna elegível quando existe configuração autorizada para o resultado.
+
+A confirmação é transacional por operação e usa savepoint por item, portanto o lote admite resultado parcial explícito. Cada item relê e bloqueia origem, resultado e turma; compara o token da prévia, impede duplicidade rastreável, verifica a última vaga, cria uma nova matrícula com `origem_matricula_id`, incrementa capacidade e relê o registro persistido. Notas, faltas e resultado não são copiados. A chave idempotente é vinculada ao SHA-256 do conteúdo e não aceita reutilização com carga diferente.
+
+O cancelamento de matrícula passou a bloquear quando há frequência, notas ou documentos dependentes, preservar o registro e justificar o procedimento. A vaga é liberada uma vez, pois repetição sobre estado `CANCELADA` é idempotente.
+
+### Auditoria inicial e classificação
+
+| Recurso | Classificação | Evidência/limite verificado no código e SQL |
+|---|---|---|
+| CS8603 do sequencial | IMPLEMENTADO COM EVIDÊNCIA | contrato não nulo, leitura anulável e falha explícita; sem `null!` |
+| registro inexistente | IMPLEMENTADO COM EVIDÊNCIA | serviço retorna “Registro não encontrado” e detalhe MVC retorna 404 |
+| fechamento acadêmico | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | conferência, token, lock, snapshot e versão; PostgreSQL não executado neste ambiente |
+| reabertura/retificação | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | justificativa, histórico e vínculo da versão retificada |
+| boletim vinculado ao resultado correto | PARCIAL | lançamentos reais e ausência explícita preservados; política de média/aprovação ainda não foi definida |
+| preparação da oferta | IMPLEMENTADO COM EVIDÊNCIA | escola/ano/turma/status/capacidade persistidos e revalidados |
+| simulação e elegibilidade | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | consulta única, motivos, token e nenhum `INSERT`/reserva |
+| confirmação e histórico | IMPLEMENTADO COM EVIDÊNCIA ESTÁTICA | função PostgreSQL, lock, origem rastreável, idempotência e operação por item |
+| cancelamento/correção | PARCIAL | cancelamento seguro implementado; troca de destino com dependências continua exigindo procedimento autorizado existente |
+| integração à central transversal de pendências | PARCIAL | pendência aparece na jornada; central transversal não ganhou tabela paralela nem integração nova |
+
+### Cenários de aceite e evidência esperada
+
+| Cenário | Resultado esperado | Evidência automatizável |
+|---|---|---|
+| elegível | nova matrícula, vínculo de origem e vaga +1 | função e índice de origem |
+| destino ausente | pendência clara e zero gravação | classificação `SEM_OFERTA_COMPATIVEL` |
+| resultado pendente | análise, sem aprovação presumida | `DEPENDENTE_ANALISE` |
+| simulação | nenhuma matrícula/vaga alterada | endpoint chama somente consulta |
+| última vaga concorrente | um item conclui; concorrente falha | `FOR UPDATE` e capacidade revalidada |
+| reenvio | resposta anterior ou conflito de conteúdo, sem duplicidade | chave + `request_hash` + índice |
+| lote parcial | contagens e motivo por item; retentativa segura | savepoints e itens persistidos |
+| mudança após prévia | conflito solicita nova simulação | token recalculado sob lock |
+| cancelamento com dependências | impedimento e procedimento explicado | contagem de frequência/notas/documentos |
+| outro tenant/escola | registro não localizado, sem vazamento | filtros de tenant/entidade/escola |
+| histórico | origem/destino e operador preservados | operação, itens e `origem_matricula_id` |
+| template | seis etapas, ajuda, contexto e seleção explícita | view e JavaScript do módulo |
+
+**Limite de validação:** restore/build/testes e cenários transacionais reais permanecem **BLOQUEADOS** quando o SDK .NET 10 ou PostgreSQL 16 não estão instalados. Evidência estática não é homologação.
