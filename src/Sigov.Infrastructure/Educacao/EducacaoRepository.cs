@@ -53,8 +53,21 @@ public sealed class EducacaoRepository : BaseRepository, IEscolaRepository, IAno
                 if (escolaAtiva != 1)
                     throw new InvalidOperationException("Pré-matrícula rejeitada: escola preferencial inexistente ou inativa.");
             }
+            if (recurso == "pre_matricula_inscricao" && (!p.TryGetValue("Protocolo", out var protocolo) || string.IsNullOrWhiteSpace(Convert.ToString(protocolo, System.Globalization.CultureInfo.InvariantCulture))))
+            {
+                p["Protocolo"] = await connection.ExecuteScalarAsync<string>(new CommandDefinition(
+                    "select 'PRE-' || @AnoLetivo || '-' || lpad(nextval('sigov.educacao_numero_seq')::text, 8, '0')",
+                    p, tx, cancellationToken: ct)).ConfigureAwait(false);
+            }
             if (recurso == "matricula")
             {
+                // Serializa apenas as tentativas para o mesmo aluno/contexto. A trava
+                // transacional impede que duas requisições passem simultaneamente pela
+                // verificação de duplicidade e consumam duas vagas.
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "select pg_advisory_xact_lock(hashtextextended(concat_ws(':', 'educacao-matricula', @TenantId, @EntidadeId, @AlunoId, @EscolaId, @AnoLetivoId), 0))",
+                    p, tx, cancellationToken: ct)).ConfigureAwait(false);
+
                 const string checarDuplicada = @"select count(*) from sigov.matricula m
 join sigov.turma t on t.id = m.turma_id and t.tenant_id = m.tenant_id and t.entidade_id = m.entidade_id
 where m.tenant_id = @TenantId and m.entidade_id = @EntidadeId and m.aluno_id = @AlunoId
@@ -81,6 +94,13 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
                 var reservadas = await connection.ExecuteAsync(new CommandDefinition(reservarVaga, p, tx, cancellationToken: ct)).ConfigureAwait(false);
                 if (reservadas != 1)
                     throw new InvalidOperationException("Matrícula rejeitada: contexto incompatível, cadastro inativo, período encerrado ou turma sem vaga.");
+
+                if (!p.TryGetValue("NumeroMatricula", out var numero) || string.IsNullOrWhiteSpace(Convert.ToString(numero, System.Globalization.CultureInfo.InvariantCulture)))
+                {
+                    p["NumeroMatricula"] = await connection.ExecuteScalarAsync<string>(new CommandDefinition(
+                        "select 'MAT-' || extract(year from current_date)::int || '-' || lpad(nextval('sigov.educacao_numero_seq')::text, 8, '0')",
+                        transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+                }
             }
             var sql = InsertSql(recurso);
             var insertedId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(sql, p, tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -114,14 +134,36 @@ where t.tenant_id = @TenantId and t.entidade_id = @EntidadeId and t.id = @TurmaI
         await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
-            await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso, p), p, tx, cancellationToken: ct)).ConfigureAwait(false);
             if (recurso == "matricula" && p.TryGetValue("Status", out var status) && string.Equals(Convert.ToString(status, System.Globalization.CultureInfo.InvariantCulture), "CANCELADA", StringComparison.OrdinalIgnoreCase))
             {
                 var justificativa = p.TryGetValue("Observacao", out var obs) ? Convert.ToString(obs, System.Globalization.CultureInfo.InvariantCulture) : null;
                 if (string.IsNullOrWhiteSpace(justificativa))
                     throw new InvalidOperationException("Cancelamento de matrícula exige justificativa obrigatória.");
 
-                await connection.ExecuteAsync(new CommandDefinition("update sigov.turma t set vagas_ocupadas = greatest(vagas_ocupadas - 1, 0), updated_by = @UsuarioId from sigov.matricula m where m.turma_id = t.id and m.id = @Id and m.tenant_id = @TenantId and m.entidade_id = @EntidadeId", p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                var atual = await connection.QuerySingleOrDefaultAsync<(string Status, long? TurmaId)>(new CommandDefinition(
+                    "select status, turma_id as TurmaId from sigov.matricula where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and not is_deleted for update",
+                    p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(atual.Status))
+                    throw new InvalidOperationException("Matrícula não encontrada no contexto autorizado.");
+                if (atual.Status.Equals("CANCELADA", StringComparison.OrdinalIgnoreCase))
+                {
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    return;
+                }
+                if (atual.Status is not ("ATIVA" or "CONFIRMADA"))
+                    throw new InvalidOperationException("Somente matrícula ativa ou confirmada pode ser cancelada.");
+
+                await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso, p), p, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (atual.TurmaId.HasValue)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "update sigov.turma set vagas_ocupadas=greatest(vagas_ocupadas-1,0),updated_by=@UsuarioId where id=@TurmaId and tenant_id=@TenantId and entidade_id=@EntidadeId",
+                        new { atual.TurmaId, TenantId = tenantId, EntidadeId = entidadeId, UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                await connection.ExecuteAsync(new CommandDefinition(UpdateSql(recurso, p), p, tx, cancellationToken: ct)).ConfigureAwait(false);
             }
             await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, Evento(recurso, "Atualizada"), recurso, id, p, usuarioId, ct).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -208,10 +250,12 @@ order by a.data_avaliacao desc, a.id desc;";
         return new BoletimResponse(alunoId, null, itens);
     }
 
-    public Task<string> ProximoAsync(string prefixo, int ano, CancellationToken ct)
+    public async Task<string> ProximoAsync(string prefixo, int ano, CancellationToken ct)
     {
-        _ = ct;
-        return Task.FromResult($"{prefixo}-{ano}-000001");
+        using var connection = _context.CreateConnection();
+        return await connection.ExecuteScalarAsync<string>(Command(
+            "select @Prefixo || '-' || @Ano || '-' || lpad(nextval('sigov.educacao_numero_seq')::text, 8, '0')",
+            new { Prefixo = prefixo, Ano = ano }, ct)).ConfigureAwait(false);
     }
 
     public async Task AtualizarPreMatriculaAsync(long tenantId, long entidadeId, long id, object request, long versao, long? usuarioId, CancellationToken ct)
@@ -443,8 +487,8 @@ returning id";
 
     private static void ApplyDefaults(string recurso, Dictionary<string, object?> p)
     {
-        if (recurso == "matricula" && (!p.TryGetValue("NumeroMatricula", out var n) || string.IsNullOrWhiteSpace(Convert.ToString(n, System.Globalization.CultureInfo.InvariantCulture)))) p["NumeroMatricula"] = $"MAT-{DateTime.UtcNow.Year}-{DateTime.UtcNow.Ticks % 1000000:000000}";
-        if (recurso == "pre_matricula_inscricao" && (!p.TryGetValue("Protocolo", out var pr) || string.IsNullOrWhiteSpace(Convert.ToString(pr, System.Globalization.CultureInfo.InvariantCulture)))) p["Protocolo"] = $"PRE-{DateTime.UtcNow.Year}-{DateTime.UtcNow.Ticks % 1000000:000000}";
+        // O número da matrícula é gerado no banco, dentro da mesma transação que
+        // reserva a vaga. Relógio do processo não é um gerador concorrente seguro.
         p["DadosSensiveisJson"] = Json(p.TryGetValue("DadosSensiveis", out var ds) ? ds : null);
         p["PayloadJson"] = Json(p.TryGetValue("Payload", out var payload) ? payload : null);
     }

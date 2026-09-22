@@ -165,7 +165,9 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
 
     Task<Result<PagedResult<MatriculaResponse>>> IMatriculaService.ListarAsync(MatriculaFiltro filtro, CancellationToken ct) => ListarAsync<MatriculaResponse>("matricula", "matricula", filtro, ct);
     Task<Result<MatriculaResponse>> IMatriculaService.ObterAsync(long id, CancellationToken ct) => ObterAsync<MatriculaResponse>("matricula", "matricula", id, ct);
-    Task<Result<long>> IMatriculaService.CriarAsync(MatriculaCreateRequest request, CancellationToken ct) => request.AlunoId <= 0 || request.EscolaId <= 0 || request.AnoLetivoId <= 0 || request.TurmaId <= 0 ? Task.FromResult(Fail<long>("Matrícula exige aluno, escola, ano letivo e turma.")) : CriarAsync("matricula", "criar", request, ct);
+    Task<Result<long>> IMatriculaService.CriarAsync(MatriculaCreateRequest request, CancellationToken ct) => request.AlunoId <= 0 || request.EscolaId <= 0 || request.AnoLetivoId <= 0 || request.TurmaId <= 0
+        ? Task.FromResult(Fail<long>("Matrícula exige aluno, escola, ano letivo e turma."))
+        : CriarAsync("matricula", "criar", request with { Status = "ATIVA" }, ct);
     async Task<Result> IMatriculaService.ConfirmarAsync(long id, EducacaoConfirmarMatriculaRequest request, CancellationToken ct)
     {
         var matricula = await ObterAsync<MatriculaResponse>("matricula", "matricula", id, ct).ConfigureAwait(false);

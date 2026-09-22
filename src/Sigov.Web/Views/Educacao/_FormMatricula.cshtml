@@ -8,6 +8,10 @@
 }
 <form id="form-matricula" class="card card-body" data-api="/api/educacao/matriculas">
   @Html.AntiForgeryToken()
+  @if (ViewBag.OpcoesEducacaoErro is string erro)
+  {
+    <div class="alert alert-danger" role="alert">@erro</div>
+  }
   <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
   <div class="row g-3">
     <div class="col-md-3">
@@ -16,7 +20,7 @@
         <option value="">Selecione o aluno</option>
         @foreach (var a in alunos)
         {
-          <option value="@a.Id">Aluno @a.CodigoAluno (ID: @a.Id)</option>
+          <option value="@a.Id">Aluno @a.CodigoAluno</option>
         }
       </select>
     </div>
@@ -36,7 +40,7 @@
         <option value="">Selecione o ano</option>
         @foreach (var a in anos)
         {
-          <option value="@a.Id" disabled="@(a.Status == "ENCERRADO")">Ano @a.Ano (@a.Status)</option>
+          <option value="@a.Id" data-escola="@(a.EscolaId?.ToString() ?? string.Empty)" disabled="@(a.Status == "ENCERRADO")">Ano @a.Ano (@a.Status)</option>
         }
       </select>
     </div>
@@ -47,7 +51,7 @@
         @foreach (var t in turmas)
         {
           var semVaga = t.VagasOcupadas >= t.Capacidade || t.Status == "FECHADA";
-          <option value="@t.Id" disabled="@semVaga">@t.Nome (@t.Turno) - Vagas: @(t.Capacidade - t.VagasOcupadas)/@t.Capacidade - @t.Status</option>
+          <option value="@t.Id" data-escola="@t.EscolaId" data-ano="@t.AnoLetivoId" disabled="@semVaga">@t.Nome (@t.Turno) - Vagas: @(t.Capacidade - t.VagasOcupadas)/@t.Capacidade - @t.Status</option>
         }
       </select>
     </div>
@@ -56,7 +60,7 @@
       <input asp-for="NumeroMatricula" class="form-control" placeholder="Automático ou preencha" maxlength="50" />
     </div>
     <div class="col-md-9 d-flex align-items-end justify-content-end">
-      <button class="btn btn-primary" type="submit">Efetivar matrícula</button>
+      <button class="btn btn-primary" type="submit" disabled="@(ViewBag.OpcoesEducacaoErro is string)">Efetivar matrícula</button>
     </div>
   </div>
 </form>
