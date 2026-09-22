@@ -210,3 +210,57 @@ parcial e fechá-la com banco, Dapper, regra, permissão, auditoria, UI e relat�
 
 O ciclo solicitado **não está concluído**. O estado final correto é **BLOCKED no Gate
 A**, sem promoção funcional artificial.
+
+## 20. Revalidação deste pedido e auditoria do bloco “Como funciona”
+
+O Gate A foi reexecutado antes de qualquer implementação. O diagnóstico confirmou
+novamente a ausência de `dotnet`, `pwsh`, `psql`, connection string e processos nas
+portas 5000/5001. Consequentemente, não foi permitido alterar tela, controller,
+serviço, autorização ou banco. Os gates estáticos continuaram aprovados: sintaxe dos
+scripts Bash, manifesto JSON, catálogo/paridade das migrations, 630 rotas API sem
+conflito direto, colisões do consolidado, artefatos rastreados e a suíte JavaScript.
+O gate HTTP permaneceu **BLOCKED**, com HTTP 000 em todas as páginas críticas.
+
+A inspeção específica do Bloco A encontrou um componente reutilizável já existente,
+`Views/Shared/_PageIntro.cshtml`, mas ele ainda não atende ao contrato solicitado:
+o título visível é “Guia da tela”, há valores genéricos por omissão e não existem
+seções explícitas para “Quando usar”, “Campos obrigatórios”, “O que acontece ao
+salvar/concluir” e “Permissões necessárias”. A ocorrência do partial, sozinha, não
+foi aceita como conformidade. Também foram encontrados textos genéricos repetidos em
+Tenants e Módulos, Perfis depende dos defaults genéricos, e as telas auditadas de
+Auditoria não usam o componente. Essas lacunas ficam registradas para correção somente
+depois do Gate A verde, acompanhadas de compilação Razor e navegação responsiva.
+
+| Área | Funcionalidade | Estado anterior | Estado final | Tela tem “Como funciona”? | Evidência | Pendência |
+|---|---|---|---|---|---|---|
+| Fundação | restore/build/test/startup | Não verificado | Bloqueado | Não se aplica | `dotnet` ausente; preflight falhou fechado | prover SDK 10.0.100 e executar os comandos normativos |
+| Banco | clean install, reaplicação e upgrade | Não verificado | Bloqueado | Não se aplica | catálogo estático PASS: 195 SQL, 185 no manifesto e 181 no baseline | prover PostgreSQL 16+, `psql` e connection string |
+| SaaS | Tenants | Parcial | Parcial | Parcial, conteúdo genérico | `Views/Saas/Tenants.cshtml` usa `_PageIntro` | conteúdo específico com os sete tópicos; validar persistência e autorização |
+| SaaS | Entidades | Parcial | Parcial | Não comprovado | rota/view estática localizada, sem navegação | localizar fluxo canônico persistido e validar os sete tópicos |
+| SaaS | Exercícios | Parcial | Parcial | Não comprovado | rotas dispersas, sem navegação | consolidar fluxo canônico e provar bloqueio de exercício encerrado |
+| Segurança | Usuários | Parcial | Parcial | Parcial | `Views/Seguranca/Usuarios.cshtml` usa `_PageIntro` específico, mas incompleto | explicitar obrigatórios, resultado e permissão; eliminar ID manual de pessoa |
+| Segurança | Perfis | Parcial | Parcial | Não conforme | `Views/Seguranca/Perfis.cshtml` usa defaults genéricos | conteúdo específico e prova transacional/auditoria |
+| Segurança | Permissões | Parcial | Parcial | Parcial | conteúdo específico existe em `Views/Seguranca/Permissoes.cshtml` | explicitar campos, regra ao salvar e perfil/permissão necessários |
+| SaaS | Módulos contratados | Parcial | Parcial | Parcial, conteúdo genérico | `Views/Saas/Modulos.cshtml` repete o texto de Tenants | remover modo demonstração e validar entitlement/menu/URL com persistência real |
+| Auditoria | consulta administrativa | Parcial | Parcial | Não | views de Auditoria não referenciam `_PageIntro` | orientação específica, estados e prova de segregação |
+| Operação | diagnóstico do tenant | Parcial | Parcial | Não comprovado | rota `/Operacao/Diagnostico` localizada | identificar view/contrato canônico e validar por perfil |
+| Demais módulos dos Blocos C–F | jornadas solicitadas | Parcial | Parcial | Não verificado integralmente | inventário estático amplo, sem runtime conjunto | selecionar uma jornada vertical após Gate A e fechar ponta a ponta |
+
+### Entrega objetiva desta revalidação
+
+1. **Auditado:** pré-requisitos, manifesto, catálogo/paridade, rotas, artefatos,
+   colisões SQL, suíte JavaScript, páginas críticas e amostra dirigida das telas do
+   Núcleo SaaS/Segurança.
+2. **Quebrado/bloqueado:** ambiente sem toolchain/runtime/banco e contrato incompleto
+   do componente explicativo; não há evidência autenticada de login ou isolamento.
+3. **Corrigido/implementado:** nenhuma funcionalidade, por imposição do Gate A.
+4. **Parcial:** todos os domínios funcionais e o componente explicativo.
+5. **Regras consolidadas:** nenhuma regra promovida sem execução real.
+6. **Telas com “Como funciona”:** nenhuma tela alterada; ocorrências preexistentes
+   foram auditadas e classificadas na tabela.
+7. **Migrations/scripts/menus/relatórios:** nenhum criado ou alterado.
+8. **Evidência de build/login/navegação:** **BLOCKED**, nunca simulada como PASS.
+9. **Risco restante:** crítico para autorização/isolamento e alto para banco e fluxos
+   transacionais.
+10. **Próximo ciclo:** destravar Gate A e, então, corrigir `_PageIntro` e fechar uma
+    única jornada vertical com Dapper, autorização, auditoria, UI e testes existentes.

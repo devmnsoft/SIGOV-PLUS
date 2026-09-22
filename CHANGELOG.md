@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-22 — revalidação do Gate A e do guia de telas
+
+- reexecutados os gates portáveis antes de qualquer evolução funcional, mantendo o
+  ciclo bloqueado sem .NET 10, PowerShell, PostgreSQL/`psql`, connection string e
+  aplicação autenticada;
+- auditado o componente compartilhado `_PageIntro` e uma amostra dirigida das telas
+  obrigatórias do Núcleo SaaS/Segurança, registrando que a presença do partial não
+  satisfaz os sete tópicos exigidos nem substitui conteúdo específico;
+- acrescentada ao relatório a matriz obrigatória com a coluna “Tela tem Como
+  funciona?”, sem alterar telas, migrations, scripts consolidados, menus ou regras de
+  negócio antes do Gate A verde.
+
 ## 2026-09-22 — reexecução do ciclo de funcionalidades essenciais
 
 - reexecutados os gates portáveis de catálogo/paridade, rotas, colisões SQL,

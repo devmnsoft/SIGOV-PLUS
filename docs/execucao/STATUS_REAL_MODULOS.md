@@ -1,5 +1,13 @@
 # Status real dos módulos
 
+Revalidação dirigida em 2026-09-22: o Gate A continuou **BLOCKED** sem .NET 10,
+PowerShell, PostgreSQL/`psql`, connection string e aplicação autenticada. A auditoria
+do Bloco A confirmou que `_PageIntro.cshtml` existe, porém não cobre explicitamente os
+sete tópicos obrigatórios e ainda permite conteúdo genérico; sua ocorrência não foi
+contabilizada como tela conforme. A matriz por tela e as evidências dos gates estão na
+seção 20 de `docs/execucao/AUDITORIA_CICLO_ESTABILIZACAO_2026-09-22.md`. Nenhuma tela,
+migration, regra, menu ou relatório foi alterado antes do gate obrigatório.
+
 Reexecução do ciclo essencial em 2026-09-22: o inventário estático cobriu 288
 controllers, 201 serviços/repositórios, 1.013 views e 199 fontes de teste, sem usar
 essas contagens como prova funcional. Catálogo, paridade dos consolidados, rotas,
