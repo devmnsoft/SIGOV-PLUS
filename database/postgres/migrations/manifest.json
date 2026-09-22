@@ -2501,6 +2501,19 @@
         "20260922120000"
       ],
       "postConditionSql": "select to_regclass('sigov.educacao_rematricula_operacao') is not null and to_regprocedure('sigov.fn_educacao_confirmar_rematricula(bigint,bigint,bigint,bigint,bigint,bigint,text,bigint)') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='matricula' and column_name='origem_matricula_id')"
+    },
+    {
+      "version": "20260922200000",
+      "description": "Jornada autorizada do portal de responsáveis, comunicados e ciência",
+      "category": "functional",
+      "file": "20260922200000_educacao_portal_responsavel_jornada.sql",
+      "checksum": "d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260922160000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_comunicado_destinatario' and column_name='ciencia_at') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_comunicado' and column_name='exige_ciencia')"
     }
   ],
   "compatibilityAfterAll": [

@@ -217,7 +217,9 @@ select exists (
         ('20260916190000', array['5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a']::text[]),
         ('20260916210000', array['86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c']::text[]),
         ('20260916230000', array['07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4']::text[]),
-        ('20260922120000', array['ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c']::text[])
+        ('20260922120000', array['ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c']::text[]),
+        ('20260922160000', array['3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f']::text[]),
+        ('20260922200000', array['d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -31472,6 +31474,42 @@ insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo,is_deleted
 on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,is_deleted=false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922160000', 'Transição de ano letivo com simulação, concorrência, lote parcial e histórico', '3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260922200000_educacao_portal_responsavel_jornada.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803
+-- ==================================================
+-- Jornada autorizada entre Secretaria Escolar e responsáveis.
+-- O público do comunicado é fotografado em educacao_comunicado_destinatario na publicação;
+-- a autorização vigente do vínculo continua obrigatória em toda leitura e ciência.
+alter table sigov.educacao_comunicado
+    add column if not exists versao integer not null default 1,
+    add column if not exists exige_ciencia boolean not null default false,
+    add column if not exists disponivel_de timestamptz,
+    add column if not exists disponivel_ate timestamptz;
+
+alter table sigov.educacao_comunicado_destinatario
+    add column if not exists versao integer not null default 1,
+    add column if not exists ciencia_at timestamptz;
+
+create index if not exists ix_educacao_portal_vinculo_autorizacao
+    on sigov.educacao_portal_vinculo(tenant_id, usuario_id, aluno_id, status)
+    where is_deleted=false;
+create index if not exists ix_educacao_comunicado_destinatario_acesso
+    on sigov.educacao_comunicado_destinatario(tenant_id, usuario_id, aluno_id, comunicado_id, versao);
+
+comment on column sigov.educacao_comunicado_destinatario.lido_at is
+    'Abertura registrada separadamente; nunca representa ciência.';
+comment on column sigov.educacao_comunicado_destinatario.ciencia_at is
+    'Ação explícita e idempotente de ciência; não representa assinatura ou concordância jurídica.';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922200000', 'Jornada autorizada do portal de responsáveis, comunicados e ciência', 'd78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
