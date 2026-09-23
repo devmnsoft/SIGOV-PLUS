@@ -27,6 +27,7 @@ public sealed class GovernancaTransversalController : Controller
     [HttpGet("/Alertas")]
     public async Task<IActionResult> Alertas(CancellationToken ct)
     {
+        if (!HasContext()) return ContextRequired("Central de Alertas", "alerta");
         var data = await _service.ListarAlertasAsync(null, null, 1, 100, ct).ConfigureAwait(false);
         return View("Central", Model("Central de Alertas", "Riscos operacionais, de prazo, segurança, LGPD e integração.", "alerta", null, null, 1, 100, data.Select(x => new CentralTransversalItem(x.Id, x.Modulo, x.Titulo, x.Severidade, x.Status, x.RotaAcao))));
     }
@@ -43,6 +44,7 @@ public sealed class GovernancaTransversalController : Controller
     [HttpGet("/Governanca/IntegracoesInternas")]
     public async Task<IActionResult> IntegracoesInternas(CancellationToken ct)
     {
+        if (!HasContext()) return ContextRequired("Integrações Internas", "integracao");
         var data = await _service.ListarIntegracoesAsync(ct).ConfigureAwait(false);
         return View("Central", Model("Integrações Internas", "Eventos reais e integrações preparatórias identificadas explicitamente.", "integracao", null, null, 1, 100, data.Select(x => new CentralTransversalItem(0, x.Origem, x.Origem + " → " + x.Destino, x.Preparatoria ? "PREPARATÓRIA" : "REAL", x.Status, x.RotaCorrecao))));
     }
@@ -56,6 +58,7 @@ public sealed class GovernancaTransversalController : Controller
     [HttpGet("/Modulos/StatusFuncional")]
     public async Task<IActionResult> StatusFuncional(CancellationToken ct)
     {
+        if (!HasContext()) return ContextRequired("Status Funcional por Módulo", "status");
         var data = await _service.ListarStatusFuncionalAsync(ct).ConfigureAwait(false);
         return View("Central", Model("Status Funcional por Módulo", "Estado calculado por inspeção de estrutura; o que não foi comprovado permanece pendente.", "status", null, null, 1, 100, data.Select(x => new CentralTransversalItem(0, x.Modulo, x.Comprovacao, x.Dashboard ? "DASHBOARD" : "SEM DASHBOARD", x.StatusFinal, null))));
     }
@@ -65,7 +68,12 @@ public sealed class GovernancaTransversalController : Controller
     {
         if (!HasContext()) return ContextRequired("Detalhe da ocorrência", tipo);
         var item = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
-        return item is null ? NotFound() : View("Detalhe", new GovernancaOcorrenciaViewModel { Ocorrencia = item, Retorno = LocalReturn(retorno) });
+        if (item is null) return NotFound();
+        IReadOnlyCollection<ResponsavelElegivelDto> responsaveis = [];
+        var podeAtribuir = true;
+        try { responsaveis = await _service.BuscarResponsaveisAsync(null, 1, 100, ct).ConfigureAwait(false); }
+        catch (UnauthorizedAccessException) { podeAtribuir = false; }
+        return View("Detalhe", new GovernancaOcorrenciaViewModel { Ocorrencia = item, Retorno = LocalReturn(retorno), Responsaveis = responsaveis, PodeAtribuir = podeAtribuir });
     }
 
     [ValidateAntiForgeryToken, HttpPost("/Governanca/Ocorrencias/{tipo}/{id:long}/atribuir")]
