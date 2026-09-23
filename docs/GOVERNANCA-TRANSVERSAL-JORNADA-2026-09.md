@@ -1,59 +1,49 @@
-# Governança transversal — jornada de tratamento (2026-09)
+# Governança transversal — jornada operacional (2026-09)
 
-## Baseline e diagnóstico
+## Baseline reconfirmada
 
-Baseline auditado no branch `work`, commit `97e6e6b`. A correção anterior mantém a defesa `Tenant()` no serviço e passou a interromper as telas de Pendências e Qualidade antes da consulta quando não existe contexto. O contexto canônico é request-scoped e combina `ITenantContext` (API) com o snapshot persistido autorizado (Web), sem aceitar tenant de query string.
+A implementação partiu de `be76aff38f03cdad5834c520673dfa37f5695ddd` no branch `work`. A evidência remota informada para o commit foi: workflow .NET aprovado e CI ampla bloqueada pelo preflight de banco e pela ausência do upload obrigatório no job `tracked-artifacts`. Localmente, o SDK .NET 10 e PostgreSQL não estão instalados; portanto build, Razor e testes transacionais permanecem **BLOCKED**, e não são descritos como homologados.
 
-| Capacidade | Situação inicial | Evidência / problema | Mudança e regra preservada | Aceite deste ciclo |
+## Causas e decisões
+
+* Listagens tratavam tabela ausente como lista vazia. Agora schema ausente é falha explícita e registrada sem connection string; uma consulta válida sem linhas continua sendo estado vazio.
+* Alertas, integrações e status funcional consultavam sem a mesma barreira de contexto das pendências e qualidade. Todas as telas e endpoints agora exigem o contexto canônico request-scoped antes de consultar.
+* Atribuição aceitava ID manual, alcançava estados terminais e validava apenas tenant. A tela usa nomes vindos de usuários persistidos; o servidor revalida usuário ativo, desbloqueado e seus vínculos de entidade/exercício, limita a justificativa e atualiza apenas estados tratáveis com versão otimista.
+* A revalidação genérica confiava em campos sem um verificador tipado comprovado e podia reabrir uma ocorrência terminal. Até existir um verificador por regra, ela retorna `VERIFICADOR_INDISPONIVEL`, preserva estado/versão, e terminais são idempotentes.
+* A conclusão da inspeção resolvia a pendência sem versão nem histórico. O encerramento agora ocorre na mesma transação, exige exatamente um mapping empresarial ativo, incrementa a versão e grava `RESOLVIDA_NA_ORIGEM`. Retry de recebimento terminal retorna o estado persistido antes de repetir estoque/eventos.
+* Presença de tabela era apresentada como funcionalidade. O painel agora informa apenas `ESTRUTURA_DETECTADA` ou `NAO_VERIFICADO`, sem fabricar capacidades ou percentual.
+* O gate de integridade exigia upload por job, mas `tracked-artifacts` não publicava seu log. O upload foi acrescentado sem remover a exigência; o preflight continua registrando `BLOCKED` quando o secret não existe.
+
+## Matriz antes → depois → cenário → resultado → pendência
+
+| Antes | Depois | Cenário | Resultado | Pendência |
 |---|---|---|---|---|
-| Tenant obrigatório | IMPLEMENTADA COM EVIDÊNCIA | Controller Web evita a consulta; serviço ainda exige tenant | Defesa mantida em todos os métodos novos | Sem contexto mostra seleção e não consulta |
-| Isolamento | IMPLEMENTADA COM EVIDÊNCIA | SQL existente filtra `tenant_id`; detalhe/comandos não existiam | Todos os detalhes, elegibilidade, updates e histórico exigem o tenant canônico | ID de outro tenant resulta em não encontrado/conflito |
-| Atribuição | AUSENTE APÓS BUSCA | Havia coluna de responsável, sem comando/histórico/concurrency token | Comando autorizado, responsável ativo do tenant, justificativa, transação e `versao` otimista | Redistribuição preserva prazo e gera evento |
-| Detalhe e histórico | AUSENTE APÓS BUSCA | Somente listagem e URL persistida eram exibidas | Detalhe autorizado, rota relativa validada e histórico de negócio persistente | Jornada navegável a partir das duas listas |
-| Revalidação | AUSENTE APÓS BUSCA | Abrir a origem não verificava nem concluía | Revalidação consome apenas sinal novo publicado pela origem; bloqueio/indisponibilidade não vira correção | Resultado antigo não sobrepõe versão nova |
-| Recorrência | PARCIAL | Índice aberto evita duplicação ativa, mas não havia evento próprio | Episódios resolvidos são preservados; produtores podem abrir novo episódio pela identidade existente | Histórico antigo não é apagado; automação de recorrência segue pendente |
-| Lote | AUSENTE APÓS BUSCA | Nenhum contrato seguro existente | Não implementado para evitar seleção implícita ou SQL genérico | NÃO EXECUTADO neste ciclo |
-| Notificações/comentários/anexos | PARCIAL | Infraestrutura transversal existe, mas não há vínculo canônico com essas ocorrências | Não foi criada segunda autoridade | Integração específica permanece pendente |
+| Contexto desigual | Web e API barram antes do serviço | contexto ausente | erro estável `CONTEXTO_OBRIGATORIO` na API e orientação na Web | execução por perfil BLOCKED |
+| Schema ausente = vazio | exceção operacional explícita | tabela removida | não simula ausência de registros | inspeção visual do erro não executada |
+| Campo numérico de usuário | seleção nominal persistida | atribuir/redistribuir | somente vínculo ativo do tenant/entidade/exercício; concorrência por `versao` | busca incremental além dos 100 primeiros fica no backlog |
+| Terminal podia reabrir | terminal é no-op idempotente | revalidar resolvida/aceita | preserva estado, versão e histórico | nenhum verificador tipado comprovado nesta baseline |
+| Sinal legado podia resolver | verificador indisponível é explícito | regra sem autoridade tipada | não resolve nem altera o negócio | implementar produtores tipados por regra |
+| Inspeção fechava só status | fechamento canônico transacional | concluir conferência | versão + histórico + referência/ator no mesmo commit | prova PostgreSQL BLOCKED |
+| `TableExists` virava “funcional” | somente estrutura/não verificado | status de módulo | leitura honesta | catálogo granular de capacidades continua necessário |
+| Job sem artifact | log publicado em `always()` | integridade do workflow | validador estático passa | execução GitHub Actions não realizada localmente |
 
-## Modelo e transições
+## Evidências desta execução
 
-A fonte continua responsável pelo estado do registro de domínio. `pendencia_operacional` e `qualidade_dados_ocorrencia` acompanham o trabalho. `governanca_ocorrencia_historico` registra eventos de tratamento, não logs técnicos.
+### PASS
 
-Transições permitidas neste ciclo:
+* `python3 scripts/validate-workflow-integrity.py .github/workflows/ci.yml` — estrutura e exigência de artifacts aprovadas.
+* `git diff --check` — patch sem erros de whitespace.
 
-- `ABERTA -> EM_TRATAMENTO` (pendência) ou `ABERTA -> EM_CORRECAO` (qualidade) somente por atribuição autorizada;
-- redistribuição mantém situação e prazo, exige justificativa e incrementa `versao`;
-- revalidação de qualidade somente aceita uma observação da origem posterior à última verificação;
-- `condicao_presente=true` mantém `EM_CORRECAO`; `false` conclui como `RESOLVIDA`; sinal ausente resulta em `REGISTRO_NAO_DISPONIVEL`; sinal não renovado resulta em `VERIFICACAO_BLOQUEADA`;
-- nenhuma ação do navegador escreve diretamente no módulo de origem.
+### BLOCKED
 
-A integração produtora deve publicar atomicamente `condicao_presente` e `origem_verificada_em` depois de consultar sua autoridade real. O token `versao` impede que atribuições ou resultados atrasados sobrescrevam estado mais recente.
+* `dotnet build sigov.runtime.slnf --configuration Release --no-restore --nologo -warnaserror` — **BLOCKED**: executável `dotnet` ausente no ambiente.
+* Banco limpo, reaplicação, upgrade e cenários concorrentes PostgreSQL 16 — **BLOCKED**: ferramenta/instância/credencial não disponíveis localmente.
 
-## Segurança e interface
+### NÃO EXECUTADO
 
-As rotas persistidas são aceitas apenas quando relativas, iniciadas por uma única `/`; valores absolutos ou protocol-relative não são renderizados. Abrir a origem reexecuta a autorização do controller de destino. O retorno aceita somente caminho local. Todos os comandos Web têm antiforgery; a API depende do pipeline autenticado e das permissões persistidas.
+* Navegação por perfis e inspeção visual em 1440/768/390 px, pois o runtime não pôde ser iniciado.
+* Evidência de execução remota da CI após o patch; nenhuma publicação, push, merge ou deploy foi realizado.
 
-A tela explica propósito, funcionamento, pré-requisitos, diferença entre corrigir e revalidar, falha/bloqueio e recorrência. Ausência de prazo aparece como **Sem prazo definido**.
+## Backlog deliberadamente não implementado
 
-## Matriz de aceite executável
-
-| Cenário | Resultado esperado / método | Estado |
-|---|---|---|
-| Sem tenant | Controller não chama serviço; serviço mantém exceção defensiva | PASSOU por inspeção; execução bloqueada sem SDK |
-| Isolamento A/B | Toda chave e mutação combina `tenant_id + id` | PASSOU por inspeção; integração PostgreSQL não executada |
-| Atribuição | Usuário ativo do tenant; não altera permissões | PASSOU por inspeção |
-| Concorrência | `versao` divergente retorna `CONFLITO` | PASSOU por inspeção |
-| Correção | Somente observação nova da origem com condição falsa resolve | PASSOU por inspeção |
-| Falha técnica | Sem observação nova retorna bloqueada, nunca resolvida | PASSOU por inspeção |
-| Recorrência | Índice ativo permite episódio novo após resolução | PARCIAL; produtor não alterado |
-| Resultado atrasado | Token de versão rejeita comando antigo | PASSOU por inspeção |
-| Lote | Não disponibilizado | NÃO EXECUTADO |
-| Indicadores | Fora do recorte implementado | NÃO EXECUTADO |
-| Troca de contexto | Serviço request-scoped e consultas usam snapshot atual | PASSOU por inspeção; smoke bloqueado |
-| Template | Lista/detalhe responsivos usam componentes existentes | NÃO EXECUTADO em navegador |
-| Regressão | Build/testes | BLOQUEADO: `dotnet` ausente |
-| Banco | Migration idempotente e artefatos sincronizados | PASSOU validação estática; PostgreSQL não disponível |
-
-## Limitações conhecidas
-
-Não foram implementados lote, comentários/anexos, indicador agregado, seletor pesquisável por nome, “Minhas pendências”, setor, notificações ou verificador específico de cada módulo. Esses itens exigem contratos de setor, anexos e produtores de origem que não estavam presentes; inventar fallback ou regras seria incompatível com a autoridade persistida. Nenhuma homologação ou cobertura total é declarada.
+Demais produtores tipados de qualidade, comentários/anexos, lote seguro, busca nominal incremental e indicadores avançados permanecem no backlog. Nenhum fallback, catálogo mock ou autoridade paralela foi introduzido.

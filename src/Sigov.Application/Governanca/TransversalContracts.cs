@@ -18,6 +18,7 @@ public sealed record GovernancaOcorrenciaDto(long Id, string Tipo, string Modulo
     long? ResponsavelUsuarioId, string? ResponsavelNome, DateTimeOffset? Prazo, DateTimeOffset DetectadaEm,
     DateTimeOffset? VerificadaEm, string? UltimoResultado, long Versao, IReadOnlyCollection<GovernancaHistoricoDto> Historico);
 public sealed record GovernancaComandoResultado(bool Sucesso, string Codigo, string Mensagem, long Versao);
+public sealed record ResponsavelElegivelDto(long UsuarioId, string Nome, string? Unidade, string Situacao);
 
 public sealed record IntegracaoInternaDto(string Origem, string Destino, string Status, DateTimeOffset? UltimoEvento,
     long QuantidadePendente, long QuantidadeErro, string? RotaCorrecao, bool Preparatoria);
@@ -33,6 +34,7 @@ public interface ITransversalGovernancaService
     Task<IReadOnlyCollection<QualidadeDadosDto>> ListarQualidadeAsync(string? modulo, string? severidade, int pagina, int tamanho, CancellationToken ct);
     Task<GovernancaOcorrenciaDto?> ObterOcorrenciaAsync(string tipo, long id, CancellationToken ct);
     Task<GovernancaComandoResultado> AtribuirAsync(string tipo, long id, long responsavelUsuarioId, long versao, string justificativa, CancellationToken ct);
+    Task<IReadOnlyCollection<ResponsavelElegivelDto>> BuscarResponsaveisAsync(string? busca, int pagina, int tamanho, CancellationToken ct);
     Task<GovernancaComandoResultado> RevalidarQualidadeAsync(long id, long versao, CancellationToken ct);
     Task<IReadOnlyCollection<IntegracaoInternaDto>> ListarIntegracoesAsync(CancellationToken ct);
     Task<IReadOnlyCollection<ModuloStatusFuncionalDto>> ListarStatusFuncionalAsync(CancellationToken ct);

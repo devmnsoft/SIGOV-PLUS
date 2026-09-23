@@ -22,4 +22,6 @@ public sealed class GovernancaOcorrenciaViewModel
 {
     public required GovernancaOcorrenciaDto Ocorrencia { get; init; }
     public string? Retorno { get; init; }
+    public IReadOnlyCollection<ResponsavelElegivelDto> Responsaveis { get; init; } = Array.Empty<ResponsavelElegivelDto>();
+    public bool PodeAtribuir { get; init; }
 }

@@ -147,7 +147,16 @@ on conflict(tenant_id,modulo,tipo,entidade,entidade_id) where status in('ABERTA'
   var status=hasRejected?"COM_DIVERGENCIA":"CONCLUIDO";var resultado=hasRejected?"REPROVADO_PARCIAL":"APROVADO";
   var updated=await c.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_recebimento set status=@status,resultado_inspecao=@resultado,version=version+1,updated_at=now(),updated_by=@user,correlation_id=@corr where tenant_id=@t and id=@id and version=@version;insert into sigov.compras_empresarial_recebimento_evento(tenant_id,recebimento_id,tipo,detalhes,usuario_id,correlation_id) values(@t,@id,'INSPECAO_CONCLUIDA',jsonb_build_object('status',@status,'justificativa',@justificativa),@usuario,@corr)",new{t=x.TenantId,id,status,resultado,version=r.Version,user=x.UsuarioId.ToString(),usuario=x.UsuarioId,corr=x.CorrelationId,justificativa=r.Justificativa?.Trim()},tx,cancellationToken:ct));
   if(updated!=2)throw new InvalidOperationException("Conflito ao concluir a conferência; nenhuma alteração foi aplicada.");
-  await c.ExecuteAsync(new CommandDefinition(@"update sigov.pendencia_operacional p set status='RESOLVIDA',resolved_at=now() from sigov.enterprise_tenant_mapping m where m.enterprise_tenant_id=@t and m.ativo and p.tenant_id=m.core_tenant_id and p.modulo='COMPRAS_EMPRESARIAIS' and p.tipo='CONFERENCIA_RECEBIMENTO' and p.entidade='compras_empresarial_recebimento' and p.entidade_id=@id::text and p.status in('ABERTA','EM_TRATAMENTO')",new{t=x.TenantId,id},tx,cancellationToken:ct));
+  var mappingCount=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.enterprise_tenant_mapping where enterprise_tenant_id=@t and ativo",new{t=x.TenantId},tx,cancellationToken:ct));
+  if(mappingCount!=1)throw new InvalidOperationException("O tenant empresarial não possui um único vínculo institucional ativo; a conclusão foi cancelada com segurança.");
+  var closed=await c.ExecuteAsync(new CommandDefinition(@"with atualizada as (
+update sigov.pendencia_operacional p set status='RESOLVIDA',resolved_at=now(),updated_at=now(),versao=versao+1
+from sigov.enterprise_tenant_mapping m where m.enterprise_tenant_id=@t and m.ativo and p.tenant_id=m.core_tenant_id
+and p.modulo='COMPRAS_EMPRESARIAIS' and p.tipo='CONFERENCIA_RECEBIMENTO' and p.entidade='compras_empresarial_recebimento'
+and p.entidade_id=@id::text and p.status in('ABERTA','EM_TRATAMENTO') returning p.id,p.tenant_id,p.versao)
+insert into sigov.governanca_ocorrencia_historico(tenant_id,ocorrencia_tipo,ocorrencia_id,evento,usuario_id,justificativa,dados_depois)
+select tenant_id,'PENDENCIA',id,'RESOLVIDA_NA_ORIGEM',@usuario,@justificativa,jsonb_build_object('recebimento_id',@id,'status_recebimento',@status,'versao',versao) from atualizada",new{t=x.TenantId,id,usuario=x.UsuarioId,justificativa=r.Justificativa?.Trim(),status},tx,cancellationToken:ct));
+  if(closed!=1)throw new InvalidOperationException("A pendência de conferência não estava disponível para encerramento; nenhuma alteração foi aplicada.");
   var persisted=await c.QuerySingleAsync<RecebimentoExistente>(new CommandDefinition("select id,status from sigov.compras_empresarial_recebimento where tenant_id=@t and id=@id",new{t=x.TenantId,id},tx,cancellationToken:ct));await tx.CommitAsync(ct);return new(persisted.Id,persisted.Status,false);
  }
  private static string? Clean(string? value)=>string.IsNullOrWhiteSpace(value)?null:value.Trim();
