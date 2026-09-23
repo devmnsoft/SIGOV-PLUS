@@ -72,6 +72,8 @@ public sealed class WebRuntimeSmokeTests : IClassFixture<SigovWebFactory>
     [InlineData("/Governanca/IntegracoesInternas")]
     [InlineData("/QualidadeDados")]
     [InlineData("/IntegracoesInternas")]
+    [InlineData("/Governanca/Ocorrencias/qualidade/1")]
+    [InlineData("/Governanca/Ocorrencias/pendencia/1")]
     public async Task GovernanceNavigationRoutes_ShouldBeProtectedWithoutAmbiguousMatch(string path)
     {
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });

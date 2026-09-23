@@ -219,7 +219,8 @@ select exists (
         ('20260916230000', array['07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4']::text[]),
         ('20260922120000', array['ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c']::text[]),
         ('20260922160000', array['3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f']::text[]),
-        ('20260922200000', array['d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803']::text[])
+        ('20260922200000', array['d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803']::text[]),
+        ('20260923120000', array['43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -31510,6 +31511,59 @@ comment on column sigov.educacao_comunicado_destinatario.ciencia_at is
     'Ação explícita e idempotente de ciência; não representa assinatura ou concordância jurídica.';
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922200000', 'Jornada autorizada do portal de responsáveis, comunicados e ciência', 'd78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260923120000_governanca_ocorrencias_jornada.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25
+-- ==================================================
+-- Jornada transversal autorizada: atribuição, concorrência, revalidação e histórico.
+set search_path to sigov;
+
+alter table sigov.pendencia_operacional
+  add column if not exists versao bigint not null default 1,
+  add column if not exists updated_at timestamptz;
+
+alter table sigov.qualidade_dados_ocorrencia
+  add column if not exists responsavel_usuario_id bigint,
+  add column if not exists versao bigint not null default 1,
+  add column if not exists ultimo_resultado varchar(40),
+  add column if not exists verificado_em timestamptz,
+  add column if not exists origem_verificada_em timestamptz,
+  add column if not exists condicao_presente boolean,
+  add column if not exists updated_at timestamptz;
+
+create table if not exists sigov.governanca_ocorrencia_historico (
+  id bigint generated always as identity primary key,
+  tenant_id bigint not null,
+  ocorrencia_tipo varchar(20) not null,
+  ocorrencia_id bigint not null,
+  evento varchar(40) not null,
+  usuario_id bigint,
+  justificativa varchar(1000),
+  dados_antes jsonb,
+  dados_depois jsonb,
+  ocorrido_em timestamptz not null default now(),
+  constraint ck_governanca_ocorrencia_tipo check (ocorrencia_tipo in ('PENDENCIA','QUALIDADE'))
+);
+create index if not exists ix_governanca_ocorrencia_historico_timeline
+  on sigov.governanca_ocorrencia_historico(tenant_id, ocorrencia_tipo, ocorrencia_id, ocorrido_em desc, id desc);
+create index if not exists ix_governanca_pendencia_responsavel
+  on sigov.pendencia_operacional(tenant_id,responsavel_usuario_id,status);
+create index if not exists ix_governanca_qualidade_responsavel
+  on sigov.qualidade_dados_ocorrencia(tenant_id,responsavel_usuario_id,status);
+
+insert into sigov.permissao(chave,modulo,descricao)
+values ('governanca.ocorrencias.atribuir','governanca','Atribuir e redistribuir ocorrências transversais'),
+       ('governanca.qualidade.revalidar','governanca','Solicitar revalidação de qualidade com resultado da origem')
+on conflict(chave) do update set descricao=excluded.descricao;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260923120000', 'Jornada transversal de atribuição, revalidação e histórico de ocorrências', '43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
