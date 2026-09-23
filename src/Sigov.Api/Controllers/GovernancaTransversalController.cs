@@ -34,6 +34,27 @@ public sealed class GovernancaTransversalController : ControllerBase
         [FromQuery] string? modulo, [FromQuery] string? severidade, [FromQuery] int pagina = 1, [FromQuery] int tamanho = 50, CancellationToken ct = default)
         => Ok(ApiResponse<IReadOnlyCollection<QualidadeDadosDto>>.Ok(await _service.ListarQualidadeAsync(modulo, severidade, pagina, tamanho, ct).ConfigureAwait(false)));
 
+    [HttpGet("api/governanca/ocorrencias/{tipo}/{id:long}")]
+    public async Task<ActionResult<ApiResponse<GovernancaOcorrenciaDto>>> Ocorrencia(string tipo, long id, CancellationToken ct)
+    {
+        var item = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
+        return item is null ? NotFound(ApiResponse<GovernancaOcorrenciaDto>.Fail("Ocorrência não encontrada no contexto selecionado.")) : Ok(ApiResponse<GovernancaOcorrenciaDto>.Ok(item));
+    }
+
+    [HttpPost("api/governanca/ocorrencias/{tipo}/{id:long}/atribuir")]
+    public async Task<ActionResult<ApiResponse<GovernancaComandoResultado>>> Atribuir(string tipo, long id, GovernancaAtribuirRequest request, CancellationToken ct)
+    {
+        var result = await _service.AtribuirAsync(tipo, id, request.ResponsavelUsuarioId, request.Versao, request.Justificativa, ct).ConfigureAwait(false);
+        return result.Sucesso ? Ok(ApiResponse<GovernancaComandoResultado>.Ok(result)) : Conflict(ApiResponse<GovernancaComandoResultado>.Fail(result.Mensagem));
+    }
+
+    [HttpPost("api/governanca/ocorrencias/qualidade/{id:long}/revalidar")]
+    public async Task<ActionResult<ApiResponse<GovernancaComandoResultado>>> Revalidar(long id, GovernancaRevalidarRequest request, CancellationToken ct)
+    {
+        var result = await _service.RevalidarQualidadeAsync(id, request.Versao, ct).ConfigureAwait(false);
+        return result.Sucesso ? Ok(ApiResponse<GovernancaComandoResultado>.Ok(result)) : Conflict(ApiResponse<GovernancaComandoResultado>.Fail(result.Mensagem));
+    }
+
     [HttpGet("api/governanca-transversal/integracoes-internas")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<IntegracaoInternaDto>>>> Integracoes(CancellationToken ct)
         => Ok(ApiResponse<IReadOnlyCollection<IntegracaoInternaDto>>.Ok(await _service.ListarIntegracoesAsync(ct).ConfigureAwait(false)));
@@ -44,3 +65,5 @@ public sealed class GovernancaTransversalController : ControllerBase
 }
 
 public sealed record ResolverAlertaRequest(string Justificativa);
+public sealed record GovernancaAtribuirRequest(long ResponsavelUsuarioId, long Versao, string Justificativa);
+public sealed record GovernancaRevalidarRequest(long Versao);

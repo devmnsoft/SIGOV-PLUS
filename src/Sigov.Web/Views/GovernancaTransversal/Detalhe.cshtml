@@ -1,0 +1,29 @@
+@model Sigov.Web.Models.Governanca.GovernancaOcorrenciaViewModel
+@{ ViewData["Title"] = "Tratar ocorrência"; var o = Model.Ocorrencia; }
+<header class="sigov-page-hero"><div><span class="sigov-eyebrow">Governança transversal</span><h1>@o.Titulo</h1><p>Entenda a condição, atribua o trabalho, corrija na origem e revalide o resultado.</p></div></header>
+<nav aria-label="Breadcrumb" class="mt-3"><a href="@(Model.Retorno ?? (o.Tipo == "qualidade" ? "/Governanca/QualidadeDados" : "/Pendencias"))">← Voltar à listagem</a></nav>
+
+<details class="central-panel central-panel--wide my-3" open>
+ <summary><strong>Como funciona esta jornada</strong></summary>
+ <div class="mt-3"><p><strong>Para que serve:</strong> coordenar a correção sem substituir o cadastro de origem.</p><p><strong>Pré-requisitos:</strong> contexto ativo e permissões de visualização, atribuição e, quando aplicável, revalidação.</p><p><strong>Regras importantes:</strong> atribuir não concede acesso ao registro. “Corrigir na origem” apenas navega; somente uma verificação nova da fonte pode concluir a ocorrência. Falha ou bloqueio não significa condição corrigida. Recorrência cria novo episódio e preserva o histórico anterior.</p><p><strong>Próximo passo:</strong> atribua, use a rota validada da origem e volte para revalidar.</p></div>
+</details>
+
+@if (TempData["Toast"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+@if (TempData["Error"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+<div class="row g-3">
+ <section class="col-lg-8"><div class="central-panel h-100"><h2 class="h4">Ocorrência</h2><dl class="row">
+  <dt class="col-sm-4">Módulo</dt><dd class="col-sm-8">@o.Modulo</dd><dt class="col-sm-4">Registro de origem</dt><dd class="col-sm-8">@o.Entidade #@o.EntidadeId</dd>
+  <dt class="col-sm-4">Regra ou motivo</dt><dd class="col-sm-8">@o.RegraOuMotivo</dd><dt class="col-sm-4">Evidência autorizada</dt><dd class="col-sm-8">@o.Descricao</dd>
+  <dt class="col-sm-4">Situação</dt><dd class="col-sm-8">@o.Status — @(o.UltimoResultado ?? "Ainda não verificada")</dd><dt class="col-sm-4">Prazo</dt><dd class="col-sm-8">@(o.Prazo?.ToLocalTime().ToString("g") ?? "Sem prazo definido")</dd>
+  <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8">@(o.ResponsavelNome ?? "Não atribuído")</dd><dt class="col-sm-4">Última verificação</dt><dd class="col-sm-8">@(o.VerificadaEm?.ToLocalTime().ToString("g") ?? "Não verificada")</dd>
+ </dl>@if (!string.IsNullOrWhiteSpace(o.RotaOrigem)) { <a class="sigov-btn sigov-btn--primary" href="@o.RotaOrigem">Corrigir na origem</a> } else { <p class="alert alert-warning">O módulo não publicou uma rota de correção segura.</p> }</div></section>
+ <aside class="col-lg-4"><div class="central-panel"><h2 class="h4">Responsabilidade</h2><form asp-action="Atribuir" asp-route-tipo="@o.Tipo" asp-route-id="@o.Id" method="post" data-prevent-double-submit>
+  <input type="hidden" name="versao" value="@o.Versao"/><input type="hidden" name="retorno" value="@Model.Retorno"/>
+  <div class="mb-3"><label class="form-label" for="responsavelUsuarioId">Usuário responsável <span aria-label="obrigatório">*</span></label><input class="form-control" id="responsavelUsuarioId" name="responsavelUsuarioId" type="number" min="1" required value="@o.ResponsavelUsuarioId"/><div class="form-text">A elegibilidade ativa no contexto será revalidada no servidor.</div></div>
+  <div class="mb-3"><label class="form-label" for="justificativa">Justificativa <span aria-label="obrigatório">*</span></label><textarea class="form-control" id="justificativa" name="justificativa" maxlength="1000" required></textarea></div><button class="sigov-btn sigov-btn--primary w-100" type="submit">Atribuir ou redistribuir</button>
+ </form>
+ @if(o.Tipo == "qualidade") { <hr/><form asp-action="Revalidar" asp-route-id="@o.Id" method="post" data-prevent-double-submit><input type="hidden" name="versao" value="@o.Versao"/><input type="hidden" name="retorno" value="@Model.Retorno"/><button class="sigov-btn sigov-btn--ghost w-100" type="submit">Revalidar nos dados de origem</button></form> }
+ </div></aside>
+</div>
+<section class="central-panel central-panel--wide mt-3"><h2 class="h4">Histórico de negócio</h2>@if(o.Historico.Count == 0){<p>Nenhum evento de tratamento registrado.</p>}else{<ol>@foreach(var h in o.Historico){<li class="mb-2"><strong>@h.Evento</strong> — @h.OcorridoEm.ToLocalTime().ToString("g") @if(h.UsuarioId.HasValue){<span>por usuário #@h.UsuarioId</span>}@if(!string.IsNullOrWhiteSpace(h.Justificativa)){<div>@h.Justificativa</div>}</li>}</ol>}</section>

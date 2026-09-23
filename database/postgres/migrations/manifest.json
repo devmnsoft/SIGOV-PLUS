@@ -2514,6 +2514,19 @@
         "20260922160000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_comunicado_destinatario' and column_name='ciencia_at') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_comunicado' and column_name='exige_ciencia')"
+    },
+    {
+      "version": "20260923120000",
+      "description": "Jornada transversal de atribuição, revalidação e histórico de ocorrências",
+      "category": "functional",
+      "file": "20260923120000_governanca_ocorrencias_jornada.sql",
+      "checksum": "43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260922200000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.governanca_ocorrencia_historico') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='qualidade_dados_ocorrencia' and column_name='ultimo_resultado')"
     }
   ],
   "compatibilityAfterAll": [

@@ -1,6 +1,8 @@
+using Sigov.Application.Governanca;
+
 namespace Sigov.Web.Models.Governanca;
 
-public sealed record CentralTransversalItem(string Modulo, string Titulo, string Classificacao, string Status, string? Rota,
+public sealed record CentralTransversalItem(long Id, string Modulo, string Titulo, string Classificacao, string Status, string? Rota,
     string? Motivo = null, string? Responsavel = null, DateTimeOffset? Prazo = null, DateTimeOffset? VerificadoEm = null);
 public sealed class CentralTransversalViewModel
 {
@@ -14,4 +16,10 @@ public sealed class CentralTransversalViewModel
     public int Pagina { get; init; } = 1;
     public int Tamanho { get; init; } = 25;
     public IReadOnlyCollection<CentralTransversalItem> Itens { get; init; } = Array.Empty<CentralTransversalItem>();
+}
+
+public sealed class GovernancaOcorrenciaViewModel
+{
+    public required GovernancaOcorrenciaDto Ocorrencia { get; init; }
+    public string? Retorno { get; init; }
 }
