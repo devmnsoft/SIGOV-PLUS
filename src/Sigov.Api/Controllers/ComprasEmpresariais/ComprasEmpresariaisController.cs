@@ -5,7 +5,7 @@ using Sigov.Application.ComprasEmpresariais;
 namespace Sigov.Api.Controllers.ComprasEmpresariais;
 
 [ApiController,Authorize,Route("api/compras-empresariais")]
-public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos):ControllerBase
+public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos,IDivergenciaRecebimentoApplicationService divergencias):ControllerBase
 {
  private ComprasContext Contexto(){if(!Guid.TryParse(User.FindFirst("enterprise_tenant_id")?.Value??User.FindFirst("tenant_id")?.Value,out var t)||t==Guid.Empty)throw new UnauthorizedAccessException("Tenant não resolvido.");if(!Guid.TryParse(User.FindFirst("sub")?.Value,out var u)||u==Guid.Empty)throw new UnauthorizedAccessException("Usuário não resolvido.");return new(t,u,HttpContext.TraceIdentifier);}
  private string Key()=>Request.Headers["Idempotency-Key"].ToString();
@@ -25,4 +25,10 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("recebimentos"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct)=>Ok(await recebimentos.ListarAsync(Contexto(),filtro,ct));
  [HttpGet("recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimento(Guid id,CancellationToken ct){var item=await recebimentos.ObterAsync(Contexto(),id,ct);return item is null?NotFound():Ok(item);}
  [HttpPost("recebimentos/{id:guid}/inspecao"),Authorize(Policy="compras_empresariais.recebimentos.inspecionar")]public async Task<IActionResult> Inspecionar(Guid id,ConcluirInspecaoRequest request,CancellationToken ct)=>Ok(await recebimentos.ConcluirInspecaoAsync(Contexto(),id,request,ct));
+ [HttpGet("divergencias"),Authorize(Policy="compras_empresariais.divergencias.visualizar")]public async Task<IActionResult> Divergencias([FromQuery]DivergenciaFiltro filtro,CancellationToken ct)=>Ok(await divergencias.ListarAsync(Contexto(),filtro,ct));
+ [HttpGet("divergencias/{id:long}"),Authorize(Policy="compras_empresariais.divergencias.visualizar")]public async Task<IActionResult> Divergencia(long id,CancellationToken ct){var item=await divergencias.ObterAsync(Contexto(),id,ct);return item is null?NotFound():Ok(item);}
+ [HttpGet("divergencias/responsaveis"),Authorize(Policy="compras_empresariais.divergencias.atribuir")]public async Task<IActionResult> Responsaveis(string? busca,int pagina=1,int tamanho=20,CancellationToken ct=default)=>Ok(await divergencias.PesquisarResponsaveisAsync(Contexto(),busca,pagina,tamanho,ct));
+ [HttpPost("divergencias/{id:long}/responsavel"),Authorize(Policy="compras_empresariais.divergencias.atribuir")]public async Task<IActionResult> Atribuir(long id,AtribuirDivergenciaRequest request,CancellationToken ct)=>Ok(await divergencias.AtribuirAsync(Contexto(),id,request with{IdempotencyKey=Key()},ct));
+ [HttpPost("divergencias/{id:long}/andamentos"),Authorize(Policy="compras_empresariais.divergencias.tratar")]public async Task<IActionResult> Andamento(long id,RegistrarAndamentoDivergenciaRequest request,CancellationToken ct)=>Ok(await divergencias.RegistrarAndamentoAsync(Contexto(),id,request with{IdempotencyKey=Key()},ct));
+ [HttpPost("divergencias/{id:long}/encerramento"),Authorize(Policy="compras_empresariais.divergencias.encerrar")]public async Task<IActionResult> Encerrar(long id,EncerrarDivergenciaRequest request,CancellationToken ct)=>Ok(await divergencias.EncerrarAsync(Contexto(),id,request with{IdempotencyKey=Key()},ct));
 }

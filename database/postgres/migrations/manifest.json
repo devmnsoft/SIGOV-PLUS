@@ -2540,6 +2540,19 @@
         "20260923120000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento' and column_name='inspecao_hash') and to_regclass('sigov.compras_empresarial_recebimento_divergencia') is not null"
+    },
+    {
+      "version": "20260924160000",
+      "description": "Tratamento auditável e concorrente de divergências de recebimento",
+      "category": "functional",
+      "file": "20260924160000_compras_tratamento_divergencias.sql",
+      "checksum": "cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260924120000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.compras_empresarial_divergencia_idempotencia') is not null and exists(select 1 from pg_constraint where conname='fk_comp_recb_div_evento_tenant')"
     }
   ],
   "compatibilityAfterAll": [
