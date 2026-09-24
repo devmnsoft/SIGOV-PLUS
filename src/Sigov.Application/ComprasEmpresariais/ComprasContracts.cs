@@ -42,6 +42,17 @@ public sealed record RecebimentoEvento(string Tipo, string? Detalhes, DateTimeOf
 public sealed record RecebimentoDetalhe(Guid Id, Guid PedidoId, string PedidoNumero, string Fornecedor, string Documento, string Almoxarifado, DateTimeOffset DataOperacao, string Status, string ResultadoInspecao, string? Observacoes, long Version, IReadOnlyList<RecebimentoItemDetalhe> Itens, IReadOnlyList<RecebimentoEvento> Historico);
 public sealed record InspecaoItemRequest(long RecebimentoItemId, decimal QuantidadeAceita, decimal QuantidadeRejeitada);
 public sealed record ConcluirInspecaoRequest(long Version, string? Justificativa, IReadOnlyList<InspecaoItemRequest> Itens);
+public sealed record DivergenciaFiltro(Guid? RecebimentoId=null,string? Fornecedor=null,string? Produto=null,string? Situacao=null,Guid? ResponsavelId=null,bool NaoAtribuidas=false,DateOnly? AberturaInicial=null,DateOnly? AberturaFinal=null,DateOnly? EncerramentoInicial=null,DateOnly? EncerramentoFinal=null,int Pagina=1,int Tamanho=20);
+public sealed record DivergenciaResumo(long Id,Guid RecebimentoId,string Documento,string PedidoNumero,string Fornecedor,string Produto,string Unidade,decimal QuantidadeRejeitada,string Motivo,string Situacao,Guid? ResponsavelId,string? ResponsavelNome,DateTimeOffset AbertaEm,DateTimeOffset? EncerradaEm,string? Providencia,string? Resultado,long Version);
+public sealed record DivergenciaTotais(long Total,long Abertas,long EmTratamento,long Encerradas,long NaoAtribuidas);
+public sealed record CentralDivergencias(PagedResult<DivergenciaResumo> Resultado,DivergenciaTotais Totais);
+public sealed record DivergenciaEvento(long Id,string Tipo,string? Descricao,string? Providencia,Guid UsuarioId,string Autor,DateTimeOffset OcorridoEm,string? CorrelationId);
+public sealed record DivergenciaDetalhe(long Id,Guid RecebimentoId,long RecebimentoItemId,string Documento,string PedidoNumero,string Fornecedor,string Produto,string Unidade,decimal QuantidadeRejeitada,string Motivo,string Situacao,Guid? ResponsavelId,string? ResponsavelNome,string? Providencia,string? Resultado,string? JustificativaEncerramento,DateTimeOffset AbertaEm,DateTimeOffset? EncerradaEm,long Version,IReadOnlyList<DivergenciaEvento> Historico);
+public sealed record ResponsavelDivergencia(Guid UsuarioId,string Nome,string? Vinculo,string? Unidade);
+public sealed record AtribuirDivergenciaRequest(Guid ResponsavelId,long Version,string IdempotencyKey);
+public sealed record RegistrarAndamentoDivergenciaRequest(string Descricao,string? Providencia,long Version,string IdempotencyKey);
+public sealed record EncerrarDivergenciaRequest(string Resultado,string Justificativa,long Version,string IdempotencyKey);
+public sealed record DivergenciaComandoResultado(long Id,string Situacao,long Version,bool Repetido,bool PendenciaConcluida);
 
 public interface IFornecedorRepository
 {
@@ -53,6 +64,25 @@ public interface IFornecedorRepository
  Task AdicionarEnderecoAsync(ComprasContext context, Guid id, AdicionarEnderecoRequest request, string key, CancellationToken ct);
  Task AdicionarDocumentoAsync(ComprasContext context, Guid id, AdicionarDocumentoRequest request, string key, CancellationToken ct);
 }
+public interface IDivergenciaRecebimentoRepository
+{
+ Task<CentralDivergencias> ListarAsync(Guid tenant,DivergenciaFiltro filtro,CancellationToken ct);
+ Task<DivergenciaDetalhe?> ObterAsync(Guid tenant,long id,CancellationToken ct);
+ Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(Guid tenant,string? busca,int pagina,int tamanho,CancellationToken ct);
+ Task<DivergenciaComandoResultado> AtribuirAsync(ComprasContext context,long id,AtribuirDivergenciaRequest request,CancellationToken ct);
+ Task<DivergenciaComandoResultado> RegistrarAndamentoAsync(ComprasContext context,long id,RegistrarAndamentoDivergenciaRequest request,CancellationToken ct);
+ Task<DivergenciaComandoResultado> EncerrarAsync(ComprasContext context,long id,EncerrarDivergenciaRequest request,CancellationToken ct);
+}
+public interface IDivergenciaRecebimentoApplicationService
+{
+ Task<CentralDivergencias> ListarAsync(ComprasContext context,DivergenciaFiltro filtro,CancellationToken ct);
+ Task<DivergenciaDetalhe?> ObterAsync(ComprasContext context,long id,CancellationToken ct);
+ Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(ComprasContext context,string? busca,int pagina,int tamanho,CancellationToken ct);
+ Task<DivergenciaComandoResultado> AtribuirAsync(ComprasContext context,long id,AtribuirDivergenciaRequest request,CancellationToken ct);
+ Task<DivergenciaComandoResultado> RegistrarAndamentoAsync(ComprasContext context,long id,RegistrarAndamentoDivergenciaRequest request,CancellationToken ct);
+ Task<DivergenciaComandoResultado> EncerrarAsync(ComprasContext context,long id,EncerrarDivergenciaRequest request,CancellationToken ct);
+}
+public sealed class ComprasConcurrencyException(string message):InvalidOperationException(message);
 public interface IRequisicaoCompraRepository
 {
  Task<PagedResult<RequisicaoResumo>> ListarAsync(Guid tenant, RequisicaoFiltro filtro, CancellationToken ct);
