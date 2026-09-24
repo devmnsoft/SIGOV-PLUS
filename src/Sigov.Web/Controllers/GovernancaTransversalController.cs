@@ -64,24 +64,36 @@ public sealed class GovernancaTransversalController : Controller
     }
 
     [HttpGet("/Governanca/Ocorrencias/{tipo}/{id:long}")]
-    public async Task<IActionResult> Detalhe(string tipo, long id, string? retorno, CancellationToken ct)
+    public async Task<IActionResult> Detalhe(string tipo, long id, string? retorno, string? buscaResponsavel,
+        int paginaResponsavel = 1, CancellationToken ct = default)
     {
         if (!HasContext()) return ContextRequired("Detalhe da ocorrência", tipo);
         var item = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
         if (item is null) return NotFound();
-        IReadOnlyCollection<ResponsavelElegivelDto> responsaveis = [];
-        var podeAtribuir = true;
-        try { responsaveis = await _service.BuscarResponsaveisAsync(null, 1, 100, ct).ConfigureAwait(false); }
-        catch (UnauthorizedAccessException) { podeAtribuir = false; }
-        return View("Detalhe", new GovernancaOcorrenciaViewModel { Ocorrencia = item, Retorno = LocalReturn(retorno), Responsaveis = responsaveis, PodeAtribuir = podeAtribuir });
+        return View("Detalhe", await CriarDetalheAsync(item, retorno, buscaResponsavel, paginaResponsavel, null, null, ct).ConfigureAwait(false));
     }
 
     [ValidateAntiForgeryToken, HttpPost("/Governanca/Ocorrencias/{tipo}/{id:long}/atribuir")]
     public async Task<IActionResult> Atribuir(string tipo, long id, long responsavelUsuarioId, long versao, string justificativa, string? retorno, CancellationToken ct)
     {
         if (!HasContext()) return Forbid();
+        if (responsavelUsuarioId <= 0 || string.IsNullOrWhiteSpace(justificativa) || justificativa.Trim().Length > 1000)
+        {
+            var itemInvalido = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
+            if (itemInvalido is null) return NotFound();
+            TempData["Error"] = "Selecione uma pessoa elegível e informe uma justificativa de até 1000 caracteres.";
+            return View("Detalhe", await CriarDetalheAsync(itemInvalido, retorno, null, 1, responsavelUsuarioId,
+                justificativa, ct).ConfigureAwait(false));
+        }
         var result = await _service.AtribuirAsync(tipo, id, responsavelUsuarioId, versao, justificativa, ct).ConfigureAwait(false);
-        TempData[result.Sucesso ? "Toast" : "Error"] = result.Mensagem;
+        if (!result.Sucesso)
+        {
+            var item = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
+            if (item is null) return NotFound();
+            TempData["Error"] = result.Mensagem;
+            return View("Detalhe", await CriarDetalheAsync(item, retorno, null, 1, responsavelUsuarioId, justificativa, ct).ConfigureAwait(false));
+        }
+        TempData["Toast"] = result.Mensagem;
         return RedirectToAction(nameof(Detalhe), new { tipo, id, retorno = LocalReturn(retorno) });
     }
 
@@ -95,6 +107,30 @@ public sealed class GovernancaTransversalController : Controller
     }
 
     private bool HasContext() => _tenant.TenantId is > 0;
+    private async Task<GovernancaOcorrenciaViewModel> CriarDetalheAsync(GovernancaOcorrenciaDto item, string? retorno,
+        string? buscaResponsavel, int paginaResponsavel, long? responsavelInformado, string? justificativaInformada,
+        CancellationToken ct)
+    {
+        const int tamanho = 20;
+        paginaResponsavel = Math.Max(1, paginaResponsavel);
+        IReadOnlyCollection<ResponsavelElegivelDto> responsaveis = [];
+        var podeAtribuir = true;
+        var temProxima = false;
+        try
+        {
+            var pagina = await _service.BuscarResponsaveisAsync(buscaResponsavel, paginaResponsavel, tamanho + 1, ct).ConfigureAwait(false);
+            temProxima = pagina.Count > tamanho;
+            responsaveis = pagina.Take(tamanho).ToArray();
+        }
+        catch (UnauthorizedAccessException) { podeAtribuir = false; }
+        return new GovernancaOcorrenciaViewModel
+        {
+            Ocorrencia = item, Retorno = LocalReturn(retorno), Responsaveis = responsaveis, PodeAtribuir = podeAtribuir,
+            BuscaResponsavel = buscaResponsavel, PaginaResponsavel = paginaResponsavel,
+            TemProximaPaginaResponsavel = temProxima, ResponsavelInformado = responsavelInformado,
+            JustificativaInformada = justificativaInformada
+        };
+    }
     private static string? LocalReturn(string? value) => !string.IsNullOrWhiteSpace(value) && value.StartsWith('/') && !value.StartsWith("//", StringComparison.Ordinal) ? value : null;
     private IActionResult ContextRequired(string title, string type)
     {

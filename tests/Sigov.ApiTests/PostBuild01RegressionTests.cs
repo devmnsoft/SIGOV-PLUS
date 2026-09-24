@@ -83,6 +83,9 @@ public sealed class PostBuild01RegressionTests
         detail.Should().Contain("Para que serve")
             .And.Contain("Como funciona")
             .And.Contain("Regras importantes")
-            .And.Contain("Próximo passo");
+            .And.Contain("Próximo passo")
+            .And.Contain("buscaResponsavel")
+            .And.Contain("JustificativaInformada")
+            .And.Contain("TemProximaPaginaResponsavel");
     }
 }
