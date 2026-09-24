@@ -22,17 +22,63 @@ public sealed class TransversalGovernancaService : ITransversalGovernancaService
         _connections = connections; _inspector = inspector; _tenant = tenant; _user = user; _audit = audit; _logger = logger;
     }
 
-    public async Task<IReadOnlyCollection<PendenciaOperacionalDto>> ListarPendenciasAsync(string? modulo, string? gravidade, int pagina, int tamanho, CancellationToken ct)
+    public async Task<PendenciasPaginaDto> ListarPendenciasAsync(PendenciaOperacionalFiltro filtro, CancellationToken ct)
     {
         Demand("governanca.pendencias.visualizar");
         await RequireTable("pendencia_operacional", ct).ConfigureAwait(false);
-        const string sql = @"select id, modulo, recurso, tipo, entidade, entidade_id as EntidadeId, gravidade, titulo,
-descricao, prazo, responsavel_usuario_id as ResponsavelUsuarioId, rota_acao as RotaAcao, status, created_at as CreatedAt
-from sigov.pendencia_operacional where tenant_id=@TenantId and status in ('ABERTA','EM_TRATAMENTO')
-and (@Modulo is null or modulo=@Modulo) and (@Gravidade is null or gravidade=@Gravidade)
-order by case gravidade when 'CRITICA' then 1 when 'ALTA' then 2 when 'MEDIA' then 3 when 'BAIXA' then 4 else 5 end, prazo nulls last, id
-limit @Limit offset @Offset";
-        return await QuerySafe<PendenciaOperacionalDto>(sql, new { TenantId = Tenant(), Modulo = Normalize(modulo), Gravidade = Normalize(gravidade), Limit = Size(tamanho), Offset = Offset(pagina, tamanho) }, ct).ConfigureAwait(false);
+        var pagina = Math.Max(1, filtro.Pagina); var tamanho = Math.Clamp(filtro.Tamanho, 1, 100);
+        var visao = Normalize(filtro.Visao) ?? "MINHAS";
+        if (visao is not ("MINHAS" or "NAO_ATRIBUIDAS" or "TODAS" or "ENCERRADAS")) throw new ArgumentException("Visão de trabalho inválida.", nameof(filtro));
+        var ordem = Normalize(filtro.Ordenacao) is "ABERTURA_DESC" ? "ABERTURA_DESC" : "PRIORIDADE";
+        const string sql = @"with autorizadas as (
+select po.id,po.modulo,po.recurso,po.tipo,po.entidade,po.entidade_id,po.gravidade,po.titulo,po.descricao,po.prazo,
+po.responsavel_usuario_id,po.rota_acao,po.status,po.created_at,po.resolved_at,coalesce(pe.nome_social,pe.nome,u.login) responsavel_nome
+from sigov.pendencia_operacional po
+left join sigov.usuario u on u.id=po.responsavel_usuario_id and u.tenant_id=po.tenant_id
+left join sigov.pessoa pe on pe.id=u.pessoa_id
+where po.tenant_id=@TenantId
+and (case @Visao when 'MINHAS' then po.status in ('ABERTA','EM_TRATAMENTO') and po.responsavel_usuario_id=@UsuarioId
+when 'NAO_ATRIBUIDAS' then po.status in ('ABERTA','EM_TRATAMENTO') and po.responsavel_usuario_id is null
+when 'ENCERRADAS' then po.status in ('RESOLVIDA','CANCELADA') else true end)
+and (@Modulo is null or po.modulo=@Modulo) and (@Gravidade is null or po.gravidade=@Gravidade)
+and (@Situacao is null or po.status=@Situacao) and (@Responsavel is null or po.responsavel_usuario_id=@Responsavel)
+and (@Prazo is null or (@Prazo='VENCIDAS' and po.prazo is not null and po.prazo<now() and po.status in ('ABERTA','EM_TRATAMENTO'))
+ or (@Prazo='FUTURO' and po.prazo>=now()) or (@Prazo='SEM_PRAZO' and po.prazo is null))
+and (@AberturaDe is null or po.created_at>=@AberturaDe) and (@AberturaAte is null or po.created_at<@AberturaAte + interval '1 day')
+and (@EncerramentoDe is null or po.resolved_at>=@EncerramentoDe) and (@EncerramentoAte is null or po.resolved_at<@EncerramentoAte + interval '1 day')
+), pagina as (select * from autorizadas order by
+case when @Ordem='PRIORIDADE' then case gravidade when 'CRITICA' then 1 when 'ALTA' then 2 when 'MEDIA' then 3 when 'BAIXA' then 4 else 5 end end,
+case when @Ordem='PRIORIDADE' then prazo end nulls last,created_at desc,id desc limit @Limit offset @Offset)
+select id,modulo,recurso,tipo,entidade,entidade_id as EntidadeId,gravidade,titulo,descricao,prazo,
+responsavel_usuario_id as ResponsavelUsuarioId,rota_acao as RotaAcao,status,created_at as CreatedAt,responsavel_nome as ResponsavelNome from pagina;
+with autorizadas as (
+select po.id,po.modulo,po.recurso,po.tipo,po.entidade,po.entidade_id,po.gravidade,po.titulo,po.descricao,po.prazo,
+po.responsavel_usuario_id,po.rota_acao,po.status,po.created_at,po.resolved_at,coalesce(pe.nome_social,pe.nome,u.login) responsavel_nome
+from sigov.pendencia_operacional po
+left join sigov.usuario u on u.id=po.responsavel_usuario_id and u.tenant_id=po.tenant_id
+left join sigov.pessoa pe on pe.id=u.pessoa_id
+where po.tenant_id=@TenantId
+and (case @Visao when 'MINHAS' then po.status in ('ABERTA','EM_TRATAMENTO') and po.responsavel_usuario_id=@UsuarioId
+when 'NAO_ATRIBUIDAS' then po.status in ('ABERTA','EM_TRATAMENTO') and po.responsavel_usuario_id is null
+when 'ENCERRADAS' then po.status in ('RESOLVIDA','CANCELADA') else true end)
+and (@Modulo is null or po.modulo=@Modulo) and (@Gravidade is null or po.gravidade=@Gravidade)
+and (@Situacao is null or po.status=@Situacao) and (@Responsavel is null or po.responsavel_usuario_id=@Responsavel)
+and (@Prazo is null or (@Prazo='VENCIDAS' and po.prazo is not null and po.prazo<now() and po.status in ('ABERTA','EM_TRATAMENTO'))
+ or (@Prazo='FUTURO' and po.prazo>=now()) or (@Prazo='SEM_PRAZO' and po.prazo is null))
+and (@AberturaDe is null or po.created_at>=@AberturaDe) and (@AberturaAte is null or po.created_at<@AberturaAte + interval '1 day')
+and (@EncerramentoDe is null or po.resolved_at>=@EncerramentoDe) and (@EncerramentoAte is null or po.resolved_at<@EncerramentoAte + interval '1 day')
+)
+select count(*) TotalFiltrado,count(*) filter(where prazo is not null and prazo<now() and status in ('ABERTA','EM_TRATAMENTO')) Vencidas,
+count(*) filter(where prazo>=now() and status in ('ABERTA','EM_TRATAMENTO')) PrazoFuturo,count(*) filter(where prazo is null) SemPrazo,
+count(*) filter(where responsavel_usuario_id is null) NaoAtribuidas,count(*) filter(where status in ('RESOLVIDA','CANCELADA')) Encerradas from autorizadas";
+        var args = new { TenantId = Tenant(), UsuarioId = _user.UsuarioId, Visao = visao, Modulo = Normalize(filtro.Modulo),
+            Gravidade = Normalize(filtro.Classificacao), Situacao = Normalize(filtro.Situacao), filtro.ResponsavelUsuarioId,
+            Responsavel = filtro.ResponsavelUsuarioId, Prazo = Normalize(filtro.Prazo), filtro.AberturaDe, filtro.AberturaAte,
+            filtro.EncerramentoDe, filtro.EncerramentoAte, Ordem = ordem, Limit = tamanho, Offset = Offset(pagina, tamanho) };
+        using var connection = _connections.CreateConnection(); using var multi = await connection.QueryMultipleAsync(new CommandDefinition(sql, args, cancellationToken: ct)).ConfigureAwait(false);
+        var itens = (await multi.ReadAsync<PendenciaOperacionalDto>().ConfigureAwait(false)).AsList();
+        var indicadores = await multi.ReadSingleAsync<PendenciaIndicadoresDto>().ConfigureAwait(false);
+        return new(itens, pagina, tamanho, indicadores.TotalFiltrado, pagina * (long)tamanho < indicadores.TotalFiltrado, ordem, indicadores);
     }
 
     public async Task<IReadOnlyCollection<AlertaOperacionalDto>> ListarAlertasAsync(string? tipo, string? severidade, int pagina, int tamanho, CancellationToken ct)
@@ -71,7 +117,7 @@ and (@Severidade is null or severidade=@Severidade) order by detected_at desc, i
             : @"select x.id,'pendencia' as Tipo,x.modulo,x.titulo,x.coalesce_descricao as Descricao,x.tipo as RegraOuMotivo,x.entidade,x.entidade_id as EntidadeId,x.gravidade as Classificacao,x.status,x.rota_acao as RotaOrigem,x.responsavel_usuario_id as ResponsavelUsuarioId,coalesce(p.nome_social,p.nome,u.login) as ResponsavelNome,x.prazo,x.created_at as DetectadaEm,null::timestamptz as VerificadaEm,null::varchar as UltimoResultado,x.versao from (select p.*,coalesce(p.descricao,p.titulo) coalesce_descricao from sigov.pendencia_operacional p) x left join sigov.usuario u on u.id=x.responsavel_usuario_id left join sigov.pessoa p on p.id=u.pessoa_id where x.tenant_id=@TenantId and x.id=@Id";
         var item = await connection.QuerySingleOrDefaultAsync<OccurrenceRow>(new CommandDefinition(sql, new { TenantId = tenantId, Id = id }, cancellationToken: ct)).ConfigureAwait(false);
         if (item is null) return null;
-        var history = (await connection.QueryAsync<GovernancaHistoricoDto>(new CommandDefinition(@"select id,evento,usuario_id as UsuarioId,justificativa,ocorrido_em as OcorridoEm from sigov.governanca_ocorrencia_historico where tenant_id=@TenantId and ocorrencia_tipo=@Tipo and ocorrencia_id=@Id order by ocorrido_em desc,id desc", new { TenantId = tenantId, Tipo = quality ? "QUALIDADE" : "PENDENCIA", Id = id }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
+        var history = (await connection.QueryAsync<GovernancaHistoricoDto>(new CommandDefinition(@"select h.id,h.evento,h.usuario_id as UsuarioId,h.justificativa,h.ocorrido_em as OcorridoEm,coalesce(p.nome_social,p.nome,u.login) as UsuarioNome from sigov.governanca_ocorrencia_historico h left join sigov.usuario u on u.id=h.usuario_id and u.tenant_id=h.tenant_id left join sigov.pessoa p on p.id=u.pessoa_id where h.tenant_id=@TenantId and h.ocorrencia_tipo=@Tipo and h.ocorrencia_id=@Id order by h.ocorrido_em desc,h.id desc", new { TenantId = tenantId, Tipo = quality ? "QUALIDADE" : "PENDENCIA", Id = id }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
         return new(item.Id, item.Tipo, item.Modulo, item.Titulo, item.Descricao, item.RegraOuMotivo, item.Entidade, item.EntidadeId, item.Classificacao, item.Status, SafeRoute(item.RotaOrigem), item.ResponsavelUsuarioId, item.ResponsavelNome, item.Prazo, item.DetectadaEm, item.VerificadaEm, item.UltimoResultado, item.Versao, history);
     }
 
@@ -90,10 +136,12 @@ and (@Severidade is null or severidade=@Severidade) order by detected_at desc, i
         await tx.CommitAsync(ct).ConfigureAwait(false); return new(true, "ATRIBUIDA", "Responsabilidade atualizada com histórico; a atribuição não concede acesso ao registro de origem.", next.Value);
     }
 
-    public async Task<IReadOnlyCollection<ResponsavelElegivelDto>> BuscarResponsaveisAsync(string? busca, int pagina, int tamanho, CancellationToken ct)
+    public async Task<ResponsaveisElegiveisPaginaDto> BuscarResponsaveisAsync(string? busca, int pagina, int tamanhoLogico, CancellationToken ct)
     {
         Demand("governanca.ocorrencias.atribuir");
-        var term = string.IsNullOrWhiteSpace(busca) ? null : $"%{busca.Trim()}%";
+        pagina = Math.Max(1, pagina); tamanhoLogico = Math.Clamp(tamanhoLogico, 1, 50);
+        var texto = string.IsNullOrWhiteSpace(busca) ? null : busca.Trim()[..Math.Min(busca.Trim().Length, 120)];
+        var term = texto is null ? null : $"%{texto}%";
         const string sql = @"select u.id as UsuarioId,coalesce(p.nome_social,p.nome,u.login) as Nome,un.nome as Unidade,'ATIVO' as Situacao
 from sigov.usuario u left join sigov.pessoa p on p.id=u.pessoa_id
 left join sigov.usuario_entidade ue on ue.usuario_id=u.id and ue.entidade_id=@EntidadeId and ue.ativo
@@ -101,9 +149,18 @@ left join sigov.entidade un on un.id=ue.entidade_id
 where u.tenant_id=@TenantId and u.ativo and not u.bloqueado and not u.is_deleted
 and (@EntidadeId is null or ue.usuario_id is not null)
 and (@ExercicioId is null or exists(select 1 from sigov.usuario_exercicio ux where ux.usuario_id=u.id and ux.exercicio_id=@ExercicioId and ux.ativo))
-and (@Term is null or coalesce(p.nome_social,p.nome,u.login) ilike @Term)
+and (@Term is null or p.nome_social ilike @Term or p.nome ilike @Term or u.login ilike @Term)
 order by coalesce(p.nome_social,p.nome,u.login),u.id limit @Limit offset @Offset";
-        return await QuerySafe<ResponsavelElegivelDto>(sql, new { TenantId = Tenant(), _tenant.EntidadeId, _tenant.ExercicioId, Term = term, Limit = Size(tamanho), Offset = Offset(pagina, tamanho) }, ct).ConfigureAwait(false);
+        var found = await QuerySafe<ResponsavelElegivelDto>(sql, new { TenantId = Tenant(), _tenant.EntidadeId, _tenant.ExercicioId, Term = term, Limit = tamanhoLogico + 1, Offset = Offset(pagina, tamanhoLogico) }, ct).ConfigureAwait(false);
+        return new(found.Take(tamanhoLogico).ToArray(), pagina, tamanhoLogico, found.Count > tamanhoLogico);
+    }
+
+    public async Task<ResponsavelElegivelDto?> ObterResponsavelElegivelAsync(long usuarioId, CancellationToken ct)
+    {
+        var page = await BuscarResponsaveisAsync(usuarioId.ToString(System.Globalization.CultureInfo.InvariantCulture), 1, 1, ct).ConfigureAwait(false);
+        if (page.Itens.FirstOrDefault(x => x.UsuarioId == usuarioId) is { } bySearch) return bySearch;
+        const string sql = @"select u.id UsuarioId,coalesce(p.nome_social,p.nome,u.login) Nome,un.nome Unidade,'ATIVO' Situacao from sigov.usuario u left join sigov.pessoa p on p.id=u.pessoa_id left join sigov.usuario_entidade ue on ue.usuario_id=u.id and ue.entidade_id=@EntidadeId and ue.ativo left join sigov.entidade un on un.id=ue.entidade_id where u.id=@UsuarioId and u.tenant_id=@TenantId and u.ativo and not u.bloqueado and not u.is_deleted and (@EntidadeId is null or ue.usuario_id is not null) and (@ExercicioId is null or exists(select 1 from sigov.usuario_exercicio ux where ux.usuario_id=u.id and ux.exercicio_id=@ExercicioId and ux.ativo))";
+        return (await QuerySafe<ResponsavelElegivelDto>(sql, new { UsuarioId = usuarioId, TenantId = Tenant(), _tenant.EntidadeId, _tenant.ExercicioId }, ct).ConfigureAwait(false)).SingleOrDefault();
     }
 
     public async Task<GovernancaComandoResultado> RevalidarQualidadeAsync(long id, long versao, CancellationToken ct)

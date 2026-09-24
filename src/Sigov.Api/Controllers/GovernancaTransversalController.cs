@@ -15,9 +15,13 @@ public sealed class GovernancaTransversalController : ControllerBase
     public GovernancaTransversalController(ITransversalGovernancaService service, ICurrentTenant tenant) => (_service, _tenant) = (service, tenant);
 
     [HttpGet("api/pendencias")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<PendenciaOperacionalDto>>>> Pendencias(
-        [FromQuery] string? modulo, [FromQuery] string? gravidade, [FromQuery] int pagina = 1, [FromQuery] int tamanho = 50, CancellationToken ct = default)
-        { if (!HasContext()) return ContextRequired<IReadOnlyCollection<PendenciaOperacionalDto>>(); return Ok(ApiResponse<IReadOnlyCollection<PendenciaOperacionalDto>>.Ok(await _service.ListarPendenciasAsync(modulo, gravidade, pagina, tamanho, ct).ConfigureAwait(false))); }
+    public async Task<ActionResult<ApiResponse<PendenciasPaginaDto>>> Pendencias(
+        [FromQuery] string visao = "MINHAS", [FromQuery] string? modulo = null, [FromQuery] string? situacao = null,
+        [FromQuery] string? gravidade = null, [FromQuery] long? responsavelUsuarioId = null, [FromQuery] string? prazo = null,
+        [FromQuery] DateOnly? aberturaDe = null, [FromQuery] DateOnly? aberturaAte = null,
+        [FromQuery] DateOnly? encerramentoDe = null, [FromQuery] DateOnly? encerramentoAte = null,
+        [FromQuery] int pagina = 1, [FromQuery] int tamanho = 50, [FromQuery] string ordenacao = "PRIORIDADE", CancellationToken ct = default)
+    { if (!HasContext()) return ContextRequired<PendenciasPaginaDto>(); var filtro = new PendenciaOperacionalFiltro(visao, modulo, situacao, gravidade, responsavelUsuarioId, prazo, aberturaDe, aberturaAte, encerramentoDe, encerramentoAte, pagina, tamanho, ordenacao); return Ok(ApiResponse<PendenciasPaginaDto>.Ok(await _service.ListarPendenciasAsync(filtro, ct).ConfigureAwait(false))); }
 
     [HttpGet("api/alertas")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<AlertaOperacionalDto>>>> Alertas(
@@ -62,9 +66,7 @@ public sealed class GovernancaTransversalController : ControllerBase
         if (!HasContext()) return ContextRequired<ResponsaveisElegiveisPaginaDto>();
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 50);
-        var encontrados = await _service.BuscarResponsaveisAsync(busca, pagina, tamanho + 1, ct).ConfigureAwait(false);
-        var resposta = new ResponsaveisElegiveisPaginaDto(encontrados.Take(tamanho).ToArray(), pagina, tamanho,
-            encontrados.Count > tamanho);
+        var resposta = await _service.BuscarResponsaveisAsync(busca, pagina, tamanho, ct).ConfigureAwait(false);
         return Ok(ApiResponse<ResponsaveisElegiveisPaginaDto>.Ok(resposta));
     }
 
