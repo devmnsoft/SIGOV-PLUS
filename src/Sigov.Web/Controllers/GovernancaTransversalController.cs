@@ -16,12 +16,23 @@ public sealed class GovernancaTransversalController : Controller
         => (_service, _tenant, _logger) = (service, tenant, logger);
 
     [HttpGet("/Pendencias")]
-    public async Task<IActionResult> Pendencias(string? modulo, string? gravidade, int pagina = 1, int tamanho = 25, CancellationToken ct = default)
+    public async Task<IActionResult> Pendencias(string visao = "MINHAS", string? modulo = null, string? situacao = null,
+        string? gravidade = null, long? responsavelUsuarioId = null, string? prazo = null, DateOnly? aberturaDe = null,
+        DateOnly? aberturaAte = null, DateOnly? encerramentoDe = null, DateOnly? encerramentoAte = null,
+        int pagina = 1, int tamanho = 25, string ordenacao = "PRIORIDADE", CancellationToken ct = default)
     {
         if (!HasContext()) return ContextRequired("Central de Pendências", "pendencia");
-        var data = await _service.ListarPendenciasAsync(modulo, gravidade, pagina, tamanho, ct).ConfigureAwait(false);
-        return View("Central", Model("Central de Pendências", "Trabalho real em aberto no contexto e escopo autorizados.", "pendencia", modulo, gravidade, pagina, tamanho,
-            data.Select(x => new CentralTransversalItem(x.Id, x.Modulo, x.Titulo, x.Gravidade, x.Status, x.RotaAcao, x.Descricao, x.ResponsavelUsuarioId is null ? "Não atribuído" : $"Responsável #{x.ResponsavelUsuarioId}", x.Prazo))));
+        var filtro = new PendenciaOperacionalFiltro(visao, modulo, situacao, gravidade, responsavelUsuarioId, prazo,
+            aberturaDe, aberturaAte, encerramentoDe, encerramentoAte, pagina, tamanho, ordenacao);
+        var data = await _service.ListarPendenciasAsync(filtro, ct).ConfigureAwait(false);
+        var model = Model("Fila operacional", "Trabalho autorizado para atribuir, acompanhar, executar na origem e consultar após o encerramento.", "pendencia", modulo, gravidade, data.Pagina, data.Tamanho,
+            data.Itens.Select(x => new CentralTransversalItem(x.Id, x.Modulo, x.Titulo, x.Gravidade, x.Status, x.RotaAcao, x.Descricao, x.ResponsavelNome ?? "Não atribuído", x.Prazo, Abertura: x.CreatedAt)));
+        return View("Central", new CentralTransversalViewModel { Titulo=model.Titulo, Descricao=model.Descricao, Tipo=model.Tipo,
+            ContextoSelecionado=model.ContextoSelecionado, ContextoNome=model.ContextoNome, Modulo=modulo, Classificacao=gravidade,
+            Pagina=data.Pagina, Tamanho=data.Tamanho, Itens=model.Itens, Total=data.Total, TemProximaPagina=data.TemProximaPagina,
+            Visao=visao, Situacao=situacao, Prazo=prazo, ResponsavelUsuarioId=responsavelUsuarioId, AberturaDe=aberturaDe,
+            AberturaAte=aberturaAte, EncerramentoDe=encerramentoDe, EncerramentoAte=encerramentoAte,
+            Ordenacao=data.Ordenacao, Indicadores=data.Indicadores });
     }
 
     [HttpGet("/Alertas")]
@@ -70,7 +81,7 @@ public sealed class GovernancaTransversalController : Controller
         if (!HasContext()) return ContextRequired("Detalhe da ocorrência", tipo);
         var item = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
         if (item is null) return NotFound();
-        return View("Detalhe", await CriarDetalheAsync(item, retorno, buscaResponsavel, paginaResponsavel, null, null, ct).ConfigureAwait(false));
+        return View("Detalhe", await CriarDetalheAsync(item, retorno, buscaResponsavel, paginaResponsavel, null, null, false, ct).ConfigureAwait(false));
     }
 
     [ValidateAntiForgeryToken, HttpPost("/Governanca/Ocorrencias/{tipo}/{id:long}/atribuir")]
@@ -83,7 +94,7 @@ public sealed class GovernancaTransversalController : Controller
             if (itemInvalido is null) return NotFound();
             TempData["Error"] = "Selecione uma pessoa elegível e informe uma justificativa de até 1000 caracteres.";
             return View("Detalhe", await CriarDetalheAsync(itemInvalido, retorno, null, 1, responsavelUsuarioId,
-                justificativa, ct).ConfigureAwait(false));
+                justificativa, false, ct).ConfigureAwait(false));
         }
         var result = await _service.AtribuirAsync(tipo, id, responsavelUsuarioId, versao, justificativa, ct).ConfigureAwait(false);
         if (!result.Sucesso)
@@ -91,7 +102,8 @@ public sealed class GovernancaTransversalController : Controller
             var item = await _service.ObterOcorrenciaAsync(tipo, id, ct).ConfigureAwait(false);
             if (item is null) return NotFound();
             TempData["Error"] = result.Mensagem;
-            return View("Detalhe", await CriarDetalheAsync(item, retorno, null, 1, responsavelUsuarioId, justificativa, ct).ConfigureAwait(false));
+            return View("Detalhe", await CriarDetalheAsync(item, retorno, null, 1, responsavelUsuarioId, justificativa,
+                result.Codigo == "CONFLITO", ct).ConfigureAwait(false));
         }
         TempData["Toast"] = result.Mensagem;
         return RedirectToAction(nameof(Detalhe), new { tipo, id, retorno = LocalReturn(retorno) });
@@ -109,7 +121,7 @@ public sealed class GovernancaTransversalController : Controller
     private bool HasContext() => _tenant.TenantId is > 0;
     private async Task<GovernancaOcorrenciaViewModel> CriarDetalheAsync(GovernancaOcorrenciaDto item, string? retorno,
         string? buscaResponsavel, int paginaResponsavel, long? responsavelInformado, string? justificativaInformada,
-        CancellationToken ct)
+        bool conflito, CancellationToken ct)
     {
         const int tamanho = 20;
         paginaResponsavel = Math.Max(1, paginaResponsavel);
@@ -118,9 +130,15 @@ public sealed class GovernancaTransversalController : Controller
         var temProxima = false;
         try
         {
-            var pagina = await _service.BuscarResponsaveisAsync(buscaResponsavel, paginaResponsavel, tamanho + 1, ct).ConfigureAwait(false);
-            temProxima = pagina.Count > tamanho;
-            responsaveis = pagina.Take(tamanho).ToArray();
+            var resultado = await _service.BuscarResponsaveisAsync(buscaResponsavel, paginaResponsavel, tamanho, ct).ConfigureAwait(false);
+            temProxima = resultado.TemProximaPagina;
+            responsaveis = resultado.Itens;
+            var selecionado = responsavelInformado ?? item.ResponsavelUsuarioId;
+            if (selecionado.HasValue && responsaveis.All(x => x.UsuarioId != selecionado.Value))
+            {
+                var elegivel = await _service.ObterResponsavelElegivelAsync(selecionado.Value, ct).ConfigureAwait(false);
+                if (elegivel is not null) responsaveis = responsaveis.Append(elegivel).ToArray();
+            }
         }
         catch (UnauthorizedAccessException) { podeAtribuir = false; }
         return new GovernancaOcorrenciaViewModel
@@ -128,7 +146,9 @@ public sealed class GovernancaTransversalController : Controller
             Ocorrencia = item, Retorno = LocalReturn(retorno), Responsaveis = responsaveis, PodeAtribuir = podeAtribuir,
             BuscaResponsavel = buscaResponsavel, PaginaResponsavel = paginaResponsavel,
             TemProximaPaginaResponsavel = temProxima, ResponsavelInformado = responsavelInformado,
-            JustificativaInformada = justificativaInformada
+            JustificativaInformada = justificativaInformada, Conflito = conflito,
+            ResponsavelInformadoElegivel = !responsavelInformado.HasValue || responsaveis.Any(x => x.UsuarioId == responsavelInformado),
+            DraftKey = $"sigov:governanca:{_tenant.TenantId}:{User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value}:{item.Tipo}:{item.Id}"
         };
     }
     private static string? LocalReturn(string? value) => !string.IsNullOrWhiteSpace(value) && value.StartsWith('/') && !value.StartsWith("//", StringComparison.Ordinal) ? value : null;

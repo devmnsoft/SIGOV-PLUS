@@ -88,4 +88,41 @@ public sealed class PostBuild01RegressionTests
             .And.Contain("JustificativaInformada")
             .And.Contain("TemProximaPaginaResponsavel");
     }
+
+    [Fact]
+    public void Responsaveis_Deve_Paginar_45_Sem_Salto_E_Buscar_Nome_Ou_Login()
+    {
+        const int total = 45, tamanho = 20;
+        var ids = Enumerable.Range(1, total).ToArray();
+        var paginas = Enumerable.Range(1, 3)
+            .SelectMany(pagina => ids.Skip((pagina - 1) * tamanho).Take(tamanho))
+            .ToArray();
+
+        paginas.Should().Equal(ids);
+        paginas.Distinct().Should().HaveCount(total);
+        ids.Skip(0).Take(tamanho).Should().HaveCount(20);
+        ids.Skip(20).Take(tamanho).Should().HaveCount(20);
+        ids.Skip(40).Take(tamanho).Should().HaveCount(5);
+
+        var service = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Governanca/TransversalGovernancaService.cs"));
+        service.Should().Contain("Offset = Offset(pagina, tamanhoLogico)")
+            .And.Contain("Limit = tamanhoLogico + 1")
+            .And.Contain("p.nome_social ilike @Term or p.nome ilike @Term or u.login ilike @Term")
+            .And.Contain("order by coalesce(p.nome_social,p.nome,u.login),u.id");
+    }
+
+    [Fact]
+    public void Fila_Operacional_Deve_Expor_Visoes_Totais_E_Revisao_De_Conflito()
+    {
+        var contracts = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Governanca/TransversalContracts.cs"));
+        var service = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Governanca/TransversalGovernancaService.cs"));
+        var detail = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/GovernancaTransversal/Detalhe.cshtml"));
+
+        contracts.Should().Contain("PendenciasPaginaDto").And.Contain("TotalFiltrado").And.Contain("TemProximaPagina");
+        service.Should().Contain("'MINHAS'").And.Contain("'NAO_ATRIBUIDAS'").And.Contain("'ENCERRADAS'")
+            .And.Contain("prazo is not null and prazo<now()")
+            .And.Contain("status in ('RESOLVIDA','CANCELADA')");
+        detail.Should().Contain("Revisão obrigatória").And.Contain("confirmarRevisao")
+            .And.Contain("sessionStorage").And.Contain("ResponsavelInformadoElegivel");
+    }
 }
