@@ -55,6 +55,19 @@ public sealed class GovernancaTransversalController : ControllerBase
         return result.Sucesso ? Ok(ApiResponse<GovernancaComandoResultado>.Ok(result)) : Conflict(ApiResponse<GovernancaComandoResultado>.Fail(result.Mensagem));
     }
 
+    [HttpGet("api/governanca/responsaveis-elegiveis")]
+    public async Task<ActionResult<ApiResponse<ResponsaveisElegiveisPaginaDto>>> ResponsaveisElegiveis(
+        [FromQuery] string? busca, [FromQuery] int pagina = 1, [FromQuery] int tamanho = 20, CancellationToken ct = default)
+    {
+        if (!HasContext()) return ContextRequired<ResponsaveisElegiveisPaginaDto>();
+        pagina = Math.Max(1, pagina);
+        tamanho = Math.Clamp(tamanho, 1, 50);
+        var encontrados = await _service.BuscarResponsaveisAsync(busca, pagina, tamanho + 1, ct).ConfigureAwait(false);
+        var resposta = new ResponsaveisElegiveisPaginaDto(encontrados.Take(tamanho).ToArray(), pagina, tamanho,
+            encontrados.Count > tamanho);
+        return Ok(ApiResponse<ResponsaveisElegiveisPaginaDto>.Ok(resposta));
+    }
+
     [HttpPost("api/governanca/ocorrencias/qualidade/{id:long}/revalidar")]
     public async Task<ActionResult<ApiResponse<GovernancaComandoResultado>>> Revalidar(long id, GovernancaRevalidarRequest request, CancellationToken ct)
     {

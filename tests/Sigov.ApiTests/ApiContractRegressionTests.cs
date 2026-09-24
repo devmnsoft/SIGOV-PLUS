@@ -179,6 +179,7 @@ public sealed class ApiContractRegressionTests : IClassFixture<SigovApiFactory>
     [Theory]
     [InlineData("api/integracoes-internas", typeof(Sigov.Api.Controllers.InternalIntegrationsController), "List")]
     [InlineData("api/governanca-transversal/integracoes-internas", typeof(Sigov.Api.Controllers.GovernancaTransversalController), "Integracoes")]
+    [InlineData("api/governanca/responsaveis-elegiveis", typeof(Sigov.Api.Controllers.GovernancaTransversalController), "ResponsaveisElegiveis")]
     public void Rotas_De_Integracoes_Devem_Resolver_Para_Uma_Unica_Action(
         string path,
         Type expectedController,

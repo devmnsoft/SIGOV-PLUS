@@ -24,4 +24,9 @@ public sealed class GovernancaOcorrenciaViewModel
     public string? Retorno { get; init; }
     public IReadOnlyCollection<ResponsavelElegivelDto> Responsaveis { get; init; } = Array.Empty<ResponsavelElegivelDto>();
     public bool PodeAtribuir { get; init; }
+    public string? BuscaResponsavel { get; init; }
+    public int PaginaResponsavel { get; init; } = 1;
+    public bool TemProximaPaginaResponsavel { get; init; }
+    public long? ResponsavelInformado { get; init; }
+    public string? JustificativaInformada { get; init; }
 }

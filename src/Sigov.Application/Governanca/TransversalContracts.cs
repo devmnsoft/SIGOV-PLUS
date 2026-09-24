@@ -19,6 +19,8 @@ public sealed record GovernancaOcorrenciaDto(long Id, string Tipo, string Modulo
     DateTimeOffset? VerificadaEm, string? UltimoResultado, long Versao, IReadOnlyCollection<GovernancaHistoricoDto> Historico);
 public sealed record GovernancaComandoResultado(bool Sucesso, string Codigo, string Mensagem, long Versao);
 public sealed record ResponsavelElegivelDto(long UsuarioId, string Nome, string? Unidade, string Situacao);
+public sealed record ResponsaveisElegiveisPaginaDto(IReadOnlyCollection<ResponsavelElegivelDto> Itens,
+    int Pagina, int Tamanho, bool TemProximaPagina);
 
 public sealed record IntegracaoInternaDto(string Origem, string Destino, string Status, DateTimeOffset? UltimoEvento,
     long QuantidadePendente, long QuantidadeErro, string? RotaCorrecao, bool Preparatoria);
