@@ -221,7 +221,9 @@ select exists (
         ('20260922160000', array['3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f']::text[]),
         ('20260922200000', array['d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803']::text[]),
         ('20260923120000', array['43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25']::text[]),
-        ('20260924120000', array['a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32']::text[])
+        ('20260924120000', array['a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32']::text[]),
+        ('20260924160000', array['cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b']::text[]),
+        ('20260924210000', array['0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -31634,6 +31636,106 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20260924160000_compras_tratamento_divergencias.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b
+-- ==================================================
+-- Tratamento administrativo auditável das divergências de recebimento.
+do $$
+declare inconsistentes bigint;
+begin
+ select count(*) into inconsistentes
+ from sigov.compras_empresarial_recebimento_divergencia d
+ left join sigov.compras_empresarial_recebimento_item i on (i.tenant_id,i.recebimento_id,i.id)=(d.tenant_id,d.recebimento_id,d.recebimento_item_id)
+ where i.id is null;
+ if inconsistentes>0 then raise exception 'Integridade de divergências: % registro(s) possuem item fora do recebimento/tenant; restrições não aplicadas.',inconsistentes; end if;
+ select count(*) into inconsistentes from sigov.compras_empresarial_recebimento_divergencia d left join sigov.os_tecnico t on (t.tenant_id,t.usuario_id)=(d.tenant_id,d.responsavel_id) where d.responsavel_id is not null and (t.usuario_id is null or t.is_deleted);
+ if inconsistentes>0 then raise exception 'Integridade de responsáveis: % registro(s) possuem identidade inelegível ou fora do tenant; restrições não aplicadas.',inconsistentes; end if;
+ select count(*) into inconsistentes from sigov.compras_empresarial_recebimento_divergencia_evento e left join sigov.compras_empresarial_recebimento_divergencia d on (d.tenant_id,d.id)=(e.tenant_id,e.divergencia_id) where d.id is null;
+ if inconsistentes>0 then raise exception 'Integridade de eventos: % registro(s) apontam para divergência de outro tenant ou inexistente; restrições não aplicadas.',inconsistentes; end if;
+end $$;
+
+do $$ begin
+ if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento'::regclass and conname='ux_comp_recb_tenant_id') then alter table sigov.compras_empresarial_recebimento add constraint ux_comp_recb_tenant_id unique(tenant_id,id); end if;
+ if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_item'::regclass and conname='ux_comp_recb_item_parent') then alter table sigov.compras_empresarial_recebimento_item add constraint ux_comp_recb_item_parent unique(tenant_id,recebimento_id,id); end if;
+ if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='ux_comp_recb_div_tenant_id') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint ux_comp_recb_div_tenant_id unique(tenant_id,id); end if;
+ if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='fk_comp_recb_div_item_parent') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint fk_comp_recb_div_item_parent foreign key(tenant_id,recebimento_id,recebimento_item_id) references sigov.compras_empresarial_recebimento_item(tenant_id,recebimento_id,id); end if;
+ if exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia_evento'::regclass and conname='fk_comp_recb_div_evento') then alter table sigov.compras_empresarial_recebimento_divergencia_evento drop constraint fk_comp_recb_div_evento; end if;
+ if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='fk_comp_recb_div_responsavel') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint fk_comp_recb_div_responsavel foreign key(tenant_id,responsavel_id) references sigov.os_tecnico(tenant_id,usuario_id); end if;
+ if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia_evento'::regclass and conname='fk_comp_recb_div_evento_tenant') then alter table sigov.compras_empresarial_recebimento_divergencia_evento add constraint fk_comp_recb_div_evento_tenant foreign key(tenant_id,divergencia_id) references sigov.compras_empresarial_recebimento_divergencia(tenant_id,id); end if;
+end $$;
+
+create table if not exists sigov.compras_empresarial_divergencia_idempotencia(
+ id bigint generated by default as identity primary key,tenant_id uuid not null,operacao varchar(20) not null,chave varchar(200) not null,request_hash char(64) not null,
+ divergencia_id bigint not null,situacao varchar(24) not null,version bigint not null,pendencia_concluida boolean not null default false,created_at timestamptz not null default now(),
+ constraint fk_comp_div_idem_div foreign key(tenant_id,divergencia_id) references sigov.compras_empresarial_recebimento_divergencia(tenant_id,id),unique(tenant_id,operacao,chave),check(operacao in('ATRIBUIR','ANDAMENTO','ENCERRAR')));
+
+do $$ begin if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='ck_comp_div_textos') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint ck_comp_div_textos check(length(coalesce(andamento,''))<=2000 and length(coalesce(resultado,''))<=2000 and length(coalesce(justificativa_encerramento,''))<=2000) not valid; end if; end $$;
+
+insert into sigov.permissao(modulo,chave,descricao,ativo)
+select 'COMPRAS_EMPRESARIAIS',v.chave,v.descricao,true from (values
+ ('compras_empresariais.divergencias.visualizar','Visualizar divergências de recebimento'),
+ ('compras_empresariais.divergencias.atribuir','Atribuir divergências de recebimento'),
+ ('compras_empresariais.divergencias.tratar','Registrar andamento de divergências de recebimento'),
+ ('compras_empresariais.divergencias.encerrar','Encerrar administrativamente divergências de recebimento'))v(chave,descricao)
+on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924160000', 'Tratamento auditável e concorrente de divergências de recebimento', 'cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260924210000_compras_devolucao_fisica.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb
+-- ==================================================
+-- Devolução física de itens rejeitados. Aditiva, idempotente e sem efeitos financeiros/fiscais ou de estoque disponível.
+create table if not exists sigov.compras_empresarial_devolucao(
+ id bigint generated by default as identity primary key, tenant_id uuid not null, recebimento_id uuid not null, responsavel_id uuid not null,
+ motivo varchar(2000) not null, origem_fisica varchar(300) not null, destino varchar(300) not null,
+ situacao varchar(20) not null default 'RASCUNHO', version bigint not null default 1,
+ esfera_governo varchar(12) not null, tipo_entidade varchar(100) not null, orgao_superior varchar(200), unidade_gestora varchar(200) not null, unidade_executora varchar(200) not null,
+ hierarquia_administrativa varchar(500) not null, abrangencia_territorial varchar(200) not null, uf char(2), municipio varchar(160), regiao varchar(160), jurisdicao varchar(200),
+ expedida_em timestamptz, entregue_em timestamptz, cancelada_em timestamptz, modalidade varchar(24), transportadora varchar(200), referencia_transporte varchar(200),
+ recebedor_referencia varchar(300), documento_protocolo varchar(200), observacao_entrega text, justificativa_cancelamento text,
+ created_at timestamptz not null default now(),updated_at timestamptz not null default now(),created_by uuid not null,updated_by uuid not null,correlation_id text not null,
+ constraint fk_comp_dev_receb foreign key(tenant_id,recebimento_id) references sigov.compras_empresarial_recebimento(tenant_id,id),
+ constraint ux_comp_dev_tenant_id unique(tenant_id,id), constraint ck_comp_dev_estado check(situacao in('RASCUNHO','EXPEDIDA','ENTREGUE','CANCELADA')),
+ constraint ck_comp_dev_esfera check(esfera_governo in('municipal','estadual','federal')),
+ constraint ck_comp_dev_datas check((situacao='RASCUNHO' and expedida_em is null and entregue_em is null and cancelada_em is null) or (situacao='EXPEDIDA' and expedida_em is not null and entregue_em is null and cancelada_em is null) or (situacao='ENTREGUE' and expedida_em is not null and entregue_em is not null and entregue_em>=expedida_em and cancelada_em is null) or (situacao='CANCELADA' and expedida_em is null and entregue_em is null and cancelada_em is not null))
+);
+create table if not exists sigov.compras_empresarial_devolucao_item(
+ id bigint generated by default as identity primary key,tenant_id uuid not null,devolucao_id bigint not null,recebimento_item_id bigint not null,quantidade numeric(18,4) not null,
+ constraint fk_comp_dev_item_dev foreign key(tenant_id,devolucao_id) references sigov.compras_empresarial_devolucao(tenant_id,id),
+ constraint fk_comp_dev_item_origem foreign key(tenant_id,recebimento_item_id) references sigov.compras_empresarial_recebimento_item(tenant_id,id),
+ constraint ck_comp_dev_item_qtd check(quantidade>0),unique(tenant_id,devolucao_id,recebimento_item_id)
+);
+create table if not exists sigov.compras_empresarial_devolucao_evento(
+ id bigint generated by default as identity primary key,tenant_id uuid not null,devolucao_id bigint not null,tipo varchar(40) not null,estado_anterior varchar(20),estado_novo varchar(20) not null,detalhes jsonb not null default '{}'::jsonb,usuario_id uuid not null,ocorrido_em timestamptz not null default now(),correlation_id text not null,
+ constraint fk_comp_dev_evento foreign key(tenant_id,devolucao_id) references sigov.compras_empresarial_devolucao(tenant_id,id)
+);
+create table if not exists sigov.compras_empresarial_devolucao_idempotencia(
+ id bigint generated by default as identity primary key,tenant_id uuid not null,operacao varchar(20) not null,chave varchar(200) not null,request_hash varchar(67) not null,devolucao_id bigint not null,situacao varchar(20) not null,version bigint not null,created_at timestamptz not null default now(),
+ constraint fk_comp_dev_idem foreign key(tenant_id,devolucao_id) references sigov.compras_empresarial_devolucao(tenant_id,id),unique(tenant_id,operacao,chave)
+);
+create index if not exists ix_comp_dev_central on sigov.compras_empresarial_devolucao(tenant_id,situacao,created_at desc,id desc);
+create index if not exists ix_comp_dev_recebimento on sigov.compras_empresarial_devolucao(tenant_id,recebimento_id);
+create index if not exists ix_comp_dev_item_saldo on sigov.compras_empresarial_devolucao_item(tenant_id,recebimento_item_id);
+insert into sigov.permissao(modulo,chave,descricao,ativo) select 'COMPRAS_EMPRESARIAIS',x.chave,x.descricao,true from(values
+ ('compras_empresariais.devolucoes.visualizar','Visualizar devoluções físicas'),('compras_empresariais.devolucoes.criar','Preparar devoluções físicas'),('compras_empresariais.devolucoes.editar','Editar ou cancelar rascunhos de devolução'),('compras_empresariais.devolucoes.expedir','Confirmar saída física de devoluções'),('compras_empresariais.devolucoes.entregar','Confirmar entrega física ao fornecedor'),('compras_empresariais.devolucoes.relatorio','Exportar relatório de devoluções'))x(chave,descricao) on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
+alter table sigov.compras_empresarial_divergencia_idempotencia alter column request_hash type varchar(67);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924210000', 'Jornada física auditável de devolução de itens rejeitados', '0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- COMPATIBILITY: 850_post_migration_compatibility.sql
 -- STAGE: AFTER ALL MIGRATIONS
 -- ==================================================
@@ -31872,45 +31974,3 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
 -- EXCLUDED_FROM_BASELINE: 20260902000000_rc50_98_ged_workflow_branding_logo.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260902010000_corr_compras_checksum_schema.sql [schema]
 -- EXCLUDED_FROM_BASELINE: 20260903130000_corr_licitapro_postconditions_schema.sql [corrective]
-
-
--- Migration 20260924160000_compras_tratamento_divergencias.sql
--- Tratamento administrativo auditável das divergências de recebimento.
-do $$
-declare inconsistentes bigint;
-begin
- select count(*) into inconsistentes
- from sigov.compras_empresarial_recebimento_divergencia d
- left join sigov.compras_empresarial_recebimento_item i on (i.tenant_id,i.recebimento_id,i.id)=(d.tenant_id,d.recebimento_id,d.recebimento_item_id)
- where i.id is null;
- if inconsistentes>0 then raise exception 'Integridade de divergências: % registro(s) possuem item fora do recebimento/tenant; restrições não aplicadas.',inconsistentes; end if;
- select count(*) into inconsistentes from sigov.compras_empresarial_recebimento_divergencia d left join sigov.os_tecnico t on (t.tenant_id,t.usuario_id)=(d.tenant_id,d.responsavel_id) where d.responsavel_id is not null and (t.usuario_id is null or t.is_deleted);
- if inconsistentes>0 then raise exception 'Integridade de responsáveis: % registro(s) possuem identidade inelegível ou fora do tenant; restrições não aplicadas.',inconsistentes; end if;
- select count(*) into inconsistentes from sigov.compras_empresarial_recebimento_divergencia_evento e left join sigov.compras_empresarial_recebimento_divergencia d on (d.tenant_id,d.id)=(e.tenant_id,e.divergencia_id) where d.id is null;
- if inconsistentes>0 then raise exception 'Integridade de eventos: % registro(s) apontam para divergência de outro tenant ou inexistente; restrições não aplicadas.',inconsistentes; end if;
-end $$;
-
-do $$ begin
- if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento'::regclass and conname='ux_comp_recb_tenant_id') then alter table sigov.compras_empresarial_recebimento add constraint ux_comp_recb_tenant_id unique(tenant_id,id); end if;
- if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_item'::regclass and conname='ux_comp_recb_item_parent') then alter table sigov.compras_empresarial_recebimento_item add constraint ux_comp_recb_item_parent unique(tenant_id,recebimento_id,id); end if;
- if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='ux_comp_recb_div_tenant_id') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint ux_comp_recb_div_tenant_id unique(tenant_id,id); end if;
- if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='fk_comp_recb_div_item_parent') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint fk_comp_recb_div_item_parent foreign key(tenant_id,recebimento_id,recebimento_item_id) references sigov.compras_empresarial_recebimento_item(tenant_id,recebimento_id,id); end if;
- if exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia_evento'::regclass and conname='fk_comp_recb_div_evento') then alter table sigov.compras_empresarial_recebimento_divergencia_evento drop constraint fk_comp_recb_div_evento; end if;
- if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='fk_comp_recb_div_responsavel') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint fk_comp_recb_div_responsavel foreign key(tenant_id,responsavel_id) references sigov.os_tecnico(tenant_id,usuario_id); end if;
- if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia_evento'::regclass and conname='fk_comp_recb_div_evento_tenant') then alter table sigov.compras_empresarial_recebimento_divergencia_evento add constraint fk_comp_recb_div_evento_tenant foreign key(tenant_id,divergencia_id) references sigov.compras_empresarial_recebimento_divergencia(tenant_id,id); end if;
-end $$;
-
-create table if not exists sigov.compras_empresarial_divergencia_idempotencia(
- id bigint generated by default as identity primary key,tenant_id uuid not null,operacao varchar(20) not null,chave varchar(200) not null,request_hash char(64) not null,
- divergencia_id bigint not null,situacao varchar(24) not null,version bigint not null,pendencia_concluida boolean not null default false,created_at timestamptz not null default now(),
- constraint fk_comp_div_idem_div foreign key(tenant_id,divergencia_id) references sigov.compras_empresarial_recebimento_divergencia(tenant_id,id),unique(tenant_id,operacao,chave),check(operacao in('ATRIBUIR','ANDAMENTO','ENCERRAR')));
-
-do $$ begin if not exists(select 1 from pg_constraint where conrelid='sigov.compras_empresarial_recebimento_divergencia'::regclass and conname='ck_comp_div_textos') then alter table sigov.compras_empresarial_recebimento_divergencia add constraint ck_comp_div_textos check(length(coalesce(andamento,''))<=2000 and length(coalesce(resultado,''))<=2000 and length(coalesce(justificativa_encerramento,''))<=2000) not valid; end if; end $$;
-
-insert into sigov.permissao(modulo,chave,descricao,ativo)
-select 'COMPRAS_EMPRESARIAIS',v.chave,v.descricao,true from (values
- ('compras_empresariais.divergencias.visualizar','Visualizar divergências de recebimento'),
- ('compras_empresariais.divergencias.atribuir','Atribuir divergências de recebimento'),
- ('compras_empresariais.divergencias.tratar','Registrar andamento de divergências de recebimento'),
- ('compras_empresariais.divergencias.encerrar','Encerrar administrativamente divergências de recebimento'))v(chave,descricao)
-on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
