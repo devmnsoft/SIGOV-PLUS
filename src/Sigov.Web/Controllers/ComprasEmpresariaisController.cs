@@ -31,7 +31,7 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  {
   try{var result=await recebimentos.ConcluirInspecaoAsync(Contexto(),id,new(version,justificativa,itens),ct);TempData["Success"]=result.Repetido?"A conferência já havia sido concluída; exibindo o estado persistido.":"Conferência concluída e estoque atualizado com sucesso.";return RedirectToAction(nameof(Recebimento),new{id});}
   catch(ArgumentException ex){ModelState.AddModelError(string.Empty,ex.Message);}catch(InvalidOperationException ex){ModelState.AddModelError(string.Empty,ex.Message);}
-  var item=await recebimentos.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();return View("Recebimentos/Detalhe",item);
+  var item=await recebimentos.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["SubmittedVersion"]=version;ViewData["JustificativaInformada"]=justificativa;return View("Recebimentos/Detalhe",item);
  }
  [HttpGet("Pedidos/{pedidoId:guid}/Receber"),Authorize(Policy="compras_empresariais.recebimentos.registrar")]public async Task<IActionResult> NovoRecebimento(Guid pedidoId,CancellationToken ct){var pedido=await recebimentos.ObterPedidoAsync(Contexto(),pedidoId,ct);if(pedido is null)return NotFound();ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Recebimentos/Novo",pedido);}
  [HttpPost("Pedidos/{pedidoId:guid}/Receber"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.recebimentos.registrar")]
