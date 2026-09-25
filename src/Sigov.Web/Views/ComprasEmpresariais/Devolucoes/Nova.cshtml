@@ -1,10 +1,155 @@
-@using Sigov.Application.ComprasEmpresariais
-@model OrigemDevolucao
-@{ViewData["Title"]="Preparar devolução";var key=(string)ViewData["IdempotencyKey"]!;}
+@using Sigov.Web.Models
+@model DevolucaoFormViewModel
+@{ViewData["Title"]="Preparar devolução física";var ctx=Model.ContextoInstitucional;}
 <link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="../Shared/_ComprasNav"/>
-<header class="compras-header"><div><span class="eyebrow">PREPARAÇÃO</span><h1>Nova devolução</h1><p>@Model.Documento · @Model.Fornecedor</p></div></header>
-<details class="panel mb-3" open><summary>Para que serve</summary><p><strong>Pré-requisito:</strong> selecione somente saldo rejeitado. <strong>Efeito:</strong> salvar reserva as quantidades, sem saída física e sem estoque disponível.</p><p><strong>Como usar:</strong> informe contexto institucional, origem, destino, motivo e quantidades. <strong>Próximo passo:</strong> revise o rascunho e confirme a expedição.</p></details>
-<form method="post" asp-action="CriarDevolucao" class="panel" data-single-submit>@Html.AntiForgeryToken()<div asp-validation-summary="All" class="text-danger"></div><input type="hidden" name="RecebimentoId" value="@Model.RecebimentoId"/><input type="hidden" name="IdempotencyKey" value="@key"/>
-<div class="row g-3"><div class="col-md-6"><label for="motivo">Motivo</label><textarea id="motivo" name="Motivo" required maxlength="2000" class="form-control"></textarea></div><div class="col-md-3"><label for="origem">Origem física</label><input id="origem" name="OrigemFisica" required class="form-control"/></div><div class="col-md-3"><label for="destino">Destino no fornecedor</label><input id="destino" name="Destino" required class="form-control"/></div><div class="col-md-3"><label for="responsavel">Responsável (identidade autorizada)</label><input id="responsavel" name="ResponsavelId" type="text" required class="form-control" aria-describedby="resp-help"/><small id="resp-help">Selecione via pesquisa nominal disponibilizada pela organização.</small></div><div class="col-md-3"><label>Esfera</label><select name="EsferaGoverno" class="form-select" required><option value="municipal">Municipal</option><option value="estadual">Estadual</option><option value="federal">Federal</option></select></div>@foreach(var n in new[]{"TipoEntidade","UnidadeGestora","UnidadeExecutora","HierarquiaAdministrativa","AbrangenciaTerritorial"}){<div class="col-md-3"><label>@n</label><input name="@n" required class="form-control"/></div>}</div>
-<h2 class="h5 mt-4">Itens elegíveis</h2>@for(var i=0;i<Model.Itens.Count;i++){var x=Model.Itens[i];<div class="row align-items-end border-top py-2"><input type="hidden" name="Itens[@i].RecebimentoItemId" value="@x.RecebimentoItemId"/><div class="col"><strong>@x.Produto</strong> (@x.Unidade)<br/><small>Rejeitado @x.QuantidadeRejeitada · reservado @x.QuantidadeReservada · expedido @x.QuantidadeExpedida · entregue @x.QuantidadeEntregue · elegível @x.SaldoElegivel</small></div><div class="col-md-3"><label for="q-@i">Quantidade</label><input id="q-@i" name="Itens[@i].Quantidade" type="number" min="0" max="@x.SaldoElegivel" step="0.0001" value="0" class="form-control"/></div></div>}<button class="btn btn-primary mt-3">Salvar rascunho</button></form>
-<script>document.querySelector('[data-single-submit]')?.addEventListener('submit',e=>{const b=e.submitter;if(b){b.disabled=true;b.textContent='Salvando…'}});document.querySelector('.validation-summary-errors')?.focus();</script>
+<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a asp-action="Devolucoes">Devoluções</a></li><li class="breadcrumb-item"><a asp-action="Recebimento" asp-route-id="@Model.RecebimentoId">Recebimento @Model.DocumentoRecebimento</a></li><li class="breadcrumb-item active">Nova devolução</li></ol></nav>
+<header class="compras-header"><div><span class="eyebrow">PREPARAÇÃO DE DEVOLUÇÃO FÍSICA</span><h1>Nova devolução de mercadoria rejeitada</h1><p>Recebimento: <strong>@Model.DocumentoRecebimento</strong> · Fornecedor: <strong>@Model.Fornecedor</strong></p></div><span class="status-badge">RASCUNHO EM PREPARAÇÃO</span></header>
+
+<details class="panel mb-3" open><summary class="fw-semibold">Para que serve, pré-requisitos e regras importantes</summary><div class="mt-3">
+<p><strong>Para que serve:</strong> registrar a intenção formal e preparar a remessa física de itens rejeitados de volta ao fornecedor.</p>
+<p><strong>Pré-requisitos:</strong> conferência de recebimento concluída, inspeção com itens rejeitados e saldo elegível sem destinação anterior.</p>
+<p><strong>Como usar:</strong> marque explicitamente os itens que serão devolvidos nesta operação e informe as respectivas quantidades (com até quatro casas decimais). O responsável é selecionado nominalmente.</p>
+<p><strong>Regras importantes:</strong> a gravação cria um rascunho e reserva as quantidades selecionadas. Não há baixa de estoque disponível, não há geração de crédito financeiro presumido e não há efeito fiscal automático.</p>
+<p><strong>Efeito da ação:</strong> o saldo reservado fica protegido contra concorrência e pode ser editado enquanto a devolução estiver na situação RASCUNHO.</p>
+<p><strong>Próximo passo:</strong> após salvar o rascunho, o operador responsável poderá revisar os dados e confirmar a expedição física da custódia.</p>
+</div></details>
+
+<form method="post" asp-action="CriarDevolucao" class="panel" data-single-submit>
+@Html.AntiForgeryToken()
+<input asp-for="RecebimentoId" type="hidden"/>
+<input asp-for="DocumentoRecebimento" type="hidden"/>
+<input asp-for="Fornecedor" type="hidden"/>
+<input asp-for="IdempotencyKey" type="hidden"/>
+<input asp-for="ReturnUrl" type="hidden"/>
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert" tabindex="-1"></div>
+
+<section class="mb-4">
+<h2 class="h5 border-bottom pb-2">1. Dados da operação e responsabilidade</h2>
+<div class="row g-3">
+ <div class="col-md-6">
+  <label asp-for="Motivo" class="form-label fw-semibold">Motivo da devolução</label>
+  <textarea asp-for="Motivo" rows="3" required maxlength="2000" class="form-control" placeholder="Fundamente detalhadamente o motivo da devolução ao fornecedor..."></textarea>
+  <span asp-validation-for="Motivo" class="text-danger small"></span>
+ </div>
+ <div class="col-md-6">
+  <label asp-for="ResponsavelId" class="form-label fw-semibold">Responsável operacional (identificação nominal)</label>
+  <select asp-for="ResponsavelId" class="form-select" required aria-describedby="resp-help">
+   <option value="">Selecione pelo nome do responsável ativo</option>
+   @foreach(var r in Model.Responsaveis){
+    <option value="@r.UsuarioId" selected="@(r.UsuarioId == Model.ResponsavelId)">@r.Nome @(string.IsNullOrWhiteSpace(r.Vinculo) ? "" : $"— {r.Vinculo}") @(string.IsNullOrWhiteSpace(r.Unidade) ? "" : $"({r.Unidade})")</option>
+   }
+  </select>
+  <small id="resp-help" class="form-text text-muted">Apenas agentes com vínculo canônico ativo no contexto autorizado estão elegíveis.</small>
+  <span asp-validation-for="ResponsavelId" class="text-danger small d-block"></span>
+ </div>
+ <div class="col-md-6">
+  <label asp-for="OrigemFisica" class="form-label fw-semibold">Origem física (local da custódia)</label>
+  <input asp-for="OrigemFisica" required maxlength="200" class="form-control" placeholder="Ex.: Almoxarifado Central - Doca 2"/>
+  <span asp-validation-for="OrigemFisica" class="text-danger small"></span>
+ </div>
+ <div class="col-md-6">
+  <label asp-for="Destino" class="form-label fw-semibold">Destino no fornecedor</label>
+  <input asp-for="Destino" required maxlength="200" class="form-control" placeholder="Ex.: Centro de Distribuição do Fabricante"/>
+  <span asp-validation-for="Destino" class="text-danger small"></span>
+ </div>
+</div>
+</section>
+
+@if(ctx is not null){
+<section class="mb-4 p-3 bg-light rounded border">
+ <h2 class="h6 text-primary fw-bold mb-2">Contexto institucional autorizado (derivado da organização)</h2>
+ <div class="row g-2 small text-muted">
+  <div class="col-md-3"><strong>Esfera de governo:</strong> @ctx.EsferaGoverno.ToUpperInvariant()</div>
+  <div class="col-md-3"><strong>Tipo de entidade:</strong> @ctx.TipoEntidade</div>
+  <div class="col-md-3"><strong>Unidade gestora:</strong> @ctx.UnidadeGestora</div>
+  <div class="col-md-3"><strong>Unidade executora:</strong> @ctx.UnidadeExecutora</div>
+  <div class="col-md-4"><strong>Hierarquia administrativa:</strong> @ctx.HierarquiaAdministrativa</div>
+  <div class="col-md-4"><strong>Abrangência territorial:</strong> @ctx.AbrangenciaTerritorial</div>
+  <div class="col-md-4"><strong>Localização/Jurisdição:</strong> @(ctx.Municipio ?? "Sede") / @(ctx.Uf ?? "BR")</div>
+ </div>
+ <small class="text-muted d-block mt-2">Os dados institucionais são derivados do vínculo canônico do tenant e asseguram conformidade multi-esfera (municipal, estadual e federal).</small>
+</section>
+}
+
+<section class="mb-4">
+ <h2 class="h5 border-bottom pb-2">2. Seleção explícita de itens e quantidades a devolver</h2>
+ <p class="small text-muted">Marque a caixa de seleção para incluir o item na devolução. Apenas os itens marcados terão reserva criada. A quantidade informada deve ser positiva e não pode ultrapassar o saldo elegível.</p>
+ 
+ <div class="table-responsive">
+  <table class="table align-middle">
+   <thead class="table-light">
+    <tr>
+     <th style="width: 50px;">Devolver?</th>
+     <th>Produto / Especificação</th>
+     <th>Unidade</th>
+     <th class="text-end">Rejeitado original</th>
+     <th class="text-end">Reservado em outros</th>
+     <th class="text-end">Expedido / Entregue</th>
+     <th class="text-end text-primary">Saldo elegível</th>
+     <th style="width: 200px;" class="text-end">Quantidade a devolver</th>
+    </tr>
+   </thead>
+   <tbody>
+    @for(var i=0; i<Model.Itens.Count; i++){
+     var item = Model.Itens[i];
+     var elegivel = item.SaldoElegivel;
+     var podeDevolver = elegivel > 0;
+     <tr class="@(!podeDevolver ? "table-light text-muted" : "")">
+      <td class="text-center">
+       <input type="hidden" asp-for="Itens[i].RecebimentoItemId"/>
+       <input type="hidden" asp-for="Itens[i].Produto"/>
+       <input type="hidden" asp-for="Itens[i].Unidade"/>
+       <input type="hidden" asp-for="Itens[i].QuantidadeRejeitada"/>
+       <input type="hidden" asp-for="Itens[i].QuantidadeReservada"/>
+       <input type="hidden" asp-for="Itens[i].QuantidadeExpedida"/>
+       <input type="hidden" asp-for="Itens[i].QuantidadeEntregue"/>
+       <input type="hidden" asp-for="Itens[i].SaldoElegivel"/>
+       <input type="checkbox" asp-for="Itens[i].Selecionado" class="form-check-input item-checkbox" disabled="@(!podeDevolver)" aria-label="Selecionar @item.Produto para devolução"/>
+      </td>
+      <td><strong>@item.Produto</strong></td>
+      <td>@item.Unidade</td>
+      <td class="text-end">@item.QuantidadeRejeitada.ToString("0.####")</td>
+      <td class="text-end">@item.QuantidadeReservada.ToString("0.####")</td>
+      <td class="text-end">@((item.QuantidadeExpedida + item.QuantidadeEntregue).ToString("0.####"))</td>
+      <td class="text-end text-primary fw-bold">@item.SaldoElegivel.ToString("0.####")</td>
+      <td>
+       <div class="input-group input-group-sm">
+        <input asp-for="Itens[i].QuantidadeDevolver" class="form-control text-end item-qty" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" placeholder="0,0000" aria-label="Quantidade a devolver de @item.Produto"/>
+       </div>
+       <span asp-validation-for="Itens[i].QuantidadeDevolver" class="text-danger small d-block"></span>
+      </td>
+     </tr>
+    }
+   </tbody>
+  </table>
+ </div>
+</section>
+
+<div class="action-bar d-flex justify-content-between">
+ <a class="btn btn-outline-secondary" href="@(Model.ReturnUrl ?? Url.Action("Recebimento", new { id = Model.RecebimentoId }))">Cancelar e voltar</a>
+ <button class="btn btn-primary" type="submit">Salvar rascunho da devolução</button>
+</div>
+</form>
+
+<script>
+document.querySelector('[data-single-submit]')?.addEventListener('submit', function(e) {
+ const btn = this.querySelector('button[type=submit]');
+ if (btn && !btn.disabled) {
+  btn.disabled = true;
+  btn.setAttribute('aria-disabled', 'true');
+  btn.textContent = 'Salvando rascunho…';
+ }
+});
+document.querySelectorAll('.item-checkbox').forEach(cb => {
+ cb.addEventListener('change', function() {
+  const row = this.closest('tr');
+  const qtyInput = row.querySelector('.item-qty');
+  if (this.checked && (!qtyInput.value || qtyInput.value === '0')) {
+   const max = row.querySelector('input[name*="SaldoElegivel"]')?.value;
+   if (max) qtyInput.value = max.replace('.', ',');
+  }
+ });
+});
+document.querySelector('.validation-summary-errors, [role=alert]')?.focus();
+</script>

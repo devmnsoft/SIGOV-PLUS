@@ -125,4 +125,105 @@ public sealed class PostBuild01RegressionTests
         detail.Should().Contain("Revisão obrigatória").And.Contain("confirmarRevisao")
             .And.Contain("sessionStorage").And.Contain("ResponsavelInformadoElegivel");
     }
+
+    [Fact]
+    public void Devolucao_Elegibilidade_Unificada_E_Selecao_Explicita()
+    {
+        var repo = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/DevolucaoCompraRepository.cs"));
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        var viewNova = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Devolucoes/Nova.cshtml"));
+        var viewRecebimento = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Recebimentos/Detalhe.cshtml"));
+
+        repo.Should().Contain("resultado_inspecao in('RECUSADO','REPROVADO','REPROVADO_PARCIAL','ACEITO_COM_RESSALVA')")
+            .And.Contain("not exists(select 1 from sigov.compras_empresarial_recebimento_item rx where rx.tenant_id=r.tenant_id and rx.recebimento_id=r.id and rx.quantidade_conferencia>0)");
+
+        repo.Should().Contain("O recebimento não está elegível para devolução ou ainda possui conferência em andamento.");
+
+        controller.Should().Contain("item.Selecionado")
+            .And.Contain("Pelo menos um item deve ser selecionado")
+            .And.Contain("A quantidade do item selecionado deve ser positiva")
+            .And.Contain("Quantidade negativa é inválida");
+
+        viewNova.Should().Contain("item-checkbox")
+            .And.Contain("Devolver?")
+            .And.Contain("ResponsavelId")
+            .And.Contain("Contexto institucional autorizado");
+
+        viewRecebimento.Should().Contain("Acompanhamento da destinação dos itens rejeitados")
+            .And.Contain("Devoluções físicas vinculadas a este recebimento");
+    }
+
+    [Fact]
+    public void Devolucao_Acompanhamento_Destinacao_Sem_Sobreposicao_E_Encerramento_Comprovado()
+    {
+        var repoDev = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/DevolucaoCompraRepository.cs"));
+        var repoDiv = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/DivergenciaRecebimentoRepository.cs"));
+        var viewDiv = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Divergencias/Detalhe.cshtml"));
+
+        repoDev.Should().Contain("QuantidadeReservada")
+            .And.Contain("QuantidadeExpedidaNaoEntregue")
+            .And.Contain("QuantidadeEntregue")
+            .And.Contain("SaldoSemDestinacao")
+            .And.NotContain("greatest(0,");
+
+        repoDev.Should().Contain("Inconsistência detectada");
+        repoDiv.Should().Contain("Inconsistência de saldo");
+
+        repoDiv.Should().Contain("Não é possível encerrar o tratamento como devolução sem que haja devoluções físicas com entrega comprovada ao fornecedor.")
+            .And.Contain("Não é possível declarar devolução integral quando resta quantidade sem entrega comprovada ao fornecedor.");
+
+        viewDiv.Should().Contain("Acompanhamento da destinação do item")
+            .And.Contain("Devoluções físicas vinculadas a este item")
+            .And.Contain("DEVOLUCAO_AO_FORNECEDOR")
+            .And.Contain("DEVOLUCAO_INTEGRAL");
+    }
+
+    [Fact]
+    public void Devolucao_Edicao_Rascunho_Auditoria_E_Datas_Operacionais()
+    {
+        var appService = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/ComprasEmpresariais/ComprasApplicationServices.cs"));
+        var repo = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/DevolucaoCompraRepository.cs"));
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        var viewEditar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Devolucoes/Editar.cshtml"));
+        var viewDetalhe = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Devolucoes/Detalhe.cshtml"));
+
+        repo.Should().Contain("Require(h, r.Version, \"RASCUNHO\");")
+            .And.Contain("A ação exige devolução em")
+            .And.Contain("RASCUNHO_EDITADO")
+            .And.Contain("antes = new { motivo = h.Motivo")
+            .And.Contain("depois = new { motivo = r.Motivo");
+
+        controller.Should().Contain("EditarDevolucao")
+            .And.Contain("SalvarEdicaoDevolucao");
+
+        viewEditar.Should().Contain("Editar devolução")
+            .And.Contain("Salvar alterações do rascunho");
+
+        viewDetalhe.Should().Contain("Editar rascunho")
+            .And.Contain("Histórico legível da operação")
+            .And.Contain("Responsável/Autor:");
+
+        appService.Should().Contain("A confirmação de saída física não pode registrar data futura.")
+            .And.Contain("A confirmação de entrega física não pode registrar data futura.");
+
+        repo.Should().Contain("A entrega não pode ser anterior à expedição.")
+            .And.Contain("\"EXPEDIDA\", \"RASCUNHO\", \"EXPEDIDA\"")
+            .And.NotContain("sigov.estoque_saldo");
+    }
+
+    [Fact]
+    public void Devolucao_Central_Operacional_E_Exportacao_Completa()
+    {
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        var viewIndex = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Devolucoes/Index.cshtml"));
+
+        controller.Should().Contain("ExportarDevolucoes")
+            .And.Contain("Recebimento;Fornecedor;Produto;Unidade;QuantidadeRejeitada;Reservada;EmTransporte;Entregue;SaldoElegivel;Situacao;Responsavel;OrigemFisica;Destino;CriadaEm;ExpedidaEm;EntregueEm;ProtocoloEntrega")
+            .And.Contain("count>50000");
+
+        viewIndex.Should().Contain("Central de devoluções físicas")
+            .And.Contain("Recebimentos com itens rejeitados elegíveis para devolução")
+            .And.Contain("responsavelId")
+            .And.Contain("Exportar relatório completo (CSV)");
+    }
 }

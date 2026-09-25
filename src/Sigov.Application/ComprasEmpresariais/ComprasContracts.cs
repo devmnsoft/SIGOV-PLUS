@@ -47,7 +47,9 @@ public sealed record DivergenciaResumo(long Id,Guid RecebimentoId,string Documen
 public sealed record DivergenciaTotais(long Total,long Abertas,long EmTratamento,long Encerradas,long NaoAtribuidas);
 public sealed record CentralDivergencias(PagedResult<DivergenciaResumo> Resultado,DivergenciaTotais Totais);
 public sealed record DivergenciaEvento(long Id,string Tipo,string? Descricao,string? Providencia,string? Resultado,string? Justificativa,string? ResponsavelAnterior,string? ResponsavelNovo,Guid UsuarioId,string Autor,DateTimeOffset OcorridoEm,string? CorrelationId);
-public sealed record DivergenciaDetalhe(long Id,Guid RecebimentoId,long RecebimentoItemId,string Documento,string PedidoNumero,string Fornecedor,string Produto,string Unidade,decimal QuantidadeRejeitada,string Motivo,string Situacao,Guid? ResponsavelId,string? ResponsavelNome,string? Providencia,string? Resultado,string? JustificativaEncerramento,DateTimeOffset AbertaEm,DateTimeOffset? EncerradaEm,long Version,IReadOnlyList<DivergenciaEvento> Historico);
+public sealed record DivergenciaDevolucaoVinculada(long DevolucaoId,string Situacao,decimal Quantidade,DateTimeOffset CriadaEm,DateTimeOffset? ExpedidaEm,DateTimeOffset? EntregueEm,string? DocumentoProtocolo,string? RecebedorOuReferencia);
+public sealed record DestinacaoRejeitadoItem(long RecebimentoItemId,string Produto,string Unidade,decimal QuantidadeRejeitada,decimal QuantidadeReservada,decimal QuantidadeExpedidaNaoEntregue,decimal QuantidadeEntregue,decimal SaldoSemDestinacao,bool Inconsistente=false,string? DiagnosticoInconsistencia=null);
+public sealed record DivergenciaDetalhe(long Id,Guid RecebimentoId,long RecebimentoItemId,string Documento,string PedidoNumero,string Fornecedor,string Produto,string Unidade,decimal QuantidadeRejeitada,string Motivo,string Situacao,Guid? ResponsavelId,string? ResponsavelNome,string? Providencia,string? Resultado,string? JustificativaEncerramento,DateTimeOffset AbertaEm,DateTimeOffset? EncerradaEm,long Version,IReadOnlyList<DivergenciaEvento> Historico,IReadOnlyList<DivergenciaDevolucaoVinculada>? DevolucoesVinculadas=null,DestinacaoRejeitadoItem? Destinacao=null);
 public sealed record ResponsavelDivergencia(Guid UsuarioId,string Nome,string? Vinculo,string? Unidade);
 public sealed record AtribuirDivergenciaRequest(Guid ResponsavelId,long Version,string IdempotencyKey);
 public sealed record RegistrarAndamentoDivergenciaRequest(string Descricao,string? Providencia,long Version,string IdempotencyKey);
@@ -126,12 +128,30 @@ public sealed record ExpedirDevolucaoRequest(long Version,DateTimeOffset SaidaEm
 public sealed record EntregarDevolucaoRequest(long Version,DateTimeOffset EntregueEm,string RecebedorOuReferencia,string DocumentoProtocolo,string? Observacao,string IdempotencyKey);
 public sealed record CancelarDevolucaoRequest(long Version,string Justificativa,string IdempotencyKey);
 public sealed record DevolucaoItemDetalhe(long Id,long RecebimentoItemId,string Produto,string Unidade,decimal QuantidadeRejeitada,decimal QuantidadeReservada,decimal QuantidadeExpedida,decimal QuantidadeEntregue,decimal SaldoElegivel);
-public sealed record DevolucaoEvento(long Id,string Tipo,string? EstadoAnterior,string EstadoNovo,string Detalhes,Guid UsuarioId,DateTimeOffset OcorridoEm,string CorrelationId);
+public sealed record DevolucaoEvento(long Id,string Tipo,string? EstadoAnterior,string EstadoNovo,string Detalhes,Guid UsuarioId,DateTimeOffset OcorridoEm,string CorrelationId,string? AutorNome=null);
 public sealed record DevolucaoDetalhe(long Id,Guid RecebimentoId,string DocumentoRecebimento,string PedidoNumero,Guid FornecedorId,string Fornecedor,string Situacao,Guid ResponsavelId,string? ResponsavelNome,string OrigemFisica,string Destino,string Motivo,string EsferaGoverno,string TipoEntidade,string UnidadeGestora,string UnidadeExecutora,string AbrangenciaTerritorial,long Version,DateTimeOffset CriadaEm,DateTimeOffset? ExpedidaEm,DateTimeOffset? EntregueEm,DateTimeOffset? CanceladaEm,string? Modalidade,string? ReferenciaTransporte,string? RecebedorOuReferencia,string? DocumentoProtocolo,IReadOnlyList<DevolucaoItemDetalhe> Itens,IReadOnlyList<DevolucaoEvento> Historico);
 public sealed record OrigemDevolucao(Guid RecebimentoId,string Documento,string Fornecedor,IReadOnlyList<DevolucaoItemDetalhe> Itens);
+public sealed record DevolucaoParaEdicao(long Id,Guid RecebimentoId,string DocumentoRecebimento,string Fornecedor,string Situacao,long Version,string Motivo,Guid ResponsavelId,string? ResponsavelNome,string OrigemFisica,string Destino,IReadOnlyList<DevolucaoItemDetalhe> Itens);
+public sealed record OrigemElegivelResumo(Guid RecebimentoId,string Documento,string PedidoNumero,string Fornecedor,int ItensRejeitados,decimal SaldoTotalElegivel,DateTimeOffset ConcluidoEm);
+public sealed record ContextoInstitucionalSnapshot(string EsferaGoverno,string TipoEntidade,string? OrgaoSuperior,string UnidadeGestora,string UnidadeExecutora,string HierarquiaAdministrativa,string AbrangenciaTerritorial,string? Uf,string? Municipio,string? Regiao,string? Jurisdicao);
 public sealed record DevolucaoComandoResultado(long Id,string Situacao,long Version,bool Repetido);
+
 public interface IDevolucaoCompraRepository
 {
- Task<PagedResult<DevolucaoResumo>> ListarAsync(Guid tenant,DevolucaoFiltro filtro,CancellationToken ct); Task<DevolucaoDetalhe?> ObterAsync(Guid tenant,long id,CancellationToken ct); Task<OrigemDevolucao?> ObterOrigemAsync(Guid tenant,Guid recebimentoId,CancellationToken ct); Task<DevolucaoComandoResultado> CriarAsync(ComprasContext context,CriarDevolucaoRequest request,CancellationToken ct); Task<DevolucaoComandoResultado> EditarAsync(ComprasContext context,long id,EditarDevolucaoRequest request,CancellationToken ct); Task<DevolucaoComandoResultado> ExpedirAsync(ComprasContext context,long id,ExpedirDevolucaoRequest request,CancellationToken ct); Task<DevolucaoComandoResultado> EntregarAsync(ComprasContext context,long id,EntregarDevolucaoRequest request,CancellationToken ct); Task<DevolucaoComandoResultado> CancelarAsync(ComprasContext context,long id,CancelarDevolucaoRequest request,CancellationToken ct);
+ Task<PagedResult<DevolucaoResumo>> ListarAsync(Guid tenant,DevolucaoFiltro filtro,CancellationToken ct);
+ Task<DevolucaoDetalhe?> ObterAsync(Guid tenant,long id,CancellationToken ct);
+ Task<OrigemDevolucao?> ObterOrigemAsync(Guid tenant,Guid recebimentoId,CancellationToken ct);
+ Task<DevolucaoParaEdicao?> ObterParaEdicaoAsync(Guid tenant,long devolucaoId,CancellationToken ct);
+ Task<IReadOnlyList<OrigemElegivelResumo>> PesquisarOrigensElegiveisAsync(Guid tenant,string? busca,CancellationToken ct);
+ Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(Guid tenant,string? busca,int pagina,int tamanho,CancellationToken ct);
+ Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant,CancellationToken ct);
+ Task<IReadOnlyList<DestinacaoRejeitadoItem>> ObterAcompanhamentoDestinacaoAsync(Guid tenant,Guid recebimentoId,CancellationToken ct);
+ Task<IReadOnlyList<DevolucaoResumo>> ListarPorRecebimentoAsync(Guid tenant,Guid recebimentoId,CancellationToken ct);
+ Task<DevolucaoComandoResultado> CriarAsync(ComprasContext context,CriarDevolucaoRequest request,CancellationToken ct);
+ Task<DevolucaoComandoResultado> EditarAsync(ComprasContext context,long id,EditarDevolucaoRequest request,CancellationToken ct);
+ Task<DevolucaoComandoResultado> ExpedirAsync(ComprasContext context,long id,ExpedirDevolucaoRequest request,CancellationToken ct);
+ Task<DevolucaoComandoResultado> EntregarAsync(ComprasContext context,long id,EntregarDevolucaoRequest request,CancellationToken ct);
+ Task<DevolucaoComandoResultado> CancelarAsync(ComprasContext context,long id,CancelarDevolucaoRequest request,CancellationToken ct);
 }
 public interface IDevolucaoCompraApplicationService : IDevolucaoCompraRepository { }
+

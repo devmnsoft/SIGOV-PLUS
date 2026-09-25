@@ -1,9 +1,166 @@
 @using Sigov.Application.Common
 @using Sigov.Application.ComprasEmpresariais
 @model PagedResult<DevolucaoResumo>
-@{ViewData["Title"]="Devoluções físicas";var f=(DevolucaoFiltro)ViewData["Filtro"]!;}
+@{
+ ViewData["Title"]="Central de devoluções físicas";
+ var f=(DevolucaoFiltro)ViewData["Filtro"]!;
+ var responsaveis=(IReadOnlyList<ResponsavelDivergencia>?)ViewData["Responsaveis"]??[];
+ var origens=(IReadOnlyList<OrigemElegivelResumo>?)ViewData["OrigensElegiveis"]??[];
+}
 <link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="../Shared/_ComprasNav"/>
-<header class="compras-header"><div><span class="eyebrow">CUSTÓDIA DE ITENS REJEITADOS</span><h1>Devoluções físicas</h1><p>Prepare, confirme a saída e acompanhe a entrega ao fornecedor sem alterar estoque disponível ou efeitos financeiros.</p></div></header>
-<details class="panel mb-3" open><summary>Como usar e regras importantes</summary><p><strong>Pré-requisito:</strong> recebimento inspecionado com quantidade rejeitada e permissão persistida.</p><p><strong>Como usar:</strong> filtre a central ou inicie pelo recebimento/divergência; rascunhos reservam saldo. Expedir comprova saída; entregar exige protocolo.</p><p><strong>Efeito e próximo passo:</strong> a jornada física é independente do tratamento administrativo. Após expedir, acompanhe até a confirmação da entrega.</p></details>
-<form method="get" class="panel row g-2" role="search"><div class="col-md-3"><label for="fornecedor">Fornecedor</label><input id="fornecedor" name="fornecedor" value="@f.Fornecedor" class="form-control"/></div><div class="col-md-3"><label for="documento">Documento</label><input id="documento" name="documentoRecebimento" value="@f.DocumentoRecebimento" class="form-control"/></div><div class="col-md-2"><label for="situacao">Situação</label><select id="situacao" name="situacao" class="form-select"><option value="">Todas</option>@foreach(var s in new[]{"RASCUNHO","EXPEDIDA","ENTREGUE","CANCELADA"}){<option selected="@(f.Situacao==s)">@s</option>}</select></div><div class="col-md-2 align-self-end"><button class="btn btn-primary">Filtrar</button></div><div class="col-md-2 align-self-end"><a class="btn btn-outline-secondary" asp-action="ExportarDevolucoes" asp-route-fornecedor="@f.Fornecedor" asp-route-situacao="@f.Situacao">CSV</a></div></form>
-<section class="panel mt-3" aria-live="polite">@if(Model.Items.Count==0){<div class="text-center p-4"><h2 class="h5">Nenhuma devolução encontrada</h2><p>Selecione um recebimento inspecionado para preparar a primeira operação.</p></div>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Origem</th><th>Fornecedor</th><th>Situação</th><th>Datas</th><th></th></tr></thead><tbody>@foreach(var x in Model.Items){<tr><td>@x.DocumentoRecebimento</td><td>@x.Fornecedor</td><td><span class="status-badge">@x.Situacao</span></td><td>Aberta @x.CriadaEm.ToString("dd/MM/yyyy HH:mm")<br/>Expedição @(x.ExpedidaEm?.ToString("dd/MM/yyyy HH:mm")??"—")<br/>Entrega @(x.EntregueEm?.ToString("dd/MM/yyyy HH:mm")??"—")</td><td><a class="btn btn-sm btn-outline-primary" asp-action="Devolucao" asp-route-id="@x.Id">Detalhar</a></td></tr>}</tbody></table></div>}</section>
+<header class="compras-header">
+ <div>
+  <span class="eyebrow">CUSTÓDIA E EXPEDIÇÃO DE ITENS REJEITADOS</span>
+  <h1>Central de devoluções físicas</h1>
+  <p>Acompanhamento de preparação, saída física e entrega ao fornecedor de itens recusados na conferência.</p>
+ </div>
+</header>
+
+@if(TempData["Success"] is string ok){<div class="alert alert-success" role="status">@ok</div>}
+@if(TempData["Error"] is string error){<div class="alert alert-danger" role="alert" tabindex="-1">@error</div>}
+
+<details class="panel mb-3" open><summary class="fw-semibold">Para que serve e regras importantes</summary><div class="mt-3">
+<p><strong>Para que serve:</strong> controlar o ciclo de vida físico da devolução de mercadorias rejeitadas.</p>
+<p><strong>Fluxo operacional:</strong> Seleção de recebimento elegível → Preparação do rascunho com reserva de itens → Expedição física (saída da custódia) → Confirmação da entrega ao fornecedor (com protocolo).</p>
+<p><strong>Regras importantes:</strong> a devolução física não debita estoque disponível e não produz quitação financeira presumida. O cancelamento de rascunhos libera atomicamente as quantidades reservadas.</p>
+</div></details>
+
+@if(origens.Count>0){
+<section class="panel mb-3 border-primary">
+ <div class="section-title"><h2 class="h5 text-primary">Recebimentos com itens rejeitados elegíveis para devolução</h2><span class="badge bg-primary">@origens.Count disponíveis</span></div>
+ <p class="small text-muted">Inicie a devolução diretamente pelo recebimento elegível, sem necessidade de digitação de identificadores manuais.</p>
+ <div class="table-responsive">
+  <table class="table table-sm align-middle">
+   <thead>
+    <tr>
+     <th>Documento de recebimento</th>
+     <th>Pedido</th>
+     <th>Fornecedor</th>
+     <th class="text-center">Itens rejeitados</th>
+     <th class="text-end">Saldo elegível</th>
+     <th>Ação</th>
+    </tr>
+   </thead>
+   <tbody>
+    @foreach(var o in origens){
+     <tr>
+      <td><strong>@o.Documento</strong></td>
+      <td>@o.PedidoNumero</td>
+      <td>@o.Fornecedor</td>
+      <td class="text-center">@o.ItensRejeitados</td>
+      <td class="text-end text-primary fw-bold">@o.SaldoTotalElegivel.ToString("0.####")</td>
+      <td><a class="btn btn-sm btn-primary" asp-action="NovaDevolucao" asp-route-recebimentoId="@o.RecebimentoId">Preparar devolução</a></td>
+     </tr>
+    }
+   </tbody>
+  </table>
+ </div>
+</section>
+}
+
+<form method="get" class="panel row g-2 mb-3" role="search">
+ <div class="col-md-3">
+  <label for="fornecedor" class="form-label small fw-semibold">Fornecedor</label>
+  <input id="fornecedor" name="fornecedor" value="@f.Fornecedor" class="form-control form-control-sm" placeholder="Razão social ou fantasia"/>
+ </div>
+ <div class="col-md-2">
+  <label for="documentoRecebimento" class="form-label small fw-semibold">Recebimento</label>
+  <input id="documentoRecebimento" name="documentoRecebimento" value="@f.DocumentoRecebimento" class="form-control form-control-sm" placeholder="Doc. fiscal ou nota"/>
+ </div>
+ <div class="col-md-2">
+  <label for="situacao" class="form-label small fw-semibold">Situação</label>
+  <select id="situacao" name="situacao" class="form-select form-select-sm">
+   <option value="">Todas</option>
+   @foreach(var s in new[]{"RASCUNHO","EXPEDIDA","ENTREGUE","CANCELADA"}){
+    <option value="@s" selected="@(f.Situacao==s)">@s</option>
+   }
+  </select>
+ </div>
+ <div class="col-md-3">
+  <label for="responsavelId" class="form-label small fw-semibold">Responsável nominal</label>
+  <select id="responsavelId" name="responsavelId" class="form-select form-select-sm">
+   <option value="">Todos</option>
+   @foreach(var r in responsaveis){
+    <option value="@r.UsuarioId" selected="@(f.ResponsavelId==r.UsuarioId)">@r.Nome</option>
+   }
+  </select>
+ </div>
+ <div class="col-md-2 d-flex align-items-end gap-2">
+  <button class="btn btn-sm btn-primary w-100" type="submit">Filtrar</button>
+  <a class="btn btn-sm btn-outline-secondary" asp-action="Devolucoes">Limpar</a>
+ </div>
+ <div class="col-12 text-end">
+  <a class="btn btn-sm btn-outline-secondary" asp-action="ExportarDevolucoes" asp-route-fornecedor="@f.Fornecedor" asp-route-documentoRecebimento="@f.DocumentoRecebimento" asp-route-situacao="@f.Situacao" asp-route-responsavelId="@f.ResponsavelId">Exportar relatório completo (CSV)</a>
+ </div>
+</form>
+
+<section class="panel" aria-live="polite">
+ @if(Model.Items.Count==0){
+  <div class="text-center p-4">
+   <h2 class="h5">Nenhuma operação de devolução encontrada</h2>
+   <p class="text-muted">Utilize os filtros acima ou selecione um recebimento inspecionado para preparar uma nova devolução.</p>
+  </div>
+ }else{
+  <div class="table-responsive">
+   <table class="table align-middle">
+    <thead class="table-light">
+     <tr>
+      <th>Operação / Recebimento</th>
+      <th>Fornecedor</th>
+      <th>Situação</th>
+      <th>Responsável nominal</th>
+      <th>Origem → Destino</th>
+      <th>Instantes operacionais</th>
+      <th>Próxima ação</th>
+      <th></th>
+     </tr>
+    </thead>
+    <tbody>
+     @foreach(var x in Model.Items){
+      <tr>
+       <td>
+        <strong>Devolução #@x.Id</strong><br/>
+        <a class="small text-muted" asp-action="Recebimento" asp-route-id="@x.RecebimentoId">Origem: @x.DocumentoRecebimento</a>
+       </td>
+       <td>@x.Fornecedor</td>
+       <td><span class="status-badge">@x.Situacao</span></td>
+       <td><strong>@(x.ResponsavelNome ?? "Não informado")</strong></td>
+       <td><small>@x.OrigemFisica → @x.Destino</small></td>
+       <td>
+        <small>
+         Criada: @x.CriadaEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")<br/>
+         @if(x.ExpedidaEm.HasValue){<span>Expedida: @x.ExpedidaEm.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")<br/></span>}
+         @if(x.EntregueEm.HasValue){<span class="text-success">Entregue: @x.EntregueEm.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>}
+        </small>
+       </td>
+       <td>
+        @if(x.Situacao == "RASCUNHO"){
+         <a class="btn btn-sm btn-outline-warning" asp-action="Devolucao" asp-route-id="@x.Id">Expedir / Editar</a>
+        }else if(x.Situacao == "EXPEDIDA"){
+         <a class="btn btn-sm btn-outline-success" asp-action="Devolucao" asp-route-id="@x.Id">Confirmar entrega</a>
+        }else{
+         <span class="text-muted small">Concluída</span>
+        }
+       </td>
+       <td><a class="btn btn-sm btn-outline-primary" asp-action="Devolucao" asp-route-id="@x.Id">Detalhes</a></td>
+      </tr>
+     }
+    </tbody>
+   </table>
+  </div>
+  
+  @if(Model.TotalPages > 1){
+   <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Paginação de devoluções">
+    <span class="small text-muted">Página @Model.Page de @Model.TotalPages (total de @Model.TotalItems registros)</span>
+    <ul class="pagination pagination-sm m-0">
+     @if(Model.HasPreviousPage){
+      <li class="page-item"><a class="page-link" asp-action="Devolucoes" asp-route-pagina="@(Model.Page - 1)" asp-route-fornecedor="@f.Fornecedor" asp-route-documentoRecebimento="@f.DocumentoRecebimento" asp-route-situacao="@f.Situacao" asp-route-responsavelId="@f.ResponsavelId">Anterior</a></li>
+     }
+     @if(Model.HasNextPage){
+      <li class="page-item"><a class="page-link" asp-action="Devolucoes" asp-route-pagina="@(Model.Page + 1)" asp-route-fornecedor="@f.Fornecedor" asp-route-documentoRecebimento="@f.DocumentoRecebimento" asp-route-situacao="@f.Situacao" asp-route-responsavelId="@f.ResponsavelId">Próxima</a></li>
+     }
+    </ul>
+   </nav>
+  }
+ }
+</section>

@@ -27,7 +27,7 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Pedidos"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public IActionResult Pedidos()=>Workspace("Pedidos","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Pedidos/{id:guid}"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public IActionResult Pedido(Guid id)=>Workspace("Pedidos","Detalhe 360, histórico e ações autorizadas.");
  [HttpGet("Recebimentos"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Index",await recebimentos.ListarAsync(Contexto(),filtro,ct));}
- [HttpGet("Recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimento(Guid id,string? returnUrl,CancellationToken ct){var item=await recebimentos.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();var model=BuildInspection(item,null,Url.IsLocalUrl(returnUrl)?returnUrl:null);if((await authorization.AuthorizeAsync(User,"compras_empresariais.divergencias.visualizar")).Succeeded)model.Divergencias=(await divergencias.ListarAsync(Contexto(),new(RecebimentoId:id,Tamanho:100),ct)).Resultado.Items;return View("Recebimentos/Detalhe",model);}
+ [HttpGet("Recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimento(Guid id,string? returnUrl,CancellationToken ct){var item=await recebimentos.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();var model=BuildInspection(item,null,Url.IsLocalUrl(returnUrl)?returnUrl:null);if((await authorization.AuthorizeAsync(User,"compras_empresariais.divergencias.visualizar")).Succeeded)model.Divergencias=(await divergencias.ListarAsync(Contexto(),new(RecebimentoId:id,Tamanho:100),ct)).Resultado.Items;if((await authorization.AuthorizeAsync(User,"compras_empresariais.devolucoes.visualizar")).Succeeded){model.Destinacoes=await devolucoes.ObterAcompanhamentoDestinacaoAsync(Contexto().TenantId,id,ct);model.DevolucoesVinculadas=await devolucoes.ListarPorRecebimentoAsync(Contexto().TenantId,id,ct);}return View("Recebimentos/Detalhe",model);}
  [HttpPost("Recebimentos/{id:guid}/ConcluirInspecao"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.recebimentos.inspecionar")]
  public async Task<IActionResult> ConcluirInspecao(Guid id,InspecaoRecebimentoViewModel model,CancellationToken ct)
  {
@@ -62,14 +62,262 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  public async Task<IActionResult> ExportarDivergencias([FromQuery]DivergenciaFiltro filtro,CancellationToken ct){var rows=new List<DivergenciaResumo>();for(var page=1;;page++){var data=await divergencias.ListarAsync(Contexto(),filtro with{Pagina=page,Tamanho=100},ct);rows.AddRange(data.Resultado.Items);if(rows.Count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");if(!data.Resultado.HasNextPage)break;}var lines=new List<string>{"Documento;Pedido;Fornecedor;Produto;Unidade;Quantidade;Motivo;Situação;Responsável;Abertura;Encerramento;Providência;Resultado"};lines.AddRange(rows.Select(x=>string.Join(';',Csv(x.Documento),Csv(x.PedidoNumero),Csv(x.Fornecedor),Csv(x.Produto),Csv(x.Unidade),x.QuantidadeRejeitada.ToString("0.####",CultureInfo.InvariantCulture),Csv(x.Motivo),Csv(x.Situacao),Csv(x.ResponsavelNome),Csv(x.AbertaEm.ToString("O")),Csv(x.EncerradaEm?.ToString("O")),Csv(x.Providencia),Csv(x.Resultado))));return CsvFile(lines,"divergencias-recebimento");}
  [HttpGet("Faturas"),Authorize(Policy="compras_empresariais.faturas.visualizar")]public IActionResult Faturas()=>Workspace("Faturas","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Faturas/{id:guid}"),Authorize(Policy="compras_empresariais.faturas.visualizar")]public IActionResult Fatura(Guid id)=>Workspace("Faturas","Detalhe 360, histórico e ações autorizadas.");
- [HttpGet("Devolucoes"),Authorize(Policy="compras_empresariais.devolucoes.visualizar")]public async Task<IActionResult> Devolucoes([FromQuery]DevolucaoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Devolucoes/Index",await devolucoes.ListarAsync(Contexto().TenantId,filtro,ct));}
- [HttpGet("Devolucoes/Nova"),Authorize(Policy="compras_empresariais.devolucoes.criar")]public async Task<IActionResult> NovaDevolucao(Guid recebimentoId,CancellationToken ct){var origem=await devolucoes.ObterOrigemAsync(Contexto().TenantId,recebimentoId,ct);if(origem is null)return NotFound();ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Devolucoes/Nova",origem);}
- [HttpPost("Devolucoes/Nova"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.devolucoes.criar")]public async Task<IActionResult> CriarDevolucao(CriarDevolucaoRequest request,CancellationToken ct){try{if(!ModelState.IsValid)throw new ArgumentException("Revise os campos informados.");var x=await devolucoes.CriarAsync(Contexto(),request,ct);TempData["Success"]=x.Repetido?"Rascunho já registrado; resultado persistido reapresentado.":"Rascunho criado e quantidades reservadas.";return RedirectToAction(nameof(Devolucao),new{id=x.Id});}catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){ModelState.AddModelError(string.Empty,ex.Message);var origem=await devolucoes.ObterOrigemAsync(Contexto().TenantId,request.RecebimentoId,ct);if(origem is null)return NotFound();ViewData["IdempotencyKey"]=request.IdempotencyKey;return View("Devolucoes/Nova",origem);}}
+ [HttpGet("Devolucoes"),Authorize(Policy="compras_empresariais.devolucoes.visualizar")]
+ public async Task<IActionResult> Devolucoes([FromQuery]DevolucaoFiltro filtro,CancellationToken ct)
+ {
+  ViewData["Filtro"]=filtro;
+  var tenant=Contexto().TenantId;
+  ViewData["Responsaveis"]=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
+  ViewData["OrigensElegiveis"]=await devolucoes.PesquisarOrigensElegiveisAsync(tenant,null,ct);
+  return View("Devolucoes/Index",await devolucoes.ListarAsync(tenant,filtro,ct));
+ }
+ [HttpGet("Devolucoes/Nova"),Authorize(Policy="compras_empresariais.devolucoes.criar")]
+ public async Task<IActionResult> NovaDevolucao(Guid recebimentoId,string? returnUrl,CancellationToken ct)
+ {
+  var tenant=Contexto().TenantId;
+  var origem=await devolucoes.ObterOrigemAsync(tenant,recebimentoId,ct);
+  if(origem is null)return NotFound("Recebimento não encontrado ou não elegível para preparação de devolução.");
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
+  var model=new DevolucaoFormViewModel
+  {
+   RecebimentoId=origem.RecebimentoId,
+   DocumentoRecebimento=origem.Documento,
+   Fornecedor=origem.Fornecedor,
+   OrigemFisica="Almoxarifado Central",
+   Destino=origem.Fornecedor,
+   ContextoInstitucional=snapshot,
+   Responsaveis=responsaveis,
+   ReturnUrl=Url.IsLocalUrl(returnUrl)?returnUrl:null,
+   Itens=origem.Itens.Select(x=>new DevolucaoItemLinhaViewModel
+   {
+    RecebimentoItemId=x.RecebimentoItemId,
+    Produto=x.Produto,
+    Unidade=x.Unidade,
+    QuantidadeRejeitada=x.QuantidadeRejeitada,
+    QuantidadeReservada=x.QuantidadeReservada,
+    QuantidadeExpedida=x.QuantidadeExpedida,
+    QuantidadeEntregue=x.QuantidadeEntregue,
+    SaldoElegivel=x.SaldoElegivel,
+    Selecionado=false,
+    QuantidadeDevolver=x.SaldoElegivel>0?x.SaldoElegivel.ToString("0.####",CultureInfo.GetCultureInfo("pt-BR")):"0"
+   }).ToList()
+  };
+  return View("Devolucoes/Nova",model);
+ }
+ [HttpPost("Devolucoes/Nova"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.devolucoes.criar")]
+ public async Task<IActionResult> CriarDevolucao(DevolucaoFormViewModel model,CancellationToken ct)
+ {
+  var tenant=Contexto().TenantId;
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
+  if(model.ResponsavelId!=Guid.Empty&&responsaveis.All(r=>r.UsuarioId!=model.ResponsavelId))
+  {
+   responsaveis=responsaveis.Append(new ResponsavelDivergencia(model.ResponsavelId,"Responsável selecionado","Vínculo ativo",null)).ToList();
+  }
+  model.ContextoInstitucional=snapshot;
+  model.Responsaveis=responsaveis;
+
+  var itensSelecionados=new List<DevolucaoItemInput>();
+  var seen=new HashSet<long>();
+  for(var i=0;i<model.Itens.Count;i++)
+  {
+   var item=model.Itens[i];
+   if(!seen.Add(item.RecebimentoItemId))ModelState.AddModelError($"Itens[{i}].RecebimentoItemId","Item duplicado na seleção.");
+   if(item.Selecionado)
+   {
+    if(!TryDecimal(item.QuantidadeDevolver,out var q))ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver","Informe um número não negativo com até quatro casas decimais (ex.: 1,2500).");
+    else if(q<=0)ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver","A quantidade do item selecionado deve ser positiva.");
+    else if(q>item.SaldoElegivel)ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver",$"A quantidade ultrapassa o saldo elegível ({item.SaldoElegivel.ToString("0.####",CultureInfo.GetCultureInfo("pt-BR"))}).");
+    else itensSelecionados.Add(new(item.RecebimentoItemId,q));
+   }
+   else
+   {
+    if(!string.IsNullOrWhiteSpace(item.QuantidadeDevolver)&&decimal.TryParse(item.QuantidadeDevolver,NumberStyles.Any,CultureInfo.GetCultureInfo("pt-BR"),out var qNeg)&&qNeg<0)
+     ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver","Quantidade negativa é inválida.");
+   }
+  }
+  if(itensSelecionados.Count==0&&ModelState.IsValid)
+   ModelState.AddModelError(string.Empty,"Pelo menos um item deve ser selecionado para compor a devolução.");
+  if(model.ResponsavelId==Guid.Empty)
+   ModelState.AddModelError(nameof(model.ResponsavelId),"Selecione um responsável elegível da lista.");
+
+  if(!ModelState.IsValid)return View("Devolucoes/Nova",model);
+
+  var request=new CriarDevolucaoRequest(
+   RecebimentoId:model.RecebimentoId,
+   Motivo:model.Motivo.Trim(),
+   ResponsavelId:model.ResponsavelId,
+   OrigemFisica:model.OrigemFisica.Trim(),
+   Destino:model.Destino.Trim(),
+   EsferaGoverno:snapshot?.EsferaGoverno??"municipal",
+   TipoEntidade:snapshot?.TipoEntidade??"Administração Direta",
+   OrgaoSuperior:snapshot?.OrgaoSuperior,
+   UnidadeGestora:snapshot?.UnidadeGestora??"Unidade Gestora Central",
+   UnidadeExecutora:snapshot?.UnidadeExecutora??"Unidade Executora Central",
+   HierarquiaAdministrativa:snapshot?.HierarquiaAdministrativa??"Estrutura Central",
+   AbrangenciaTerritorial:snapshot?.AbrangenciaTerritorial??"Municipal",
+   Uf:snapshot?.Uf,
+   Municipio:snapshot?.Municipio,
+   Regiao:snapshot?.Regiao,
+   Jurisdicao:snapshot?.Jurisdicao,
+   Itens:itensSelecionados,
+   IdempotencyKey:model.IdempotencyKey
+  );
+
+  try
+  {
+   var x=await devolucoes.CriarAsync(Contexto(),request,ct);
+   TempData["Success"]=x.Repetido?"Rascunho já registrado; resultado persistido reapresentado.":"Rascunho criado e quantidades reservadas com sucesso.";
+   return RedirectToAction(nameof(Devolucao),new{id=x.Id});
+  }
+  catch(ComprasConcurrencyException ex){ModelState.AddModelError(string.Empty,"Conflito concorrente: "+ex.Message);}
+  catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){ModelState.AddModelError(string.Empty,ex.Message);}
+  return View("Devolucoes/Nova",model);
+ }
  [HttpGet("Devolucoes/{id:long}"),Authorize(Policy="compras_empresariais.devolucoes.visualizar")]public async Task<IActionResult> Devolucao(long id,CancellationToken ct){var x=await devolucoes.ObterAsync(Contexto().TenantId,id,ct);return x is null?NotFound():View("Devolucoes/Detalhe",x);}
+ [HttpGet("Devolucoes/{id:long}/Editar"),Authorize(Policy="compras_empresariais.devolucoes.editar")]
+ public async Task<IActionResult> EditarDevolucao(long id,string? returnUrl,CancellationToken ct)
+ {
+  var tenant=Contexto().TenantId;
+  var detalhe=await devolucoes.ObterParaEdicaoAsync(tenant,id,ct);
+  if(detalhe is null)return NotFound("Devolução não encontrada.");
+  if(detalhe.Situacao!="RASCUNHO"){TempData["Error"]="Somente devoluções na situação RASCUNHO podem ser editadas.";return RedirectToAction(nameof(Devolucao),new{id});}
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
+  if(detalhe.ResponsavelId!=Guid.Empty&&responsaveis.All(r=>r.UsuarioId!=detalhe.ResponsavelId))
+   responsaveis=responsaveis.Append(new ResponsavelDivergencia(detalhe.ResponsavelId,detalhe.ResponsavelNome??detalhe.ResponsavelId.ToString(),"Responsável atribuído",null)).ToList();
+  var model=new DevolucaoFormViewModel
+  {
+   DevolucaoId=detalhe.Id,
+   Version=detalhe.Version,
+   RecebimentoId=detalhe.RecebimentoId,
+   DocumentoRecebimento=detalhe.DocumentoRecebimento,
+   Fornecedor=detalhe.Fornecedor,
+   Motivo=detalhe.Motivo,
+   ResponsavelId=detalhe.ResponsavelId,
+   OrigemFisica=detalhe.OrigemFisica,
+   Destino=detalhe.Destino,
+   ContextoInstitucional=snapshot,
+   Responsaveis=responsaveis,
+   ReturnUrl=Url.IsLocalUrl(returnUrl)?returnUrl:null,
+   Itens=detalhe.Itens.Select(x=>new DevolucaoItemLinhaViewModel
+   {
+    RecebimentoItemId=x.RecebimentoItemId,
+    Produto=x.Produto,
+    Unidade=x.Unidade,
+    QuantidadeRejeitada=x.QuantidadeRejeitada,
+    QuantidadeReservada=x.QuantidadeReservada,
+    QuantidadeExpedida=x.QuantidadeExpedida,
+    QuantidadeEntregue=x.QuantidadeEntregue,
+    SaldoElegivel=x.SaldoElegivel,
+    Selecionado=x.QuantidadeReservada>0,
+    QuantidadeDevolver=x.QuantidadeReservada>0?x.QuantidadeReservada.ToString("0.####",CultureInfo.GetCultureInfo("pt-BR")):(x.SaldoElegivel>0?x.SaldoElegivel.ToString("0.####",CultureInfo.GetCultureInfo("pt-BR")):"0")
+   }).ToList()
+  };
+  return View("Devolucoes/Editar",model);
+ }
+ [HttpPost("Devolucoes/{id:long}/Editar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.devolucoes.editar")]
+ public async Task<IActionResult> SalvarEdicaoDevolucao(long id,DevolucaoFormViewModel model,CancellationToken ct)
+ {
+  var tenant=Contexto().TenantId;
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
+  if(model.ResponsavelId!=Guid.Empty&&responsaveis.All(r=>r.UsuarioId!=model.ResponsavelId))
+   responsaveis=responsaveis.Append(new ResponsavelDivergencia(model.ResponsavelId,"Responsável selecionado","Vínculo ativo",null)).ToList();
+  model.ContextoInstitucional=snapshot;
+  model.Responsaveis=responsaveis;
+  model.DevolucaoId=id;
+
+  var itensSelecionados=new List<DevolucaoItemInput>();
+  var seen=new HashSet<long>();
+  for(var i=0;i<model.Itens.Count;i++)
+  {
+   var item=model.Itens[i];
+   if(!seen.Add(item.RecebimentoItemId))ModelState.AddModelError($"Itens[{i}].RecebimentoItemId","Item duplicado na seleção.");
+   if(item.Selecionado)
+   {
+    if(!TryDecimal(item.QuantidadeDevolver,out var q))ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver","Informe um número não negativo com até quatro casas decimais (ex.: 1,2500).");
+    else if(q<=0)ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver","A quantidade do item selecionado deve ser positiva.");
+    else if(q>item.SaldoElegivel)ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver",$"A quantidade ultrapassa o saldo elegível ({item.SaldoElegivel.ToString("0.####",CultureInfo.GetCultureInfo("pt-BR"))}).");
+    else itensSelecionados.Add(new(item.RecebimentoItemId,q));
+   }
+   else
+   {
+    if(!string.IsNullOrWhiteSpace(item.QuantidadeDevolver)&&decimal.TryParse(item.QuantidadeDevolver,NumberStyles.Any,CultureInfo.GetCultureInfo("pt-BR"),out var qNeg)&&qNeg<0)
+     ModelState.AddModelError($"Itens[{i}].QuantidadeDevolver","Quantidade negativa é inválida.");
+   }
+  }
+  if(itensSelecionados.Count==0&&ModelState.IsValid)
+   ModelState.AddModelError(string.Empty,"Pelo menos um item deve ser selecionado para compor a devolução.");
+  if(model.ResponsavelId==Guid.Empty)
+   ModelState.AddModelError(nameof(model.ResponsavelId),"Selecione um responsável elegível da lista.");
+
+  if(!ModelState.IsValid)return View("Devolucoes/Editar",model);
+
+  var request=new EditarDevolucaoRequest(
+   Motivo:model.Motivo.Trim(),
+   ResponsavelId:model.ResponsavelId,
+   OrigemFisica:model.OrigemFisica.Trim(),
+   Destino:model.Destino.Trim(),
+   Version:model.Version??0,
+   Itens:itensSelecionados,
+   IdempotencyKey:model.IdempotencyKey
+  );
+
+  try
+  {
+   var x=await devolucoes.EditarAsync(Contexto(),id,request,ct);
+   TempData["Success"]=x.Repetido?"Rascunho já atualizado; estado persistido reapresentado.":"Rascunho de devolução alterado com sucesso e reservas recalculadas.";
+   return RedirectToAction(nameof(Devolucao),new{id});
+  }
+  catch(ComprasConcurrencyException ex)
+  {
+   var latest=await devolucoes.ObterAsync(tenant,id,ct);
+   model.Conflito=true;
+   model.MensagemConflito=ex.Message;
+   model.VersaoAtual=latest?.Version;
+   ModelState.AddModelError(string.Empty,"Conflito concorrente: revise o estado atual e inicie nova tentativa.");
+  }
+  catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+  {
+   ModelState.AddModelError(string.Empty,ex.Message);
+  }
+  return View("Devolucoes/Editar",model);
+ }
  [HttpPost("Devolucoes/{id:long}/Expedir"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.devolucoes.expedir")]public Task<IActionResult> ExpedirDevolucao(long id,ExpedirDevolucaoRequest request,CancellationToken ct)=>DevolucaoCommand(id,()=>devolucoes.ExpedirAsync(Contexto(),id,request,ct),"Saída física confirmada; nenhum estoque disponível foi reduzido.");
  [HttpPost("Devolucoes/{id:long}/Entregar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.devolucoes.entregar")]public Task<IActionResult> EntregarDevolucao(long id,EntregarDevolucaoRequest request,CancellationToken ct)=>DevolucaoCommand(id,()=>devolucoes.EntregarAsync(Contexto(),id,request,ct),"Entrega física ao fornecedor confirmada; não há efeito financeiro ou fiscal presumido.");
  [HttpPost("Devolucoes/{id:long}/Cancelar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.devolucoes.editar")]public Task<IActionResult> CancelarDevolucao(long id,CancelarDevolucaoRequest request,CancellationToken ct)=>DevolucaoCommand(id,()=>devolucoes.CancelarAsync(Contexto(),id,request,ct),"Rascunho cancelado e reserva liberada.");
- [HttpGet("Relatorios/Devolucoes.csv"),Authorize(Policy="compras_empresariais.devolucoes.relatorio")]public async Task<IActionResult> ExportarDevolucoes([FromQuery]DevolucaoFiltro filtro,CancellationToken ct){var lines=new List<string>{"Origem;Fornecedor;Situação;Responsável;Origem física;Destino;Abertura;Expedição;Entrega;Itens"};var count=0;for(var page=1;;page++){var data=await devolucoes.ListarAsync(Contexto().TenantId,filtro with{Pagina=page,Tamanho=100},ct);foreach(var x in data.Items){ct.ThrowIfCancellationRequested();lines.Add(string.Join(';',Csv(x.DocumentoRecebimento),Csv(x.Fornecedor),Csv(x.Situacao),Csv(x.ResponsavelNome),Csv(x.OrigemFisica),Csv(x.Destino),Csv(x.CriadaEm.ToString("O")),Csv(x.ExpedidaEm?.ToString("O")),Csv(x.EntregueEm?.ToString("O")),x.Itens));}count+=data.Items.Count;if(count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");if(!data.HasNextPage)break;}return CsvFile(lines,"devolucoes");}
+ [HttpGet("Relatorios/Devolucoes.csv"),Authorize(Policy="compras_empresariais.devolucoes.relatorio")]
+ public async Task<IActionResult> ExportarDevolucoes([FromQuery]DevolucaoFiltro filtro,CancellationToken ct)
+ {
+  var lines=new List<string>{"Recebimento;Fornecedor;Produto;Unidade;QuantidadeRejeitada;Reservada;EmTransporte;Entregue;SaldoElegivel;Situacao;Responsavel;OrigemFisica;Destino;CriadaEm;ExpedidaEm;EntregueEm;ProtocoloEntrega"};
+  var count=0;
+  for(var page=1;;page++)
+  {
+   var data=await devolucoes.ListarAsync(Contexto().TenantId,filtro with{Pagina=page,Tamanho=100},ct);
+   foreach(var x in data.Items)
+   {
+    ct.ThrowIfCancellationRequested();
+    var det=await devolucoes.ObterAsync(Contexto().TenantId,x.Id,ct);
+    if(det is not null&&det.Itens.Count>0)
+    {
+     foreach(var it in det.Itens)
+     {
+      lines.Add(string.Join(';',Csv(x.DocumentoRecebimento),Csv(x.Fornecedor),Csv(it.Produto),Csv(it.Unidade),it.QuantidadeRejeitada.ToString("0.####",CultureInfo.InvariantCulture),it.QuantidadeReservada.ToString("0.####",CultureInfo.InvariantCulture),it.QuantidadeExpedida.ToString("0.####",CultureInfo.InvariantCulture),it.QuantidadeEntregue.ToString("0.####",CultureInfo.InvariantCulture),it.SaldoElegivel.ToString("0.####",CultureInfo.InvariantCulture),Csv(x.Situacao),Csv(x.ResponsavelNome),Csv(x.OrigemFisica),Csv(x.Destino),Csv(x.CriadaEm.ToString("O")),Csv(x.ExpedidaEm?.ToString("O")),Csv(x.EntregueEm?.ToString("O")),Csv(det.DocumentoProtocolo)));
+     }
+    }
+    else
+    {
+     lines.Add(string.Join(';',Csv(x.DocumentoRecebimento),Csv(x.Fornecedor),"-","-","0","0","0","0","0",Csv(x.Situacao),Csv(x.ResponsavelNome),Csv(x.OrigemFisica),Csv(x.Destino),Csv(x.CriadaEm.ToString("O")),Csv(x.ExpedidaEm?.ToString("O")),Csv(x.EntregueEm?.ToString("O")),"-"));
+    }
+   }
+   count+=data.Items.Count;
+   if(count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");
+   if(!data.HasNextPage)break;
+  }
+  return CsvFile(lines,"devolucoes-operacionais");
+ }
  [HttpGet("Avaliacoes"),Authorize(Policy="compras_empresariais.avaliacoes.gerenciar")]public IActionResult Avaliacoes()=>Workspace("Avaliações","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Relatorios"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> Relatorios([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Relatorio",await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=1,Tamanho=100},ct));}
  [HttpGet("Relatorios/Recebimentos.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]

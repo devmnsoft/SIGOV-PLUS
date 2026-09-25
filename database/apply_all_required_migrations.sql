@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
-\echo 'Aplicando baseline canônico SIGOV PLUS...'
+\echo 'Aplicando baseline canÃ´nico SIGOV PLUS...'
 
 \i /database/script_completo.sql
 
@@ -13,4 +13,4 @@ insert into sigov.docker_schema_migrations (name)
 values ('00000000000000_script_completo_baseline')
 on conflict (name) do nothing;
 
-\echo 'Baseline canônico SIGOV PLUS aplicado com sucesso.'
+\echo 'Baseline canÃ´nico SIGOV PLUS aplicado com sucesso.'

@@ -17,5 +17,6 @@ foreach ($m in $manifest.migrations) {
         throw "Migration excluída do baseline foi incorporada: $($m.file)"
     }
 }
-& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'generate-script-completop.ps1') -Verify
+$psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+& $psExe -NoProfile -File (Join-Path $PSScriptRoot 'generate-script-completop.ps1') -Verify
 Write-Host 'script_completop.sql validado.'

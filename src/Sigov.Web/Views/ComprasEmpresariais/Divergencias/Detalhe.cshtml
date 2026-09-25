@@ -1,16 +1,225 @@
 @using Sigov.Web.Models
 @model DivergenciaDetalheViewModel
-@{var d=Model.Divergencia;ViewData["Title"]=$"Divergência {d.Id}";}
+@{var d=Model.Divergencia;ViewData["Title"]=$"Divergência #{d.Id}";}
 <link rel="stylesheet" href="~/css/compras-empresariais.css" /><partial name="../Shared/_ComprasNav" />
-<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="@(Model.ReturnUrl??Url.Action("Divergencias"))">Divergências</a></li><li class="breadcrumb-item active">Ocorrência @d.Id</li></ol></nav>
-<header class="compras-header"><div><span class="eyebrow">TRATAMENTO ADMINISTRATIVO</span><h1>@d.Produto</h1><p>@d.Documento · pedido @d.PedidoNumero · @d.Fornecedor</p></div><span class="status-badge">@d.Situacao.Replace('_',' ')</span></header>
-@if(TempData["Success"] is string ok){<div class="alert alert-success" role="status">@ok</div>}@if(TempData["Error"] is string error){<div class="alert alert-danger" role="alert" tabindex="-1">@error</div>}
-<details class="panel mb-3" open><summary class="fw-semibold">Para que serve e regras</summary><div class="mt-3"><p><strong>Para que serve:</strong> preservar responsáveis, andamentos e resultado da rejeição.</p><p><strong>Pré-requisitos e execução:</strong> atribua pessoa ativa no vínculo canônico; depois registre andamento e encerre com justificativa.</p><p><strong>Efeito:</strong> o encerramento é exclusivamente administrativo. Não aceita mercadoria, não movimenta estoque, não comprova devolução/reposição e não libera pagamento.</p><p><strong>Próximo passo:</strong> consulte o histórico; a última divergência encerra a pendência agregada.</p></div></details>
-<section class="panel"><h2 class="h5">Decisão original (imutável)</h2><dl class="row"><dt class="col-sm-3">Quantidade rejeitada</dt><dd class="col-sm-9">@d.QuantidadeRejeitada @d.Unidade</dd><dt class="col-sm-3">Motivo</dt><dd class="col-sm-9">@d.Motivo</dd><dt class="col-sm-3">Resultado do recebimento</dt><dd class="col-sm-9">Com divergência</dd><dt class="col-sm-3">Situação do tratamento</dt><dd class="col-sm-9">@d.Situacao.Replace('_',' ')</dd></dl></section>
+<nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="@(Model.ReturnUrl??Url.Action("Divergencias"))">Divergências</a></li><li class="breadcrumb-item"><a asp-action="Recebimento" asp-route-id="@d.RecebimentoId">Recebimento @d.Documento</a></li><li class="breadcrumb-item active">Divergência #@d.Id</li></ol></nav>
+<header class="compras-header"><div><span class="eyebrow">TRATAMENTO ADMINISTRATIVO DE REJEIÇÃO</span><h1>@d.Produto</h1><p>Recebimento: <strong>@d.Documento</strong> · Pedido: <strong>@d.PedidoNumero</strong> · Fornecedor: <strong>@d.Fornecedor</strong></p></div><span class="status-badge">@d.Situacao.Replace('_',' ')</span></header>
+
+@if(TempData["Success"] is string ok){<div class="alert alert-success" role="status">@ok</div>}
+@if(TempData["Error"] is string error){<div class="alert alert-danger" role="alert" tabindex="-1">@error</div>}
+
+<details class="panel mb-3" open><summary class="fw-semibold">Para que serve, pré-requisitos e regras importantes</summary><div class="mt-3">
+<p><strong>Para que serve:</strong> gerenciar o tratamento administrativo da divergência decorrente de itens rejeitados na conferência física.</p>
+<p><strong>Pré-requisitos:</strong> responsável elegível atribuído para permitir andamentos e encerramento.</p>
+<p><strong>Regras importantes:</strong> o tratamento administrativo é independente da execução da devolução física. Se a conclusão declarada for devolução ao fornecedor, o encerramento exige comprovação da entrega física de todas as quantidades abrangidas.</p>
+<p><strong>Efeito da ação:</strong> o encerramento administrativo sincroniza e conclui a pendência operacional do órgão caso não restem outras divergências abertas neste recebimento.</p>
+</div></details>
+
+<section class="panel mb-3">
+ <h2 class="h5 border-bottom pb-2">Decisão original da inspeção (imutável)</h2>
+ <dl class="row mb-0">
+  <dt class="col-sm-3">Quantidade rejeitada</dt>
+  <dd class="col-sm-9"><strong>@d.QuantidadeRejeitada.ToString("0.####") @d.Unidade</strong></dd>
+  <dt class="col-sm-3">Motivo da rejeição</dt>
+  <dd class="col-sm-9">@d.Motivo</dd>
+  <dt class="col-sm-3">Responsável atual</dt>
+  <dd class="col-sm-9">@(d.ResponsavelNome ?? "Não atribuído")</dd>
+  <dt class="col-sm-3">Situação do tratamento</dt>
+  <dd class="col-sm-9"><span class="badge bg-secondary">@d.Situacao.Replace('_',' ')</span></dd>
+  @if(!string.IsNullOrWhiteSpace(d.Providencia)){
+   <dt class="col-sm-3">Providência registrada</dt>
+   <dd class="col-sm-9">@d.Providencia</dd>
+  }
+  @if(!string.IsNullOrWhiteSpace(d.Resultado)){
+   <dt class="col-sm-3">Resultado final</dt>
+   <dd class="col-sm-9"><strong>@d.Resultado</strong></dd>
+   <dt class="col-sm-3">Justificativa de encerramento</dt>
+   <dd class="col-sm-9">@d.JustificativaEncerramento</dd>
+  }
+ </dl>
+</section>
+
+@if(d.Destinacao is not null){
+<section class="panel mb-3">
+ <div class="section-title"><h2 class="h5">Acompanhamento da destinação do item</h2>@if(d.Destinacao.SaldoSemDestinacao > 0){<a class="btn btn-sm btn-primary" href="/ComprasEmpresariais/Devolucoes/Nova?recebimentoId=@d.RecebimentoId">Preparar devolução física</a>}</div>
+ <div class="table-responsive">
+  <table class="table align-middle">
+   <thead class="table-light">
+    <tr>
+     <th>Rejeitado original</th>
+     <th>Reservado em rascunho</th>
+     <th>Expedido (em transporte)</th>
+     <th>Entregue ao fornecedor</th>
+     <th class="text-primary">Saldo sem destinação</th>
+     <th>Diagnóstico</th>
+    </tr>
+   </thead>
+   <tbody>
+    <tr class="@(d.Destinacao.Inconsistente ? "table-danger" : "")">
+     <td><strong>@d.Destinacao.QuantidadeRejeitada.ToString("0.####") @d.Unidade</strong></td>
+     <td>@d.Destinacao.QuantidadeReservada.ToString("0.####")</td>
+     <td>@d.Destinacao.QuantidadeExpedidaNaoEntregue.ToString("0.####")</td>
+     <td class="text-success fw-bold">@d.Destinacao.QuantidadeEntregue.ToString("0.####")</td>
+     <td class="text-primary fw-bold">@d.Destinacao.SaldoSemDestinacao.ToString("0.####")</td>
+     <td>
+      @if(d.Destinacao.Inconsistente){
+       <span class="text-danger fw-bold">⚠ @d.Destinacao.DiagnosticoInconsistencia</span>
+      }else{
+       <span class="text-success">Conforme</span>
+      }
+     </td>
+    </tr>
+   </tbody>
+  </table>
+ </div>
+</section>
+}
+
+@if(d.DevolucoesVinculadas is not null && d.DevolucoesVinculadas.Count > 0){
+<section class="panel mb-3">
+ <h2 class="h5 border-bottom pb-2">Devoluções físicas vinculadas a este item</h2>
+ <div class="table-responsive">
+  <table class="table align-middle">
+   <thead class="table-light">
+    <tr>
+     <th>Operação</th>
+     <th>Situação física</th>
+     <th class="text-end">Quantidade</th>
+     <th>Expedição</th>
+     <th>Entrega</th>
+     <th>Protocolo</th>
+     <th></th>
+    </tr>
+   </thead>
+   <tbody>
+    @foreach(var dev in d.DevolucoesVinculadas){
+     <tr>
+      <td><strong>Devolução #@dev.DevolucaoId</strong></td>
+      <td><span class="status-badge">@dev.Situacao</span></td>
+      <td class="text-end fw-semibold">@dev.Quantidade.ToString("0.####")</td>
+      <td>@(dev.ExpedidaEm?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+      <td>@(dev.EntregueEm?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+      <td>@(dev.DocumentoProtocolo ?? "—")</td>
+      <td><a class="btn btn-sm btn-outline-primary" asp-action="Devolucao" asp-route-id="@dev.DevolucaoId">Detalhar</a></td>
+     </tr>
+    }
+   </tbody>
+  </table>
+ </div>
+</section>
+}
+
 @if(d.Situacao!="ENCERRADA"){
-<section class="divergencia-acoes mt-3" aria-label="Ações permitidas"><form class="panel" asp-action="AtribuirDivergencia" asp-route-id="@d.Id" method="post" data-single-submit>@Html.AntiForgeryToken()<h2 class="h5">Atribuir ou redistribuir</h2><input name="version" value="@d.Version" type="hidden"/><input name="idempotencyKey" value="@Model.IdempotencyKey-atribuir" type="hidden"/><input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/><label for="responsavelId">Responsável ativo</label><select id="responsavelId" name="responsavelId" class="form-select" required><option value="">Selecione pelo nome</option>@foreach(var p in Model.Responsaveis){<option value="@p.UsuarioId" selected="@(p.UsuarioId==d.ResponsavelId)">@p.Nome — @(p.Unidade??p.Vinculo??"vínculo ativo")</option>}</select><span class="form-text">A atribuição não concede acesso ao recebimento.</span><button class="btn btn-primary mt-3">Salvar responsável</button></form>
-@if(d.Situacao=="EM_TRATAMENTO"){<form class="panel" asp-action="AndamentoDivergencia" asp-route-id="@d.Id" method="post" data-single-submit>@Html.AntiForgeryToken()<h2 class="h5">Registrar andamento</h2><input name="version" value="@d.Version" type="hidden"/><input name="idempotencyKey" value="@Model.IdempotencyKey-andamento" type="hidden"/><input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/><label for="descricao">Descrição</label><textarea id="descricao" name="descricao" minlength="3" maxlength="2000" required class="form-control"></textarea><label for="providencia" class="mt-2">Providência administrativa registrada</label><input id="providencia" name="providencia" maxlength="40" class="form-control" aria-describedby="providencia-help"/><small id="providencia-help">Descreva somente ação efetivamente realizada; não informe devolução ou reposição sem operação canônica.</small><button class="btn btn-primary mt-3">Adicionar ao histórico</button></form>
-<form class="panel border-warning" asp-action="EncerrarDivergencia" asp-route-id="@d.Id" method="post" data-single-submit data-confirm-close>@Html.AntiForgeryToken()<h2 class="h5">Encerrar tratamento</h2><input name="version" value="@d.Version" type="hidden"/><input name="idempotencyKey" value="@Model.IdempotencyKey-encerrar" type="hidden"/><input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/><label for="resultado">Resultado administrativo</label><textarea id="resultado" name="resultado" minlength="3" maxlength="2000" required class="form-control"></textarea><label for="justificativa" class="mt-2">Justificativa do encerramento</label><textarea id="justificativa" name="justificativa" minlength="10" maxlength="2000" required class="form-control"></textarea><div class="alert alert-warning mt-3">Confirme: a decisão original e o estoque não serão alterados. Esta ação apenas encerra o acompanhamento administrativo.</div><button class="btn btn-warning">Confirmar encerramento</button></form>}</section>}
-<section class="panel mt-3"><h2 class="h5">Execução física independente</h2><p>A devolução física não é inferida pelo encerramento administrativo.</p><a class="btn btn-outline-primary" href="/ComprasEmpresariais/Devolucoes/Nova?recebimentoId=@d.RecebimentoId">Preparar devolução do recebimento</a> <a href="/ComprasEmpresariais/Devolucoes?documentoRecebimento=@Uri.EscapeDataString(d.Documento)">Ver devoluções vinculadas</a></section><section class="panel mt-3"><h2 class="h5">Histórico confiável</h2>@if(d.Historico.Count==0){<p class="text-danger">Inconsistência: nenhum evento de abertura foi localizado; não há autoria histórica presumida.</p>}else{<ol class="timeline">@foreach(var e in d.Historico){<li><strong>@e.Tipo.Replace('_',' ')</strong> · @e.OcorridoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")<br/><span>@e.Autor</span>@if(e.Descricao is not null){<p>@e.Descricao</p>}@if(e.Providencia is not null){<p>Providência: @e.Providencia</p>}@if(e.ResponsavelAnterior is not null||e.ResponsavelNovo is not null){<p>Responsável: @(e.ResponsavelAnterior??"não registrado") → @(e.ResponsavelNovo??"não registrado")</p>}@if(e.Resultado is not null){<p>Resultado: @e.Resultado</p>}@if(e.Justificativa is not null){<p>Justificativa: @e.Justificativa</p>}<small>Correlação: @(e.CorrelationId??"não informada")</small></li>}</ol>}</section>
-<div class="action-bar"><a class="btn btn-outline-secondary" href="@(Model.ReturnUrl??Url.Action("Divergencias"))">Voltar preservando filtros</a></div>
-<script>document.querySelectorAll('[data-single-submit]').forEach(f=>f.addEventListener('submit',e=>{const b=f.querySelector('button[type=submit],button:not([type])');if(b?.disabled){e.preventDefault();return}if(f.hasAttribute('data-confirm-close')&&!confirm('Encerrar somente o acompanhamento administrativo desta divergência?')){e.preventDefault();return}if(b){b.disabled=true;b.setAttribute('aria-disabled','true');b.textContent='Salvando…'}}));document.querySelector('[role=alert]')?.focus();</script>
+<section class="divergencia-acoes mb-3" aria-label="Ações permitidas">
+ <form class="panel" asp-action="AtribuirDivergencia" asp-route-id="@d.Id" method="post" data-single-submit>
+  @Html.AntiForgeryToken()
+  <h2 class="h5 border-bottom pb-2">Atribuir ou redistribuir responsável</h2>
+  <input name="version" value="@d.Version" type="hidden"/>
+  <input name="idempotencyKey" value="@Model.IdempotencyKey-atribuir" type="hidden"/>
+  <input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/>
+  <label for="responsavelId" class="form-label fw-semibold">Responsável ativo</label>
+  <select id="responsavelId" name="responsavelId" class="form-select" required>
+   <option value="">Selecione pelo nome</option>
+   @foreach(var p in Model.Responsaveis){
+    <option value="@p.UsuarioId" selected="@(p.UsuarioId==d.ResponsavelId)">@p.Nome — @(p.Unidade??p.Vinculo??"vínculo ativo")</option>
+   }
+  </select>
+  <span class="form-text text-muted">A atribuição define a responsabilidade sobre o andamento e conclusão desta ocorrência.</span>
+  <button class="btn btn-primary mt-3" type="submit">Salvar atribuição</button>
+ </form>
+
+ @if(d.Situacao=="EM_TRATAMENTO"){
+  <form class="panel" asp-action="AndamentoDivergencia" asp-route-id="@d.Id" method="post" data-single-submit>
+   @Html.AntiForgeryToken()
+   <h2 class="h5 border-bottom pb-2">Registrar andamento operacional</h2>
+   <input name="version" value="@d.Version" type="hidden"/>
+   <input name="idempotencyKey" value="@Model.IdempotencyKey-andamento" type="hidden"/>
+   <input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/>
+   
+   <label for="providencia" class="form-label fw-semibold">Providência tipada</label>
+   <select id="providencia" name="providencia" class="form-select mb-2">
+    <option value="DEVOLUCAO_AO_FORNECEDOR">Devolução ao fornecedor</option>
+    <option value="SUBSTITUICAO_DE_ITEM">Substituição do item com defeito</option>
+    <option value="DESCONTO_OU_GLOSA">Desconto / Glosa no faturamento</option>
+    <option value="REGULARIZACAO_DOCUMENTAL">Regularização documental ou laudo</option>
+    <option value="OUTRA">Outra providência administrativa</option>
+   </select>
+
+   <label for="descricao" class="form-label fw-semibold">Descrição do andamento</label>
+   <textarea id="descricao" name="descricao" minlength="3" maxlength="2000" required class="form-control" rows="3" placeholder="Descreva os fatos ocorridos, contatos com o fornecedor ou deliberações..."></textarea>
+   
+   <button class="btn btn-primary mt-3" type="submit">Adicionar ao histórico</button>
+  </form>
+
+  <form class="panel border-warning" asp-action="EncerrarDivergencia" asp-route-id="@d.Id" method="post" data-single-submit data-confirm-close>
+   @Html.AntiForgeryToken()
+   <h2 class="h5 border-bottom pb-2 text-warning">Encerrar tratamento administrativo</h2>
+   <input name="version" value="@d.Version" type="hidden"/>
+   <input name="idempotencyKey" value="@Model.IdempotencyKey-encerrar" type="hidden"/>
+   <input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/>
+   
+   <label for="resultado" class="form-label fw-semibold">Resultado administrativo</label>
+   <select id="resultado" name="resultado" class="form-select mb-2" required>
+    <option value="DEVOLUCAO_INTEGRAL">Devolução física integral confirmada</option>
+    <option value="DEVOLUCAO_PARCIAL">Devolução física parcial confirmada</option>
+    <option value="SUBSTITUICAO_CONCLUIDA">Substituição de itens concluída</option>
+    <option value="GLOSA_APLICADA">Glosa ou desconto financeiro pactuado</option>
+    <option value="ENCERRAMENTO_ADMINISTRATIVO">Encerramento administrativo fundamentado</option>
+   </select>
+
+   <label for="justificativa" class="form-label fw-semibold">Justificativa do encerramento</label>
+   <textarea id="justificativa" name="justificativa" minlength="10" maxlength="2000" required class="form-control" rows="3" placeholder="Fundamente conclusivamente o resultado adotado..."></textarea>
+   
+   <div class="alert alert-warning mt-3 small">
+    <strong>Atenção:</strong> declarações de devolução física exigem comprovação de entrega prévia das mercadorias ao fornecedor. Se houver quantidade pendente de entrega, a devolução integral será recusada pelo sistema.
+   </div>
+   <button class="btn btn-warning" type="submit">Confirmar encerramento fundamentado</button>
+  </form>
+ }
+</section>
+}
+
+<section class="panel mb-3">
+ <h2 class="h5 border-bottom pb-2">Histórico auditável do tratamento</h2>
+ @if(d.Historico.Count==0){
+  <p class="text-danger">Inconsistência: nenhum evento de abertura foi localizado.</p>
+ }else{
+  <ol class="timeline list-unstyled">
+   @foreach(var e in d.Historico){
+    <li class="mb-3 border-start border-3 ps-3">
+     <div class="d-flex justify-content-between align-items-center">
+      <strong>@e.Tipo.Replace('_',' ')</strong>
+      <span class="small text-muted">@e.OcorridoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</span>
+     </div>
+     <div>
+      <span>Autor: <strong>@e.Autor</strong></span>
+      @if(e.Descricao is not null){<p class="m-0 mt-1">@e.Descricao</p>}
+      @if(e.Providencia is not null){<p class="m-0 text-primary">Providência: @e.Providencia</p>}
+      @if(e.ResponsavelAnterior is not null||e.ResponsavelNovo is not null){
+       <p class="m-0 text-muted">Responsável: @(e.ResponsavelAnterior??"não registrado") → @(e.ResponsavelNovo??"não registrado")</p>
+      }
+      @if(e.Resultado is not null){<p class="m-0 fw-semibold text-success">Resultado: @e.Resultado</p>}
+      @if(e.Justificativa is not null){<p class="m-0 text-muted fst-italic">Justificativa: @e.Justificativa</p>}
+     </div>
+    </li>
+   }
+  </ol>
+ }
+</section>
+
+<div class="action-bar d-flex justify-content-between">
+ <a class="btn btn-outline-secondary" href="@(Model.ReturnUrl??Url.Action("Divergencias"))">Voltar às divergências</a>
+ <a class="btn btn-outline-primary" asp-action="Recebimento" asp-route-id="@d.RecebimentoId">Ver recebimento</a>
+</div>
+
+<script>
+document.querySelectorAll('[data-single-submit]').forEach(f=>f.addEventListener('submit',e=>{
+ const b=f.querySelector('button[type=submit],button:not([type])');
+ if(b?.disabled){e.preventDefault();return}
+ if(f.hasAttribute('data-confirm-close')&&!confirm('Confirmar o encerramento do tratamento desta divergência com a fundamentação informada?')){
+  e.preventDefault();return;
+ }
+ if(b){b.disabled=true;b.setAttribute('aria-disabled','true');b.textContent='Salvando…'}
+}));
+document.querySelector('[role=alert]')?.focus();
+</script>

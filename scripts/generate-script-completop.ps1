@@ -59,7 +59,8 @@ function Add-CompatibilityFile([System.Text.StringBuilder]$Builder, [object]$Com
     }
     $path = Join-Path $bootstrapDir $fileName
     $normalized = Get-NormalizedText $path
-    $shaBytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($normalized))
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    $shaBytes = $hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($normalized))
     $sha = [System.BitConverter]::ToString($shaBytes).Replace('-', '').ToLowerInvariant()
     if ($sha -ne $expectedChecksum.ToLowerInvariant()) { throw "Checksum divergente na compatibilidade $fileName" }
     [void]$Builder.AppendLine('-- ==================================================')
@@ -148,7 +149,8 @@ $baselineRequirementRows = foreach ($entry in $included) {
 foreach ($entry in $included) {
     $path = Join-Path $migrationsDir $entry.file
     $normalized = Get-NormalizedText $path
-    $shaBytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($normalized))
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    $shaBytes = $hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($normalized))
     $sha = [System.BitConverter]::ToString($shaBytes).Replace('-', '').ToLowerInvariant()
     if ($sha -ne $entry.checksum) { throw "Checksum divergente em $($entry.file): manifest=$($entry.checksum) atual=$sha" }
 

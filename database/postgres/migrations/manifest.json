@@ -2566,6 +2566,19 @@
         "20260924160000"
       ],
       "postConditionSql": "select to_regclass('sigov.compras_empresarial_devolucao') is not null and to_regclass('sigov.compras_empresarial_devolucao_evento') is not null"
+    },
+    {
+      "version": "20260925120000",
+      "description": "Conclusão da jornada física de devoluções e acompanhamento de destinação dos itens rejeitados",
+      "category": "functional",
+      "file": "20260925120000_compras_devolucao_destinacao_final.sql",
+      "checksum": "2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260924210000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_constraint where conname='fk_comp_dev_responsavel') and to_regclass('sigov.ix_comp_dev_responsavel') is not null"
     }
   ],
   "compatibilityAfterAll": [
