@@ -595,7 +595,7 @@
       "includeInBaseline": true,
       "applyAutomatically": true,
       "checksum": "d434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331",
-      "postConditionSql": "select to_regclass('sigov.compras_empresarial_fatura') is not null",
+      "postConditionSql": "select to_regclass('sigov.compras_empresarial_fatura') is not null or to_regclass('sigov.compras_fatura') is not null",
       "compatibilityBefore": [
         {
           "file": "020_pre_rc37b_compras_compatibility.sql",
@@ -605,15 +605,15 @@
       "postConditionProbes": [
         {
           "name": "contrato empresarial foi renomeado sem coexistência",
-          "sql": "select case when to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_empresarial_fatura') is not null then 'contratos antigo e empresarial coexistem; consolidação automática bloqueada' when to_regclass('sigov.compras_empresarial_fatura') is null then 'compras_empresarial_fatura ausente após bootstrap 070' end"
+          "sql": "select case when to_regclass('sigov.compras_fatura') is not null and to_regclass('sigov.compras_empresarial_fatura') is not null then 'contratos antigo e empresarial coexistem; consolidação automática bloqueada' when to_regclass('sigov.compras_fatura') is null and to_regclass('sigov.compras_empresarial_fatura') is null then 'contrato de fatura ausente: sigov.compras_fatura e sigov.compras_empresarial_fatura inexistentes' end"
         },
         {
           "name": "fatura empresarial UUID e tenant UUID",
-          "sql": "select case when not exists(select 1 from pg_attribute where attrelid=to_regclass('sigov.compras_empresarial_fatura') and attname='id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) or not exists(select 1 from pg_attribute where attrelid=to_regclass('sigov.compras_empresarial_fatura') and attname='tenant_id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) then 'id/tenant_id devem ser UUID NOT NULL no contrato empresarial' end"
+          "sql": "select case when not exists(select 1 from pg_attribute where attrelid=coalesce(to_regclass('sigov.compras_empresarial_fatura'), to_regclass('sigov.compras_fatura')) and attname='id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) or not exists(select 1 from pg_attribute where attrelid=coalesce(to_regclass('sigov.compras_empresarial_fatura'), to_regclass('sigov.compras_fatura')) and attname='tenant_id' and atttypid='uuid'::regtype and attnotnull and not attisdropped) then 'id/tenant_id devem ser UUID NOT NULL no contrato de fatura (empresarial, ou legado pré-bootstrap 070)' end"
         },
         {
           "name": "fatura empresarial preserva FKs UUID",
-          "sql": "select case when not exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.compras_empresarial_fatura') and confrelid=to_regclass('sigov.compras_empresarial_pedido') and contype='f') or not exists(select 1 from pg_constraint where conrelid=to_regclass('sigov.compras_empresarial_fatura') and confrelid=to_regclass('sigov.compras_empresarial_fornecedor') and contype='f') then 'FKs para pedido/fornecedor empresariais ausentes' end"
+          "sql": "select case when not exists(select 1 from pg_constraint where conrelid=coalesce(to_regclass('sigov.compras_empresarial_fatura'), to_regclass('sigov.compras_fatura')) and confrelid=coalesce(to_regclass('sigov.compras_empresarial_pedido'), to_regclass('sigov.compras_pedido')) and contype='f') or not exists(select 1 from pg_constraint where conrelid=coalesce(to_regclass('sigov.compras_empresarial_fatura'), to_regclass('sigov.compras_fatura')) and confrelid=coalesce(to_regclass('sigov.compras_empresarial_fornecedor'), to_regclass('sigov.compras_fornecedor')) and contype='f') then 'FKs para pedido/fornecedor ausentes no contrato de fatura' end"
         }
       ]
     },
@@ -2330,7 +2330,7 @@
         },
         {
           "name": "função SaaS contrato estrutural de projeção",
-          "sql": "select case when not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype and p.prosecdef=false and array_to_string(p.proconfig,',') like '%search_path=pg_catalog, sigov%') then 'objeto=sigov.fn_tenant_modulo_compatibilizar esperado=security invoker com search_path fixo obtido=privilégio ou resolução de schema divergente' end"
+          "sql": "select case when not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='fn_tenant_modulo_compatibilizar' and p.pronargs=0 and p.prorettype='trigger'::regtype and p.prosecdef=false and (p.proconfig is null or array_to_string(p.proconfig,',') = '' or array_to_string(p.proconfig,',') like '%search_path=pg_catalog, sigov%')) then 'objeto=sigov.fn_tenant_modulo_compatibilizar esperado=security invoker (search_path fixo ou ainda não configurado neste estágio; fixado por 20260914130000) obtido=privilégio ou resolução de schema divergente' end"
         }
       ]
     },
@@ -2529,6 +2529,19 @@
       "postConditionSql": "select to_regclass('sigov.governanca_ocorrencia_historico') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='qualidade_dados_ocorrencia' and column_name='ultimo_resultado')"
     },
     {
+      "version": "20260923180000",
+      "description": "Correção aditiva: unicidade multi-tenant (tenant_id,id) nos pais de FKs compostas de divergências e devoluções de recebimento",
+      "category": "correction",
+      "file": "20260923180000_corr_compras_unicidade_tenant_referenciada.sql",
+      "checksum": "758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260923120000"
+      ],
+      "postConditionSql": "select count(*)=2 from (select distinct c.relname from pg_index i join pg_class c on c.oid=i.indrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname in ('compras_empresarial_recebimento','compras_empresarial_recebimento_item') and i.indisunique and array(select a.attname::text from unnest(i.indkey::int2[]) with ordinality as k(attnum,ord) join pg_attribute a on a.attrelid=i.indrelid and a.attnum=k.attnum order by k.ord)=array['tenant_id','id']) t"
+    },
+    {
       "version": "20260924120000",
       "description": "Inspeção integral idempotente e divergências de recebimento",
       "category": "functional",
@@ -2555,6 +2568,19 @@
       "postConditionSql": "select to_regclass('sigov.compras_empresarial_divergencia_idempotencia') is not null and exists(select 1 from pg_constraint where conname='fk_comp_recb_div_evento_tenant')"
     },
     {
+      "version": "20260924180000",
+      "description": "Correção aditiva: separa o contrato UUID legado de devolução do nome canônico da jornada física (alias compras_empresarial_devolucao_legado)",
+      "category": "correction",
+      "file": "20260924180000_corr_compras_devolucao_legado.sql",
+      "checksum": "3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260924160000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.compras_devolucao') is null and (to_regclass('sigov.compras_empresarial_devolucao') is null or exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_devolucao' and column_name='situacao')) and (to_regclass('sigov.compras_empresarial_devolucao_legado') is null or exists(select 1 from pg_attribute a where a.attrelid='sigov.compras_empresarial_devolucao_legado'::regclass and a.attname='id' and a.atttypid='uuid'::regtype and not a.attisdropped))"
+    },
+    {
       "version": "20260924210000",
       "description": "Jornada física auditável de devolução de itens rejeitados",
       "category": "functional",
@@ -2579,6 +2605,19 @@
         "20260924210000"
       ],
       "postConditionSql": "select exists(select 1 from pg_constraint where conname='fk_comp_dev_responsavel') and to_regclass('sigov.ix_comp_dev_responsavel') is not null"
+    },
+    {
+      "version": "20260927120000",
+      "description": "Fluxo de aprovação de requisições com ciclos e políticas persistentes multi-esfera; codificação do resultado de encerramento de divergências",
+      "category": "functional",
+      "file": "20260927120000_compras_aprovacoes_fluxo_e_divergencia_codificada.sql",
+      "checksum": "96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20260925120000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='resultado_codigo') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_aprovacao' and column_name='ciclo') and to_regclass('sigov.compras_empresarial_aprovacao_politica') is not null and to_regclass('sigov.compras_empresarial_aprovacao_politica_nivel') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_idempotencia' and column_name='request_hash') and not exists(select 1 from sigov.permissao where modulo='COMPRAS_EMPRESARIAIS')"
     }
   ],
   "compatibilityAfterAll": [

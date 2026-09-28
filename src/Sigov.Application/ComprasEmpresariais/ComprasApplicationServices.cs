@@ -1,3 +1,5 @@
+using Sigov.Application.Common;
+
 namespace Sigov.Application.ComprasEmpresariais;
 
 internal static class ComprasGuard
@@ -21,7 +23,7 @@ public sealed class RequisicaoCompraApplicationService(IRequisicaoCompraReposito
  public Task<RequisicaoDetalhe?> ObterAsync(ComprasContext c,Guid id,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty)throw new ArgumentException("Requisição inválida.");return repository.ObterAsync(c.TenantId,id,ct);}
  public Task<Guid> CriarAsync(ComprasContext c,CriarRequisicaoRequest r,string key,CancellationToken ct){ComprasGuard.Context(c);ComprasGuard.Key(key);Validate(r.Justificativa,r.Urgencia,r.Itens);return repository.CriarAsync(c,r,key,ct);}
  public Task AtualizarAsync(ComprasContext c,Guid id,AtualizarRequisicaoRequest r,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty||r.Version<=0)throw new ArgumentException("Requisição ou versão inválida.");Validate(r.Justificativa,r.Urgencia,r.Itens);return repository.AtualizarAsync(c,id,r,ct);}
- public Task EnviarAsync(ComprasContext c,Guid id,long version,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty||version<=0)throw new ArgumentException("Requisição ou versão inválida.");return repository.EnviarAsync(c,id,version,ct);}
+ public Task<RequisicaoEnvioResultado> EnviarAsync(ComprasContext c,Guid id,long version,string key,CancellationToken ct){ComprasGuard.Context(c);if(id==Guid.Empty||version<=0)throw new ArgumentException("Requisição ou versão inválida.");ComprasGuard.Key(key);return repository.EnviarAsync(c,id,version,key,ct);}
 
  private static void Validate(string justificativa,string urgencia,IReadOnlyList<RequisicaoItemRequest> itens)
  {
@@ -83,7 +85,7 @@ public sealed class DevolucaoCompraApplicationService(IDevolucaoCompraRepository
  public Task<DevolucaoParaEdicao?> ObterParaEdicaoAsync(Guid tenant,long devolucaoId,CancellationToken ct)=>repository.ObterParaEdicaoAsync(tenant,devolucaoId,ct);
  public Task<IReadOnlyList<OrigemElegivelResumo>> PesquisarOrigensElegiveisAsync(Guid tenant,string? busca,CancellationToken ct)=>repository.PesquisarOrigensElegiveisAsync(tenant,busca,ct);
  public Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(Guid tenant,string? busca,int pagina,int tamanho,CancellationToken ct)=>repository.PesquisarResponsaveisAsync(tenant,busca,Math.Max(1,pagina),Math.Clamp(tamanho,1,50),ct);
- public Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant,CancellationToken ct)=>repository.ObterContextoInstitucionalAsync(tenant,ct);
+ public Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant,Guid usuario,CancellationToken ct)=>repository.ObterContextoInstitucionalAsync(tenant,usuario,ct);
  public Task<IReadOnlyList<DestinacaoRejeitadoItem>> ObterAcompanhamentoDestinacaoAsync(Guid tenant,Guid recebimentoId,CancellationToken ct)=>repository.ObterAcompanhamentoDestinacaoAsync(tenant,recebimentoId,ct);
  public Task<IReadOnlyList<DevolucaoResumo>> ListarPorRecebimentoAsync(Guid tenant,Guid recebimentoId,CancellationToken ct)=>repository.ListarPorRecebimentoAsync(tenant,recebimentoId,ct);
  public Task<DevolucaoComandoResultado> CriarAsync(ComprasContext c,CriarDevolucaoRequest r,CancellationToken ct){Validate(c,r.IdempotencyKey,r.Motivo,r.OrigemFisica,r.Destino,r.Itens);if(r.ResponsavelId==Guid.Empty)throw new ArgumentException("Selecione o responsável.");if(r.EsferaGoverno is not("municipal" or "estadual" or "federal"))throw new ArgumentException("Esfera de governo inválida.");return repository.CriarAsync(c,r,ct);}
@@ -95,3 +97,14 @@ public sealed class DevolucaoCompraApplicationService(IDevolucaoCompraRepository
  private static void Command(ComprasContext c,long id,long version,string key){ComprasGuard.Context(c);ComprasGuard.Key(key);Version(id,version);} private static void Version(long id,long version){if(id<=0||version<=0)throw new ArgumentException("Devolução ou versão inválida.");}
 }
 
+public sealed class AprovacaoRequisicaoApplicationService(IAprovacaoRequisicaoRepository repository):IAprovacaoRequisicaoApplicationService
+{
+ public Task<PagedResult<AprovacaoFilaResumo>> ListarFilaAsync(ComprasContext c,int pagina,int tamanho,string? busca,string? urgencia,CancellationToken ct){ComprasGuard.Context(c);return repository.ListarFilaAsync(c,Math.Max(1,pagina),Math.Clamp(tamanho,1,100),busca,urgencia,ct);}
+ public Task<PagedResult<AprovacaoPainelResumo>> ListarDevolvidasAsync(ComprasContext c,int pagina,int tamanho,CancellationToken ct){ComprasGuard.Context(c);return repository.ListarDevolvidasAsync(c,Math.Max(1,pagina),Math.Clamp(tamanho,1,100),ct);}
+ public Task<PagedResult<AprovacaoPainelResumo>> ListarConcluidasAsync(ComprasContext c,int pagina,int tamanho,CancellationToken ct){ComprasGuard.Context(c);return repository.ListarConcluidasAsync(c,Math.Max(1,pagina),Math.Clamp(tamanho,1,100),ct);}
+ public Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext c,Guid etapaId,CancellationToken ct){ComprasGuard.Context(c);if(etapaId==Guid.Empty)throw new ArgumentException("Etapa de aprovação inválida.");return repository.ObterDetalheAsync(c,etapaId,ct);}
+ public Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext c,Guid etapaId,AprovacaoDecisaoRequest r,CancellationToken ct){ComprasGuard.Context(c);if(etapaId==Guid.Empty)throw new ArgumentException("Etapa de aprovação inválida.");if(r.Version<=0)throw new ArgumentException("Versão inválida.");ComprasGuard.Key(r.IdempotencyKey??string.Empty);var decisao=r.Decisao?.Trim().ToUpperInvariant();if(decisao is not("APROVAR" or "REJEITAR" or "DEVOLVER"))throw new ArgumentException("Decisão inválida; informe APROVAR, REJEITAR ou DEVOLVER.");if(decisao!="APROVAR"&&(string.IsNullOrWhiteSpace(r.Motivo)||r.Motivo.Trim().Length<10))throw new ArgumentException("O motivo é obrigatório (mínimo de 10 caracteres) para rejeitar ou devolver.");return repository.DecidirAsync(c,etapaId,r with{Decisao=decisao,Motivo=r.Motivo?.Trim()},ct);}
+ public Task<PoliticaAtivaResumo?> ObterPoliticaAsync(ComprasContext c,CancellationToken ct){ComprasGuard.Context(c);return repository.ObterPoliticaAsync(c,ct);}
+ public Task<PoliticaSalvaResultado> SalvarPoliticaAsync(ComprasContext c,SalvarPoliticaRequest r,string key,CancellationToken ct){ComprasGuard.Context(c);ComprasGuard.Key(key);if(string.IsNullOrWhiteSpace(r.Nome)||r.Nome.Trim().Length<3||r.Nome.Length>120)throw new ArgumentException("O nome da política deve ter entre 3 e 120 caracteres.");if(r.Niveis is null||r.Niveis.Count<1||r.Niveis.Count>10||r.Niveis.Any(n=>n.Limite<=0))throw new ArgumentException("Informe entre 1 e 10 níveis, todos com limite positivo.");return repository.SalvarPoliticaAsync(c,r with{Nome=r.Nome.Trim()},key,ct);}
+ public Task<PagedResult<AprovacaoRelatorioLinha>> ListarRelatorioAsync(ComprasContext c,int pagina,int tamanho,CancellationToken ct){ComprasGuard.Context(c);return repository.ListarRelatorioAsync(c,Math.Max(1,pagina),Math.Clamp(tamanho,1,100),ct);}
+}

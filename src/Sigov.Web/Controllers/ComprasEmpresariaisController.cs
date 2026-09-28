@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Common;
 using Sigov.Application.ComprasEmpresariais;
 using Sigov.Web.Models;
 using System.Globalization;
@@ -7,7 +8,7 @@ using System.Globalization;
 namespace Sigov.Web.Controllers;
 
 [Authorize,Route("ComprasEmpresariais")]
-public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos,IDivergenciaRecebimentoApplicationService divergencias,IDevolucaoCompraApplicationService devolucoes,IAuthorizationService authorization):Controller
+public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos,IDivergenciaRecebimentoApplicationService divergencias,IDevolucaoCompraApplicationService devolucoes,IAprovacaoRequisicaoApplicationService aprovacoes,IAuthorizationService authorization):Controller
 {
  private ComprasContext Contexto(){if(!Guid.TryParse(User.FindFirst("enterprise_tenant_id")?.Value??User.FindFirst("tenant_id")?.Value,out var t)||!Guid.TryParse(User.FindFirst("sub")?.Value,out var u))throw new UnauthorizedAccessException("Tenant e usuário não resolvidos.");return new(t,u,HttpContext.TraceIdentifier);}
  [HttpGet(""),Authorize(Policy="compras_empresariais.dashboard.visualizar")]public async Task<IActionResult> Index(CancellationToken ct)=>View(await dashboard.ObterAsync(Contexto(),ct));
@@ -18,8 +19,10 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Requisicoes"),Authorize(Policy="compras_empresariais.requisicoes.visualizar")]public async Task<IActionResult> Requisicoes([FromQuery]RequisicaoFiltro filtro,CancellationToken ct=default){ViewData["Filtro"]=filtro;return View("Requisicoes/Index",await requisicoes.ListarAsync(Contexto(),filtro,ct));}
  [HttpGet("Requisicoes/Nova"),Authorize(Policy="compras_empresariais.requisicoes.criar")]public IActionResult NovaRequisicao()=>View("Requisicoes/Nova");
  [HttpGet("Requisicoes/{id:guid}"),Authorize(Policy="compras_empresariais.requisicoes.visualizar")]public async Task<IActionResult> Requisicao(Guid id,string? returnUrl,CancellationToken ct){var item=await requisicoes.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["ReturnUrl"]=Url.IsLocalUrl(returnUrl)?returnUrl:Url.Action(nameof(Requisicoes));return View("Requisicoes/Detalhe",item);}
- [HttpGet("Requisicoes/{id:guid}/Editar"),Authorize(Policy="compras_empresariais.requisicoes.editar")]public async Task<IActionResult> EditarRequisicao(Guid id,CancellationToken ct){var item=await requisicoes.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();if(item.Status!="RASCUNHO")return Conflict("Somente requisições em rascunho podem ser editadas.");return View("Requisicoes/Nova",item);}
- [HttpGet("Aprovacoes"),Authorize(Policy="compras_empresariais.aprovacoes.visualizar")]public IActionResult Aprovacoes()=>Workspace("Aprovações","Minhas aprovações e decisões por alçada.");
+ [HttpGet("Requisicoes/{id:guid}/Editar"),Authorize(Policy="compras_empresariais.requisicoes.editar")]public async Task<IActionResult> EditarRequisicao(Guid id,CancellationToken ct){var item=await requisicoes.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();if(item.Status is not ("RASCUNHO" or "DEVOLVIDA"))return Conflict("Somente requisições em rascunho ou devolvidas podem ser editadas.");return View("Requisicoes/Nova",item);}
+ [HttpGet("Aprovacoes"),Authorize(Policy="compras_empresariais.aprovacoes.visualizar")]public async Task<IActionResult> Aprovacoes(string? busca,string? urgencia,int pagina=1,int tamanho=20,CancellationToken ct=default){var fila=await aprovacoes.ListarFilaAsync(Contexto(),pagina,tamanho,busca,urgencia,ct);var devolvidas=await aprovacoes.ListarDevolvidasAsync(Contexto(),1,10,ct);var concluidas=await aprovacoes.ListarConcluidasAsync(Contexto(),1,10,ct);ViewData["Busca"]=busca;ViewData["Urgencia"]=urgencia;return View("Aprovacoes/Index",new AprovacoesCentralViewModel(fila,devolvidas,concluidas));}
+  [HttpGet("Aprovacoes/{etapaId:guid}/Detalhe"),Authorize(Policy="compras_empresariais.aprovacoes.visualizar")]public async Task<IActionResult> DetalheAprovacao(Guid etapaId,CancellationToken ct){var item=await aprovacoes.ObterDetalheAsync(Contexto(),etapaId,ct);return item is null?NotFound():View("Aprovacoes/Detalhe",item);}
+ [HttpPost("Aprovacoes/{etapaId:guid}/Decidir"),Authorize(Policy="compras_empresariais.aprovacoes.aprovar")]public async Task<IActionResult> DecidirAprovacao(Guid etapaId,[FromForm(Name="decisao")]string decisao,[FromForm(Name="motivo")]string? motivo,[FromForm(Name="version")]long version,[FromForm(Name="Idempotency-Key")]string? chave,CancellationToken ct){var chaveFinal=string.IsNullOrWhiteSpace(chave)?Guid.NewGuid().ToString("N"):chave;try{var x=await aprovacoes.DecidirAsync(Contexto(),etapaId,new(decisao,motivo,version,chaveFinal),ct);TempData["Success"]=x.Repetido?"Decisão já registrada; o resultado persistido foi reapresentado.":"Decisão registrada com sucesso.";}catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message+" Revise o estado atual antes de criar uma nova intenção.";}catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){TempData["Error"]=ex.Message;}return RedirectToAction(nameof(Aprovacoes));}
  [HttpGet("Cotacoes"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public IActionResult Cotacoes()=>Workspace("Cotações","Rodadas, convites e respostas de fornecedores.");
  [HttpGet("Cotacoes/Nova"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public IActionResult NovaCotacao()=>Workspace("Nova cotação","Configure itens, prazo e fornecedores convidados.");
  [HttpGet("Cotacoes/{id:guid}"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public IActionResult Cotacao(Guid id)=>Workspace("Cotação","Workspace da cotação.");
@@ -77,14 +80,14 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
   var tenant=Contexto().TenantId;
   var origem=await devolucoes.ObterOrigemAsync(tenant,recebimentoId,ct);
   if(origem is null)return NotFound("Recebimento não encontrado ou não elegível para preparação de devolução.");
-  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,Contexto().UsuarioId,ct);
   var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
   var model=new DevolucaoFormViewModel
   {
    RecebimentoId=origem.RecebimentoId,
    DocumentoRecebimento=origem.Documento,
    Fornecedor=origem.Fornecedor,
-   OrigemFisica="Almoxarifado Central",
+   OrigemFisica=origem.AlmoxarifadoNome??string.Empty,
    Destino=origem.Fornecedor,
    ContextoInstitucional=snapshot,
    Responsaveis=responsaveis,
@@ -109,7 +112,7 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  public async Task<IActionResult> CriarDevolucao(DevolucaoFormViewModel model,CancellationToken ct)
  {
   var tenant=Contexto().TenantId;
-  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,Contexto().UsuarioId,ct);
   var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
   if(model.ResponsavelId!=Guid.Empty&&responsaveis.All(r=>r.UsuarioId!=model.ResponsavelId))
   {
@@ -144,23 +147,24 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
 
   if(!ModelState.IsValid)return View("Devolucoes/Nova",model);
 
+  if(snapshot is null){ModelState.AddModelError(string.Empty,"Configuração institucional obrigatória ausente para o contexto autorizado.");return View("Devolucoes/Nova",model);}
   var request=new CriarDevolucaoRequest(
    RecebimentoId:model.RecebimentoId,
    Motivo:model.Motivo.Trim(),
    ResponsavelId:model.ResponsavelId,
    OrigemFisica:model.OrigemFisica.Trim(),
    Destino:model.Destino.Trim(),
-   EsferaGoverno:snapshot?.EsferaGoverno??"municipal",
-   TipoEntidade:snapshot?.TipoEntidade??"Administração Direta",
-   OrgaoSuperior:snapshot?.OrgaoSuperior,
-   UnidadeGestora:snapshot?.UnidadeGestora??"Unidade Gestora Central",
-   UnidadeExecutora:snapshot?.UnidadeExecutora??"Unidade Executora Central",
-   HierarquiaAdministrativa:snapshot?.HierarquiaAdministrativa??"Estrutura Central",
-   AbrangenciaTerritorial:snapshot?.AbrangenciaTerritorial??"Municipal",
-   Uf:snapshot?.Uf,
-   Municipio:snapshot?.Municipio,
-   Regiao:snapshot?.Regiao,
-   Jurisdicao:snapshot?.Jurisdicao,
+   EsferaGoverno:snapshot.EsferaGoverno,
+   TipoEntidade:snapshot.TipoEntidade,
+   OrgaoSuperior:snapshot.OrgaoSuperior,
+   UnidadeGestora:snapshot.UnidadeGestora,
+   UnidadeExecutora:snapshot.UnidadeExecutora,
+   HierarquiaAdministrativa:snapshot.HierarquiaAdministrativa,
+   AbrangenciaTerritorial:snapshot.AbrangenciaTerritorial,
+   Uf:snapshot.Uf,
+   Municipio:snapshot.Municipio,
+   Regiao:snapshot.Regiao,
+   Jurisdicao:snapshot.Jurisdicao,
    Itens:itensSelecionados,
    IdempotencyKey:model.IdempotencyKey
   );
@@ -183,7 +187,7 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
   var detalhe=await devolucoes.ObterParaEdicaoAsync(tenant,id,ct);
   if(detalhe is null)return NotFound("Devolução não encontrada.");
   if(detalhe.Situacao!="RASCUNHO"){TempData["Error"]="Somente devoluções na situação RASCUNHO podem ser editadas.";return RedirectToAction(nameof(Devolucao),new{id});}
-  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,Contexto().UsuarioId,ct);
   var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
   if(detalhe.ResponsavelId!=Guid.Empty&&responsaveis.All(r=>r.UsuarioId!=detalhe.ResponsavelId))
    responsaveis=responsaveis.Append(new ResponsavelDivergencia(detalhe.ResponsavelId,detalhe.ResponsavelNome??detalhe.ResponsavelId.ToString(),"Responsável atribuído",null)).ToList();
@@ -221,7 +225,7 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  public async Task<IActionResult> SalvarEdicaoDevolucao(long id,DevolucaoFormViewModel model,CancellationToken ct)
  {
   var tenant=Contexto().TenantId;
-  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,ct);
+  var snapshot=await devolucoes.ObterContextoInstitucionalAsync(tenant,Contexto().UsuarioId,ct);
   var responsaveis=await devolucoes.PesquisarResponsaveisAsync(tenant,null,1,100,ct);
   if(model.ResponsavelId!=Guid.Empty&&responsaveis.All(r=>r.UsuarioId!=model.ResponsavelId))
    responsaveis=responsaveis.Append(new ResponsavelDivergencia(model.ResponsavelId,"Responsável selecionado","Vínculo ativo",null)).ToList();
@@ -320,12 +324,15 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  }
  [HttpGet("Avaliacoes"),Authorize(Policy="compras_empresariais.avaliacoes.gerenciar")]public IActionResult Avaliacoes()=>Workspace("Avaliações","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Relatorios"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> Relatorios([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Relatorio",await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=1,Tamanho=100},ct));}
+  [HttpGet("Relatorios/Aprovacoes"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> RelatorioAprovacoes(int pagina=1,int tamanho=20,CancellationToken ct=default)=>View("Relatorios/Aprovacoes",await aprovacoes.ListarRelatorioAsync(Contexto(),pagina,tamanho,ct));
  [HttpGet("Relatorios/Recebimentos.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]
  public async Task<IActionResult> ExportarRecebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct)
  {
   var rows=new List<RecebimentoResumo>();for(var page=1;;page++){var data=await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=page,Tamanho=100},ct);rows.AddRange(data.Resultado.Items);if(rows.Count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");if(!data.Resultado.HasNextPage)break;}var lines=new List<string>{"Pedido;Fornecedor;Documento;Destino;Situação;Data;Divergências"};lines.AddRange(rows.Select(x=>string.Join(";",Csv(x.PedidoNumero),Csv(x.FornecedorNome),Csv(x.Documento),Csv(x.AlmoxarifadoNome),Csv(x.Status),Csv(x.CriadoEm.ToString("O")),x.Divergencias.ToString(CultureInfo.InvariantCulture))));return CsvFile(lines,"recebimentos");
  }
- [HttpGet("Configuracao"),Authorize(Policy="compras_empresariais.configuracao.gerenciar")]public IActionResult Configuracao()=>Workspace("Configuração","Operação integrada à jornada procure-to-pay.");
+ [HttpGet("Configuracao"),Authorize(Policy="compras_empresariais.configuracao.gerenciar")]public async Task<IActionResult> Configuracao(CancellationToken ct){ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Configuracao/Politica",await aprovacoes.ObterPoliticaAsync(Contexto(),ct));}
+ [HttpPost("Configuracao"),Authorize(Policy="compras_empresariais.configuracao.gerenciar")]public async Task<IActionResult> SalvarConfiguracao([FromForm(Name="Nome")]string? nome,[FromForm(Name="Niveis")]decimal[]? limites,[FromForm(Name="IdempotencyKey")]string? chave,CancellationToken ct){var niveis=(limites??Array.Empty<decimal>()).Where(v=>v>0m).Select(v=>new NivelPoliticaRequest(v)).ToList();var chaveFinal=string.IsNullOrWhiteSpace(chave)?Guid.NewGuid().ToString("N"):chave;try{var x=await aprovacoes.SalvarPoliticaAsync(Contexto(),new(nome,niveis),chaveFinal,ct);TempData["Success"]=x.Repetido?"Política já registrada; o resultado persistido foi reapresentado.":$"Política \"{x.Nome}\" salva com sucesso.";ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Configuracao/Politica",await aprovacoes.ObterPoliticaAsync(Contexto(),ct));}catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message+" Revise o estado atual antes de criar uma nova intenção.";ViewData["Nome"]=nome;ViewData["Limites"]=limites;ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Configuracao/Politica",await aprovacoes.ObterPoliticaAsync(Contexto(),ct));}catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){TempData["Error"]=ex.Message;ViewData["Nome"]=nome;ViewData["Limites"]=limites;ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Configuracao/Politica",await aprovacoes.ObterPoliticaAsync(Contexto(),ct));}}
+ [HttpGet("Relatorios/Aprovacoes.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> RelatorioAprovacoesCsv(CancellationToken ct){var rows=new List<AprovacaoRelatorioLinha>();for(var page=1;;page++){var data=await aprovacoes.ListarRelatorioAsync(Contexto(),page,100,ct);rows.AddRange(data.Items);if(rows.Count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");if(!data.HasNextPage)break;}var lines=new List<string>{"Numero;Ciclo;Etapa;Alcada;SituacaoEtapa;Aprovador;StatusRequisicao;Total;CriadaEm;DecididaEm;Motivo"};lines.AddRange(rows.Select(x=>string.Join(";",Csv(x.Numero),Csv(x.Ciclo.ToString(CultureInfo.InvariantCulture)),Csv(x.Etapa.ToString(CultureInfo.InvariantCulture)),Csv(x.Alcada.ToString("0.00",CultureInfo.InvariantCulture)),Csv(x.SituacaoEtapa),Csv(x.AprovadorSub),Csv(x.StatusRequisicao),Csv(x.Total.ToString("0.00",CultureInfo.InvariantCulture)),x.CriadaEm.ToString("O"),x.DecididaEm?.ToString("O")??"",Csv(x.Motivo))));return CsvFile(lines,"aprovacoes");}
  private async Task<IActionResult> DevolucaoCommand(long id,Func<Task<DevolucaoComandoResultado>> action,string success){try{var x=await action();TempData["Success"]=x.Repetido?"Comando já processado; resultado persistido reapresentado.":success;}catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message+" Revise o estado atual antes de criar uma nova intenção.";}catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){TempData["Error"]=ex.Message;}return RedirectToAction(nameof(Devolucao),new{id});}
  private async Task<IActionResult> DivergenceCommand(long id,string? returnUrl,Func<Task<DivergenciaComandoResultado>> action){try{var result=await action();TempData["Success"]=result.Repetido?"Comando já processado; resultado persistido reapresentado.":result.PendenciaConcluida?"Divergência encerrada e pendência agregada concluída.":"Alteração registrada no histórico.";return RedirectToAction(nameof(Divergencia),new{id,returnUrl});}catch(ArgumentException ex){TempData["Error"]=ex.Message;}catch(InvalidOperationException ex){TempData["Error"]=ex.Message;}return RedirectToAction(nameof(Divergencia),new{id,returnUrl});}
  private static InspecaoRecebimentoViewModel BuildInspection(RecebimentoDetalhe receipt,InspecaoRecebimentoViewModel? submitted,string? returnUrl)=>new(){Recebimento=receipt,Version=submitted?.Version??receipt.Version,Justificativa=submitted?.Justificativa,Itens=submitted?.Itens.Count>0?submitted.Itens:receipt.Itens.Where(x=>x.QuantidadeConferencia>0).Select(x=>new InspecaoDecisaoViewModel{RecebimentoItemId=x.Id,QuantidadeAceita=x.QuantidadeConferencia.ToString("0.####",CultureInfo.GetCultureInfo("pt-BR")),QuantidadeRejeitada="0"}).ToList(),Conflito=submitted?.Conflito??false,MensagemConflito=submitted?.MensagemConflito,VersaoAtual=submitted?.VersaoAtual,ReturnUrl=returnUrl};
@@ -334,3 +341,4 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  private IActionResult CsvFile(IEnumerable<string> lines,string prefix)=>File(System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(string.Join(Environment.NewLine,lines))).ToArray(),"text/csv; charset=utf-8",$"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
  private IActionResult Workspace(string title,string description){ViewData["Title"]=title;ViewData["Description"]=description;return View("Workspace");}
 }
+public sealed record AprovacoesCentralViewModel(PagedResult<AprovacaoFilaResumo> Fila,PagedResult<AprovacaoPainelResumo> Devolvidas,PagedResult<AprovacaoPainelResumo> Concluidas);

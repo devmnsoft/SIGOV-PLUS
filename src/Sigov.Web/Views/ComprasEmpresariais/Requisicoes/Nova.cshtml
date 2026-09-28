@@ -5,7 +5,7 @@
     ViewData["Title"] = editing ? $"Editar requisição {Model!.Numero}" : "Nova requisição";
 }
 <link rel="stylesheet" href="~/css/compras-empresariais.css" />
-<partial name="../Shared/_ComprasNav" />
+<partial name="Shared/_ComprasNav" />
 <header class="compras-header"><div><span class="eyebrow">@(editing ? "RASCUNHO" : "NOVA NECESSIDADE")</span><h1>@(editing ? $"Editar {Model!.Numero}" : "Nova requisição")</h1><p>Registre a justificativa, a data de necessidade e os itens antes de enviar para aprovação.</p></div></header>
 <form id="requisicao-form" class="compras-form" data-id="@(editing ? Model!.Id : null)" data-version="@(editing ? Model!.Version : null)" novalidate>
     @Html.AntiForgeryToken()

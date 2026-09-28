@@ -14,12 +14,15 @@ RUN dotnet restore src/Sigov.Worker/Sigov.Worker.csproj
 COPY . .
 RUN dotnet publish src/Sigov.Worker/Sigov.Worker.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 
-RUN adduser --disabled-password --gecos "" --uid 10001 sigov \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends adduser \
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --disabled-password --gecos "" --uid 10001 sigov \
     && mkdir -p /app/storage \
     && chown -R sigov:sigov /app
 

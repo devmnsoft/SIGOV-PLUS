@@ -21,7 +21,7 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl adduser \
     && rm -rf /var/lib/apt/lists/* \
     && adduser --disabled-password --gecos "" --uid 10001 sigov \
     && mkdir -p /app/storage /app/database \

@@ -172,6 +172,8 @@ public static class DependencyInjection
         services.AddScoped<IPortalContribuinteService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<ITributarioFiscalizacaoService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
         services.AddScoped<ITributarioNfseService>(p => p.GetRequiredService<TributarioAvancadoRepository>());
+        Dapper.SqlMapper.AddTypeHandler(typeof(System.DateOnly), new Persistence.Dapper.DateOnlyDapperTypeHandler());
+        Dapper.SqlMapper.AddTypeHandler(typeof(System.DateOnly?), new Persistence.Dapper.DateOnlyDapperTypeHandler());
         services.AddSingleton<NpgsqlConnectionFactory>();
         services.AddScoped<ISuperAdminOperationalDashboardService, SuperAdminOperationalDashboardService>();
         services.AddScoped<ISaasTenantAdministrationService, SaasTenantAdministrationService>();
@@ -223,6 +225,8 @@ public static class DependencyInjection
         services.AddScoped<IDevolucaoCompraRepository, DevolucaoCompraRepository>();
         services.AddScoped<IDevolucaoCompraApplicationService, DevolucaoCompraApplicationService>();
         services.AddScoped<IDivergenciaRecebimentoApplicationService, DivergenciaRecebimentoApplicationService>();
+        services.AddScoped<IAprovacaoRequisicaoRepository, AprovacaoRequisicaoRepository>();
+        services.AddScoped<IAprovacaoRequisicaoApplicationService, AprovacaoRequisicaoApplicationService>();
         services.AddScoped<IExecutiveOperationsRepository, ExecutiveOperationsRepository>();
         services.AddScoped<ICentralExecutivaRepository, CentralExecutivaRepository>();
         services.AddScoped<ICentralExecutivaService, CentralExecutivaService>();

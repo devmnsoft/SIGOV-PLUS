@@ -235,20 +235,34 @@ if ($canExecute) {
     # Revalida o estado final inclusive na reaplicação, quando todas as versões já
     # constam do ledger. Probes nomeados retornam NULL em sucesso e uma mensagem
     # diagnóstica em falha; não são substitutos da pós-condição booleana.
+    # A SQL vai por arquivo UTF-8 (não por argumento -c): a conversão argv do console
+    # na code page OEM do sistema corrompe literais acentuados em máquinas pt-BR.
+    $revalTempDir = Join-Path $root '.local/tmp'
+    New-Item -ItemType Directory -Force -Path $revalTempDir | Out-Null
+    function Invoke-FinalRevalidationSql([string]$SqlText) {
+        $revalFile = Join-Path $revalTempDir ("sigov-reval-" + [guid]::NewGuid().ToString('N') + '.sql')
+        [System.IO.File]::WriteAllText($revalFile, $SqlText + "`n")
+        try {
+            return @(& $PsqlPath @baseArgs -f $revalFile)
+        }
+        finally {
+            Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $revalFile
+        }
+    }
     foreach ($entry in $manifest.migrations) {
         $versionKey = [string]$entry.version
         if (-not $appliedVersions.ContainsKey($versionKey) -and $entry.applyAutomatically -ne $true) { continue }
         $baseArgs = @('-X', '-q', '-h', $HostName, '-p', $Port, '-U', $User, '-d', $Database, '-v', 'ON_ERROR_STOP=1', '-At')
         $postConditionProperty = $entry.PSObject.Properties['postConditionSql']
         if ($null -ne $postConditionProperty -and -not [string]::IsNullOrWhiteSpace([string]$postConditionProperty.Value)) {
-            $conditionResult = & $PsqlPath @baseArgs -c ([string]$postConditionProperty.Value)
+            $conditionResult = Invoke-FinalRevalidationSql ([string]$postConditionProperty.Value)
             if ($LASTEXITCODE -ne 0 -or [string]$conditionResult -notmatch '^(?i:t|true|1)$') {
                 throw "postConditionSql final reprovada para $versionKey"
             }
         }
         foreach ($probe in (Get-OptionalArray $entry 'postConditionProbes')) {
             $probeName = [string]$probe.name
-            $probeResult = & $PsqlPath @baseArgs -c ([string]$probe.sql)
+            $probeResult = Invoke-FinalRevalidationSql ([string]$probe.sql)
             if ($LASTEXITCODE -ne 0) { throw "postConditionProbe final não executou para $versionKey [$probeName]" }
             $failure = (@($probeResult) -join "`n").Trim()
             if (-not [string]::IsNullOrWhiteSpace($failure)) {

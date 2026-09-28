@@ -1,7 +1,7 @@
 @using Sigov.Web.Models
 @model InspecaoRecebimentoViewModel
 @{var r=Model.Recebimento;ViewData["Title"]=$"Recebimento {r.Documento}";var emConferencia=r.Status=="EM_CONFERENCIA";}
-<link rel="stylesheet" href="~/css/compras-empresariais.css" /><partial name="../Shared/_ComprasNav" />
+<link rel="stylesheet" href="~/css/compras-empresariais.css" /><partial name="Shared/_ComprasNav" />
 <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a asp-action="Recebimentos">Recebimentos</a></li><li class="breadcrumb-item active">@r.Documento</li></ol></nav>
 <header class="compras-header"><div><span class="eyebrow">RECEBIMENTO E TRATAMENTO</span><h1>@r.Documento</h1><p>Pedido <strong>@r.PedidoNumero</strong> · @r.Fornecedor · destino @r.Almoxarifado</p></div><span class="status-badge">@r.Status.Replace('_',' ')</span></header>
 @if(TempData["Success"] is string success){<div class="alert alert-success" role="status">@success</div>}

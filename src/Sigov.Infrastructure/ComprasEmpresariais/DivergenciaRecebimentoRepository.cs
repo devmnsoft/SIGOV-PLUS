@@ -104,8 +104,10 @@ order by d.created_at desc, d.id desc";
         {
             if (row.Situacao != "EM_TRATAMENTO") throw new InvalidOperationException("Somente divergência em tratamento pode ser encerrada.");
 
-            var resultadoUpper = r.Resultado.Trim().ToUpperInvariant();
-            var ehDevolucao = resultadoUpper.Contains("DEVOLUCAO") || resultadoUpper.Contains("DEVOLVID");
+            var codigo = r.Resultado.Trim().ToUpperInvariant();
+            if (codigo is not ("DEVOLUCAO_INTEGRAL" or "DEVOLUCAO_PARCIAL" or "SUBSTITUICAO_CONCLUIDA" or "GLOSA_APLICADA" or "ENCERRAMENTO_ADMINISTRATIVO"))
+                throw new InvalidOperationException("O resultado informado não é um código de encerramento reconhecido.");
+            var ehDevolucao = codigo is "DEVOLUCAO_INTEGRAL" or "DEVOLUCAO_PARCIAL";
             if (ehDevolucao)
             {
                 var entregue = await cn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"select coalesce(sum(di.quantidade), 0)
@@ -116,7 +118,7 @@ where di.tenant_id = @tenant and di.recebimento_item_id = @itemId and d.situacao
                 if (entregue <= 0)
                     throw new InvalidOperationException("Não é possível encerrar o tratamento como devolução sem que haja devoluções físicas com entrega comprovada ao fornecedor.");
 
-                var ehIntegral = resultadoUpper.Contains("INTEGRAL") || !resultadoUpper.Contains("PARCIAL");
+                var ehIntegral = codigo == "DEVOLUCAO_INTEGRAL";
                 if (ehIntegral && entregue < row.QuantidadeRejeitada)
                 {
                     var pendente = row.QuantidadeRejeitada - entregue;
@@ -124,8 +126,8 @@ where di.tenant_id = @tenant and di.recebimento_item_id = @itemId and d.situacao
                 }
             }
 
-            await Update(cn, tx, c, id, r.Version, "situacao='ENCERRADA',resultado=@resultado,justificativa_encerramento=@justificativa,encerrada_em=now()", new { resultado = r.Resultado, justificativa = r.Justificativa }, ct);
-            await Event(cn, tx, c, id, "ENCERRADA", new { resultado = r.Resultado, justificativa = r.Justificativa }, ct);
+            await Update(cn, tx, c, id, r.Version, "situacao='ENCERRADA',resultado=@resultado,resultado_codigo=@codigo,justificativa_encerramento=@justificativa,encerrada_em=now()", new { resultado = r.Resultado, codigo, justificativa = r.Justificativa }, ct);
+            await Event(cn, tx, c, id, "ENCERRADA", new { codigo, resultado = r.Resultado, justificativa = r.Justificativa }, ct);
             var remaining = await cn.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and recebimento_id=@recebimento and situacao<>'ENCERRADA')", new { tenant = c.TenantId, recebimento = row.RecebimentoId }, tx, cancellationToken: ct));
             if (remaining) return false;
             const string close = @"with atualizada as (update sigov.pendencia_operacional p set status='RESOLVIDA',resolved_at=now(),updated_at=now(),versao=versao+1 from sigov.enterprise_tenant_mapping m where m.enterprise_tenant_id=@tenant and m.ativo and p.tenant_id=m.core_tenant_id and p.modulo='COMPRAS_EMPRESARIAIS' and p.tipo='TRATAMENTO_DIVERGENCIA' and p.entidade_id=@recebimento::text and p.status in('ABERTA','EM_TRATAMENTO') returning p.id,p.tenant_id,p.versao) insert into sigov.governanca_ocorrencia_historico(tenant_id,ocorrencia_tipo,ocorrencia_id,evento,usuario_id,justificativa,dados_depois) select tenant_id,'PENDENCIA',id,'RESOLVIDA_NA_ORIGEM',@usuario,@justificativa,jsonb_build_object('recebimento_id',@recebimento,'versao',versao) from atualizada";

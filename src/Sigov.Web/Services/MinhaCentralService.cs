@@ -177,6 +177,6 @@ public sealed class MinhaCentralService
     }
     private static AcaoRecomendadaViewModel A(string title, string description, string url) => new(title, description, url, "info");
     private sealed record CentralContextRow(string Tenant, string? Exercicio);
-    private sealed record PendenciasTotals(long Total, long Vencidas, DateTimeOffset AtualizadoEm);
+    private sealed record PendenciasTotals(long Total, long Vencidas, DateTime AtualizadoEm);
     private sealed record PendenciasResumo(long Total, long Vencidas, DateTimeOffset AtualizadoEm, IReadOnlyList<PendenciaViewModel> Itens);
 }

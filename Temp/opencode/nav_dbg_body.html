@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-br" data-sigov-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#071a2d" />
+  <title>Entrar — SIGOV+</title>
+  <link rel="icon" href="/img/sigov-favicon.svg" type="image/svg+xml" />
+  <link href="/css/sigov-login.css?v=GCvHloVxOyreKgF3dtWdypmmYmBbSEFsR-4bzyXPkwc" rel="stylesheet" />
+</head>
+<body class="sigov-login-page">
+  <a class="login-skip-link" href="#login-panel">Ir para o formulário de acesso</a>
+  <main class="login-shell">
+    <section class="login-brand" aria-labelledby="brand-title">
+      <div>
+        <img class="login-logo" src="/img/sigov-logo.svg" alt="SIGOV+" />
+        <span class="login-kicker"><span aria-hidden="true">●</span> Plataforma institucional segura</span>
+        <h1 id="brand-title">Gestão pública conectada a decisões melhores.</h1>
+        <p>Operação integrada, governança e transparência em uma experiência única para sua organização.</p>
+      </div>
+      <ul class="login-trust" aria-label="Recursos de segurança">
+        <li><span aria-hidden="true">✓</span><span><strong>Contexto protegido</strong><small>Isolamento por organização e permissões.</small></span></li>
+        <li><span aria-hidden="true">✓</span><span><strong>Operações auditáveis</strong><small>Rastreabilidade com código de correlação.</small></span></li>
+        <li><span aria-hidden="true">✓</span><span><strong>Ecossistema integrado</strong><small>Módulos conectados em uma só central.</small></span></li>
+      </ul>
+      <p class="login-brand-footer">SIGOV+ <span>•</span> Governo digital com confiança</p>
+    </section>
+
+    <section class="login-panel" id="login-panel" aria-labelledby="login-title">
+      <div class="login-mobile-brand"><img src="/img/sigov-logo.svg" alt="SIGOV+" /></div>
+      <div class="login-heading">
+        <span class="login-eyebrow">Acesso à plataforma</span>
+        <h2 id="login-title">Bem-vindo de volta</h2>
+        <p>Informe suas credenciais para acessar sua central.</p>
+      </div>
+
+
+      <form method="post" id="loginForm" novalidate action="/Auth/Login?returnUrl=%2FComprasEmpresariais%2FAprovacoes">
+        
+        
+
+        <div class="login-field">
+          <label for="Login">CPF, CNPJ, e-mail institucional ou login <span aria-hidden="true">*</span></label>
+          <div class="login-input-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" /></svg>
+            <input autocomplete="username" autofocus placeholder="Ex.: usuario@orgao.gov.br" aria-describedby="Login-error" type="text" data-val="true" data-val-required="Informe CPF, CNPJ, e-mail institucional ou login." id="Login" name="Login" value="" />
+          </div>
+          <span id="Login-error" class="login-field-error field-validation-valid" data-valmsg-for="Login" data-valmsg-replace="true"></span>
+        </div>
+
+
+        <div class="login-field">
+          <div class="login-label-row"><label for="Senha">Senha <span aria-hidden="true">*</span></label><a href="/Auth/EsqueciSenha">Esqueci minha senha</a></div>
+          <div class="login-input-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input autocomplete="current-password" placeholder="Digite sua senha" aria-describedby="Senha-error" type="password" data-val="true" data-val-required="Informe a senha." id="Senha" name="Senha" />
+            <button class="login-password-toggle" type="button" data-sigov-password-toggle aria-label="Mostrar senha" aria-pressed="false"><span aria-hidden="true">Mostrar</span></button>
+          </div>
+          <span id="Senha-error" class="login-field-error field-validation-valid" data-valmsg-for="Senha" data-valmsg-replace="true"></span>
+        </div>
+
+        <label class="login-check"><input type="checkbox" data-val="true" data-val-required="The LembrarLogin field is required." id="LembrarLogin" name="LembrarLogin" value="true" /><span aria-hidden="true"></span>Manter meu acesso neste dispositivo</label>
+        <button class="login-submit" type="submit" id="btnEntrar"><span data-button-label>Entrar com segurança</span><span aria-hidden="true">→</span></button>
+      <input name="__RequestVerificationToken" type="hidden" value="CfDJ8OYEinnniAJIn0wAjiQXlZMlcOVJMjVCvSpeDm8yOqExUAsBMAT9Rl8fDiza_kON4AvoPVBhxHDp-EFPqN_B9qdOS_pTEXuXh2t4Np9wHXIeS16ncoBMl2daQTCbrIlX4sSU0AOPjSlLeLo3UXhNYv0" /><input name="LembrarLogin" type="hidden" value="false" /></form>
+
+        <aside class="login-dev-card" aria-label="Atalho do ambiente de desenvolvimento">
+          <span aria-hidden="true">⌘</span><span><strong>Ambiente de desenvolvimento</strong><a href="https://localhost:7001/swagger" target="_blank" rel="noopener">Swagger da API: https://localhost:7001/swagger</a></span>
+        </aside>
+        <p><a href="/Dev/Auth">Diagnóstico local de autenticação</a></p>
+      <p class="login-security"><span aria-hidden="true">◆</span> Conexão protegida. Acessos e operações críticas são auditados.</p>
+    </section>
+  </main>
+  <script src="/lib/jquery/jquery.min.js"></script>
+  <script src="/lib/jquery-validation/jquery.validate.min.js"></script>
+  <script src="/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+  <script src="/js/sigov-login.js?v=6gdeV5Tnbe64bWuxvB0rkfat17pkfelN_BlW7IqzwE0"></script>
+</body>
+</html>

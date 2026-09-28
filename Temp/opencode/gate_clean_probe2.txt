@@ -1,0 +1,18 @@
+﻿s | coalesce
+LEN_CODIGO | 32
+s | conname
+CONSTRAINTS | ck_comp_recb_div_codigo_encerrado
+CONSTRAINTS | ck_comp_recb_div_resultado_codigo
+s | count
+APROV_CICLO_COL | 1
+s | conname
+APROV_UQ | uq_comp_aprovacao_ciclo
+s | count
+USERS_1_2 | 2
+s | ?column?
+POLITICA_ROWS | 0/0
+s | count
+DIV_ROWS | 0
+s | max
+MAX_MIG | 20260927120000
+

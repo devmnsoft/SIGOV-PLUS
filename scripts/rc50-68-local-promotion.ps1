@@ -133,7 +133,7 @@ do $$ declare n integer; missing text; begin
  select count(*) into n from sigov.permissao where chave in ('saas.superadmin.dashboard.visualizar','saas.superadmin.dashboard.exportar') and ativo and not is_deleted; if n<>2 then raise exception 'permissões dashboard inválidas'; end if;
  select count(*) into n from sigov.permissao where not is_deleted group by chave having count(*)>1 limit 1; if n is not null then raise exception 'permissões duplicadas'; end if;
  select count(*) into n from sigov.perfil_acesso where not is_deleted group by codigo_externo having count(*)>1 limit 1; if n is not null then raise exception 'perfis duplicados'; end if;
- select count(*) into n from sigov.grupo_acesso where not is_deleted group by tenant_id,codigo having count(*)>1 limit 1; if n is not null then raise exception 'grupos duplicados'; end if;
+ select count(*) into n from sigov.grupo_acesso where not is_deleted group by tenant_id,codigo_externo having count(*)>1 limit 1; if n is not null then raise exception 'grupos duplicados'; end if;
 end $$;
 '@
         $authority = Invoke-SigovPsql @() $sql

@@ -1,7 +1,7 @@
 @using Sigov.Web.Models
 @model DevolucaoFormViewModel
 @{ViewData["Title"]=$"Editar devolução #{Model.DevolucaoId}";var ctx=Model.ContextoInstitucional;}
-<link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="../Shared/_ComprasNav"/>
+<link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="Shared/_ComprasNav"/>
 <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a asp-action="Devolucoes">Devoluções</a></li><li class="breadcrumb-item"><a asp-action="Devolucao" asp-route-id="@Model.DevolucaoId">Devolução #@Model.DevolucaoId</a></li><li class="breadcrumb-item active">Editar rascunho</li></ol></nav>
 <header class="compras-header"><div><span class="eyebrow">EDIÇÃO DE RASCUNHO</span><h1>Devolução #@Model.DevolucaoId</h1><p>Recebimento: <strong>@Model.DocumentoRecebimento</strong> · Fornecedor: <strong>@Model.Fornecedor</strong></p></div><span class="status-badge">RASCUNHO</span></header>
 

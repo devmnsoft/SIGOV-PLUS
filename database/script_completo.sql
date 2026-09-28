@@ -1,16 +1,16 @@
 -- SIGOV PLUS - script_completop.sql
 -- Produto: SIGOV PLUS
--- VersÃ£o: 1.0.0-rc37b1
+-- Versão: 1.0.0-rc37b1
 -- Fonte: database/postgres/migrations/manifest.json
--- Gerado de forma determinÃ­stica
--- Arquivo autÃ´nomo sem includes, comandos shell ou seeds demonstrativos.
+-- Gerado de forma determinística
+-- Arquivo autônomo sem includes, comandos shell ou seeds demonstrativos.
 -- Inclui compatibilidade idempotente para contratos legados e migrations concatenadas.
--- Checksum oficial: SHA-256 do conteÃºdo UTF-8 normalizado com LF.
+-- Checksum oficial: SHA-256 do conteúdo UTF-8 normalizado com LF.
 
 do $$
 begin
     if current_setting('server_version_num')::int < 160000 then
-        raise exception 'PostgreSQL 16 ou superior Ã© obrigatÃ³rio. VersÃ£o atual: %', version();
+        raise exception 'PostgreSQL 16 ou superior é obrigatório. Versão atual: %', version();
     end if;
 end
 $$;
@@ -221,10 +221,13 @@ select exists (
         ('20260922160000', array['3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f']::text[]),
         ('20260922200000', array['d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803']::text[]),
         ('20260923120000', array['43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25']::text[]),
+        ('20260923180000', array['758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef']::text[]),
         ('20260924120000', array['a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32']::text[]),
         ('20260924160000', array['cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b']::text[]),
+        ('20260924180000', array['3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73']::text[]),
         ('20260924210000', array['0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb']::text[]),
-        ('20260925120000', array['2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff']::text[])
+        ('20260925120000', array['2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff']::text[]),
+        ('20260927120000', array['96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -234,7 +237,7 @@ select exists (
 \gset
 \if :sigov_baseline_pending
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -267,7 +270,7 @@ alter table sigov.schema_migrations
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('001', 'create_sigov_schema', 'db158b31ab57993385a55081ac7740f3398ac930e5b48daaebf5f208c99422f8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -344,7 +347,7 @@ create table if not exists sigov.fila_evento (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('002', 'create_sigov_infrastructure', '82d4c047824f1f19e58776c141de07b17bea5987755d5a9465d57b9fcd980130', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -627,7 +630,7 @@ create table if not exists sigov.agenda_obrigacao (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('003', 'create_sigov_core', '915e1855f476c7718b21fb28045f7e925f4c47a71be025ba837047e4c06e2b1e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1057,7 +1060,7 @@ create table if not exists sigov.dpo_historico (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('004', 'create_sigov_security_audit_lgpd', '5120fd5bf64a70822392203de23d181eb47c67963c01c06b970889473931a4b2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1071,7 +1074,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('005', 'create_sigov_bi_workflow', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1085,7 +1088,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('006', 'create_sigov_financeiro_tributario', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1099,7 +1102,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('007', 'create_sigov_compras_rh_educacao', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1113,7 +1116,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('008', 'create_sigov_saude_social_saneamento', '4cbb06c5506fde45f36b0f2bbbc1787a58655282013d6b2a89a7a0e1cb1132fb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1331,7 +1334,7 @@ create table if not exists sigov.geolocalizacao (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('009', 'create_sigov_suporte_integracao_geo', 'be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1369,7 +1372,7 @@ create index if not exists idx_contato_pessoa_id on sigov.contato(pessoa_id);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('010', 'create_sigov_indexes_constraints', 'ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1411,7 +1414,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('012', 'compat_move_legacy_schemas_to_sigov', 'cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1523,7 +1526,7 @@ create index if not exists idx_controle_sequencial_chave on sigov.controle_seque
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('013', 'sigov_foundation_refactor_fixups', '83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1733,7 +1736,7 @@ on conflict (slug) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('014', 'saas_tenants_planos_assinaturas', 'b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1798,7 +1801,7 @@ create index if not exists idx_solicitacao_titular_tenant_status on sigov.solici
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('015', 'saas_tenant_id_operational_tables', '0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -1968,7 +1971,7 @@ create index if not exists idx_tenant_modulo_tenant_modulo on sigov.tenant_modul
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('016', 'saas_rls_indexes_usage_operacao', 'b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -2391,7 +2394,7 @@ on conflict (modulo, chave) do update set recurso = excluded.recurso, acao = exc
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('017', 'processos_digitais_protocolo_ged', '591ffe8c5a2504063251aeafbcbd3f142a5cf9d88ac59270263c7ab03f8c2fea', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -2583,7 +2586,7 @@ where t.is_deleted=false on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('018', 'financeiro_siafic_base', '6fa173ea8ade1c3a96d0c3fda5e15a5d9e6a638ed85eca6d0bfe023252f1b75c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -2622,7 +2625,7 @@ on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('019', 'core_pessoas_enderecos_operacional', 'b613b596f93c034a9d86079e2dde1d66b7646c27db9c80678e7735a2145f669e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -2708,7 +2711,7 @@ on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('020', 'rh_completo', '614bf707d78e59d5dcd949376db64bbf76a33e4737bcd4395de26a9fc13aaf8e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -3280,7 +3283,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('021', 'educacao_base', '3a3cd3d06f45eea9d539e92379dc1fe939d32d7ec5b5a5ccb0b89fe83261acd6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -3675,7 +3678,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('022', 'saude_acs_base', '4f8fe4ff99b9d2051d413d0dce9dddfaba22ca89e2fb1d0db80edd219953226c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4009,7 +4012,7 @@ on conflict (modulo, recurso, acao) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('023', 'saneamento_base', 'a1c7814c95e8fba11c34eaff902ffcc9a06c55f24ebe49b3dd076fe1541119ff', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4075,7 +4078,7 @@ insert into sigov.permissao (modulo, recurso, acao, chave, descricao, ativo) val
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('024', 'assistencia_social_base', 'cb4117e8390fbd7fe281d678178ae57943f803d30d4052a18c953f4d875aabba', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4299,7 +4302,7 @@ on conflict (tenant_id, codigo) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('025', 'integracoes_outbox_webhooks_base', 'f490df56436be82750d17a4901be21d95604f2582a1d19976b3f1006ceb35a3c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4589,7 +4592,7 @@ select k.tenant_id,
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('026', 'agro_fundacao_geo_dashboard', '00e6d35ad5207c2358536fa3c0a1537b1731e7d81147eee04468eb8085352bbc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4684,7 +4687,7 @@ CREATE INDEX IF NOT EXISTS ix_onboarding_evento_tenant_jornada ON sigov.onboardi
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260607090000', 'ui_commercial_finish', '5fe564a1d24f3c1adeebc1ab9395a64d3fc7142af2dcff1acbedaff122d35847', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4912,7 +4915,7 @@ create index if not exists idx_usuario_contexto_global_log_tenant on sigov.usuar
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608090000', 'saas_parametrizacao_perfis_modulos', '3a71972e2de1bd3875f3f41f6b29a67b1c395fb70ce0d702494b8d42c0728ecb', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -4979,7 +4982,7 @@ from chaves k left join camadas c on c.tenant_id=k.tenant_id and c.entidade_id i
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608100000', 'agro_produtores_propriedades_producao', '64223a637d52be3be16fdd93f7855c59490bd818282005dd66ed7b7dc3b5af10', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -5087,7 +5090,7 @@ from chaves k left join camadas c on c.tenant_id=k.tenant_id and c.entidade_id i
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608110000', 'agro_programas_beneficios_patrulha_mecanizada', 'eb27031762fffc1af84b0910cc4db9be0ca5ce4217c031c16c9ce2c490afccbe', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -5760,7 +5763,7 @@ END $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608120000', 'plantao_pro_white_label_b2b_launch', '935bde3c972969869739d269275045fe7a0ccd43c4728c72e052b15446b373f1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -6076,7 +6079,7 @@ on conflict (codigo) do update set nome=excluded.nome, nivel_base=excluded.nivel
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608120001', 'saas_comercial_white_label_planos', '3ca35507736fc13725c048dbdf9c5e503d289ff89408c850fbf083f8a6eb792b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -6159,7 +6162,7 @@ select k.tenant_id,k.entidade_id,coalesce(base.total_camadas,0)::bigint total_ca
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608130000', 'agro_estradas_feiras_agroindustrias', 'c0dc03b5c58683df9bf2b3432dc3074741765022bf19aa69641db8d6df9fe2c9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -6244,7 +6247,7 @@ on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260608140000', 'agro_relatorios_bi_transparencia', '48b1f45de1305ae799b70163c09a648367ea38fa33bb8a26299afe8e02a3fdad', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -6342,7 +6345,7 @@ where false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260609090000', 'pos_build_dashboard_saas', 'e5a8b9cfc0881ed708c6e5d9a638af77fb51fb74ac5f18f9b52c88bad906b63d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -6606,7 +6609,7 @@ on conflict (tenant_id,codigo) do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260609120000', 'pos_build_03_saas_implantacao_tributario', '81e7afaa86c5852db55c2b5571a12c976acfb3b86bc2a5bdb071f6295739b26c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -6680,7 +6683,7 @@ on conflict (modulo,recurso,acao) do update set chave=excluded.chave, descricao=
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610100000', 'pos_build_04_enterprise_modules', 'ac5d58103dfda6a16e9fbd9a1e0a794d02f4a0a213e9272ceb9a140c660cc593', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -7123,7 +7126,7 @@ on conflict (plano_id, modulo_codigo) do update set incluso=true;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610120000', 'pos_build_05_comercio_varejo_atacado_pdv_caixa_financeiro', '884048fd17bac8daf747bf72712aae0e7f1fd58c93ce842cd50d78be97282d3b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -7546,7 +7549,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610150000', 'pos_build_06_industria_producao', '2c1e598b342cfdfb0e16dd23eb43e87c9e9f670a1f62d13ac50f6d4f7c7296b5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -7629,7 +7632,7 @@ and not exists (select 1 from sigov.perfil_permissao pp where pp.tenant_id = coa
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610180000', 'pos_build_07_financeiro_integrado', '7524a57b97313f65ca623dfbb1865d20588fbc55d23d69835e550c8837c291fe', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -7963,7 +7966,7 @@ on conflict (tenant_id, codigo) do update set nome=excluded.nome, aliquota=exclu
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610200000', 'pos_build_08_tributario_avancado_iptu_iss_dam', '3c1245b6fb26c48f79c03488630dc4cc23702d5697f0bd86754626ba3f8b4cf2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -8368,7 +8371,7 @@ on conflict (codigo) do update set nome=excluded.nome, descricao=excluded.descri
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260610220000', 'pos_build_09_ged_ocr_assinatura_automacao', 'f3507d6d32bd90255fe06308619888dfc0f8a0f04ae8589d4234b29ebd90f860', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -8732,7 +8735,7 @@ on conflict (modulo, chave) do update set
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611110000', 'pos_build_11_ia_automacao_assistentes', '8695b37f308d73f762be4d2f3cce64bda4543d6b7bbd35bd202ba4c6723f66b8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9088,7 +9091,7 @@ on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260611130000', 'pos_build_12_mobile_pwa_campo_offline_geo', '2ac4af881a6129de92870b76b7436e83d4a6386a32f0f140215d89463fbf8c71', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9206,7 +9209,7 @@ COMMENT ON TABLE sigov.protocolo IS 'Protocolo operacional multi-tenant; não re
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706120000', 'consolidacao_modulos_transversais', '5cafdb6965470bb9680a73dd15b0f31a259a75616891c36f1c9b9a6a2f8b805d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9390,7 +9393,7 @@ select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_out
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260706153000', 'pos_rc_protocolo_ged_workflow_api_outbox', 'a8b4347d56e0a9debcbe6ae15c254a5650e638c30454c0b6ada9fb062102ce39', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9451,7 +9454,7 @@ create unique index if not exists enterprise_estoque_saldo_tenant_produto_uidx o
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260709120000', 'enterprise_funcional_crud', 'db364a5699b6d8c2a679eda8cc9f545fd4bea7333ec420be2c03fa64dc7c6784', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9492,7 +9495,7 @@ where not exists (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260713120000', 'pos_rc_11_enterprise_anexos_release', '50c5782933e893879759ed0e2f1bcc8b309eca3526cec1e85415b8adc3c39dc7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9639,7 +9642,7 @@ select pg_temp.create_index_when_columns_exist('sigov', 'outbox_evento', 'ix_out
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260721120000', 'pos_rc_17_runtime_nucleo_operacional', '3a6e2e05531dd3d6a725a2a31c86592d6ce1c8ad5f06142ce0d9bec4e55b387f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9667,7 +9670,7 @@ create index if not exists idx_enterprise_tenant_mapping_ativo on sigov.enterpri
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260722120000', 'Enterprise tenant mapping', '5de9eef9b5ef879f374093df3e78db27dd4528fb9e5badae9b5c59680642d0a7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9776,7 +9779,7 @@ $migration$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260727120000', 'pos_rc_27b2_tarefa_canonica', '177f36a01775fbc78039e1f77555def37ed0e15442946530bd55f5bd9539c62d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -9889,7 +9892,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260727160000', 'pos_rc_27b3_operacional_canonico', 'bac96f2ba1336226e29c46746a046b672b9588e1f9611fb3ff316b95f0fdf9b8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10232,7 +10235,7 @@ create index if not exists ix_enterprise_financeiro_core on sigov.enterprise_int
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730090000', 'pos_rc_32_ordem_servico', 'cbd5cac3058c6483df9e17fe20ebb37ca8c2bebeac2115d8b4c956b74b56193c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10306,7 +10309,7 @@ drop table if exists pg_temp.permissao_chave_canonica;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730110000', 'pos_rc_36b_permissao_chave_canonica', '740ef5203f9c67ee5c1519cd8baa971638bea21dd2d4c3a9371ea117308731c3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10435,7 +10438,7 @@ select 'COMERCIAL', split_part(chave,'.',2), split_part(chave,'.',3), chave, des
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730120000', 'pos_rc_29_comercial_operacional', '7559bf14cf6fa13e79ed12dd1ae4b8bb8e232ee3b67f17658e334dd6256c1fb5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10500,7 +10503,7 @@ $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730170000', 'financeiro_empresarial_legacy_columns_compat', '8f2d255f366624b68e0d813ed3799cf1da15a90249c3892bbb1015022344a67e', 'compatibility', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10809,7 +10812,7 @@ on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730180000', 'pos_rc_30_financeiro_empresarial_real', '148baa107e4ba06c51c55ca09905b47555ed14d4459a667127375cc7e1922042', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10862,7 +10865,7 @@ create index if not exists ix_financeiro_regra_aprovacao_tenant_valor on sigov.e
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260730210000', 'pos_rc_31_consolidacao_comercial_financeiro', '15d98661c71910d5d9c0fe62b886d0efbb714982eded82742042707d54642cbf', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -10911,7 +10914,7 @@ alter table sigov.os_ordem_servico add column if not exists adicionais numeric(1
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260731120000', 'pos_rc_33_operacao_servicos_campo', '56970917a32ca0a69809717b4d009f6ed7071c000c50fec56b44351ac1acdb04', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11175,7 +11178,7 @@ on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descr
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260802210000', 'pos_rc_37b_compras_empresariais_fullstack', 'd434c10831003b2324b127455cbef1ccd1dafb0d8346e52803e0e770f52b6331', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11263,7 +11266,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260807120000', 'rc46_operacao_integrada', 'a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11293,7 +11296,7 @@ revoke all on sigov.senha_redefinicao_token from public;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260809120000', 'rc48_authentication_hardening', '77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11517,7 +11520,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260809160000', 'rc49_workflow_platform', 'c9879e5a853fe2b42ccd38e756fa8b4cdae858ead423faf3c0eb46fbe9d907ae', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11575,7 +11578,7 @@ comment on table sigov.rh_afastamento is 'RC50.32: afastamentos com dados médic
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813223000', 'rc50_32_bloco2_rh_core', 'e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11643,7 +11646,7 @@ end loop; end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813230000', '20260813230000_rc50_34_educacao_secretaria_bloco3_core', '717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11691,7 +11694,7 @@ create index if not exists ix_diario_aula_data on sigov.educacao_diario_aula(ten
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813231000', '20260813231000_rc50_34_educacao_diario_classe_bloco3_core', '52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11736,7 +11739,7 @@ create index if not exists ix_portal_mensagem_usuario on sigov.educacao_portal_m
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813232000', '20260813232000_rc50_34_educacao_portal_responsavel_bloco3_core', '48aaaebb1ea4db55f15e3f7d6212bdc5c40cdbc02a10f1a1dcb2ea605207d27f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11797,7 +11800,7 @@ create index if not exists ix_fin_pagamento_competencia on sigov.financeiro_paga
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260814120000', '20260814120000_rc50_36_financeiro_siafic_bloco5_core', '21525439b3ddeafd72d2d53029f3d2cd16272d7648387eff2de4c3c04fa506a3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11915,7 +11918,7 @@ drop function if exists sigov.rc50_36_ensure_common_columns(regclass);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260814121000', '20260814121000_rc50_36_tributario_divida_ativa_bloco5_core', '36b821f45a5b9d78212c9d287d889628ff7ae7a92a9d47c0bde7920b171c1cf6', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -11934,7 +11937,7 @@ create index if not exists ix_rel_exec_filtro_usuario on sigov.relatorio_executi
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260814122000', '20260814122000_rc50_36_relatorios_executivos_bloco5_core', 'b4c74ede176a48826069e0ece3d9b8ddd301f453083d86eb5f5ee8a443cc6ec2', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -13379,7 +13382,7 @@ where exists (select 1 from information_schema.tables where table_schema='sigov'
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816120000', '20260816120000_rc50_38_saude_bloco7_core', 'cd96345171144560bdfb9db14fe0f5e713f9525b219110583202eee00a0d40e7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -14342,7 +14345,7 @@ where exists (select 1 from information_schema.tables where table_schema='sigov'
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816121000', '20260816121000_rc50_38_assistencia_social_bloco7_core', 'a6554696f26233a432e3cfad41a9714227648d4f99d012f1e45f205836c5c39b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -14768,7 +14771,7 @@ where exists (select 1 from information_schema.tables where table_schema='sigov'
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816122000', '20260816122000_rc50_38_saneamento_bloco7_core', 'cc24ac60670d2459ae7611a3d784c087eac41493df995bc480ba40c6374a34a8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -15851,7 +15854,7 @@ drop function if exists sigov.rc50_38_fo_backfill_data_referencia(regclass);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260816123000', '20260816123000_rc50_38_frotas_obras_bloco7_core', 'e58ce5160ec7573d45ab7c1d4f4d7d4dc3ef18474e7b86792e7653a2f87554fa', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -16098,7 +16101,7 @@ drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817120000', '20260817120000_rc50_42_processos_digitais_core', '0e9e2f92a8fe6d24d572578414194631b6086d5cc68a6293538ffafa07332853', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -16420,7 +16423,7 @@ drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817121000', '20260817121000_rc50_42_ged_assinaturas_core', 'f01c2ff0a7ad334082bc3f24eb9752a4122f58b984b102373d4315a72c43101b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -16727,7 +16730,7 @@ drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817122000', '20260817122000_rc50_42_legislativo_camara_core', '71bb8284719919e8cc3b4d1e0396cdb95d8969a65b400d112b6797cca322f80a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17064,7 +17067,7 @@ drop function if exists sigov.rc50_42_ensure_common_columns(regclass);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817123000', '20260817123000_rc50_42_transparencia_atendimento_core', '3cf5feb4c6b5a595dc32f2f2bdcaaf3d824f6f773c61b21ca6fcd6ed6e01fff9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17120,7 +17123,7 @@ create index if not exists ix_emp_comercial_evento_tenant_status on sigov.emp_co
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817130000', '20260817130000_rc50_43_empresarial_comercial_core', 'c73ac0207d7a12c625391bda98f60da76f8229c69520bfed01dd6a22052f0a4e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17167,7 +17170,7 @@ create index if not exists ix_emp_os_evento_tenant_status on sigov.emp_os_evento
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817131000', '20260817131000_rc50_43_empresarial_ordem_servico_core', '44340d33b6b58b501d86871748cf00ea803d68d8336e3f21d03fcd930e6bf9d8', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17223,7 +17226,7 @@ create index if not exists ix_emp_estoque_evento_tenant_status on sigov.emp_esto
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817132000', '20260817132000_rc50_43_empresarial_estoque_core', '80bb1e2e18ae68c0999c077983aebdc819f24a3d1a96798eea2663cf5423e658', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17279,7 +17282,7 @@ create index if not exists ix_emp_industrial_evento_tenant_status on sigov.emp_i
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817133000', '20260817133000_rc50_43_empresarial_industrial_core', 'f851b5d3855a6aed8fdd78692b8f50395fab52f19b588e83c704d9e31824faf4', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17320,7 +17323,7 @@ create index if not exists ix_protocolo_codigo_consulta
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817140000', '20260817140000_rc50_45_processos_digitais_core', 'aec28f0c3cd4778778acf04fadf7035247b3d3d5fbc7926c409f3c548bbf595c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17358,7 +17361,7 @@ create index if not exists ix_assinatura_prazo_pendente
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817141000', '20260817141000_rc50_45_ged_assinaturas_core', 'a613ad05f8cb8bc9f2304ac5d875d3aa1ce5a9caee769382bdb20554a973d38b', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17396,7 +17399,7 @@ create index if not exists ix_legislativo_votacao_aberta
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817142000', '20260817142000_rc50_45_legislativo_camara_core', '595a5a64c98ab84c4397d08c2326264573bf903c2aeaa55735614f7872abdd95', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17437,7 +17440,7 @@ create unique index if not exists ux_atendimento_codigo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817143000', '20260817143000_rc50_45_transparencia_atendimento_core', '8adc0a87f963cf8842b0b5d0917c0c3a36c5a3f583157d36613489bf0cee3a74', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17493,7 +17496,7 @@ alter table sigov.tributario_carne_entrega drop constraint if exists ck_carne_en
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817150000', '20260817150000_rc50_47_tributario_carnes_boletos_core', 'c422ba944d98fedecd96874d095c9c066f946c1414aecdfa84fa6e5010c81783', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17532,7 +17535,7 @@ create index if not exists ix_portal_contribuinte_evento_tenant_status on sigov.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817151000', '20260817151000_rc50_47_tributario_portal_contribuinte_core', 'fc7c6f223c6b8b6299101edc48a6140a19292945f182f2fa453cfc2b505688b7', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17595,7 +17598,7 @@ create index if not exists ix_tributario_iss_apuracao_tenant_status on sigov.tri
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817152000', '20260817152000_rc50_47_tributario_fiscalizacao_issqn_core', '97fcd4df32ab7237ad2e0008f45540cb4b43738ddad974bbb5d4198bdc069ba9', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17662,7 +17665,7 @@ alter table sigov.tributario_nfse_nota drop constraint if exists ck_nfse_status;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260817153000', '20260817153000_rc50_47_tributario_nfse_desif_core', '99f7a3aea02ffe6beb69b9ce0571206dde7967dbf873c885439586a5ef973b8f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17710,7 +17713,7 @@ create unique index if not exists ux_educacao_transporte_aluno_rota_turno on sig
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818120000', '20260818120000_rc50_48_educacao_transporte_escolar_core', '5b79e8564806fbee9d9644920157c638ad686c5631b2a7eb61e2b1957430c99f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17760,7 +17763,7 @@ create index if not exists ix_educacao_merenda_evento_tenant_status on sigov.edu
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818121000', '20260818121000_rc50_48_educacao_merenda_cardapio_core', '1ec8fd32b0eb99fd632772c4d0a34234f1861b7d969a2aeb0f562393eba7377f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17805,7 +17808,7 @@ create unique index if not exists ux_educacao_biblioteca_exemplar_codigo on sigo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818122000', '20260818122000_rc50_48_educacao_biblioteca_digital_core', '3acf39181f7f1da2075dcd57a932336a783657eb8b9ba71ddd0b267af788c38f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17864,7 +17867,7 @@ create index if not exists ix_educacao_avaliacao_resultado_tenant_status on sigo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818123000', '20260818123000_rc50_48_educacao_fundeb_custos_indicadores_core', '1e891bd1ab0a5b5a88c38d4923afb0ac394e9fbffc12c4bb8cf5fad74d173bd3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17907,7 +17910,7 @@ create unique index if not exists ux_saude_acs_dispositivo_codigo on sigov.saude
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818130000', '20260818130000_rc50_49_saude_acs_offline_georreferencia_core', '646efcef3c105612a6f4a5f2889338f979e96dfcb1c97a0fe53264cf20f1c1a0', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -17966,7 +17969,7 @@ create index if not exists ix_saude_acs_campo_evento_tenant_status on sigov.saud
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818131000', '20260818131000_rc50_49_saude_cadastros_visitas_core', '0904e625ab3de379c1868f8ea35c8f309b0ebae44a2f43470f7a015502983d2e', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -18016,7 +18019,7 @@ create index if not exists ix_saude_operacao_evento_tenant_status on sigov.saude
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818132000', '20260818132000_rc50_49_saude_vacinacao_farmacia_regulacao_core', '5397cbc32104bf1c11c2b51b29eab374e1a3208b7ed3cd69fb2f07a14a0f9a49', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -18066,7 +18069,7 @@ create index if not exists ix_saude_retaguarda_evento_tenant_status on sigov.sau
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818133000', '20260818133000_rc50_49_saude_retaguarda_sla_indicadores_core', '600ab03eb8ddb0df813e1018c37670852ce3a0d951a3c72ba1f187e09d149842', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -18516,7 +18519,7 @@ create unique index if not exists ux_saneamento_atendimento_numero on sigov.sane
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818140000', '20260818140000_rc50_50_saneamento_comercial_atendimento_core', '50ed25704f7a746d5f7e49ad217e313da9431fd98af35f72e7b6e28525d1339a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -18999,7 +19002,7 @@ create index if not exists ix_saneamento_faturamento_evento_tenant_status on sig
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818141000', '20260818141000_rc50_50_saneamento_leitura_faturamento_arrecadacao_core', '792e1423928b022612fd777925f5016d97882fd09986650f8ab9e12f44d9a7bd', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -19410,7 +19413,7 @@ create index if not exists ix_saneamento_operacao_evento_tenant_status on sigov.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818142000', '20260818142000_rc50_50_saneamento_operacao_campo_core', 'b03968468dc02a4a1fbf2c39fe4c6a01c89951250bc80edac201393b36b867e3', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -19825,7 +19828,7 @@ exception when duplicate_object then null; end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818143000', '20260818143000_rc50_50_saneamento_gis_laboratorio_qualidade_core', 'a9f081bbebb8fe346436fb86a8d45b065310f861f12c85521de9c0fc1df4b330', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -19940,7 +19943,7 @@ where r.modulo='GOVERNANCA' on conflict do nothing;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818150000', '20260818150000_rc50_51_governanca_seguranca_lgpd_auditoria_core', '493f16894822bbe7f1409f71e590a2f4eac29bbc368390989e8311699c8efe63', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -19982,7 +19985,7 @@ create index if not exists ix_lgpd_incidente_evento_tenant_incidente
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260818160000', '20260818160000_rc50_52_lgpd_operacional', 'e06f60193ea76d270d602536c791744fd51c335b6b7cb8ee3c77144725a5b3ee', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20092,7 +20095,7 @@ create unique index if not exists ux_diario_frequencia_turma_aluno_data
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260819120000', '20260819120000_rc50_60_fluxos_educacao_saude_core', '5c4a26e582e967309c817bebecf3c089d69059d1a219c38a30aee8f56e94e41d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20211,7 +20214,7 @@ where not exists (
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260819130000', '20260819130000_rc50_61_fluxos_documental_institucional_core', '0892a363f7cd04eb5e6231eb8afcdf25770fb243a78cfbd6d495dbd650193617', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20261,7 +20264,7 @@ where not exists (select 1 from sigov.perfil_acesso atual where atual.codigo_ext
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260819140000', '20260819140000_rc50_62_fluxos_administrativos_internos_core', '6880555e3aceb537dc6ebc94a68ae81e060a63ff761a66a76381befc0923f926', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20337,7 +20340,7 @@ on conflict (chave) do update set descricao=excluded.descricao;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260819150000', '20260819150000_rc50_63_consolidacao_transversal_core', '136f95b3fd388e640ec0312e8da7d4fb618bf45916a1207f1fc6365a2fcd74be', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20409,7 +20412,7 @@ create index if not exists ix_permissao_recurso_acao
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260820120000', 'rc50_68a_autorizacao_persistente', '15c33ca8593c7dfc0daa01a57e02800fa71c75139267b94502f3a7d93d612571', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20483,7 +20486,7 @@ update sigov.perfil_acesso
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260820160000', 'rc50_68b_avaliador_efetivo', 'cdf95bcec5cf04cd80299bb93a6cfe0936cede30ddda9210c2f75b6eb867e10c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20557,7 +20560,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260820200000', 'rc50_68c_contexto_operacional_seguro', 'b349733d0bbdbe6fbfdd33b90b87b703439e6aca417734b45cc03eca506abe09', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20584,7 +20587,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260820230000', 'rc50_68d_superadmin_dashboard_operacional', 'e96bfa078a1ee0fb6fc5d1aaf3b6202ad4aceb0c91ed6b409f4ed42ce72c700c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20626,7 +20629,7 @@ on conflict(perfil_acesso_id,permissao_id) do update
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260821120000', 'rc50_68f_admin_autorizacao_contextual', '3908cb29fcff7c550ed99176f3503b1fdbfffcd88cf40490ac685d6431d26784', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20827,7 +20830,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824120000', 'func01_patrimonio_inventario', 'd1e705d8727ad182ce18d0820147edf47bc92c9a3af8d889943a69c59036373f', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20876,7 +20879,7 @@ select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join s
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824180000', 'func02_almoxarifado_estoque_requisicoes', '15a775c2ee963a62dfc3923e33d17dabc0fee768f954b269418ca4b4cd666007', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -20991,7 +20994,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824200000', 'func03_compras_licitacoes_contratos', '407e376e0e11e60b2a55d480c3b4060a0f55a1fa63e604e78b8754dbe184cff0', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21045,7 +21048,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824220000', 'func04_frotas_abastecimento_manutencao', 'a51f54ebe93fc03d3f280ba195e3545282d68d80ea300d0b91b17007b6c14587', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21187,7 +21190,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824230000', 'FUNC05 EducaÃ§Ã£o, GestÃ£o Escolar, i-DiÃ¡rio, PrÃ©-matrÃ­cula e Portal', 'f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21258,7 +21261,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825000000', 'FUNC06 SaÃºde, AtenÃ§Ã£o BÃ¡sica, Agenda, ProntuÃ¡rio, VacinaÃ§Ã£o, FarmÃ¡cia e RegulaÃ§Ã£o', '69cf4c6ffaa1069f38d33676c732b5515a27a0f6597f01ddd0a70d1141789003', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21433,7 +21436,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825010000', 'FUNC07 Saneamento Comercial e Operacional', '2ed8027063d864eccd79b6524f6052acbcbe578187cc9c0cdd9cc2376ed5a90c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21501,7 +21504,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825020000', 'FUNC08 AssistÃªncia Social, CRAS/CREAS e BenefÃ­cios', 'fad32bffa62a91cf8d7dcb05ee6a02b6f22cf23378a6060cab91c94d5f0cb247', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21678,7 +21681,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825030000', 'FUNC09 TributÃ¡rio e Receita Multi-esfera (arquivo histÃ³rico preservado)', 'f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21822,7 +21825,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825040000', 'FUNC10 Financeiro, SIAFIC e Tesouraria', 'abf22f0cc71c188ed73592739be04f360c6b9ea84de92dfa739b24b14cd2f5c9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -21932,7 +21935,7 @@ do $$ declare p text; begin foreach p in array array['AGRO_DASHBOARD_VIEW','AGRO
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825050000', 'FUNC11 Agro e Desenvolvimento Rural', 'd5a269a1812ff2e0f04e9e61661fc8e89e4042653c341b0c71a1c43c341ced85', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22222,7 +22225,7 @@ do $$ declare p text; begin foreach p in array array['RH_DASHBOARD_VIEW','RH_SER
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825060000', 'FUNC12 Recursos Humanos e Folha de Pagamento', '2a2fbfe6a03cdd016b7d1928400f821c812427acb095c0b8d4f14ce3230b413f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22284,7 +22287,7 @@ insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values ('OB
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825070000', 'FUNC13 Obras PÃºblicas, Engenharia e FiscalizaÃ§Ã£o', 'b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22488,7 +22491,7 @@ insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values ('AM
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825080000', 'FUNC14 Meio Ambiente, Licenciamento e FiscalizaÃ§Ã£o', 'c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22663,7 +22666,7 @@ DO $func15$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['ATENDIMENTO_DASHBOAR
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825090000', 'FUNC15 Ouvidoria, Atendimento ao CidadÃ£o, e-SIC e Carta de ServiÃ§os', 'f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22745,7 +22748,7 @@ DO $func16$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['HABITACAO_DASHBOARD_
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825100000', 'FUNC16 HabitaÃ§Ã£o, RegularizaÃ§Ã£o FundiÃ¡ria e Programas Habitacionais', 'e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22829,7 +22832,7 @@ DO $func17$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['JURIDICO_DASHBOARD_V
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825110000', 'FUNC17 Procuradoria JurÃ­dica, Contencioso e DÃ­vida Ativa Judicial', '4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22865,7 +22868,7 @@ insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) select p,'T
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825120000', 'FUNC18 TrÃ¢nsito, Mobilidade Urbana e FiscalizaÃ§Ã£o de Transporte', 'e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22903,7 +22906,7 @@ create index if not exists ix_transito_credencial_contexto_validade
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825121000', 'CORR18 validaÃ§Ãµes e Ã­ndices de TrÃ¢nsito', 'd26ede93088c94c26405f02297f93404ab2e64f8e3593826ce1559697ef36c60', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22943,7 +22946,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825130000', 'FUNC19 Defesa Civil, Guarda Municipal e SeguranÃ§a PÃºblica Municipal', '22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -22993,7 +22996,7 @@ create index if not exists ix_defesa_auditoria_tenant_entity_data
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825131000', 'CORR19 Ã­ndices e unicidade de recursos da Defesa Civil', '49478a74cc5411268608c4a45f5021ebe1156e5ba3b7a6e0b38a7b23f5ae7a32', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23035,7 +23038,7 @@ where not exists(select 1 from sigov.permissao x where x.chave=p.chave);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826100000', 'FUNC20 ConvÃªnios, Emendas Parlamentares, Projetos e PrestaÃ§Ã£o de Contas', '1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23106,7 +23109,7 @@ create index if not exists ix_convenio_auditoria_registro on sigov.convenio_audi
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826110000', 'CORR20 integridade e Ã­ndices de ConvÃªnios', '785151a081efcac02a48502696352e17ad3cde39a2982ec2c8a49e982b243bb2', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23199,7 +23202,7 @@ comment on table sigov.sincronizacao_outbox is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826120000', 'RC50.68 fundaÃ§Ã£o transversal de evidÃªncias e sincronizaÃ§Ã£o idempotente', '1b94531a4a583b62400e7c70e9858eb09c749a42ce25fc2473bd73e5772b754c', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23303,7 +23306,7 @@ end loop; end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826130000', 'EXP03 LicitaPro IA integrado ao FUNC03', '6cebafe4e884b6105b6fee01715b412809035599b964179f4b42a9c9fc66adeb', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23368,7 +23371,7 @@ for each row execute function sigov.compras_licitapro_validar_relacoes();
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826140000', 'CORR03 fechamento LicitaPro IA no FUNC03', '0191865793bc9845ec077ed2c78964e7866a80acbdd61521bd06e6272aad5e9a', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23471,7 +23474,7 @@ comment on table sigov.fiscalizacao_sincronizacao_item is 'Controle local da out
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826150000', 'EXP-FISCALIZA360 nÃºcleo transversal de fiscalizaÃ§Ã£o e campo', 'a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23524,7 +23527,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826160000', 'EXP13 Obras360 operacional no FUNC13', '1dae1d0fbff3a7129faa68d47d9260387ca9d96b315d33a453142f8e4b3c114d', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23567,7 +23570,7 @@ create index if not exists ix_corr13_ordem_contexto_prazo on sigov.obras_ordem_s
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826170000', 'CORR13 Obras360 validaÃ§Ãµes defensivas e Ã­ndices contextuais', '2ebc8a069d82319703eb0a7e3beb0fde4064fb64b558dec44a6bb8d6492b3c0c', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23616,7 +23619,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826180000', 'EXP19 DefesaCivil360 operacional no FUNC19', 'f98bf85a739f3d01c653be3e8b1a4f92be0c66dd2b8838ffa662e6f1045b5af6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23694,7 +23697,7 @@ create unique index if not exists ux_corr19_ocupacao_pessoa on sigov.defesa_civi
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826210000', 'CORR19 fechamento DefesaCivil360 com integridade operacional', 'e3784f95cd33b338228ac35b7b0174fffdf66397731175590182e4adce5c7d60', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23751,7 +23754,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826220000', 'EXP08 Ativos360 integrado: patrimÃ´nio, almoxarifado, estoque e frotas', 'b56aeb80754344edea1525ec65573d73fe6da09ab8d603c2dda06d98bf46048e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23822,7 +23825,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827100000', 'EXP04 CidadÃ£o360: portal, serviÃ§os digitais, protocolo e atendimento integrado', '33c687629eae15da672c8b561291a0a5bf161bdf4a204c1be3a19526a6774385', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23860,7 +23863,7 @@ insert into sigov.permissao(chave,descricao,modulo,ativo) select p,initcap(repla
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827120000', 'EXP06 JurÃ­dico360: procuradoria, dÃ­vida ativa judicial, prazos e consultivo', '8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23909,7 +23912,7 @@ insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827150000', 'EXP09 SST360: saÃºde ocupacional, seguranÃ§a do trabalho e eSocial', 'ae14c7f27643124d4b3543c701c9f218113f596fc70289746ffdd98c0e6a0810', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -23979,7 +23982,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828100000', 'EXP23 Energia360 consumo, iluminaÃ§Ã£o, geraÃ§Ã£o e eficiÃªncia', 'f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24261,7 +24264,7 @@ on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828120000', 'EXP24 Royalties360: receitas, prÃ©-sal, aplicaÃ§Ã£o e transparÃªncia', '4fcb530a70993cf564ad436cafeb626ab84c291c18a7b425dce0c455ce1baade', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24345,7 +24348,7 @@ where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829100000', 'EXP13 Saneamento360/SIGCOS comercial, operacional, qualidade e governanÃ§a', 'f15578a8a66c3b957280f8bef5549cf08feea44bb9fe78d295160f2cb9b3eb8b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24560,7 +24563,7 @@ from (values
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829120000', 'EXP11 SaÃºde360 + ACS360: territÃ³rio, campo, offline, e-SUS e vigilÃ¢ncias', 'e7def5cdb39deecba61f6587b67a64eae4386d5176f9ea42cff3d2572aa53fda', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24650,7 +24653,7 @@ comment on table sigov.ged_assinatura_solicitacao is 'Solicitação rastreável;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829140000', 'EXP25 GED360/InovaGED inteligente', 'bad5e86f75925fb350a27b492fc7573b5058cd1753aaee6b14e7541db7a09bf3', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24793,7 +24796,7 @@ comment on function sigov.fn_ged_validar_eliminacao_lote() is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829160000', 'CORR25 GED360: integridade, LGPD e bloqueios de eliminaÃ§Ã£o', '2cdecc8c7242414505418407aafcc4cc128fd82ac83de252f3ffbe4e9f8aa324', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24892,7 +24895,7 @@ on conflict (chave) do update set descricao=excluded.descricao, modulo=excluded.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829180000', 'RC50.81 homologaÃ§Ã£o enterprise, auditoria operacional e permissÃµes SaaS', 'db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -24975,7 +24978,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831120000', 'RC50.82 Central de Qualidade e ConsistÃªncia', '300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -25034,7 +25037,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831180000', 'RC50.83 Central Executiva 360 e Sala de SituaÃ§Ã£o Municipal', '07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -25149,7 +25152,7 @@ on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.mo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831210000', 'RC50.84 retomada dos mÃ³dulos estruturantes multi-esfera', 'cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -25646,7 +25649,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao p WHERE p.chave=v.chave);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831230000', 'RC50.85 compras, licitaÃ§Ãµes, contratos, atas e fiscalizaÃ§Ã£o multi-esfera', 'bf9bc005b5455e4cb086d41c72e7165af7cf1b725101e8d7bfd073b67f666c39', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -26168,7 +26171,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao p WHERE p.chave=v.chave);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901000000', 'RC50.86 financeiro, orÃ§amento, contabilidade e tesouraria multi-esfera', '376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -26376,7 +26379,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao existente WHERE existente.chave=
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901030000', 'RC50.87 SaaS MNSOFT, IAM por cliente e tributos multi-esfera', '324d4bac90745f2b87238701aa750ad52d821449cfcfc73afbc76c4d25cc3487', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -26898,7 +26901,7 @@ FROM (VALUES ('RH_DASHBOARD_VIEW','Rh Dashboard View'),('RH_SERVIDOR_VIEW','Rh S
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901060000', 'RC50.88 RH360, folha e Portal do Servidor multi-esfera', '40d72efc3d4ff7db7bfa83af2b5b660659fe369b9eb6e45c7910653dc53c4a6a', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -27023,7 +27026,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901090000', 'RC50.89 Patrimonio360, almoxarifado, frotas e manutencao multi-esfera', '8de4e5af823eaa015b509a5c1927f8310b0c4a378eafca88fc1db7ea1a04b7a9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -27775,7 +27778,7 @@ SELECT p.chave, 'saude', p.nome, true FROM (VALUES
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901120000', 'RC50.90 Saude360 UBS ACS regulacao farmacia vigilancia e portal cidadao', '79994e71582be89f98a632ba41e58a2a28f566d819376896550761dc95b579c0', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -28630,7 +28633,7 @@ COMMENT ON SCHEMA sigov IS 'SIGOV PLUS: dados sociais protegidos; integracoes so
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901150000', 'RC50.91 Assistencia Social360 SUAS CRAS CREAS beneficios e portal cidadao', 'b7fae30e648b53ba82ebc71a8f9778ed0f9942d8cf054dc8a1c06a4b80c938c1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -29074,7 +29077,7 @@ create index if not exists ix_meio_ambiente_indicador_competencia on sigov.meio_
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901180000', 'RC50.92 Saneamento360 e Meio Ambiente360 multi-esfera', '8b0505dd904536f0d6864b8488fd4964e1790367fd9b1b318ceff4fdc441d282', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -29108,7 +29111,7 @@ create index if not exists ix_entidade_contexto_institucional
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901210000', 'RC50.95 contexto institucional da base restaurÃ¡vel', 'a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -29304,7 +29307,7 @@ set efeito = 'PERMITIR', ativo = true, is_deleted = false;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903100000', 'CorreÃ§Ã£o aditiva das permissÃµes e dos objetos exigidos pelas pÃ³s-condiÃ§Ãµes histÃ³ricas', '7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30023,7 +30026,7 @@ on sigov.compras_licitapro_alerta
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903173000', 'CorreÃ§Ã£o aditiva do histÃ³rico e dos objetos finais do LicitaPro', 'ea2e34fb9909c44f2e2a66a9e80de887d31717ca9fe20bbed0a714242bfbc528', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30236,7 +30239,7 @@ create index if not exists ix_contrato_fiscal_ativo on sigov.contrato_fiscal(ten
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903230000', 'CorreÃ§Ã£o final dos contratos bigint e pÃ³s-condiÃ§Ãµes de Compras', '2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30424,7 +30427,7 @@ where codigo='industria_producao';
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260908120000', 'ConsolidaÃ§Ã£o do contrato canÃ´nico SaaS e catÃ¡logo IndÃºstria 360', 'c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7', 'evolution', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30577,7 +30580,7 @@ CREATE INDEX IF NOT EXISTS ix_identidade_sessao_token_hash_ativa
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260909120000', 'SessÃ£o persistente de identidade com revogaÃ§Ã£o e versÃ£o de autorizaÃ§Ã£o', '0dbe94d680f16fd4bb2d50c5215a96fab00a4d70278f28099eaa6d078d7df52e', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30760,7 +30763,7 @@ create trigger trg_tenant_modulo_compatibilizar after insert or update on sigov.
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260910120000', 'CorreÃ§Ã£o forward-only das pÃ³s-condiÃ§Ãµes RC37B, RC50.60 e SaaS', 'f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30798,7 +30801,7 @@ create index if not exists ix_industria_parada_os
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'IntegraÃ§Ã£o idempotente entre parada industrial e manutenÃ§Ã£o canÃ´nica', '465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30874,7 +30877,7 @@ execute function sigov.fn_tenant_modulo_compatibilizar();
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914130000', 'CorreÃ§Ã£o da projeÃ§Ã£o SaaS com suspensÃ£o e vigÃªncia preservadas', '1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30948,7 +30951,7 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915120000', 'Fluxo industrial transacional, idempotente e rastreÃ¡vel', 'dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -30987,7 +30990,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915160000', 'DistribuiÃ§Ã£o interna de materiais com separaÃ§Ã£o, expediÃ§Ã£o, recebimento e divergÃªncia', '5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31051,7 +31054,7 @@ create index if not exists ix_compras_recebimento_central on sigov.compras_empre
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916120000', 'Recebimento parcial de compras empresariais com conferÃªncia e estoque canÃ´nico', 'ac5aaa1716837b124cfb8809f39d3620e2ac7e2d57107a3832a2199a83a2049c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31111,7 +31114,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916160000', 'TransferÃªncias entre almoxarifados com expediÃ§Ã£o e recebimento parcial', '5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31160,7 +31163,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916190000', 'PolÃ­ticas e painel explicÃ¡vel de planejamento de reposiÃ§Ã£o', '5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31240,7 +31243,7 @@ on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916210000', 'Jornada administrativa de ingresso, oferta de vaga, matrÃ­cula e enturmaÃ§Ã£o', '86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31335,7 +31338,7 @@ on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916230000', 'Jornada patrimonial de incorporaÃ§Ã£o, responsabilidade e transferÃªncia com aceite', '07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31389,7 +31392,7 @@ on conflict(modulo,chave) do update set recurso=excluded.recurso,acao=excluded.a
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922120000', 'Fechamento acadÃªmico versionado com conferÃªncia, concorrÃªncia e reabertura auditada', 'ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31480,7 +31483,7 @@ on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922160000', 'TransiÃ§Ã£o de ano letivo com simulaÃ§Ã£o, concorrÃªncia, lote parcial e histÃ³rico', '3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31516,7 +31519,7 @@ comment on column sigov.educacao_comunicado_destinatario.ciencia_at is
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922200000', 'Jornada autorizada do portal de responsÃ¡veis, comunicados e ciÃªncia', 'd78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31569,7 +31572,45 @@ on conflict(chave) do update set descricao=excluded.descricao;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260923120000', 'Jornada transversal de atribuiÃ§Ã£o, revalidaÃ§Ã£o e histÃ³rico de ocorrÃªncias', '43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260923180000_corr_compras_unicidade_tenant_referenciada.sql
+-- CATEGORY: correction
+-- CHECKSUM_SHA256: 758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef
+-- ==================================================
+-- Correção aditiva e idempotente: garante a unicidade multi-tenant (tenant_id, id)
+-- nas tabelas canônicas pai das FKs compostas publicadas em 20260924120000
+-- (fk_comp_recb_div_recb, fk_comp_recb_div_item) e 20260924210000
+-- (fk_comp_dev_receb, fk_comp_dev_item_origem), que referenciam
+-- sigov.compras_empresarial_recebimento(tenant_id,id) e
+-- sigov.compras_empresarial_recebimento_item(tenant_id,id) sem que essas
+-- unicidades existissem na época da aplicação daquelas migrations.
+-- Os índices usam nomes distintos dos constraints criados pela migration publicada
+-- 20260924160000 (ux_comp_recb_tenant_id, ux_comp_recb_item_parent), porque o
+-- PostgreSQL não promove índice avulso pré-existente a constraint pelo nome;
+-- a unicidade redundante sobre (id) é intencional e sem efeito em dados legítimos.
+
+do $$
+begin
+ create unique index if not exists ux_comp_recb_tenant_fk on sigov.compras_empresarial_recebimento(tenant_id, id);
+exception when undefined_table then
+ raise exception 'Tabela canônica sigov.compras_empresarial_recebimento ausente: unicidade multi-tenant não pode ser garantida.';
+end $$;
+
+do $$
+begin
+ create unique index if not exists ux_comp_recb_item_tenant_fk on sigov.compras_empresarial_recebimento_item(tenant_id, id);
+exception when undefined_table then
+ raise exception 'Tabela canônica sigov.compras_empresarial_recebimento_item ausente: unicidade multi-tenant não pode ser garantida.';
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260923180000', 'CorreÃ§Ã£o aditiva: unicidade multi-tenant (tenant_id,id) nos pais de FKs compostas de divergÃªncias e devoluÃ§Ãµes de recebimento', '758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31631,7 +31672,7 @@ create index if not exists ix_comp_recb_div_evento_historico on sigov.compras_em
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924120000', 'InspeÃ§Ã£o integral idempotente e divergÃªncias de recebimento', 'a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31683,7 +31724,50 @@ on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descr
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924160000', 'Tratamento auditÃ¡vel e concorrente de divergÃªncias de recebimento', 'cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260924180000_corr_compras_devolucao_legado.sql
+-- CATEGORY: correction
+-- CHECKSUM_SHA256: 3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73
+-- ==================================================
+-- Correção: separa o contrato UUID legado de devolução do nome canônico reservado à jornada
+-- física (bigint identity). O bootstrap 070 renomeou sigov.compras_devolucao para
+-- sigov.compras_empresarial_devolucao antes deste ponto; 20260924210000 exige esse nome para o
+-- contrato canônico. O legado é preservado por rename, sem conversão destrutiva, para o alias
+-- sigov.compras_empresarial_devolucao_legado; forma não reconhecida falha explicitamente.
+do $$
+begin
+    if to_regclass('sigov.compras_empresarial_devolucao') is not null then
+        if exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_devolucao' and column_name='situacao') then
+            return;
+        end if;
+        if not exists(select 1 from pg_attribute a where a.attrelid='sigov.compras_empresarial_devolucao'::regclass and a.attname='id' and a.atttypid='uuid'::regtype and not a.attisdropped) then
+            raise exception using errcode='55000', message='sigov.compras_empresarial_devolucao apresenta forma nem canônica (sem coluna situacao) nem legado (PK uuid); reconciliação manual exigida.';
+        end if;
+        if to_regclass('sigov.compras_empresarial_devolucao_legado') is not null then
+            raise exception using errcode='55000', message='sigov.compras_empresarial_devolucao e sigov.compras_empresarial_devolucao_legado coexistem; reconciliação manual exigida.';
+        end if;
+        alter table sigov.compras_empresarial_devolucao rename to compras_empresarial_devolucao_legado;
+    else
+        if to_regclass('sigov.compras_devolucao') is not null then
+            if to_regclass('sigov.compras_empresarial_devolucao_legado') is not null then
+                raise exception using errcode='55000', message='sigov.compras_devolucao e sigov.compras_empresarial_devolucao_legado coexistem; reconciliação manual exigida.';
+            end if;
+            alter table sigov.compras_devolucao rename to compras_empresarial_devolucao_legado;
+        end if;
+    end if;
+    if to_regclass('sigov.compras_devolucao') is not null then
+        raise exception using errcode='55000', message='Contrato legado sigov.compras_devolucao ainda presente após a separação; reconciliação manual exigida.';
+    end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924180000', 'CorreÃ§Ã£o aditiva: separa o contrato UUID legado de devoluÃ§Ã£o do nome canÃ´nico da jornada fÃ­sica (alias compras_empresarial_devolucao_legado)', '3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31731,7 +31815,7 @@ alter table sigov.compras_empresarial_divergencia_idempotencia alter column requ
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924210000', 'Jornada fÃ­sica auditÃ¡vel de devoluÃ§Ã£o de itens rejeitados', '0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -31771,7 +31855,90 @@ on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descr
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260925120000', 'ConclusÃ£o da jornada fÃ­sica de devoluÃ§Ãµes e acompanhamento de destinaÃ§Ã£o dos itens rejeitados', '2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
--- Reset de helpers temporÃ¡rios entre migrations concatenadas.
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260927120000_compras_aprovacoes_fluxo_e_divergencia_codificada.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346
+-- ==================================================
+-- Fluxo de aprovação de requisições com ciclos e políticas persistentes multi-esfera; codificação do resultado de encerramento de divergências.
+do $$ declare v_len integer; begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='resultado_codigo') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add column resultado_codigo varchar(32);
+ else
+  select character_maximum_length into v_len from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='resultado_codigo';
+  if coalesce(v_len,-1) < 32 then alter table sigov.compras_empresarial_recebimento_divergencia alter column resultado_codigo type varchar(32); end if;
+ end if;
+ if not exists(select 1 from pg_constraint where conname='ck_comp_recb_div_resultado_codigo') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add constraint ck_comp_recb_div_resultado_codigo check(resultado_codigo is null or resultado_codigo in('DEVOLUCAO_INTEGRAL','DEVOLUCAO_PARCIAL','SUBSTITUICAO_CONCLUIDA','GLOSA_APLICADA','ENCERRAMENTO_ADMINISTRATIVO'));
+ end if;
+ update sigov.compras_empresarial_recebimento_divergencia set resultado_codigo=case
+  when upper(trim(coalesce(resultado,''))) like '%DEVOLUCAO%' or upper(trim(coalesce(resultado,''))) like '%DEVOLVID%'
+   then case when upper(trim(coalesce(resultado,''))) like '%INTEGRAL%' or not upper(trim(coalesce(resultado,''))) like '%PARCIAL%' then 'DEVOLUCAO_INTEGRAL' else 'DEVOLUCAO_PARCIAL' end
+  when upper(trim(coalesce(resultado,''))) like '%SUBSTITUI%' then 'SUBSTITUICAO_CONCLUIDA'
+  when upper(trim(coalesce(resultado,''))) like '%GLOSA%' or upper(trim(coalesce(resultado,''))) like '%DESCONTO%' then 'GLOSA_APLICADA'
+  else 'ENCERRAMENTO_ADMINISTRATIVO' end
+ where situacao='ENCERRADA' and trim(coalesce(resultado,''))<>'' and resultado_codigo is null;
+  update sigov.compras_empresarial_recebimento_divergencia set resultado_codigo='ENCERRAMENTO_ADMINISTRATIVO' where situacao='ENCERRADA' and trim(coalesce(resultado,''))='' and resultado_codigo is null;
+ if not exists(select 1 from pg_constraint where conname='ck_comp_recb_div_codigo_encerrado') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add constraint ck_comp_recb_div_codigo_encerrado check(situacao<>'ENCERRADA' or (resultado_codigo is not null and resultado_codigo in('DEVOLUCAO_INTEGRAL','DEVOLUCAO_PARCIAL','SUBSTITUICAO_CONCLUIDA','GLOSA_APLICADA','ENCERRAMENTO_ADMINISTRATIVO')));
+ end if;
+end $$;
+
+do $$ begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_aprovacao' and column_name='ciclo') then
+  alter table sigov.compras_empresarial_aprovacao add column ciclo int not null default 1;
+ end if;
+end $$;
+
+alter table sigov.compras_empresarial_aprovacao alter column aprovador_id drop not null;
+
+do $$ declare v_antiga record; begin
+ if not exists(select 1 from pg_constraint where conname='uq_comp_aprovacao_ciclo') then
+  alter table sigov.compras_empresarial_aprovacao add constraint uq_comp_aprovacao_ciclo unique(tenant_id,requisicao_id,ciclo,nivel,aprovador_id);
+ end if;
+ for v_antiga in select c.conname from pg_constraint c where c.connamespace='sigov'::regnamespace and c.conrelid='sigov.compras_empresarial_aprovacao'::regclass and c.contype='u' and c.conname<>'uq_comp_aprovacao_ciclo' and pg_get_constraintdef(c.oid) not like '%ciclo%' loop
+  execute format('alter table sigov.compras_empresarial_aprovacao drop constraint %I', v_antiga.conname);
+ end loop;
+end $$;
+
+create index if not exists ix_comp_aprovacao_ciclo on sigov.compras_empresarial_aprovacao(tenant_id,requisicao_id,ciclo,nivel);
+
+create table if not exists sigov.compras_empresarial_aprovacao_politica (
+ id bigint generated by default as identity primary key, tenant_id uuid not null, nome varchar(120) not null,
+ esfera_governo varchar(20) not null check(esfera_governo in('municipal','estadual','federal')), tipo_entidade varchar(60) not null,
+ unidade_gestora varchar(120), unidade_executora varchar(120), ativo boolean not null default true,
+ created_at timestamptz not null default now(), created_by varchar(100) not null, updated_at timestamptz not null default now(), updated_by varchar(100) not null,
+ correlation_id varchar(100) not null, version bigint not null default 1, is_deleted boolean not null default false,
+ unique(tenant_id,nome));
+
+create table if not exists sigov.compras_empresarial_aprovacao_politica_nivel (
+ id bigint generated by default as identity primary key, tenant_id uuid not null, politica_id bigint not null references sigov.compras_empresarial_aprovacao_politica(id),
+ ordem int not null check(ordem>0), limite numeric(18,2) not null check(limite>0),
+ created_at timestamptz not null default now(), created_by varchar(100) not null, updated_at timestamptz not null default now(), updated_by varchar(100) not null,
+ correlation_id varchar(100) not null, version bigint not null default 1, is_deleted boolean not null default false,
+ unique(tenant_id,politica_id,ordem));
+
+create unique index if not exists uq_comp_aprovacao_politica_ativa on sigov.compras_empresarial_aprovacao_politica(tenant_id) where ativo and not is_deleted;
+
+do $$ begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_idempotencia' and column_name='request_hash') then
+  alter table sigov.compras_empresarial_idempotencia add column request_hash char(64);
+ end if;
+end $$;
+
+-- Correção de dados idempotente: normaliza o módulo 'compras_empresariais' para minúsculas em permissao.modulo.
+-- Catálogo canônico (PermissionCatalog) e avaliador persistente comparam case-sensitivamente;
+-- com o valor legado em maiúsculas nenhuma regra do módulo se resolvia para nenhum usuário, inclusive administrador.
+update sigov.permissao set modulo='compras_empresariais' where modulo='COMPRAS_EMPRESARIAIS';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260927120000', 'Fluxo de aprovaÃ§Ã£o de requisiÃ§Ãµes com ciclos e polÃ­ticas persistentes multi-esfera; codificaÃ§Ã£o do resultado de encerramento de divergÃªncias', '96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
@@ -32008,7 +32175,7 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
     on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
 
 \else
-\echo 'Baseline canÃ´nico jÃ¡ registrado; nenhuma migration foi reaplicada.'
+\echo 'Baseline canônico já registrado; nenhuma migration foi reaplicada.'
 \endif
 
 -- EXCLUDED_FROM_BASELINE: 011_seed_sigov_dev.sql [development-seed]

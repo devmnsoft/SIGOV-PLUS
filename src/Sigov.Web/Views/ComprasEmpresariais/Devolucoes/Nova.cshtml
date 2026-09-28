@@ -1,7 +1,7 @@
 @using Sigov.Web.Models
 @model DevolucaoFormViewModel
 @{ViewData["Title"]="Preparar devolução física";var ctx=Model.ContextoInstitucional;}
-<link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="../Shared/_ComprasNav"/>
+<link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="Shared/_ComprasNav"/>
 <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a asp-action="Devolucoes">Devoluções</a></li><li class="breadcrumb-item"><a asp-action="Recebimento" asp-route-id="@Model.RecebimentoId">Recebimento @Model.DocumentoRecebimento</a></li><li class="breadcrumb-item active">Nova devolução</li></ol></nav>
 <header class="compras-header"><div><span class="eyebrow">PREPARAÇÃO DE DEVOLUÇÃO FÍSICA</span><h1>Nova devolução de mercadoria rejeitada</h1><p>Recebimento: <strong>@Model.DocumentoRecebimento</strong> · Fornecedor: <strong>@Model.Fornecedor</strong></p></div><span class="status-badge">RASCUNHO EM PREPARAÇÃO</span></header>
 
@@ -45,7 +45,7 @@
  </div>
  <div class="col-md-6">
   <label asp-for="OrigemFisica" class="form-label fw-semibold">Origem física (local da custódia)</label>
-  <input asp-for="OrigemFisica" required maxlength="200" class="form-control" placeholder="Ex.: Almoxarifado Central - Doca 2"/>
+  <input asp-for="OrigemFisica" required maxlength="200" class="form-control" placeholder="Informe o local físico de onde parte a mercadoria"/>
   <span asp-validation-for="OrigemFisica" class="text-danger small"></span>
  </div>
  <div class="col-md-6">
@@ -70,6 +70,11 @@
  </div>
  <small class="text-muted d-block mt-2">Os dados institucionais são derivados do vínculo canônico do tenant e asseguram conformidade multi-esfera (municipal, estadual e federal).</small>
 </section>
+}else{
+ <section class="mb-4 p-3 bg-light rounded border border-warning">
+  <h2 class="h6 text-warning fw-bold mb-1">Contexto institucional não resolvido</h2>
+  <p class="small mb-0">A configuração multi-esfera desta organização está incompleta ou ausente. Enquanto não existir um contexto institucional autorizado completo, a devolução não poderá ser gravada.</p>
+ </section>
 }
 
 <section class="mb-4">

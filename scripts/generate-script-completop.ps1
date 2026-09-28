@@ -1,4 +1,4 @@
-param([switch]$Verify, [switch]$IncludeDevelopmentSeed)
+﻿param([switch]$Verify, [switch]$IncludeDevelopmentSeed)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $migrationsDir = Join-Path $root 'database/postgres/migrations'

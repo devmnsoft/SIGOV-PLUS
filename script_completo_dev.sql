@@ -221,9 +221,13 @@ select exists (
         ('20260922160000', array['3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f']::text[]),
         ('20260922200000', array['d78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803']::text[]),
         ('20260923120000', array['43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25']::text[]),
+        ('20260923180000', array['758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef']::text[]),
         ('20260924120000', array['a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32']::text[]),
         ('20260924160000', array['cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b']::text[]),
-        ('20260924210000', array['0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb']::text[])
+        ('20260924180000', array['3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73']::text[]),
+        ('20260924210000', array['0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb']::text[]),
+        ('20260925120000', array['2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff']::text[]),
+        ('20260927120000', array['96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -21184,7 +21188,7 @@ insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted
 ('educacao.exportar','educacao','exportar','Permissão FUNC05'))v(chave,recurso,acao,descricao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.modulo='educacao' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824230000', 'FUNC05 Educação, Gestão Escolar, i-Diário, Pré-matrícula e Portal', 'f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260824230000', 'FUNC05 EducaÃ§Ã£o, GestÃ£o Escolar, i-DiÃ¡rio, PrÃ©-matrÃ­cula e Portal', 'f8311ea4f3eb7b49dae7d7b84d88a3238e97fb473e3bb1cb2fba24b119be7c86', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21255,7 +21259,7 @@ insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted
 ('saude.dashboard.visualizar','saude.dashboard','visualizar'),('saude.unidade.visualizar','saude.unidade','visualizar'),('saude.unidade.criar','saude.unidade','criar'),('saude.unidade.editar','saude.unidade','editar'),('saude.paciente.visualizar','saude.paciente','visualizar'),('saude.paciente.criar','saude.paciente','criar'),('saude.paciente.editar','saude.paciente','editar'),('saude.profissional.visualizar','saude.profissional','visualizar'),('saude.profissional.criar','saude.profissional','criar'),('saude.profissional.editar','saude.profissional','editar'),('saude.agenda.visualizar','saude.agenda','visualizar'),('saude.agenda.criar','saude.agenda','criar'),('saude.agenda.cancelar','saude.agenda','cancelar'),('saude.acolhimento.visualizar','saude.acolhimento','visualizar'),('saude.acolhimento.criar','saude.acolhimento','criar'),('saude.atendimento.visualizar','saude.atendimento','visualizar'),('saude.atendimento.criar','saude.atendimento','criar'),('saude.atendimento.finalizar','saude.atendimento','finalizar'),('saude.prontuario.visualizar','saude.prontuario','visualizar'),('saude.prontuario.retificar','saude.prontuario','retificar'),('saude.vacinacao.visualizar','saude.vacinacao','visualizar'),('saude.vacinacao.aplicar','saude.vacinacao','aplicar'),('saude.farmacia.visualizar','saude.farmacia','visualizar'),('saude.farmacia.dispensar','saude.farmacia','dispensar'),('saude.regulacao.visualizar','saude.regulacao','visualizar'),('saude.regulacao.criar','saude.regulacao','criar'),('saude.exportar','saude','exportar'))v(chave,recurso,acao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.modulo='saude' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825000000', 'FUNC06 Saúde, Atenção Básica, Agenda, Prontuário, Vacinação, Farmácia e Regulação', '69cf4c6ffaa1069f38d33676c732b5515a27a0f6597f01ddd0a70d1141789003', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825000000', 'FUNC06 SaÃºde, AtenÃ§Ã£o BÃ¡sica, Agenda, ProntuÃ¡rio, VacinaÃ§Ã£o, FarmÃ¡cia e RegulaÃ§Ã£o', '69cf4c6ffaa1069f38d33676c732b5515a27a0f6597f01ddd0a70d1141789003', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21498,7 +21502,7 @@ select 'social',v.chave,v.recurso,v.acao,'Permissão FUNC08 Assistência Social'
 ('SOCIAL_DASHBOARD_VIEW','social.dashboard','visualizar'),('SOCIAL_PESSOA_VIEW','social.pessoa','visualizar'),('SOCIAL_PESSOA_MANAGE','social.pessoa','gerenciar'),('SOCIAL_FAMILIA_VIEW','social.familia','visualizar'),('SOCIAL_FAMILIA_MANAGE','social.familia','gerenciar'),('SOCIAL_PRONTUARIO_VIEW','social.prontuario','visualizar'),('SOCIAL_PRONTUARIO_MANAGE','social.prontuario','gerenciar'),('SOCIAL_ATENDIMENTO_VIEW','social.atendimento','visualizar'),('SOCIAL_ATENDIMENTO_MANAGE','social.atendimento','gerenciar'),('SOCIAL_BENEFICIO_VIEW','social.beneficio','visualizar'),('SOCIAL_BENEFICIO_MANAGE','social.beneficio','gerenciar'),('SOCIAL_VISITA_VIEW','social.visita','visualizar'),('SOCIAL_VISITA_MANAGE','social.visita','gerenciar'),('SOCIAL_ENCAMINHAMENTO_VIEW','social.encaminhamento','visualizar'),('SOCIAL_ENCAMINHAMENTO_MANAGE','social.encaminhamento','gerenciar'),('SOCIAL_ACOMPANHAMENTO_VIEW','social.acompanhamento','visualizar'),('SOCIAL_ACOMPANHAMENTO_MANAGE','social.acompanhamento','gerenciar'),('SOCIAL_SCFV_VIEW','social.scfv','visualizar'),('SOCIAL_SCFV_MANAGE','social.scfv','gerenciar'),('SOCIAL_RELATORIO_EXPORT','social.relatorio','exportar'),('SOCIAL_AUDITORIA_VIEW','social.auditoria','visualizar'))v(chave,recurso,acao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.chave like 'SOCIAL_%' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825020000', 'FUNC08 Assistência Social, CRAS/CREAS e Benefícios', 'fad32bffa62a91cf8d7dcb05ee6a02b6f22cf23378a6060cab91c94d5f0cb247', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825020000', 'FUNC08 AssistÃªncia Social, CRAS/CREAS e BenefÃ­cios', 'fad32bffa62a91cf8d7dcb05ee6a02b6f22cf23378a6060cab91c94d5f0cb247', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -21675,7 +21679,7 @@ create index if not exists ix_tributario_auditoria_func09 on sigov.tributario_au
 insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted) select 'tributario',v.chave,v.recurso,v.acao,'Permissão FUNC09 Tributário',true,false from(values ('TRIBUTARIO_DASHBOARD_VIEW','tributario.dashboard','visualizar'),('TRIBUTARIO_CONTRIBUINTE_VIEW','tributario.contribuinte','visualizar'),('TRIBUTARIO_CONTRIBUINTE_MANAGE','tributario.contribuinte','gerenciar'),('TRIBUTARIO_IMOVEL_VIEW','tributario.imovel','visualizar'),('TRIBUTARIO_IMOVEL_MANAGE','tributario.imovel','gerenciar'),('TRIBUTARIO_MOBILIARIO_VIEW','tributario.mobiliario','visualizar'),('TRIBUTARIO_MOBILIARIO_MANAGE','tributario.mobiliario','gerenciar'),('TRIBUTARIO_PARAMETRO_VIEW','tributario.parametro','visualizar'),('TRIBUTARIO_PARAMETRO_MANAGE','tributario.parametro','gerenciar'),('TRIBUTARIO_LANCAMENTO_VIEW','tributario.lancamento','visualizar'),('TRIBUTARIO_LANCAMENTO_MANAGE','tributario.lancamento','gerenciar'),('TRIBUTARIO_GUIA_VIEW','tributario.guia','visualizar'),('TRIBUTARIO_GUIA_MANAGE','tributario.guia','gerenciar'),('TRIBUTARIO_ARRECADACAO_VIEW','tributario.arrecadacao','visualizar'),('TRIBUTARIO_ARRECADACAO_MANAGE','tributario.arrecadacao','gerenciar'),('TRIBUTARIO_DIVIDA_ATIVA_VIEW','tributario.divida_ativa','visualizar'),('TRIBUTARIO_DIVIDA_ATIVA_MANAGE','tributario.divida_ativa','gerenciar'),('TRIBUTARIO_PARCELAMENTO_VIEW','tributario.parcelamento','visualizar'),('TRIBUTARIO_PARCELAMENTO_MANAGE','tributario.parcelamento','gerenciar'),('TRIBUTARIO_FISCALIZACAO_VIEW','tributario.fiscalizacao','visualizar'),('TRIBUTARIO_FISCALIZACAO_MANAGE','tributario.fiscalizacao','gerenciar'),('TRIBUTARIO_CERTIDAO_VIEW','tributario.certidao','visualizar'),('TRIBUTARIO_CERTIDAO_MANAGE','tributario.certidao','gerenciar'),('TRIBUTARIO_RELATORIO_EXPORT','tributario.relatorio_export','gerenciar'),('TRIBUTARIO_AUDITORIA_VIEW','tributario.auditoria','visualizar'))v(chave,recurso,acao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.chave like 'TRIBUTARIO_%' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825030000', 'FUNC09 Tributário e Receita Multi-esfera (arquivo histórico preservado)', 'f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825030000', 'FUNC09 TributÃ¡rio e Receita Multi-esfera (arquivo histÃ³rico preservado)', 'f0ca8c1df6014f66e45fa1125536b5a05cf3f8f1a167308f5f87014c080a35f6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22281,7 +22285,7 @@ create index if not exists ix_obras_auditoria_contexto on sigov.obras_auditoria(
 create unique index if not exists ux_obras_integracao_medicao on sigov.obras_integracao_financeira(medicao_id) where medicao_id is not null;
 insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values ('OBRAS_DASHBOARD_VIEW','Obras: Obras Dashboard View','obras',true,now()),('OBRAS_OBRA_VIEW','Obras: Obras Obra View','obras',true,now()),('OBRAS_OBRA_MANAGE','Obras: Obras Obra Manage','obras',true,now()),('OBRAS_PROJETO_VIEW','Obras: Obras Projeto View','obras',true,now()),('OBRAS_PROJETO_MANAGE','Obras: Obras Projeto Manage','obras',true,now()),('OBRAS_ORCAMENTO_VIEW','Obras: Obras Orcamento View','obras',true,now()),('OBRAS_ORCAMENTO_MANAGE','Obras: Obras Orcamento Manage','obras',true,now()),('OBRAS_CRONOGRAMA_VIEW','Obras: Obras Cronograma View','obras',true,now()),('OBRAS_CRONOGRAMA_MANAGE','Obras: Obras Cronograma Manage','obras',true,now()),('OBRAS_MEDICAO_VIEW','Obras: Obras Medicao View','obras',true,now()),('OBRAS_MEDICAO_MANAGE','Obras: Obras Medicao Manage','obras',true,now()),('OBRAS_MEDICAO_HOMOLOGAR','Obras: Obras Medicao Homologar','obras',true,now()),('OBRAS_DIARIO_VIEW','Obras: Obras Diario View','obras',true,now()),('OBRAS_DIARIO_MANAGE','Obras: Obras Diario Manage','obras',true,now()),('OBRAS_FISCALIZACAO_VIEW','Obras: Obras Fiscalizacao View','obras',true,now()),('OBRAS_FISCALIZACAO_MANAGE','Obras: Obras Fiscalizacao Manage','obras',true,now()),('OBRAS_ORDEM_SERVICO_VIEW','Obras: Obras Ordem Servico View','obras',true,now()),('OBRAS_ORDEM_SERVICO_MANAGE','Obras: Obras Ordem Servico Manage','obras',true,now()),('OBRAS_CONVENIO_VIEW','Obras: Obras Convenio View','obras',true,now()),('OBRAS_CONVENIO_MANAGE','Obras: Obras Convenio Manage','obras',true,now()),('OBRAS_DOCUMENTO_VIEW','Obras: Obras Documento View','obras',true,now()),('OBRAS_DOCUMENTO_MANAGE','Obras: Obras Documento Manage','obras',true,now()),('OBRAS_INTEGRACAO_FINANCEIRA_VIEW','Obras: Obras Integracao Financeira View','obras',true,now()),('OBRAS_INTEGRACAO_FINANCEIRA_MANAGE','Obras: Obras Integracao Financeira Manage','obras',true,now()),('OBRAS_RELATORIO_EXPORT','Obras: Obras Relatorio Export','obras',true,now()),('OBRAS_AUDITORIA_VIEW','Obras: Obras Auditoria View','obras',true,now()) on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825070000', 'FUNC13 Obras Públicas, Engenharia e Fiscalização', 'b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825070000', 'FUNC13 Obras PÃºblicas, Engenharia e FiscalizaÃ§Ã£o', 'b237a71a486d5c77b41f2680dba742540d59626efb6658b092fc8b018d4ec111', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22485,7 +22489,7 @@ create unique index if not exists ux_ambiental_auto_numero on sigov.ambiental_au
 
 insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values ('AMBIENTAL_DASHBOARD_VIEW','Meio Ambiente: Ambiental Dashboard View','ambiental',true,now()),('AMBIENTAL_EMPREENDEDOR_VIEW','Meio Ambiente: Ambiental Empreendedor View','ambiental',true,now()),('AMBIENTAL_EMPREENDEDOR_MANAGE','Meio Ambiente: Ambiental Empreendedor Manage','ambiental',true,now()),('AMBIENTAL_EMPREENDIMENTO_VIEW','Meio Ambiente: Ambiental Empreendimento View','ambiental',true,now()),('AMBIENTAL_EMPREENDIMENTO_MANAGE','Meio Ambiente: Ambiental Empreendimento Manage','ambiental',true,now()),('AMBIENTAL_PARAMETRO_VIEW','Meio Ambiente: Ambiental Parametro View','ambiental',true,now()),('AMBIENTAL_PARAMETRO_MANAGE','Meio Ambiente: Ambiental Parametro Manage','ambiental',true,now()),('AMBIENTAL_REQUERIMENTO_VIEW','Meio Ambiente: Ambiental Requerimento View','ambiental',true,now()),('AMBIENTAL_REQUERIMENTO_MANAGE','Meio Ambiente: Ambiental Requerimento Manage','ambiental',true,now()),('AMBIENTAL_DOCUMENTO_VIEW','Meio Ambiente: Ambiental Documento View','ambiental',true,now()),('AMBIENTAL_DOCUMENTO_MANAGE','Meio Ambiente: Ambiental Documento Manage','ambiental',true,now()),('AMBIENTAL_ANALISE_VIEW','Meio Ambiente: Ambiental Analise View','ambiental',true,now()),('AMBIENTAL_ANALISE_MANAGE','Meio Ambiente: Ambiental Analise Manage','ambiental',true,now()),('AMBIENTAL_LICENCA_VIEW','Meio Ambiente: Ambiental Licenca View','ambiental',true,now()),('AMBIENTAL_LICENCA_MANAGE','Meio Ambiente: Ambiental Licenca Manage','ambiental',true,now()),('AMBIENTAL_CONDICIONANTE_VIEW','Meio Ambiente: Ambiental Condicionante View','ambiental',true,now()),('AMBIENTAL_CONDICIONANTE_MANAGE','Meio Ambiente: Ambiental Condicionante Manage','ambiental',true,now()),('AMBIENTAL_VISTORIA_VIEW','Meio Ambiente: Ambiental Vistoria View','ambiental',true,now()),('AMBIENTAL_VISTORIA_MANAGE','Meio Ambiente: Ambiental Vistoria Manage','ambiental',true,now()),('AMBIENTAL_DENUNCIA_VIEW','Meio Ambiente: Ambiental Denuncia View','ambiental',true,now()),('AMBIENTAL_DENUNCIA_MANAGE','Meio Ambiente: Ambiental Denuncia Manage','ambiental',true,now()),('AMBIENTAL_AUTO_VIEW','Meio Ambiente: Ambiental Auto View','ambiental',true,now()),('AMBIENTAL_AUTO_MANAGE','Meio Ambiente: Ambiental Auto Manage','ambiental',true,now()),('AMBIENTAL_TAXA_VIEW','Meio Ambiente: Ambiental Taxa View','ambiental',true,now()),('AMBIENTAL_TAXA_MANAGE','Meio Ambiente: Ambiental Taxa Manage','ambiental',true,now()),('AMBIENTAL_RELATORIO_EXPORT','Meio Ambiente: Ambiental Relatorio Export','ambiental',true,now()),('AMBIENTAL_AUDITORIA_VIEW','Meio Ambiente: Ambiental Auditoria View','ambiental',true,now()) on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825080000', 'FUNC14 Meio Ambiente, Licenciamento e Fiscalização', 'c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825080000', 'FUNC14 Meio Ambiente, Licenciamento e FiscalizaÃ§Ã£o', 'c17bc4c1a670874f6a3834e5e9ef5ccc5e243ce7a93402bf4dd185bcbcf13e64', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22660,7 +22664,7 @@ DO $func15$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['ATENDIMENTO_DASHBOAR
  INSERT INTO sigov.permissao(chave,descricao,modulo,ativo) VALUES(p,replace(initcap(replace(lower(p),'_',' ')),'Esic','e-SIC'),'ATENDIMENTO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='ATENDIMENTO';
  END LOOP; END $func15$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825090000', 'FUNC15 Ouvidoria, Atendimento ao Cidadão, e-SIC e Carta de Serviços', 'f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825090000', 'FUNC15 Ouvidoria, Atendimento ao CidadÃ£o, e-SIC e Carta de ServiÃ§os', 'f3f67e18a94a43bbffde349c34cbb680ad07b6bf5019ad6fd4e18100128d2364', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22742,7 +22746,7 @@ CREATE INDEX IF NOT EXISTS ix_habitacao_beneficiario_vinculos ON sigov.habitacao
 CREATE UNIQUE INDEX IF NOT EXISTS ux_habitacao_inscricao_ativa ON sigov.habitacao_inscricao(tenant_id,entidade_id,familia_id,programa_id) WHERE not is_deleted and status not in ('CANCELADA','INABILITADA');
 DO $func16$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['HABITACAO_DASHBOARD_VIEW','HABITACAO_FAMILIA_VIEW','HABITACAO_FAMILIA_MANAGE','HABITACAO_DOMICILIO_VIEW','HABITACAO_DOMICILIO_MANAGE','HABITACAO_PROGRAMA_VIEW','HABITACAO_PROGRAMA_MANAGE','HABITACAO_INSCRICAO_VIEW','HABITACAO_INSCRICAO_MANAGE','HABITACAO_CLASSIFICACAO_VIEW','HABITACAO_CLASSIFICACAO_MANAGE','HABITACAO_VISITA_VIEW','HABITACAO_VISITA_MANAGE','HABITACAO_REGULARIZACAO_VIEW','HABITACAO_REGULARIZACAO_MANAGE','HABITACAO_LOTE_VIEW','HABITACAO_LOTE_MANAGE','HABITACAO_UNIDADE_VIEW','HABITACAO_UNIDADE_MANAGE','HABITACAO_BENEFICIARIO_VIEW','HABITACAO_BENEFICIARIO_MANAGE','HABITACAO_RELATORIO_EXPORT','HABITACAO_AUDITORIA_VIEW'] LOOP INSERT INTO sigov.permissao(chave,descricao,modulo,ativo) VALUES(p,initcap(replace(lower(p),'_',' ')),'HABITACAO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='HABITACAO'; END LOOP; END $func16$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825100000', 'FUNC16 Habitação, Regularização Fundiária e Programas Habitacionais', 'e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825100000', 'FUNC16 HabitaÃ§Ã£o, RegularizaÃ§Ã£o FundiÃ¡ria e Programas Habitacionais', 'e38ec92173de44ce68ac074afe7853a00e5e8f1a60cfc923c1d0afab0c464f82', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22826,7 +22830,7 @@ CREATE INDEX IF NOT EXISTS ix_juridico_custas_vinculos ON sigov.juridico_custas(
 CREATE UNIQUE INDEX IF NOT EXISTS ux_juridico_processo_numero ON sigov.juridico_processo(tenant_id,entidade_id,numero_interno) WHERE ativo and not is_deleted;
 DO $func17$ DECLARE p text; BEGIN FOREACH p IN ARRAY ARRAY['JURIDICO_DASHBOARD_VIEW','JURIDICO_ADVOGADO_VIEW','JURIDICO_ADVOGADO_MANAGE','JURIDICO_PARTE_VIEW','JURIDICO_PARTE_MANAGE','JURIDICO_PROCESSO_VIEW','JURIDICO_PROCESSO_MANAGE','JURIDICO_MOVIMENTACAO_VIEW','JURIDICO_MOVIMENTACAO_MANAGE','JURIDICO_PRAZO_VIEW','JURIDICO_PRAZO_MANAGE','JURIDICO_INTIMACAO_VIEW','JURIDICO_INTIMACAO_MANAGE','JURIDICO_AUDIENCIA_VIEW','JURIDICO_AUDIENCIA_MANAGE','JURIDICO_PARECER_VIEW','JURIDICO_PARECER_MANAGE','JURIDICO_CONSULTA_VIEW','JURIDICO_CONSULTA_MANAGE','JURIDICO_ACORDO_VIEW','JURIDICO_ACORDO_MANAGE','JURIDICO_DIVIDA_ATIVA_VIEW','JURIDICO_DIVIDA_ATIVA_MANAGE','JURIDICO_RELATORIO_EXPORT','JURIDICO_AUDITORIA_VIEW'] LOOP INSERT INTO sigov.permissao(chave,descricao,modulo,ativo) VALUES(p,initcap(replace(lower(p),'_',' ')),'JURIDICO',true) ON CONFLICT(chave) DO UPDATE SET ativo=true,modulo='JURIDICO'; END LOOP; END $func17$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825110000', 'FUNC17 Procuradoria Jurídica, Contencioso e Dívida Ativa Judicial', '4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825110000', 'FUNC17 Procuradoria JurÃ­dica, Contencioso e DÃ­vida Ativa Judicial', '4f4ffbd1a1881f26cf8330898c4cca995441c26d968688a1290b96015872f4ab', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22862,7 +22866,7 @@ create table if not exists sigov.transito_auditoria (id bigint generated by defa
 create index if not exists ix_transito_agente_cpf on sigov.transito_agente(tenant_id,entity_id,cpf); create index if not exists ix_transito_condutor_cpf on sigov.transito_condutor(tenant_id,entity_id,cpf); create index if not exists ix_transito_veiculo_placa on sigov.transito_veiculo(tenant_id,entity_id,placa); create index if not exists ix_transito_veiculo_documento on sigov.transito_veiculo(tenant_id,entity_id,proprietario_documento); create index if not exists ix_transito_notificacao_documento on sigov.transito_notificacao(tenant_id,entity_id,destinatario_documento); create index if not exists ix_transito_recurso_documento on sigov.transito_recurso(tenant_id,entity_id,requerente_documento); create index if not exists ix_transito_autorizacao_documento on sigov.transito_autorizacao_transporte(tenant_id,entity_id,titular_documento); create index if not exists ix_transito_credencial_documento on sigov.transito_credencial(tenant_id,entity_id,beneficiario_documento);
 insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) select p,'Trânsito: '||replace(p,'_',' '),'transito',true,now() from unnest(array['TRANSITO_DASHBOARD_VIEW','TRANSITO_AGENTE_VIEW','TRANSITO_AGENTE_MANAGE','TRANSITO_CONDUTOR_VIEW','TRANSITO_CONDUTOR_MANAGE','TRANSITO_VEICULO_VIEW','TRANSITO_VEICULO_MANAGE','TRANSITO_INFRACAO_VIEW','TRANSITO_INFRACAO_MANAGE','TRANSITO_AUTO_VIEW','TRANSITO_AUTO_MANAGE','TRANSITO_NOTIFICACAO_VIEW','TRANSITO_NOTIFICACAO_MANAGE','TRANSITO_RECURSO_VIEW','TRANSITO_RECURSO_MANAGE','TRANSITO_OCORRENCIA_VIEW','TRANSITO_OCORRENCIA_MANAGE','TRANSITO_SINALIZACAO_VIEW','TRANSITO_SINALIZACAO_MANAGE','TRANSITO_INTERVENCAO_VIEW','TRANSITO_INTERVENCAO_MANAGE','TRANSITO_TRANSPORTE_VIEW','TRANSITO_TRANSPORTE_MANAGE','TRANSITO_VISTORIA_VIEW','TRANSITO_VISTORIA_MANAGE','TRANSITO_CREDENCIAL_VIEW','TRANSITO_CREDENCIAL_MANAGE','TRANSITO_RELATORIO_EXPORT','TRANSITO_AUDITORIA_VIEW']) p on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825120000', 'FUNC18 Trânsito, Mobilidade Urbana e Fiscalização de Transporte', 'e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825120000', 'FUNC18 TrÃ¢nsito, Mobilidade Urbana e FiscalizaÃ§Ã£o de Transporte', 'e06ecde9b7d37b6d49c158ca6fe362f8b08b7ac814e23177a547971f729ad397', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22900,7 +22904,7 @@ create index if not exists ix_transito_vistoria_contexto_resultado
 create index if not exists ix_transito_credencial_contexto_validade
   on sigov.transito_credencial(tenant_id, entity_id, data_validade) where deleted_at is null;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825121000', 'CORR18 validações e índices de Trânsito', 'd26ede93088c94c26405f02297f93404ab2e64f8e3593826ce1559697ef36c60', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825121000', 'CORR18 validaÃ§Ãµes e Ã­ndices de TrÃ¢nsito', 'd26ede93088c94c26405f02297f93404ab2e64f8e3593826ce1559697ef36c60', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22940,7 +22944,7 @@ select p.chave,p.nome,'defesa',true,now() from(values
 ('DEFESA_DASHBOARD_VIEW','Visualizar dashboard de Defesa'),('DEFESA_AGENTE_VIEW','Visualizar agentes'),('DEFESA_AGENTE_MANAGE','Gerenciar agentes'),('DEFESA_EQUIPE_VIEW','Visualizar equipes'),('DEFESA_EQUIPE_MANAGE','Gerenciar equipes'),('DEFESA_RECURSO_VIEW','Visualizar recursos'),('DEFESA_RECURSO_MANAGE','Gerenciar recursos'),('DEFESA_AREA_RISCO_VIEW','Visualizar areas de risco'),('DEFESA_AREA_RISCO_MANAGE','Gerenciar areas de risco'),('DEFESA_OCORRENCIA_VIEW','Visualizar ocorrencias'),('DEFESA_OCORRENCIA_MANAGE','Gerenciar ocorrencias'),('DEFESA_ACIONAMENTO_VIEW','Visualizar acionamentos'),('DEFESA_ACIONAMENTO_MANAGE','Gerenciar acionamentos'),('DEFESA_VISTORIA_VIEW','Visualizar vistorias'),('DEFESA_VISTORIA_MANAGE','Gerenciar vistorias'),('DEFESA_ABRIGO_VIEW','Visualizar abrigos'),('DEFESA_ABRIGO_MANAGE','Gerenciar abrigos'),('DEFESA_ATENDIMENTO_VIEW','Visualizar atendimentos'),('DEFESA_ATENDIMENTO_MANAGE','Gerenciar atendimentos'),('DEFESA_RONDA_VIEW','Visualizar rondas'),('DEFESA_RONDA_MANAGE','Gerenciar rondas'),('DEFESA_OS_VIEW','Visualizar ordens de servico'),('DEFESA_OS_MANAGE','Gerenciar ordens de servico'),('DEFESA_NOTIFICACAO_VIEW','Visualizar notificacoes'),('DEFESA_NOTIFICACAO_MANAGE','Gerenciar notificacoes'),('DEFESA_PLANO_VIEW','Visualizar planos'),('DEFESA_PLANO_MANAGE','Gerenciar planos'),('DEFESA_RELATORIO_EXPORT','Exportar relatorios de Defesa'),('DEFESA_AUDITORIA_VIEW','Visualizar auditoria de Defesa'))p(chave,nome)
 on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825130000', 'FUNC19 Defesa Civil, Guarda Municipal e Segurança Pública Municipal', '22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825130000', 'FUNC19 Defesa Civil, Guarda Municipal e SeguranÃ§a PÃºblica Municipal', '22245d99f38a4897d366c05e801f45500433fa5ccbcce00be700b989e8485ec1', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -22990,7 +22994,7 @@ create index if not exists ix_defesa_ordem_status_prioridade
 create index if not exists ix_defesa_auditoria_tenant_entity_data
     on sigov.defesa_auditoria (tenant_id, entity_id, created_at desc);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825131000', 'CORR19 índices e unicidade de recursos da Defesa Civil', '49478a74cc5411268608c4a45f5021ebe1156e5ba3b7a6e0b38a7b23f5ae7a32', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260825131000', 'CORR19 Ã­ndices e unicidade de recursos da Defesa Civil', '49478a74cc5411268608c4a45f5021ebe1156e5ba3b7a6e0b38a7b23f5ae7a32', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23032,7 +23036,7 @@ select p.chave,p.nome,'convenios',true,now() from(values
 ('CONVENIO_DASHBOARD_VIEW','Visualizar dashboard de convênios'),('CONVENIO_ORGAO_VIEW','Visualizar órgãos concedentes'),('CONVENIO_ORGAO_MANAGE','Gerenciar órgãos concedentes'),('CONVENIO_PROGRAMA_VIEW','Visualizar programas'),('CONVENIO_PROGRAMA_MANAGE','Gerenciar programas'),('CONVENIO_EMENDA_VIEW','Visualizar emendas'),('CONVENIO_EMENDA_MANAGE','Gerenciar emendas'),('CONVENIO_INSTRUMENTO_VIEW','Visualizar instrumentos'),('CONVENIO_INSTRUMENTO_MANAGE','Gerenciar instrumentos'),('CONVENIO_PROJETO_VIEW','Visualizar projetos'),('CONVENIO_PROJETO_MANAGE','Gerenciar projetos'),('CONVENIO_META_VIEW','Visualizar metas'),('CONVENIO_META_MANAGE','Gerenciar metas'),('CONVENIO_ETAPA_VIEW','Visualizar etapas'),('CONVENIO_ETAPA_MANAGE','Gerenciar etapas'),('CONVENIO_FINANCEIRO_VIEW','Visualizar financeiro de convênios'),('CONVENIO_FINANCEIRO_MANAGE','Gerenciar financeiro de convênios'),('CONVENIO_PRESTACAO_VIEW','Visualizar prestações de contas'),('CONVENIO_PRESTACAO_MANAGE','Gerenciar prestações de contas'),('CONVENIO_DILIGENCIA_VIEW','Visualizar diligências'),('CONVENIO_DILIGENCIA_MANAGE','Gerenciar diligências'),('CONVENIO_RELATORIO_EXPORT','Exportar relatórios de convênios'),('CONVENIO_AUDITORIA_VIEW','Visualizar auditoria de convênios'))p(chave,nome)
 where not exists(select 1 from sigov.permissao x where x.chave=p.chave);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826100000', 'FUNC20 Convênios, Emendas Parlamentares, Projetos e Prestação de Contas', '1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826100000', 'FUNC20 ConvÃªnios, Emendas Parlamentares, Projetos e PrestaÃ§Ã£o de Contas', '1cee70b65cb7f175edc557bde6d6dbbceac918aeb7915e81f43b75f409f8ab4d', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23103,7 +23107,7 @@ create index if not exists ix_convenio_diligencia_prestacao_status on sigov.conv
 create index if not exists ix_convenio_documento_vinculos on sigov.convenio_documento_referencia(tenant_id,entity_id,instrumento_id,projeto_id,prestacao_contas_id) where deleted_at is null;
 create index if not exists ix_convenio_auditoria_registro on sigov.convenio_auditoria(tenant_id,entity_id,tabela,registro_id,created_at desc);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826110000', 'CORR20 integridade e índices de Convênios', '785151a081efcac02a48502696352e17ad3cde39a2982ec2c8a49e982b243bb2', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826110000', 'CORR20 integridade e Ã­ndices de ConvÃªnios', '785151a081efcac02a48502696352e17ad3cde39a2982ec2c8a49e982b243bb2', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23196,7 +23200,7 @@ comment on table sigov.evidencia_transversal is
 comment on table sigov.sincronizacao_outbox is
     'Fila persistida e idempotente para sincronização futura; esta migration não cria worker nem integração externa.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826120000', 'RC50.68 fundação transversal de evidências e sincronização idempotente', '1b94531a4a583b62400e7c70e9858eb09c749a42ce25fc2473bd73e5772b754c', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826120000', 'RC50.68 fundaÃ§Ã£o transversal de evidÃªncias e sincronizaÃ§Ã£o idempotente', '1b94531a4a583b62400e7c70e9858eb09c749a42ce25fc2473bd73e5772b754c', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23468,7 +23472,7 @@ insert into sigov.permissao(chave,descricao,modulo,ativo,created_at) values
 
 comment on table sigov.fiscalizacao_sincronizacao_item is 'Controle local da outbox; o processamento externo permanece BLOCKED até existir adaptador/worker oficial.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826150000', 'EXP-FISCALIZA360 núcleo transversal de fiscalização e campo', 'a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826150000', 'EXP-FISCALIZA360 nÃºcleo transversal de fiscalizaÃ§Ã£o e campo', 'a982e8e363ac82f152431eae21e1985d25d9e4535288e4fccdaa158fdb48d967', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23564,7 +23568,7 @@ end $$;
 create index if not exists ix_corr13_ocorrencia_contexto_prazo on sigov.obras_ocorrencia(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo) where not is_deleted;
 create index if not exists ix_corr13_ordem_contexto_prazo on sigov.obras_ordem_servico(tenant_id,entidade_id,exercicio_id,obra_id,status,prazo) where not is_deleted;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826170000', 'CORR13 Obras360 validações defensivas e índices contextuais', '2ebc8a069d82319703eb0a7e3beb0fde4064fb64b558dec44a6bb8d6492b3c0c', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826170000', 'CORR13 Obras360 validaÃ§Ãµes defensivas e Ã­ndices contextuais', '2ebc8a069d82319703eb0a7e3beb0fde4064fb64b558dec44a6bb8d6492b3c0c', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23748,7 +23752,7 @@ insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted
 ('ATIVOS_DASHBOARD_VIEW','view','Visualizar dashboard'),('ATIVOS_ALMOXARIFADO_VIEW','view','Visualizar almoxarifados'),('ATIVOS_ALMOXARIFADO_MANAGE','manage','Gerenciar almoxarifados'),('ATIVOS_ESTOQUE_MOVIMENTAR','manage','Movimentar estoque'),('ATIVOS_REQUISICAO_VIEW','view','Visualizar requisições'),('ATIVOS_REQUISICAO_APPROVE','approve','Aprovar requisições'),('ATIVOS_PATRIMONIO_VIEW','view','Visualizar patrimônio'),('ATIVOS_PATRIMONIO_MANAGE','manage','Gerenciar patrimônio'),('ATIVOS_PATRIMONIO_TRANSFER','transfer','Transferir patrimônio'),('ATIVOS_PATRIMONIO_BAIXA','approve','Autorizar baixa'),('ATIVOS_INVENTARIO_MANAGE','manage','Gerenciar inventário'),('ATIVOS_FROTA_VIEW','view','Visualizar frota'),('ATIVOS_FROTA_MANAGE','manage','Gerenciar frota'),('ATIVOS_FROTA_ABASTECIMENTO','manage','Registrar abastecimento'),('ATIVOS_FROTA_MANUTENCAO','manage','Gerenciar manutenção'),('ATIVOS_RELATORIO_EXPORT','export','Exportar relatórios'))v(chave,acao,descricao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.modulo='ativos' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826220000', 'EXP08 Ativos360 integrado: patrimônio, almoxarifado, estoque e frotas', 'b56aeb80754344edea1525ec65573d73fe6da09ab8d603c2dda06d98bf46048e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260826220000', 'EXP08 Ativos360 integrado: patrimÃ´nio, almoxarifado, estoque e frotas', 'b56aeb80754344edea1525ec65573d73fe6da09ab8d603c2dda06d98bf46048e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23819,7 +23823,7 @@ create index if not exists ix_cidadao_fila_contexto on sigov.cidadao_fila_atendi
 insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted) select 'cidadao360',v.chave,'cidadao360',case when v.chave like '%_VIEW' then 'view' when v.chave like '%_EXPORT' then 'export' when v.chave like '%_CREATE' then 'create' else 'manage' end,'Permissão persistida do Cidadão360',true,false from unnest(array['CIDADAO_PORTAL_VIEW','CIDADAO_SERVICO_VIEW','CIDADAO_SERVICO_MANAGE','CIDADAO_SOLICITACAO_CREATE','CIDADAO_SOLICITACAO_VIEW','CIDADAO_SOLICITACAO_MANAGE','CIDADAO_PROTOCOLO_VIEW','CIDADAO_PROTOCOLO_MANAGE','CIDADAO_OUVIDORIA_CREATE','CIDADAO_OUVIDORIA_VIEW','CIDADAO_OUVIDORIA_MANAGE','CIDADAO_OUVIDORIA_SENSITIVE_VIEW','CIDADAO_AGENDAMENTO_VIEW','CIDADAO_AGENDAMENTO_MANAGE','CIDADAO_ATENDIMENTO_MANAGE','CIDADAO_DASHBOARD_VIEW','CIDADAO_RELATORIO_EXPORT','CIDADAO_DADO_PESSOAL_VIEW','CIDADAO_DADO_PESSOAL_EXPORT']) v(chave) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.modulo='cidadao360' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827100000', 'EXP04 Cidadão360: portal, serviços digitais, protocolo e atendimento integrado', '33c687629eae15da672c8b561291a0a5bf161bdf4a204c1be3a19526a6774385', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827100000', 'EXP04 CidadÃ£o360: portal, serviÃ§os digitais, protocolo e atendimento integrado', '33c687629eae15da672c8b561291a0a5bf161bdf4a204c1be3a19526a6774385', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23857,7 +23861,7 @@ create index if not exists ix_j360_precatorio_rpv_busca on sigov.juridico_precat
 create index if not exists ix_j360_publicacao_busca on sigov.juridico_publicacao(tenant_id,entidade_id,processo_id,status,publicada_em) where ativo and not is_deleted;
 insert into sigov.permissao(chave,descricao,modulo,ativo) select p,initcap(replace(lower(p),'_',' ')),'JURIDICO',true from unnest(array['JURIDICO_DASHBOARD_VIEW','JURIDICO_PROCESSO_VIEW','JURIDICO_PROCESSO_MANAGE','JURIDICO_PROCESSO_SIGILOSO_VIEW','JURIDICO_EXECUCAO_FISCAL_VIEW','JURIDICO_EXECUCAO_FISCAL_MANAGE','JURIDICO_CDA_AJUIZAR','JURIDICO_PRAZO_VIEW','JURIDICO_PRAZO_MANAGE','JURIDICO_AUDIENCIA_MANAGE','JURIDICO_PARECER_VIEW','JURIDICO_PARECER_MANAGE','JURIDICO_PARECER_REVIEW','JURIDICO_PARECER_SIGN','JURIDICO_DOCUMENTO_MANAGE','JURIDICO_ACORDO_VIEW','JURIDICO_ACORDO_MANAGE','JURIDICO_ACORDO_DESCONTO','JURIDICO_PRECATORIO_VIEW','JURIDICO_PRECATORIO_MANAGE','JURIDICO_PUBLICACAO_MANAGE','JURIDICO_RELATORIO_EXPORT','JURIDICO_DADO_SENSIVEL_VIEW','JURIDICO_DADO_SENSIVEL_EXPORT']) p on conflict(chave) do update set ativo=true,modulo='JURIDICO';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827120000', 'EXP06 Jurídico360: procuradoria, dívida ativa judicial, prazos e consultivo', '8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827120000', 'EXP06 JurÃ­dico360: procuradoria, dÃ­vida ativa judicial, prazos e consultivo', '8c0614359146b95bec5707a077423d507d848755244859add5cb1042dca6416c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23906,7 +23910,7 @@ create unique index if not exists ux_sst_esocial_idempotencia on sigov.sst_event
 insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted) select 'sst360',v.chave,'sst360',v.acao,v.descricao,true,false from(values('SST_DASHBOARD_VIEW','view','SST DASHBOARD VIEW'),('SST_AMBIENTE_MANAGE','manage','SST AMBIENTE MANAGE'),('SST_RISCO_MANAGE','manage','SST RISCO MANAGE'),('SST_PGR_MANAGE','manage','SST PGR MANAGE'),('SST_PCMSO_MANAGE','manage','SST PCMSO MANAGE'),('SST_LTCAT_MANAGE','manage','SST LTCAT MANAGE'),('SST_ASO_VIEW','view','SST ASO VIEW'),('SST_ASO_MANAGE','manage','SST ASO MANAGE'),('SST_ASO_SENSITIVE_VIEW','view','SST ASO SENSITIVE VIEW'),('SST_EXAME_MANAGE','manage','SST EXAME MANAGE'),('SST_EPI_MANAGE','manage','SST EPI MANAGE'),('SST_EPI_ENTREGA','manage','SST EPI ENTREGA'),('SST_TREINAMENTO_MANAGE','manage','SST TREINAMENTO MANAGE'),('SST_CAT_MANAGE','manage','SST CAT MANAGE'),('SST_ACIDENTE_MANAGE','manage','SST ACIDENTE MANAGE'),('SST_PPP_GENERATE','manage','SST PPP GENERATE'),('SST_ESOCIAL_MANAGE','manage','SST ESOCIAL MANAGE'),('SST_RELATORIO_EXPORT','export','SST RELATORIO EXPORT'),('SST_DADO_SENSIVEL_VIEW','view','SST DADO SENSIVEL VIEW'),('SST_DADO_SENSIVEL_EXPORT','export','SST DADO SENSIVEL EXPORT'))v(chave,acao,descricao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted) select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join sigov.permissao p where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.modulo='sst360' and p.ativo and not p.is_deleted on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827150000', 'EXP09 SST360: saúde ocupacional, segurança do trabalho e eSocial', 'ae14c7f27643124d4b3543c701c9f218113f596fc70289746ffdd98c0e6a0810', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260827150000', 'EXP09 SST360: saÃºde ocupacional, seguranÃ§a do trabalho e eSocial', 'ae14c7f27643124d4b3543c701c9f218113f596fc70289746ffdd98c0e6a0810', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -23976,7 +23980,7 @@ insert into sigov.permissao(chave,descricao,modulo,ativo,created_at)
 select p,'Energia360: '||replace(p,'_',' '),'energia',true,now() from unnest(array['ENERGIA_DASHBOARD_VIEW','ENERGIA_UNIDADE_VIEW','ENERGIA_UNIDADE_MANAGE','ENERGIA_MEDIDOR_MANAGE','ENERGIA_LEITURA_MANAGE','ENERGIA_FATURA_VIEW','ENERGIA_FATURA_MANAGE','ENERGIA_FATURA_CONFERIR','ENERGIA_CONTRATO_VIEW','ENERGIA_CONTRATO_MANAGE','ENERGIA_DEMANDA_VIEW','ENERGIA_ILUMINACAO_VIEW','ENERGIA_ILUMINACAO_MANAGE','ENERGIA_GERACAO_VIEW','ENERGIA_GERACAO_MANAGE','ENERGIA_CREDITO_MANAGE','ENERGIA_EFICIENCIA_MANAGE','ENERGIA_ALERTA_VIEW','ENERGIA_ALERTA_MANAGE','ENERGIA_RELATORIO_EXPORT']) p
 on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828100000', 'EXP23 Energia360 consumo, iluminação, geração e eficiência', 'f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828100000', 'EXP23 Energia360 consumo, iluminaÃ§Ã£o, geraÃ§Ã£o e eficiÃªncia', 'f4dc697da5b0583387ab7e70a51690aa1de71fe65eb9d9be7d36c3f367677e0e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24258,7 +24262,7 @@ select 'royalties',p,'Royalties360: '||replace(p,'_',' '),true,false from unnest
 'ROYALTIES_DASHBOARD_VIEW','ROYALTIES_PARAMETRO_MANAGE','ROYALTIES_FONTE_DADO_MANAGE','ROYALTIES_ORIGEM_RECEITA_MANAGE','ROYALTIES_PREVISAO_VIEW','ROYALTIES_PREVISAO_MANAGE','ROYALTIES_REPASSE_VIEW','ROYALTIES_REPASSE_MANAGE','ROYALTIES_CONCILIACAO_MANAGE','ROYALTIES_PLANO_VIEW','ROYALTIES_PLANO_MANAGE','ROYALTIES_PLANO_APPROVE','ROYALTIES_PROJETO_VIEW','ROYALTIES_PROJETO_MANAGE','ROYALTIES_EXECUCAO_VIEW','ROYALTIES_TRANSPARENCIA_VIEW','ROYALTIES_TRANSPARENCIA_PUBLISH','ROYALTIES_ALERTA_MANAGE','ROYALTIES_RELATORIO_EXPORT']) p
 on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828120000', 'EXP24 Royalties360: receitas, pré-sal, aplicação e transparência', '4fcb530a70993cf564ad436cafeb626ab84c291c18a7b425dce0c455ce1baade', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260828120000', 'EXP24 Royalties360: receitas, prÃ©-sal, aplicaÃ§Ã£o e transparÃªncia', '4fcb530a70993cf564ad436cafeb626ab84c291c18a7b425dce0c455ce1baade', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24342,7 +24346,7 @@ from (values
 ) v(chave,descricao)
 where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829100000', 'EXP13 Saneamento360/SIGCOS comercial, operacional, qualidade e governança', 'f15578a8a66c3b957280f8bef5549cf08feea44bb9fe78d295160f2cb9b3eb8b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829100000', 'EXP13 Saneamento360/SIGCOS comercial, operacional, qualidade e governanÃ§a', 'f15578a8a66c3b957280f8bef5549cf08feea44bb9fe78d295160f2cb9b3eb8b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24557,7 +24561,7 @@ from (values
  ('VIGILANCIA_EVENTO_VIEW','Consultar eventos de vigilância'),('VIGILANCIA_EVENTO_MANAGE','Gerir eventos de vigilância'),('VIGILANCIA_ALERTA_MANAGE','Gerir alertas de vigilância'),('SAUDE_RELATORIO_EXPORT','Exportar relatórios de saúde')
 ) v(chave,descricao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829120000', 'EXP11 Saúde360 + ACS360: território, campo, offline, e-SUS e vigilâncias', 'e7def5cdb39deecba61f6587b67a64eae4386d5176f9ea42cff3d2572aa53fda', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829120000', 'EXP11 SaÃºde360 + ACS360: territÃ³rio, campo, offline, e-SUS e vigilÃ¢ncias', 'e7def5cdb39deecba61f6587b67a64eae4386d5176f9ea42cff3d2572aa53fda', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24790,7 +24794,7 @@ $$;
 comment on function sigov.fn_ged_validar_eliminacao_lote() is
 'CORR25: bloqueio fail-closed de execução sem aprovação, com hold ou item não elegível.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829160000', 'CORR25 GED360: integridade, LGPD e bloqueios de eliminação', '2cdecc8c7242414505418407aafcc4cc128fd82ac83de252f3ffbe4e9f8aa324', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829160000', 'CORR25 GED360: integridade, LGPD e bloqueios de eliminaÃ§Ã£o', '2cdecc8c7242414505418407aafcc4cc128fd82ac83de252f3ffbe4e9f8aa324', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24889,7 +24893,7 @@ from (values
 ) as p(chave,nome,modulo)
 on conflict (chave) do update set descricao=excluded.descricao, modulo=excluded.modulo, ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829180000', 'RC50.81 homologação enterprise, auditoria operacional e permissões SaaS', 'db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260829180000', 'RC50.81 homologaÃ§Ã£o enterprise, auditoria operacional e permissÃµes SaaS', 'db5ac25de448849f4a1b51df99f9b6e8b5b1186109dcbc4616f71ee0e400f3bf', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -24972,7 +24976,7 @@ select chave,nome,'qualidade_sistema',true,now() from(values
  ('QUALIDADE_SISTEMA_RELATORIO_EXPORT','Qualidade: exportar relatórios'),('AUDITORIA_CODIGO_VIEW','Auditoria de código: visualizar'),('AUDITORIA_CODIGO_MANAGE','Auditoria de código: gerenciar')) p(chave,nome)
 on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831120000', 'RC50.82 Central de Qualidade e Consistência', '300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831120000', 'RC50.82 Central de Qualidade e ConsistÃªncia', '300d2d0763a30cb1fa2db64b3cee6ee6f93268a686dba098874bb554506da369', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -25031,7 +25035,7 @@ select chave,nome,'executivo',true,now() from(values
  ('EXECUTIVO_DASHBOARD_VIEW','Executivo: visualizar dashboard'),('EXECUTIVO_SALA_VIEW','Executivo: visualizar sala'),('EXECUTIVO_SALA_MANAGE','Executivo: gerenciar sala'),('EXECUTIVO_META_VIEW','Executivo: visualizar metas'),('EXECUTIVO_META_MANAGE','Executivo: gerenciar metas'),('EXECUTIVO_PENDENCIA_VIEW','Executivo: visualizar pendências'),('EXECUTIVO_PENDENCIA_MANAGE','Executivo: gerenciar pendências'),('EXECUTIVO_ALERTA_VIEW','Executivo: visualizar alertas'),('EXECUTIVO_ALERTA_MANAGE','Executivo: gerenciar alertas'),('EXECUTIVO_APROVACAO_VIEW','Executivo: visualizar aprovações'),('EXECUTIVO_APROVACAO_MANAGE','Executivo: gerenciar aprovações'),('EXECUTIVO_DECISAO_VIEW','Executivo: visualizar decisões'),('EXECUTIVO_DECISAO_MANAGE','Executivo: gerenciar decisões'),('EXECUTIVO_BRIEFING_VIEW','Executivo: visualizar briefing'),('EXECUTIVO_RELATORIO_EXPORT','Executivo: exportar relatórios')) p(chave,nome)
 on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831180000', 'RC50.83 Central Executiva 360 e Sala de Situação Municipal', '07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831180000', 'RC50.83 Central Executiva 360 e Sala de SituaÃ§Ã£o Municipal', '07bdec3d5c9d85b1fc174e06102173519434a20571db378518af23a76d73963c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -25146,7 +25150,7 @@ select chave,nome,modulo,true,now() from (values
 ) p(chave,nome,modulo)
 on conflict(chave) do update set descricao=excluded.descricao,modulo=excluded.modulo,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831210000', 'RC50.84 retomada dos módulos estruturantes multi-esfera', 'cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831210000', 'RC50.84 retomada dos mÃ³dulos estruturantes multi-esfera', 'cce1f72a6f44bce40382c08711da547eb7acf90be595b8de53ea22ede81203c9', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -25643,7 +25647,7 @@ FROM (VALUES
  ('ATA_REGISTRO_PRECO_MANAGE','Gerenciar atas de registro de preço'),('COMPRAS_RELATORIO_EXPORT','Exportar relatórios de compras e contratos')) v(chave,descricao)
 WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao p WHERE p.chave=v.chave);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831230000', 'RC50.85 compras, licitações, contratos, atas e fiscalização multi-esfera', 'bf9bc005b5455e4cb086d41c72e7165af7cf1b725101e8d7bfd073b67f666c39', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260831230000', 'RC50.85 compras, licitaÃ§Ãµes, contratos, atas e fiscalizaÃ§Ã£o multi-esfera', 'bf9bc005b5455e4cb086d41c72e7165af7cf1b725101e8d7bfd073b67f666c39', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -26165,7 +26169,7 @@ FROM (VALUES
  ('FINANCEIRO_RELATORIO_EXPORT','Financeiro Relatorio Export')) v(chave,descricao)
 WHERE NOT EXISTS (SELECT 1 FROM sigov.permissao p WHERE p.chave=v.chave);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901000000', 'RC50.86 financeiro, orçamento, contabilidade e tesouraria multi-esfera', '376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901000000', 'RC50.86 financeiro, orÃ§amento, contabilidade e tesouraria multi-esfera', '376ba32ef0f38254dc0a0b1f0e3f88f544709c2d1fbe522b645b4cd27c264a16', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -29105,7 +29109,7 @@ end $$;
 create index if not exists ix_entidade_contexto_institucional
   on sigov.entidade(tenant_id, esfera_governo, tipo_entidade, uf);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901210000', 'RC50.95 contexto institucional da base restaurável', 'a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260901210000', 'RC50.95 contexto institucional da base restaurÃ¡vel', 'a69325e24a44dc1f48ca06a3e05874a972a2674359e9f61dbdf4b298eb1c15cd', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -29301,7 +29305,7 @@ select pa.id, p.id, 'PERMITIR', true, false
 on conflict (perfil_acesso_id, permissao_id) do update
 set efeito = 'PERMITIR', ativo = true, is_deleted = false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903100000', 'Correção aditiva das permissões e dos objetos exigidos pelas pós-condições históricas', '7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903100000', 'CorreÃ§Ã£o aditiva das permissÃµes e dos objetos exigidos pelas pÃ³s-condiÃ§Ãµes histÃ³ricas', '7da07d5f1aad97993d7ae43ae9cf2f9ea0e93e6d728cf8ef4383d6ee0ea7c8ed', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30020,7 +30024,7 @@ create index if not exists ix_clp_alerta_tenant_status_vencimento
 on sigov.compras_licitapro_alerta
    (tenant_id, entidade_id, status, vencimento_at);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903173000', 'Correção aditiva do histórico e dos objetos finais do LicitaPro', 'ea2e34fb9909c44f2e2a66a9e80de887d31717ca9fe20bbed0a714242bfbc528', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903173000', 'CorreÃ§Ã£o aditiva do histÃ³rico e dos objetos finais do LicitaPro', 'ea2e34fb9909c44f2e2a66a9e80de887d31717ca9fe20bbed0a714242bfbc528', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30233,7 +30237,7 @@ do $$ declare definition text; associated boolean; begin
 end $$;
 create index if not exists ix_contrato_fiscal_ativo on sigov.contrato_fiscal(tenant_id,contrato_id,ativo);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903230000', 'Correção final dos contratos bigint e pós-condições de Compras', '2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260903230000', 'CorreÃ§Ã£o final dos contratos bigint e pÃ³s-condiÃ§Ãµes de Compras', '2d132eb414ccd2352b302a6d50206f735f2995cc73f02e10bc6eacb3991f0f70', 'corrective', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30421,7 +30425,7 @@ update sigov.modulo_saas set
     updated_at=now()
 where codigo='industria_producao';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260908120000', 'Consolidação do contrato canônico SaaS e catálogo Indústria 360', 'c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7', 'evolution', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260908120000', 'ConsolidaÃ§Ã£o do contrato canÃ´nico SaaS e catÃ¡logo IndÃºstria 360', 'c7e27f2942419883e6b7123c5ed16e0b574c520a6deabe4ce71b4f375ba272e7', 'evolution', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30574,7 +30578,7 @@ CREATE INDEX IF NOT EXISTS ix_identidade_sessao_token_hash_ativa
     ON sigov.identidade_sessao (token_hash)
     WHERE encerrada_at IS NULL AND coalesce(is_deleted, false) = false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260909120000', 'Sessão persistente de identidade com revogação e versão de autorização', '0dbe94d680f16fd4bb2d50c5215a96fab00a4d70278f28099eaa6d078d7df52e', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260909120000', 'SessÃ£o persistente de identidade com revogaÃ§Ã£o e versÃ£o de autorizaÃ§Ã£o', '0dbe94d680f16fd4bb2d50c5215a96fab00a4d70278f28099eaa6d078d7df52e', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30757,7 +30761,7 @@ drop trigger if exists trg_tenant_modulo_compatibilizar on sigov.tenant_modulo_c
 create trigger trg_tenant_modulo_compatibilizar after insert or update on sigov.tenant_modulo_contratado
     for each row execute function sigov.fn_tenant_modulo_compatibilizar();
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260910120000', 'Correção forward-only das pós-condições RC37B, RC50.60 e SaaS', 'f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260910120000', 'CorreÃ§Ã£o forward-only das pÃ³s-condiÃ§Ãµes RC37B, RC50.60 e SaaS', 'f240636bb20ca9b890162f3ab61e00b82b45d55197ee539c537ef766cfa8acee', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30795,7 +30799,7 @@ create index if not exists ix_industria_parada_os
     on sigov.industria_parada_producao(tenant_id, os_id)
     where gerou_os and os_id is not null;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'Integração idempotente entre parada industrial e manutenção canônica', '465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914120000', 'IntegraÃ§Ã£o idempotente entre parada industrial e manutenÃ§Ã£o canÃ´nica', '465024809f7f4d900e442e60b22857068b497778739019c1c735f67b8488733d', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30871,7 +30875,7 @@ after insert or update on sigov.tenant_modulo_contratado
 for each row
 execute function sigov.fn_tenant_modulo_compatibilizar();
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914130000', 'Correção da projeção SaaS com suspensão e vigência preservadas', '1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260914130000', 'CorreÃ§Ã£o da projeÃ§Ã£o SaaS com suspensÃ£o e vigÃªncia preservadas', '1b8b48920a5654b89b36aa167d294d8942e7f4c2f1c4774150419c9419f71a13', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30945,7 +30949,7 @@ do $$ begin
     end if;
 end $$;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915120000', 'Fluxo industrial transacional, idempotente e rastreável', 'dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915120000', 'Fluxo industrial transacional, idempotente e rastreÃ¡vel', 'dfc5b79bb8ea359e14bf0f3eb3733481ec1784db0ceddf5c08ba6cb2f5069713', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -30984,7 +30988,7 @@ select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa join sigov.p
 where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
 on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915160000', 'Distribuição interna de materiais com separação, expedição, recebimento e divergência', '5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260915160000', 'DistribuiÃ§Ã£o interna de materiais com separaÃ§Ã£o, expediÃ§Ã£o, recebimento e divergÃªncia', '5bb738d3c03cee7186222151065f2483eb223a728f09b0eecf664e3016a9b4dc', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31048,7 +31052,7 @@ create table if not exists sigov.compras_empresarial_recebimento_evento(
 create index if not exists ix_compras_recebimento_evento_timeline on sigov.compras_empresarial_recebimento_evento(tenant_id,recebimento_id,ocorrido_em,id);
 create index if not exists ix_compras_recebimento_central on sigov.compras_empresarial_recebimento(tenant_id,status,data_operacao desc,id);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916120000', 'Recebimento parcial de compras empresariais com conferência e estoque canônico', 'ac5aaa1716837b124cfb8809f39d3620e2ac7e2d57107a3832a2199a83a2049c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916120000', 'Recebimento parcial de compras empresariais com conferÃªncia e estoque canÃ´nico', 'ac5aaa1716837b124cfb8809f39d3620e2ac7e2d57107a3832a2199a83a2049c', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31108,7 +31112,7 @@ select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa join sigov.p
 where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted
 on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916160000', 'Transferências entre almoxarifados com expedição e recebimento parcial', '5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916160000', 'TransferÃªncias entre almoxarifados com expediÃ§Ã£o e recebimento parcial', '5c6911d17fe72a4c8f60caf524c2c51f73eaed5e6744fefe912419e6031770ae', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31157,7 +31161,7 @@ select pa.id,p.id,'PERMITIR',true,false from sigov.perfil_acesso pa cross join s
 where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is_deleted and p.chave in('almoxarifado.reposicao.visualizar','almoxarifado.reposicao.configurar')
 on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916190000', 'Políticas e painel explicável de planejamento de reposição', '5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916190000', 'PolÃ­ticas e painel explicÃ¡vel de planejamento de reposiÃ§Ã£o', '5e2f8915f3df43d804da5fe056163344e4b98915014a1c3f3490e332aca4df7a', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31237,7 +31241,7 @@ values ('educacao','pre_matricula','editar','educacao.pre_matricula.editar','Edi
        ('educacao','matricula','enturmar','educacao.matricula.enturmar','Enturmar matrícula vigente',true)
 on conflict(chave) do update set modulo=excluded.modulo,recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916210000', 'Jornada administrativa de ingresso, oferta de vaga, matrícula e enturmação', '86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916210000', 'Jornada administrativa de ingresso, oferta de vaga, matrÃ­cula e enturmaÃ§Ã£o', '86533f95e46436bf4ef7258b3ddd378bb143800ba0d14487ca9cc5addeb1093c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31332,7 +31336,7 @@ where pa.codigo_externo='SUPERADMIN' and pa.sistemico and pa.ativo and not pa.is
  and p.modulo='patrimonio' and p.chave in('patrimonio.incorporacao.visualizar','patrimonio.incorporacao.executar','patrimonio.responsabilidade.propor','patrimonio.responsabilidade.aceitar','patrimonio.movimentacao.operar')
 on conflict(perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916230000', 'Jornada patrimonial de incorporação, responsabilidade e transferência com aceite', '07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260916230000', 'Jornada patrimonial de incorporaÃ§Ã£o, responsabilidade e transferÃªncia com aceite', '07ae934c28afe4d62f5b31f11c2fb56c97703db27aa9d8cf04fbde5d2d61d3e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31386,7 +31390,7 @@ values
  ('educacao','boletim','emitir','educacao.boletim.emitir','Emitir boletim vinculado ao fechamento',true,false)
 on conflict(modulo,chave) do update set recurso=excluded.recurso,acao=excluded.acao,descricao=excluded.descricao,ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922120000', 'Fechamento acadêmico versionado com conferência, concorrência e reabertura auditada', 'ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922120000', 'Fechamento acadÃªmico versionado com conferÃªncia, concorrÃªncia e reabertura auditada', 'ff5eb1fd2491f4a6038937a63660c92b94f13816e0c4430b8edc77fc4d46678c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31477,7 +31481,7 @@ insert into sigov.permissao(modulo,recurso,acao,chave,descricao,ativo,is_deleted
  ('educacao','rematricula','cancelar','educacao.rematricula.cancelar','Cancelar rematrícula após verificar dependências',true,false)
 on conflict(modulo,chave) do update set descricao=excluded.descricao,ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922160000', 'Transição de ano letivo com simulação, concorrência, lote parcial e histórico', '3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922160000', 'TransiÃ§Ã£o de ano letivo com simulaÃ§Ã£o, concorrÃªncia, lote parcial e histÃ³rico', '3c7ac4a2a6b8e050001ad3c768eba61065122be219308d05d4b3dd18a5561e3f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31513,7 +31517,7 @@ comment on column sigov.educacao_comunicado_destinatario.lido_at is
 comment on column sigov.educacao_comunicado_destinatario.ciencia_at is
     'Ação explícita e idempotente de ciência; não representa assinatura ou concordância jurídica.';
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922200000', 'Jornada autorizada do portal de responsáveis, comunicados e ciência', 'd78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260922200000', 'Jornada autorizada do portal de responsÃ¡veis, comunicados e ciÃªncia', 'd78884143fdbf3f628aff51f5515b6e7a5b87069f65eb53286fed8c634177803', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31566,7 +31570,45 @@ values ('governanca.ocorrencias.atribuir','governanca','Atribuir e redistribuir 
        ('governanca.qualidade.revalidar','governanca','Solicitar revalidação de qualidade com resultado da origem')
 on conflict(chave) do update set descricao=excluded.descricao;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260923120000', 'Jornada transversal de atribuição, revalidação e histórico de ocorrências', '43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260923120000', 'Jornada transversal de atribuiÃ§Ã£o, revalidaÃ§Ã£o e histÃ³rico de ocorrÃªncias', '43fc7eb0d9345e0700335aec907c0c6da610c053df9da9cec66c9659e9baed25', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260923180000_corr_compras_unicidade_tenant_referenciada.sql
+-- CATEGORY: correction
+-- CHECKSUM_SHA256: 758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef
+-- ==================================================
+-- Correção aditiva e idempotente: garante a unicidade multi-tenant (tenant_id, id)
+-- nas tabelas canônicas pai das FKs compostas publicadas em 20260924120000
+-- (fk_comp_recb_div_recb, fk_comp_recb_div_item) e 20260924210000
+-- (fk_comp_dev_receb, fk_comp_dev_item_origem), que referenciam
+-- sigov.compras_empresarial_recebimento(tenant_id,id) e
+-- sigov.compras_empresarial_recebimento_item(tenant_id,id) sem que essas
+-- unicidades existissem na época da aplicação daquelas migrations.
+-- Os índices usam nomes distintos dos constraints criados pela migration publicada
+-- 20260924160000 (ux_comp_recb_tenant_id, ux_comp_recb_item_parent), porque o
+-- PostgreSQL não promove índice avulso pré-existente a constraint pelo nome;
+-- a unicidade redundante sobre (id) é intencional e sem efeito em dados legítimos.
+
+do $$
+begin
+ create unique index if not exists ux_comp_recb_tenant_fk on sigov.compras_empresarial_recebimento(tenant_id, id);
+exception when undefined_table then
+ raise exception 'Tabela canônica sigov.compras_empresarial_recebimento ausente: unicidade multi-tenant não pode ser garantida.';
+end $$;
+
+do $$
+begin
+ create unique index if not exists ux_comp_recb_item_tenant_fk on sigov.compras_empresarial_recebimento_item(tenant_id, id);
+exception when undefined_table then
+ raise exception 'Tabela canônica sigov.compras_empresarial_recebimento_item ausente: unicidade multi-tenant não pode ser garantida.';
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260923180000', 'CorreÃ§Ã£o aditiva: unicidade multi-tenant (tenant_id,id) nos pais de FKs compostas de divergÃªncias e devoluÃ§Ãµes de recebimento', '758eea2f62653d89dc523a1a81354978690cc7091ccfdb1108b48f3963eb74ef', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31628,7 +31670,7 @@ create table if not exists sigov.compras_empresarial_recebimento_divergencia_eve
 );
 create index if not exists ix_comp_recb_div_evento_historico on sigov.compras_empresarial_recebimento_divergencia_evento(tenant_id,divergencia_id,ocorrido_em,id);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924120000', 'Inspeção integral idempotente e divergências de recebimento', 'a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924120000', 'InspeÃ§Ã£o integral idempotente e divergÃªncias de recebimento', 'a4e4d9416f73ba5e5e6a4a827bcc8fd554ceb90e509f63ac13202490421aac32', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31680,7 +31722,50 @@ select 'COMPRAS_EMPRESARIAIS',v.chave,v.descricao,true from (values
  ('compras_empresariais.divergencias.encerrar','Encerrar administrativamente divergências de recebimento'))v(chave,descricao)
 on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924160000', 'Tratamento auditável e concorrente de divergências de recebimento', 'cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924160000', 'Tratamento auditÃ¡vel e concorrente de divergÃªncias de recebimento', 'cb0b1d963bfbd099f7a7fb9ef9ef29299707e67d8e820f5fcd11cb7ce5e00a5b', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260924180000_corr_compras_devolucao_legado.sql
+-- CATEGORY: correction
+-- CHECKSUM_SHA256: 3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73
+-- ==================================================
+-- Correção: separa o contrato UUID legado de devolução do nome canônico reservado à jornada
+-- física (bigint identity). O bootstrap 070 renomeou sigov.compras_devolucao para
+-- sigov.compras_empresarial_devolucao antes deste ponto; 20260924210000 exige esse nome para o
+-- contrato canônico. O legado é preservado por rename, sem conversão destrutiva, para o alias
+-- sigov.compras_empresarial_devolucao_legado; forma não reconhecida falha explicitamente.
+do $$
+begin
+    if to_regclass('sigov.compras_empresarial_devolucao') is not null then
+        if exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_devolucao' and column_name='situacao') then
+            return;
+        end if;
+        if not exists(select 1 from pg_attribute a where a.attrelid='sigov.compras_empresarial_devolucao'::regclass and a.attname='id' and a.atttypid='uuid'::regtype and not a.attisdropped) then
+            raise exception using errcode='55000', message='sigov.compras_empresarial_devolucao apresenta forma nem canônica (sem coluna situacao) nem legado (PK uuid); reconciliação manual exigida.';
+        end if;
+        if to_regclass('sigov.compras_empresarial_devolucao_legado') is not null then
+            raise exception using errcode='55000', message='sigov.compras_empresarial_devolucao e sigov.compras_empresarial_devolucao_legado coexistem; reconciliação manual exigida.';
+        end if;
+        alter table sigov.compras_empresarial_devolucao rename to compras_empresarial_devolucao_legado;
+    else
+        if to_regclass('sigov.compras_devolucao') is not null then
+            if to_regclass('sigov.compras_empresarial_devolucao_legado') is not null then
+                raise exception using errcode='55000', message='sigov.compras_devolucao e sigov.compras_empresarial_devolucao_legado coexistem; reconciliação manual exigida.';
+            end if;
+            alter table sigov.compras_devolucao rename to compras_empresarial_devolucao_legado;
+        end if;
+    end if;
+    if to_regclass('sigov.compras_devolucao') is not null then
+        raise exception using errcode='55000', message='Contrato legado sigov.compras_devolucao ainda presente após a separação; reconciliação manual exigida.';
+    end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924180000', 'CorreÃ§Ã£o aditiva: separa o contrato UUID legado de devoluÃ§Ã£o do nome canÃ´nico da jornada fÃ­sica (alias compras_empresarial_devolucao_legado)', '3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73', 'correction', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -31728,7 +31813,130 @@ insert into sigov.permissao(modulo,chave,descricao,ativo) select 'COMPRAS_EMPRES
  ('compras_empresariais.devolucoes.visualizar','Visualizar devoluções físicas'),('compras_empresariais.devolucoes.criar','Preparar devoluções físicas'),('compras_empresariais.devolucoes.editar','Editar ou cancelar rascunhos de devolução'),('compras_empresariais.devolucoes.expedir','Confirmar saída física de devoluções'),('compras_empresariais.devolucoes.entregar','Confirmar entrega física ao fornecedor'),('compras_empresariais.devolucoes.relatorio','Exportar relatório de devoluções'))x(chave,descricao) on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
 alter table sigov.compras_empresarial_divergencia_idempotencia alter column request_hash type varchar(67);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924210000', 'Jornada física auditável de devolução de itens rejeitados', '0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260924210000', 'Jornada fÃ­sica auditÃ¡vel de devoluÃ§Ã£o de itens rejeitados', '0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260925120000_compras_devolucao_destinacao_final.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff
+-- ==================================================
+-- Conclusão da jornada física de devoluções e acompanhamento de destinação dos itens rejeitados.
+do $$ begin
+ if not exists(select 1 from pg_constraint where conname='fk_comp_dev_responsavel') then
+  alter table sigov.compras_empresarial_devolucao add constraint fk_comp_dev_responsavel foreign key(tenant_id,responsavel_id) references sigov.os_tecnico(tenant_id,usuario_id);
+ end if;
+end $$;
+
+create index if not exists ix_comp_dev_responsavel on sigov.compras_empresarial_devolucao(tenant_id,responsavel_id);
+create index if not exists ix_comp_dev_datas on sigov.compras_empresarial_devolucao(tenant_id,expedida_em,entregue_em);
+create index if not exists ix_comp_dev_item_destinacao on sigov.compras_empresarial_devolucao_item(tenant_id,recebimento_item_id,devolucao_id);
+
+do $$ begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='devolucao_id') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add column devolucao_id bigint;
+  alter table sigov.compras_empresarial_recebimento_divergencia add constraint fk_comp_div_devolucao foreign key(tenant_id,devolucao_id) references sigov.compras_empresarial_devolucao(tenant_id,id);
+  create index if not exists ix_comp_div_devolucao on sigov.compras_empresarial_recebimento_divergencia(tenant_id,devolucao_id);
+ end if;
+end $$;
+
+insert into sigov.permissao(modulo,chave,descricao,ativo) select 'COMPRAS_EMPRESARIAIS',x.chave,x.descricao,true from(values
+ ('compras_empresariais.devolucoes.visualizar','Visualizar devoluções físicas'),
+ ('compras_empresariais.devolucoes.criar','Preparar devoluções físicas'),
+ ('compras_empresariais.devolucoes.editar','Editar ou cancelar rascunhos de devolução'),
+ ('compras_empresariais.devolucoes.expedir','Confirmar saída física de devoluções'),
+ ('compras_empresariais.devolucoes.entregar','Confirmar entrega física ao fornecedor'),
+ ('compras_empresariais.devolucoes.relatorio','Exportar relatório de devoluções'))x(chave,descricao)
+on conflict(chave) do update set modulo=excluded.modulo,descricao=excluded.descricao,ativo=true,is_deleted=false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260925120000', 'ConclusÃ£o da jornada fÃ­sica de devoluÃ§Ãµes e acompanhamento de destinaÃ§Ã£o dos itens rejeitados', '2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260927120000_compras_aprovacoes_fluxo_e_divergencia_codificada.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346
+-- ==================================================
+-- Fluxo de aprovação de requisições com ciclos e políticas persistentes multi-esfera; codificação do resultado de encerramento de divergências.
+do $$ declare v_len integer; begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='resultado_codigo') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add column resultado_codigo varchar(32);
+ else
+  select character_maximum_length into v_len from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='resultado_codigo';
+  if coalesce(v_len,-1) < 32 then alter table sigov.compras_empresarial_recebimento_divergencia alter column resultado_codigo type varchar(32); end if;
+ end if;
+ if not exists(select 1 from pg_constraint where conname='ck_comp_recb_div_resultado_codigo') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add constraint ck_comp_recb_div_resultado_codigo check(resultado_codigo is null or resultado_codigo in('DEVOLUCAO_INTEGRAL','DEVOLUCAO_PARCIAL','SUBSTITUICAO_CONCLUIDA','GLOSA_APLICADA','ENCERRAMENTO_ADMINISTRATIVO'));
+ end if;
+ update sigov.compras_empresarial_recebimento_divergencia set resultado_codigo=case
+  when upper(trim(coalesce(resultado,''))) like '%DEVOLUCAO%' or upper(trim(coalesce(resultado,''))) like '%DEVOLVID%'
+   then case when upper(trim(coalesce(resultado,''))) like '%INTEGRAL%' or not upper(trim(coalesce(resultado,''))) like '%PARCIAL%' then 'DEVOLUCAO_INTEGRAL' else 'DEVOLUCAO_PARCIAL' end
+  when upper(trim(coalesce(resultado,''))) like '%SUBSTITUI%' then 'SUBSTITUICAO_CONCLUIDA'
+  when upper(trim(coalesce(resultado,''))) like '%GLOSA%' or upper(trim(coalesce(resultado,''))) like '%DESCONTO%' then 'GLOSA_APLICADA'
+  else 'ENCERRAMENTO_ADMINISTRATIVO' end
+ where situacao='ENCERRADA' and trim(coalesce(resultado,''))<>'' and resultado_codigo is null;
+  update sigov.compras_empresarial_recebimento_divergencia set resultado_codigo='ENCERRAMENTO_ADMINISTRATIVO' where situacao='ENCERRADA' and trim(coalesce(resultado,''))='' and resultado_codigo is null;
+ if not exists(select 1 from pg_constraint where conname='ck_comp_recb_div_codigo_encerrado') then
+  alter table sigov.compras_empresarial_recebimento_divergencia add constraint ck_comp_recb_div_codigo_encerrado check(situacao<>'ENCERRADA' or (resultado_codigo is not null and resultado_codigo in('DEVOLUCAO_INTEGRAL','DEVOLUCAO_PARCIAL','SUBSTITUICAO_CONCLUIDA','GLOSA_APLICADA','ENCERRAMENTO_ADMINISTRATIVO')));
+ end if;
+end $$;
+
+do $$ begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_aprovacao' and column_name='ciclo') then
+  alter table sigov.compras_empresarial_aprovacao add column ciclo int not null default 1;
+ end if;
+end $$;
+
+alter table sigov.compras_empresarial_aprovacao alter column aprovador_id drop not null;
+
+do $$ declare v_antiga record; begin
+ if not exists(select 1 from pg_constraint where conname='uq_comp_aprovacao_ciclo') then
+  alter table sigov.compras_empresarial_aprovacao add constraint uq_comp_aprovacao_ciclo unique(tenant_id,requisicao_id,ciclo,nivel,aprovador_id);
+ end if;
+ for v_antiga in select c.conname from pg_constraint c where c.connamespace='sigov'::regnamespace and c.conrelid='sigov.compras_empresarial_aprovacao'::regclass and c.contype='u' and c.conname<>'uq_comp_aprovacao_ciclo' and pg_get_constraintdef(c.oid) not like '%ciclo%' loop
+  execute format('alter table sigov.compras_empresarial_aprovacao drop constraint %I', v_antiga.conname);
+ end loop;
+end $$;
+
+create index if not exists ix_comp_aprovacao_ciclo on sigov.compras_empresarial_aprovacao(tenant_id,requisicao_id,ciclo,nivel);
+
+create table if not exists sigov.compras_empresarial_aprovacao_politica (
+ id bigint generated by default as identity primary key, tenant_id uuid not null, nome varchar(120) not null,
+ esfera_governo varchar(20) not null check(esfera_governo in('municipal','estadual','federal')), tipo_entidade varchar(60) not null,
+ unidade_gestora varchar(120), unidade_executora varchar(120), ativo boolean not null default true,
+ created_at timestamptz not null default now(), created_by varchar(100) not null, updated_at timestamptz not null default now(), updated_by varchar(100) not null,
+ correlation_id varchar(100) not null, version bigint not null default 1, is_deleted boolean not null default false,
+ unique(tenant_id,nome));
+
+create table if not exists sigov.compras_empresarial_aprovacao_politica_nivel (
+ id bigint generated by default as identity primary key, tenant_id uuid not null, politica_id bigint not null references sigov.compras_empresarial_aprovacao_politica(id),
+ ordem int not null check(ordem>0), limite numeric(18,2) not null check(limite>0),
+ created_at timestamptz not null default now(), created_by varchar(100) not null, updated_at timestamptz not null default now(), updated_by varchar(100) not null,
+ correlation_id varchar(100) not null, version bigint not null default 1, is_deleted boolean not null default false,
+ unique(tenant_id,politica_id,ordem));
+
+create unique index if not exists uq_comp_aprovacao_politica_ativa on sigov.compras_empresarial_aprovacao_politica(tenant_id) where ativo and not is_deleted;
+
+do $$ begin
+ if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_idempotencia' and column_name='request_hash') then
+  alter table sigov.compras_empresarial_idempotencia add column request_hash char(64);
+ end if;
+end $$;
+
+-- Correção de dados idempotente: normaliza o módulo 'compras_empresariais' para minúsculas em permissao.modulo.
+-- Catálogo canônico (PermissionCatalog) e avaliador persistente comparam case-sensitivamente;
+-- com o valor legado em maiúsculas nenhuma regra do módulo se resolvia para nenhum usuário, inclusive administrador.
+update sigov.permissao set modulo='compras_empresariais' where modulo='COMPRAS_EMPRESARIAIS';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260927120000', 'Fluxo de aprovaÃ§Ã£o de requisiÃ§Ãµes com ciclos e polÃ­ticas persistentes multi-esfera; codificaÃ§Ã£o do resultado de encerramento de divergÃªncias', '96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

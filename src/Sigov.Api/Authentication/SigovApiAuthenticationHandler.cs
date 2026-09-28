@@ -6,6 +6,8 @@ using Dapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Sigov.Application.Enterprise;
+using Sigov.Application.Security;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Api.Authentication;
@@ -130,6 +132,13 @@ select s.id as SessionId, s.usuario_id as UserId, s.tenant_id as TenantId, s.ent
         if (row.EntidadeId is not null) claims.Add(new("entidade_id", row.EntidadeId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         if (row.ExercicioId is not null) claims.Add(new("exercicio_id", row.ExercicioId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         if (!string.IsNullOrWhiteSpace(row.TenantName)) claims.Add(new("tenant_name", row.TenantName));
+        var enterpriseMapping = Context.RequestServices.GetRequiredService<IEnterpriseTenantMappingService>();
+        var enterpriseTenantId = await enterpriseMapping.ResolveEnterpriseTenantAsync(row.TenantId, Context.RequestAborted).ConfigureAwait(false);
+        if (enterpriseTenantId.HasValue)
+        {
+            claims.Add(new("enterprise_tenant_id", enterpriseTenantId.Value.ToString()));
+            claims.Add(new("sub", EnterpriseIdentityProjection.ForUserId(row.UserId).ToString()));
+        }
         return Success(claims);
     }
 

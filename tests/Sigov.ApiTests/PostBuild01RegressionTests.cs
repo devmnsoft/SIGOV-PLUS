@@ -226,4 +226,355 @@ public sealed class PostBuild01RegressionTests
             .And.Contain("responsavelId")
             .And.Contain("Exportar relatório completo (CSV)");
     }
+
+    [Fact]
+    public void Aprovacao_Fila_Decisao_E_Politica_Deve_Espelhar_Autorizacao_E_Ser_FailClosed()
+    {
+        var repository = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        var service = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/ComprasEmpresariais/ComprasApplicationServices.cs"));
+        var api = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/ComprasEmpresariais/ComprasEmpresariaisController.cs"));
+
+        repository.Should().Contain("join sigov.perfil_acesso pa on pa.id=gp.perfil_acesso_id")
+            .And.Contain("pp.efeito='PERMITIR'")
+            .And.Contain("and pp.efeito='NEGAR'")
+            .And.Contain("md5('sigov:usuario:'||u.id::text)::uuid")
+            .And.Contain("(a.aprovador_id=@us or a.aprovador_id is null)")
+            .And.Contain("(a.aprovador_id is null) Bloqueada")
+            .And.Contain("status='CANCELADO'")
+            .And.Contain("'COMPRAS_EMPRESARIAIS'")
+            .And.Contain("Esta etapa está bloqueada e aguarda configuração institucional antes de qualquer decisão.")
+            .And.Contain("Você não é o aprovador designado para esta etapa.")
+            .And.Contain("Versão desatualizada; recarregue a fila de aprovações e tente novamente.")
+            .And.Contain("A requisição vinculada não está pendente de aprovação.")
+            .And.Contain("Etapa de aprovação não encontrada no contexto autorizado.")
+            .And.Contain("O tenant empresarial não possui um único vínculo institucional ativo; a operação foi cancelada com segurança.")
+            .And.Contain("A pendência de aprovação não pôde ser registrada no vínculo institucional ativo; a operação foi cancelada com segurança.")
+            .And.Contain("Configuração institucional obrigatória ausente para o contexto autorizado.")
+            .And.Contain("Já existe outra política de aprovação com o mesmo nome neste contexto.")
+            .And.Contain("values(@t,'APROVACAO_DECISAO',@key,@id,@hash)")
+            .And.Contain("values(@t,'APROVACAO_POLITICA_SALVAR',@key,md5('sigov:politica_aprovacao:'||@pol::text)::uuid,@hash)");
+
+        service.Should().Contain("Decisão inválida; informe APROVAR, REJEITAR ou DEVOLVER.")
+            .And.Contain("O motivo é obrigatório (mínimo de 10 caracteres) para rejeitar ou devolver.")
+            .And.Contain("O nome da política deve ter entre 3 e 120 caracteres.")
+            .And.Contain("Informe entre 1 e 10 níveis, todos com limite positivo.")
+            .And.Contain("Requisição ou versão inválida.");
+
+        api.Should().Contain("compras_empresariais.requisicoes.enviar")
+            .And.Contain("compras_empresariais.aprovacoes.visualizar")
+            .And.Contain("compras_empresariais.aprovacoes.aprovar")
+            .And.Contain("compras_empresariais.configuracao.gerenciar")
+            .And.Contain("compras_empresariais.relatorios.visualizar")
+            .And.Contain("relatorios/aprovacoes.csv")
+            .And.Contain("configuracao/politica")
+            .And.Contain("StatusCode(409,new{status=409")
+            .And.Contain("Numero;Ciclo;Etapa;Alcada;SituacaoEtapa;Aprovador;StatusRequisicao;Total;CriadaEm;DecididaEm;Motivo")
+            .And.Contain("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");
+    }
+
+    [Fact]
+    public void Requisicao_Envio_Gera_Ciclo_Por_Alcada_E_Bloqueio_FailClosed()
+    {
+        var repository = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+
+        repository.Should().Contain("Requisição não encontrada no contexto autorizado.")
+            .And.Contain("Requisição sem itens, fora de rascunho ou versão desatualizada.")
+            .And.Contain("Total estimado inválido; revise os itens antes do envio.")
+            .And.Contain("Somente requisições em rascunho podem ser enviadas para aprovação.")
+            .And.Contain("{version:D}|{total.ToString(\"0.00\",CultureInfo.InvariantCulture)}|{itens:D}")
+            .And.Contain("values(@t,'REQUISICAO_ENVIAR',@key,@id,@hash)")
+            .And.Contain("if(n.Item2>=total)break")
+            .And.Contain("\"APROVACAO_SEM_POLITICA\":\"APROVACAO_SEM_APROVADOR\"")
+            .And.Contain("set status='PENDENTE_APROVACAO'")
+            .And.Contain("status=case when status='DEVOLVIDA' then 'RASCUNHO' else status end")
+            .And.Contain("and status in('RASCUNHO','DEVOLVIDA')")
+            .And.Contain("@inicio::date is null or r.created_at>=@inicio")
+            .And.Contain("r.created_at<(@fim::date+1)");
+    }
+
+    [Fact]
+    public void Aprovacao_Migration_E_Seed_Institucional_Deve_Ser_Idempotente_MultiEsfera()
+    {
+        var migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260927120000_compras_aprovacoes_fluxo_e_divergencia_codificada.sql"));
+        var seed = File.ReadAllText(TestRepoPath.Get("database/postgres/seeds/compras_aprovacao_institucional_seed.sql"));
+        var manifest = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/manifest.json"));
+
+        migration.Should().Contain("bigint generated by default as identity primary key")
+            .And.Contain("esfera_governo varchar(20) not null check(esfera_governo in('municipal','estadual','federal'))")
+            .And.Contain("unique(tenant_id,requisicao_id,ciclo,nivel,aprovador_id)")
+            .And.Contain("alter table sigov.compras_empresarial_aprovacao alter column aprovador_id drop not null")
+            .And.Contain("resultado_codigo in('DEVOLUCAO_INTEGRAL','DEVOLUCAO_PARCIAL','SUBSTITUICAO_CONCLUIDA','GLOSA_APLICADA','ENCERRAMENTO_ADMINISTRATIVO')")
+            .And.Contain("update sigov.permissao set modulo='compras_empresariais' where modulo='COMPRAS_EMPRESARIAIS'");
+        migration.ToLowerInvariant().Should().NotContain("drop table").And.NotContain("truncate");
+
+        seed.Should().Contain("on conflict (id) do nothing")
+            .And.Contain("raise exception 'Seed de demo exige o usuario administrador local (id=1) para reaproveitar o hash de senha.'")
+            .And.Contain("set entidade_id = 9101")
+            .And.Contain("where id in (101, 102) and tenant_id = 1")
+            .And.Contain("'municipal'")
+            .And.Contain("'estadual'")
+            .And.Contain("'federal'")
+            .And.Contain("md5('sigov:usuario:101')::uuid")
+            .And.Contain("senha_hash := (select u.senha_hash");
+        seed.ToLowerInvariant().Should().NotContain("@sigov.local").And.NotContain("pbkdf2(");
+
+        manifest.Should().Contain("20260927120000_compras_aprovacoes_fluxo_e_divergencia_codificada.sql");
+
+        foreach (var script in new[]
+        {
+            "script_completo.sql", "script_completop.sql", "script_completo_dev.sql",
+            "database/script_completo.sql", "database/postgres/script_completo.sql", "database/postgres/script_completo_dev.sql"
+        })
+        {
+            var sql = File.ReadAllText(TestRepoPath.Get(script));
+            sql.Should().Contain("uq_comp_aprovacao_ciclo");
+            sql.Should().NotContain("compras.demo.analista");
+        }
+    }
+
+    [Fact]
+    public void Aprovacao_Web_Deve_Navegar_E_Materializar_Timestamptz_Com_DateTime()
+    {
+        var raiz = TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais");
+        var views = Directory.GetFiles(raiz, "*.cshtml", SearchOption.AllDirectories);
+        views.Length.Should().BeGreaterOrEqualTo(20);
+        var comParcial = views.Count(v => File.ReadAllText(v).Contains("Shared/_ComprasNav", StringComparison.Ordinal));
+        comParcial.Should().BeGreaterOrEqualTo(15);
+        var ofensores = views.Where(v => File.ReadAllText(v).Contains("../Shared/_ComprasNav", StringComparison.Ordinal)).ToArray();
+        ofensores.Should().BeEmpty();
+
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        var fila = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Aprovacoes/Index.cshtml"));
+        var config = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Configuracao/Politica.cshtml"));
+        var detalhe = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Requisicoes/Detalhe.cshtml"));
+
+        controller.Should().Contain("Decisão já registrada; o resultado persistido foi reapresentado.")
+            .And.Contain("Política já registrada; o resultado persistido foi reapresentado.");
+
+        fila.Should().Contain("<partial name=\"Shared/_ComprasNav\"")
+            .And.Contain("Pendências de decisão")
+            .And.Contain("Aguarda configuração")
+            .And.Contain("Decisão sua")
+            .And.Contain("Outro aprovador designado")
+            .And.Contain("Idempotency-Key")
+            .And.Contain("Exportar CSV")
+            .And.Contain("Ajuda da jornada");
+
+        config.Should().Contain("<partial name=\"Shared/_ComprasNav\"")
+            .And.Contain("Política ativa")
+            .And.Contain("Salvar política de aprovação");
+
+        detalhe.Should().Contain("(Model.Status is \"RASCUNHO\" or \"DEVOLVIDA\")")
+            .And.Contain("Corrigir requisição devolvida")
+            .And.Contain("Devolvida para correção")
+            .And.Contain("Enviar para aprovação");
+
+        var sessao = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Security/IdentitySessionService.cs"));
+        var central = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Services/MinhaCentralService.cs"));
+        var modelos = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Models/PostBuild/PostBuildViewModels.cs"));
+
+        sessao.Should().Contain("Sessao persistente exige tenant_id resolvido.")
+            .And.Contain("Sessao persistente exige entidade_id resolvida.");
+        central.Should().Contain("private sealed record PendenciasTotals(long Total, long Vencidas, DateTime AtualizadoEm);");
+        modelos.Should().Contain("string Url, DateTime? Prazo");
+    }
+
+    [Fact]
+    public void Ponte_Identity_Nucleo_Empresarial_Deve_Ser_Deterministica()
+    {
+        var projecao = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Security/EnterpriseIdentityProjection.cs"));
+        var handler = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Authentication/SigovApiAuthenticationHandler.cs"));
+
+        projecao.Should().Contain("sigov:usuario:{")
+            .And.Contain("ForUserId");
+        handler.Should().Contain("EnterpriseIdentityProjection.ForUserId");
+    }
+
+    [Fact]
+    public void Contexto_Institucional_Deve_Ser_Univoco_Sem_Vinculo_Inventado()
+    {
+        var repoDev = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/DevolucaoCompraRepository.cs"));
+        var repoAprov = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+
+        repoDev.Should().Contain("join sigov.entidade e on e.id=u.entidade_id and e.ativo and not e.is_deleted")
+            .And.Contain("public async Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant, Guid usuario, CancellationToken ct)")
+            .And.Contain("internal static async Task<ContextoInstitucionalSnapshot?> ContextoInstitucionalAsync(NpgsqlConnection cn, NpgsqlTransaction? tx, Guid tenant, Guid usuario, CancellationToken ct)")
+            .And.Contain("Ambiguidade de contexto institucional: o usuário possui mais de um vínculo ativo de entidade no núcleo {tenant:D}; a operação foi cancelada com segurança.");
+        repoDev.ToLowerInvariant().Should().NotContain("order by e.id limit 1");
+
+        repoAprov.Should().Contain("DevolucaoCompraRepository.ContextoInstitucionalAsync(connection, tx, context.TenantId, context.UsuarioId, ct)");
+    }
+
+    [Fact]
+    public void Idempotencia_Com_Equivalencia_De_Conteudo_E_Serializacao_Por_Lock_Advisory()
+    {
+        var repos = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        var aprov = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+
+        repos.Should().Contain("select pg_advisory_xact_lock(hashtextextended(@chaveLock,0))")
+            .And.Contain("select recurso_id RecursoId,request_hash RequestHash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='FORNECEDOR_CRIAR' and chave=@key")
+            .And.Contain("select recurso_id RecursoId,request_hash RequestHash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao=@op and chave=@key")
+            .And.Contain("anterior.RequestHash is not null && anterior.RequestHash!=hash")
+            .And.Contain("A chave de idempotência já foi usada com conteúdo diferente.")
+            .And.Contain("internal sealed record IdemComHash(Guid RecursoId,string? RequestHash);")
+            .And.Contain("internal static string HashPayload(object payload)=>Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(payload,new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase}))).ToLowerInvariant();")
+            .And.Contain("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,@op,@key,@child,@hash)");
+
+        aprov.Should().Contain("select pg_advisory_xact_lock(hashtextextended(@chaveLock,0))")
+            .And.Contain("select request_hash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='APROVACAO_DECISAO' and chave=@key")
+            .And.Contain("select request_hash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='APROVACAO_POLITICA_SALVAR' and chave=@key");
+    }
+
+    [Fact]
+    public void Envio_Recalcula_Total_Na_Mesma_Precisao_Do_Postgres_E_Fotografa_Itens()
+    {
+        var repos = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+
+        repos.Should().Contain("Math.Round(r.Itens.Sum(i=>i.Quantidade*i.ValorEstimado),2,MidpointRounding.AwayFromZero)")
+            .And.Contain("select coalesce(round(sum(i.quantidade*i.valor_estimado),2),0)")
+            .And.Contain("jsonb_build_object('total_requisicao',@total,'alcada_etapa',@limite,'etapa',@nivel,'ciclo',@ciclo,'politica_id',@polId,'politica_nome',@polNome,'itens',(select coalesce(jsonb_agg(jsonb_build_object('ordem',i.ordem,'quantidade',i.quantidade,'valor_estimado',i.valor_estimado) order by i.ordem),'[]'::jsonb)")
+            .And.Contain("'politica_nome',@polNome,'itens'")
+            .And.Contain("not i.is_deleted)),@ciclo,@us,@us,@corr)");
+    }
+
+    [Fact]
+    public void Fila_Central_E_Paineis_Operacionais_Sao_Filtrados_E_Honestos()
+    {
+        var aprov = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+
+        aprov.Should().Contain("left join sigov.os_tecnico sol on (sol.tenant_id,sol.usuario_id)=(r.tenant_id,r.solicitante_id) and not sol.is_deleted")
+            .And.Contain("(@busca::text is null or r.numero ilike @term or coalesce(r.setor,'') ilike @term or sol.nome ilike @term)")
+            .And.Contain("and (@urgencia is null or r.urgencia=@urgencia)")
+            .And.Contain("then 'Aguardando configuração institucional' when a.nivel>=(select coalesce(max(b.nivel),0)")
+            .And.Contain("then 'Decisão encerra o ciclo' else 'Próxima etapa: nível '||(a.nivel+1)::text end ProximaAcao")
+            .And.Contain("\"in ('APROVADA','REJEITADA')\"")
+            .And.Contain("\"in ('APROVADO','REJEITADA')\"")
+            .And.Contain("left join lateral(select d.motivo,d.decidido_em,d.aprovador_id from sigov.compras_empresarial_aprovacao d where d.tenant_id=r.tenant_id and d.requisicao_id=r.id and d.status {filtroEtapa} order by d.id desc limit 1) d on true")
+            .And.Contain("(r.solicitante_id=@us or exists(select 1 from sigov.compras_empresarial_aprovacao x where x.tenant_id=r.tenant_id and x.requisicao_id=r.id and (x.aprovador_id=@us or x.aprovador_id is null)))");
+    }
+
+    [Fact]
+    public void Detalhe_Da_Decisao_E_FailClosed_Com_Snapshot_Historico_E_Proxima_Etapa()
+    {
+        var aprov = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        var contracts = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/ComprasEmpresariais/ComprasContracts.cs"));
+        var service = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/ComprasEmpresariais/ComprasApplicationServices.cs"));
+
+        aprov.Should().Contain("and (a.aprovador_id=@us or a.aprovador_id is null or r.solicitante_id=@us or exists(select 1 from sigov.compras_empresarial_aprovacao x where x.tenant_id=a.tenant_id and x.requisicao_id=a.requisicao_id and x.aprovador_id=@us and x.status not in('PENDENTE','CANCELADO')))")
+            .And.Contain("a.regra_snapshot::text RegraSnapshot")
+            .And.Contain("left join sigov.os_tecnico os on (os.tenant_id,os.usuario_id)=(a.tenant_id,a.aprovador_id) and not os.is_deleted")
+            .And.Contain("select acao,detalhes::text Detalhes,created_at CriadoEm")
+            .And.Contain("aggregate_type='REQUISICAO' and aggregate_id=(select requisicao_id from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id)")
+            .And.Contain("order by created_at desc,id desc limit 50")
+            .And.Contain("etapas.FirstOrDefault(e => e.Status == \"PENDENTE\" && e.Nivel >= cab.Nivel)");
+
+        contracts.Should().Contain("public sealed record AprovacaoPainelResumo(")
+            .And.Contain("public sealed record AprovacaoEtapaLinha(")
+            .And.Contain("public sealed record AprovacaoEtapaDetalhe(")
+            .And.Contain("Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext context,Guid etapaId,CancellationToken ct);")
+            .And.Contain("Task<PagedResult<AprovacaoPainelResumo>> ListarDevolvidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);");
+
+        service.Should().Contain("if(etapaId==Guid.Empty)throw new ArgumentException(\"Etapa de aprovação inválida.\")");
+    }
+
+    [Fact]
+    public void Web_E_API_Expor_Fila_Detalhe_E_Relatorio_De_Aprovacoes_Com_Rotas_Estaveis()
+    {
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        var api = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/ComprasEmpresariais/ComprasEmpresariaisController.cs"));
+
+        controller.Should().Contain("public sealed record AprovacoesCentralViewModel(PagedResult<AprovacaoFilaResumo> Fila,PagedResult<AprovacaoPainelResumo> Devolvidas,PagedResult<AprovacaoPainelResumo> Concluidas);")
+            .And.Contain("[HttpGet(\"Aprovacoes/{etapaId:guid}/Detalhe\"),Authorize(Policy=\"compras_empresariais.aprovacoes.visualizar\")]")
+            .And.Contain("return item is null?NotFound():View(\"Aprovacoes/Detalhe\",item);")
+            .And.Contain("[HttpGet(\"Relatorios/Aprovacoes\"),Authorize(Policy=\"compras_empresariais.relatorios.visualizar\")]")
+            .And.Contain("View(\"Relatorios/Aprovacoes\",await aprovacoes.ListarRelatorioAsync(Contexto(),pagina,tamanho,ct));")
+            .And.Contain("var fila=await aprovacoes.ListarFilaAsync(Contexto(),pagina,tamanho,busca,urgencia,ct);")
+            .And.Contain("var devolvidas=await aprovacoes.ListarDevolvidasAsync(Contexto(),1,10,ct);")
+            .And.Contain("var concluidas=await aprovacoes.ListarConcluidasAsync(Contexto(),1,10,ct);");
+
+        api.Should().Contain("[FromQuery]string? busca=null,[FromQuery]string? urgencia=null");
+    }
+
+    [Fact]
+    public void Navegacao_Agoupada_Por_Jornada_E_Permissao_Separa_Soes_Da_Jornada()
+    {
+        var wrapper = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_ComprasNav.cshtml"));
+        var nav = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Shared/_ComprasNav.cshtml"));
+        var css = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/css/compras-empresariais.css"));
+
+        wrapper.Should().Contain("<partial name=\"ComprasEmpresariais/Shared/_ComprasNav\" />");
+
+        nav.Should().Contain("@using Microsoft.AspNetCore.Authorization")
+            .And.Contain("@inject Microsoft.AspNetCore.Authorization.IAuthorizationService Auth")
+            .And.Contain("compras_empresariais.dashboard.visualizar")
+            .And.Contain("compras_empresariais.fornecedores.visualizar")
+            .And.Contain("compras_empresariais.requisicoes.visualizar")
+            .And.Contain("compras_empresariais.aprovacoes.visualizar")
+            .And.Contain("compras_empresariais.cotacoes.visualizar")
+            .And.Contain("compras_empresariais.pedidos.visualizar")
+            .And.Contain("compras_empresariais.recebimentos.visualizar")
+            .And.Contain("compras_empresariais.divergencias.visualizar")
+            .And.Contain("compras_empresariais.faturas.visualizar")
+            .And.Contain("compras_empresariais.devolucoes.visualizar")
+            .And.Contain("compras_empresariais.avaliacoes.gerenciar")
+            .And.Contain("compras_empresariais.relatorios.visualizar")
+            .And.Contain("compras_empresariais.configuracao.gerenciar")
+            .And.Contain("if(!(await Auth.AuthorizeAsync(User,l.Politica)).Succeeded)continue;")
+            .And.Contain("<span class=\"compras-nav-sep\" aria-hidden=\"true\"></span>");
+
+        css.Should().Contain(".compras-nav-sep{align-self:stretch;width:1px;background:var(--bs-border-color);margin:.3rem .15rem;flex:none}")
+            .And.Contain(".compras-nav a[aria-current=\"page\"]{background:var(--bs-primary);color:#fff;font-weight:650}")
+            .And.Contain(".compras-snapshot{background:var(--bs-tertiary-bg)");
+    }
+
+    [Fact]
+    public void Telas_Novas_De_Decisao_E_Relatorio_Tem_Formularios_Estados_Honestos()
+    {
+        File.Exists(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Aprovacoes/Detalhe.cshtml")).Should().BeTrue();
+        File.Exists(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Relatorios/Aprovacoes.cshtml")).Should().BeTrue();
+
+        var detalhe = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Aprovacoes/Detalhe.cshtml"));
+        detalhe.Should().Contain("var podeDecidir = Model.StatusEtapa == \"PENDENTE\" && Model.DecisivelPorMim && !Model.Bloqueada;")
+            .And.Contain("<pre class=\"compras-snapshot mb-0\">@Model.RegraSnapshot</pre>")
+            .And.Contain("name=\"motivo\" class=\"form-control mb-2\" rows=\"2\" minlength=\"10\" required")
+            .And.Contain("<input type=\"hidden\" name=\"version\" value=\"@Model.VersionEtapa\"/>")
+            .And.Contain("<partial name=\"Shared/_ComprasNav\"")
+            .And.Contain("Próxima etapa do ciclo");
+
+        var relatorio = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Relatorios/Aprovacoes.cshtml"));
+        relatorio.Should().Contain("asp-action=\"RelatorioAprovacoesCsv\">Exportar CSV</a>")
+            .And.Contain("neutraliza fórmulas de planilha")
+            .And.Contain("Mostrando @Model.Items.Count de @Model.TotalItems registro(s) dos filtros aplicados (página @Model.Page)")
+            .And.Contain("<partial name=\"Shared/_ComprasNav\"")
+            .And.Contain("Ainda não há etapas de ciclo de aprovação neste contexto; nenhum dado fictício é exibido.");
+
+        var politica = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Configuracao/Politica.cshtml"));
+        politica.Should().Contain("alçada acumulada")
+            .And.Contain("as etapas são criadas cumulativamente para cada nível até (e incluindo) o primeiro cujo limite cubra o total");
+
+        var workspace = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Workspace.cshtml"));
+        workspace.Should().Contain("Tela em construção")
+            .And.Contain("nenhum dado fictício é exibido aqui e nenhum estado é simulado.");
+
+        var recebimentos = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Recebimentos/Relatorio.cshtml"));
+        recebimentos.Should().Contain("primeiras 100 linhas dos filtros aplicados, direto do PostgreSQL")
+            .And.Contain("Mostrando @Model.Resultado.Items.Count de @Model.Resultado.TotalItems registro(s) dos filtros aplicados (página @Model.Resultado.Page)");
+    }
+
+    [Fact]
+    public void Backfill_Resultado_Vazio_Encerrado_Deve_Existir_Na_Migration_E_Nos_Scriptes()
+    {
+        const string backfill = "update sigov.compras_empresarial_recebimento_divergencia set resultado_codigo='ENCERRAMENTO_ADMINISTRATIVO' where situacao='ENCERRADA' and trim(coalesce(resultado,''))='' and resultado_codigo is null;";
+        var migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20260927120000_compras_aprovacoes_fluxo_e_divergencia_codificada.sql"));
+        migration.Should().Contain(backfill);
+
+        foreach (var script in new[]
+        {
+            "script_completo.sql", "script_completop.sql", "script_completo_dev.sql",
+            "database/script_completo.sql", "database/postgres/script_completo.sql", "database/postgres/script_completo_dev.sql"
+        })
+        {
+            File.ReadAllText(TestRepoPath.Get(script)).Should().Contain(backfill);
+        }
+    }
 }

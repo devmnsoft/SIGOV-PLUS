@@ -1,7 +1,7 @@
 @using Sigov.Application.ComprasEmpresariais
 @model DevolucaoDetalhe
 @{ViewData["Title"]=$"Devolução #{Model.Id}";var key=Guid.NewGuid().ToString("N");}
-<link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="../Shared/_ComprasNav"/>
+<link rel="stylesheet" href="~/css/compras-empresariais.css"/><partial name="Shared/_ComprasNav"/>
 <nav aria-label="Breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a asp-action="Devolucoes">Devoluções</a></li><li class="breadcrumb-item"><a asp-action="Recebimento" asp-route-id="@Model.RecebimentoId">Recebimento @Model.DocumentoRecebimento</a></li><li class="breadcrumb-item active">Devolução #@Model.Id</li></ol></nav>
 <header class="compras-header">
  <div>

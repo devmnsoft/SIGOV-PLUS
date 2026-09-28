@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Enterprise;
 using Sigov.Application.Security;
 using Sigov.Web.Models.Auth;
 using Sigov.Web.Services;
@@ -27,8 +28,9 @@ public sealed class AuthController : Controller
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
     private readonly IOptionsMonitor<CookieAuthenticationOptions> _cookieOptions;
+    private readonly IEnterpriseTenantMappingService _enterpriseTenantMapping;
 
-    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, IIdentitySessionService identitySessionService, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger, IOptionsMonitor<CookieAuthenticationOptions> cookieOptions)
+    public AuthController(IAuthenticationRepository authenticationRepository, IPasswordHashService passwordHashService, IPasswordPolicyService passwordPolicy, IIdentitySessionService identitySessionService, ICurrentUser currentUser, IAuditTrailService auditTrail, IPasswordRecoveryService passwordRecoveryService, IConfiguration configuration, IWebHostEnvironment environment, ILogger<AuthController> logger, IOptionsMonitor<CookieAuthenticationOptions> cookieOptions, IEnterpriseTenantMappingService enterpriseTenantMapping)
     {
         _authenticationRepository = authenticationRepository;
         _passwordHashService = passwordHashService;
@@ -41,6 +43,7 @@ public sealed class AuthController : Controller
         _environment = environment;
         _logger = logger;
         _cookieOptions = cookieOptions;
+        _enterpriseTenantMapping = enterpriseTenantMapping;
     }
 
     [HttpGet]
@@ -144,6 +147,15 @@ public sealed class AuthController : Controller
             };
             if (!string.IsNullOrWhiteSpace(user.TenantName)) claims.Add(new Claim("tenant_name", user.TenantName));
             if (user.DeveAlterarSenha) claims.Add(new Claim("password_change_required", "true"));
+            if (user.TenantId.HasValue)
+            {
+                var enterpriseTenantId = await _enterpriseTenantMapping.ResolveEnterpriseTenantAsync(user.TenantId.Value, cancellationToken).ConfigureAwait(false);
+                if (enterpriseTenantId.HasValue)
+                {
+                    claims.Add(new Claim("enterprise_tenant_id", enterpriseTenantId.Value.ToString()));
+                    claims.Add(new Claim("sub", EnterpriseIdentityProjection.ForUserId(user.Id).ToString()));
+                }
+            }
             claims.AddRange(access.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
             var properties = new AuthenticationProperties
             {

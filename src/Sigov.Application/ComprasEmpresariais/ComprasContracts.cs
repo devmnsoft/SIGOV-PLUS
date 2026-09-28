@@ -22,9 +22,9 @@ public sealed record RequisicaoFiltro(
  int Tamanho = 20,
  string OrdenarPor = "data",
  string Direcao = "desc");
-public sealed record RequisicaoResumo(Guid Id, string Numero, string Status, decimal ValorEstimado, DateOnly? DataNecessaria, DateTimeOffset DataSolicitacao, string Origem, int Itens, long Version);
+public sealed record RequisicaoResumo(Guid Id, string Numero, string Status, decimal ValorEstimado, DateOnly? DataNecessaria, DateTime DataSolicitacao, string Origem, int Itens, long Version);
 public sealed record RequisicaoItemDetalhe(Guid Id, int Ordem, string Tipo, string Descricao, string? Especificacao, string Unidade, decimal Quantidade, decimal ValorEstimado, bool PermiteParcial, bool ExigeInspecao);
-public sealed record RequisicaoHistorico(string Acao, string? Detalhes, DateTimeOffset CriadoEm);
+public sealed record RequisicaoHistorico(string Acao, string? Detalhes, DateTime CriadoEm);
 public sealed record RequisicaoDetalhe(Guid Id, string Numero, string Status, string? Setor, string Urgencia, DateOnly? DataNecessaria, string Justificativa, string? Observacoes, decimal ValorEstimado, long Version, IReadOnlyList<RequisicaoItemDetalhe> Itens, IReadOnlyList<RequisicaoHistorico> Historico);
 public sealed record ComprasDashboard(decimal TotalSolicitado, decimal ValorAprovado, int AprovacoesPendentes, int CotacoesAbertas, int PedidosAtrasados, int RecebimentosPendentes, int FaturasBloqueadas, int DocumentosVencendo);
 public sealed record RecebimentoFiltro(string? Fornecedor = null, string? Pedido = null, DateOnly? DataInicial = null, DateOnly? DataFinal = null, string? Status = null, Guid? AlmoxarifadoId = null, string? Responsavel = null, int Pagina = 1, int Tamanho = 20);
@@ -91,7 +91,7 @@ public interface IRequisicaoCompraRepository
  Task<RequisicaoDetalhe?> ObterAsync(Guid tenant, Guid id, CancellationToken ct);
  Task<Guid> CriarAsync(ComprasContext context, CriarRequisicaoRequest request, string key, CancellationToken ct);
  Task AtualizarAsync(ComprasContext context, Guid id, AtualizarRequisicaoRequest request, CancellationToken ct);
- Task EnviarAsync(ComprasContext context, Guid id, long version, CancellationToken ct);
+ Task<RequisicaoEnvioResultado> EnviarAsync(ComprasContext context, Guid id, long version, string key, CancellationToken ct);
 }
 public interface IComprasDashboardRepository { Task<ComprasDashboard> ObterAsync(Guid tenant, CancellationToken ct); }
 public interface IRecebimentoCompraRepository
@@ -108,7 +108,7 @@ public interface IFornecedorApplicationService
  Task<Guid> CriarAsync(ComprasContext context, CriarFornecedorRequest request, string key, CancellationToken ct); Task AlterarStatusAsync(ComprasContext context, Guid id, AlterarStatusRequest request, CancellationToken ct);
  Task AdicionarContatoAsync(ComprasContext context, Guid id, AdicionarContatoRequest request, string key, CancellationToken ct); Task AdicionarEnderecoAsync(ComprasContext context, Guid id, AdicionarEnderecoRequest request, string key, CancellationToken ct); Task AdicionarDocumentoAsync(ComprasContext context, Guid id, AdicionarDocumentoRequest request, string key, CancellationToken ct);
 }
-public interface IRequisicaoCompraApplicationService { Task<PagedResult<RequisicaoResumo>> ListarAsync(ComprasContext context,RequisicaoFiltro filtro,CancellationToken ct); Task<RequisicaoDetalhe?> ObterAsync(ComprasContext context,Guid id,CancellationToken ct); Task<Guid> CriarAsync(ComprasContext context,CriarRequisicaoRequest request,string key,CancellationToken ct); Task AtualizarAsync(ComprasContext context,Guid id,AtualizarRequisicaoRequest request,CancellationToken ct); Task EnviarAsync(ComprasContext context,Guid id,long version,CancellationToken ct); }
+public interface IRequisicaoCompraApplicationService { Task<PagedResult<RequisicaoResumo>> ListarAsync(ComprasContext context,RequisicaoFiltro filtro,CancellationToken ct); Task<RequisicaoDetalhe?> ObterAsync(ComprasContext context,Guid id,CancellationToken ct); Task<Guid> CriarAsync(ComprasContext context,CriarRequisicaoRequest request,string key,CancellationToken ct); Task AtualizarAsync(ComprasContext context,Guid id,AtualizarRequisicaoRequest request,CancellationToken ct); Task<RequisicaoEnvioResultado> EnviarAsync(ComprasContext context,Guid id,long version,string key,CancellationToken ct); }
 public interface IComprasDashboardApplicationService { Task<ComprasDashboard> ObterAsync(ComprasContext context,CancellationToken ct); }
 public interface IRecebimentoCompraApplicationService
 {
@@ -130,7 +130,7 @@ public sealed record CancelarDevolucaoRequest(long Version,string Justificativa,
 public sealed record DevolucaoItemDetalhe(long Id,long RecebimentoItemId,string Produto,string Unidade,decimal QuantidadeRejeitada,decimal QuantidadeReservada,decimal QuantidadeExpedida,decimal QuantidadeEntregue,decimal SaldoElegivel);
 public sealed record DevolucaoEvento(long Id,string Tipo,string? EstadoAnterior,string EstadoNovo,string Detalhes,Guid UsuarioId,DateTimeOffset OcorridoEm,string CorrelationId,string? AutorNome=null);
 public sealed record DevolucaoDetalhe(long Id,Guid RecebimentoId,string DocumentoRecebimento,string PedidoNumero,Guid FornecedorId,string Fornecedor,string Situacao,Guid ResponsavelId,string? ResponsavelNome,string OrigemFisica,string Destino,string Motivo,string EsferaGoverno,string TipoEntidade,string UnidadeGestora,string UnidadeExecutora,string AbrangenciaTerritorial,long Version,DateTimeOffset CriadaEm,DateTimeOffset? ExpedidaEm,DateTimeOffset? EntregueEm,DateTimeOffset? CanceladaEm,string? Modalidade,string? ReferenciaTransporte,string? RecebedorOuReferencia,string? DocumentoProtocolo,IReadOnlyList<DevolucaoItemDetalhe> Itens,IReadOnlyList<DevolucaoEvento> Historico);
-public sealed record OrigemDevolucao(Guid RecebimentoId,string Documento,string Fornecedor,IReadOnlyList<DevolucaoItemDetalhe> Itens);
+public sealed record OrigemDevolucao(Guid RecebimentoId,string Documento,string Fornecedor,IReadOnlyList<DevolucaoItemDetalhe> Itens,string? AlmoxarifadoNome=null);
 public sealed record DevolucaoParaEdicao(long Id,Guid RecebimentoId,string DocumentoRecebimento,string Fornecedor,string Situacao,long Version,string Motivo,Guid ResponsavelId,string? ResponsavelNome,string OrigemFisica,string Destino,IReadOnlyList<DevolucaoItemDetalhe> Itens);
 public sealed record OrigemElegivelResumo(Guid RecebimentoId,string Documento,string PedidoNumero,string Fornecedor,int ItensRejeitados,decimal SaldoTotalElegivel,DateTimeOffset ConcluidoEm);
 public sealed record ContextoInstitucionalSnapshot(string EsferaGoverno,string TipoEntidade,string? OrgaoSuperior,string UnidadeGestora,string UnidadeExecutora,string HierarquiaAdministrativa,string AbrangenciaTerritorial,string? Uf,string? Municipio,string? Regiao,string? Jurisdicao);
@@ -144,7 +144,7 @@ public interface IDevolucaoCompraRepository
  Task<DevolucaoParaEdicao?> ObterParaEdicaoAsync(Guid tenant,long devolucaoId,CancellationToken ct);
  Task<IReadOnlyList<OrigemElegivelResumo>> PesquisarOrigensElegiveisAsync(Guid tenant,string? busca,CancellationToken ct);
  Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(Guid tenant,string? busca,int pagina,int tamanho,CancellationToken ct);
- Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant,CancellationToken ct);
+ Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant,Guid usuario,CancellationToken ct);
  Task<IReadOnlyList<DestinacaoRejeitadoItem>> ObterAcompanhamentoDestinacaoAsync(Guid tenant,Guid recebimentoId,CancellationToken ct);
  Task<IReadOnlyList<DevolucaoResumo>> ListarPorRecebimentoAsync(Guid tenant,Guid recebimentoId,CancellationToken ct);
  Task<DevolucaoComandoResultado> CriarAsync(ComprasContext context,CriarDevolucaoRequest request,CancellationToken ct);
@@ -154,4 +154,41 @@ public interface IDevolucaoCompraRepository
  Task<DevolucaoComandoResultado> CancelarAsync(ComprasContext context,long id,CancelarDevolucaoRequest request,CancellationToken ct);
 }
 public interface IDevolucaoCompraApplicationService : IDevolucaoCompraRepository { }
+
+public sealed record RequisicaoEnvioResultado(Guid Id,string Status,long Version,int Ciclo,bool Repetido);
+
+public sealed record AprovacaoFilaResumo(Guid EtapaId,int Nivel,decimal Limite,Guid? AprovadorId,bool Bloqueada,bool DecisivelPorMim,Guid RequisicaoId,string Numero,decimal Total,string StatusRequisicao,string Urgencia,DateTime SolicitadaEm,DateTime CriadaEm,long Version,string? SolicitanteNome=null,string? Setor=null,string? ProximaAcao=null);
+
+public sealed record AprovacaoPainelResumo(Guid RequisicaoId,string Numero,decimal Total,string StatusRequisicao,string? Urgencia=null,DateTime SolicitadaEm=default,DateTime? DecididaEm=null,string? MotivoFinal=null,Guid? Aprovador=null);
+public sealed record AprovacaoEtapaLinha(Guid EtapaId,int Nivel,decimal Limite,string Status,Guid? AprovadorId,string? AprovadorNome,DateTime? DecididaEm,string? Motivo);
+public sealed record AprovacaoEtapaDetalhe(Guid EtapaId,int Ciclo,int Nivel,decimal Limite,string StatusEtapa,Guid? AprovadorId,string? AprovadorNome,bool Bloqueada,bool DecisivelPorMim,long VersionEtapa,DateTime? DecididaEm,string? Motivo,Guid RequisicaoId,string Numero,string StatusRequisicao,string Urgencia,string? Setor,string SolicitanteNome,DateTime SolicitadaEm,decimal Total,string? RegraSnapshot,IReadOnlyList<RequisicaoItemDetalhe> Itens,IReadOnlyList<AprovacaoEtapaLinha> EtapasCiclo,AprovacaoEtapaLinha? ProximaEtapa,IReadOnlyList<RequisicaoHistorico> Historico);
+
+public sealed record AprovacaoDecisaoRequest(string? Decisao,string? Motivo,long Version,string? IdempotencyKey);
+
+public sealed record AprovacaoDecisaoResultado(Guid EtapaId,string EtapaStatus,string RequisicaoStatus,bool Repetido);
+
+public sealed record NivelPoliticaResumo(int Ordem,decimal Limite);
+
+public sealed record PoliticaAtivaResumo(long Id,string Nome,string EsferaGoverno,string TipoEntidade,string? UnidadeGestora,string? UnidadeExecutora,DateTime AtualizadaEm,IReadOnlyList<NivelPoliticaResumo> Niveis);
+
+public sealed record NivelPoliticaRequest(decimal Limite);
+
+public sealed record SalvarPoliticaRequest(string? Nome,IReadOnlyList<NivelPoliticaRequest>? Niveis);
+
+public sealed record PoliticaSalvaResultado(long Id,string Nome,bool Repetido);
+
+public sealed record AprovacaoRelatorioLinha(string Numero,int Ciclo,int Etapa,string SituacaoEtapa,decimal Alcada,string? AprovadorSub,string StatusRequisicao,decimal Total,DateTime CriadaEm,DateTime? DecididaEm,string? Motivo);
+
+public interface IAprovacaoRequisicaoRepository
+{
+ Task<PagedResult<AprovacaoFilaResumo>> ListarFilaAsync(ComprasContext context,int pagina,int tamanho,string? busca,string? urgencia,CancellationToken ct);
+ Task<PagedResult<AprovacaoPainelResumo>> ListarDevolvidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
+ Task<PagedResult<AprovacaoPainelResumo>> ListarConcluidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
+ Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext context,Guid etapaId,CancellationToken ct);
+ Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext context,Guid etapaId,AprovacaoDecisaoRequest request,CancellationToken ct);
+ Task<PoliticaAtivaResumo?> ObterPoliticaAsync(ComprasContext context,CancellationToken ct);
+ Task<PoliticaSalvaResultado> SalvarPoliticaAsync(ComprasContext context,SalvarPoliticaRequest request,string key,CancellationToken ct);
+ Task<PagedResult<AprovacaoRelatorioLinha>> ListarRelatorioAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
+}
+public interface IAprovacaoRequisicaoApplicationService { Task<PagedResult<AprovacaoFilaResumo>> ListarFilaAsync(ComprasContext context,int pagina,int tamanho,string? busca,string? urgencia,CancellationToken ct); Task<PagedResult<AprovacaoPainelResumo>> ListarDevolvidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct); Task<PagedResult<AprovacaoPainelResumo>> ListarConcluidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct); Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext context,Guid etapaId,CancellationToken ct); Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext context,Guid etapaId,AprovacaoDecisaoRequest request,CancellationToken ct); Task<PoliticaAtivaResumo?> ObterPoliticaAsync(ComprasContext context,CancellationToken ct); Task<PoliticaSalvaResultado> SalvarPoliticaAsync(ComprasContext context,SalvarPoliticaRequest request,string key,CancellationToken ct); Task<PagedResult<AprovacaoRelatorioLinha>> ListarRelatorioAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct); }
 

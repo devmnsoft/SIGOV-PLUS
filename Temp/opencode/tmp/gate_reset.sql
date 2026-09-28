@@ -1,0 +1,10 @@
+﻿begin;
+delete from sigov.compras_empresarial_aprovacao where tenant_id='b0000001-0000-4000-8000-000000000001';
+delete from sigov.compras_empresarial_aprovacao_politica_nivel where tenant_id='b0000001-0000-4000-8000-000000000001';
+delete from sigov.compras_empresarial_aprovacao_politica where tenant_id='b0000001-0000-4000-8000-000000000001';
+delete from sigov.compras_empresarial_idempotencia where chave like 'jornada-%';
+delete from sigov.compras_empresarial_historico where aggregate_id in ('d0000001-0000-4000-8000-000000000001','d0000001-0000-4000-8000-000000000002','d0000001-0000-4000-8000-000000000003','d0000001-0000-4000-8000-000000000004','ce2981ae-29bc-4ffe-80d6-d2968420840a');
+delete from sigov.compras_empresarial_requisicao_item where requisicao_id in ('d0000001-0000-4000-8000-000000000001','d0000001-0000-4000-8000-000000000002','d0000001-0000-4000-8000-000000000003','d0000001-0000-4000-8000-000000000004','ce2981ae-29bc-4ffe-80d6-d2968420840a');
+delete from sigov.compras_empresarial_requisicao where id in ('d0000001-0000-4000-8000-000000000001','d0000001-0000-4000-8000-000000000002','d0000001-0000-4000-8000-000000000003','d0000001-0000-4000-8000-000000000004','ce2981ae-29bc-4ffe-80d6-d2968420840a');
+delete from sigov.pendencia_operacional where tenant_id=1 and tipo ilike 'APROVACAO%';
+commit;

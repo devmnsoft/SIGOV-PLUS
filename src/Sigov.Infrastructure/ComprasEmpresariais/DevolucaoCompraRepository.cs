@@ -12,6 +12,38 @@ namespace Sigov.Infrastructure.ComprasEmpresariais;
 
 public sealed class DevolucaoCompraRepository(NpgsqlConnectionFactory factory) : IDevolucaoCompraRepository
 {
+    /// <summary>
+    /// Contexto institucional autorizado do usuário autenticado (fonte: banco). Fail-closed: só devolve
+    /// registro quando a configuração multi-esfera da entidade vinculada ao usuário está completa; zero
+    /// vínculo resulta em null e mais de um resultado em falha explícita — nunca valor inventado nem
+    /// resolução por menor identificador.
+    /// </summary>
+    internal const string ContextoInstitucionalSql = @"select
+  e.esfera_governo as EsferaGoverno,
+  e.tipo_entidade as TipoEntidade,
+  os.nome as OrgaoSuperior,
+  ug.nome as UnidadeGestora,
+  ue.nome as UnidadeExecutora,
+  e.hierarquia_administrativa as HierarquiaAdministrativa,
+  e.abrangencia_territorial as AbrangenciaTerritorial,
+  e.uf as Uf,
+  e.municipio as Municipio,
+  e.regiao_jurisdicao as Regiao,
+  e.regiao_jurisdicao as Jurisdicao
+from sigov.enterprise_tenant_mapping m
+join sigov.usuario u on u.tenant_id=m.core_tenant_id and md5('sigov:usuario:'||u.id::text)::uuid=@us and u.ativo and not u.is_deleted
+join sigov.entidade e on e.id=u.entidade_id and e.ativo and not e.is_deleted
+left join sigov.entidade os on os.id=e.orgao_superior_id and os.ativo and not os.is_deleted
+left join sigov.unidade_organizacional ug on ug.id=e.unidade_gestora_id and ug.tenant_id=m.core_tenant_id and ug.ativo and not ug.is_deleted
+left join sigov.unidade_organizacional ue on ue.id=e.unidade_executora_id and ue.tenant_id=m.core_tenant_id and ue.ativo and not ue.is_deleted
+where m.enterprise_tenant_id=@tenant and m.ativo
+  and e.esfera_governo in('municipal','estadual','federal')
+  and length(trim(coalesce(e.tipo_entidade,'')))>0
+  and length(trim(coalesce(e.hierarquia_administrativa,'')))>0
+  and length(trim(coalesce(e.abrangencia_territorial,'')))>0
+  and e.unidade_gestora_id is not null and e.unidade_executora_id is not null
+  and ug.id is not null and ue.id is not null";
+
     public async Task<PagedResult<DevolucaoResumo>> ListarAsync(Guid tenant, DevolucaoFiltro f, CancellationToken ct)
     {
         const string where = @"d.tenant_id=@tenant and (@fornecedor is null or coalesce(fo.nome_fantasia,fo.razao_social) ilike @fornecedor) and (@documento is null or r.documento ilike @documento) and (@situacao is null or d.situacao=@situacao) and (@responsavel is null or d.responsavel_id=@responsavel) and (@ai is null or d.created_at>=@ai) and (@af is null or d.created_at<@af::date+1) and (@xi is null or d.expedida_em>=@xi) and (@xf is null or d.expedida_em<@xf::date+1) and (@ei is null or d.entregue_em>=@ei) and (@ef is null or d.entregue_em<@ef::date+1)";
@@ -54,10 +86,11 @@ select e.id,e.tipo,e.estado_anterior EstadoAnterior,e.estado_novo EstadoNovo,e.d
 
     public async Task<OrigemDevolucao?> ObterOrigemAsync(Guid tenant, Guid recebimentoId, CancellationToken ct)
     {
-        const string sql = @"select r.id RecebimentoId,r.documento,coalesce(f.nome_fantasia,f.razao_social) Fornecedor
+        const string sql = @"select r.id RecebimentoId,r.documento,coalesce(f.nome_fantasia,f.razao_social) Fornecedor,al.nome AlmoxarifadoNome
 from sigov.compras_empresarial_recebimento r
 join sigov.compras_empresarial_pedido p on (p.tenant_id,p.id)=(r.tenant_id,r.pedido_id)
 join sigov.compras_empresarial_fornecedor f on (f.tenant_id,f.id)=(p.tenant_id,p.fornecedor_id)
+left join sigov.estoque_almoxarifado al on al.id=r.almoxarifado_id and al.tenant_id=r.tenant_id
 where r.tenant_id=@tenant and r.id=@recebimentoId
   and r.status in('COM_DIVERGENCIA','CONCLUIDO')
   and r.resultado_inspecao in('RECUSADO','REPROVADO','REPROVADO_PARCIAL','ACEITO_COM_RESSALVA')
@@ -76,7 +109,7 @@ group by ri.id,pr.nome,pr.unidade order by ri.id;";
         await using var cn = factory.CreateConnection();
         using var m = await cn.QueryMultipleAsync(new CommandDefinition(sql, new { tenant, recebimentoId }, cancellationToken: ct));
         var h = await m.ReadSingleOrDefaultAsync<OriginHead>();
-        return h is null ? null : new(h.RecebimentoId, h.Documento, h.Fornecedor, (await m.ReadAsync<DevolucaoItemDetalhe>()).AsList());
+        return h is null ? null : new(h.RecebimentoId, h.Documento, h.Fornecedor, (await m.ReadAsync<DevolucaoItemDetalhe>()).AsList(), h.AlmoxarifadoNome);
     }
 
     public async Task<DevolucaoParaEdicao?> ObterParaEdicaoAsync(Guid tenant, long devolucaoId, CancellationToken ct)
@@ -132,7 +165,7 @@ order by r.created_at desc limit 50";
 
     public async Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(Guid tenant, string? busca, int pagina, int tamanho, CancellationToken ct)
     {
-        const string sql = @"select t.usuario_id UsuarioId,t.nome Nome,coalesce(t.especialidade,'Técnico Operacional') Vinculo,coalesce(t.regiao,e.nome,'Operação') Unidade
+        const string sql = @"select t.usuario_id UsuarioId,t.nome Nome,t.especialidade Vinculo,coalesce(t.regiao,e.nome) Unidade
 from sigov.os_tecnico t
 left join sigov.os_equipe e on e.tenant_id=t.tenant_id and e.id=t.equipe_id
 where t.tenant_id=@tenant and not t.is_deleted and t.status in('DISPONIVEL','EM_ATENDIMENTO')
@@ -142,29 +175,23 @@ order by t.nome,t.usuario_id offset @offset limit @tamanho";
         return (await cn.QueryAsync<ResponsavelDivergencia>(new CommandDefinition(sql, new { tenant, term = Like(busca), offset = (pagina - 1) * tamanho, tamanho }, cancellationToken: ct))).AsList();
     }
 
-    public async Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant, CancellationToken ct)
+    public async Task<ContextoInstitucionalSnapshot?> ObterContextoInstitucionalAsync(Guid tenant, Guid usuario, CancellationToken ct)
     {
-        const string sql = @"select
-  coalesce(e.esfera_governo,'municipal') as EsferaGoverno,
-  coalesce(e.tipo_entidade,'Administração Direta') as TipoEntidade,
-  os.nome as OrgaoSuperior,
-  coalesce(ug.nome,e.nome,'Unidade Gestora Central') as UnidadeGestora,
-  coalesce(ue.nome,e.nome,'Unidade Executora Central') as UnidadeExecutora,
-  coalesce(e.hierarquia_administrativa,e.nome,'Estrutura Central') as HierarquiaAdministrativa,
-  coalesce(e.abrangencia_territorial,'Municipal') as AbrangenciaTerritorial,
-  e.uf as Uf,
-  coalesce(e.municipio,e.nome) as Municipio,
-  coalesce(e.regiao_jurisdicao,'Sede') as Regiao,
-  coalesce(e.regiao_jurisdicao,'Sede') as Jurisdicao
-from sigov.enterprise_tenant_mapping m
-join sigov.entidade e on e.tenant_id=m.core_tenant_id and e.ativo and not e.is_deleted
-left join sigov.entidade os on os.id=e.orgao_superior_id and os.ativo and not os.is_deleted
-left join sigov.unidade_organizacional ug on ug.id=e.unidade_gestora_id and ug.ativo and not ug.is_deleted
-left join sigov.unidade_organizacional ue on ue.id=e.unidade_executora_id and ue.ativo and not ue.is_deleted
-where m.enterprise_tenant_id=@tenant and m.ativo
-order by e.id limit 1";
         await using var cn = factory.CreateConnection();
-        return await cn.QuerySingleOrDefaultAsync<ContextoInstitucionalSnapshot>(new CommandDefinition(sql, new { tenant }, cancellationToken: ct));
+        return await ContextoInstitucionalAsync(cn, null, tenant, usuario, ct);
+    }
+
+    /// <summary>
+    /// Resolve o contexto institucional dentro de conexão (e transação, quando houver) existentes.
+    /// Zero vínculo retorna null (ausência explícita de configuração); mais de um vínculo lança falha —
+    /// ambiguidade nunca é resolvida por ordem de identificador.
+    /// </summary>
+    internal static async Task<ContextoInstitucionalSnapshot?> ContextoInstitucionalAsync(NpgsqlConnection cn, NpgsqlTransaction? tx, Guid tenant, Guid usuario, CancellationToken ct)
+    {
+        var vinculos = (await cn.QueryAsync<ContextoInstitucionalSnapshot>(new CommandDefinition(ContextoInstitucionalSql, new { tenant, us = usuario }, tx, cancellationToken: ct))).AsList();
+        if (vinculos.Count == 0) return null;
+        if (vinculos.Count > 1) throw new InvalidOperationException($"Ambiguidade de contexto institucional: o usuário possui mais de um vínculo ativo de entidade no núcleo {tenant:D}; a operação foi cancelada com segurança.");
+        return vinculos[0];
     }
 
     public async Task<IReadOnlyList<DestinacaoRejeitadoItem>> ObterAcompanhamentoDestinacaoAsync(Guid tenant, Guid recebimentoId, CancellationToken ct)
@@ -242,25 +269,8 @@ group by d.id,r.documento,fo.nome_fantasia,fo.razao_social,t.nome order by d.cre
             if (!await cn.ExecuteScalarAsync<bool>(new CommandDefinition(respCheck, new { tenant = c.TenantId, responsavel = r.ResponsavelId }, tx, cancellationToken: ct)))
                 throw new ArgumentException("O responsável selecionado não está ativo e elegível no contexto autorizado.");
 
-            // Resolve contexto institucional autorizado a partir da entidade vinculada ao tenant
-            var ctx = await cn.QuerySingleOrDefaultAsync<ContextoInstitucionalSnapshot>(new CommandDefinition(@"select
-  coalesce(e.esfera_governo,'municipal') as EsferaGoverno,
-  coalesce(e.tipo_entidade,'Administração Direta') as TipoEntidade,
-  os.nome as OrgaoSuperior,
-  coalesce(ug.nome,e.nome,'Unidade Gestora Central') as UnidadeGestora,
-  coalesce(ue.nome,e.nome,'Unidade Executora Central') as UnidadeExecutora,
-  coalesce(e.hierarquia_administrativa,e.nome,'Estrutura Central') as HierarquiaAdministrativa,
-  coalesce(e.abrangencia_territorial,'Municipal') as AbrangenciaTerritorial,
-  e.uf as Uf,
-  coalesce(e.municipio,e.nome) as Municipio,
-  coalesce(e.regiao_jurisdicao,'Sede') as Regiao,
-  coalesce(e.regiao_jurisdicao,'Sede') as Jurisdicao
-from sigov.enterprise_tenant_mapping m
-join sigov.entidade e on e.tenant_id=m.core_tenant_id and e.ativo and not e.is_deleted
-left join sigov.entidade os on os.id=e.orgao_superior_id and os.ativo and not os.is_deleted
-left join sigov.unidade_organizacional ug on ug.id=e.unidade_gestora_id and ug.ativo and not ug.is_deleted
-left join sigov.unidade_organizacional ue on ue.id=e.unidade_executora_id and ue.ativo and not ue.is_deleted
-where m.enterprise_tenant_id=@tenant and m.ativo order by e.id limit 1", new { tenant = c.TenantId }, tx, cancellationToken: ct));
+            // Resolve contexto institucional autorizado a partir da entidade vinculada ao usuário autenticado
+            var ctx = await ContextoInstitucionalAsync(cn, tx, c.TenantId, c.UsuarioId, ct);
 
             if (ctx is null)
                 throw new InvalidOperationException("Configuração institucional obrigatória ausente para o contexto autorizado.");
@@ -434,7 +444,7 @@ where m.enterprise_tenant_id=@tenant and m.ativo order by e.id limit 1", new { t
     private sealed record Result(long Id, string State, long Version);
     private sealed record Idem(string RequestHash, long DevolucaoId, string Situacao, long Version);
     private sealed record Locked(long Id, Guid RecebimentoId, string Situacao, long Version, DateTimeOffset? ExpedidaEm, string Motivo, Guid ResponsavelId);
-    private sealed record OriginHead(Guid RecebimentoId, string Documento, string Fornecedor);
+    private sealed record OriginHead(Guid RecebimentoId, string Documento, string Fornecedor, string? AlmoxarifadoNome);
     private sealed record EditHeadRow(long Id, Guid RecebimentoId, string DocumentoRecebimento, string Fornecedor, string Situacao, long Version, string Motivo, Guid ResponsavelId, string? ResponsavelNome, string OrigemFisica, string Destino);
     private sealed record Head(long Id, Guid RecebimentoId, string DocumentoRecebimento, string PedidoNumero, Guid FornecedorId, string Fornecedor, string Situacao, Guid ResponsavelId, string? ResponsavelNome, string OrigemFisica, string Destino, string Motivo, string EsferaGoverno, string TipoEntidade, string UnidadeGestora, string UnidadeExecutora, string AbrangenciaTerritorial, long Version, DateTimeOffset CriadaEm, DateTimeOffset? ExpedidaEm, DateTimeOffset? EntregueEm, DateTimeOffset? CanceladaEm, string? Modalidade, string? ReferenciaTransporte, string? RecebedorOuReferencia, string? DocumentoProtocolo);
     private sealed record DestinacaoRow(long RecebimentoItemId, string Produto, string Unidade, decimal QuantidadeRejeitada, decimal QuantidadeReservada, decimal QuantidadeExpedidaNaoEntregue, decimal QuantidadeEntregue, decimal SaldoSemDestinacao);

@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fila de aprova&#xE7;&#xF5;es - SIGOV PLUS</title>
+  <link rel="icon" href="/img/sigov-favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0F172A">
+  <link href="/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/site.css" rel="stylesheet">
+</head>
+<body class="sigov-app" data-sigov-user="101" data-sigov-tenant="1" data-sigov-entidade="9101" data-sigov-exercicio="">
+  <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="sigov-icon-sprite">
+  <symbol id="sigov-icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8v9h-6v-6H9v6H3v-9Z"/></symbol>
+  <symbol id="sigov-icon-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></symbol>
+  <symbol id="sigov-icon-agenda" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14h2M14 14h2M8 18h2"/></symbol>
+  <symbol id="sigov-icon-tasks" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="m8 8 1.5 1.5L12 7M13 9h3m-8 5 1.5 1.5L12 13m1 2h3"/></symbol>
+  <symbol id="sigov-icon-favorites" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></symbol>
+  <symbol id="sigov-icon-recent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M3 5v5h5"/></symbol>
+  <symbol id="sigov-icon-commercial" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V9l8-5 8 5v11M8 20v-6h8v6M8 10h.01M12 10h.01M16 10h.01"/></symbol>
+  <symbol id="sigov-icon-clients" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 5v1"/></symbol>
+  <symbol id="sigov-icon-services" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6 4-3 3 3-3 4-4-4ZM13 7 4 16v4h4l9-9M4 4l5 5"/></symbol>
+  <symbol id="sigov-icon-work-order" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l3 3v13H4V7l3-3Z"/><path d="M9 4v4h6V4M8 13h8M8 17h5"/></symbol>
+  <symbol id="sigov-icon-assets" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8M12 12v8"/></symbol>
+  <symbol id="sigov-icon-maintenance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7a5 5 0 0 0-6-3l3 3-4 4-3-3a5 5 0 0 0 6 6l6 6 4-4-6-6"/></symbol>
+  <symbol id="sigov-icon-sla" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5h5M7 3l-3 3M17 3l3 3"/></symbol>
+  <symbol id="sigov-icon-finance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M7 16h4M17 3v3"/></symbol>
+  <symbol id="sigov-icon-documents" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="sigov-icon-contracts" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h3m3 2 2 2 4-5"/></symbol>
+  <symbol id="sigov-icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="sigov-icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-3h-4L10 6a7 7 0 0 0-1.5 1L6 6.1 4 9.5 6 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.5-1A7 7 0 0 0 10 18l.7 3h4l.3-3a7 7 0 0 0 1.5-1l2.4 1 2-3.5L19 13a7 7 0 0 0 0-1Z"/></symbol>
+  <symbol id="sigov-icon-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.3 2.4c-1 .4-1 1-1 2M12 17h.01"/></symbol>
+  <symbol id="sigov-icon-notifications" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+  <symbol id="sigov-icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="sigov-icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16v4ZM13 7l4 4"/></symbol>
+  <symbol id="sigov-icon-delete" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
+  <symbol id="sigov-icon-view" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="sigov-icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></symbol>
+  <symbol id="sigov-icon-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></symbol>
+  <symbol id="sigov-icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/></symbol>
+  <symbol id="sigov-icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m-5 5 5-5 5 5M4 20h16"/></symbol>
+  <symbol id="sigov-icon-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8V3h10v5M7 17H4V9h16v8h-3M7 14h10v7H7z"/></symbol>
+  <symbol id="sigov-icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5M6 8a7 7 0 0 1 12-2l2 6M18 16a7 7 0 0 1-12 2l-2-6"/></symbol>
+  <symbol id="sigov-icon-approve" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5z"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="sigov-icon-reject" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5z"/><path d="m9 9 6 6m0-6-6 6"/></symbol>
+  <symbol id="sigov-icon-cancel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 8l8 8m0-8-8 8"/></symbol>
+  <symbol id="sigov-icon-confirm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5 5L20 6"/></symbol>
+  <symbol id="sigov-icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="sigov-icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 5 11 7-11 7V5Z"/></symbol>
+  <symbol id="sigov-icon-complete" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/></symbol>
+  <symbol id="sigov-icon-transfer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h14m-4-4 4 4-4 4M20 17H6m4 4-4-4 4-4"/></symbol>
+  <symbol id="sigov-icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
+  <symbol id="sigov-icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="19" r="2"/><path d="m8 11 8-5M8 13l8 5"/></symbol>
+  <symbol id="sigov-icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="sigov-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="sigov-icon-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="sigov-icon-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></symbol>
+  <symbol id="sigov-icon-theme" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z"/></symbol>
+  <symbol id="sigov-icon-command" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/></symbol>
+  <symbol id="sigov-icon-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
+  <symbol id="sigov-icon-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v4M12 16h.01"/></symbol>
+  <symbol id="sigov-icon-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></symbol>
+  <symbol id="sigov-icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="sigov-icon-locked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></symbol>
+  <symbol id="sigov-icon-offline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M8.5 8.5A7 7 0 0 1 20 11M4 11a11 11 0 0 1 2-2.5M8 15a6 6 0 0 1 8 0M11 19h2"/></symbol>
+  <symbol id="sigov-icon-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5M6 8a7 7 0 0 1 12-2l2 6M18 16a7 7 0 0 1-12 2l-2-6M12 9v6"/></symbol>
+  <symbol id="sigov-icon-expired" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M7 21h10M8 3c0 5 3 5 4 9-1 4-4 4-4 9m8-18c0 5-3 5-4 9 1 4 4 4 4 9"/></symbol>
+  <symbol id="sigov-icon-risk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 20h18L12 3Z"/><path d="M12 9v5M12 17h.01"/></symbol>
+  <symbol id="sigov-icon-active" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6M12 3v2"/></symbol>
+  <symbol id="sigov-icon-inactive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
+
+  <symbol id="sigov-icon-protocol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h6v6H4zM14 4h6v6h-6zM14 14h6v6h-6z"/><path d="M10 9h2a2 2 0 0 0 2-2M10 9h2a2 2 0 0 1 2 2v6"/></symbol>
+  <symbol id="sigov-icon-tax" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h10l4 4v14H6z"/><path d="M16 3v5h5M9 11h6M9 15h3"/><circle cx="16" cy="16" r="3"/><path d="M16 14v4M14.5 15h2.5"/></symbol>
+  <symbol id="sigov-icon-health" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/></symbol>
+  <symbol id="sigov-icon-education" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h7a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4zM20 6h-6a3 3 0 0 0-3 3"/><path d="M20 6v11h-6a3 3 0 0 0-3 3"/></symbol>
+  <symbol id="sigov-icon-water" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s7 7 7 12a7 7 0 0 1-14 0c0-5 7-12 7-12Z"/><path d="M9 16a3 3 0 0 0 5 2"/></symbol>
+  <symbol id="sigov-icon-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h2l2 10h10l2-7H7"/><circle cx="10" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></symbol>
+  <symbol id="sigov-icon-industry" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V9l6 4V9l6 4V6h4v14z"/><path d="M8 17h2M13 17h2M18 17h2"/></symbol>
+  <symbol id="sigov-icon-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2M10 5h4"/></symbol>
+  <symbol id="sigov-icon-ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+  <symbol id="sigov-icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-5"/></symbol>
+  <symbol id="sigov-icon-audit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="17" cy="17" r="2"/></symbol>
+</svg>
+
+  <a class="sigov-skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
+  
+  <div class="sigov-app-shell">
+    <nav class="sigov-topbar" aria-label="Barra superior premium">
+  <div class="sigov-topbar__left">
+    <button class="sigov-icon-btn d-lg-none" type="button" data-sigov-sidebar-toggle aria-controls="sigovSidebar" aria-expanded="false" aria-label="Abrir menu">
+      <svg class="sigov-icon sigov-icon--20" width="20" height="20" focusable="false" data-icon="menu" aria-hidden="true" />
+    </button>
+    <button class="sigov-icon-btn d-none d-lg-inline-flex" type="button" data-sigov-sidebar-compact aria-label="Alternar menu compacto">
+      <svg class="sigov-icon sigov-icon--20" width="20" height="20" focusable="false" data-icon="menu" aria-hidden="true" />
+    </button>
+    <a class="sigov-brand" href="/MinhaCentral" aria-label="Ir para Minha Central">
+      <img class="sigov-logo" src="/img/sigov-logo.svg" alt="" aria-hidden="true" />
+      <span class="sigov-brand__text">SIGOV <strong>PLUS</strong></span>
+    </a>
+  </div>
+  <button class="sigov-global-search sigov-global-search--button" type="button" data-sigov-command-open aria-label="Abrir busca global">
+    <svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="search" aria-hidden="true" />
+    <span>Buscar protocolo, documento, tarefa ou módulo</span>
+    <kbd>Ctrl K</kbd>
+  </button>
+  <div class="sigov-topbar__context" aria-label="Contexto do ambiente">
+    <span>1</span><span>Entidade n&#xE3;o selecionada</span><span>Exerc&#xED;cio n&#xE3;o selecionado</span><span>SERVIDOR</span>
+  </div>
+  <div class="sigov-topbar__actions">
+    <button class="sigov-btn sigov-btn--primary sigov-btn--sm" type="button" data-sigov-quick-create aria-haspopup="dialog"><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="plus" aria-hidden="true" />Novo</button>
+    <div class="sigov-notifications" data-sigov-notifications>
+  <button class="sigov-icon-btn sigov-notification-btn" type="button" data-sigov-notification-toggle aria-expanded="false" aria-label="Abrir notificações">
+    <svg class="sigov-icon sigov-icon--20" width="20" height="20" focusable="false" data-icon="notifications" aria-hidden="true" />
+    <span class="sigov-notification-count" data-sigov-notification-count>3</span>
+  </button>
+  <section class="sigov-notification-dropdown" data-sigov-notification-menu hidden aria-label="Centro de notificações">
+    <header><strong>Notificações</strong><a href="/Notificacoes">Ver todas</a></header>
+    <a href="/Lgpd/Dashboard"><span class="sigov-status-pill sigov-status-pill--warning">LGPD</span><strong>Revisar permissões sensíveis</strong><small>Privacidade e auditoria</small></a>
+    <a href="/Saas/Implantacao"><span class="sigov-status-pill sigov-status-pill--info">Implantação</span><strong>Checklist com etapas abertas</strong><small>Continuidade operacional</small></a>
+    <a href="/Operacao/Health"><span class="sigov-status-pill sigov-status-pill--success">Health</span><strong>Serviços em monitoramento</strong><small>Ambiente operacional</small></a>
+  </section>
+</div>
+
+    <a class="sigov-icon-btn d-none d-sm-inline-flex" href="/Ajuda" aria-label="Abrir ajuda"><svg class="sigov-icon sigov-icon--20" width="20" height="20" focusable="false" data-icon="help" aria-hidden="true" /></a>
+    <button class="sigov-icon-btn" type="button" data-sigov-theme-toggle aria-label="Alternar tema"><svg class="sigov-icon sigov-icon--20" width="20" height="20" focusable="false" data-icon="theme" aria-hidden="true" /></button>
+    <div class="sigov-user-menu">
+      <button class="sigov-user-chip" type="button" data-sigov-user-menu aria-expanded="false"><span class="sigov-avatar" aria-hidden="true">A</span><span><strong>Analista de Compras (Demo Fict&#xED;cia)</strong><small>SERVIDOR</small></span></button>
+      <div class="sigov-user-dropdown" data-sigov-user-dropdown hidden>
+        <a href="/Preferencias"><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="settings" aria-hidden="true" />Preferências</a>
+        <a href="/Seguranca"><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="locked" aria-hidden="true" />Segurança</a>
+        <a href="/MinhaCentral"><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="users" aria-hidden="true" />Perfil</a>
+        <form method="post" action="/Auth/Logout" class="d-inline"><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /><button type="submit" class="btn btn-link p-0"><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="back" aria-hidden="true" />Sair</button></form>
+      </div>
+    </div>
+  </div>
+</nav>
+
+    <div class="sigov-workspace">
+      <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>
+<aside id="sigovSidebar" class="sigov-sidebar" aria-label="Menu principal">
+  <div class="sigov-sidebar__header">
+    <span class="sigov-sidebar__eyebrow">Área de trabalho</span><strong>Menu SIGOV+</strong>
+    <label for="sigovModuleSelector">Módulo</label>
+    <select id="sigovModuleSelector" class="sigov-module-selector" data-sigov-module-selector aria-describedby="sigovModuleHelp">
+      <option value="">Carregando módulos autorizados…</option>
+    </select>
+    <small id="sigovModuleHelp" class="sigov-sidebar__help">Selecione o módulo para ver apenas suas operações.</small>
+    <label class="visually-hidden" for="sigovMenuFilter">Filtrar menu</label>
+    <div class="sigov-sidebar__filter"><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="search" aria-hidden="true" /><input id="sigovMenuFilter" type="search" placeholder="Filtrar menu" data-sigov-menu-filter /></div>
+  </div>
+  <nav class="sigov-sidebar__nav" data-sigov-menu>
+    <details class="sigov-nav-group" open><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="home" aria-hidden="true" />Início</summary>
+      <span class="sigov-nav-favorite-row" data-favorite-key="Minha Central"><a class="sigov-nav-link" href="/MinhaCentral"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="home" aria-hidden="true" /><span>Minha Central</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Minha Central" aria-pressed="false">★</button></span>
+      <span class="sigov-nav-favorite-row" data-favorite-key="Dashboard"><a class="sigov-nav-link" href="/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Dashboard" aria-pressed="false">★</button></span>
+      <a class="sigov-nav-link" href="/Notificacoes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="notifications" aria-hidden="true" /><span>Notificações</span></a>
+      <a class="sigov-nav-link" href="/GovernancaOperacional"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Governança Operacional</span></a>
+      <a class="sigov-nav-link" href="/BuscaGlobal"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="search" aria-hidden="true" /><span>Busca Global</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="finance" aria-hidden="true" />Convênios e Emendas</summary>
+      <a class="sigov-nav-link" href="/Convenios/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard</span></a>
+      <a class="sigov-nav-link" href="/Convenios/Instrumentos"><span>Instrumentos</span></a><a class="sigov-nav-link" href="/Convenios/Projetos"><span>Projetos</span></a><a class="sigov-nav-link" href="/Convenios/PrestacoesContas"><span>Prestação de contas</span></a><a class="sigov-nav-link" href="/Convenios/Relatorios"><span>Relatórios</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="services" aria-hidden="true" />Defesa Civil e Guarda</summary>
+      <a class="sigov-nav-link" href="/Defesa/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard operacional</span></a>
+      <a class="sigov-nav-link" href="/Defesa/Ocorrencias"><span>Ocorrências</span></a><a class="sigov-nav-link" href="/Defesa/Acionamentos"><span>Acionamentos</span></a><a class="sigov-nav-link" href="/Defesa/Rondas"><span>Rondas</span></a><a class="sigov-nav-link" href="/Defesa/Relatorios"><span>Relatórios</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="services" aria-hidden="true" />Trânsito e Mobilidade</summary>
+      <a class="sigov-nav-link" href="/Transito/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard de Trânsito</span></a>
+      <a class="sigov-nav-link" href="/Transito/Autos"><span>Autos e notificações</span></a><a class="sigov-nav-link" href="/Transito/Ocorrencias"><span>Fiscalização</span></a><a class="sigov-nav-link" href="/Transito/Linhas"><span>Transporte urbano</span></a><a class="sigov-nav-link" href="/Transito/Relatorios"><span>Relatórios</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="education" aria-hidden="true" />Educação</summary>
+      <a class="sigov-nav-link" href="/Educacao/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Visão geral</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PreMatriculas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Ingresso e vagas</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Matriculas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Matrículas e turmas</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Rematriculas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Transição de ano letivo</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Secretaria"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="settings" aria-hidden="true" /><span>Cadastros e configurações</span></a>
+      <a class="sigov-nav-link" href="/Educacao/DocumentosEscolares"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Documentos Escolares</span></a>
+      <a class="sigov-nav-link" href="/Educacao/SolicitacoesEscolares"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Solicitações Escolares</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PendenciasDocumentais"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="notifications" aria-hidden="true" /><span>Pendências Documentais</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Transferencias"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="sync" aria-hidden="true" /><span>Transferências</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Ocorrencias"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="audit" aria-hidden="true" /><span>Ocorrências</span></a>
+      <a class="sigov-nav-link" href="/Educacao/DiarioClasse"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Diário de Classe</span></a>
+      <a class="sigov-nav-link" href="/Educacao/DiarioFrequencia"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="active" aria-hidden="true" /><span>Frequência do Diário</span></a>
+      <a class="sigov-nav-link" href="/Educacao/DiarioConteudo"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="education" aria-hidden="true" /><span>Conteúdo Ministrado</span></a>
+      <a class="sigov-nav-link" href="/Educacao/DiarioPendencias"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="notifications" aria-hidden="true" /><span>Pendências do Diário</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Avaliacoes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="audit" aria-hidden="true" /><span>Avaliações e resultados</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Relatorios"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Relatórios</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PortalResponsavel"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Portal Responsável</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PortalAluno"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="home" aria-hidden="true" /><span>Portal Aluno</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PortalBoletim"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Boletim</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PortalComunicados"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="notifications" aria-hidden="true" /><span>Comunicados</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PortalSolicitacoes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Solicitações do Portal</span></a>
+      <a class="sigov-nav-link" href="/Educacao/PortalAdminVinculos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="shield" aria-hidden="true" /><span>Administração de Vínculos</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="education" aria-hidden="true" />Educação avançada</summary>
+      <a class="sigov-nav-link" href="/Educacao/TransporteEscolar/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="sync" aria-hidden="true" /><span>Transporte Escolar</span></a>
+      <a class="sigov-nav-link" href="/Educacao/TransporteEscolar/Rotas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Rotas</span></a>
+      <a class="sigov-nav-link" href="/Educacao/TransporteEscolar/Viagens"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="active" aria-hidden="true" /><span>Viagens</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Merenda/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Merenda</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Merenda/Cardapios"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Cardápios</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Merenda/Estoque"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="archive" aria-hidden="true" /><span>Estoque Merenda</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Biblioteca/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Biblioteca Digital</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Biblioteca/Emprestimos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Empréstimos</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Indicadores/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Indicadores Educacionais</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Indicadores/Fundeb"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>FUNDEB preparatório</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Indicadores/Custos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Custos Educacionais</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Indicadores/Educacenso"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="audit" aria-hidden="true" /><span>Educacenso Preparatório</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Indicadores/Relatorios"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Relatórios Educação</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="users" aria-hidden="true" />RH • Bloco 2</summary>
+      <a class="sigov-nav-link" href="/RH/PontoDashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="active" aria-hidden="true" /><span>Dashboard Ponto</span></a>
+      <a class="sigov-nav-link" href="/RH/PontoJornadas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="settings" aria-hidden="true" /><span>Jornadas e Escalas</span></a>
+      <a class="sigov-nav-link" href="/RH/PontoRegistros"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="audit" aria-hidden="true" /><span>Registros e Apuração</span></a>
+      <a class="sigov-nav-link" href="/RH/PontoEspelho"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Espelho de Ponto</span></a>
+      <a class="sigov-nav-link" href="/RH/FeriasDashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Férias e Afastamentos</span></a>
+      <a class="sigov-nav-link" href="/RH/FeriasProgramacao"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Programação e Aprovações</span></a>
+      <a class="sigov-nav-link" href="/RH/Portal"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="home" aria-hidden="true" /><span>Meu Portal</span></a>
+      <a class="sigov-nav-link" href="/RH/PortalSolicitacoes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="notifications" aria-hidden="true" /><span>Solicitações e Mensagens</span></a>
+      <a class="sigov-nav-link" href="/RH/PortalAdminSolicitacoes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="shield" aria-hidden="true" /><span>Administração do Portal</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="finance" aria-hidden="true" />Financeiro / SIAFIC</summary>
+      <a class="sigov-nav-link" href="/Financeiro/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard Financeiro</span></a>
+      <a class="sigov-nav-link" href="/Financeiro/OrcamentoDespesa"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>Dotações e saldos</span></a>
+      <a class="sigov-nav-link" href="/Financeiro/Empenhos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Empenhos</span></a>
+      <a class="sigov-nav-link" href="/Financeiro/Liquidacoes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Liquidações</span></a>
+      <a class="sigov-nav-link" href="/Financeiro/Pagamentos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>Pagamentos</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard Tributário</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Contribuintes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Contribuintes</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Lancamentos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="tax" aria-hidden="true" /><span>Lançamentos</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Parcelamentos"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>Parcelamentos</span></a>
+      <a class="sigov-nav-link" href="/Tributario/DividaAtiva"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Dívida Ativa</span></a>
+      <a class="sigov-nav-link" href="/Tributario/CarnesBoletos/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Carnês e Boletos</span></a>
+      <a class="sigov-nav-link" href="/Tributario/CarnesBoletos/Producao"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Produção de Carnês</span></a>
+      <a class="sigov-nav-link" href="/Tributario/CarnesBoletos/Entregas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="services" aria-hidden="true" /><span>Entrega de Carnês</span></a>
+      <a class="sigov-nav-link" href="/PortalContribuinte"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Portal do Contribuinte</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Fiscalizacao/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="shield" aria-hidden="true" /><span>Fiscalização ISSQN</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Fiscalizacao/AutosInfracao"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="tax" aria-hidden="true" /><span>Autos de Infração</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Fiscalizacao/SimplesDivergencias"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Simples Nacional Preparatório</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Nfse/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>NFS-e Preparatória</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Nfse/LivroEletronico"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Livro Eletrônico</span></a>
+      <a class="sigov-nav-link" href="/Tributario/Nfse/Desif"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>DES-IF Preparatório</span></a>
+      <a class="sigov-nav-link" href="/Compras/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="cart" aria-hidden="true" /><span>Compras</span></a>
+      <a class="sigov-nav-link" href="/Contratos/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Contratos</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="dashboard" aria-hidden="true" />Relatórios Executivos</summary>
+      <a class="sigov-nav-link" href="/RelatoriosExecutivos/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Dashboard Executivo</span></a>
+      <a class="sigov-nav-link" href="/RelatoriosExecutivos/Financeiro"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>Financeiro</span></a>
+      <a class="sigov-nav-link" href="/RelatoriosExecutivos/Tributario"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="tax" aria-hidden="true" /><span>Tributário</span></a>
+      <a class="sigov-nav-link" href="/RelatoriosExecutivos/RhFolha"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>RH / Folha agregado</span></a>
+      <a class="sigov-nav-link" href="/RelatoriosExecutivos/Educacao"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="education" aria-hidden="true" /><span>Educação agregada</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="services" aria-hidden="true" />Serviços públicos</summary>
+      <a class="sigov-nav-link" href="/Rh/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Recursos Humanos</span></a>
+      <a class="sigov-nav-link" href="/Educacao/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="education" aria-hidden="true" /><span>Educação</span></a>
+      <a class="sigov-nav-link" href="/Educacao/GestaoExecutiva"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Educação Executiva</span></a>
+      <a class="sigov-nav-link" href="/RH/GestaoExecutiva"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>RH Executivo</span></a>
+      <a class="sigov-nav-link" href="/RH/FolhaGestaoExecutiva"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>Folha Executiva</span></a>
+      <a class="sigov-nav-link" href="/Workflows/MinhasTarefas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="workflow" aria-hidden="true" /><span>Minhas tarefas</span></a>
+      <a class="sigov-nav-link" href="/Saude/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="health" aria-hidden="true" /><span>Saúde</span></a>
+      <div class="sigov-nav-subgroup" aria-label="Saúde Avançada">
+        <a class="sigov-nav-link" href="/Saude/AcsOffline/Dashboard"><span>ACS Offline</span></a>
+        <a class="sigov-nav-link" href="/Saude/AcsCampo/Dashboard"><span>Cadastros e visitas</span></a>
+        <a class="sigov-nav-link" href="/Saude/Operacao/Dashboard"><span>Operação assistencial</span></a>
+        <a class="sigov-nav-link" href="/Saude/Vacinacao/Pendencias"><span>Vacinação</span></a>
+        <a class="sigov-nav-link" href="/Saude/Farmacia/Estoque"><span>Farmácia</span></a>
+        <a class="sigov-nav-link" href="/Saude/Regulacao/Fila"><span>Regulação</span></a>
+        <a class="sigov-nav-link" href="/Saude/Retaguarda/Dashboard"><span>Retaguarda ACS</span></a>
+        <a class="sigov-nav-link" href="/Saude/Esus/Lotes"><span>e-SUS preparatório</span></a>
+        <a class="sigov-nav-link" href="/Saude/Suporte/Chamados"><span>SLA / Suporte</span></a>
+      </div>
+      <a class="sigov-nav-link" href="/Saneamento/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="water" aria-hidden="true" /><span>Dashboard Saneamento</span></a>
+      <a class="sigov-nav-link" href="/Saneamento/Clientes"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Consumidores e ligações</span></a>
+      <a class="sigov-nav-link" href="/Saneamento/Hidrometros"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="water" aria-hidden="true" /><span>Hidrômetros</span></a>
+      <a class="sigov-nav-link" href="/Saneamento/Faturamento"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="finance" aria-hidden="true" /><span>Leitura e faturamento</span></a>
+      <a class="sigov-nav-link" href="/Saneamento/OrdensServico"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="services" aria-hidden="true" /><span>Operação de campo</span></a>
+      <a class="sigov-nav-link" href="/Saneamento/GisQualidade/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="map" aria-hidden="true" /><span>GIS e qualidade</span></a>
+      <a class="sigov-nav-link" href="/AssistenciaSocial/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Assistência Social</span></a>
+      <a class="sigov-nav-link" href="/Habitacao/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="home" aria-hidden="true" /><span>Habitação</span></a>
+      <a class="sigov-nav-link" href="/Agro"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="industry" aria-hidden="true" /><span>Agro</span></a>
+      <a class="sigov-nav-link" href="/Agro/Produtores"><span>Produtores rurais</span></a>
+      <a class="sigov-nav-link" href="/Agro/Propriedades"><span>Propriedades</span></a>
+      <a class="sigov-nav-link" href="/Agro/AssistenciaTecnica"><span>Assistência técnica</span></a>
+      <a class="sigov-nav-link" href="/Agro/Programas"><span>Programas rurais</span></a>
+      <a class="sigov-nav-link" href="/Agro/Patrulha"><span>Patrulha mecanizada</span></a>
+      <a class="sigov-nav-link" href="/Agro/Relatorios"><span>Relatórios Agro</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="protocol" aria-hidden="true" />Administração</summary>
+      <a class="sigov-nav-link" href="/Juridico/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>Jurídico / Procuradoria</span></a>
+      <span class="sigov-nav-favorite-row" data-favorite-key="Protocolo"><a class="sigov-nav-link" href="/Protocolo"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="protocol" aria-hidden="true" /><span>Protocolo</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar Protocolo" aria-pressed="false">★</button></span>
+      <span class="sigov-nav-favorite-row" data-favorite-key="GED/OCR"><a class="sigov-nav-link" href="/Ged/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="documents" aria-hidden="true" /><span>GED/OCR</span></a><button type="button" class="sigov-favorite-toggle" aria-label="Favoritar GED" aria-pressed="false">★</button></span>
+      <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="services" aria-hidden="true" />Patrimônio</summary><a class="sigov-nav-link" href="/Patrimonio">Visão geral</a><a class="sigov-nav-link" href="/Patrimonio/Bens">Bens</a><a class="sigov-nav-link" href="/Patrimonio/Incorporacoes">Incorporações</a><a class="sigov-nav-link" href="/Patrimonio/Inventarios">Conferências</a></details>
+      <a class="sigov-nav-link" href="/Obras"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="services" aria-hidden="true" /><span>Obras Públicas</span></a>
+      <a class="sigov-nav-link" href="/MeioAmbiente"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="services" aria-hidden="true" /><span>Meio Ambiente</span></a>
+      <a class="sigov-nav-link" href="/AtendimentoCidadao"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="services" aria-hidden="true" /><span>Atendimento ao Cidadão</span></a>
+      <a class="sigov-nav-link" href="/Almoxarifado"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="commercial" aria-hidden="true" /><span>Almoxarifado</span></a>
+      <a class="sigov-nav-link" href="/Compras"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="commercial" aria-hidden="true" /><span>Compras públicas</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="protocol" aria-hidden="true" />Processos Digitais</summary>
+      <a class="sigov-nav-link" href="/ProcessosDigitais/Dashboard">Dashboard Processos</a><a class="sigov-nav-link" href="/ProcessosDigitais/Novo">Novo Processo</a><a class="sigov-nav-link" href="/ProcessosDigitais/Prazos">Prazos</a><a class="sigov-nav-link" href="/ProtocoloExterno">Protocolo Externo</a><a class="sigov-nav-link" href="/ProcessosDigitais/Relatorios">Relatórios</a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="documents" aria-hidden="true" />GED e Assinaturas</summary>
+      <a class="sigov-nav-link" href="/Ged/Dashboard">Dashboard GED</a><a class="sigov-nav-link" href="/Ged/Documentos">Documentos</a><a class="sigov-nav-link" href="/Ged/ArquivoFisico">Arquivo Físico</a><a class="sigov-nav-link" href="/Ged/ValidacaoPublica">Validação Pública</a><a class="sigov-nav-link" href="/Assinaturas/Pendentes">Assinaturas Pendentes</a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="audit" aria-hidden="true" />Legislativo / Câmara</summary>
+      <a class="sigov-nav-link" href="/Legislativo/Dashboard">Dashboard Legislativo</a><a class="sigov-nav-link" href="/Legislativo/Proposicoes">Proposições</a><a class="sigov-nav-link" href="/Legislativo/Sessoes">Sessões</a><a class="sigov-nav-link" href="/Legislativo/Votacoes">Votações</a><a class="sigov-nav-link" href="/Legislativo/Normas">Normas</a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="services" aria-hidden="true" />Transparência e Atendimento</summary>
+      <a class="sigov-nav-link" href="/Transparencia/Dashboard">Dashboard Transparência</a><a class="sigov-nav-link" href="/DiarioOficial/Edicoes">Diário Oficial</a><a class="sigov-nav-link" href="/Transparencia/Pntp">PNTP / ATRICON</a><a class="sigov-nav-link" href="/Transparencia/Pncp">PNCP Preparatório</a><a class="sigov-nav-link" href="/AtendimentoDigital/ESic">e-SIC</a><a class="sigov-nav-link" href="/AtendimentoDigital/Ouvidoria">Ouvidoria</a><a class="sigov-nav-link" href="/AtendimentoDigital/Chamados">Atendimento Digital</a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="services" aria-hidden="true" />Operação</summary>
+      <a class="sigov-nav-link" href="/MobileCampo"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="mobile" aria-hidden="true" /><span>Mobile/Campo</span></a>
+      <a class="sigov-nav-link" href="/IA"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="ai" aria-hidden="true" /><span>IA</span></a>
+      <a class="sigov-nav-link" href="/Operacao/Health"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="active" aria-hidden="true" /><span>Health</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="shield" aria-hidden="true" />Governança e Segurança</summary>
+      <a class="sigov-nav-link" href="/SystemHealth/ProjectStatus"><span>Project Status</span></a>
+      <a class="sigov-nav-link" href="/Observabilidade/Dashboard"><span>Observabilidade</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="settings" aria-hidden="true" />Administração</summary>
+      <a class="sigov-nav-link" href="/Seguranca/Usuarios"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="users" aria-hidden="true" /><span>Usuários</span></a>
+      <a class="sigov-nav-link" href="/Saas/Implantacao"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="sync" aria-hidden="true" /><span>Implantação</span></a>
+      <a class="sigov-nav-link" href="/Auditoria/Trilhas"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="audit" aria-hidden="true" /><span>Auditoria</span></a>
+      <a class="sigov-nav-link" href="/Lgpd/Dashboard"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="shield" aria-hidden="true" /><span>LGPD</span></a>
+    </details>
+    <details class="sigov-nav-group" ><summary><svg class="sigov-icon sigov-icon--16" width="16" height="16" focusable="false" data-icon="help" aria-hidden="true" />Ajuda</summary>
+      <a class="sigov-nav-link" href="/Ajuda"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="help" aria-hidden="true" /><span>Central de Ajuda</span></a>
+      <a class="sigov-nav-link" href="/Modulos/Catalogo"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="dashboard" aria-hidden="true" /><span>Catálogo de módulos</span></a>
+      <a class="sigov-nav-link" href="/Modulos/MeuAcesso"><svg class="sigov-icon sigov-icon--18" width="18" height="18" focusable="false" data-icon="shield" aria-hidden="true" /><span>Meu acesso</span></a>
+    </details>
+  </nav>
+</aside>
+
+      <main class="sigov-main" id="conteudo-principal" tabindex="-1">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/">Início</a></li><li class="breadcrumb-item active" aria-current="page">Fila de aprova&#xE7;&#xF5;es</li></ol></nav>
+
+        
+<div id="sigov-alerts-wrapper" class="mb-3">
+    <div id="sigov-alerts" aria-live="polite"></div>
+</div>
+
+
+        <link rel="stylesheet" href="/css/compras-empresariais.css" /><nav class="compras-nav" aria-label="Compras Empresariais"><a href="/ComprasEmpresariais">Vis&#xE3;o geral</a><span class="compras-nav-sep" aria-hidden="true"></span><a href="/ComprasEmpresariais/Requisicoes">Requisi&#xE7;&#xF5;es</a><a href="/ComprasEmpresariais/Aprovacoes" aria-current="page">Aprova&#xE7;&#xF5;es</a><span class="compras-nav-sep" aria-hidden="true"></span><a href="/ComprasEmpresariais/Relatorios">Relat&#xF3;rios</a><a href="/ComprasEmpresariais/Configuracao">Configura&#xE7;&#xF5;es</a></nav>
+
+<header class="compras-header"><div><span class="eyebrow">DECISÃO POR ALÇADA</span><h1>Fila de aprovações</h1><p>Aprove, rejeite ou devolva requisições pendentes conforme as alçadas definidas na política institucional.</p></div><div class="form-actions"><a class="btn btn-outline-secondary" href="/ComprasEmpresariais/Relatorios/Aprovacoes">Relatório de aprovações</a><a class="btn btn-outline-primary" href="/ComprasEmpresariais/Relatorios/Aprovacoes.csv">Exportar CSV</a></div></header>
+<details class="panel mb-3" open><summary class="fw-semibold">Ajuda da jornada</summary><div class="mt-3"><p><strong>Para que serve:</strong> centralizar as decisões de aprovação por alçada do fluxo procure-to-pay, em qualquer esfera de governo.</p><p><strong>Quando usar:</strong> após o envio de um rascunho; cada nível da política gera uma etapa nesta fila.</p><p><strong>Como executar:</strong> escolha a ação na linha correspondente; rejeitar ou devolver exige motivo com pelo menos 10 caracteres.</p><p><strong>Regras e efeito:</strong> somente o aprovador designado decide uma etapa; etapas bloqueadas aguardam configuração institucional e permanecem visíveis enquanto existe pendência aberta; a aprovação do último nível conclui a requisição como APROVADA; rejeitar ou devolver encerra o ciclo atual.</p><p><strong>Segurança:</strong> cada decisão é gravada com chave de idempotência e versão; repetir a mesma submissão reapresenta o resultado persistido sem gerar novo ciclo ou novo efeito.</p></div></details>
+<section class="panel mb-3"><div class="section-title"><h2 class="h5">Pendências de decisão</h2><span role="status">2 etapa(s) na fila autorizada</span></div><form method="get" class="requisicao-filtros mb-3" action="/ComprasEmpresariais/Aprovacoes"><div class="filter-search"><label for="fila-busca" class="form-label">Buscar</label><input id="fila-busca" name="busca" value="" class="form-control" placeholder="Número, solicitante ou setor"/></div><div><label for="fila-urgencia" class="form-label">Urgência</label><select id="fila-urgencia" name="urgencia" class="form-select"><option value="">Todas</option><option value="NORMAL">NORMAL</option><option value="ALTA">ALTA</option><option value="CRITICA">CRITICA</option></select></div><div class="filter-actions"><button type="submit" class="btn btn-primary">Aplicar</button><a class="btn btn-outline-secondary" href="/ComprasEmpresariais/Aprovacoes">Limpar</a></div></form><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Requisição</th><th>Solicitante</th><th>Solicitada em</th><th>Total</th><th>Alçada da etapa</th><th>Etapa</th><th>Situação</th><th>Próxima ação</th><th>Aprovar</th><th>Rejeitar</th><th>Devolver</th></tr></thead><tbody><tr><td><a href="/ComprasEmpresariais/Aprovacoes/3c68a593-1671-4883-a6c3-9b5ee231f636/Detalhe">RC-2026-000002</a><br/><small>PENDENTE APROVACAO · urgência NORMAL</small></td><td>T&#xE9;cnico Fict&#xED;cio Um&lt;br/&gt;&lt;small&gt;TI&lt;/small&gt;</td><td>28/09/2026 14:51</td><td>80000.00</td><td>50000.00</td><td>Nível 1</td><td><span class="badge text-bg-info">Decisão sua</span></td><td><small>Pr&#xF3;xima etapa: n&#xED;vel 2</small></td><td><form method="post" class="fila-decisao" action="/ComprasEmpresariais/Aprovacoes/3c68a593-1671-4883-a6c3-9b5ee231f636/Decidir"><input type="hidden" name="version" value="1"/><input type="hidden" name="Idempotency-Key" value="eb42e26039f84d53a027a24bdbb0acd9"/><button type="submit" name="decisao" value="APROVAR" class="btn btn-sm btn-success" >Aprovar</button><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /></form></td><td><form method="post" class="fila-decisao" action="/ComprasEmpresariais/Aprovacoes/3c68a593-1671-4883-a6c3-9b5ee231f636/Decidir"><input type="hidden" name="version" value="1"/><input type="hidden" name="Idempotency-Key" value="6c1617ea08734c99851807bed57886e9"/><button type="submit" name="decisao" value="REJEITAR" class="btn btn-sm btn-danger" >Rejeitar</button><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /></form></td><td><form method="post" class="fila-decisao" action="/ComprasEmpresariais/Aprovacoes/3c68a593-1671-4883-a6c3-9b5ee231f636/Decidir"><input type="hidden" name="version" value="1"/><input type="hidden" name="Idempotency-Key" value="d785325133954905b5be1bce3a3a4991"/><button type="submit" name="decisao" value="DEVOLVER" class="btn btn-sm btn-outline-primary" >Devolver</button><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /></form></td></tr><tr><td><a href="/ComprasEmpresariais/Aprovacoes/0f9b337f-0730-45ce-9318-ca12f4fc1990/Detalhe">RC-DEMO-0002</a><br/><small>PENDENTE APROVACAO · urgência NORMAL</small></td><td>T&#xE9;cnico Fict&#xED;cio Um</td><td>28/09/2026 14:50</td><td>40000.00</td><td>0.00</td><td>Nível 1</td><td><span class="badge text-bg-warning">Aguarda configuração</span></td><td><small>Aguardando configura&#xE7;&#xE3;o institucional</small></td><td><form method="post" class="fila-decisao" action="/ComprasEmpresariais/Aprovacoes/0f9b337f-0730-45ce-9318-ca12f4fc1990/Decidir"><input type="hidden" name="version" value="1"/><input type="hidden" name="Idempotency-Key" value="5458e2eb95a34d34b7eebb7a9d09bdc4"/><button type="submit" name="decisao" value="APROVAR" class="btn btn-sm btn-success" disabled>Aprovar</button><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /></form></td><td><form method="post" class="fila-decisao" action="/ComprasEmpresariais/Aprovacoes/0f9b337f-0730-45ce-9318-ca12f4fc1990/Decidir"><input type="hidden" name="version" value="1"/><input type="hidden" name="Idempotency-Key" value="17660f867a9547ad97fb0781e374b1e8"/><button type="submit" name="decisao" value="REJEITAR" class="btn btn-sm btn-danger" disabled>Rejeitar</button><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /></form></td><td><form method="post" class="fila-decisao" action="/ComprasEmpresariais/Aprovacoes/0f9b337f-0730-45ce-9318-ca12f4fc1990/Decidir"><input type="hidden" name="version" value="1"/><input type="hidden" name="Idempotency-Key" value="7e01f9dd13714ed392ca094aaf812085"/><button type="submit" name="decisao" value="DEVOLVER" class="btn btn-sm btn-outline-primary" disabled>Devolver</button><input name="__RequestVerificationToken" type="hidden" value="CfDJ8Ix136j32xVHoWbpXR0reRGLJEY0eUAGCr2zKcsngMs5h6JZOqnLA9Fgnp54F8Xl6Qy2c0EwrnnF2DeVj3JTGH2cxqPdBtKUg5fY6YhyIV6jttmvKdv4_vJl16WRHE9BoyZ8q0VP8HZ-VnnImnv7VsbuU-Hohg_qpV7aZlxNQcg2TO3NXd9q_Uzx_3IE6aOiLQ" /></form></td></tr></tbody></table></div></section>
+<section class="panel mb-3"><div class="section-title"><h2 class="h5">Devolvidas para correção</h2><span role="status">prévia dos últimos 0 registro(s)</span></div><div class="empty-state"><h3 class="h5">Nenhuma requisição devolvida</h3><p>Não há requisições devolvidas para correção no seu contexto neste momento.</p></div></section>
+<section class="panel"><div class="section-title"><h2 class="h5">Concluídas recentemente</h2><span role="status">prévia dos últimos 3 registro(s)</span></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Requisição</th><th>Total</th><th>Status</th><th>Decidida em</th><th>Motivo final</th><th>Ação</th></tr></thead><tbody><tr><td>RC-DEMO-0001<br/><small>urgência NORMAL</small></td><td>80000.00</td><td><span class="badge text-bg-success">APROVADA</span></td><td>28/09/2026 14:51</td><td><small>&#x2014;</small></td><td><a class="btn btn-sm btn-outline-secondary" href="/ComprasEmpresariais/Requisicoes/d0000001-0000-4000-8000-000000000001">Ver requisição</a></td></tr><tr><td>RC-DEMO-0003<br/><small>urgência NORMAL</small></td><td>50000.00</td><td><span class="badge text-bg-success">APROVADA</span></td><td>28/09/2026 14:51</td><td><small>&#x2014;</small></td><td><a class="btn btn-sm btn-outline-secondary" href="/ComprasEmpresariais/Requisicoes/d0000001-0000-4000-8000-000000000003">Ver requisição</a></td></tr><tr><td>RC-DEMO-0004<br/><small>urgência NORMAL</small></td><td>25000.00</td><td><span class="badge text-bg-danger">REJEITADA</span></td><td>28/09/2026 14:51</td><td><small>Duplicidade com cota&#xE7;&#xE3;o vigente; aguardar renova&#xE7;&#xE3;o do processo.</small></td><td><a class="btn btn-sm btn-outline-secondary" href="/ComprasEmpresariais/Requisicoes/d0000001-0000-4000-8000-000000000004">Ver requisição</a></td></tr></tbody></table></div></section>
+
+      </main>
+    </div>
+  </div>
+  <div class="modal fade sigov-modal" id="sigovConfirmModal" tabindex="-1" aria-labelledby="sigovConfirmTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="sigovConfirmTitle">Confirmar operação</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body" id="sigovConfirmMessage">Confirme antes de continuar. Esta operação será auditada.</div>
+      <div class="modal-footer">
+        <button class="sigov-btn sigov-btn--ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button class="sigov-btn sigov-btn--danger" data-sigov-confirm-ok>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <div class="sigov-modal-backdrop" data-sigov-quick-create-close hidden></div>
+<section class="sigov-modal-premium sigov-quick-create" id="sigovQuickCreateModal" role="dialog" aria-modal="true" aria-labelledby="quickCreateTitle" hidden>
+  <header class="sigov-modal-premium__header">
+    <div>
+      <span class="sigov-eyebrow">Criação rápida</span>
+      <h2 id="quickCreateTitle">O que você quer iniciar?</h2>
+      <p>Atalhos seguros para fluxos frequentes do workspace SIGOV+.</p>
+    </div>
+    <button class="sigov-icon-btn" type="button" data-sigov-quick-create-close aria-label="Fechar criação rápida"><svg class="sigov-icon sigov-icon--20" width="20" height="20" focusable="false" data-icon="close" aria-hidden="true" /></button>
+  </header>
+  <div class="sigov-quick-create__grid">
+      <a class="sigov-action-card " href="/QuickCreate/Iniciar?tipo=protocolo" data-sigov-quick-create-item data-title="Novo protocolo" aria-disabled="false" title="Abrir atendimento protocolado com tramita&#xE7;&#xE3;o audit&#xE1;vel.">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="protocol" aria-hidden="true" /></span>
+        <span><strong>Novo protocolo</strong><small>Abrir atendimento protocolado com tramita&#xE7;&#xE3;o audit&#xE1;vel.</small></span>
+        <kbd>N P</kbd>
+      </a>
+      <a class="sigov-action-card " href="/QuickCreate/Iniciar?tipo=documento" data-sigov-quick-create-item data-title="Novo documento" aria-disabled="false" title="Enviar ou classificar documento no GED/OCR.">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="documents" aria-hidden="true" /></span>
+        <span><strong>Novo documento</strong><small>Enviar ou classificar documento no GED/OCR.</small></span>
+        <kbd>N D</kbd>
+      </a>
+      <a class="sigov-action-card " href="/QuickCreate/Iniciar?tipo=tarefa" data-sigov-quick-create-item data-title="Nova tarefa" aria-disabled="false" title="Criar uma pend&#xEA;ncia operacional para equipe ou usu&#xE1;rio.">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="tasks" aria-hidden="true" /></span>
+        <span><strong>Nova tarefa</strong><small>Criar uma pend&#xEA;ncia operacional para equipe ou usu&#xE1;rio.</small></span>
+        <kbd>N T</kbd>
+      </a>
+      <a class="sigov-action-card " href="/QuickCreate/Iniciar?tipo=contrato" data-sigov-quick-create-item data-title="Novo contrato" aria-disabled="false" title="Cadastrar contrato e acompanhar prazos cr&#xED;ticos.">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="contracts" aria-hidden="true" /></span>
+        <span><strong>Novo contrato</strong><small>Cadastrar contrato e acompanhar prazos cr&#xED;ticos.</small></span>
+        <kbd>N C</kbd>
+      </a>
+      <a class="sigov-action-card " href="/QuickCreate/Iniciar?tipo=fornecedor" data-sigov-quick-create-item data-title="Novo fornecedor" aria-disabled="false" title="Iniciar cadastro comercial com valida&#xE7;&#xF5;es m&#xED;nimas.">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="commercial" aria-hidden="true" /></span>
+        <span><strong>Novo fornecedor</strong><small>Iniciar cadastro comercial com valida&#xE7;&#xF5;es m&#xED;nimas.</small></span>
+        <kbd>N F</kbd>
+      </a>
+      <a class="sigov-action-card is-disabled" href="#" data-sigov-quick-create-item data-title="Novo usu&#xE1;rio" aria-disabled="true" title="Dispon&#xED;vel somente para administradores">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="users" aria-hidden="true" /></span>
+        <span><strong>Novo usu&#xE1;rio</strong><small>Convidar operador com perfil e permiss&#xF5;es.</small></span>
+        <kbd>N U</kbd>
+ <span class="sigov-status-pill sigov-status-pill--warning">Admin</span>       </a>
+      <a class="sigov-action-card " href="/QuickCreate/Iniciar?tipo=chamado" data-sigov-quick-create-item data-title="Novo chamado" aria-disabled="false" title="Registrar solicita&#xE7;&#xE3;o de suporte ou melhoria.">
+        <span class="sigov-action-card__icon"><svg class="sigov-icon sigov-icon--22" width="22" height="22" focusable="false" data-icon="help" aria-hidden="true" /></span>
+        <span><strong>Novo chamado</strong><small>Registrar solicita&#xE7;&#xE3;o de suporte ou melhoria.</small></span>
+        <kbd>N S</kbd>
+      </a>
+  </div>
+</section>
+
+  <div class="sigov-command-backdrop" data-sigov-command-close hidden></div>
+<section class="sigov-command" id="sigovCommandPalette" role="dialog" aria-modal="true" aria-labelledby="sigovCommandTitle" hidden>
+  <header class="sigov-command__header">
+    <div><span class="sigov-command__eyebrow">Navegação rápida</span><h2 id="sigovCommandTitle">O que você precisa fazer?</h2></div>
+    <button type="button" class="sigov-icon-btn sigov-icon-btn--ghost" aria-label="Fechar paleta" title="Fechar paleta" data-sigov-command-close="" />
+  </header>
+  <label class="visually-hidden" for="sigovCommandSearch">Buscar comando</label>
+  <input class="sigov-command__search" id="sigovCommandSearch" type="search" placeholder="Busque módulos e ações" autocomplete="off" />
+  <div class="sigov-command__results" data-sigov-command-results>
+    <div class="sigov-skeleton-card" data-sigov-command-loading hidden></div>
+    <p class="sigov-command__group">Criar</p>
+    <a href="/Comercial/Clientes/Novo" data-command="novo cliente cadastrar cliente">Novo cliente</a>
+    <a href="/Comercial/Propostas/Nova" data-command="nova proposta comercial">Nova proposta</a>
+    <a href="/OrdemServico/Nova" data-command="nova ordem serviço os">Nova ordem de serviço</a>
+    <a href="/Financeiro/ContasReceber/Nova" data-command="nova conta receber financeiro">Nova conta a receber</a>
+    <p class="sigov-command__group">Navegar</p>
+    <a href="/MinhaCentral" data-command="início minha central">Minha Central</a>
+    <a href="/ContratosB2B" data-command="contratos serviço recorrente">Contratos de serviço</a>
+    <a href="/Patrimonio" data-command="ativos equipamentos patrimônio">Ativos e equipamentos</a>
+    <a href="/Sla/Monitoramento" data-command="sla monitoramento prazo">Monitoramento de SLA</a>
+    <a href="/Ajuda" data-command="ajuda suporte manual">Central de ajuda</a>
+    <p class="sigov-command__empty" data-sigov-command-empty hidden>Nenhum comando encontrado. Tente outro termo.</p>
+  </div>
+  <footer><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></footer>
+</section>
+
+  <div id="sigov-toast-host" class="sigov-toast-host" aria-live="polite" aria-atomic="true"
+     data-success="" data-error="" data-warning="" data-info=""></div>
+
+  <div class="sigov-assistant" id="sigovAssistant" aria-live="polite" hidden>
+  <div class="sigov-assistant__panel sigov-card p-3">
+    <div class="d-flex justify-content-between align-items-start gap-3"><div><strong>Assistente SIGOV</strong><p class="text-muted small mb-0" data-sigov-assistant-context>Como posso orientar esta tela?</p></div><button class="btn-close" type="button" onclick="SigovAssistant.close()" aria-label="Fechar"></button></div>
+    <hr><ul class="small text-muted mb-3"><li>Revise o objetivo da tela antes de cadastrar.</li><li>Use confirmações em ações críticas.</li><li>Consulte o manual do perfil em caso de dúvida.</li></ul>
+    <a class="sigov-btn sigov-btn--primary w-100" href="/Manual">Abrir manual</a>
+  </div>
+  <button class="sigov-assistant__fab" type="button" onclick="SigovAssistant.open()">?</button>
+</div>
+
+  <footer class="border-top py-3 text-center text-muted bg-white">sigov Gestão Pública Municipal SaaS • v1.0.0 • Ambiente seguro multi-tenant</footer>
+
+  <script src="/lib/jquery/jquery.min.js?v=9AMhl6bsnKaCul7aoJWTi-25IIxZ_A7RMncXHFP505E"></script>
+  <script src="/lib/bootstrap/js/bootstrap.bundle.min.js?v=u6B5A6LailyjOGltKdwxlv-IELm8UEWKv4y48uLaPJo"></script>
+  <script src="/lib/jquery-validation/jquery.validate.min.js"></script>
+  <script src="/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+  <script src="/js/sigov.core.js"></script>
+  <script src="/js/sigov-ui.js?v=JNr_LrWEyIWmOwHMu_wqk5Bsz4fzjR7L8Rc2hEBNp-k"></script>
+  <script src="/js/sigov-command-palette.js?v=ksQoz-ookHnm7Glyj-IHlDbK5qw5qL9WkC9G6Fqiazk" defer></script>
+  <script src="/js/sigov.api.js"></script>
+  <script src="/js/sigov.errors.js"></script>
+  <script src="/js/sigov.toast.js"></script>
+  <script src="/js/sigov-alerts.js?v=Yfbbzo9YHx2nJkSry3Y5J-lxAOdSI0zc5NvOct5ClxU"></script>
+  <script src="/js/sigov.ajax.js"></script>
+  <script src="/js/sigov.forms.js"></script>
+  <script src="/js/sigov.quick-create.js"></script>
+  <script src="/js/sigov.validation.js"></script>
+  <script src="/js/sigov.masks.js"></script>
+  <script src="/js/sigov.money.js?v=IE87wQPiFSIGhVw-jQX-6LFGW0LISkoAZMoagr_1B3Y"></script>
+  <script src="/js/sigov.grid.js"></script>
+  <script src="/js/sigov.modal.js"></script>
+  <script src="/js/sigov.theme.js"></script>
+  <script src="/js/sigov.shortcuts.js"></script>
+  <script src="/js/sigov.saved-filters.js"></script>
+  <script src="/js/sigov.permissions.js"></script>
+  <script src="/js/sigov.modules.js"></script>
+  <script src="/js/sigov.onboarding.js"></script>
+  <script src="/js/sigov-assistant.js?v=qB_E0dc6dBubf6I17fv3sMNEnD32Dha_OxlHTc-nSqk"></script>
+  <script src="/js/sigov.tour.js"></script>
+  <script src="/js/sigov.mobile.js"></script>
+  
+</body>
+</html>

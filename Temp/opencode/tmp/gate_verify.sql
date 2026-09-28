@@ -1,0 +1,11 @@
+﻿select r.numero,r.status,r.version,r.valor_estimado from sigov.compras_empresarial_requisicao r where r.id in ('d0000001-0000-4000-8000-000000000001','d0000001-0000-4000-8000-000000000002','d0000001-0000-4000-8000-000000000003','d0000001-0000-4000-8000-000000000004') order by r.numero;
+select 'POLITICA='||count(*) from sigov.compras_empresarial_aprovacao_politica where tenant_id='b0000001-0000-4000-8000-000000000001';
+select 'ETAPAS='||count(*) from sigov.compras_empresarial_aprovacao where requisicao_id in ('d0000001-0000-4000-8000-000000000001','d0000001-0000-4000-8000-000000000002','d0000001-0000-4000-8000-000000000003','d0000001-0000-4000-8000-000000000004');
+select 'CHAVES_JORNADA='||count(*) from sigov.compras_empresarial_idempotencia where chave like 'jornada-%';
+select 'RQ5='||count(*) from sigov.compras_empresarial_requisicao where id='ce2981ae-29bc-4ffe-80d6-d2968420840a';
+select 'ITENS_'||left(requisicao_id::text,13)||' n='||count(*)||' total='||round(sum(quantidade*valor_estimado),2) from sigov.compras_empresarial_requisicao_item where requisicao_id in ('d0000001-0000-4000-8000-000000000001','d0000001-0000-4000-8000-000000000002','d0000001-0000-4000-8000-000000000003','d0000001-0000-4000-8000-000000000004') group by requisicao_id order by requisicao_id;
+select 'USUARIOS='||string_agg(id::text||':'||login||':t'||tenant_id||':e'||coalesce(entidade_id::text,'null'),', ') from sigov.usuario where id in (101,102);
+select 'PP_9001='||count(*) from sigov.perfil_permissao where perfil_acesso_id=9001;
+select 'PP_9002='||count(*) from sigov.perfil_permissao where perfil_acesso_id=9002;
+select 'ALCADA_P'||pp.perfil_acesso_id||'='||coalesce(pp.alcada_valor::text,'null') from sigov.perfil_permissao pp join sigov.permissao p on p.id=pp.permissao_id where p.modulo='compras_empresariais' and p.recurso='compras_empresariais.aprovacoes' and p.acao='aprovar' order by pp.perfil_acesso_id;
+select 'PENDENCIAS_DEMO='||count(*) from sigov.pendencia_operacional where tenant_id=1 and tipo ilike 'APROVACAO%';
