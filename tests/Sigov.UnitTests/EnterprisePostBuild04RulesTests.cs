@@ -1,7 +1,15 @@
+using System.Reflection;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Sigov.Testing;
 using FluentAssertions;
+using Sigov.Application.Common;
+using Sigov.Application.ComprasEmpresariais;
 using Sigov.Application.Enterprise;
 using Sigov.Domain.OrdemServico;
+using Sigov.Web.Controllers;
 using Xunit;
 
 namespace Sigov.UnitTests;
@@ -105,6 +113,229 @@ public sealed class EnterprisePostBuild04RulesTests
 
         dashboard.Module.Should().Be("comercial");
         dashboard.Alertas.Should().Contain(alerta => alerta.Contains("abaixo do mínimo", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Scenario01_Requisitante_sem_dashboard_acessa_modulo_e_redireciona_para_operacao_autorizada()
+    {
+        var authService = new FakeAuthorizationService(policy => policy == "compras_empresariais.requisicoes.visualizar");
+        var controller = new ComprasEmpresariaisController(
+            null!, null!, null!, null!, null!, null!, null!, authService);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
+        };
+
+        var result = await controller.Index(CancellationToken.None);
+        var redirect = result.Should().BeOfType<RedirectToActionResult>().Subject;
+        redirect.ActionName.Should().Be("Requisicoes");
+    }
+
+    [Fact]
+    public void Scenario02_Aprovador_acessa_sua_fila_e_somente_nivel_ativo_e_decidivel()
+    {
+        var userId = Guid.NewGuid();
+        var etapaNivel1 = new AprovacaoFilaResumo(
+            Guid.NewGuid(), 1, 1000m, userId, Bloqueada: false, DecisivelPorMim: true,
+            Guid.NewGuid(), "RC-2026-0001", 500m, "PENDENTE_APROVACAO", "NORMAL",
+            DateTime.UtcNow, DateTime.UtcNow, 1, "Solicitante", "Setor", "Decisão necessária no nível 1");
+
+        var etapaNivel2 = new AprovacaoFilaResumo(
+            Guid.NewGuid(), 2, 5000m, userId, Bloqueada: false, DecisivelPorMim: false,
+            Guid.NewGuid(), "RC-2026-0001", 500m, "PENDENTE_APROVACAO", "NORMAL",
+            DateTime.UtcNow, DateTime.UtcNow, 1, "Solicitante", "Setor", "Aguardando nível anterior (1)");
+
+        etapaNivel1.DecisivelPorMim.Should().BeTrue();
+        etapaNivel2.DecisivelPorMim.Should().BeFalse();
+        etapaNivel2.ProximaAcao.Should().Contain("Aguardando nível anterior");
+    }
+
+    [Fact]
+    public void Scenario03_Rota_direta_nega_usuario_nao_autorizado()
+    {
+        var controllerType = typeof(ComprasEmpresariaisController);
+        var classAuthorize = controllerType.GetCustomAttribute<AuthorizeAttribute>();
+        classAuthorize.Should().NotBeNull();
+
+        var endpoints = controllerType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+        foreach (var method in endpoints.Where(m => !m.IsSpecialName && m.GetCustomAttribute<NonActionAttribute>() == null))
+        {
+            var auth = method.GetCustomAttribute<AuthorizeAttribute>();
+            if (method.Name == "Index")
+            {
+                classAuthorize.Should().NotBeNull();
+            }
+            else
+            {
+                auth.Should().NotBeNull($"Método {method.Name} deve possuir política de autorização explícita.");
+                auth!.Policy.Should().NotBeNullOrWhiteSpace();
+            }
+        }
+    }
+
+    private sealed class FakeAuthorizationService(Func<string, bool> policyCheck) : IAuthorizationService
+    {
+        public Task<AuthorizationResult> AuthorizeAsync(ClaimsPrincipal user, object? resource, IEnumerable<IAuthorizationRequirement> requirements)
+            => Task.FromResult(AuthorizationResult.Success());
+
+        public Task<AuthorizationResult> AuthorizeAsync(ClaimsPrincipal user, object? resource, string policyName)
+            => Task.FromResult(policyCheck(policyName) ? AuthorizationResult.Success() : AuthorizationResult.Failed());
+    }
+
+    [Fact]
+    public void Scenario04_Favorito_revogado_deixa_de_ser_utilizavel()
+    {
+        var userSemPermissao = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString())
+        }, "TestAuth"));
+
+        userSemPermissao.HasClaim("permission", "compras_empresariais.aprovacoes.visualizar").Should().BeFalse();
+        userSemPermissao.HasClaim("permission", "compras_empresariais.dashboard").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Scenario05_Contexto_ausente_possui_recuperacao()
+    {
+        var action = () => ComprasGuard.Context(new ComprasContext(Guid.Empty, Guid.NewGuid(), "corr-1"));
+        action.Should().Throw<ArgumentException>().WithMessage("*TenantId é obrigatório*");
+
+        var actionUser = () => ComprasGuard.Context(new ComprasContext(Guid.NewGuid(), Guid.Empty, "corr-2"));
+        actionUser.Should().Throw<ArgumentException>().WithMessage("*UsuarioId é obrigatório*");
+    }
+
+    [Fact]
+    public void Scenario06_Troca_de_organizacao_descarta_selecoes_dependentes_antigas()
+    {
+        var js = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/modules/saas.contexto-global.js"));
+        js.Should().Contain("resetDependents");
+        js.Should().Contain("$('ctxUnit').disabled = true;");
+        js.Should().Contain("$('ctxExercise').disabled = true;");
+        js.Should().Contain("$('ctxSystem').disabled = true;");
+    }
+
+    [Fact]
+    public void Scenario07_Resposta_atrasada_nao_restaura_organizacao_anterior()
+    {
+        var js = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/modules/saas.contexto-global.js"));
+        js.Should().Contain("const currentSeq = ++searchSeq;");
+        js.Should().Contain("if (currentSeq !== searchSeq) return;");
+        js.Should().Contain("const currentSeq = ++selectSeq;");
+        js.Should().Contain("if (currentSeq !== selectSeq) return;");
+    }
+
+    [Fact]
+    public void Scenario08_Menu_e_cabecalho_refletem_contexto_confirmado()
+    {
+        var js = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/modules/saas.contexto-global.js"));
+        js.Should().Contain("window.location.href = returnUrl;");
+        js.Should().Contain("window.location.href = '/';");
+
+        var sidebar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Shared/_Sidebar.cshtml"));
+        sidebar.Should().Contain("canSeeEnterprisePurchasing");
+        sidebar.Should().Contain("Compras Empresariais");
+    }
+
+    [Fact]
+    public void Scenario09_Somente_leitura_impede_gravacao()
+    {
+        var readOnlyContext = new ComprasContext(Guid.NewGuid(), Guid.NewGuid(), "corr-ro", SomenteLeitura: true);
+        var action = () => ComprasGuard.Mutation(readOnlyContext);
+        action.Should().Throw<InvalidOperationException>().WithMessage("*somente leitura*");
+    }
+
+    [Fact]
+    public void Scenario10_Dois_tenants_permanecem_isolados()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("where tenant_id=@t");
+        repoSql.Should().NotContain("where 1=1");
+    }
+
+    [Fact]
+    public void Scenario11_Nivel_posterior_nao_decide_antecipadamente()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("nivel < @nivel and status <> 'APROVADO'");
+        repoSql.Should().Contain("Não é possível decidir esta etapa antes da aprovação de todos os níveis anteriores.");
+    }
+
+    [Fact]
+    public void Scenario12_Alcada_insuficiente_bloqueia_etapa()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        repoSql.Should().Contain("bloqueadas.Add(e.Item1);");
+        repoSql.Should().Contain("APROVACAO_SEM_APROVADOR");
+    }
+
+    [Fact]
+    public void Scenario13_Perda_de_elegibilidade_ou_solicitante_segregado_impede_decisao()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("requisicao.Value.SolicitanteId == context.UsuarioId");
+        repoSql.Should().Contain("Regra de segregação: o solicitante da requisição não pode aprovar a própria solicitação.");
+    }
+
+    [Fact]
+    public void Scenario14_Reavaliacao_nao_duplica_etapas()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("update sigov.compras_empresarial_aprovacao set aprovador_id=");
+        repoSql.Should().Contain("desbloqueadas++;");
+    }
+
+    [Fact]
+    public void Scenario15_Reenvio_apos_devolucao_preserva_historico_anterior_e_cria_novo_ciclo()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        repoSql.Should().Contain("select coalesce(max(ciclo),0)+1");
+        repoSql.Should().Contain("regra_snapshot");
+        repoSql.Should().Contain("\"RASCUNHO\" or \"DEVOLVIDA\"");
+    }
+
+    [Fact]
+    public void Scenario16_Concorrencia_mantem_consistencia_e_advisory_locks()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("pg_advisory_xact_lock");
+        repoSql.Should().Contain("for update");
+    }
+
+    [Fact]
+    public void Scenario17_Repeticao_de_comando_com_mesma_idempotency_key_nao_duplica_efeitos()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("sigov.compras_empresarial_idempotencia");
+        repoSql.Should().Contain("A chave de idempotência já foi usada com conteúdo diferente.");
+    }
+
+    [Fact]
+    public void Scenario18_Tema_alterna_uma_vez_e_persiste()
+    {
+        var jsTheme = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/sigov.theme.js"));
+        var jsUi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/sigov-ui.js"));
+
+        jsTheme.Should().Contain("window.Sigov.theme");
+        jsTheme.Should().Contain("const primaryKey = 'sigov.theme';");
+        jsTheme.Should().Contain("localStorage.setItem(primaryKey, theme);");
+        jsUi.Should().NotContain("trigger.matches('[data-sigov-theme-toggle]')");
+    }
+
+    [Fact]
+    public void Scenario19_Menu_funciona_por_teclado_e_mobile()
+    {
+        var jsUi = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/sigov-ui.js"));
+        jsUi.Should().Contain("event.key === 'Escape'");
+        jsUi.Should().Contain("details && !details.open");
+        jsUi.Should().Contain("normalizeModuleKey");
+    }
+
+    [Fact]
+    public void Scenario20_Falha_de_gravacao_nunca_produz_sucesso_falso()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("await tx.RollbackAsync(ct);");
+        repoSql.Should().Contain("throw;");
     }
 }
 

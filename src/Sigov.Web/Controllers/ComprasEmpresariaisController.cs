@@ -11,7 +11,25 @@ namespace Sigov.Web.Controllers;
 public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos,IDivergenciaRecebimentoApplicationService divergencias,IDevolucaoCompraApplicationService devolucoes,IAprovacaoRequisicaoApplicationService aprovacoes,IAuthorizationService authorization):Controller
 {
  private ComprasContext Contexto(){if(!Guid.TryParse(User.FindFirst("enterprise_tenant_id")?.Value??User.FindFirst("tenant_id")?.Value,out var t)||!Guid.TryParse(User.FindFirst("sub")?.Value,out var u))throw new UnauthorizedAccessException("Tenant e usuário não resolvidos.");return new(t,u,HttpContext.TraceIdentifier);}
- [HttpGet(""),Authorize(Policy="compras_empresariais.dashboard.visualizar")]public async Task<IActionResult> Index(CancellationToken ct)=>View(await dashboard.ObterAsync(Contexto(),ct));
+ [HttpGet("")]
+ public async Task<IActionResult> Index(CancellationToken ct)
+ {
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.dashboard.visualizar")).Succeeded)
+         return View(await dashboard.ObterAsync(Contexto(), ct));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.requisicoes.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Requisicoes));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.aprovacoes.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Aprovacoes));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.fornecedores.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Fornecedores));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.recebimentos.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Recebimentos));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.divergencias.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Divergencias));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.devolucoes.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Devolucoes));
+     return Forbid();
+ }
  [HttpGet("Fornecedores"),Authorize(Policy="compras_empresariais.fornecedores.visualizar")]public async Task<IActionResult> Fornecedores(string? busca,string? status,int pagina=1,CancellationToken ct=default)=>View("Fornecedores/Index",await fornecedores.ListarAsync(Contexto(),new(busca,status,pagina,20),ct));
  [HttpGet("Fornecedores/Novo"),Authorize(Policy="compras_empresariais.fornecedores.criar")]public IActionResult NovoFornecedor()=>View("Fornecedores/Novo");
  [HttpGet("Fornecedores/{id:guid}"),Authorize(Policy="compras_empresariais.fornecedores.visualizar")]public async Task<IActionResult> Fornecedor(Guid id,CancellationToken ct){var item=await fornecedores.ObterAsync(Contexto(),id,ct);return item is null?NotFound():View("Fornecedores/Detalhe",item);}
@@ -23,6 +41,16 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Aprovacoes"),Authorize(Policy="compras_empresariais.aprovacoes.visualizar")]public async Task<IActionResult> Aprovacoes(string? busca,string? urgencia,int pagina=1,int tamanho=20,CancellationToken ct=default){var fila=await aprovacoes.ListarFilaAsync(Contexto(),pagina,tamanho,busca,urgencia,ct);var devolvidas=await aprovacoes.ListarDevolvidasAsync(Contexto(),1,10,ct);var concluidas=await aprovacoes.ListarConcluidasAsync(Contexto(),1,10,ct);ViewData["Busca"]=busca;ViewData["Urgencia"]=urgencia;return View("Aprovacoes/Index",new AprovacoesCentralViewModel(fila,devolvidas,concluidas));}
   [HttpGet("Aprovacoes/{etapaId:guid}/Detalhe"),Authorize(Policy="compras_empresariais.aprovacoes.visualizar")]public async Task<IActionResult> DetalheAprovacao(Guid etapaId,CancellationToken ct){var item=await aprovacoes.ObterDetalheAsync(Contexto(),etapaId,ct);return item is null?NotFound():View("Aprovacoes/Detalhe",item);}
  [HttpPost("Aprovacoes/{etapaId:guid}/Decidir"),Authorize(Policy="compras_empresariais.aprovacoes.aprovar")]public async Task<IActionResult> DecidirAprovacao(Guid etapaId,[FromForm(Name="decisao")]string decisao,[FromForm(Name="motivo")]string? motivo,[FromForm(Name="version")]long version,[FromForm(Name="Idempotency-Key")]string? chave,CancellationToken ct){var chaveFinal=string.IsNullOrWhiteSpace(chave)?Guid.NewGuid().ToString("N"):chave;try{var x=await aprovacoes.DecidirAsync(Contexto(),etapaId,new(decisao,motivo,version,chaveFinal),ct);TempData["Success"]=x.Repetido?"Decisão já registrada; o resultado persistido foi reapresentado.":"Decisão registrada com sucesso.";}catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message+" Revise o estado atual antes de criar uma nova intenção.";}catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){TempData["Error"]=ex.Message;}return RedirectToAction(nameof(Aprovacoes));}
+ [HttpPost("Aprovacoes/{requisicaoId:guid}/Reavaliar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.aprovacoes.aprovar")]
+ public async Task<IActionResult> ReavaliarEncaminhamento(Guid requisicaoId,[FromForm(Name="motivo")]string? motivo,[FromForm(Name="Idempotency-Key")]string? chave,string? returnUrl,CancellationToken ct)
+ {
+     var chaveFinal=string.IsNullOrWhiteSpace(chave)?Guid.NewGuid().ToString("N"):chave;
+     try{var x=await aprovacoes.ReavaliarEncaminhamentoAsync(Contexto(),requisicaoId,new(motivo,chaveFinal),ct);TempData["Success"]=x.Mensagem;}
+     catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message+" Revise o estado atual antes de criar uma nova intenção.";}
+     catch(Exception ex)when(ex is ArgumentException or InvalidOperationException or KeyNotFoundException){TempData["Error"]=ex.Message;}
+     if(Url.IsLocalUrl(returnUrl))return Redirect(returnUrl);
+     return RedirectToAction(nameof(Aprovacoes));
+ }
  [HttpGet("Cotacoes"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public IActionResult Cotacoes()=>Workspace("Cotações","Rodadas, convites e respostas de fornecedores.");
  [HttpGet("Cotacoes/Nova"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public IActionResult NovaCotacao()=>Workspace("Nova cotação","Configure itens, prazo e fornecedores convidados.");
  [HttpGet("Cotacoes/{id:guid}"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public IActionResult Cotacao(Guid id)=>Workspace("Cotação","Workspace da cotação.");

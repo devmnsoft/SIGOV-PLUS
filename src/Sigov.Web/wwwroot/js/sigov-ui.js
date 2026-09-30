@@ -148,17 +148,10 @@
   }
 
   function handleAction(event) {
-    const trigger = event.target.closest('[data-sigov-sidebar-toggle],[data-sigov-sidebar-close],[data-sigov-theme-toggle]');
+    const trigger = event.target.closest('[data-sigov-sidebar-toggle],[data-sigov-sidebar-close]');
     if (!trigger || trigger.disabled || trigger.getAttribute('aria-disabled') === 'true') return;
     if (trigger.matches('[data-sigov-sidebar-toggle]')) setSidebar(!document.body.classList.contains('sigov-sidebar-open'), trigger);
     if (trigger.matches('[data-sigov-sidebar-close]')) setSidebar(false);
-    if (trigger.matches('[data-sigov-theme-toggle]')) {
-      const next = document.documentElement.dataset.sigovTheme === 'dark' ? 'light' : 'dark';
-      document.documentElement.dataset.sigovTheme = next;
-      localStorage.setItem('sigov-theme', next);
-      trigger.setAttribute('aria-pressed', String(next === 'dark'));
-      SigovNotify.info(`Tema ${next === 'dark' ? 'escuro' : 'claro'} aplicado.`, 'Tema');
-    }
   }
 
   function init(root) {
@@ -168,8 +161,13 @@
       ['success','error','warning','info'].forEach(t => h.dataset[t] && showToast(t, h.dataset[t]));
       h.dataset.sigovInitialized = 'true';
     }
-    const theme = localStorage.getItem('sigov-theme') || 'light'; document.documentElement.dataset.sigovTheme = theme;
-    scope.querySelectorAll('[data-sigov-theme-toggle]').forEach(button => button.setAttribute('aria-pressed', String(theme === 'dark')));
+    if (window.Sigov && window.Sigov.theme) {
+      window.Sigov.theme.apply(window.Sigov.theme.get());
+    } else {
+      const theme = localStorage.getItem('sigov.theme') || localStorage.getItem('sigov-theme') || 'light';
+      document.documentElement.dataset.sigovTheme = theme;
+      scope.querySelectorAll('[data-sigov-theme-toggle]').forEach(button => button.setAttribute('aria-pressed', String(theme === 'dark')));
+    }
     scope.querySelectorAll('img[data-sigov-image-fallback]').forEach(image => {
       if (image.dataset.sigovFallbackBound) return;
       image.dataset.sigovFallbackBound = 'true';
@@ -189,7 +187,12 @@
     if (event.key === 'Escape' && document.body.classList.contains('sigov-sidebar-open')) setSidebar(false);
     if (event.key === 'Tab' && document.body.classList.contains('sigov-sidebar-open')) {
       const sidebar = document.getElementById('sigovSidebar');
-      const focusable = Array.from(sidebar?.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),summary') || []).filter(element => !element.hidden);
+      const focusable = Array.from(sidebar?.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])') || []).filter(element => {
+        if (element.hidden || element.closest('[hidden]')) return false;
+        const details = element.closest('details');
+        if (details && !details.open && element !== details.querySelector('summary')) return false;
+        return element.offsetParent !== null || element.getClientRects().length > 0;
+      });
       if (!focusable.length) return;
       const first = focusable[0], last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -251,22 +254,32 @@
     const filter = document.querySelector('[data-sigov-menu-filter]');
     const moduleSelector = sidebar.querySelector('[data-sigov-module-selector]');
     const groups = Array.from(sidebar.querySelectorAll(':scope [data-sigov-menu] > .sigov-nav-group'));
-    const normalizeModuleKey = (label, index) => `${index}-${label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+    const normalizeModuleKey = (label) => label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     groups.forEach((group, index) => {
       const label = group.querySelector(':scope > summary')?.textContent.trim() || `Módulo ${index + 1}`;
-      group.dataset.sigovModule = normalizeModuleKey(label, index);
+      group.dataset.sigovModule = normalizeModuleKey(label);
       group.dataset.sigovModuleLabel = label;
     });
     const activeGroup = groups.find(group => group.querySelector('.sigov-nav-link.active'));
-    const storedModule = selectedModuleKey ? store.get(selectedModuleKey, null) : null;
-    let selectedModule = activeGroup?.dataset.sigovModule || (groups.some(group => group.dataset.sigovModule === storedModule) ? storedModule : groups[0]?.dataset.sigovModule);
+    if (activeGroup) activeGroup.open = true;
+    const storedModule = selectedModuleKey ? store.get(selectedModuleKey, '') : '';
+    let selectedModule = (storedModule !== null && storedModule !== undefined && (storedModule === '' || groups.some(g => g.dataset.sigovModule === storedModule)))
+      ? storedModule
+      : (activeGroup?.dataset.sigovModule || '');
+
     const applyModule = () => {
       const searching = Boolean(filter?.value.trim());
-      groups.forEach(group => { group.hidden = !searching && group.dataset.sigovModule !== selectedModule; });
+      groups.forEach(group => {
+        group.hidden = !searching && selectedModule !== '' && group.dataset.sigovModule !== selectedModule;
+      });
       if (moduleSelector) moduleSelector.value = selectedModule || '';
     };
+
     if (moduleSelector) {
-      moduleSelector.replaceChildren(...groups.map(group => {
+      const allOption = document.createElement('option');
+      allOption.value = '';
+      allOption.textContent = 'Todos os módulos autorizados';
+      moduleSelector.replaceChildren(allOption, ...groups.map(group => {
         const option = document.createElement('option');
         option.value = group.dataset.sigovModule;
         option.textContent = group.dataset.sigovModuleLabel;
@@ -275,24 +288,46 @@
       moduleSelector.addEventListener('change', () => {
         selectedModule = moduleSelector.value;
         if (selectedModuleKey) store.set(selectedModuleKey, selectedModule);
-        filter.value = '';
+        if (filter) filter.value = '';
         sidebar.querySelectorAll('.sigov-nav-link').forEach(link => { link.hidden = false; });
+        const emptyEl = sidebar.querySelector('#sigov-menu-empty');
+        if (emptyEl) emptyEl.remove();
         applyModule();
       });
     }
-    if (filter) filter.addEventListener('input', () => {
-      const query = filter.value.trim().toLocaleLowerCase('pt-BR');
-      groups.forEach(group => {
-        let matches = false;
-        group.querySelectorAll('.sigov-nav-link').forEach(link => {
-          const match = !query || link.textContent.toLocaleLowerCase('pt-BR').includes(query);
-          link.hidden = !match;
-          matches = matches || match;
+
+    if (filter) {
+      filter.addEventListener('input', () => {
+        const query = filter.value.trim().toLocaleLowerCase('pt-BR');
+        let totalMatches = 0;
+        groups.forEach(group => {
+          let matches = false;
+          group.querySelectorAll('.sigov-nav-link').forEach(link => {
+            const match = !query || link.textContent.toLocaleLowerCase('pt-BR').includes(query);
+            link.hidden = !match;
+            if (match) totalMatches++;
+            matches = matches || match;
+          });
+          group.hidden = query ? !matches : (selectedModule !== '' && group.dataset.sigovModule !== selectedModule);
+          if (query && matches) group.open = true;
         });
-        group.hidden = query ? !matches : group.dataset.sigovModule !== selectedModule;
-        if (query && matches) group.open = true;
+
+        const menuHost = sidebar.querySelector('[data-sigov-menu]') || sidebar;
+        let emptyEl = sidebar.querySelector('#sigov-menu-empty');
+        if (query && totalMatches === 0) {
+          if (!emptyEl) {
+            emptyEl = document.createElement('div');
+            emptyEl.id = 'sigov-menu-empty';
+            emptyEl.className = 'text-muted small px-3 py-2 text-center';
+            emptyEl.setAttribute('role', 'status');
+            emptyEl.textContent = 'Nenhuma operação autorizada encontrada.';
+            menuHost.appendChild(emptyEl);
+          }
+        } else if (emptyEl) {
+          emptyEl.remove();
+        }
       });
-    });
+    }
     applyModule();
     const favorites = favoritesKey ? store.get(favoritesKey, []) : [];
     sidebar.querySelectorAll('[data-favorite-key]').forEach(row => {

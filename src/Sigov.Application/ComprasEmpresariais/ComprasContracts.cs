@@ -2,7 +2,7 @@ using Sigov.Application.Common;
 
 namespace Sigov.Application.ComprasEmpresariais;
 
-public sealed record ComprasContext(Guid TenantId, Guid UsuarioId, string CorrelationId);
+public sealed record ComprasContext(Guid TenantId, Guid UsuarioId, string CorrelationId, bool SomenteLeitura = false);
 public sealed record FornecedorFiltro(string? Busca = null, string? Status = null, int Pagina = 1, int Tamanho = 20);
 public sealed record FornecedorResumo(Guid Id, string Codigo, string RazaoSocial, string? NomeFantasia, string DocumentoMascarado, string Status, decimal Score, long Version);
 public sealed record CriarFornecedorRequest(string TipoPessoa, string Documento, string RazaoSocial, string? NomeFantasia, string? Categoria, string? Porte, string? CondicaoPagamento, int PrazoMedio, string? Observacoes);
@@ -177,6 +177,9 @@ public sealed record SalvarPoliticaRequest(string? Nome,IReadOnlyList<NivelPolit
 
 public sealed record PoliticaSalvaResultado(long Id,string Nome,bool Repetido);
 
+public sealed record ReavaliarEncaminhamentoRequest(string? Motivo,string? IdempotencyKey);
+public sealed record ReavaliarEncaminhamentoResultado(Guid RequisicaoId,int Ciclo,bool Desbloqueado,string Mensagem,bool Repetido);
+
 public sealed record AprovacaoRelatorioLinha(string Numero,int Ciclo,int Etapa,string SituacaoEtapa,decimal Alcada,string? AprovadorSub,string StatusRequisicao,decimal Total,DateTime CriadaEm,DateTime? DecididaEm,string? Motivo);
 
 public interface IAprovacaoRequisicaoRepository
@@ -186,9 +189,21 @@ public interface IAprovacaoRequisicaoRepository
  Task<PagedResult<AprovacaoPainelResumo>> ListarConcluidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
  Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext context,Guid etapaId,CancellationToken ct);
  Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext context,Guid etapaId,AprovacaoDecisaoRequest request,CancellationToken ct);
+ Task<ReavaliarEncaminhamentoResultado> ReavaliarEncaminhamentoAsync(ComprasContext context,Guid requisicaoId,ReavaliarEncaminhamentoRequest request,CancellationToken ct);
  Task<PoliticaAtivaResumo?> ObterPoliticaAsync(ComprasContext context,CancellationToken ct);
  Task<PoliticaSalvaResultado> SalvarPoliticaAsync(ComprasContext context,SalvarPoliticaRequest request,string key,CancellationToken ct);
  Task<PagedResult<AprovacaoRelatorioLinha>> ListarRelatorioAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
 }
-public interface IAprovacaoRequisicaoApplicationService { Task<PagedResult<AprovacaoFilaResumo>> ListarFilaAsync(ComprasContext context,int pagina,int tamanho,string? busca,string? urgencia,CancellationToken ct); Task<PagedResult<AprovacaoPainelResumo>> ListarDevolvidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct); Task<PagedResult<AprovacaoPainelResumo>> ListarConcluidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct); Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext context,Guid etapaId,CancellationToken ct); Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext context,Guid etapaId,AprovacaoDecisaoRequest request,CancellationToken ct); Task<PoliticaAtivaResumo?> ObterPoliticaAsync(ComprasContext context,CancellationToken ct); Task<PoliticaSalvaResultado> SalvarPoliticaAsync(ComprasContext context,SalvarPoliticaRequest request,string key,CancellationToken ct); Task<PagedResult<AprovacaoRelatorioLinha>> ListarRelatorioAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct); }
+public interface IAprovacaoRequisicaoApplicationService
+{
+ Task<PagedResult<AprovacaoFilaResumo>> ListarFilaAsync(ComprasContext context,int pagina,int tamanho,string? busca,string? urgencia,CancellationToken ct);
+ Task<PagedResult<AprovacaoPainelResumo>> ListarDevolvidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
+ Task<PagedResult<AprovacaoPainelResumo>> ListarConcluidasAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
+ Task<AprovacaoEtapaDetalhe?> ObterDetalheAsync(ComprasContext context,Guid etapaId,CancellationToken ct);
+ Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext context,Guid etapaId,AprovacaoDecisaoRequest request,CancellationToken ct);
+ Task<ReavaliarEncaminhamentoResultado> ReavaliarEncaminhamentoAsync(ComprasContext context,Guid requisicaoId,ReavaliarEncaminhamentoRequest request,CancellationToken ct);
+ Task<PoliticaAtivaResumo?> ObterPoliticaAsync(ComprasContext context,CancellationToken ct);
+ Task<PoliticaSalvaResultado> SalvarPoliticaAsync(ComprasContext context,SalvarPoliticaRequest request,string key,CancellationToken ct);
+ Task<PagedResult<AprovacaoRelatorioLinha>> ListarRelatorioAsync(ComprasContext context,int pagina,int tamanho,CancellationToken ct);
+}
 

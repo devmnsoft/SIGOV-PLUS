@@ -8,7 +8,8 @@
   var auth = AuthSnapshot.Current;
   Func<string, bool> hasPermission = permission => auth.HasPermission(permission);
   Func<string, bool> hasModule = module => auth.HasModule(module);
-  var canSeeEnterprisePurchasing = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || hasPermission("compras_empresariais.dashboard.visualizar");
+  var canSeeEnterprisePurchasing = auth.Permissions.Any(c => c.StartsWith("compras_empresariais.", StringComparison.OrdinalIgnoreCase))
+      || User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT");
   var canSeeSecurity = MenuPermissions.CanSeeModule(User, "seguranca");
   var canSeeAudit = MenuPermissions.CanSeeModule(User, "auditoria-lgpd");
   var canSeeGovernanca = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL") || User.IsInRole("AUDITOR") || auth.Permissions.Any(c => c.StartsWith("governanca.", StringComparison.OrdinalIgnoreCase));
@@ -24,7 +25,7 @@
     <span class="sigov-sidebar__eyebrow">Área de trabalho</span><strong>Menu SIGOV+</strong>
     <label for="sigovModuleSelector">Módulo</label>
     <select id="sigovModuleSelector" class="sigov-module-selector" data-sigov-module-selector aria-describedby="sigovModuleHelp">
-      <option value="">Carregando módulos autorizados…</option>
+      <option value="">Todos os módulos autorizados</option>
     </select>
     <small id="sigovModuleHelp" class="sigov-sidebar__help">Selecione o módulo para ver apenas suas operações.</small>
     <label class="visually-hidden" for="sigovMenuFilter">Filtrar menu</label>
@@ -250,9 +251,56 @@
       <a class="sigov-nav-link@(active("/IA"))" href="/IA"><sigov-icon name="ai" size="18"/><span>IA</span></a>
       <a class="sigov-nav-link@(active("/Operacao/Health"))" href="/Operacao/Health"><sigov-icon name="active" size="18"/><span>Health</span></a>
     </details>
+    @if (canSeeEnterprisePurchasing) {
+    <details class="sigov-nav-group" @opened(new[]{"/ComprasEmpresariais"})><summary><sigov-icon name="cart" size="16" />Compras Empresariais</summary>
+      @if (hasPermission("compras_empresariais.dashboard.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais"))" href="/ComprasEmpresariais"><sigov-icon name="dashboard" size="18"/><span>Visão geral</span></a>
+      }
+      @if (hasPermission("compras_empresariais.requisicoes.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Requisicoes"))" href="/ComprasEmpresariais/Requisicoes"><sigov-icon name="workflow" size="18"/><span>Requisições</span></a>
+      }
+      @if (hasPermission("compras_empresariais.requisicoes.criar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Requisicoes/Nova"))" href="/ComprasEmpresariais/Requisicoes/Nova"><sigov-icon name="workflow" size="18"/><span>Nova requisição</span></a>
+      }
+      @if (hasPermission("compras_empresariais.aprovacoes.visualizar") || hasPermission("compras_empresariais.aprovacoes.aprovar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Aprovacoes"))" href="/ComprasEmpresariais/Aprovacoes"><sigov-icon name="workflow" size="18"/><span>Fila de aprovações</span></a>
+      }
+      @if (hasPermission("compras_empresariais.fornecedores.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Fornecedores"))" href="/ComprasEmpresariais/Fornecedores"><sigov-icon name="users" size="18"/><span>Fornecedores 360</span></a>
+      }
+      @if (hasPermission("compras_empresariais.cotacoes.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Cotacoes"))" href="/ComprasEmpresariais/Cotacoes"><sigov-icon name="commercial" size="18"/><span>Cotações</span></a>
+      }
+      @if (hasPermission("compras_empresariais.pedidos.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Pedidos"))" href="/ComprasEmpresariais/Pedidos"><sigov-icon name="commercial" size="18"/><span>Pedidos</span></a>
+      }
+      @if (hasPermission("compras_empresariais.recebimentos.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Recebimentos"))" href="/ComprasEmpresariais/Recebimentos"><sigov-icon name="commercial" size="18"/><span>Recebimentos</span></a>
+      }
+      @if (hasPermission("compras_empresariais.divergencias.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Divergencias"))" href="/ComprasEmpresariais/Divergencias"><sigov-icon name="workflow" size="18"/><span>Divergências</span></a>
+      }
+      @if (hasPermission("compras_empresariais.devolucoes.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Devolucoes"))" href="/ComprasEmpresariais/Devolucoes"><sigov-icon name="commercial" size="18"/><span>Devoluções</span></a>
+      }
+      @if (hasPermission("compras_empresariais.faturas.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Faturas"))" href="/ComprasEmpresariais/Faturas"><sigov-icon name="finance" size="18"/><span>Faturas</span></a>
+      }
+      @if (hasPermission("compras_empresariais.avaliacoes.gerenciar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Avaliacoes"))" href="/ComprasEmpresariais/Avaliacoes"><sigov-icon name="audit" size="18"/><span>Avaliações</span></a>
+      }
+      @if (hasPermission("compras_empresariais.relatorios.visualizar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Relatorios"))" href="/ComprasEmpresariais/Relatorios"><sigov-icon name="documents" size="18"/><span>Relatórios</span></a>
+      }
+      @if (hasPermission("compras_empresariais.configuracao.gerenciar") || isGlobalAdmin) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Configuracao"))" href="/ComprasEmpresariais/Configuracao"><sigov-icon name="settings" size="18"/><span>Política de aprovação</span></a>
+      }
+    </details>
+    }
     @if (canSeeAnyEnterprise) {
     <details class="sigov-nav-group" @opened(new[]{"/Empresarial"})><summary><sigov-icon name="commercial" size="16" />Empresarial SaaS</summary>
-      <a class="sigov-nav-link@(active("/Empresarial/Comercial/Dashboard"))" href="/Empresarial/Comercial/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard</span></a>
+      @if (MenuPermissions.CanSeeModule(User, "comercial")) {
+      <a class="sigov-nav-link@(active("/Empresarial/Comercial/Dashboard"))" href="/Empresarial/Comercial/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard Comercial</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Clientes"))" href="/Empresarial/Comercial/Clientes"><sigov-icon name="commercial" size="18"/><span>Clientes</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Leads"))" href="/Empresarial/Comercial/Leads"><sigov-icon name="commercial" size="18"/><span>Leads</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Oportunidades"))" href="/Empresarial/Comercial/Oportunidades"><sigov-icon name="commercial" size="18"/><span>Oportunidades</span></a>
@@ -260,33 +308,40 @@
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Propostas"))" href="/Empresarial/Comercial/Propostas"><sigov-icon name="commercial" size="18"/><span>Propostas</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/Pedidos"))" href="/Empresarial/Comercial/Pedidos"><sigov-icon name="commercial" size="18"/><span>Pedidos</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Comercial/TabelasPreco"))" href="/Empresarial/Comercial/TabelasPreco"><sigov-icon name="commercial" size="18"/><span>Tabelas de Preço</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Comercial/Relatorios"))" href="/Empresarial/Comercial/Relatorios"><sigov-icon name="commercial" size="18"/><span>Relatorios</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Dashboard"))" href="/Empresarial/OrdemServico/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Ordens"))" href="/Empresarial/OrdemServico/Ordens"><sigov-icon name="commercial" size="18"/><span>Ordens</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/Comercial/Relatorios"))" href="/Empresarial/Comercial/Relatorios"><sigov-icon name="commercial" size="18"/><span>Relatórios</span></a>
+      }
+      @if (MenuPermissions.CanSeeModule(User, "ordem_servico")) {
+      <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Dashboard"))" href="/Empresarial/OrdemServico/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard OS</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Ordens"))" href="/Empresarial/OrdemServico/Ordens"><sigov-icon name="commercial" size="18"/><span>Ordens de Serviço</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Agenda"))" href="/Empresarial/OrdemServico/Agenda"><sigov-icon name="commercial" size="18"/><span>Agenda</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Sla"))" href="/Empresarial/OrdemServico/Sla"><sigov-icon name="commercial" size="18"/><span>SLA</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Checklist"))" href="/Empresarial/OrdemServico/Checklist"><sigov-icon name="commercial" size="18"/><span>Checklist</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Apontamentos"))" href="/Empresarial/OrdemServico/Apontamentos"><sigov-icon name="commercial" size="18"/><span>Apontamentos</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Relatorios"))" href="/Empresarial/OrdemServico/Relatorios"><sigov-icon name="commercial" size="18"/><span>Relatorios</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Dashboard"))" href="/Empresarial/Estoque/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/OrdemServico/Relatorios"))" href="/Empresarial/OrdemServico/Relatorios"><sigov-icon name="commercial" size="18"/><span>Relatórios OS</span></a>
+      }
+      @if (MenuPermissions.CanSeeModule(User, "estoque_compras")) {
+      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Dashboard"))" href="/Empresarial/Estoque/Dashboard"><sigov-icon name="commercial" size="18"/><span>Dashboard Estoque</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Estoque/Produtos"))" href="/Empresarial/Estoque/Produtos"><sigov-icon name="commercial" size="18"/><span>Produtos</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Estoque/Almoxarifados"))" href="/Empresarial/Estoque/Almoxarifados"><sigov-icon name="commercial" size="18"/><span>Almoxarifados</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Estoque/Saldos"))" href="/Empresarial/Estoque/Saldos"><sigov-icon name="commercial" size="18"/><span>Saldos</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Estoque/Movimentos"))" href="/Empresarial/Estoque/Movimentos"><sigov-icon name="commercial" size="18"/><span>Movimentos</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Requisicoes"))" href="/Empresarial/Estoque/Requisicoes"><sigov-icon name="commercial" size="18"/><span>Requisicoes</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Inventarios"))" href="/Empresarial/Estoque/Inventarios"><sigov-icon name="commercial" size="18"/><span>Inventarios</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Requisicoes"))" href="/Empresarial/Estoque/Requisicoes"><sigov-icon name="commercial" size="18"/><span>Requisições</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Inventarios"))" href="/Empresarial/Estoque/Inventarios"><sigov-icon name="commercial" size="18"/><span>Inventários</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Estoque/Fornecedores"))" href="/Empresarial/Estoque/Fornecedores"><sigov-icon name="commercial" size="18"/><span>Fornecedores</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Estoque/Compras"))" href="/Empresarial/Estoque/Compras"><sigov-icon name="commercial" size="18"/><span>Compras</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Relatorios"))" href="/Empresarial/Estoque/Relatorios"><sigov-icon name="commercial" size="18"/><span>Relatorios</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Industrial/Dashboard"))" href="/Empresarial/Industrial/Dashboard"><sigov-icon name="industry" size="18"/><span>Dashboard</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/Estoque/Relatorios"))" href="/Empresarial/Estoque/Relatorios"><sigov-icon name="commercial" size="18"/><span>Relatórios Estoque</span></a>
+      }
+      @if (canSeeIndustry || MenuPermissions.CanSeeModule(User, "manutencao_industrial")) {
+      <a class="sigov-nav-link@(active("/Empresarial/Industrial/Dashboard"))" href="/Empresarial/Industrial/Dashboard"><sigov-icon name="industry" size="18"/><span>Dashboard Industrial</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Ativos"))" href="/Empresarial/Industrial/Ativos"><sigov-icon name="industry" size="18"/><span>Ativos</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/PlanosManutencao"))" href="/Empresarial/Industrial/PlanosManutencao"><sigov-icon name="industry" size="18"/><span>Planos de Manutenção</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Programadas"))" href="/Empresarial/Industrial/Programadas"><sigov-icon name="industry" size="18"/><span>Manutenções Programadas</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Medidores"))" href="/Empresarial/Industrial/Medidores"><sigov-icon name="industry" size="18"/><span>Medidores</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Paradas"))" href="/Empresarial/Industrial/Paradas"><sigov-icon name="industry" size="18"/><span>Paradas</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Industrial/Producao"))" href="/Empresarial/Industrial/Producao"><sigov-icon name="industry" size="18"/><span>Producao</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/Industrial/Producao"))" href="/Empresarial/Industrial/Producao"><sigov-icon name="industry" size="18"/><span>Produção</span></a>
       <a class="sigov-nav-link@(active("/Empresarial/Industrial/Qualidade"))" href="/Empresarial/Industrial/Qualidade"><sigov-icon name="industry" size="18"/><span>Qualidade</span></a>
-      <a class="sigov-nav-link@(active("/Empresarial/Industrial/Relatorios"))" href="/Empresarial/Industrial/Relatorios"><sigov-icon name="industry" size="18"/><span>Relatorios</span></a>
+      <a class="sigov-nav-link@(active("/Empresarial/Industrial/Relatorios"))" href="/Empresarial/Industrial/Relatorios"><sigov-icon name="industry" size="18"/><span>Relatórios Industrial</span></a>
+      }
     </details>
     }
     <details class="sigov-nav-group" @opened(new[]{"/SystemHealth","/Observabilidade","/Seguranca","/Auditoria","/Lgpd"})><summary><sigov-icon name="shield" size="16" />Governança e Segurança</summary>

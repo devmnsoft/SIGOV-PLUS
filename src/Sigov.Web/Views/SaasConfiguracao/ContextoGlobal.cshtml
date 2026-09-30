@@ -1,21 +1,74 @@
 @{ ViewData["Title"] = "Contexto operacional"; }
 <section class="container-fluid py-3" data-saas-page="contexto-operacional">
-  <div id="ctxAssistedBanner" class="alert alert-warning d-none" role="status"><strong>Contexto assistido ativo.</strong> Suas ações nesta empresa estão sendo auditadas.</div>
+  <div id="ctxAssistedBanner" class="alert alert-warning d-none" role="status"><strong>Contexto assistido ativo.</strong> Suas ações nesta organização estão sendo auditadas pelo controle interno.</div>
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div><h1 class="h3 mb-1">Contexto operacional</h1><p class="text-muted mb-0">Selecione somente os ambientes disponibilizados para seu acesso.</p></div>
+    <div>
+      <h1 class="h3 mb-1">Contexto operacional</h1>
+      <p class="text-muted mb-0">Selecione a organização institucional, unidade e exercício autorizados para iniciar suas operações.</p>
+    </div>
     <button id="ctxReturnGlobal" class="btn btn-outline-secondary d-none" type="button">Voltar ao contexto global</button>
   </div>
+
+  <details class="card mb-3" open>
+    <summary class="card-header fw-semibold" style="cursor:pointer">Ajuda da jornada — Seleção de Contexto</summary>
+    <div class="card-body">
+      <p class="mb-1"><strong>Para que serve:</strong> Define a esfera de governo (municipal, estadual ou federal), entidade gestora, unidade executora e exercício fiscal vigentes para todas as consultas e operações.</p>
+      <p class="mb-1"><strong>Quem utiliza:</strong> Servidores, gestores, requisitantes, fiscais e aprovadores com vínculos autorizados.</p>
+      <p class="mb-1"><strong>Pré-requisitos:</strong> Credencial ativa com perfis e permissões vinculados a ao menos uma organização.</p>
+      <p class="mb-1"><strong>Como executar:</strong> Pesquise pelo nome ou sigla da organização, selecione a unidade administrativa correspondente, o exercício orçamentário e o sistema a operar.</p>
+      <p class="mb-0"><strong>Resultado esperado:</strong> Confirmação e atualização imediata do menu de módulos, cabeçalho e alçadas de decisão.</p>
+    </div>
+  </details>
+
   <div id="ctxSummary" class="alert alert-light border" aria-live="polite">Carregando contexto atual…</div>
   <form id="ctxForm" class="card shadow-sm" novalidate>
-    <div class="card-body"><div id="ctxGeneralError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
-      <div class="col-lg-6 position-relative"><label for="ctxCompanySearch" class="form-label">Empresa</label><input id="ctxCompanySearch" class="form-control" autocomplete="off" placeholder="Digite ao menos 2 caracteres" aria-describedby="ctxCompanyHelp" required><div id="ctxCompanyResults" class="list-group position-absolute start-0 end-0 mx-2 shadow d-none" style="z-index:20"></div><div id="ctxCompanyHelp" class="form-text">A pesquisa consulta empresas autorizadas no servidor.</div></div>
-      <div class="col-lg-6"><label for="ctxUnit" class="form-label">Unidade</label><select id="ctxUnit" class="form-select" required disabled><option value="">Selecione a empresa primeiro</option></select></div>
-      <div class="col-md-4"><label for="ctxExercise" class="form-label">Exercício</label><select id="ctxExercise" class="form-select" required disabled><option value="">Selecione uma unidade</option></select></div>
-      <div class="col-md-4"><label for="ctxSystem" class="form-label">Sistema</label><select id="ctxSystem" class="form-select" required disabled><option value="">Selecione a empresa</option></select></div>
-      <div class="col-md-4"><label for="ctxMode" class="form-label">Modo de acesso</label><select id="ctxMode" class="form-select"><option value="OPERACIONAL">Operacional</option><option value="LEITURA">Somente leitura</option></select></div>
-      <div id="ctxReasonGroup" class="col-12 d-none"><label for="ctxReason" class="form-label">Justificativa obrigatória</label><textarea id="ctxReason" class="form-control" minlength="15" maxlength="1000" rows="3" aria-describedby="ctxReasonHelp"></textarea><div id="ctxReasonHelp" class="form-text">Explique o motivo do acesso assistido (<span id="ctxReasonCount">0</span>/1000).</div></div>
-    </div></div>
-    <div class="card-footer d-flex justify-content-end gap-2"><button id="ctxRetry" class="btn btn-light d-none" type="button">Tentar novamente</button><button class="btn btn-primary" type="submit"><span id="ctxSpinner" class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Confirmar contexto</button></div>
+    <div class="card-body">
+      <div id="ctxGeneralError" class="alert alert-danger d-none" role="alert"></div>
+      <div class="row g-3">
+        <div class="col-lg-6 position-relative">
+          <label for="ctxCompanySearch" class="form-label">Organização / Órgão</label>
+          <input id="ctxCompanySearch" class="form-control" autocomplete="off" placeholder="Digite ao menos 2 caracteres para pesquisar" aria-describedby="ctxCompanyHelp" required>
+          <div id="ctxCompanyResults" class="list-group position-absolute start-0 end-0 mx-2 shadow d-none" style="z-index:20"></div>
+          <div id="ctxCompanyHelp" class="form-text">A pesquisa consulta prefeituras, órgãos estaduais e ministérios autorizados no servidor.</div>
+        </div>
+        <div class="col-lg-6">
+          <label for="ctxUnit" class="form-label">Unidade administrativa / Gestora</label>
+          <select id="ctxUnit" class="form-select" required disabled>
+            <option value="">Selecione a organização primeiro</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="ctxExercise" class="form-label">Exercício fiscal</label>
+          <select id="ctxExercise" class="form-select" required disabled>
+            <option value="">Selecione uma unidade</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="ctxSystem" class="form-label">Sistema / Módulo</label>
+          <select id="ctxSystem" class="form-select" required disabled>
+            <option value="">Selecione a organização</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="ctxMode" class="form-label">Modo de acesso</label>
+          <select id="ctxMode" class="form-select">
+            <option value="OPERACIONAL">Operacional (leitura e gravação)</option>
+            <option value="LEITURA">Somente leitura</option>
+          </select>
+        </div>
+        <div id="ctxReasonGroup" class="col-12 d-none">
+          <label for="ctxReason" class="form-label">Justificativa obrigatória</label>
+          <textarea id="ctxReason" class="form-control" minlength="15" maxlength="1000" rows="3" aria-describedby="ctxReasonHelp"></textarea>
+          <div id="ctxReasonHelp" class="form-text">Explique o motivo do acesso (<span id="ctxReasonCount">0</span>/1000).</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <button id="ctxRetry" class="btn btn-light d-none" type="button">Tentar novamente</button>
+      <button class="btn btn-primary" type="submit">
+        <span id="ctxSpinner" class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Confirmar contexto
+      </button>
+    </div>
   </form>
 </section>
 <script src="~/js/modules/saas.contexto-global.js"></script>

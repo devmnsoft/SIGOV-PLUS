@@ -60,9 +60,20 @@ left join sigov.os_tecnico sol on (sol.tenant_id,sol.usuario_id)=(r.tenant_id,r.
 where a.tenant_id=@t and a.status='PENDENTE' and (a.aprovador_id=@us or a.aprovador_id is null)
 and (@busca::text is null or r.numero ilike @term or coalesce(r.setor,'') ilike @term or sol.nome ilike @term)
 and (@urgencia is null or r.urgencia=@urgencia);
-select a.id EtapaId,a.nivel Nivel,a.limite Limite,a.aprovador_id AprovadorId,(a.aprovador_id is null) Bloqueada,(a.aprovador_id=@us) DecisivelPorMim,a.requisicao_id RequisicaoId,r.numero Numero,r.valor_estimado Total,r.status StatusRequisicao,r.urgencia Urgencia,r.created_at SolicitadaEm,a.created_at CriadaEm,a.version Version,coalesce(sol.nome,r.solicitante_id::text) SolicitanteNome,r.setor Setor,case when a.aprovador_id is null then 'Aguardando configuração institucional' when a.nivel>=(select coalesce(max(b.nivel),0) from sigov.compras_empresarial_aprovacao b where b.tenant_id=a.tenant_id and b.requisicao_id=a.requisicao_id and b.ciclo=a.ciclo) then 'Decisão encerra o ciclo' else 'Próxima etapa: nível '||(a.nivel+1)::text end ProximaAcao
+with ativo as (
+    select requisicao_id, ciclo, min(nivel) as nivel_ativo
+    from sigov.compras_empresarial_aprovacao
+    where tenant_id=@t and status='PENDENTE'
+    group by requisicao_id, ciclo
+)
+select a.id EtapaId,a.nivel Nivel,a.limite Limite,a.aprovador_id AprovadorId,(a.aprovador_id is null) Bloqueada,(a.aprovador_id=@us and a.nivel=at.nivel_ativo and r.solicitante_id<>@us) DecisivelPorMim,a.requisicao_id RequisicaoId,r.numero Numero,r.valor_estimado Total,r.status StatusRequisicao,r.urgencia Urgencia,r.created_at SolicitadaEm,a.created_at CriadaEm,a.version Version,coalesce(sol.nome,r.solicitante_id::text) SolicitanteNome,r.setor Setor,
+case when a.aprovador_id is null then 'Aguardando configuração institucional'
+     when a.nivel > at.nivel_ativo then 'Aguardando nível anterior (' || at.nivel_ativo::text || ')'
+     when a.nivel>=(select coalesce(max(b.nivel),0) from sigov.compras_empresarial_aprovacao b where b.tenant_id=a.tenant_id and b.requisicao_id=a.requisicao_id and b.ciclo=a.ciclo) then 'Decisão encerra o ciclo'
+     else 'Próxima etapa: nível '||(a.nivel+1)::text end ProximaAcao
 from sigov.compras_empresarial_aprovacao a
 join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id and not r.is_deleted
+left join ativo at on at.requisicao_id=a.requisicao_id and at.ciclo=a.ciclo
 left join sigov.os_tecnico sol on (sol.tenant_id,sol.usuario_id)=(r.tenant_id,r.solicitante_id) and not sol.is_deleted
 where a.tenant_id=@t and a.status='PENDENTE' and (a.aprovador_id=@us or a.aprovador_id is null)
 and (@busca::text is null or r.numero ilike @term or coalesce(r.setor,'') ilike @term or sol.nome ilike @term)
@@ -110,7 +121,7 @@ order by r.created_at desc,r.id offset @off limit @lim";
 from sigov.compras_empresarial_aprovacao a
 join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id and not r.is_deleted
 where a.tenant_id=@t and a.id=@id {visibilidade};
-select a.id EtapaId,a.ciclo Ciclo,a.nivel Nivel,a.limite Limite,a.status StatusEtapa,a.aprovador_id AprovadorId,coalesce(os.nome,a.aprovador_id::text) AprovadorNome,(a.aprovador_id is null) Bloqueada,(a.aprovador_id=@us) DecisivelPorMim,a.version VersionEtapa,a.decidido_em DecididaEm,a.motivo Motivo,r.id RequisicaoId,r.numero Numero,r.status StatusRequisicao,r.urgencia Urgencia,r.setor Setor,coalesce(sol.nome,r.solicitante_id::text) SolicitanteNome,r.created_at SolicitadaEm,r.valor_estimado Total,a.regra_snapshot::text RegraSnapshot
+select a.id EtapaId,a.ciclo Ciclo,a.nivel Nivel,a.limite Limite,a.status StatusEtapa,a.aprovador_id AprovadorId,coalesce(os.nome,a.aprovador_id::text) AprovadorNome,(a.aprovador_id is null) Bloqueada,(a.aprovador_id=@us and r.solicitante_id<>@us) DecisivelPorMim,a.version VersionEtapa,a.decidido_em DecididaEm,a.motivo Motivo,r.id RequisicaoId,r.numero Numero,r.status StatusRequisicao,r.urgencia Urgencia,r.setor Setor,coalesce(sol.nome,r.solicitante_id::text) SolicitanteNome,r.created_at SolicitadaEm,r.valor_estimado Total,a.regra_snapshot::text RegraSnapshot,r.solicitante_id SolicitanteId
 from sigov.compras_empresarial_aprovacao a
 join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id and not r.is_deleted
 left join sigov.os_tecnico sol on (sol.tenant_id,sol.usuario_id)=(r.tenant_id,r.solicitante_id) and not sol.is_deleted
@@ -139,11 +150,45 @@ order by created_at desc,id desc limit 50";
         var etapas = (await reader.ReadAsync<AprovacaoEtapaLinha>()).AsList();
         var historico = (await reader.ReadAsync<RequisicaoHistorico>()).AsList();
         historico.Reverse();
+
+        // Preservação do snapshot histórico: se a etapa possui itens congelados no snapshot do ciclo, use-os
+        if (!string.IsNullOrWhiteSpace(cab.RegraSnapshot))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(cab.RegraSnapshot);
+                if (doc.RootElement.TryGetProperty("itens", out var itensProp) && itensProp.ValueKind == System.Text.Json.JsonValueKind.Array && itensProp.GetArrayLength() > 0)
+                {
+                    var snapshotItens = new List<RequisicaoItemDetalhe>();
+                    foreach (var el in itensProp.EnumerateArray())
+                    {
+                        var ordem = el.TryGetProperty("ordem", out var o) ? o.GetInt32() : snapshotItens.Count + 1;
+                        var tipo = el.TryGetProperty("tipo", out var tp) ? tp.GetString() ?? "MATERIAL" : "MATERIAL";
+                        var desc = el.TryGetProperty("descricao", out var d) ? d.GetString() ?? "Item" : "Item";
+                        var spec = el.TryGetProperty("especificacao", out var sp) ? sp.GetString() : null;
+                        var un = el.TryGetProperty("unidade", out var u) ? u.GetString() ?? "UN" : "UN";
+                        var qtd = el.TryGetProperty("quantidade", out var q) ? q.GetDecimal() : 0m;
+                        var val = el.TryGetProperty("valor_estimado", out var v) ? v.GetDecimal() : 0m;
+                        var part = el.TryGetProperty("permite_parcial", out var p) && p.GetBoolean();
+                        var insp = el.TryGetProperty("exige_inspecao", out var i) && i.GetBoolean();
+                        snapshotItens.Add(new RequisicaoItemDetalhe(Guid.Empty, ordem, tipo, desc, spec, un, qtd, val, part, insp));
+                    }
+                    if (snapshotItens.Count > 0)
+                    {
+                        itens = snapshotItens;
+                    }
+                }
+            }
+            catch { /* Snapshot sem itens detalhados ou legado: mantém itens atuais */ }
+        }
+
+        var priorUnapproved = etapas.Any(e => e.Nivel < cab.Nivel && e.Status != "APROVADO");
+        var decidivelPorMim = cab.DecisivelPorMim && !priorUnapproved && cab.StatusEtapa == "PENDENTE";
         var proxima = etapas.FirstOrDefault(e => e.Status == "PENDENTE" && e.Nivel >= cab.Nivel);
-        return new AprovacaoEtapaDetalhe(cab.EtapaId, cab.Ciclo, cab.Nivel, cab.Limite, cab.StatusEtapa, cab.AprovadorId, cab.AprovadorNome, cab.Bloqueada, cab.DecisivelPorMim, cab.VersionEtapa, cab.DecididaEm, cab.Motivo, cab.RequisicaoId, cab.Numero, cab.StatusRequisicao, cab.Urgencia, cab.Setor, cab.SolicitanteNome, cab.SolicitadaEm, cab.Total, cab.RegraSnapshot, itens, etapas, proxima, historico);
+        return new AprovacaoEtapaDetalhe(cab.EtapaId, cab.Ciclo, cab.Nivel, cab.Limite, cab.StatusEtapa, cab.AprovadorId, cab.AprovadorNome, cab.Bloqueada, decidivelPorMim, cab.VersionEtapa, cab.DecididaEm, cab.Motivo, cab.RequisicaoId, cab.Numero, cab.StatusRequisicao, cab.Urgencia, cab.Setor, cab.SolicitanteNome, cab.SolicitadaEm, cab.Total, cab.RegraSnapshot, itens, etapas, proxima, historico);
     }
 
-    private sealed record CabecalhoEtapa(Guid EtapaId,int Ciclo,int Nivel,decimal Limite,string StatusEtapa,Guid? AprovadorId,string? AprovadorNome,bool Bloqueada,bool DecisivelPorMim,long VersionEtapa,DateTime? DecididaEm,string? Motivo,Guid RequisicaoId,string Numero,string StatusRequisicao,string Urgencia,string? Setor,string SolicitanteNome,DateTime SolicitadaEm,decimal Total,string? RegraSnapshot);
+    private sealed record CabecalhoEtapa(Guid EtapaId,int Ciclo,int Nivel,decimal Limite,string StatusEtapa,Guid? AprovadorId,string? AprovadorNome,bool Bloqueada,bool DecisivelPorMim,long VersionEtapa,DateTime? DecididaEm,string? Motivo,Guid RequisicaoId,string Numero,string StatusRequisicao,string Urgencia,string? Setor,string SolicitanteNome,DateTime SolicitadaEm,decimal Total,string? RegraSnapshot,Guid SolicitanteId);
 
     public async Task<AprovacaoDecisaoResultado> DecidirAsync(ComprasContext context, Guid etapaId, AprovacaoDecisaoRequest request, CancellationToken ct)
     {
@@ -152,7 +197,6 @@ order by created_at desc,id desc limit 50";
         await using var tx = await connection.BeginTransactionAsync(ct);
         try
         {
-            await LockAsync(connection, tx, context, $"ETAPA|{etapaId:D}", ct);
             var decisao = (request.Decisao ?? string.Empty).Trim().ToUpperInvariant();
             var motivo = request.Motivo?.Trim();
             var hash = Sha256($"{etapaId:D}|{decisao}|{(decisao == "APROVAR" ? string.Empty : motivo)}|{request.Version}");
@@ -164,14 +208,30 @@ order by created_at desc,id desc limit 50";
                 await tx.CommitAsync(ct);
                 return new AprovacaoDecisaoResultado(etapaId, estado.EtapaStatus, estado.RequisicaoStatus, true);
             }
-            var etapa = await connection.QuerySingleOrDefaultAsync<EtapaAtiva>(new CommandDefinition("select status Status,version Version,aprovador_id AprovadorId,ciclo Ciclo,requisicao_id RequisicaoId,nivel Nivel from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id for update", new { t = context.TenantId, id = etapaId }, tx, cancellationToken: ct));
+            var etapa = await connection.QuerySingleOrDefaultAsync<EtapaAtiva>(new CommandDefinition("select status Status,version Version,aprovador_id AprovadorId,ciclo Ciclo,requisicao_id RequisicaoId,nivel Nivel,limite Limite from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id for update", new { t = context.TenantId, id = etapaId }, tx, cancellationToken: ct));
             if (etapa is null) throw new KeyNotFoundException("Etapa de aprovação não encontrada no contexto autorizado.");
+            await LockAsync(connection, tx, context, $"REQUISICAO|{etapa.RequisicaoId:D}", ct);
             if (etapa.Status != "PENDENTE") throw new InvalidOperationException("Esta etapa de aprovação já foi decidida.");
             if (etapa.Version != request.Version) throw new ComprasConcurrencyException("Versão desatualizada; recarregue a fila de aprovações e tente novamente.");
             if (etapa.AprovadorId is null) throw new InvalidOperationException("Esta etapa está bloqueada e aguarda configuração institucional antes de qualquer decisão.");
             if (etapa.AprovadorId != context.UsuarioId) throw new InvalidOperationException("Você não é o aprovador designado para esta etapa.");
-            var requisicao = await connection.QuerySingleOrDefaultAsync<(string Status, long Version)?>(new CommandDefinition("select status,version from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id for update", new { t = context.TenantId, id = etapa.RequisicaoId }, tx, cancellationToken: ct));
+            var requisicao = await connection.QuerySingleOrDefaultAsync<(string Status, long Version, Guid SolicitanteId)?>(new CommandDefinition("select status,version,solicitante_id SolicitanteId from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id for update", new { t = context.TenantId, id = etapa.RequisicaoId }, tx, cancellationToken: ct));
             if (requisicao is null || requisicao.Value.Status != "PENDENTE_APROVACAO") throw new InvalidOperationException("A requisição vinculada não está pendente de aprovação.");
+
+            // Regra de segregação de funções: o solicitante não pode aprovar a própria requisição
+            if (requisicao.Value.SolicitanteId == context.UsuarioId)
+                throw new InvalidOperationException("Regra de segregação: o solicitante da requisição não pode aprovar a própria solicitação.");
+
+            // Revalidação de elegibilidade e alçada atual do aprovador
+            var nucleo = await ResolverTenantNucleoAsync(connection, tx, context.TenantId, ct);
+            var elegiveis = await AprovadoresElegiveisAsync(connection, tx, nucleo, etapa.Limite, ct);
+            if (!elegiveis.Contains(context.UsuarioId))
+                throw new InvalidOperationException("O usuário não possui mais elegibilidade ou alçada suficiente para aprovar esta etapa.");
+
+            // Sequência obrigatória: apenas o nível ativo recebe decisão; níveis anteriores devem estar aprovados
+            var priorUnapproved = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@rq and ciclo=@ciclo and nivel < @nivel and status <> 'APROVADO')", new { t = context.TenantId, rq = etapa.RequisicaoId, ciclo = etapa.Ciclo, nivel = etapa.Nivel }, tx, cancellationToken: ct));
+            if (priorUnapproved)
+                throw new InvalidOperationException("Não é possível decidir esta etapa antes da aprovação de todos os níveis anteriores.");
 
             var etapaDestino = decisao switch { "APROVAR" => "APROVADO", "REJEITAR" => "REJEITADA", "DEVOLVER" => "DEVOLVIDA", _ => throw new ArgumentException("Decisão inválida.") };
             var requisicaoDestino = decisao == "APROVAR" ? "PENDENTE_APROVACAO" : decisao == "REJEITAR" ? "REJEITADA" : "DEVOLVIDA";
@@ -184,6 +244,7 @@ order by created_at desc,id desc limit 50";
             }
             var encerraCiclo = decisao != "APROVAR" || cicloCompleto;
             await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_aprovacao set status=@ns,motivo=@motivo,decidido_em=now(),updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id", new { t = context.TenantId, id = etapaId, ns = etapaDestino, motivo = decisao == "APROVAR" ? (string?)null : motivo, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
+            // Quorum: decisão do nível cancela outros candidatos do mesmo nível; se encerrar o ciclo, cancela etapas pendentes subsequentes
             await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_aprovacao set status='CANCELADO',updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and requisicao_id=@rq and ciclo=@ciclo and id<>@id and status='PENDENTE' and (@EncerraCiclo or nivel=@nivel)", new { t = context.TenantId, rq = etapa.RequisicaoId, ciclo = etapa.Ciclo, id = etapaId, EncerraCiclo = encerraCiclo, nivel = etapa.Nivel, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
             if (requisicaoDestino != "PENDENTE_APROVACAO")
             {
@@ -199,6 +260,111 @@ order by created_at desc,id desc limit 50";
             await connection.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,'APROVACAO_DECISAO',@key,@id,@hash)", new { t = context.TenantId, key = request.IdempotencyKey, id = etapaId, hash }, tx, cancellationToken: ct));
             await tx.CommitAsync(ct);
             return new AprovacaoDecisaoResultado(etapaId, etapaDestino, requisicaoDestino, false);
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    public async Task<ReavaliarEncaminhamentoResultado> ReavaliarEncaminhamentoAsync(ComprasContext context, Guid requisicaoId, ReavaliarEncaminhamentoRequest request, CancellationToken ct)
+    {
+        await using var connection = factory.CreateConnection();
+        await connection.OpenAsync(ct);
+        await using var tx = await connection.BeginTransactionAsync(ct);
+        try
+        {
+            await LockAsync(connection, tx, context, $"REQUISICAO|{requisicaoId:D}|REAVALIAR", ct);
+            var motivo = request.Motivo?.Trim();
+            var hash = Sha256($"{requisicaoId:D}|{motivo}");
+            if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+            {
+                var anterior = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+                    "select request_hash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='REAVALIAR_ENCAMINHAMENTO' and chave=@key",
+                    new { t = context.TenantId, key = request.IdempotencyKey }, tx, cancellationToken: ct));
+                if (anterior is not null)
+                {
+                    if (anterior != hash) throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+                    var maxCiclo = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(ciclo),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id", new { t = context.TenantId, id = requisicaoId }, tx, cancellationToken: ct));
+                    await tx.CommitAsync(ct);
+                    return new ReavaliarEncaminhamentoResultado(requisicaoId, maxCiclo, true, "Encaminhamento já reavaliado para esta chave idempotente.", true);
+                }
+            }
+
+            var req = await connection.QuerySingleOrDefaultAsync<(string Status, long Version, Guid SolicitanteId)?>(new CommandDefinition(
+                "select status, version, solicitante_id SolicitanteId from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id and not is_deleted for update",
+                new { t = context.TenantId, id = requisicaoId }, tx, cancellationToken: ct));
+            if (req is null) throw new KeyNotFoundException("Requisição não encontrada no contexto autorizado.");
+            if (req.Value.Status != "PENDENTE_APROVACAO")
+                throw new InvalidOperationException("Somente requisições com aprovação pendente podem ter o encaminhamento reavaliado.");
+
+            var ciclo = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                "select coalesce(max(ciclo),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id",
+                new { t = context.TenantId, id = requisicaoId }, tx, cancellationToken: ct));
+
+            var bloqueadas = (await connection.QueryAsync<(Guid Id, int Nivel, decimal Limite)>(new CommandDefinition(
+                "select id, nivel, limite from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo and status='PENDENTE' and aprovador_id is null order by nivel for update",
+                new { t = context.TenantId, id = requisicaoId, ciclo }, tx, cancellationToken: ct))).AsList();
+
+            if (bloqueadas.Count == 0)
+            {
+                await tx.CommitAsync(ct);
+                return new ReavaliarEncaminhamentoResultado(requisicaoId, ciclo, false, "Não há etapas bloqueadas pendentes no ciclo atual.", false);
+            }
+
+            var nucleo = await ResolverTenantNucleoAsync(connection, tx, context.TenantId, ct);
+            var desbloqueadas = 0;
+            foreach (var b in bloqueadas)
+            {
+                var elegiveis = (await AprovadoresElegiveisAsync(connection, tx, nucleo, b.Limite, ct))
+                    .Where(ap => ap != context.UsuarioId && ap != req.Value.SolicitanteId)
+                    .ToList();
+                if (elegiveis.Count > 0)
+                {
+                    var primeiro = elegiveis[0];
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "update sigov.compras_empresarial_aprovacao set aprovador_id=@ap, updated_at=now(), updated_by=@us, version=version+1 where tenant_id=@t and id=@id",
+                        new { t = context.TenantId, id = b.Id, ap = primeiro, us = context.UsuarioId.ToString() }, tx, cancellationToken: ct));
+                    desbloqueadas++;
+                    for (var i = 1; i < elegiveis.Count; i++)
+                    {
+                        var extra = elegiveis[i];
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            @"insert into sigov.compras_empresarial_aprovacao(id,tenant_id,requisicao_id,nivel,aprovador_id,limite,status,regra_snapshot,ciclo,created_by,updated_by,correlation_id)
+                              select gen_random_uuid(),tenant_id,requisicao_id,nivel,@ap,limite,'PENDENTE',regra_snapshot,ciclo,@us,@us,@corr
+                              from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id",
+                            new { t = context.TenantId, id = b.Id, ap = extra, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
+                    }
+                }
+            }
+
+            var aindaBloqueada = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                "select exists(select 1 from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo and status='PENDENTE' and aprovador_id is null)",
+                new { t = context.TenantId, id = requisicaoId, ciclo }, tx, cancellationToken: ct));
+
+            if (!aindaBloqueada)
+            {
+                var usuarioNucleo = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition("select id from sigov.usuario where md5('sigov:usuario:'||id::text)::uuid=@us limit 1", new { us = context.UsuarioId }, tx, cancellationToken: ct));
+                await ConcluirPendenciasAsync(connection, tx, context, requisicaoId, usuarioNucleo, motivo ?? "Encaminhamento reavaliado com sucesso.", ciclo, ct);
+            }
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                "insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'REQUISICAO',@rq,'ENCAMINHAMENTO_REAVALIADO',jsonb_build_object('ciclo',@ciclo,'motivo',@motivo,'desbloqueadas',@desbloqueadas,'total_bloqueadas',@totalBloqueadas),@us,@corr)",
+                new { t = context.TenantId, rq = requisicaoId, ciclo, motivo, desbloqueadas, totalBloqueadas = bloqueadas.Count, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
+
+            if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,'REAVALIAR_ENCAMINHAMENTO',@key,@rq,@hash)",
+                    new { t = context.TenantId, key = request.IdempotencyKey, rq = requisicaoId, hash }, tx, cancellationToken: ct));
+            }
+
+            await tx.CommitAsync(ct);
+            var msg = desbloqueadas > 0
+                ? $"Reavaliação concluída: {desbloqueadas} etapa(s) foram atribuídas a aprovadores elegíveis."
+                : "Nenhum novo aprovador com alçada foi identificado para as etapas bloqueadas. Revise a configuração institucional.";
+            return new ReavaliarEncaminhamentoResultado(requisicaoId, ciclo, desbloqueadas > 0, msg, false);
         }
         catch
         {
@@ -332,6 +498,6 @@ on conflict(tenant_id,modulo,tipo,entidade,entidade_id) where status in('ABERTA'
 
     private static string Sha256(string valor) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(valor))).ToLowerInvariant();
 
-    private sealed record EtapaAtiva(string Status, long Version, Guid? AprovadorId, int Ciclo, Guid RequisicaoId, int Nivel);
+    private sealed record EtapaAtiva(string Status, long Version, Guid? AprovadorId, int Ciclo, Guid RequisicaoId, int Nivel, decimal Limite);
     private sealed record PoliticaAtivaRow(long Id, string Nome, string EsferaGoverno, string TipoEntidade, string? UnidadeGestora, string? UnidadeExecutora, DateTime AtualizadaEm);
 }
