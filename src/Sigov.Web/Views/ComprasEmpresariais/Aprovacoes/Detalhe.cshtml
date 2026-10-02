@@ -112,7 +112,18 @@
 @if(!string.IsNullOrWhiteSpace(Model.RegraSnapshot))
 {
   <section class="panel mb-3">
-    <h2 class="h5">Snapshot da regra aplicada no envio (Ciclo @Model.Ciclo)</h2>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 mb-0">Snapshot da regra aplicada no envio (Ciclo @Model.Ciclo)</h2>
+      <span class="badge text-bg-@(Model.ClassificacaoSnapshot == "COMPLETO" ? "success" : (Model.ClassificacaoSnapshot == "PARCIAL" ? "warning" : "secondary")) fs-6">
+        Snapshot: @Model.ClassificacaoSnapshot
+      </span>
+    </div>
+    @if(!string.IsNullOrWhiteSpace(Model.SnapshotDiagnostico))
+    {
+      <div class="alert alert-@(Model.ClassificacaoSnapshot == "PARCIAL" ? "warning" : "info") py-2 mb-2">
+        <strong>Diagnóstico do Snapshot:</strong> @Model.SnapshotDiagnostico
+      </div>
+    }
     <div class="row g-2 mt-1">
       <div class="col-md-4">
         <div class="p-2 border rounded bg-light">
@@ -143,7 +154,29 @@
 @if(Model.Itens.Count > 0)
 {
   <section class="panel mb-3">
-    <h2 class="h5">Itens submetidos (@Model.Itens.Count)</h2>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 mb-0">
+        @if (Model.ClassificacaoSnapshot == "COMPLETO")
+        {
+          <span>Itens congelados no envio (Snapshot Histórico · Ciclo @Model.Ciclo)</span>
+        }
+        else if (Model.ClassificacaoSnapshot == "PARCIAL")
+        {
+          <span>Itens da aprovação (Snapshot Parcial · Ciclo @Model.Ciclo)</span>
+        }
+        else
+        {
+          <span class="text-secondary">Itens atuais da requisição (Consulta de Referência)</span>
+        }
+      </h2>
+      <span class="badge text-bg-light">@Model.Itens.Count item(ns)</span>
+    </div>
+    @if (Model.ClassificacaoSnapshot == "INDISPONIVEL")
+    {
+      <div class="alert alert-secondary py-2 mb-3">
+        <small><strong>Aviso de Referência:</strong> Esta etapa foi submetida antes da captura congelada de itens. Os dados exibidos abaixo refletem o cadastro atual da requisição consultado como referência e não representam snapshot auditado da época.</small>
+      </div>
+    }
     <div class="table-responsive">
       <table class="table align-middle table-sm">
         <thead>

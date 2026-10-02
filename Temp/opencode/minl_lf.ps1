@@ -1,4 +1,0 @@
-$h=@{ json=@{ id='a'; numero='n' } }
-Write-Output 'x'
-$A=[string]$h.json.id; $B=[string]$h.json.numero
-Write-Output ('minl: A=[' + $A + '] B=[' + $B + ']')

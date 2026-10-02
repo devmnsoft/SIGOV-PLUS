@@ -63,7 +63,7 @@
                 @foreach (var convite in Model.Convites)
                 {
                     var expirado = convite.Status == "PENDENTE" && convite.ExpiraEm <= agora;
-                    var podeResponder = podeEnviar && abertaParaResposta && convite.Status == "PENDENTE" && !expirado;
+                    var podeResponder = podeEnviar && abertaParaResposta && !expirado && convite.Status is "PENDENTE" or "RESPONDIDO";
                     <tr>
                         <td><strong>@convite.FornecedorNome</strong></td>
                         <td>@convite.FornecedorDocumento</td>
@@ -74,7 +74,9 @@
                         <td class="text-end">
                             @if (podeResponder)
                             {
-                                <button class="btn btn-sm btn-outline-primary" type="button" data-registrar-proposta data-convite-id="@convite.Id" data-convite-version="@convite.Version" data-fornecedor="@convite.FornecedorNome">Registrar proposta</button>
+                                <button class="btn btn-sm @(convite.Status == "RESPONDIDO" ? "btn-outline-secondary" : "btn-outline-primary")" type="button" data-registrar-proposta data-convite-id="@convite.Id" data-convite-version="@convite.Version" data-fornecedor="@convite.FornecedorNome">
+                                    @(convite.Status == "RESPONDIDO" ? "Revisar proposta" : "Registrar proposta")
+                                </button>
                             }
                         </td>
                     </tr>

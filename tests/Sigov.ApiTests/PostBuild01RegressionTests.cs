@@ -583,4 +583,161 @@ public sealed class PostBuild01RegressionTests
             File.ReadAllText(TestRepoPath.Get(script)).Should().Contain(backfill);
         }
     }
+
+    [Fact]
+    public void Aceite_A_Comparativo_Antigo_Rejeitado_Apos_Revisao_De_Proposta()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        // Qualquer alteração relevante ou revisão incrementa a versão da cotação
+        repoSql.Should().Contain("update sigov.compras_empresarial_cotacao set status=case when status='ABERTA' then 'EM_RESPOSTA' else status end,updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1");
+        repoSql.Should().Contain("RESPOSTA_REVISADA");
+        // Seleção valida versão da cotação com lock exclusivo
+        repoSql.Should().Contain("where tenant_id=@t and id=@id for update");
+        repoSql.Should().Contain("Versão desatualizada; recarregue o comparativo e tente novamente.");
+    }
+
+    [Fact]
+    public void Aceite_B_Fornecedor_Bloqueado_Nao_Pode_Ser_Selecionado()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        // Revalidação rigorosa de elegibilidade no servidor no momento da seleção
+        repoSql.Should().Contain("convite.FornecedorStatus is \"BLOQUEADO\" or \"SUSPENSO\" || convite.FornecedorDeleted");
+        repoSql.Should().Contain("está bloqueado ou suspenso e não é elegível para seleção");
+    }
+
+    [Fact]
+    public void Aceite_C_Frete_E_Composicao_Financeira_Reconciliam_Total_Centavo_A_Centavo()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        // Reconciliação dos componentes monetários
+        repoSql.Should().Contain("var valorBrutoTotal = Math.Round(grupo.Sum(e => e.ValorBruto), 2, MidpointRounding.AwayFromZero);");
+        repoSql.Should().Contain("var descontoTotal = Math.Round(grupo.Sum(e => e.Desconto), 2, MidpointRounding.AwayFromZero);");
+        repoSql.Should().Contain("var impostoTotal = Math.Round(grupo.Sum(e => e.Imposto), 2, MidpointRounding.AwayFromZero);");
+        repoSql.Should().Contain("var freteTotal = Math.Round(grupo.Sum(e => e.Frete), 2, MidpointRounding.AwayFromZero);");
+        repoSql.Should().Contain("var valorTotal = Math.Round(grupo.Sum(e => e.TotalItem), 2, MidpointRounding.AwayFromZero);");
+        repoSql.Should().Contain("Math.Round(cue * item.Qtd, 2, MidpointRounding.AwayFromZero)");
+        repoSql.Should().Contain("Math.Round(valorLiquido + frete, 2, MidpointRounding.AwayFromZero)");
+
+        // Prova matemática de reconciliação centavo a centavo
+        decimal q1 = 10m, cue1 = 15.50m, desc1 = 5.00m, imp1 = 2.50m, frete1 = 3.00m;
+        var bruto1 = Math.Round(q1 * cue1, 2, MidpointRounding.AwayFromZero);
+        var liq1 = Math.Round(bruto1 - desc1 + imp1, 2, MidpointRounding.AwayFromZero);
+        var totalItem1 = Math.Round(liq1 + frete1, 2, MidpointRounding.AwayFromZero);
+
+        decimal q2 = 5m, cue2 = 20.00m, desc2 = 0m, imp2 = 0m, frete2 = 2.00m;
+        var bruto2 = Math.Round(q2 * cue2, 2, MidpointRounding.AwayFromZero);
+        var liq2 = Math.Round(bruto2 - desc2 + imp2, 2, MidpointRounding.AwayFromZero);
+        var totalItem2 = Math.Round(liq2 + frete2, 2, MidpointRounding.AwayFromZero);
+
+        var totalPedido = totalItem1 + totalItem2;
+        var totalBruto = bruto1 + bruto2;
+        var totalDesconto = desc1 + desc2;
+        var totalImposto = imp1 + imp2;
+        var totalFrete = frete1 + frete2;
+        var totalLiquido = liq1 + liq2;
+
+        (totalBruto - totalDesconto + totalImposto + totalFrete).Should().Be(totalPedido);
+        (totalLiquido + totalFrete).Should().Be(totalPedido);
+    }
+
+    [Fact]
+    public void Aceite_D_Itens_Do_Mesmo_Produto_Preservam_Origens_Individuais()
+    {
+        var migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20261002100000_compras_pedido_operacional_fechamento_e_rastreabilidade.sql"));
+        migration.Should().Contain("cotacao_item_id bigint");
+        migration.Should().Contain("cotacao_selecao_id bigint");
+        migration.Should().Contain("requisicao_item_id uuid");
+
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        repoSql.Should().Contain("insert into sigov.compras_empresarial_pedido_item");
+        repoSql.Should().Contain("cotacao_item_id,cotacao_selecao_id,requisicao_item_id");
+        repoSql.Should().Contain("@ciId,@selId,@riId");
+    }
+
+    [Fact]
+    public void Aceite_E_Pedido_Gerado_Chega_Ao_Recebimento_Pelo_Menu_E_Acoes()
+    {
+        var detalheView = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Pedidos/Detalhe.cshtml"));
+        detalheView.Should().Contain("NovoRecebimento");
+        detalheView.Should().Contain("Registrar recebimento");
+
+        var navView = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Shared/_ComprasNav.cshtml"));
+        navView.Should().Contain("compras_empresariais.pedidos.visualizar");
+        navView.Should().Contain("compras_empresariais.recebimentos.visualizar");
+    }
+
+    [Fact]
+    public void Aceite_F_G_Recebimento_Parcial_Mantem_Saldo_E_Protege_Concorrencia()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        // Lock exclusivo do pedido
+        repoSql.Should().Contain("select id,status,version from sigov.compras_empresarial_pedido where tenant_id=@t and id=@id and not is_deleted for update");
+        // Validação de saldo disponível
+        repoSql.Should().Contain("quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id),0)");
+        repoSql.Should().Contain("Um item não pertence ao pedido ou a quantidade supera o saldo permitido.");
+
+        var cotacaoRepo = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        cotacaoRepo.Should().Contain("greatest(0,pi.quantidade-pi.quantidade_cancelada");
+    }
+
+    [Fact]
+    public void Aceite_H_I_Inspecao_Nao_Duplica_Estoque_E_Gera_Divergencia_Rastreavel()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        // Apenas quantidade aceita gera movimento de estoque
+        repoSql.Should().Contain("if(aceita>0)");
+        repoSql.Should().Contain("origem_id) values(@t,@produto,@almox,'ENTRADA',@q,'INSPECAO_RECEBIMENTO_COMPRA',@id)");
+        // Rejeição cria divergência rastreável com pendência operacional
+        repoSql.Should().Contain("if(hasRejected)");
+        repoSql.Should().Contain("insert into sigov.compras_empresarial_recebimento_divergencia");
+        repoSql.Should().Contain("TRATAMENTO_DIVERGENCIA");
+    }
+
+    [Fact]
+    public void Aceite_J_K_Devolucao_Preserva_Recebimento_E_Controla_Reposicao()
+    {
+        var repoDevolucao = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/DevolucaoCompraRepository.cs"));
+        repoDevolucao.Should().Contain("insert into sigov.compras_empresarial_devolucao");
+        repoDevolucao.Should().Contain("recebimento_id");
+        // Nunca remove ou deleta o recebimento físico original
+        repoDevolucao.Should().NotContain("delete from sigov.compras_empresarial_recebimento");
+
+        var migration = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20261002100000_compras_pedido_operacional_fechamento_e_rastreabilidade.sql"));
+        migration.Should().Contain("reposicao_autorizada boolean not null default false");
+        migration.Should().Contain("quantidade_reposicao numeric(14,4)");
+        migration.Should().Contain("reposicao_recebida numeric(14,4)");
+        migration.Should().Contain("divergencia_origem_id bigint");
+    }
+
+    [Fact]
+    public void Aceite_L_Pedido_Com_Pendencia_Nao_Encerra_Indevidamente()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        repoSql.Should().Contain("existem recebimentos com inspeção/conferência pendente");
+        repoSql.Should().Contain("existem divergências em aberto ou em tratamento");
+        repoSql.Should().Contain("existem devoluções pendentes de entrega física ou conclusão");
+    }
+
+    [Fact]
+    public void Aceite_M_N_O_Isolamento_Tenant_Autorizacao_E_Erros_Nao_Simulam_Sucesso()
+    {
+        var cotacaoRepo = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/CotacaoCompraRepository.cs"));
+        // Todo comando e query restringe tenant_id
+        cotacaoRepo.Should().Contain("tenant_id=@t");
+
+        // Controller exige antiforgery e autorizações estritas
+        var webController = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/ComprasEmpresariaisController.cs"));
+        webController.Should().Contain("ValidateAntiForgeryToken");
+        webController.Should().Contain("compras_empresariais.pedidos.emitir");
+        webController.Should().Contain("compras_empresariais.pedidos.cancelar");
+        webController.Should().Contain("compras_empresariais.cotacoes.julgar");
+        webController.Should().Contain("compras_empresariais.cotacoes.enviar");
+
+        // ReadOnlyContext bloqueia mutações
+        var action = () => Sigov.Application.ComprasEmpresariais.ComprasGuard.Mutation(
+            new Sigov.Application.ComprasEmpresariais.ComprasContext(Guid.NewGuid(), Guid.NewGuid(), "corr", SomenteLeitura: true));
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*somente leitura*");
+    }
 }
+

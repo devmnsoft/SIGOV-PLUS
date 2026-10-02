@@ -1,99 +1,542 @@
 @using Sigov.Application.ComprasEmpresariais
 @model PedidoDetalhe
 @{
-    ViewData["Title"] = $"Pedido {Model.Numero}";
+    ViewData["Title"] = $"Pedido {Model.Numero} — Ciclo Operacional";
     var podeReceber = (bool)(ViewData["PodeReceber"] ?? false);
+    var podeEmitir = (bool)(ViewData["PodeEmitir"] ?? false);
+    var podeCancelar = (bool)(ViewData["PodeCancelar"] ?? false);
     var aptoParaRecebimento = Model.Status is "CONFIRMADO" or "PARCIALMENTE_RECEBIDO";
+    var podeEncerrar = podeEmitir && Model.Status is not ("ENCERRADO" or "CANCELADO");
+    var podeCancelarPedido = podeCancelar && Model.Status is not ("ENCERRADO" or "CANCELADO");
 }
 <link rel="stylesheet" href="~/css/compras-empresariais.css" />
 <partial name="Shared/_ComprasNav" />
 
-<header class="compras-header">
+<nav aria-label="breadcrumb" class="my-2">
+  <ol class="breadcrumb mb-0">
+    <li class="breadcrumb-item"><a asp-action="Index">Compras</a></li>
+    <li class="breadcrumb-item"><a asp-action="Pedidos">Pedidos</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Pedido @Model.Numero</li>
+  </ol>
+</nav>
+
+@if (TempData["Success"] is string ok)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="status">
+        <strong>Sucesso:</strong> @ok
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+}
+@if (TempData["Conflict"] is string conflict)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert" tabindex="-1">
+        <strong>Conflito de Concorrência:</strong> @conflict
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert" tabindex="-1">
+        <strong>Atenção:</strong> @error
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+}
+
+<header class="compras-header mb-3">
     <div>
-        <span class="eyebrow">PEDIDO DE COMPRA</span>
-        <h1>Pedido @Model.Numero</h1>
-        <p>
-            Fornecedor <strong>@(Model.FornecedorNome ?? "-")</strong> · criado em @Model.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+        <span class="eyebrow">ACOMPANHAMENTO DO CICLO OPERACIONAL</span>
+        <h1 class="h3 mb-1">Pedido @Model.Numero</h1>
+        <p class="text-muted mb-0">
+            Fornecedor <strong>@(Model.FornecedorNome ?? "-")</strong> · Criado em @Model.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
             @if (Model.CotacaoId.HasValue)
             {
-                <text>· cotação <a href="@Url.Action("Comparativo", new { id = Model.CotacaoId.Value })">@Model.NumeroCotacao</a></text>
+                <text>· Cotação <a href="@Url.Action("Comparativo", new { id = Model.CotacaoId.Value })">@Model.NumeroCotacao</a></text>
             }
             @if (Model.RequisicaoId.HasValue)
             {
-                <text>· requisição <a href="@Url.Action("Requisicao", new { id = Model.RequisicaoId.Value })">@Model.NumeroRequisicao</a></text>
+                <text>· Requisição <a href="@Url.Action("Requisicao", new { id = Model.RequisicaoId.Value })">@Model.NumeroRequisicao</a></text>
             }
         </p>
     </div>
     <div class="d-flex gap-2 flex-wrap align-items-center">
-        <span class="status-badge" aria-label="Situação atual: @Model.Status">@Model.Status.Replace('_', ' ')</span>
+        <span class="badge text-bg-@(Model.Status switch { "CONFIRMADO" => "primary", "PARCIALMENTE_RECEBIDO" => "info", "ENCERRADO" => "success", "CANCELADO" => "secondary", _ => "light" }) fs-6" aria-label="Situação atual: @Model.Status">
+            @Model.Status.Replace('_', ' ')
+        </span>
         @if (podeReceber && aptoParaRecebimento)
         {
-            <a class="btn btn-primary" href="@Url.Action("NovoRecebimento", new { pedidoId = Model.Id })" aria-label="Registrar recebimento do pedido @Model.Numero">Registrar recebimento</a>
+            <a class="btn btn-primary" href="@Url.Action("NovoRecebimento", new { pedidoId = Model.Id })" id="btn-registrar-entrega">
+                Registrar recebimento
+            </a>
+        }
+        @if (podeEncerrar)
+        {
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalEncerrarPedido" id="btn-abrir-encerramento">
+                Encerrar pedido
+            </button>
+        }
+        @if (podeCancelarPedido)
+        {
+            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelarPedido" id="btn-abrir-cancelamento">
+                Cancelar pedido
+            </button>
         }
     </div>
 </header>
 
-<details class="panel mb-3">
-    <summary class="h6">Ajuda: fluxo de recebimento</summary>
-    <p>Este pedido foi gerado pela seleção registrada na cotação vinculada, com rastreabilidade completa entre requisição, cotação e fornecedor vencedor. Use “Registrar recebimento” para conferir as quantidades no almoxarifado; itens marcados com “exige inspeção” passam pela inspeção antes da aceitação. Nesta etapa o sistema não baixa estoque nem cria obrigação financeira automaticamente.</p>
+@if (Model.ProximaAcao is not null)
+{
+    <div class="card mb-3 border-@(Model.ProximaAcao.Codigo switch { "ENCERRADO" => "success", "CANCELADO" => "secondary", "APTO_ENCERRAMENTO" => "success", _ => "primary" }) bg-light">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
+            <div>
+                <small class="text-uppercase fw-bold text-muted d-block">Próxima ação recomendada</small>
+                <strong>@Model.ProximaAcao.Titulo:</strong> <span>@Model.ProximaAcao.Descricao</span>
+            </div>
+            @if (Model.ProximaAcao.Disponivel && !string.IsNullOrWhiteSpace(Model.ProximaAcao.RotaAcao))
+            {
+                @if (Model.ProximaAcao.RotaAcao == "encerrar" && podeEncerrar)
+                {
+                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalEncerrarPedido">
+                        Executar: Encerrar agora
+                    </button>
+                }
+                else if (Model.ProximaAcao.RotaAcao != "encerrar")
+                {
+                    <a href="@Model.ProximaAcao.RotaAcao" class="btn btn-sm btn-primary">
+                        Executar: @Model.ProximaAcao.Titulo
+                    </a>
+                }
+            }
+        </div>
+    </div>
+}
+
+<details class="card mb-3">
+    <summary class="card-header fw-semibold" style="cursor:pointer">
+        Ajuda contextual da jornada: Pedido ao Encerramento
+    </summary>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Para que serve:</strong> Controlar e auditar todas as etapas operacionais pós-emissão do pedido: entrega física, conferência técnica/inspeção, tratamento de divergências e devoluções/reposições até o encerramento formal.</p>
+                <p class="mb-1"><strong>Quem utiliza:</strong> Compradores, fiscais de contrato e equipe de recebimento/almoxarifado.</p>
+                <p class="mb-0"><strong>Pré-requisitos:</strong> Cotação selecionada com pedido gerado. Entregas parciais exigem documento fiscal e conferência no almoxarifado de destino.</p>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Efeito da ação:</strong> Recebimentos físicos não baixam estoque utilizável até que a inspeção seja concluída. Apenas quantidades aceitas integram o saldo disponível. Rejeições geram divergências rastreáveis e devoluções físicas.</p>
+                <p class="mb-0"><strong>Critério de encerramento:</strong> Um pedido só pode ser encerrado quando não houver conferências pendentes, divergências em aberto ou devoluções em trânsito.</p>
+            </div>
+        </div>
+    </div>
 </details>
 
-<section class="panel" aria-labelledby="resumo-title">
-    <h2 id="resumo-title" class="h5">Resumo</h2>
-    <dl class="row mb-0">
-        <dt class="col-sm-4">Valor total do pedido</dt>
-        <dd class="col-sm-8">@Model.ValorTotal.ToString("N2")</dd>
-        <dt class="col-sm-4">Previsão de entrega</dt>
-        <dd class="col-sm-8">@(Model.Previsao?.ToString("dd/MM/yyyy") ?? "-")</dd>
-        <dt class="col-sm-4">Versão</dt>
-        <dd class="col-sm-8">@Model.Version</dd>
-    </dl>
+<!-- Resumo e Composição Financeira -->
+<section class="card mb-3" aria-labelledby="resumo-title">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 id="resumo-title" class="h5 mb-0">Composição Financeira e Resumo Operacional</h2>
+        <span class="text-muted small">Versão @Model.Version</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-6 col-md-2">
+                <div class="p-2 border rounded bg-light text-center">
+                    <small class="text-muted d-block">Valor Bruto</small>
+                    <strong class="fs-6">@Model.ValorBruto.ToString("C")</strong>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="p-2 border rounded bg-light text-center">
+                    <small class="text-muted d-block">Descontos (-)</small>
+                    <strong class="fs-6 text-success">@Model.DescontoTotal.ToString("C")</strong>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="p-2 border rounded bg-light text-center">
+                    <small class="text-muted d-block">Impostos (+)</small>
+                    <strong class="fs-6">@Model.ImpostoTotal.ToString("C")</strong>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="p-2 border rounded bg-light text-center">
+                    <small class="text-muted d-block">Frete (+)</small>
+                    <strong class="fs-6">@Model.FreteTotal.ToString("C")</strong>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="p-2 border rounded bg-light text-center">
+                    <small class="text-muted d-block">Valor Líquido</small>
+                    <strong class="fs-6">@Model.ValorLiquido.ToString("C")</strong>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="p-2 border rounded bg-primary text-white text-center">
+                    <small class="text-white-50 d-block">Total do Pedido</small>
+                    <strong class="fs-6">@Model.ValorTotal.ToString("C")</strong>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.MotivoEncerramento))
+        {
+            <div class="alert alert-info mt-3 mb-0">
+                <strong>Encerramento Operacional:</strong> @Model.MotivoEncerramento
+                @if (Model.EncerradoEm.HasValue)
+                {
+                    <span class="text-muted ms-2">(em @Model.EncerradoEm.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</span>
+                }
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.MotivoCancelamento))
+        {
+            <div class="alert alert-secondary mt-3 mb-0">
+                <strong>Cancelamento:</strong> @Model.MotivoCancelamento
+                @if (Model.CanceladoEm.HasValue)
+                {
+                    <span class="text-muted ms-2">(em @Model.CanceladoEm.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</span>
+                }
+            </div>
+        }
+    </div>
 </section>
 
-<section class="panel" aria-labelledby="itens-title">
-    <h2 id="itens-title" class="h5">Itens do pedido</h2>
+<!-- Painel de Itens e Saldos Operacionais -->
+<section class="card mb-3" aria-labelledby="itens-title">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 id="itens-title" class="h5 mb-0">Itens e Saldos Operacionais por Linha</h2>
+        <span class="badge text-bg-light">@Model.Itens.Count linha(s)</span>
+    </div>
     <div class="table-responsive">
-        <table class="table align-middle">
-            <thead><tr><th scope="col">Produto</th><th scope="col">Unidade</th><th scope="col" class="text-end">Quantidade</th><th scope="col" class="text-end">Cancelada</th><th scope="col" class="text-end">Valor unitário</th><th scope="col">Inspeção</th></tr></thead>
+        <table class="table table-hover align-middle mb-0 table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Produto / Origem</th>
+                    <th scope="col" class="text-end" title="Fluxo contratado">Pedida</th>
+                    <th scope="col" class="text-end text-muted" title="Cancelada no contrato">Canc.</th>
+                    <th scope="col" class="text-end" title="Entregue fisicamente no almoxarifado">Recebida</th>
+                    <th scope="col" class="text-end text-warning" title="Em conferência física no recebimento">Em Insp.</th>
+                    <th scope="col" class="text-end text-success" title="Aceita e integrada ao estoque físico">Aceita</th>
+                    <th scope="col" class="text-end text-danger" title="Rejeitada na conferência">Rejeit.</th>
+                    <th scope="col" class="text-end text-danger" title="Devolvida fisicamente ao fornecedor">Devolv.</th>
+                    <th scope="col" class="text-end text-warning" title="Divergência aberta pendente de regularização">Pend. Reg.</th>
+                    <th scope="col" class="text-end fw-bold text-primary" title="Saldo restante que ainda pode ser entregue">Saldo Entregável</th>
+                    <th scope="col" class="text-end">Total Item</th>
+                </tr>
+            </thead>
             <tbody>
             @foreach (var item in Model.Itens)
             {
                 <tr>
-                    <td>@(item.ProdutoNome ?? $"Produto {item.ProdutoId:D}")</td>
-                    <td>@(item.Unidade ?? "-")</td>
-                    <td class="text-end">@item.Quantidade.ToString("0.####")</td>
-                    <td class="text-end">@item.QuantidadeCancelada.ToString("0.####")</td>
-                    <td class="text-end">@item.ValorUnitario.ToString("N4")</td>
-                    <td>@(item.ExigeInspecao ? "<span class='status-badge'>EXIGE INSPEÇÃO</span>" : "-")</td>
+                    <td>
+                        <strong>@(item.ProdutoNome ?? $"Produto {item.ProdutoId:D}")</strong>
+                        <span class="text-muted small">(@(item.Unidade ?? "UN"))</span>
+                        @if (item.ExigeInspecao)
+                        {
+                            <span class="badge text-bg-info ms-1" style="font-size:0.7rem">INSPEÇÃO EXIGIDA</span>
+                        }
+                        @if (item.CotacaoItemId.HasValue || item.RequisicaoItemId.HasValue)
+                        {
+                            <div class="text-muted small" style="font-size:0.75rem">
+                                Rastreab.: ReqItem #@item.RequisicaoItemId?.ToString("D")[..8] · CotItem #@item.CotacaoItemId?.ToString("D")[..8]
+                            </div>
+                        }
+                    </td>
+                    <td class="text-end">@item.Quantidade.ToString("N2")</td>
+                    <td class="text-end text-muted">@item.QuantidadeCancelada.ToString("N2")</td>
+                    <td class="text-end">@item.QuantidadeRecebidaFisica.ToString("N2")</td>
+                    <td class="text-end text-warning">@item.QuantidadeAguardandoInspecao.ToString("N2")</td>
+                    <td class="text-end text-success fw-bold">@item.QuantidadeAceita.ToString("N2")</td>
+                    <td class="text-end text-danger">@item.QuantidadeRejeitada.ToString("N2")</td>
+                    <td class="text-end text-danger">@item.QuantidadeDevolvida.ToString("N2")</td>
+                    <td class="text-end text-warning">@item.QuantidadePendenteRegularizacao.ToString("N2")</td>
+                    <td class="text-end fw-bold text-primary">@item.SaldoEntregavel.ToString("N2")</td>
+                    <td class="text-end">@item.TotalItem.ToString("C")</td>
                 </tr>
             }
             </tbody>
         </table>
     </div>
+    <div class="card-footer bg-light py-2">
+        <small class="text-muted">
+            <strong>Legenda de Categorias:</strong>
+            <em>Pedida e Cancelada</em> = Fluxos contratuais;
+            <em>Recebida e Em Inspeção</em> = Fluxos físicos temporários (não liberam estoque);
+            <em>Aceita</em> = Estoque físico disponível;
+            <em>Rejeitada, Devolvida e Pendente Regularização</em> = Divergências e devoluções físicas;
+            <em>Saldo Entregável</em> = Quantidade máxima ainda apta para novos recebimentos.
+        </small>
+    </div>
 </section>
 
-<section class="panel" aria-labelledby="historico-title">
-    <h2 id="historico-title" class="h5">Histórico</h2>
-    @if (Model.Historico.Count > 0)
-    {
-        <div class="table-responsive">
-            <table class="table align-middle">
-                <thead><tr><th scope="col">Ação</th><th scope="col">Detalhes</th><th scope="col">Data e hora</th></tr></thead>
-                <tbody>
-                @foreach (var evento in Model.Historico)
+<!-- Abas de Execução Operacional: Recebimentos, Divergências, Devoluções, Histórico -->
+<div class="card mb-3">
+    <div class="card-header p-0 border-bottom-0">
+        <ul class="nav nav-tabs card-header-tabs m-0 px-3 pt-2" id="pedidoTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-recebimentos" data-bs-toggle="tab" data-bs-target="#pane-recebimentos" type="button" role="tab">
+                    Recebimentos Físicos (@(Model.Recebimentos?.Count ?? 0))
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-divergencias" data-bs-toggle="tab" data-bs-target="#pane-divergencias" type="button" role="tab">
+                    Divergências de Inspeção (@(Model.Divergencias?.Count ?? 0))
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-devolucoes" data-bs-toggle="tab" data-bs-target="#pane-devolucoes" type="button" role="tab">
+                    Devoluções e Regularizações (@(Model.Devolucoes?.Count ?? 0))
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-historico" data-bs-toggle="tab" data-bs-target="#pane-historico" type="button" role="tab">
+                    Histórico de Auditoria (@Model.Historico.Count)
+                </button>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body p-0">
+        <div class="tab-content" id="pedidoTabContent">
+            <!-- Recebimentos -->
+            <div class="tab-pane fade show active p-3" id="pane-recebimentos" role="tabpanel">
+                @if (Model.Recebimentos is not null && Model.Recebimentos.Count > 0)
                 {
-                    <tr>
-                        <td>@evento.Acao</td>
-                        <td>@(string.IsNullOrWhiteSpace(evento.Detalhes) ? "-" : evento.Detalhes)</td>
-                        <td><time datetime="@evento.CriadoEm.ToString("O")">@evento.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</time></td>
-                    </tr>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Documento</th>
+                                    <th>Almoxarifado</th>
+                                    <th>Data Operação</th>
+                                    <th>Situação</th>
+                                    <th>Inspeção</th>
+                                    <th>Divergências</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var rec in Model.Recebimentos)
+                            {
+                                <tr>
+                                    <td><strong>@rec.Documento</strong></td>
+                                    <td>@(rec.AlmoxarifadoNome ?? "-")</td>
+                                    <td>@rec.DataOperacao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td><span class="badge text-bg-@(rec.Status == "CONCLUIDO" ? "success" : "warning")">@rec.Status</span></td>
+                                    <td>@rec.ResultadoInspecao</td>
+                                    <td>
+                                        @if (rec.Divergencias > 0)
+                                        {
+                                            <span class="badge text-bg-danger">@rec.Divergencias item(ns)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Nenhuma</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="@Url.Action("Recebimento", new { id = rec.Id })" class="btn btn-sm btn-outline-primary">
+                                            Ver detalhe
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
                 }
-                </tbody>
-            </table>
+                else
+                {
+                    <div class="p-3 text-muted text-center">
+                        Nenhum recebimento físico registrado para este pedido até o momento.
+                        @if (podeReceber && aptoParaRecebimento)
+                        {
+                            <div class="mt-2">
+                                <a href="@Url.Action("NovoRecebimento", new { pedidoId = Model.Id })" class="btn btn-sm btn-primary">Registrar primeira entrega</a>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Divergências -->
+            <div class="tab-pane fade p-3" id="pane-divergencias" role="tabpanel">
+                @if (Model.Divergencias is not null && Model.Divergencias.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Produto</th>
+                                    <th class="text-end">Qtd Rejeitada</th>
+                                    <th>Motivo</th>
+                                    <th>Situação</th>
+                                    <th>Providência</th>
+                                    <th>Resultado</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var div in Model.Divergencias)
+                            {
+                                <tr>
+                                    <td>#@div.Id</td>
+                                    <td><strong>@div.Produto</strong></td>
+                                    <td class="text-end text-danger fw-bold">@div.QuantidadeRejeitada.ToString("N2")</td>
+                                    <td>@div.Motivo</td>
+                                    <td><span class="badge text-bg-@(div.Situacao == "ENCERRADA" ? "success" : (div.Situacao == "EM_TRATAMENTO" ? "warning" : "danger"))">@div.Situacao</span></td>
+                                    <td>@(div.Providencia ?? "-")</td>
+                                    <td>@(div.Resultado ?? "-")</td>
+                                    <td class="text-end">
+                                        <a href="@Url.Action("Divergencia", new { id = div.Id })" class="btn btn-sm btn-outline-primary">
+                                            Tratar
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted p-3 mb-0 text-center">Nenhuma divergência de inspeção aberta para este pedido.</p>
+                }
+            </div>
+
+            <!-- Devoluções -->
+            <div class="tab-pane fade p-3" id="pane-devolucoes" role="tabpanel">
+                @if (Model.Devolucoes is not null && Model.Devolucoes.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Situação</th>
+                                    <th class="text-end">Quantidade Total</th>
+                                    <th>Motivo</th>
+                                    <th>Criada Em</th>
+                                    <th>Expedida Em</th>
+                                    <th>Entregue Em</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var dev in Model.Devolucoes)
+                            {
+                                <tr>
+                                    <td>#@dev.Id</td>
+                                    <td><span class="badge text-bg-@(dev.Situacao == "CONCLUIDA" ? "success" : (dev.Situacao == "EXPEDIDA" ? "info" : "secondary"))">@dev.Situacao</span></td>
+                                    <td class="text-end fw-bold">@dev.QuantidadeTotal.ToString("N2")</td>
+                                    <td>@dev.Motivo</td>
+                                    <td>@dev.CriadaEm.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                    <td>@(dev.ExpedidaEm?.ToLocalTime().ToString("dd/MM/yyyy") ?? "-")</td>
+                                    <td>@(dev.EntregueEm?.ToLocalTime().ToString("dd/MM/yyyy") ?? "-")</td>
+                                    <td class="text-end">
+                                        <a href="@Url.Action("Devolucao", new { id = dev.Id })" class="btn btn-sm btn-outline-primary">
+                                            Acompanhar
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted p-3 mb-0 text-center">Nenhuma devolução física expedida para este pedido.</p>
+                }
+            </div>
+
+            <!-- Histórico -->
+            <div class="tab-pane fade p-3" id="pane-historico" role="tabpanel">
+                @if (Model.Historico.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ação</th>
+                                    <th>Detalhes do Evento</th>
+                                    <th>Data e Hora</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var ev in Model.Historico)
+                            {
+                                <tr>
+                                    <td><span class="badge text-bg-secondary">@ev.Acao</span></td>
+                                    <td>@(string.IsNullOrWhiteSpace(ev.Detalhes) ? "-" : ev.Detalhes)</td>
+                                    <td><time datetime="@ev.CriadoEm.ToString("O")">@ev.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</time></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted p-3 mb-0 text-center">Nenhum evento registrado até o momento.</p>
+                }
+            </div>
         </div>
-    }
-    else
-    {
-        <p class="text-muted mb-0">Nenhum evento registrado até o momento.</p>
-    }
-</section>
+    </div>
+</div>
+
+<!-- Modal Encerrar Pedido -->
+<div class="modal fade" id="modalEncerrarPedido" tabindex="-1" aria-labelledby="modalEncerrarPedidoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="EncerrarPedido" asp-route-id="@Model.Id">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="version" value="@Model.Version" />
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEncerrarPedidoLabel">Confirmar Encerramento Operacional</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>O encerramento operacional consolida todas as entregas e finaliza o ciclo do pedido. Saldos restantes não entregues serão finalizados.</p>
+                    <div class="alert alert-warning py-2 mb-3">
+                        <small>Atenção: Não é possível encerrar pedidos que possuam recebimentos em conferência, divergências em aberto ou devoluções pendentes.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="motivoEncerramento" class="form-label fw-bold">Motivo do Encerramento (mínimo 10 caracteres):</label>
+                        <textarea class="form-control" id="motivoEncerramento" name="motivo" rows="3" required minlength="10" maxlength="500" placeholder="Descreva a conclusão das entregas ou a justificativa para encerramento operacional..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                    <button type="submit" class="btn btn-success" id="btn-confirmar-encerramento">Confirmar Encerramento</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Cancelar Pedido -->
+<div class="modal fade" id="modalCancelarPedido" tabindex="-1" aria-labelledby="modalCancelarPedidoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" asp-action="CancelarPedido" asp-route-id="@Model.Id">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="version" value="@Model.Version" />
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCancelarPedidoLabel">Cancelar Pedido</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>O cancelamento cancela o saldo restante não entregue deste pedido e registra a justificativa na auditoria.</p>
+                    <div class="mb-3">
+                        <label for="motivoCancelamento" class="form-label fw-bold">Motivo do Cancelamento (mínimo 10 caracteres):</label>
+                        <textarea class="form-control" id="motivoCancelamento" name="motivo" rows="3" required minlength="10" maxlength="500" placeholder="Informe a razão do cancelamento do pedido..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                    <button type="submit" class="btn btn-danger" id="btn-confirmar-cancelamento">Confirmar Cancelamento</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

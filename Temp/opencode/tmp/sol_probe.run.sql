@@ -1,2 +1,0 @@
-select r.numero, r.solicitante_id::text, coalesce((select u.nome from sigov.usuario u where md5('sigov:usuario:'||u.id::text)::uuid = r.solicitante_id limit 1),'core-only') sol, r.created_by from sigov.compras_empresarial_requisicao r where r.tenant_id='b0000001-0000-4000-8000-000000000001' and not r.is_deleted order by r.numero;
-select u.id, u.nome, u.tenant_id from sigov.usuario u where u.id in (1,2,101,102) order by u.id;

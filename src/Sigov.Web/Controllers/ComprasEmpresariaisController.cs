@@ -56,7 +56,37 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Cotacoes/{id:guid}"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public async Task<IActionResult> Cotacao(Guid id,CancellationToken ct){var item=await cotacoes.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["PodeEnviar"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.cotacoes.enviar")).Succeeded;ViewData["PodeJulgar"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.cotacoes.julgar")).Succeeded;return View("Cotacoes/Detalhe",item);}
  [HttpGet("Cotacoes/{id:guid}/Comparativo"),Authorize(Policy="compras_empresariais.cotacoes.visualizar")]public async Task<IActionResult> Comparativo(Guid id,CancellationToken ct){var item=await cotacoes.ObterComparativoAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["PodeJulgar"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.cotacoes.julgar")).Succeeded;return View("Cotacoes/Comparativo",item);}
  [HttpGet("Pedidos"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public async Task<IActionResult> Pedidos([FromQuery]PedidoFiltro filtro,CancellationToken ct=default){ViewData["Filtro"]=filtro;return View("Pedidos/Index",await cotacoes.ListarPedidosAsync(Contexto(),filtro,ct));}
- [HttpGet("Pedidos/{id:guid}"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public async Task<IActionResult> Pedido(Guid id,CancellationToken ct){var item=await cotacoes.ObterPedidoAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["PodeReceber"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.recebimentos.registrar")).Succeeded;return View("Pedidos/Detalhe",item);}
+ [HttpGet("Pedidos/{id:guid}"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public async Task<IActionResult> Pedido(Guid id,CancellationToken ct){var item=await cotacoes.ObterPedidoAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["PodeReceber"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.recebimentos.registrar")).Succeeded;ViewData["PodeEmitir"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.pedidos.emitir")).Succeeded;ViewData["PodeCancelar"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.pedidos.cancelar")).Succeeded;return View("Pedidos/Detalhe",item);}
+ [HttpPost("Pedidos/{id:guid}/Encerrar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.pedidos.emitir")]
+ public async Task<IActionResult> EncerrarPedido(Guid id,[FromForm]long version,[FromForm]string motivo,[FromForm]string? returnUrl,CancellationToken ct)
+ {
+     var chave = Request.Headers["Idempotency-Key"].ToString();
+     if (string.IsNullOrWhiteSpace(chave)) chave = Guid.NewGuid().ToString("N");
+     try
+     {
+         var res = await cotacoes.EncerrarPedidoAsync(Contexto(), id, new(version, motivo), chave, ct);
+         TempData["Success"] = res.Repetido ? "Pedido já se encontrava encerrado." : "Pedido encerrado operacionalmente com sucesso.";
+     }
+     catch (ComprasConcurrencyException ex) { TempData["Conflict"] = ex.Message; }
+     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException) { TempData["Error"] = ex.Message; }
+     if (Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
+     return RedirectToAction(nameof(Pedido), new { id });
+ }
+ [HttpPost("Pedidos/{id:guid}/Cancelar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.pedidos.cancelar")]
+ public async Task<IActionResult> CancelarPedido(Guid id,[FromForm]long version,[FromForm]string motivo,[FromForm]string? returnUrl,CancellationToken ct)
+ {
+     var chave = Request.Headers["Idempotency-Key"].ToString();
+     if (string.IsNullOrWhiteSpace(chave)) chave = Guid.NewGuid().ToString("N");
+     try
+     {
+         var res = await cotacoes.CancelarPedidoAsync(Contexto(), id, new(version, motivo), chave, ct);
+         TempData["Success"] = res.Repetido ? "Pedido já se encontrava cancelado." : "Pedido cancelado com sucesso.";
+     }
+     catch (ComprasConcurrencyException ex) { TempData["Conflict"] = ex.Message; }
+     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException) { TempData["Error"] = ex.Message; }
+     if (Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
+     return RedirectToAction(nameof(Pedido), new { id });
+ }
  [HttpGet("Recebimentos"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimentos([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Index",await recebimentos.ListarAsync(Contexto(),filtro,ct));}
  [HttpGet("Recebimentos/{id:guid}"),Authorize(Policy="compras_empresariais.recebimentos.visualizar")]public async Task<IActionResult> Recebimento(Guid id,string? returnUrl,CancellationToken ct){var item=await recebimentos.ObterAsync(Contexto(),id,ct);if(item is null)return NotFound();var model=BuildInspection(item,null,Url.IsLocalUrl(returnUrl)?returnUrl:null);if((await authorization.AuthorizeAsync(User,"compras_empresariais.divergencias.visualizar")).Succeeded)model.Divergencias=(await divergencias.ListarAsync(Contexto(),new(RecebimentoId:id,Tamanho:100),ct)).Resultado.Items;if((await authorization.AuthorizeAsync(User,"compras_empresariais.devolucoes.visualizar")).Succeeded){model.Destinacoes=await devolucoes.ObterAcompanhamentoDestinacaoAsync(Contexto().TenantId,id,ct);model.DevolucoesVinculadas=await devolucoes.ListarPorRecebimentoAsync(Contexto().TenantId,id,ct);}return View("Recebimentos/Detalhe",model);}
  [HttpPost("Recebimentos/{id:guid}/ConcluirInspecao"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.recebimentos.inspecionar")]

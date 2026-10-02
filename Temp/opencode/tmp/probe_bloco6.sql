@@ -1,3 +1,0 @@
-﻿select 'COL '||column_name||' '||data_type from information_schema.columns where table_schema='sigov' and table_name='bloco6_compras_pedido_item' order by ordinal_position;
-select 'BLOCO6_N='||count(*) from sigov.bloco6_compras_pedido_item;
-select 'BLOCO6_X_DEMO='||count(*) from sigov.bloco6_compras_pedido_item b join sigov.compras_empresarial_pedido p on p.id=b.pedido_id where p.tenant_id='b0000001-0000-4000-8000-000000000001';

@@ -1,3 +1,0 @@
-﻿select 'TBL '||relname from pg_class where relname like 'compras_empresarial%' and relkind='r' order by 1;
-select 'FK '||c.relname||' -> '||fc.relname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_class fc on fc.oid=k.confrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and k.contype='f' and c.relname like 'compras_empresarial%' order by 1;
-select 'CNT '||c.relname||'='||n.n_live_tup from pg_class c join pg_stat_user_tables n on n.relid=c.oid join pg_namespace ns on ns.oid=n.schemaid where ns.nspname='sigov' and c.relname like 'compras_empresarial%' order by 1;

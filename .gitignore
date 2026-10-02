@@ -43,3 +43,5 @@ coverage/
 *copia*
 # Evidências locais geradas pela homologação RC50.68 (podem conter metadados do ambiente).
 artifacts/rc50-68-local-promotion/
+Temp/
+temp/

@@ -1,3 +1,0 @@
-09400 ationToken:ct));await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id
-09520 ,operacao,chave,recurso_id,request_hash) return new RequisicaoEnvioResultado(id,"PENDENTE_APROVACAO",version+1,ciclo,fal
-09640 se);}catch{await tx.RollbackAsync(ct);throw;}}

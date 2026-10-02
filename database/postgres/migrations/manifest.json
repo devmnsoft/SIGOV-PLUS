@@ -2657,6 +2657,19 @@
         "20260930180000"
       ],
       "postConditionSql": "select to_regclass('sigov.integracao_outbox') is not null and to_regclass('sigov.ix_integracao_outbox_tenant_tipo') is not null"
+    },
+    {
+      "version": "20261002100000",
+      "description": "Fechamento operacional do pedido, rastreabilidade por item e composicao monetaria reconciliavel",
+      "category": "functional",
+      "file": "20261002100000_compras_pedido_operacional_fechamento_e_rastreabilidade.sql",
+      "checksum": "ea1751977acb6da9aa91e6e0b87f264ec40842bb30465e191cdd787c1c9b414c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261001090000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_pedido_item' and column_name='cotacao_item_id') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_pedido' and column_name='motivo_encerramento')"
     }
   ],
   "compatibilityAfterAll": [

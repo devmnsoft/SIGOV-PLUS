@@ -196,7 +196,13 @@ function iniciarDetalhe(raiz) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-resposta-item', '');
       const celulaItem = document.createElement('td');
-      celulaItem.innerHTML = `<strong>${item.descricao}</strong><br /><small class="text-muted">${Number(item.quantidade).toString()} ${item.unidade}${item.especificacao ? ` — ${item.especificacao}` : ''}</small>`;
+      const forte = document.createElement('strong');
+      forte.textContent = item.descricao;
+      const quebra = document.createElement('br');
+      const pequeno = document.createElement('small');
+      pequeno.className = 'text-muted';
+      pequeno.textContent = `${Number(item.quantidade).toString()} ${item.unidade}${item.especificacao ? ` — ${item.especificacao}` : ''}`;
+      celulaItem.append(forte, quebra, pequeno);
       tr.appendChild(celulaItem);
       const campos = [
         { nome: 'preco', tipo: 'number', passo: '0.0001', min: '0', placeholder: '0,0000' },
@@ -391,7 +397,12 @@ function iniciarComparativo(raiz) {
       feedback(raiz, `Seleção registrada. ${pedidosGerados.length} pedido(s) gerado(s).`);
       setTimeout(() => { window.location.href = `${WEB}/Cotacoes/${cotacaoId}`; }, 1500);
     } catch (erro) {
-      feedback(raiz, erro.message, true);
+      const msg = erro?.message || 'Erro inesperado ao registrar a seleção.';
+      if (msg.includes('Versão desatualizada') || msg.includes('409') || msg.toLowerCase().includes('conflito')) {
+        feedback(raiz, `Comparativo desatualizado: novas propostas ou revisões foram registradas após a abertura desta tela. Recarregue a página para analisar os novos preços e condições antes de selecionar. (${msg})`, true);
+      } else {
+        feedback(raiz, msg, true);
+      }
     } finally {
       lock(botao, false);
     }

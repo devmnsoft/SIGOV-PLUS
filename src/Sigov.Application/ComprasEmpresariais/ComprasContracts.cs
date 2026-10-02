@@ -259,8 +259,71 @@ public sealed record EncerrarCotacaoRequest(string Motivo, long Version, string?
 public sealed record CotacaoEncerradaResultado(Guid Id, string Status, bool Repetido);
 public sealed record PedidoFiltro(string? Status = null, string? Busca = null, int Pagina = 1, int Tamanho = 20);
 public sealed record PedidoResumo(Guid Id, string Numero, Guid? FornecedorId, string? FornecedorNome, string Status, decimal ValorTotal, DateOnly? Previsao, DateTime CriadoEm, Guid? RequisicaoId, Guid? CotacaoId, int Itens, long Version);
-public sealed record PedidoItemDetalhe(long Id, Guid ProdutoId, string? ProdutoNome, string? Unidade, decimal Quantidade, decimal QuantidadeCancelada, decimal ValorUnitario, bool ExigeInspecao);
-public sealed record PedidoDetalhe(Guid Id, string Numero, string Status, Guid? FornecedorId, string? FornecedorNome, decimal ValorTotal, DateOnly? Previsao, DateTime CriadoEm, Guid? CotacaoId, string? NumeroCotacao, Guid? RequisicaoId, string? NumeroRequisicao, long Version, IReadOnlyList<PedidoItemDetalhe> Itens, IReadOnlyList<RequisicaoHistorico> Historico);
+
+public sealed record PedidoItemDetalhe(
+    long Id,
+    Guid ProdutoId,
+    string? ProdutoNome,
+    string? Unidade,
+    decimal Quantidade,
+    decimal QuantidadeCancelada,
+    decimal ValorUnitario,
+    bool ExigeInspecao,
+    decimal QuantidadeRecebidaFisica = 0m,
+    decimal QuantidadeAguardandoInspecao = 0m,
+    decimal QuantidadeAceita = 0m,
+    decimal QuantidadeRejeitada = 0m,
+    decimal QuantidadeDevolvida = 0m,
+    decimal QuantidadePendenteRegularizacao = 0m,
+    decimal SaldoEntregavel = 0m,
+    decimal ValorBruto = 0m,
+    decimal Desconto = 0m,
+    decimal Imposto = 0m,
+    decimal Frete = 0m,
+    decimal ValorLiquido = 0m,
+    decimal TotalItem = 0m,
+    Guid? RequisicaoItemId = null,
+    Guid? CotacaoItemId = null,
+    Guid? CotacaoSelecaoId = null);
+
+public sealed record PedidoRecebimentoResumo(Guid Id, string Documento, string? AlmoxarifadoNome, DateTime DataOperacao, string Status, string ResultadoInspecao, int Divergencias);
+public sealed record PedidoDivergenciaResumo(long Id, string Produto, decimal QuantidadeRejeitada, string Motivo, string Situacao, string? Providencia, string? Resultado);
+public sealed record PedidoDevolucaoResumo(long Id, string Situacao, decimal QuantidadeTotal, string Motivo, DateTime CriadaEm, DateTime? ExpedidaEm, DateTime? EntregueEm, string? DocumentoProtocolo);
+public sealed record PedidoProximaAcao(string Codigo, string Titulo, string Descricao, string RotaAcao, bool Disponivel);
+
+public sealed record PedidoDetalhe(
+    Guid Id,
+    string Numero,
+    string Status,
+    Guid? FornecedorId,
+    string? FornecedorNome,
+    decimal ValorTotal,
+    DateOnly? Previsao,
+    DateTime CriadoEm,
+    Guid? CotacaoId,
+    string? NumeroCotacao,
+    Guid? RequisicaoId,
+    string? NumeroRequisicao,
+    long Version,
+    IReadOnlyList<PedidoItemDetalhe> Itens,
+    IReadOnlyList<RequisicaoHistorico> Historico,
+    decimal ValorBruto = 0m,
+    decimal DescontoTotal = 0m,
+    decimal ImpostoTotal = 0m,
+    decimal FreteTotal = 0m,
+    decimal ValorLiquido = 0m,
+    string? MotivoEncerramento = null,
+    DateTime? EncerradoEm = null,
+    string? MotivoCancelamento = null,
+    DateTime? CanceladoEm = null,
+    IReadOnlyList<PedidoRecebimentoResumo>? Recebimentos = null,
+    IReadOnlyList<PedidoDivergenciaResumo>? Divergencias = null,
+    IReadOnlyList<PedidoDevolucaoResumo>? Devolucoes = null,
+    PedidoProximaAcao? ProximaAcao = null);
+
+public sealed record EncerrarPedidoRequest(long Version, string Motivo, bool CancelarSaldoRemanescente = true, string? IdempotencyKey = null);
+public sealed record CancelarPedidoRequest(long Version, string Motivo, string? IdempotencyKey = null);
+public sealed record PedidoComandoResultado(Guid Id, string Status, long Version, bool Repetido, string Mensagem);
 
 public interface ICotacaoCompraRepository
 {
@@ -276,6 +339,8 @@ public interface ICotacaoCompraRepository
  Task<CotacaoEncerradaResultado> EncerrarAsync(ComprasContext context, Guid cotacaoId, EncerrarCotacaoRequest request, string key, CancellationToken ct);
  Task<PagedResult<PedidoResumo>> ListarPedidosAsync(ComprasContext context, PedidoFiltro filtro, CancellationToken ct);
  Task<PedidoDetalhe?> ObterPedidoAsync(ComprasContext context, Guid id, CancellationToken ct);
+ Task<PedidoComandoResultado> EncerrarPedidoAsync(ComprasContext context, Guid pedidoId, EncerrarPedidoRequest request, string key, CancellationToken ct);
+ Task<PedidoComandoResultado> CancelarPedidoAsync(ComprasContext context, Guid pedidoId, CancelarPedidoRequest request, string key, CancellationToken ct);
 }
 public interface ICotacaoCompraApplicationService
 {
@@ -291,5 +356,7 @@ public interface ICotacaoCompraApplicationService
  Task<CotacaoEncerradaResultado> EncerrarAsync(ComprasContext context, Guid cotacaoId, EncerrarCotacaoRequest request, string key, CancellationToken ct);
  Task<PagedResult<PedidoResumo>> ListarPedidosAsync(ComprasContext context, PedidoFiltro filtro, CancellationToken ct);
  Task<PedidoDetalhe?> ObterPedidoAsync(ComprasContext context, Guid id, CancellationToken ct);
+ Task<PedidoComandoResultado> EncerrarPedidoAsync(ComprasContext context, Guid pedidoId, EncerrarPedidoRequest request, string key, CancellationToken ct);
+ Task<PedidoComandoResultado> CancelarPedidoAsync(ComprasContext context, Guid pedidoId, CancelarPedidoRequest request, string key, CancellationToken ct);
 }
 

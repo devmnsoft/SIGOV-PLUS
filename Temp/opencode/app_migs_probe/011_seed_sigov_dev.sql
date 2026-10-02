@@ -1,2 +1,0 @@
--- Pós-RC 20: seed demonstrativo removido da cadeia estrutural.
--- Execute database/postgres/seeds/development/sigov_dev_demo.sql explicitamente em ambientes de desenvolvimento.

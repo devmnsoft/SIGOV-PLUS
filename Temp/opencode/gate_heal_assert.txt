@@ -1,9 +1,0 @@
-﻿s | character_maximum_length
-POST_LEN | 32
-s | ?column?
-ROWS | 990000001 | GLOSA_APLICADA | ENCERRADA
-ROWS | 990000002 | ENCERRAMENTO_ADMINISTRATIVO | ENCERRADA
-s | conname
-CONSTRAINTS | ck_comp_recb_div_codigo_encerrado
-CONSTRAINTS | ck_comp_recb_div_resultado_codigo
-

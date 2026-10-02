@@ -200,10 +200,10 @@ order by created_at desc,id desc limit 50";
                     diagnosticoSnapshot = "Snapshot legível sem itens detalhados; exibindo os itens atuais da requisição.";
                 }
             }
-            catch (System.Text.Json.JsonException ex)
+            catch (System.Text.Json.JsonException)
             {
                 classificacaoSnapshot = "INDISPONIVEL";
-                diagnosticoSnapshot = $"Snapshot ilegível ({ex.Message}); exibindo os itens atuais da requisição.";
+                diagnosticoSnapshot = "Snapshot com formato ilegível ou corrompido; exibindo os itens atuais da requisição como referência.";
             }
         }
 

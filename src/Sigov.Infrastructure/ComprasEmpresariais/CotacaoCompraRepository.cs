@@ -285,14 +285,49 @@ where co.tenant_id=@t and co.id=@id";
             if (esperados.Count != informados.Count || !esperados.IsSubsetOf(informados))
                 throw new ArgumentException("Informe uma linha de resposta para cada item da cotação (recuse explicitamente quando aplicável).");
 
+            var jaRespondido = convite.Status == "RESPONDIDO";
+            var itensAnteriores = jaRespondido
+                ? (await cn.QueryAsync<OfertaRaw>(new CommandDefinition("select ri.convite_id ConviteId,cv.fornecedor_id FornecedorId,'' FornecedorNome,ri.requisicao_item_id RequisicaoItemId,ri.preco_unitario PrecoUnitario,ri.desconto Desconto,ri.imposto Imposto,ri.frete Frete,ri.prazo_dias PrazoDias,ri.marca Marca,ri.fabricante Fabricante,ri.recusado Recusado from sigov.compras_empresarial_cotacao_resposta_item ri join sigov.compras_empresarial_cotacao_convite cv on cv.id=ri.convite_id and cv.tenant_id=ri.tenant_id where ri.tenant_id=@t and ri.convite_id=@cv", new { t = x.TenantId, cv = r.ConviteId }, tx, cancellationToken: ct))).AsList()
+                : new List<OfertaRaw>();
+
             foreach (var i in r.Itens)
                 await cn.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_cotacao_resposta_item(tenant_id,convite_id,requisicao_item_id,preco_unitario,desconto,imposto,frete,prazo_dias,marca,fabricante,recusado,created_by,updated_by,correlation_id)
 values(@t,@cv,@ri,@pu,@des,@imp,@frete,@prazo,@marca,@fab,@rec,@us,@us,@corr)
 on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitario=@pu,desconto=@des,imposto=@imp,frete=@frete,prazo_dias=@prazo,marca=@marca,fabricante=@fab,recusado=@rec,updated_at=now(),updated_by=@us,correlation_id=@corr,version=sigov.compras_empresarial_cotacao_resposta_item.version+1",
                     new { t = x.TenantId, cv = r.ConviteId, ri = i.RequisicaoItemId, pu = i.PrecoUnitario, des = i.Desconto, imp = i.Imposto, frete = i.Frete, prazo = i.PrazoDias, marca = i.Marca?.Trim(), fab = i.Fabricante?.Trim(), rec = i.Recusado, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
             await cn.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_cotacao_convite set status='RESPONDIDO',respondido_em=coalesce(respondido_em,now()),updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id", new { t = x.TenantId, id = r.ConviteId, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
-            await cn.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_cotacao set status='EM_RESPOSTA',updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id and status='ABERTA'", new { t = x.TenantId, id = cotacaoId, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
-            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'COTACAO',@co,'RESPOSTA_REGISTRADA',jsonb_build_object('convite_id',@cv::text,'fornecedor_id',@fid::text,'itens',@itens),@us,@corr)", new { t = x.TenantId, co = cotacaoId, cv = r.ConviteId, fid = convite.FornecedorId, itens = r.Itens.Count, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+            await cn.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_cotacao set status=case when status='ABERTA' then 'EM_RESPOSTA' else status end,updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id and status in ('ABERTA','EM_RESPOSTA')", new { t = x.TenantId, id = cotacaoId, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+
+            if (jaRespondido)
+            {
+                var alteracoes = r.Itens.Select(ni =>
+                {
+                    var ant = itensAnteriores.FirstOrDefault(ai => ai.RequisicaoItemId == ni.RequisicaoItemId);
+                    return new
+                    {
+                        requisicao_item_id = ni.RequisicaoItemId,
+                        preco_unitario_ant = ant?.PrecoUnitario,
+                        preco_unitario_novo = ni.PrecoUnitario,
+                        desconto_ant = ant?.Desconto,
+                        desconto_novo = ni.Desconto,
+                        imposto_ant = ant?.Imposto,
+                        imposto_novo = ni.Imposto,
+                        frete_ant = ant?.Frete,
+                        frete_novo = ni.Frete,
+                        prazo_ant = ant?.PrazoDias,
+                        prazo_novo = ni.PrazoDias,
+                        recusado_ant = ant?.Recusado,
+                        recusado_novo = ni.Recusado
+                    };
+                }).ToArray();
+                var altJson = JsonSerializer.Serialize(alteracoes);
+                await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'COTACAO',@co,'RESPOSTA_REVISADA',jsonb_build_object('convite_id',@cv::text,'fornecedor_id',@fid::text,'tipo','REVISAO_PROPOSTA','alteracoes',cast(@altJson as jsonb)),@us,@corr)", new { t = x.TenantId, co = cotacaoId, cv = r.ConviteId, fid = convite.FornecedorId, altJson, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+            }
+            else
+            {
+                await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'COTACAO',@co,'RESPOSTA_REGISTRADA',jsonb_build_object('convite_id',@cv::text,'fornecedor_id',@fid::text,'itens',@itens),@us,@corr)", new { t = x.TenantId, co = cotacaoId, cv = r.ConviteId, fid = convite.FornecedorId, itens = r.Itens.Count, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+            }
+
             await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash,resultado) values(@t,'COTACAO_RESPONDER',@key,@cv,@hash,jsonb_build_object('id',@co::text,'convite',@cv::text,'convite_status','RESPONDIDO','cotacao_status','EM_RESPOSTA'))", new { t = x.TenantId, key, cv = r.ConviteId, co = cotacaoId, hash }, tx, cancellationToken: ct));
             await tx.CommitAsync(ct);
             return new(cotacaoId, r.ConviteId, "RESPONDIDO", "EM_RESPOSTA", false);
@@ -339,9 +374,9 @@ on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitar
             if (co.Status != "EM_RESPOSTA") throw new InvalidOperationException("A seleção é permitida apenas em cotação com respostas registradas (situação EM_RESPOSTA).");
             if (co.Version != r.Version) throw new ComprasConcurrencyException("Versão desatualizada; recarregue o comparativo e tente novamente.");
 
-            var itens = (await cn.QueryAsync<SelecItem>(new CommandDefinition("select ci.requisicao_item_id RiId,ri.descricao Descricao,ci.quantidade Qtd,ci.produto_id Prod,ri.exige_inspecao Insp from sigov.compras_empresarial_cotacao_item ci join sigov.compras_empresarial_requisicao_item ri on ri.id=ci.requisicao_item_id and ri.tenant_id=ci.tenant_id where ci.tenant_id=@t and ci.cotacao_id=@id order by ri.ordem", new { t = x.TenantId, id = cotacaoId }, tx, cancellationToken: ct))).AsList();
+            var itens = (await cn.QueryAsync<SelecItem>(new CommandDefinition("select ci.id CiId,ci.requisicao_item_id RiId,ri.descricao Descricao,ci.quantidade Qtd,ci.produto_id Prod,ri.exige_inspecao Insp from sigov.compras_empresarial_cotacao_item ci join sigov.compras_empresarial_requisicao_item ri on ri.id=ci.requisicao_item_id and ri.tenant_id=ci.tenant_id where ci.tenant_id=@t and ci.cotacao_id=@id order by ri.ordem", new { t = x.TenantId, id = cotacaoId }, tx, cancellationToken: ct))).AsList();
             if (itens.Count == 0) throw new InvalidOperationException("A cotação não possui itens.");
-            var convites = (await cn.QueryAsync<ConviteInfo>(new CommandDefinition("select cv.id Id,cv.fornecedor_id FornecedorId,coalesce(f.nome_fantasia,f.razao_social) FornecedorNome from sigov.compras_empresarial_cotacao_convite cv join sigov.compras_empresarial_fornecedor f on f.id=cv.fornecedor_id and f.tenant_id=cv.tenant_id where cv.tenant_id=@t and cv.cotacao_id=@id and cv.status='RESPONDIDO'", new { t = x.TenantId, id = cotacaoId }, tx, cancellationToken: ct))).ToDictionary(c => c.Id);
+            var convites = (await cn.QueryAsync<ConviteInfo>(new CommandDefinition("select cv.id Id,cv.fornecedor_id FornecedorId,coalesce(f.nome_fantasia,f.razao_social) FornecedorNome,f.status FornecedorStatus,f.is_deleted FornecedorDeleted from sigov.compras_empresarial_cotacao_convite cv join sigov.compras_empresarial_fornecedor f on f.id=cv.fornecedor_id and f.tenant_id=cv.tenant_id where cv.tenant_id=@t and cv.cotacao_id=@id and cv.status='RESPONDIDO'", new { t = x.TenantId, id = cotacaoId }, tx, cancellationToken: ct))).ToDictionary(c => c.Id);
             var respostas = (await cn.QueryAsync<OfertaRaw>(new CommandDefinition("select ri.convite_id ConviteId,cv.fornecedor_id FornecedorId,'' FornecedorNome,ri.requisicao_item_id RequisicaoItemId,ri.preco_unitario PrecoUnitario,ri.desconto Desconto,ri.imposto Imposto,ri.frete Frete,ri.prazo_dias PrazoDias,null::text Marca,null::text Fabricante,ri.recusado Recusado from sigov.compras_empresarial_cotacao_resposta_item ri join sigov.compras_empresarial_cotacao_convite cv on cv.id=ri.convite_id and cv.tenant_id=ri.tenant_id where ri.tenant_id=@t and cv.cotacao_id=@id", new { t = x.TenantId, id = cotacaoId }, tx, cancellationToken: ct))).AsList();
 
             decimal CustoEfetivo(SelecItem item, OfertaRaw oferta)
@@ -361,6 +396,8 @@ on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitar
                 var item = itens.FirstOrDefault(i => i.RiId == e.RequisicaoItemId);
                 if (item is null) throw new ArgumentException("O item informado não pertence a esta cotação.");
                 if (!convites.TryGetValue(e.ConviteId, out var convite)) throw new ArgumentException("O convite informado não pertence a esta cotação ou ainda não respondeu.");
+                if (convite.FornecedorStatus is "BLOQUEADO" or "SUSPENSO" || convite.FornecedorDeleted)
+                    throw new InvalidOperationException($"O fornecedor {convite.FornecedorNome} está bloqueado ou suspenso e não é elegível para seleção.");
                 var oferta = respostas.FirstOrDefault(o => o.ConviteId == e.ConviteId && o.RequisicaoItemId == e.RequisicaoItemId);
                 if (oferta is null) throw new ArgumentException("Não há resposta registrada para este item neste fornecedor.");
                 if (oferta.Recusado) throw new ArgumentException("Este item foi recusado pelo fornecedor selecionado; escolha outro.");
@@ -371,7 +408,15 @@ on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitar
                     var justificativa = e.Justificativa?.Trim() ?? string.Empty;
                     if (justificativa.Length < 10) throw new ArgumentException("A seleção acima do menor custo exige justificativa com ao menos 10 caracteres.");
                 }
-                escolhidos.Add(new EscopoEscolha(item, e.ConviteId, convite.FornecedorId, convite.FornecedorNome, oferta, custo, e.Justificativa?.Trim()));
+                var valorBruto = Math.Round(oferta.PrecoUnitario * item.Qtd, 2, MidpointRounding.AwayFromZero);
+                var desconto = Math.Round(oferta.PrecoUnitario * item.Qtd * (oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
+                var imposto = Math.Round(oferta.PrecoUnitario * item.Qtd * (oferta.Imposto / 100m), 2, MidpointRounding.AwayFromZero);
+                var frete = Math.Round(oferta.Frete, 2, MidpointRounding.AwayFromZero);
+                var cue = Math.Round(oferta.PrecoUnitario * (1m + oferta.Imposto / 100m - oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
+                var valorLiquido = Math.Round(cue * item.Qtd, 2, MidpointRounding.AwayFromZero);
+                var totalItem = Math.Round(valorLiquido + frete, 2, MidpointRounding.AwayFromZero);
+                var selecaoId = Guid.NewGuid();
+                escolhidos.Add(new EscopoEscolha(item, e.ConviteId, convite.FornecedorId, convite.FornecedorNome, oferta, custo, e.Justificativa?.Trim(), selecaoId, cue, valorBruto, desconto, imposto, frete, valorLiquido, totalItem));
             }
 
             var pedidos = new List<CotacaoPedidoGerado>();
@@ -380,17 +425,20 @@ on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitar
             {
                 var pid = Guid.NewGuid();
                 var numero = await FornecedorRepository.Next(cn, tx, x.TenantId, "PEDIDO", "PED", ct);
-                var valor = Math.Round(grupo.Sum(e => e.Custo), 2, MidpointRounding.AwayFromZero);
+                var valorBrutoTotal = Math.Round(grupo.Sum(e => e.ValorBruto), 2, MidpointRounding.AwayFromZero);
+                var descontoTotal = Math.Round(grupo.Sum(e => e.Desconto), 2, MidpointRounding.AwayFromZero);
+                var impostoTotal = Math.Round(grupo.Sum(e => e.Imposto), 2, MidpointRounding.AwayFromZero);
+                var freteTotal = Math.Round(grupo.Sum(e => e.Frete), 2, MidpointRounding.AwayFromZero);
+                var valorTotal = Math.Round(grupo.Sum(e => e.TotalItem), 2, MidpointRounding.AwayFromZero);
                 var previsao = DateTime.Today.AddDays(grupo.Max(e => e.Oferta.PrazoDias));
-                await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_pedido(id,tenant_id,fornecedor_id,numero,status,valor_total,total,requisicao_id,cotacao_id,previsao,created_by,updated_by,correlation_id) values(@id,@t,@fid,@numero,'CONFIRMADO',@valor,@valor,@rq,@cid,@previsao,@us,@us,@corr)", new { id = pid, t = x.TenantId, fid = grupo.Key, numero, valor, rq = co.RequisicaoId, cid = cotacaoId, previsao, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+                await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_pedido(id,tenant_id,fornecedor_id,numero,status,valor_bruto,desconto_total,imposto_total,frete_total,valor_total,total,requisicao_id,cotacao_id,previsao,created_by,updated_by,correlation_id) values(@id,@t,@fid,@numero,'CONFIRMADO',@valorBrutoTotal,@descontoTotal,@impostoTotal,@freteTotal,@valorTotal,@valorTotal,@rq,@cid,@previsao,@us,@us,@corr)", new { id = pid, t = x.TenantId, fid = grupo.Key, numero, valorBrutoTotal, descontoTotal, impostoTotal, freteTotal, valorTotal, rq = co.RequisicaoId, cid = cotacaoId, previsao, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
                 foreach (var e in grupo)
-                    await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_pedido_item(tenant_id,pedido_id,produto_id,quantidade,valor_unitario,exige_inspecao) values(@t,@pid,@prod,@qtd,@vue,@insp)", new { t = x.TenantId, pid, prod = e.Item.Prod, qtd = e.Item.Qtd, vue = Math.Round(e.Oferta.PrecoUnitario * (1m + e.Oferta.Imposto / 100m - e.Oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero), insp = e.Item.Insp }, tx, cancellationToken: ct));
-                pedidos.Add(new(pid, numero, grupo.Key, grupo.First().FornecedorNome, valor, grupo.Count()));
+                    await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_pedido_item(tenant_id,pedido_id,produto_id,quantidade,valor_unitario,exige_inspecao,cotacao_item_id,cotacao_selecao_id,requisicao_item_id,valor_bruto,desconto,imposto,frete,valor_liquido,total_item) values(@t,@pid,@prod,@qtd,@vue,@insp,@ciId,@selId,@riId,@vBruto,@des,@imp,@frete,@vLiq,@tot)", new { t = x.TenantId, pid, prod = e.Item.Prod, qtd = e.Item.Qtd, vue = e.Cue, insp = e.Item.Insp, ciId = e.Item.CiId, selId = e.SelecaoId, riId = e.Item.RiId, vBruto = e.ValorBruto, des = e.Desconto, imp = e.Imposto, frete = e.Frete, vLiq = e.ValorLiquido, tot = e.TotalItem }, tx, cancellationToken: ct));
+                pedidos.Add(new(pid, numero, grupo.Key, grupo.First().FornecedorNome, valorTotal, grupo.Count()));
             }
             foreach (var e in escolhidos)
             {
-                var cue = Math.Round(e.Oferta.PrecoUnitario * (1m + e.Oferta.Imposto / 100m - e.Oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
-                await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_cotacao_selecao(tenant_id,cotacao_id,convite_id,fornecedor_id,requisicao_item_id,produto_id,quantidade,preco_unitario_efetivo,custo_total_item,menor_custo,justificativa,criado_por,correlation_id) values(@t,@cid,@cv,@fid,@ri,@prod,@qtd,@cue,@custo,@menor,@just,@us,@corr)", new { t = x.TenantId, cid = cotacaoId, cv = e.ConviteId, fid = e.FornecedorId, ri = e.Item.RiId, prod = e.Item.Prod, qtd = e.Item.Qtd, cue, custo = e.Custo, menor = menorPorItem[e.Item.RiId] ?? e.Custo, just = e.Justificativa, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+                await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_cotacao_selecao(id,tenant_id,cotacao_id,convite_id,fornecedor_id,requisicao_item_id,produto_id,quantidade,preco_unitario_efetivo,custo_total_item,menor_custo,justificativa,criado_por,correlation_id) values(@id,@t,@cid,@cv,@fid,@ri,@prod,@qtd,@cue,@custo,@menor,@just,@us,@corr)", new { id = e.SelecaoId, t = x.TenantId, cid = cotacaoId, cv = e.ConviteId, fid = e.FornecedorId, ri = e.Item.RiId, prod = e.Item.Prod, qtd = e.Item.Qtd, cue = e.Cue, custo = e.Custo, menor = menorPorItem[e.Item.RiId] ?? e.Custo, just = e.Justificativa, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
             }
             await cn.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_cotacao set status='SELECIONADA',selecionado_em=@selEm,selecionado_por=@us,updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id", new { t = x.TenantId, id = cotacaoId, selEm, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
             await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'COTACAO',@cid,'SELECAO_REGISTRADA',jsonb_build_object('itens',@itens,'fornecedores',@fornecedores),@us,@corr)", new { t = x.TenantId, cid = cotacaoId, itens = escolhidos.Count, fornecedores = pedidos.Count, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
@@ -464,21 +512,239 @@ order by p.created_at desc,p.id desc offset @off limit @s";
 
     public async Task<PedidoDetalhe?> ObterPedidoAsync(ComprasContext x, Guid id, CancellationToken ct)
     {
-        var q = @"select p.id Id,p.numero Numero,p.status Status,p.fornecedor_id FornecedorId,coalesce(fo.nome_fantasia,fo.razao_social) FornecedorNome,p.valor_total ValorTotal,p.previsao Previsao,p.created_at CriadoEm,p.cotacao_id CotacaoId,cc.numero NumeroCotacao,p.requisicao_id RequisicaoId,rr.numero NumeroRequisicao,p.version Version
+        var q = @"select p.id Id,p.numero Numero,p.status Status,p.fornecedor_id FornecedorId,coalesce(fo.nome_fantasia,fo.razao_social) FornecedorNome,coalesce(p.valor_bruto,p.valor_total) ValorBruto,coalesce(p.desconto_total,0) DescontoTotal,coalesce(p.imposto_total,0) ImpostoTotal,coalesce(p.frete_total,0) FreteTotal,p.valor_total ValorTotal,p.previsao Previsao,p.created_at CriadoEm,p.cotacao_id CotacaoId,cc.numero NumeroCotacao,p.requisicao_id RequisicaoId,rr.numero NumeroRequisicao,p.version Version,p.motivo_encerramento MotivoEncerramento,p.encerrado_em EncerradoEm,p.motivo_cancelamento MotivoCancelamento,p.cancelado_em CanceladoEm
 from sigov.compras_empresarial_pedido p
 left join sigov.compras_empresarial_fornecedor fo on fo.id=p.fornecedor_id and fo.tenant_id=p.tenant_id
 left join sigov.compras_empresarial_cotacao cc on cc.id=p.cotacao_id and cc.tenant_id=p.tenant_id
 left join sigov.compras_empresarial_requisicao rr on rr.id=p.requisicao_id and rr.tenant_id=p.tenant_id
 where p.tenant_id=@t and p.id=@id and not p.is_deleted;
-select pi.id Id,pi.produto_id ProdutoId,ep.nome ProdutoNome,ep.unidade Unidade,pi.quantidade Quantidade,pi.quantidade_cancelada QuantidadeCancelada,pi.valor_unitario ValorUnitario,pi.exige_inspecao ExigeInspecao from sigov.compras_empresarial_pedido_item pi left join sigov.estoque_produto ep on ep.id=pi.produto_id and ep.tenant_id=pi.tenant_id where pi.tenant_id=@t and pi.pedido_id=@id order by pi.id;
+select pi.id Id,pi.produto_id ProdutoId,ep.nome ProdutoNome,ep.unidade Unidade,pi.quantidade QuantidadePedida,pi.quantidade_cancelada QuantidadeCancelada,
+coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id),0) QuantidadeRecebidaFisica,
+coalesce((select sum(ri.quantidade_conferencia) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and r.status='EM_CONFERENCIA'),0) QuantidadeAguardandoInspecao,
+coalesce((select sum(ri.quantidade_aceita) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and r.status='CONCLUIDO'),0) QuantidadeAceita,
+coalesce((select sum(ri.quantidade_rejeitada) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id),0) QuantidadeRejeitada,
+coalesce((select sum(di.quantidade) from sigov.compras_empresarial_devolucao_item di join sigov.compras_empresarial_devolucao d on d.id=di.devolucao_id and d.tenant_id=di.tenant_id join sigov.compras_empresarial_recebimento_item ri on ri.id=di.recebimento_item_id and ri.tenant_id=di.tenant_id where di.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.situacao<>'CANCELADA'),0) QuantidadeDevolvida,
+coalesce((select sum(d.quantidade_rejeitada) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id where d.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.situacao<>'ENCERRADA'),0) QuantidadePendenteRegularizacao,
+greatest(0,pi.quantidade-pi.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id),0)) SaldoEntregavel,
+pi.valor_unitario ValorUnitario,coalesce(pi.valor_bruto,pi.quantidade*pi.valor_unitario) ValorBruto,coalesce(pi.desconto,0) Desconto,coalesce(pi.imposto,0) Imposto,coalesce(pi.frete,0) Frete,coalesce(pi.valor_liquido,pi.quantidade*pi.valor_unitario) ValorLiquido,coalesce(pi.total_item,pi.quantidade*pi.valor_unitario) TotalItem,pi.exige_inspecao ExigeInspecao,pi.cotacao_item_id CotacaoItemId,pi.cotacao_selecao_id CotacaoSelecaoId,pi.requisicao_item_id RequisicaoItemId
+from sigov.compras_empresarial_pedido_item pi
+left join sigov.estoque_produto ep on ep.id=pi.produto_id and ep.tenant_id=pi.tenant_id
+where pi.tenant_id=@t and pi.pedido_id=@id
+order by pi.id;
+select r.id Id,r.documento Documento,a.nome AlmoxarifadoNome,r.created_at DataOperacao,r.status Status,case when r.status='CONCLUIDO' then 'CONCLUIDO' else 'EM_CONFERENCIA' end ResultadoInspecao,(select count(*) from sigov.compras_empresarial_recebimento_item ri where ri.recebimento_id=r.id and ri.tenant_id=r.tenant_id and ri.quantidade_rejeitada>0)::int Divergencias
+from sigov.compras_empresarial_recebimento r
+join sigov.estoque_almoxarifado a on a.id=r.almoxarifado_id and a.tenant_id=r.tenant_id
+where r.tenant_id=@t and r.pedido_id=@id
+order by r.created_at desc;
+select d.id Id,pr.nome Produto,d.quantidade_rejeitada QuantidadeRejeitada,d.motivo Motivo,d.situacao Situacao,d.providencia Providencia,d.resultado Resultado
+from sigov.compras_empresarial_recebimento_divergencia d
+join sigov.compras_empresarial_recebimento r on r.id=d.recebimento_id and r.tenant_id=d.tenant_id
+join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id
+join sigov.estoque_produto pr on pr.id=ri.produto_id and pr.tenant_id=ri.tenant_id
+where d.tenant_id=@t and r.pedido_id=@id
+order by d.created_at desc;
+select d.id Id,d.situacao Situacao,coalesce((select sum(di.quantidade) from sigov.compras_empresarial_devolucao_item di where di.devolucao_id=d.id and di.tenant_id=d.tenant_id),0) QuantidadeTotal,d.motivo Motivo,d.created_at CriadaEm,d.expedida_em ExpedidaEm,d.entregue_em EntregueEm,d.documento_protocolo DocumentoProtocolo
+from sigov.compras_empresarial_devolucao d
+join sigov.compras_empresarial_recebimento r on r.id=d.recebimento_id and r.tenant_id=d.tenant_id
+where d.tenant_id=@t and r.pedido_id=@id
+order by d.created_at desc;
 select acao Acao,detalhes::text Detalhes,created_at CriadoEm from sigov.compras_empresarial_historico where tenant_id=@t and aggregate_type='PEDIDO' and aggregate_id=@id order by created_at desc,id desc limit 50";
+
         await using var cn = factory.CreateConnection();
         using var m = await cn.QueryMultipleAsync(new CommandDefinition(q, new { t = x.TenantId, id }, cancellationToken: ct));
         var h = await m.ReadSingleOrDefaultAsync<PedidoHeaderRow>();
         if (h is null) return null;
         var itens = (await m.ReadAsync<PedidoItemDetalhe>()).AsList();
+        var recebimentos = (await m.ReadAsync<PedidoRecebimentoResumo>()).AsList();
+        var divergencias = (await m.ReadAsync<PedidoDivergenciaResumo>()).AsList();
+        var devolucoes = (await m.ReadAsync<PedidoDevolucaoResumo>()).AsList();
         var historico = (await m.ReadAsync<RequisicaoHistorico>()).AsList();
-        return new(h.Id, h.Numero, h.Status, h.FornecedorId, h.FornecedorNome, h.ValorTotal, h.Previsao, h.CriadoEm, h.CotacaoId, h.NumeroCotacao, h.RequisicaoId, h.NumeroRequisicao, h.Version, itens, historico);
+
+        PedidoProximaAcao proximaAcao;
+        if (h.Status == "ENCERRADO")
+        {
+            proximaAcao = new("ENCERRADO", "Pedido encerrado", "O pedido foi encerrado operacionalmente. Não há ações pendentes.", "", false);
+        }
+        else if (h.Status == "CANCELADO")
+        {
+            proximaAcao = new("CANCELADO", "Pedido cancelado", "O pedido foi cancelado. Não há ações pendentes.", "", false);
+        }
+        else if (recebimentos.Any(r => r.Status == "EM_CONFERENCIA"))
+        {
+            var pendRec = recebimentos.First(r => r.Status == "EM_CONFERENCIA");
+            proximaAcao = new("INSPECAO_PENDENTE", "Concluir inspeção", $"Existe recebimento ({pendRec.Documento}) com conferência física pendente.", $"/compras/recebimentos/{pendRec.Id}", true);
+        }
+        else if (divergencias.Any(d => d.Situacao is "ABERTA" or "EM_TRATAMENTO"))
+        {
+            var divAberta = divergencias.First(d => d.Situacao is "ABERTA" or "EM_TRATAMENTO");
+            proximaAcao = new("DIVERGENCIA_PENDENTE", "Tratar divergência", "Existem divergências pendentes de tratamento no recebimento.", $"/compras/divergencias/{divAberta.Id}", true);
+        }
+        else if (devolucoes.Any(d => d.Situacao is "RASCUNHO" or "EXPEDIDA"))
+        {
+            var devAberta = devolucoes.First(d => d.Situacao is "RASCUNHO" or "EXPEDIDA");
+            proximaAcao = new("DEVOLUCAO_PENDENTE", "Acompanhar devolução", "Existem devoluções em andamento aguardando expedição ou entrega física.", $"/compras/devolucoes/{devAberta.Id}", true);
+        }
+        else if (itens.Any(i => i.SaldoEntregavel > 0))
+        {
+            proximaAcao = new("ENTREGA_PENDENTE", "Registrar entrega", "Aguardando entrega física do fornecedor para os itens pendentes.", $"/compras/recebimentos/novo?pedidoId={h.Id}", true);
+        }
+        else
+        {
+            proximaAcao = new("APTO_ENCERRAMENTO", "Encerrar pedido", "Todas as entregas físicas foram inspecionadas e não há pendências operacionais. O pedido está apto para encerramento.", "encerrar", true);
+        }
+
+        return new PedidoDetalhe(
+            Id: h.Id,
+            Numero: h.Numero,
+            Status: h.Status,
+            FornecedorId: h.FornecedorId,
+            FornecedorNome: h.FornecedorNome,
+            ValorTotal: h.ValorTotal,
+            Previsao: h.Previsao,
+            CriadoEm: h.CriadoEm,
+            CotacaoId: h.CotacaoId,
+            NumeroCotacao: h.NumeroCotacao,
+            RequisicaoId: h.RequisicaoId,
+            NumeroRequisicao: h.NumeroRequisicao,
+            Version: h.Version,
+            Itens: itens,
+            Historico: historico,
+            ValorBruto: h.ValorBruto,
+            DescontoTotal: h.DescontoTotal,
+            ImpostoTotal: h.ImpostoTotal,
+            FreteTotal: h.FreteTotal,
+            ValorLiquido: h.ValorTotal - h.FreteTotal,
+            MotivoEncerramento: h.MotivoEncerramento,
+            EncerradoEm: h.EncerradoEm,
+            MotivoCancelamento: h.MotivoCancelamento,
+            CanceladoEm: h.CanceladoEm,
+            Recebimentos: recebimentos,
+            Divergencias: divergencias,
+            Devolucoes: devolucoes,
+            ProximaAcao: proximaAcao);
+    }
+
+    public async Task<PedidoComandoResultado> EncerrarPedidoAsync(ComprasContext x, Guid pedidoId, EncerrarPedidoRequest r, string key, CancellationToken ct)
+    {
+        await using var cn = factory.CreateConnection();
+        await cn.OpenAsync(ct);
+        await using var tx = await cn.BeginTransactionAsync(ct);
+        try
+        {
+            await LockAsync(cn, tx, x, $"{pedidoId:D}|ENCERRAR_PEDIDO", ct);
+            var hash = FornecedorRepository.HashPayload(new { pedidoId, r.Version, r.Motivo });
+            var anterior = await cn.QuerySingleOrDefaultAsync<FornecedorRepository.IdemComHash>(new CommandDefinition("select recurso_id RecursoId,request_hash RequestHash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='PEDIDO_ENCERRAR' and chave=@key", new { t = x.TenantId, key }, tx, cancellationToken: ct));
+            if (anterior is not null)
+            {
+                if (anterior.RequestHash is not null && anterior.RequestHash != hash) throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+                var resultado = await cn.QuerySingleOrDefaultAsync<string?>(new CommandDefinition("select coalesce(resultado::text,'') from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='PEDIDO_ENCERRAR' and chave=@key", new { t = x.TenantId, key }, tx, cancellationToken: ct));
+                if (!string.IsNullOrWhiteSpace(resultado))
+                {
+                    using var doc = JsonDocument.Parse(resultado);
+                    var ro = doc.RootElement;
+                    await tx.CommitAsync(ct);
+                    return new(ro.GetProperty("id").GetGuid(), ro.GetProperty("status").GetString()!, ro.TryGetProperty("version", out var vEl) ? vEl.GetInt64() : 1, true, "Operação de encerramento repetida com sucesso.");
+                }
+                var pedExistente = await cn.QuerySingleOrDefaultAsync<PedidoLockRow?>(new CommandDefinition("select status, version from sigov.compras_empresarial_pedido where tenant_id=@t and id=@id", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+                if (pedExistente is null) throw new InvalidOperationException("Registro de idempotência sem pedido correspondente.");
+                await tx.CommitAsync(ct);
+                return new(pedidoId, pedExistente.Status, pedExistente.Version, true, "Operação de encerramento repetida com sucesso.");
+            }
+
+            var ped = await cn.QuerySingleOrDefaultAsync<PedidoLockRow>(new CommandDefinition("select status, version from sigov.compras_empresarial_pedido where tenant_id=@t and id=@id and not is_deleted for update", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            if (ped is null) throw new KeyNotFoundException("Pedido não encontrado no contexto autorizado.");
+            if (ped.Status is "ENCERRADO" or "CANCELADO") throw new InvalidOperationException($"O pedido já se encontra na situação {ped.Status}.");
+            if (ped.Version != r.Version) throw new ComprasConcurrencyException("Versão desatualizada; recarregue o detalhe do pedido e tente novamente.");
+
+            var pendentesInspecao = await cn.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.compras_empresarial_recebimento where tenant_id=@t and pedido_id=@id and status='EM_CONFERENCIA'", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            if (pendentesInspecao > 0) throw new InvalidOperationException("Não é possível encerrar o pedido: existem recebimentos com inspeção/conferência pendente.");
+
+            var divergenciasAbertas = await cn.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento r on r.id=d.recebimento_id and r.tenant_id=d.tenant_id where d.tenant_id=@t and r.pedido_id=@id and d.situacao<>'ENCERRADA'", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            if (divergenciasAbertas > 0) throw new InvalidOperationException("Não é possível encerrar o pedido: existem divergências em aberto ou em tratamento.");
+
+            var devolucoesAbertas = await cn.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.compras_empresarial_devolucao d join sigov.compras_empresarial_recebimento r on r.id=d.recebimento_id and r.tenant_id=d.tenant_id where d.tenant_id=@t and r.pedido_id=@id and d.situacao in ('RASCUNHO','EXPEDIDA')", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            if (devolucoesAbertas > 0) throw new InvalidOperationException("Não é possível encerrar o pedido: existem devoluções pendentes de entrega física ou conclusão.");
+
+            await cn.ExecuteAsync(new CommandDefinition(@"update sigov.compras_empresarial_pedido_item pi
+set quantidade_cancelada = pi.quantidade - coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id), 0)
+where pi.tenant_id=@t and pi.pedido_id=@id
+  and pi.quantidade > pi.quantidade_cancelada + coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id), 0)",
+                new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+
+            await cn.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_pedido set status='ENCERRADO',motivo_encerramento=@motivo,encerrado_em=now(),encerrado_por=@us,updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id",
+                new { t = x.TenantId, id = pedidoId, motivo = r.Motivo, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+
+            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'PEDIDO',@id,'ENCERRADO',jsonb_build_object('motivo',@motivo),@us,@corr)",
+                new { t = x.TenantId, id = pedidoId, motivo = r.Motivo, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+
+            var novaVersao = ped.Version + 1;
+            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash,resultado) values(@t,'PEDIDO_ENCERRAR',@key,@id,@hash,jsonb_build_object('id',@id::text,'status','ENCERRADO','version',@novaVersao))",
+                new { t = x.TenantId, key, id = pedidoId, hash, novaVersao }, tx, cancellationToken: ct));
+
+            await tx.CommitAsync(ct);
+            return new(pedidoId, "ENCERRADO", novaVersao, false, "Pedido encerrado com sucesso.");
+        }
+        catch
+        { try { await tx.RollbackAsync(ct); } catch (InvalidOperationException) { } throw; }
+    }
+
+    public async Task<PedidoComandoResultado> CancelarPedidoAsync(ComprasContext x, Guid pedidoId, CancelarPedidoRequest r, string key, CancellationToken ct)
+    {
+        await using var cn = factory.CreateConnection();
+        await cn.OpenAsync(ct);
+        await using var tx = await cn.BeginTransactionAsync(ct);
+        try
+        {
+            await LockAsync(cn, tx, x, $"{pedidoId:D}|CANCELAR_PEDIDO", ct);
+            var hash = FornecedorRepository.HashPayload(new { pedidoId, r.Version, r.Motivo });
+            var anterior = await cn.QuerySingleOrDefaultAsync<FornecedorRepository.IdemComHash>(new CommandDefinition("select recurso_id RecursoId,request_hash RequestHash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='PEDIDO_CANCELAR' and chave=@key", new { t = x.TenantId, key }, tx, cancellationToken: ct));
+            if (anterior is not null)
+            {
+                if (anterior.RequestHash is not null && anterior.RequestHash != hash) throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+                var resultado = await cn.QuerySingleOrDefaultAsync<string?>(new CommandDefinition("select coalesce(resultado::text,'') from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='PEDIDO_CANCELAR' and chave=@key", new { t = x.TenantId, key }, tx, cancellationToken: ct));
+                if (!string.IsNullOrWhiteSpace(resultado))
+                {
+                    using var doc = JsonDocument.Parse(resultado);
+                    var ro = doc.RootElement;
+                    await tx.CommitAsync(ct);
+                    return new(ro.GetProperty("id").GetGuid(), ro.GetProperty("status").GetString()!, ro.TryGetProperty("version", out var vEl) ? vEl.GetInt64() : 1, true, "Operação de cancelamento repetida com sucesso.");
+                }
+                var pedExistente = await cn.QuerySingleOrDefaultAsync<PedidoLockRow?>(new CommandDefinition("select status, version from sigov.compras_empresarial_pedido where tenant_id=@t and id=@id", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+                if (pedExistente is null) throw new InvalidOperationException("Registro de idempotência sem pedido correspondente.");
+                await tx.CommitAsync(ct);
+                return new(pedidoId, pedExistente.Status, pedExistente.Version, true, "Operação de cancelamento repetida com sucesso.");
+            }
+
+            var ped = await cn.QuerySingleOrDefaultAsync<PedidoLockRow>(new CommandDefinition("select status, version from sigov.compras_empresarial_pedido where tenant_id=@t and id=@id and not is_deleted for update", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            if (ped is null) throw new KeyNotFoundException("Pedido não encontrado no contexto autorizado.");
+            if (ped.Status is "ENCERRADO" or "CANCELADO") throw new InvalidOperationException($"O pedido já se encontra na situação {ped.Status}.");
+            if (ped.Version != r.Version) throw new ComprasConcurrencyException("Versão desatualizada; recarregue o detalhe do pedido e tente novamente.");
+
+            var totalRecebido = await cn.ExecuteScalarAsync<decimal>(new CommandDefinition("select coalesce(sum(ri.quantidade_fisica),0) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=@t and r.pedido_id=@id", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            var totalPedido = await cn.ExecuteScalarAsync<decimal>(new CommandDefinition("select coalesce(sum(quantidade),0) from sigov.compras_empresarial_pedido_item where tenant_id=@t and pedido_id=@id", new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+            if (totalRecebido >= totalPedido && totalPedido > 0)
+                throw new InvalidOperationException("O pedido já teve 100% de seus itens recebidos fisicamente e não pode ser cancelado; conclua a operação ou utilize encerramento/devolução.");
+
+            await cn.ExecuteAsync(new CommandDefinition(@"update sigov.compras_empresarial_pedido_item pi
+set quantidade_cancelada = pi.quantidade - coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id), 0)
+where pi.tenant_id=@t and pi.pedido_id=@id",
+                new { t = x.TenantId, id = pedidoId }, tx, cancellationToken: ct));
+
+            await cn.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_pedido set status='CANCELADO',motivo_cancelamento=@motivo,cancelado_em=now(),cancelado_por=@us,updated_at=now(),updated_by=@us,correlation_id=@corr,version=version+1 where tenant_id=@t and id=@id",
+                new { t = x.TenantId, id = pedidoId, motivo = r.Motivo, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+
+            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'PEDIDO',@id,'CANCELADO',jsonb_build_object('motivo',@motivo,'recebido_fisico',@totalRecebido),@us,@corr)",
+                new { t = x.TenantId, id = pedidoId, motivo = r.Motivo, totalRecebido, us = x.UsuarioId.ToString(), corr = x.CorrelationId }, tx, cancellationToken: ct));
+
+            var novaVersao = ped.Version + 1;
+            await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash,resultado) values(@t,'PEDIDO_CANCELAR',@key,@id,@hash,jsonb_build_object('id',@id::text,'status','CANCELADO','version',@novaVersao))",
+                new { t = x.TenantId, key, id = pedidoId, hash, novaVersao }, tx, cancellationToken: ct));
+
+            await tx.CommitAsync(ct);
+            return new(pedidoId, "CANCELADO", novaVersao, false, "Pedido cancelado com sucesso.");
+        }
+        catch
+        { try { await tx.RollbackAsync(ct); } catch (InvalidOperationException) { } throw; }
     }
 
     // ===== Rows privados de leitura =====
@@ -494,8 +760,9 @@ select acao Acao,detalhes::text Detalhes,created_at CriadoEm from sigov.compras_
     private sealed record OfertaRaw(Guid ConviteId, Guid FornecedorId, string FornecedorNome, Guid RequisicaoItemId, decimal PrecoUnitario, decimal Desconto, decimal Imposto, decimal Frete, int PrazoDias, string? Marca, string? Fabricante, bool Recusado);
     private sealed record ConviteLock(Guid FornecedorId, string Status, long Version, DateTime ExpiraEm);
     private sealed record CotacaoLock(Guid RequisicaoId, string Status, long Version, DateTime? SelecionadoEm);
-    private sealed record SelecItem(Guid RiId, string Descricao, decimal Qtd, Guid Prod, bool Insp);
-    private sealed record ConviteInfo(Guid Id, Guid FornecedorId, string FornecedorNome);
-    private sealed record EscopoEscolha(SelecItem Item, Guid ConviteId, Guid FornecedorId, string FornecedorNome, OfertaRaw Oferta, decimal Custo, string? Justificativa);
-    private sealed record PedidoHeaderRow(Guid Id, string Numero, string Status, Guid? FornecedorId, string? FornecedorNome, decimal ValorTotal, DateOnly? Previsao, DateTime CriadoEm, Guid? CotacaoId, string? NumeroCotacao, Guid? RequisicaoId, string? NumeroRequisicao, long Version);
+    private sealed record SelecItem(Guid CiId, Guid RiId, string Descricao, decimal Qtd, Guid Prod, bool Insp);
+    private sealed record ConviteInfo(Guid Id, Guid FornecedorId, string FornecedorNome, string FornecedorStatus, bool FornecedorDeleted);
+    private sealed record EscopoEscolha(SelecItem Item, Guid ConviteId, Guid FornecedorId, string FornecedorNome, OfertaRaw Oferta, decimal Custo, string? Justificativa, Guid SelecaoId, decimal Cue, decimal ValorBruto, decimal Desconto, decimal Imposto, decimal Frete, decimal ValorLiquido, decimal TotalItem);
+    private sealed record PedidoHeaderRow(Guid Id, string Numero, string Status, Guid? FornecedorId, string? FornecedorNome, decimal ValorBruto, decimal DescontoTotal, decimal ImpostoTotal, decimal FreteTotal, decimal ValorTotal, DateOnly? Previsao, DateTime CriadoEm, Guid? CotacaoId, string? NumeroCotacao, Guid? RequisicaoId, string? NumeroRequisicao, long Version, string? MotivoEncerramento, DateTime? EncerradoEm, string? MotivoCancelamento, DateTime? CanceladoEm);
+    private sealed record PedidoLockRow(string Status, long Version);
 }

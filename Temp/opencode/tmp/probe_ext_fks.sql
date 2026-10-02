@@ -1,1 +1,0 @@
-﻿select 'EXT_FK '||n.nspname||'.'||c.relname||' -> '||fc.relname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_class fc on fc.oid=k.confrelid join pg_namespace n on n.oid=c.relnamespace where k.contype='f' and fc.relname like 'compras_empresarial%' order by 1;
