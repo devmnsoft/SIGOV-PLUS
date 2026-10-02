@@ -21,7 +21,9 @@ public sealed class AprovacaoRequisicaoRepository(NpgsqlConnectionFactory factor
     /// <summary>
     /// Cadeia de concessão espelhando exatamente <see cref="Security.PersistentAuthorizationEvaluator"/>:
     /// módulo/recurso/ação com curingas, vigência conferida com now() apenas onde o avaliador
-    /// confere, e escopo por tenant/entidade/exercício/unidade apenas onde o avaliador aceita escopo.
+    /// confere, e escopo por tenant/entidade/exercício avaliado contra o slice do próprio candidato
+    /// (colunas de sigov.usuario), como o avaliador faz por principal. Unidade nunca é passada pelo
+    /// handler, então um escopo de unidade em grant/grupo não se aplica a este contexto.
     /// </summary>
     private const string CadeiaConcessao = @"from sigov.usuario_grupo ug
 join sigov.grupo_acesso ga on ga.id=ug.grupo_acesso_id and ga.ativo and not ga.is_deleted
@@ -36,14 +38,17 @@ and (p.acao=@Acao or p.acao='*')
 and (ug.vigencia_inicio is null or ug.vigencia_inicio<=now()) and (ug.vigencia_fim is null or ug.vigencia_fim>=now())
 and (gp.vigencia_inicio is null or gp.vigencia_inicio<=now()) and (gp.vigencia_fim is null or gp.vigencia_fim>=now())
 and (pp.vigencia_inicio is null or pp.vigencia_inicio<=now()) and (pp.vigencia_fim is null or pp.vigencia_fim>=now())
-and (ug.tenant_id is null or ug.tenant_id=@TenantId) and (gp.tenant_id is null or gp.tenant_id=@TenantId) and (pp.tenant_id is null or pp.tenant_id=@TenantId)
-and (ug.entidade_id is null or ug.entidade_id=@EntidadeId) and (gp.entidade_id is null or gp.entidade_id=@EntidadeId) and (pp.entidade_id is null or pp.entidade_id=@EntidadeId)
-and (ug.exercicio_id is null or ug.exercicio_id=@ExercicioId) and (gp.exercicio_id is null or gp.exercicio_id=@ExercicioId) and (pp.exercicio_id is null or pp.exercicio_id=@ExercicioId)
-and (ug.unidade_id is null or ug.unidade_id=@UnidadeId) and (gp.unidade_id is null or gp.unidade_id=@UnidadeId) and (pp.unidade_id is null or pp.unidade_id=@UnidadeId)";
+and (ug.tenant_id is null or ug.tenant_id=u.tenant_id) and (gp.tenant_id is null or gp.tenant_id=u.tenant_id) and (pp.tenant_id is null or pp.tenant_id=u.tenant_id)
+and (ug.entidade_id is null or ug.entidade_id=u.entidade_id) and (gp.entidade_id is null or gp.entidade_id=u.entidade_id) and (pp.entidade_id is null or pp.entidade_id=u.entidade_id)
+and (ug.exercicio_id is null or ug.exercicio_id=u.exercicio_id) and (gp.exercicio_id is null or gp.exercicio_id=u.exercicio_id) and (pp.exercicio_id is null or pp.exercicio_id=u.exercicio_id)
+and ug.unidade_id is null and gp.unidade_id is null and pp.unidade_id is null";
 
+    // @TenantId também delimita o próprio candidato: somente usuários da instituição núcleo do
+    // contexto concorrem à elegibilidade (fronteira institucional; grants de outra instituição
+    // não elegem quem não pertence ao núcleo).
     private static readonly string ElegibilidadeSql = $@"select distinct md5('sigov:usuario:'||u.id::text)::uuid as AprovadorSub
 from sigov.usuario u
-where u.ativo and not u.is_deleted
+where u.ativo and not u.is_deleted and u.tenant_id=@TenantId
 and exists(select 1 {CadeiaConcessao} and pp.efeito='PERMITIR' and (pp.alcada_valor is null or pp.alcada_valor>=@Alcada))
 and not exists(select 1 {CadeiaConcessao} and pp.efeito='NEGAR');";
 
@@ -151,7 +156,11 @@ order by created_at desc,id desc limit 50";
         var historico = (await reader.ReadAsync<RequisicaoHistorico>()).AsList();
         historico.Reverse();
 
-        // Preservação do snapshot histórico: se a etapa possui itens congelados no snapshot do ciclo, use-os
+        // Preservação do snapshot histórico: se a etapa possui itens congelados no snapshot do ciclo,
+        // use-os e classifique explicitamente a exibição (COMPLETO/PARCIAL/INDISPONIVEL) — nunca
+        // dados inventados sem dizer que a origem é parcial ou ausente.
+        var classificacaoSnapshot = "INDISPONIVEL";
+        string? diagnosticoSnapshot = "Esta etapa foi criada antes da captura de itens no snapshot; exibindo os itens atuais da requisição.";
         if (!string.IsNullOrWhiteSpace(cab.RegraSnapshot))
         {
             try
@@ -160,8 +169,12 @@ order by created_at desc,id desc limit 50";
                 if (doc.RootElement.TryGetProperty("itens", out var itensProp) && itensProp.ValueKind == System.Text.Json.JsonValueKind.Array && itensProp.GetArrayLength() > 0)
                 {
                     var snapshotItens = new List<RequisicaoItemDetalhe>();
+                    var identificados = true;
                     foreach (var el in itensProp.EnumerateArray())
                     {
+                        var idItem = Guid.Empty;
+                        if (el.TryGetProperty("id", out var iid) && iid.ValueKind == System.Text.Json.JsonValueKind.String && Guid.TryParse(iid.GetString(), out var idParse)) idItem = idParse;
+                        else identificados = false;
                         var ordem = el.TryGetProperty("ordem", out var o) ? o.GetInt32() : snapshotItens.Count + 1;
                         var tipo = el.TryGetProperty("tipo", out var tp) ? tp.GetString() ?? "MATERIAL" : "MATERIAL";
                         var desc = el.TryGetProperty("descricao", out var d) ? d.GetString() ?? "Item" : "Item";
@@ -171,21 +184,33 @@ order by created_at desc,id desc limit 50";
                         var val = el.TryGetProperty("valor_estimado", out var v) ? v.GetDecimal() : 0m;
                         var part = el.TryGetProperty("permite_parcial", out var p) && p.GetBoolean();
                         var insp = el.TryGetProperty("exige_inspecao", out var i) && i.GetBoolean();
-                        snapshotItens.Add(new RequisicaoItemDetalhe(Guid.Empty, ordem, tipo, desc, spec, un, qtd, val, part, insp));
+                        if (!el.TryGetProperty("descricao", out _)) identificados = false;
+                        snapshotItens.Add(new RequisicaoItemDetalhe(idItem, ordem, tipo, desc, spec, un, qtd, val, part, insp));
                     }
                     if (snapshotItens.Count > 0)
                     {
                         itens = snapshotItens;
+                        classificacaoSnapshot = identificados ? "COMPLETO" : "PARCIAL";
+                        diagnosticoSnapshot = identificados ? null : "Snapshot legível de versão anterior sem identificação completa dos itens; exibição parcial.";
                     }
                 }
+                else
+                {
+                    classificacaoSnapshot = "PARCIAL";
+                    diagnosticoSnapshot = "Snapshot legível sem itens detalhados; exibindo os itens atuais da requisição.";
+                }
             }
-            catch { /* Snapshot sem itens detalhados ou legado: mantém itens atuais */ }
+            catch (System.Text.Json.JsonException ex)
+            {
+                classificacaoSnapshot = "INDISPONIVEL";
+                diagnosticoSnapshot = $"Snapshot ilegível ({ex.Message}); exibindo os itens atuais da requisição.";
+            }
         }
 
-        var priorUnapproved = etapas.Any(e => e.Nivel < cab.Nivel && e.Status != "APROVADO");
+        var priorUnapproved = !AprovacaoQuorum.NivelAnteriorCoberto(etapas.Select(e => (e.Nivel, e.Status)), cab.Nivel);
         var decidivelPorMim = cab.DecisivelPorMim && !priorUnapproved && cab.StatusEtapa == "PENDENTE";
         var proxima = etapas.FirstOrDefault(e => e.Status == "PENDENTE" && e.Nivel >= cab.Nivel);
-        return new AprovacaoEtapaDetalhe(cab.EtapaId, cab.Ciclo, cab.Nivel, cab.Limite, cab.StatusEtapa, cab.AprovadorId, cab.AprovadorNome, cab.Bloqueada, decidivelPorMim, cab.VersionEtapa, cab.DecididaEm, cab.Motivo, cab.RequisicaoId, cab.Numero, cab.StatusRequisicao, cab.Urgencia, cab.Setor, cab.SolicitanteNome, cab.SolicitadaEm, cab.Total, cab.RegraSnapshot, itens, etapas, proxima, historico);
+        return new AprovacaoEtapaDetalhe(cab.EtapaId, cab.Ciclo, cab.Nivel, cab.Limite, cab.StatusEtapa, cab.AprovadorId, cab.AprovadorNome, cab.Bloqueada, decidivelPorMim, cab.VersionEtapa, cab.DecididaEm, cab.Motivo, cab.RequisicaoId, cab.Numero, cab.StatusRequisicao, cab.Urgencia, cab.Setor, cab.SolicitanteNome, cab.SolicitadaEm, cab.Total, cab.RegraSnapshot, itens, etapas, proxima, historico, classificacaoSnapshot, diagnosticoSnapshot);
     }
 
     private sealed record CabecalhoEtapa(Guid EtapaId,int Ciclo,int Nivel,decimal Limite,string StatusEtapa,Guid? AprovadorId,string? AprovadorNome,bool Bloqueada,bool DecisivelPorMim,long VersionEtapa,DateTime? DecididaEm,string? Motivo,Guid RequisicaoId,string Numero,string StatusRequisicao,string Urgencia,string? Setor,string SolicitanteNome,DateTime SolicitadaEm,decimal Total,string? RegraSnapshot,Guid SolicitanteId);
@@ -204,13 +229,28 @@ order by created_at desc,id desc limit 50";
             if (anterior is not null)
             {
                 if (anterior != hash) throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+                // Replay: devolve o resultado ORIGINAL persistido com a decisão; sem registro (legado)
+                // re-deriva do estado atual como fallback explícito.
+                var resultadoOriginal = await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition("select coalesce(resultado::text,'') from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='APROVACAO_DECISAO' and chave=@key", new { t = context.TenantId, key = request.IdempotencyKey }, tx, cancellationToken: ct));
+                if (!string.IsNullOrWhiteSpace(resultadoOriginal))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(resultadoOriginal);
+                    var r = doc.RootElement;
+                    await tx.CommitAsync(ct);
+                    return new AprovacaoDecisaoResultado(etapaId, r.GetProperty("etapa_status").GetString()!, r.GetProperty("requisicao_status").GetString()!, true);
+                }
                 var estado = await connection.QuerySingleAsync<(string EtapaStatus, string RequisicaoStatus)>(new CommandDefinition("select a.status,r.status from sigov.compras_empresarial_aprovacao a join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id where a.tenant_id=@t and a.id=@id", new { t = context.TenantId, id = etapaId }, tx, cancellationToken: ct));
                 await tx.CommitAsync(ct);
                 return new AprovacaoDecisaoResultado(etapaId, estado.EtapaStatus, estado.RequisicaoStatus, true);
             }
+            // Ordem canônica de bloqueios: o advisory do agregado (mesmo rótulo de envio/reavaliação)
+            // é tomado antes de qualquer lock de linha — decide/envio/reavaliação nunca se cruzam
+            // em ordem diferente e o deadlock entre operações de aprovação é impossível.
+            var etapaRef = await connection.QuerySingleOrDefaultAsync<Guid?>(new CommandDefinition("select requisicao_id from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id", new { t = context.TenantId, id = etapaId }, tx, cancellationToken: ct));
+            if (etapaRef is null) throw new KeyNotFoundException("Etapa de aprovação não encontrada no contexto autorizado.");
+            await LockAsync(connection, tx, context, $"REQUISICAO|{etapaRef:D}", ct);
             var etapa = await connection.QuerySingleOrDefaultAsync<EtapaAtiva>(new CommandDefinition("select status Status,version Version,aprovador_id AprovadorId,ciclo Ciclo,requisicao_id RequisicaoId,nivel Nivel,limite Limite from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id for update", new { t = context.TenantId, id = etapaId }, tx, cancellationToken: ct));
             if (etapa is null) throw new KeyNotFoundException("Etapa de aprovação não encontrada no contexto autorizado.");
-            await LockAsync(connection, tx, context, $"REQUISICAO|{etapa.RequisicaoId:D}", ct);
             if (etapa.Status != "PENDENTE") throw new InvalidOperationException("Esta etapa de aprovação já foi decidida.");
             if (etapa.Version != request.Version) throw new ComprasConcurrencyException("Versão desatualizada; recarregue a fila de aprovações e tente novamente.");
             if (etapa.AprovadorId is null) throw new InvalidOperationException("Esta etapa está bloqueada e aguarda configuração institucional antes de qualquer decisão.");
@@ -228,8 +268,9 @@ order by created_at desc,id desc limit 50";
             if (!elegiveis.Contains(context.UsuarioId))
                 throw new InvalidOperationException("O usuário não possui mais elegibilidade ou alçada suficiente para aprovar esta etapa.");
 
-            // Sequência obrigatória: apenas o nível ativo recebe decisão; níveis anteriores devem estar aprovados
-            var priorUnapproved = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@rq and ciclo=@ciclo and nivel < @nivel and status <> 'APROVADO')", new { t = context.TenantId, rq = etapa.RequisicaoId, ciclo = etapa.Ciclo, nivel = etapa.Nivel }, tx, cancellationToken: ct));
+            // Sequência obrigatória: um nível anterior só impede a decisão enquanto nenhuma etapa
+            // DESESTE NÍVEL no ciclo estiver APROVADA — irmãos cancelados não bloqueiam.
+            var priorUnapproved = await connection.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.compras_empresarial_aprovacao ant where ant.tenant_id=@t and ant.requisicao_id=@rq and ant.ciclo=@ciclo and nivel < @nivel and status <> 'APROVADO' and not exists(select 1 from sigov.compras_empresarial_aprovacao apr where apr.tenant_id=ant.tenant_id and apr.requisicao_id=ant.requisicao_id and apr.ciclo=ant.ciclo and apr.nivel=ant.nivel and apr.status='APROVADO'))", new { t = context.TenantId, rq = etapa.RequisicaoId, ciclo = etapa.Ciclo, nivel = etapa.Nivel }, tx, cancellationToken: ct));
             if (priorUnapproved)
                 throw new InvalidOperationException("Não é possível decidir esta etapa antes da aprovação de todos os níveis anteriores.");
 
@@ -238,7 +279,9 @@ order by created_at desc,id desc limit 50";
             var cicloCompleto = false;
             if (decisao == "APROVAR")
             {
-                var maximoNivel = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(nivel),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@rq and ciclo=@ciclo", new { t = context.TenantId, rq = etapa.RequisicaoId, ciclo = etapa.Ciclo }, tx, cancellationToken: ct));
+                // Topologia efetiva do ciclo: níveis cancelados pela reavaliação (cancel > k) não
+                // prolongam o encerramento — o topo decisível é o maior nível não cancelado.
+                var maximoNivel = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(nivel),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@rq and ciclo=@ciclo and status<>'CANCELADO'", new { t = context.TenantId, rq = etapa.RequisicaoId, ciclo = etapa.Ciclo }, tx, cancellationToken: ct));
                 cicloCompleto = etapa.Nivel >= maximoNivel;
                 if (cicloCompleto) requisicaoDestino = "APROVADA";
             }
@@ -258,12 +301,15 @@ order by created_at desc,id desc limit 50";
                 await ConcluirPendenciasAsync(connection, tx, context, etapa.RequisicaoId, usuarioNucleo, $"Decisão {evento} registrada pelo aprovador.", etapa.Ciclo, ct);
             }
             await connection.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,'APROVACAO_DECISAO',@key,@id,@hash)", new { t = context.TenantId, key = request.IdempotencyKey, id = etapaId, hash }, tx, cancellationToken: ct));
+            // Resultado original persistido no mesmo commit: replay devolve exatamente este efeito.
+            await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_idempotencia set resultado=jsonb_build_object('id',@id::text,'etapa_status',@ns,'requisicao_status',@rqst) where tenant_id=@t and operacao='APROVACAO_DECISAO' and chave=@key", new { t = context.TenantId, key = request.IdempotencyKey, id = etapaId, ns = etapaDestino, rqst = requisicaoDestino }, tx, cancellationToken: ct));
             await tx.CommitAsync(ct);
             return new AprovacaoDecisaoResultado(etapaId, etapaDestino, requisicaoDestino, false);
         }
         catch
         {
-            await tx.RollbackAsync(ct);
+            try { await tx.RollbackAsync(ct); }
+            catch (InvalidOperationException) { /* Transação já finalizada dentro do bloco; preserva a exceção original. */ }
             throw;
         }
     }
@@ -275,7 +321,9 @@ order by created_at desc,id desc limit 50";
         await using var tx = await connection.BeginTransactionAsync(ct);
         try
         {
-            await LockAsync(connection, tx, context, $"REQUISICAO|{requisicaoId:D}|REAVALIAR", ct);
+            // Mesma etiqueta canônica do agregado usada pela decisão: envio/decisão/reavaliação
+            // se serializam no mesmo advisory por requisição (ordem consistente de bloqueios, sem deadlock).
+            await LockAsync(connection, tx, context, $"REQUISICAO|{requisicaoId:D}", ct);
             var motivo = request.Motivo?.Trim();
             var hash = Sha256($"{requisicaoId:D}|{motivo}");
             if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
@@ -286,14 +334,25 @@ order by created_at desc,id desc limit 50";
                 if (anterior is not null)
                 {
                     if (anterior != hash) throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+                    // Replay: devolve o resultado ORIGINAL persistido; registro legado sem resultado re-deriva o ciclo máximo.
+                    var resultadoOriginal = await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
+                        "select coalesce(resultado::text,'') from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='REAVALIAR_ENCAMINHAMENTO' and chave=@key",
+                        new { t = context.TenantId, key = request.IdempotencyKey }, tx, cancellationToken: ct));
+                    if (!string.IsNullOrWhiteSpace(resultadoOriginal))
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(resultadoOriginal);
+                        var r = doc.RootElement;
+                        await tx.CommitAsync(ct);
+                        return new ReavaliarEncaminhamentoResultado(requisicaoId, r.GetProperty("ciclo").GetInt32(), r.GetProperty("desbloqueadas").GetInt32() > 0, "Encaminhamento já reavaliado para esta chave idempotente.", true);
+                    }
                     var maxCiclo = await connection.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(ciclo),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id", new { t = context.TenantId, id = requisicaoId }, tx, cancellationToken: ct));
                     await tx.CommitAsync(ct);
                     return new ReavaliarEncaminhamentoResultado(requisicaoId, maxCiclo, true, "Encaminhamento já reavaliado para esta chave idempotente.", true);
                 }
             }
 
-            var req = await connection.QuerySingleOrDefaultAsync<(string Status, long Version, Guid SolicitanteId)?>(new CommandDefinition(
-                "select status, version, solicitante_id SolicitanteId from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id and not is_deleted for update",
+            var req = await connection.QuerySingleOrDefaultAsync<(string Status, long Version, Guid SolicitanteId, decimal ValorEstimado)?>(new CommandDefinition(
+                "select status, version, solicitante_id SolicitanteId, coalesce(valor_estimado,0) ValorEstimado from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id and not is_deleted for update",
                 new { t = context.TenantId, id = requisicaoId }, tx, cancellationToken: ct));
             if (req is null) throw new KeyNotFoundException("Requisição não encontrada no contexto autorizado.");
             if (req.Value.Status != "PENDENTE_APROVACAO")
@@ -303,8 +362,8 @@ order by created_at desc,id desc limit 50";
                 "select coalesce(max(ciclo),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id",
                 new { t = context.TenantId, id = requisicaoId }, tx, cancellationToken: ct));
 
-            var bloqueadas = (await connection.QueryAsync<(Guid Id, int Nivel, decimal Limite)>(new CommandDefinition(
-                "select id, nivel, limite from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo and status='PENDENTE' and aprovador_id is null order by nivel for update",
+            var bloqueadas = (await connection.QueryAsync<(Guid Id, int Nivel, decimal Limite, string? CausaBloqueio)>(new CommandDefinition(
+                "select id, nivel, limite, causa_bloqueio from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo and status='PENDENTE' and aprovador_id is null order by nivel for update",
                 new { t = context.TenantId, id = requisicaoId, ciclo }, tx, cancellationToken: ct))).AsList();
 
             if (bloqueadas.Count == 0)
@@ -315,27 +374,94 @@ order by created_at desc,id desc limit 50";
 
             var nucleo = await ResolverTenantNucleoAsync(connection, tx, context.TenantId, ct);
             var desbloqueadas = 0;
+            var canceladas = 0;
+
+            // Cobertura canônica da política ativa: k = menor nível cujo limite cobre o total
+            // estimado da requisição. Sem política ativa não existe k: etapa SEM_POLITICA nunca
+            // se libera só atribuindo aprovador, e alçada insuficiente mantém a etapa final fechada.
+            var politicaAtual = await connection.QuerySingleOrDefaultAsync<(long Id, string Nome)?>(new CommandDefinition(
+                "select id,nome from sigov.compras_empresarial_aprovacao_politica where tenant_id=@t and ativo and not is_deleted order by id desc limit 1",
+                new { t = context.TenantId }, tx, cancellationToken: ct));
+            var niveis = politicaAtual is null
+                ? new List<(int Nivel, decimal Limite)>()
+                : (await connection.QueryAsync<(int Nivel, decimal Limite)>(new CommandDefinition(
+                    "select ordem,limite from sigov.compras_empresarial_aprovacao_politica_nivel where tenant_id=@t and politica_id=@pol and not is_deleted order by ordem",
+                    new { t = context.TenantId, pol = politicaAtual.Value.Id }, tx, cancellationToken: ct))).AsList();
+            int? k = niveis.Where(n => n.Limite >= req.Value.ValorEstimado).Select(n => (int?)n.Nivel).FirstOrDefault();
+
+            // Garante a existência das etapas 1..k no ciclo atual: níveis ausentes são criados a
+            // partir do modelo do próprio ciclo (mesmo padrão de clonagem de etapas aprovadoras).
+            if (k is not null)
+            {
+                var niveisNoCiclo = (await connection.QueryAsync<int>(new CommandDefinition(
+                    "select distinct nivel from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo",
+                    new { t = context.TenantId, id = requisicaoId, ciclo }, tx, cancellationToken: ct))).ToHashSet();
+                for (var n = 1; n <= k.Value; n++)
+                {
+                    if (niveisNoCiclo.Contains(n)) continue;
+                    var limiteNivel = niveis.FirstOrDefault(v => v.Nivel == n).Limite;
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        @"insert into sigov.compras_empresarial_aprovacao(id,tenant_id,requisicao_id,nivel,aprovador_id,limite,status,regra_snapshot,ciclo,causa_bloqueio,created_by,updated_by,correlation_id)
+                          select gen_random_uuid(),tenant_id,requisicao_id,@nvl,null,@lim,'PENDENTE',regra_snapshot,ciclo,null,@us,@us,@corr
+                          from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo order by nivel desc limit 1",
+                        new { t = context.TenantId, id = requisicaoId, ciclo, nvl = n, lim = limiteNivel, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
+                    niveisNoCiclo.Add(n);
+                }
+                bloqueadas = (await connection.QueryAsync<(Guid Id, int Nivel, decimal Limite, string? CausaBloqueio)>(new CommandDefinition(
+                    "select id, nivel, limite, causa_bloqueio from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo and status='PENDENTE' and aprovador_id is null order by nivel for update",
+                    new { t = context.TenantId, id = requisicaoId, ciclo }, tx, cancellationToken: ct))).AsList();
+            }
+
             foreach (var b in bloqueadas)
             {
-                var elegiveis = (await AprovadoresElegiveisAsync(connection, tx, nucleo, b.Limite, ct))
-                    .Where(ap => ap != context.UsuarioId && ap != req.Value.SolicitanteId)
-                    .ToList();
-                if (elegiveis.Count > 0)
+                if (k is not null && b.Nivel > k.Value)
                 {
-                    var primeiro = elegiveis[0];
+                    // Etapa fora da cobertura da política ativa após reavaliação: cancela em vez de acumular.
                     await connection.ExecuteAsync(new CommandDefinition(
-                        "update sigov.compras_empresarial_aprovacao set aprovador_id=@ap, updated_at=now(), updated_by=@us, version=version+1 where tenant_id=@t and id=@id",
-                        new { t = context.TenantId, id = b.Id, ap = primeiro, us = context.UsuarioId.ToString() }, tx, cancellationToken: ct));
-                    desbloqueadas++;
-                    for (var i = 1; i < elegiveis.Count; i++)
-                    {
-                        var extra = elegiveis[i];
+                        "update sigov.compras_empresarial_aprovacao set status='CANCELADO', motivo=coalesce(nullif(motivo,''),'Etapa fora da cobertura da política ativa após reavaliação.'), updated_at=now(), version=version+1 where tenant_id=@t and id=@id",
+                        new { t = context.TenantId, id = b.Id }, tx, cancellationToken: ct));
+                    canceladas++;
+                    continue;
+                }
+                var liberaPorPolitica = k is not null && b.Nivel <= k.Value;
+                var designavel = liberaPorPolitica || b.CausaBloqueio == "SEM_APROVADOR" || b.CausaBloqueio is null;
+                if (!designavel)
+                {
+                    // Política agora existe mas o total ainda excede todos os limites: a causa passa a
+                    // refletir a restrição real (alçada), preservando o restante do histórico.
+                    if (k is null && politicaAtual is not null && b.CausaBloqueio == "SEM_POLITICA")
                         await connection.ExecuteAsync(new CommandDefinition(
-                            @"insert into sigov.compras_empresarial_aprovacao(id,tenant_id,requisicao_id,nivel,aprovador_id,limite,status,regra_snapshot,ciclo,created_by,updated_by,correlation_id)
-                              select gen_random_uuid(),tenant_id,requisicao_id,nivel,@ap,limite,'PENDENTE',regra_snapshot,ciclo,@us,@us,@corr
-                              from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id",
-                            new { t = context.TenantId, id = b.Id, ap = extra, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
-                    }
+                            "update sigov.compras_empresarial_aprovacao set causa_bloqueio='ALCADA_INSUFICIENTE', updated_at=now(), version=version+1 where tenant_id=@t and id=@id",
+                            new { t = context.TenantId, id = b.Id }, tx, cancellationToken: ct));
+                    continue;
+                }
+                var alcadaNivel = liberaPorPolitica && niveis.Any(v => v.Nivel == b.Nivel) ? niveis.First(v => v.Nivel == b.Nivel).Limite : b.Limite;
+                var elegiveis = (await AprovadoresElegiveisAsync(connection, tx, nucleo, alcadaNivel, ct))
+                    // Segregação somente do solicitante: quem executa a reavaliação também pode ser designado.
+                    .Where(ap => ap != req.Value.SolicitanteId)
+                    .Take(3)
+                    .ToList();
+                if (elegiveis.Count == 0)
+                {
+                    if (b.CausaBloqueio != "SEM_APROVADOR")
+                        await connection.ExecuteAsync(new CommandDefinition(
+                            "update sigov.compras_empresarial_aprovacao set causa_bloqueio='SEM_APROVADOR', updated_at=now(), version=version+1 where tenant_id=@t and id=@id",
+                            new { t = context.TenantId, id = b.Id }, tx, cancellationToken: ct));
+                    continue;
+                }
+                var primeiro = elegiveis[0];
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "update sigov.compras_empresarial_aprovacao set aprovador_id=@ap, causa_bloqueio=null, updated_at=now(), updated_by=@us, version=version+1 where tenant_id=@t and id=@id",
+                    new { t = context.TenantId, id = b.Id, ap = primeiro, us = context.UsuarioId.ToString() }, tx, cancellationToken: ct));
+                desbloqueadas++;
+                for (var i = 1; i < elegiveis.Count; i++)
+                {
+                    var extra = elegiveis[i];
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        @"insert into sigov.compras_empresarial_aprovacao(id,tenant_id,requisicao_id,nivel,aprovador_id,limite,status,regra_snapshot,ciclo,causa_bloqueio,created_by,updated_by,correlation_id)
+                          select gen_random_uuid(),tenant_id,requisicao_id,nivel,@ap,limite,'PENDENTE',regra_snapshot,ciclo,null,@us,@us,@corr
+                          from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id",
+                        new { t = context.TenantId, id = b.Id, ap = extra, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
                 }
             }
 
@@ -343,21 +469,39 @@ order by created_at desc,id desc limit 50";
                 "select exists(select 1 from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id and ciclo=@ciclo and status='PENDENTE' and aprovador_id is null)",
                 new { t = context.TenantId, id = requisicaoId, ciclo }, tx, cancellationToken: ct));
 
-            if (!aindaBloqueada)
+            // Pendências por tipo: cada causa só fecha comprovadamente resolvida; o que permanece
+            // bloqueado é re-registrado (upsert por tipo) com a restrição real vigente.
+            var tiposParaFechar = new List<string>();
+            if (politicaAtual is not null) tiposParaFechar.Add("APROVACAO_SEM_POLITICA");
+            if (k is not null) tiposParaFechar.Add("APROVACAO_ALCADA_INSUFICIENTE");
+            if (!aindaBloqueada) tiposParaFechar.Add("APROVACAO_SEM_APROVADOR");
+            if (tiposParaFechar.Count > 0)
             {
                 var usuarioNucleo = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition("select id from sigov.usuario where md5('sigov:usuario:'||id::text)::uuid=@us limit 1", new { us = context.UsuarioId }, tx, cancellationToken: ct));
-                await ConcluirPendenciasAsync(connection, tx, context, requisicaoId, usuarioNucleo, motivo ?? "Encaminhamento reavaliado com sucesso.", ciclo, ct);
+                await ConcluirPendenciasAsync(connection, tx, context, requisicaoId, usuarioNucleo, motivo ?? "Encaminhamento reavaliado com sucesso.", ciclo, ct, tiposParaFechar.ToArray());
+            }
+            if (aindaBloqueada)
+            {
+                if (politicaAtual is null)
+                    await RegistrarPendenciaAsync(connection, tx, context.TenantId, requisicaoId, "APROVACAO_SEM_POLITICA", "Aprovação sem política ativa", "Configure a política de aprovação por alçada neste contexto institucional para liberar as etapas de decisão.", ct);
+                else if (k is null)
+                    await RegistrarPendenciaAsync(connection, tx, context.TenantId, requisicaoId, "APROVACAO_ALCADA_INSUFICIENTE", "Aprovação com alçada insuficiente", $"O total estimado ({req.Value.ValorEstimado.ToString("0.00", CultureInfo.InvariantCulture)}) excede o maior limite da política ativa ({niveis.Max(v => v.Limite).ToString("0.00", CultureInfo.InvariantCulture)}); amplie os limites de alçada ou revise a requisição para liberar a etapa final.", ct);
+                else
+                    await RegistrarPendenciaAsync(connection, tx, context.TenantId, requisicaoId, "APROVACAO_SEM_APROVADOR", "Aprovação sem aprovador habilitado", "Nenhum usuário ativo com permissão e alçada suficiente foi identificado para os níveis restantes; habilite um aprovador (solicitante segregado).", ct);
             }
 
             await connection.ExecuteAsync(new CommandDefinition(
-                "insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'REQUISICAO',@rq,'ENCAMINHAMENTO_REAVALIADO',jsonb_build_object('ciclo',@ciclo,'motivo',@motivo,'desbloqueadas',@desbloqueadas,'total_bloqueadas',@totalBloqueadas),@us,@corr)",
-                new { t = context.TenantId, rq = requisicaoId, ciclo, motivo, desbloqueadas, totalBloqueadas = bloqueadas.Count, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
+                "insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'REQUISICAO',@rq,'ENCAMINHAMENTO_REAVALIADO',jsonb_build_object('ciclo',@ciclo,'motivo',@motivo,'desbloqueadas',@desbloqueadas,'total_bloqueadas',@totalBloqueadas,'canceladas',@canceladas,'politica_ativa',@polAtiva,'alcada_cobre_total',@alcCobre),@us,@corr)",
+                new { t = context.TenantId, rq = requisicaoId, ciclo, motivo, desbloqueadas, totalBloqueadas = bloqueadas.Count, canceladas, polAtiva = politicaAtual is not null, alcCobre = k is not null, us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
 
             if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
             {
                 await connection.ExecuteAsync(new CommandDefinition(
                     "insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,'REAVALIAR_ENCAMINHAMENTO',@key,@rq,@hash)",
                     new { t = context.TenantId, key = request.IdempotencyKey, rq = requisicaoId, hash }, tx, cancellationToken: ct));
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "update sigov.compras_empresarial_idempotencia set resultado=jsonb_build_object('id',@rq::text,'ciclo',@ciclo,'desbloqueadas',@desbloqueadas,'canceladas',@canceladas) where tenant_id=@t and operacao='REAVALIAR_ENCAMINHAMENTO' and chave=@key",
+                    new { t = context.TenantId, key = request.IdempotencyKey, rq = requisicaoId, ciclo, desbloqueadas, canceladas }, tx, cancellationToken: ct));
             }
 
             await tx.CommitAsync(ct);
@@ -368,7 +512,8 @@ order by created_at desc,id desc limit 50";
         }
         catch
         {
-            await tx.RollbackAsync(ct);
+            try { await tx.RollbackAsync(ct); }
+            catch (InvalidOperationException) { /* Transação já finalizada dentro do bloco; preserva a exceção original. */ }
             throw;
         }
     }
@@ -397,6 +542,17 @@ order by created_at desc,id desc limit 50";
             if (anterior is not null)
             {
                 if (anterior != hash) throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+                var resultadoOriginal = await connection.QuerySingleOrDefaultAsync<string?>(new CommandDefinition("select coalesce(resultado::text,'') from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='APROVACAO_POLITICA_SALVAR' and chave=@key", new { t = context.TenantId, key }, tx, cancellationToken: ct));
+                if (!string.IsNullOrWhiteSpace(resultadoOriginal))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(resultadoOriginal);
+                    var r = doc.RootElement;
+                    // Registros antigos persistiam o id como texto; aceita-se o formato canônico (número) e o legado.
+                    var idEl = r.GetProperty("id");
+                    var idOriginal = idEl.ValueKind == System.Text.Json.JsonValueKind.Number ? idEl.GetInt64() : long.Parse(idEl.GetString()!, CultureInfo.InvariantCulture);
+                    await tx.CommitAsync(ct);
+                    return new PoliticaSalvaResultado(idOriginal, r.GetProperty("nome").GetString()!, true);
+                }
                 var reutilizada = await connection.QuerySingleAsync<(long Id, string Nome)>(new CommandDefinition("select id,nome from sigov.compras_empresarial_aprovacao_politica where tenant_id=@t order by id desc limit 1", new { t = context.TenantId }, tx, cancellationToken: ct));
                 await tx.CommitAsync(ct);
                 return new PoliticaSalvaResultado(reutilizada.Item1, reutilizada.Item2, true);
@@ -411,7 +567,7 @@ order by created_at desc,id desc limit 50";
             long politicaId;
             if (reuso.HasValue)
             {
-                await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_aprovacao_politica set nome=@nome,esfera_governo=@esfera,tipo_entidade=@tipo,unidade_gestora=@ug,unidade_executora=@ue,ativo=true,is_deleted=false,version=version+1,updated_at=now(),updated_by=@us,correlation_id=@corr where tenant_id=@t and id=@id", new { args, id = reuso.Value }, tx, cancellationToken: ct));
+                await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_aprovacao_politica set nome=@nome,esfera_governo=@esfera,tipo_entidade=@tipo,unidade_gestora=@ug,unidade_executora=@ue,ativo=true,is_deleted=false,version=version+1,updated_at=now(),updated_by=@us,correlation_id=@corr where tenant_id=@t and id=@id", new { args.t, args.nome, args.esfera, args.tipo, args.ug, args.ue, args.us, args.corr, id = reuso.Value }, tx, cancellationToken: ct));
                 politicaId = reuso.Value;
             }
             else
@@ -421,15 +577,19 @@ order by created_at desc,id desc limit 50";
             await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_aprovacao_politica_nivel set is_deleted=true,updated_at=now(),updated_by=@us where tenant_id=@t and politica_id=@pol and not is_deleted", new { t = context.TenantId, pol = politicaId, us = context.UsuarioId.ToString() }, tx, cancellationToken: ct));
             for (var ordem = 1; ordem <= limites.Count; ordem++)
             {
-                await connection.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_aprovacao_politica_nivel(tenant_id,politica_id,ordem,limite,created_by,updated_by,correlation_id) values(@t,@pol,@ordem,@limite,@us,@us,@corr)", new { t = context.TenantId, pol = politicaId, ordem, limite = limites[ordem - 1], us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
+                // Upsert pela única (tenant,politica,ordem): reaproveita linhas desativadas em salvamentos
+                // anteriores (ampliação/redução de alçada) em vez de colidir com o índice único não-parcial.
+                await connection.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_aprovacao_politica_nivel(tenant_id,politica_id,ordem,limite,created_by,updated_by,correlation_id) values(@t,@pol,@ordem,@limite,@us,@us,@corr) on conflict (tenant_id,politica_id,ordem) do update set limite=@limite,is_deleted=false,updated_at=now(),updated_by=@us,correlation_id=@corr", new { t = context.TenantId, pol = politicaId, ordem, limite = limites[ordem - 1], us = context.UsuarioId.ToString(), corr = context.CorrelationId }, tx, cancellationToken: ct));
             }
             await connection.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,'APROVACAO_POLITICA_SALVAR',@key,md5('sigov:politica_aprovacao:'||@pol::text)::uuid,@hash)", new { t = context.TenantId, key, pol = politicaId, hash }, tx, cancellationToken: ct));
+            await connection.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_idempotencia set resultado=jsonb_build_object('id',@pol,'nome',@nome) where tenant_id=@t and operacao='APROVACAO_POLITICA_SALVAR' and chave=@key", new { t = context.TenantId, key, pol = politicaId, nome }, tx, cancellationToken: ct));
             await tx.CommitAsync(ct);
             return new PoliticaSalvaResultado(politicaId, nome, false);
         }
         catch
         {
-            await tx.RollbackAsync(ct);
+            try { await tx.RollbackAsync(ct); }
+            catch (InvalidOperationException) { /* Transação já finalizada dentro do bloco; preserva a exceção original. */ }
             throw;
         }
     }
@@ -442,9 +602,10 @@ order by created_at desc,id desc limit 50";
 from sigov.compras_empresarial_aprovacao a
 join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id and not r.is_deleted
 where a.tenant_id=@t;
-select r.numero Numero,a.ciclo Ciclo,a.nivel Etapa,a.status SituacaoEtapa,a.limite Alcada,a.aprovador_id::text AprovadorSub,r.status StatusRequisicao,r.valor_estimado Total,a.created_at CriadaEm,a.decidido_em DecididaEm,a.motivo Motivo
+select r.numero Numero,a.ciclo Ciclo,a.nivel Etapa,a.status SituacaoEtapa,a.limite Alcada,coalesce(os.nome,a.aprovador_id::text) AprovadorSub,r.status StatusRequisicao,r.valor_estimado Total,a.created_at CriadaEm,a.decidido_em DecididaEm,a.motivo Motivo
 from sigov.compras_empresarial_aprovacao a
 join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id and not r.is_deleted
+left join sigov.os_tecnico os on (os.tenant_id,os.usuario_id)=(a.tenant_id,a.aprovador_id) and not os.is_deleted
 where a.tenant_id=@t order by a.created_at desc,a.nivel asc,a.id offset @off limit @lim";
         await using var connection = factory.CreateConnection();
         using var reader = await connection.QueryMultipleAsync(new CommandDefinition(sql, new { t = context.TenantId, off = (page - 1) * size, lim = size }, cancellationToken: ct));
@@ -488,9 +649,13 @@ on conflict(tenant_id,modulo,tipo,entidade,entidade_id) where status in('ABERTA'
         if (afetadas != 1) throw new InvalidOperationException("A pendência de aprovação não pôde ser registrada no vínculo institucional ativo; a operação foi cancelada com segurança.");
     }
 
-    private static async Task ConcluirPendenciasAsync(NpgsqlConnection cn, NpgsqlTransaction tx, ComprasContext context, Guid requisicaoId, long? usuarioNucleo, string justificativa, int ciclo, CancellationToken ct)
+    private static async Task ConcluirPendenciasAsync(NpgsqlConnection cn, NpgsqlTransaction tx, ComprasContext context, Guid requisicaoId, long? usuarioNucleo, string justificativa, int ciclo, CancellationToken ct, params string[]? tipos)
     {
-        await cn.ExecuteAsync(new CommandDefinition(@"with atualizada as (update sigov.pendencia_operacional p set status='RESOLVIDA',resolved_at=now(),updated_at=now(),versao=versao+1 from sigov.enterprise_tenant_mapping m where m.enterprise_tenant_id=@t and m.ativo and p.tenant_id=m.core_tenant_id and p.modulo='COMPRAS_EMPRESARIAIS' and p.tipo in('APROVACAO_SEM_POLITICA','APROVACAO_SEM_APROVADOR') and p.entidade='compras_empresarial_requisicao' and p.entidade_id=@rq::text and p.status in('ABERTA','EM_TRATAMENTO') returning p.id,p.tenant_id,p.versao) insert into sigov.governanca_ocorrencia_historico(tenant_id,ocorrencia_tipo,ocorrencia_id,evento,usuario_id,justificativa,dados_depois) select tenant_id,'PENDENCIA',id,'RESOLVIDA_NA_ORIGEM',@usuario,left(@justificativa,1000),jsonb_build_object('requisicao_id',@rq,'ciclo',@ciclo) from atualizada", new { t = context.TenantId, rq = requisicaoId, usuario = usuarioNucleo, justificativa, ciclo }, tx, cancellationToken: ct));
+        // Por padrão fecha as três causas; quando informada, apenas os tipos comprovadamente resolvidos.
+        var inLista = tipos is null || tipos.Length == 0
+            ? "'APROVACAO_SEM_POLITICA','APROVACAO_SEM_APROVADOR','APROVACAO_ALCADA_INSUFICIENTE'"
+            : string.Join(",", tipos.Select(x => $"'{x.Replace("'", "''")}'"));
+        await cn.ExecuteAsync(new CommandDefinition($@"with atualizada as (update sigov.pendencia_operacional p set status='RESOLVIDA',resolved_at=now(),updated_at=now(),versao=versao+1 from sigov.enterprise_tenant_mapping m where m.enterprise_tenant_id=@t and m.ativo and p.tenant_id=m.core_tenant_id and p.modulo='COMPRAS_EMPRESARIAIS' and p.tipo in({inLista}) and p.entidade='compras_empresarial_requisicao' and p.entidade_id=@rq::text and p.status in('ABERTA','EM_TRATAMENTO') returning p.id,p.tenant_id,p.versao) insert into sigov.governanca_ocorrencia_historico(tenant_id,ocorrencia_tipo,ocorrencia_id,evento,usuario_id,justificativa,dados_depois) select tenant_id,'PENDENCIA',id,'RESOLVIDA_NA_ORIGEM',@usuario,left(@justificativa,1000),jsonb_build_object('requisicao_id',@rq,'ciclo',@ciclo) from atualizada", new { t = context.TenantId, rq = requisicaoId, usuario = usuarioNucleo, justificativa, ciclo }, tx, cancellationToken: ct));
     }
 
     private static async Task LockAsync(NpgsqlConnection cn, NpgsqlTransaction tx, ComprasContext context, string rotulo, CancellationToken ct)

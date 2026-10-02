@@ -227,6 +227,8 @@ public static class DependencyInjection
         services.AddScoped<IDivergenciaRecebimentoApplicationService, DivergenciaRecebimentoApplicationService>();
         services.AddScoped<IAprovacaoRequisicaoRepository, AprovacaoRequisicaoRepository>();
         services.AddScoped<IAprovacaoRequisicaoApplicationService, AprovacaoRequisicaoApplicationService>();
+        services.AddScoped<ICotacaoCompraRepository, CotacaoCompraRepository>();
+        services.AddScoped<ICotacaoCompraApplicationService, CotacaoCompraApplicationService>();
         services.AddScoped<IExecutiveOperationsRepository, ExecutiveOperationsRepository>();
         services.AddScoped<ICentralExecutivaRepository, CentralExecutivaRepository>();
         services.AddScoped<ICentralExecutivaService, CentralExecutivaService>();

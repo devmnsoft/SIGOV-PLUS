@@ -1,0 +1,143 @@
+@using System.Text.Json
+@using Sigov.Application.ComprasEmpresariais
+@model CotacaoDetalhe
+@{
+    ViewData["Title"] = $"Cotação {Model.Numero}";
+    var podeEnviar = (bool)(ViewData["PodeEnviar"] ?? false);
+    var podeJulgar = (bool)(ViewData["PodeJulgar"] ?? false);
+    var abertaParaResposta = Model.Status is "ABERTA" or "EM_RESPOSTA";
+    var agora = DateTime.UtcNow;
+    var itensJson = JsonSerializer.Serialize(Model.Itens.Select(i => new { i.RequisicaoItemId, i.Descricao, i.Especificacao, i.Unidade, i.Quantidade }), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">RODADA @Model.Rodada</span>
+        <h1>Cotação @Model.Numero</h1>
+        <p>Requisição <a href="@Url.Action("Requisicao", new { id = Model.RequisicaoId })">@Model.NumeroRequisicao</a> · criada em @Model.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · prazo de resposta @Model.Prazo.ToLocalTime().ToString("dd/MM/yyyy HH:mm")@(Model.SelecionadoEm.HasValue ? $" · selecionada em {Model.SelecionadoEm.Value.ToLocalTime():dd/MM/yyyy HH:mm}" : "")</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <span class="status-badge align-self-center" aria-label="Situação atual: @Model.Status">@Model.Status.Replace('_', ' ')</span>
+        <a class="btn btn-outline-primary" href="@Url.Action("Comparativo", new { id = Model.Id })" aria-label="Abrir comparativo da cotação @Model.Numero">Abrir comparativo</a>
+    </div>
+</header>
+
+<details class="panel mb-3">
+    <summary class="h6">Ajuda: acompanhar e julgar a rodada</summary>
+    <p>Registre cada proposta recebida pelo botão “Registrar proposta” do fornecedor convidado: preço unitário, desconto, imposto, frete e prazo por item. Com ao menos uma proposta a rodada fica EM RESPOSTA e o comparativo calcula o custo total por fórmula explícita. O julgamento seleciona o vencedor por item — acima do menor custo exige justificativa registrada em audito — e gera um pedido por fornecedor na mesma transação. Encerrar a rodada libera o saldo reservado para uma nova rodada.</p>
+</details>
+
+<form id="cotacao-detalhe-form" class="compras-form" data-cotacao-detalhe data-id="@Model.Id" data-status="@Model.Status" data-version="@Model.Version" novalidate>
+    @Html.AntiForgeryToken()
+    <div class="wide alert alert-danger validation-summary" role="alert" tabindex="-1" data-validation-summary hidden></div>
+
+    <section class="panel" aria-labelledby="itens-title">
+        <h2 id="itens-title" class="h5">Itens da cotação</h2>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th scope="col">Ordem</th><th scope="col">Descrição</th><th scope="col">Unidade</th><th scope="col" class="text-end">Quantidade</th><th scope="col">Produto vinculado</th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Itens)
+                {
+                    <tr>
+                        <td>@(item.Ordem)º</td>
+                        <td>@item.Descricao@(item.Especificacao is null ? "" : $"<br /><small class='text-muted'>{item.Especificacao}</small>")</td>
+                        <td>@item.Unidade</td>
+                        <td class="text-end">@item.Quantidade.ToString("0.####")</td>
+                        <td>@item.ProdutoNome <small class="text-muted">(@item.ProdutoSku)</small></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="convites-title">
+        <h2 id="convites-title" class="h5">Convites e propostas</h2>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th scope="col">Fornecedor</th><th scope="col">Documento</th><th scope="col">Situação</th><th scope="col">Expira em</th><th scope="col">Respondido em</th><th scope="col">Itens respondidos</th><th scope="col" class="text-end">Ações</th></tr></thead>
+                <tbody>
+                @foreach (var convite in Model.Convites)
+                {
+                    var expirado = convite.Status == "PENDENTE" && convite.ExpiraEm <= agora;
+                    var podeResponder = podeEnviar && abertaParaResposta && convite.Status == "PENDENTE" && !expirado;
+                    <tr>
+                        <td><strong>@convite.FornecedorNome</strong></td>
+                        <td>@convite.FornecedorDocumento</td>
+                        <td><span class="status-badge">@(expirado ? "EXPIRADO" : convite.Status.Replace('_', ' '))</span></td>
+                        <td><time datetime="@convite.ExpiraEm.ToString("O")">@convite.ExpiraEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time></td>
+                        <td>@(convite.Responder?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                        <td>@convite.ItensRespondidos / @Model.Itens.Count</td>
+                        <td class="text-end">
+                            @if (podeResponder)
+                            {
+                                <button class="btn btn-sm btn-outline-primary" type="button" data-registrar-proposta data-convite-id="@convite.Id" data-convite-version="@convite.Version" data-fornecedor="@convite.FornecedorNome">Registrar proposta</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div data-resposta-destaque></div>
+        <p class="form-feedback" role="status" aria-live="polite" tabindex="-1"></p>
+    </section>
+
+    @if (abertaParaResposta && podeJulgar)
+    {
+        <section class="panel" aria-labelledby="encerrar-title">
+            <h2 id="encerrar-title" class="h5">Encerrar a rodada</h2>
+            <p class="text-muted mb-2">Encerrar libera o saldo reservado dos itens para uma nova rodada de cotação. A ação é registrada no histórico com o motivo informado.</p>
+            <div>
+                <label class="form-label" for="motivo-encerramento">Motivo do encerramento</label>
+                <textarea class="form-control" id="motivo-encerramento" data-motivo-encerramento minlength="5" maxlength="500" required rows="3" placeholder="Descreva por que a rodada está sendo encerrada (mínimo 5 caracteres)."></textarea>
+            </div>
+            <div class="form-actions mt-2">
+                <button class="btn btn-outline-danger" type="button" data-encerrar-rodada>Encerrar rodada</button>
+            </div>
+        </section>
+    }
+
+    @if (Model.Selecoes is { Count: > 0 })
+    {
+        <section class="panel" aria-labelledby="selecoes-title">
+            <h2 id="selecoes-title" class="h5">Seleção registrada</h2>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th scope="col">Item</th><th scope="col">Fornecedor vencedor</th><th scope="col" class="text-end">Custo total do item</th><th scope="col">Justificativa</th></tr></thead>
+                    <tbody>
+                    @foreach (var linha in Model.Selecoes)
+                    {
+                        <tr>
+                            <td>@linha.Descricao <small class="text-muted">(@linha.Quantidade.ToString("0.####") @linha.Unidade)</small></td>
+                            <td>@linha.FornecedorNome</td>
+                            <td class="text-end">@linha.CustoTotalItem.ToString("N2")</td>
+                            <td>@(string.IsNullOrWhiteSpace(linha.Justificativa) ? "-" : linha.Justificativa)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (Model.Pedidos is { Count: > 0 })
+    {
+        <section class="panel" aria-labelledby="pedidos-title">
+            <h2 id="pedidos-title" class="h5">Pedidos gerados nesta seleção</h2>
+            <ul class="mb-0">
+                @foreach (var pedido in Model.Pedidos)
+                {
+                    <li><a href="@Url.Action("Pedido", new { id = pedido.PedidoId })"><strong>@pedido.Numero</strong></a> · @pedido.FornecedorNome · @pedido.Itens item(ns) · total @pedido.ValorTotal.ToString("N2")</li>
+                }
+            </ul>
+            <p class="text-muted mt-2 mb-0">O pedido segue para recebimento pelo fluxo existente de almoxarifado; nenhuma obrigação financeira é criada automaticamente.</p>
+        </section>
+    }
+</form>
+
+<script id="cotacao-itens-json" type="application/json">@Html.Raw(itensJson)</script>
+<script type="module" src="~/js/compras/compras-cotacoes.js"></script>

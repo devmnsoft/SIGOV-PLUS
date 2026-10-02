@@ -1,0 +1,109 @@
+@using System.Text.Json
+@using Sigov.Application.Common
+@using Sigov.Application.ComprasEmpresariais
+@{
+    ViewData["Title"] = "Nova cotação";
+    var elegiveis = (PagedResult<CotacaoElegivelResumo>?)ViewData["Elegiveis"] ?? new PagedResult<CotacaoElegivelResumo>(Array.Empty<CotacaoElegivelResumo>(), 1, 50, 0);
+    var elaboracao = (CotacaoElaboracaoViewModel?)ViewData["Elaboracao"];
+    var elegiveisJson = JsonSerializer.Serialize((elegiveis.Items).Select(e => new { e.RequisicaoId, e.Numero, e.ItensElegiveis }), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">CONTRATAÇÃO DIRETA</span>
+        <h1>Nova cotação</h1>
+        <p>Escolha a requisição aprovada, os itens que compõem a rodada, os fornecedores convidados e o prazo de resposta.</p>
+    </div>
+</header>
+
+<details class="panel mb-3">
+    <summary class="h6">Ajuda: como criar a cotação</summary>
+    <p>Só participam itens com saldo disponível (quantidade aprovada menos o já reservado em rodadas ativas ou selecionadas). Cada item incluído deve ter um produto do cadastro vinculado para permitir o recebimento posterior. Convide entre 1 e 20 fornecedores distintos. O prazo de resposta precisa estar entre 1 hora e 90 dias a partir de agora. A criação reserva o saldo dos itens; encerrar a cotação libera a reserva para uma nova rodada.</p>
+</details>
+
+<form id="cotacao-form" class="compras-form" data-cotacao-nova data-elegiveis="@elegiveisJson" novalidate>
+    @Html.AntiForgeryToken()
+    <div class="wide alert alert-danger validation-summary" role="alert" tabindex="-1" data-validation-summary hidden></div>
+
+    <fieldset class="wide compras-fieldset">
+        <legend class="h5">1 · Requisição aprovada</legend>
+        <div>
+            <label class="form-label" for="requisicao-seletor">Requisição</label>
+            <select class="form-select" id="requisicao-seletor" data-requisicao-seletor required>
+                <option value="">Selecione uma requisição aprovada…</option>
+                @foreach (var e in elegiveis.Items)
+                {
+                    <option value="@e.RequisicaoId" selected="@(elaboracao?.RequisicaoId == e.RequisicaoId)">@e.Numero · @e.ItensElegiveis item(ns) com saldo · setor @(e.Setor ?? "-")</option>
+                }
+            </select>
+            @if (elegiveis.TotalItems == 0)
+            {
+                <small class="form-text text-danger">Nenhuma requisição aprovada com saldo disponível para cotação neste momento.</small>
+            }
+        </div>
+    </fieldset>
+
+    @if (elaboracao is not null)
+    {
+        <fieldset class="wide compras-fieldset" data-elaboracao data-requisicao-id="@elaboracao.RequisicaoId">
+            <legend class="h5">2 · Itens da requisição @elaboracao.Numero</legend>
+            <p class="text-muted mb-2">Próxima rodada: @elaboracao.ProximaRodada. Marque os itens a cotar e vincule um produto do catálogo de cada um. Itens sem saldo não podem ser selecionados.</p>
+            <div class="table-responsive">
+                <table class="table align-middle" aria-label="Itens elegíveis da requisição">
+                    <thead><tr><th scope="col"><span class="visually-hidden">Selecionar</span></th><th scope="col">Item</th><th scope="col">Quantidade aprovada</th><th scope="col">Reservado</th><th scope="col" class="text-end">Saldo disponível</th><th scope="col">Produto vinculado</th><th scope="col">Inspeção</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in elaboracao.Itens)
+                    {
+                        var ok = item.SaldoDisponivel > 0m;
+                        <tr>
+                            <td><input class="form-check-input" type="checkbox" data-item-selecao data-requisicao-item-id="@item.RequisicaoItemId" @(ok ? null : "disabled") aria-label="Incluir item: @item.Descricao" /></td>
+                            <td>@(item.Ordem)º @item.Descricao@(item.Especificacao is null ? "" : $"<br /><small class='text-muted'>{item.Especificacao}</small>")</td>
+                            <td>@item.Quantidade.ToString("0.####") @item.Unidade</td>
+                            <td>@item.ReservaAtiva.ToString("0.####")</td>
+                            <td class="text-end"><strong>@item.SaldoDisponivel.ToString("0.####")</strong></td>
+                            <td><select class="form-select" data-produto disabled="@(ok ? null : "disabled")" aria-label="Produto do item: @item.Descricao"><option value="">Vincular produto…</option></select></td>
+                            <td>@(item.ExigeInspecao ? "<span class='status-badge'>EXIGE INSPEÇÃO</span>" : "-")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="row g-2">
+                <div class="col-md-4"><label class="form-label" for="busca-produto">Filtrar produtos do catálogo</label><input class="form-control" id="busca-produto" data-busca-produto placeholder="Nome ou SKU" autocomplete="off" /></div>
+                <div class="col-md-8 d-flex align-items-end"><p class="text-muted mb-0" data-produtos-status role="status">Carregando catálogo…</p></div>
+            </div>
+        </fieldset>
+
+        <fieldset class="wide compras-fieldset">
+            <legend class="h5">3 · Fornecedores convidados</legend>
+            <p class="text-muted mb-2">Convide entre 1 e 20 fornecedores distintos. A proposta é registrada aqui pelo operador autorizado após contato direto com o fornecedor.</p>
+            <div data-fornecedores class="row g-2" role="group" aria-label="Fornecedores convidados"><p class="text-muted mb-0" role="status">Carregando fornecedores…</p></div>
+        </fieldset>
+
+        <fieldset class="wide compras-fieldset">
+            <legend class="h5">4 · Prazo de resposta</legend>
+            <div>
+                <label class="form-label" for="prazo-resposta">Prazo limite para as propostas</label>
+                <input class="form-control" id="prazo-resposta" data-prazo type="datetime-local" required />
+                <small class="form-text">Entre 1 hora e 90 dias a partir de agora. Convites além do prazo viram situação expirada automaticamente.</small>
+            </div>
+        </fieldset>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="button" data-enviar-cotacao>Registrar cotação</button>
+            <a class="btn btn-outline-secondary" href="@Url.Action("Cotacoes")">Cancelar</a>
+        </div>
+    }
+    else
+    {
+        <section class="panel empty-state mt-3">
+            <h3 class="h5">Selecione uma requisição aprovada</h3>
+            <p class="text-muted">A lista de itens com saldo disponível será carregada aqui para a montagem da rodada.</p>
+        </section>
+    }
+
+    <p class="form-feedback" role="status" aria-live="polite" tabindex="-1"></p>
+</form>
+<script type="module" src="~/js/compras/compras-cotacoes.js"></script>

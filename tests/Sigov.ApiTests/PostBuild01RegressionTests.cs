@@ -280,11 +280,14 @@ public sealed class PostBuild01RegressionTests
         repository.Should().Contain("Requisição não encontrada no contexto autorizado.")
             .And.Contain("Requisição sem itens, fora de rascunho ou versão desatualizada.")
             .And.Contain("Total estimado inválido; revise os itens antes do envio.")
-            .And.Contain("Somente requisições em rascunho podem ser enviadas para aprovação.")
+            .And.Contain("Somente requisições em rascunho ou devolvidas podem ser enviadas para aprovação.")
+            .And.Contain("Requisição fora de rascunho/devolvida ou versão desatualizada.")
             .And.Contain("{version:D}|{total.ToString(\"0.00\",CultureInfo.InvariantCulture)}|{itens:D}")
             .And.Contain("values(@t,'REQUISICAO_ENVIAR',@key,@id,@hash)")
             .And.Contain("if(n.Item2>=total)break")
-            .And.Contain("\"APROVACAO_SEM_POLITICA\":\"APROVACAO_SEM_APROVADOR\"")
+            .And.Contain("\"APROVACAO_SEM_POLITICA\",\"Política de aprovação ausente\"")
+            .And.Contain("\"APROVACAO_SEM_APROVADOR\",\"Aprovação sem aprovador habilitado\"")
+            .And.Contain("\"APROVACAO_ALCADA_INSUFICIENTE\",\"Aprovação com alçada insuficiente\"")
             .And.Contain("set status='PENDENTE_APROVACAO'")
             .And.Contain("status=case when status='DEVOLVIDA' then 'RASCUNHO' else status end")
             .And.Contain("and status in('RASCUNHO','DEVOLVIDA')")
@@ -432,8 +435,8 @@ public sealed class PostBuild01RegressionTests
 
         repos.Should().Contain("Math.Round(r.Itens.Sum(i=>i.Quantidade*i.ValorEstimado),2,MidpointRounding.AwayFromZero)")
             .And.Contain("select coalesce(round(sum(i.quantidade*i.valor_estimado),2),0)")
-            .And.Contain("jsonb_build_object('total_requisicao',@total,'alcada_etapa',@limite,'etapa',@nivel,'ciclo',@ciclo,'politica_id',@polId,'politica_nome',@polNome,'itens',(select coalesce(jsonb_agg(jsonb_build_object('ordem',i.ordem,'quantidade',i.quantidade,'valor_estimado',i.valor_estimado) order by i.ordem),'[]'::jsonb)")
-            .And.Contain("'politica_nome',@polNome,'itens'")
+            .And.Contain("jsonb_build_object('total_requisicao',@total,'alcada_etapa',@limite,'etapa',@nivel,'ciclo',@ciclo,'versao_requisicao',@versaoReq,'politica_id',@polId,'politica_nome',@polNome,'solicitante_id',@solicitanteId,'itens',(select coalesce(jsonb_agg(jsonb_build_object('id',i.id,'ordem',i.ordem,'tipo',i.tipo,'descricao',i.descricao,'especificacao',i.especificacao,'unidade',i.unidade,'quantidade',i.quantidade,'valor_estimado',i.valor_estimado,'permite_parcial',i.permite_parcial,'exige_inspecao',i.exige_inspecao) order by i.ordem),'[]'::jsonb)")
+            .And.Contain("'politica_nome',@polNome,'solicitante_id',@solicitanteId,'itens'")
             .And.Contain("not i.is_deleted)),@ciclo,@us,@us,@corr)");
     }
 
@@ -445,8 +448,11 @@ public sealed class PostBuild01RegressionTests
         aprov.Should().Contain("left join sigov.os_tecnico sol on (sol.tenant_id,sol.usuario_id)=(r.tenant_id,r.solicitante_id) and not sol.is_deleted")
             .And.Contain("(@busca::text is null or r.numero ilike @term or coalesce(r.setor,'') ilike @term or sol.nome ilike @term)")
             .And.Contain("and (@urgencia is null or r.urgencia=@urgencia)")
-            .And.Contain("then 'Aguardando configuração institucional' when a.nivel>=(select coalesce(max(b.nivel),0)")
-            .And.Contain("then 'Decisão encerra o ciclo' else 'Próxima etapa: nível '||(a.nivel+1)::text end ProximaAcao")
+            .And.Contain("when a.aprovador_id is null then 'Aguardando configuração institucional'")
+            .And.Contain("then 'Aguardando nível anterior (' || at.nivel_ativo::text || ')'")
+            .And.Contain("when a.nivel>=(select coalesce(max(b.nivel),0)")
+            .And.Contain("then 'Decisão encerra o ciclo'")
+            .And.Contain("else 'Próxima etapa: nível '||(a.nivel+1)::text end ProximaAcao")
             .And.Contain("\"in ('APROVADA','REJEITADA')\"")
             .And.Contain("\"in ('APROVADO','REJEITADA')\"")
             .And.Contain("left join lateral(select d.motivo,d.decidido_em,d.aprovador_id from sigov.compras_empresarial_aprovacao d where d.tenant_id=r.tenant_id and d.requisicao_id=r.id and d.status {filtroEtapa} order by d.id desc limit 1) d on true")
@@ -535,11 +541,11 @@ public sealed class PostBuild01RegressionTests
 
         var detalhe = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Aprovacoes/Detalhe.cshtml"));
         detalhe.Should().Contain("var podeDecidir = Model.StatusEtapa == \"PENDENTE\" && Model.DecisivelPorMim && !Model.Bloqueada;")
-            .And.Contain("<pre class=\"compras-snapshot mb-0\">@Model.RegraSnapshot</pre>")
+            .And.Contain("<pre class=\"compras-snapshot mt-2 mb-0\">@Model.RegraSnapshot</pre>")
             .And.Contain("name=\"motivo\" class=\"form-control mb-2\" rows=\"2\" minlength=\"10\" required")
             .And.Contain("<input type=\"hidden\" name=\"version\" value=\"@Model.VersionEtapa\"/>")
             .And.Contain("<partial name=\"Shared/_ComprasNav\"")
-            .And.Contain("Próxima etapa do ciclo");
+            .And.Contain("Próxima etapa:</strong> Nível @prox.Nivel");
 
         var relatorio = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/ComprasEmpresariais/Relatorios/Aprovacoes.cshtml"));
         relatorio.Should().Contain("asp-action=\"RelatorioAprovacoesCsv\">Exportar CSV</a>")

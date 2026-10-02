@@ -1,0 +1,2 @@
+﻿select c.relname||' -> '||fc.relname from pg_constraint k join pg_class c on c.oid=k.conrelid join pg_class fc on fc.oid=k.confrelid where k.contype='f' and c.relname like 'compras_empresarial_%' and fc.relname like 'compras_empresarial_%' order by 1;
+select 'TBL '||c.relname||' tenant='||(case when exists(select 1 from information_schema.columns ic where ic.table_schema='sigov' and ic.table_name=c.relname and ic.column_name='tenant_id') then 'Y' else 'N' end) from pg_class c where c.relname like 'compras_empresarial_%' and c.relkind='r' order by 1;

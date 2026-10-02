@@ -120,7 +120,7 @@ public sealed class EnterprisePostBuild04RulesTests
     {
         var authService = new FakeAuthorizationService(policy => policy == "compras_empresariais.requisicoes.visualizar");
         var controller = new ComprasEmpresariaisController(
-            null!, null!, null!, null!, null!, null!, null!, authService);
+            null!, null!, null!, null!, null!, null!, null!, null!, authService);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
@@ -336,6 +336,113 @@ public sealed class EnterprisePostBuild04RulesTests
         var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
         repoSql.Should().Contain("await tx.RollbackAsync(ct);");
         repoSql.Should().Contain("throw;");
+    }
+
+    [Fact]
+    public void Scenario21_Quorum_por_nivel_ignora_irmos_cancelados_do_mesmo_nivel_apos_aprovacao()
+    {
+        // Interpretção canônica centralizada: irmão cancelado do MESMO nível não impede a progressão.
+        AprovacaoQuorum.NivelAnteriorCoberto(new[] { (1, "APROVADO"), (1, "CANCELADO"), (2, "PENDENTE") }, 2).Should().BeTrue();
+        // Nível inteiro sem nenhuma aprovação ainda impede.
+        AprovacaoQuorum.NivelAnteriorCoberto(new[] { (1, "PENDENTE"), (1, "CANCELADO") }, 2).Should().BeFalse();
+        // Cada nível distinto anterior exige a própria cobertura.
+        AprovacaoQuorum.NivelAnteriorCoberto(new[] { (1, "APROVADO"), (2, "CANCELADO") }, 3).Should().BeFalse();
+        AprovacaoQuorum.NivelAnteriorCoberto(new[] { (1, "APROVADO"), (2, "APROVADO") }, 3).Should().BeTrue();
+        // Primeiro nível não tem anterior: coberto por definição.
+        AprovacaoQuorum.NivelAnteriorCoberto(new[] { (2, "PENDENTE") }, 1).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Scenario22_Elegibilidade_espelha_avaliador_canonical_em_escopo_institucional_e_unidade_strita()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("and ug.unidade_id is null and gp.unidade_id is null and pp.unidade_id is null");
+        repoSql.Should().Contain("(ug.tenant_id is null or ug.tenant_id=u.tenant_id)");
+        repoSql.Should().Contain("(gp.entidade_id is null or gp.entidade_id=u.entidade_id)");
+        repoSql.Should().Contain("where u.ativo and not u.is_deleted and u.tenant_id=@TenantId");
+    }
+
+    [Fact]
+    public void Scenario23_Decisao_exige_cobertura_canonica_e_nao_pergunta_a_irmaos_do_nivel_coberto()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("nivel < @nivel and status <> 'APROVADO' and not exists(");
+        repoSql.Should().Contain("apr.nivel=ant.nivel and apr.status='APROVADO'");
+        repoSql.Should().Contain("AprovacaoQuorum.NivelAnteriorCoberto");
+    }
+
+    [Fact]
+    public void Scenario24_Alcada_insuficiente_bloqueia_etapa_topo_com_causa_diferenciada()
+    {
+        var enviar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        enviar.Should().Contain("alcadaInsuficiente=politica is not null&&niveis.Count>0&&total>niveis.Max(n=>n.Item2)");
+        enviar.Should().Contain("causa=topoAlcada?\"ALCADA_INSUFICIENTE\":\"SEM_APROVADOR\"");
+        enviar.Should().Contain("\"APROVACAO_ALCADA_INSUFICIENTE\",\"Aprovação com alçada insuficiente\"");
+        var reavaliar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        reavaliar.Should().Contain("causa_bloqueio='ALCADA_INSUFICIENTE'");
+    }
+
+    [Fact]
+    public void Scenario25_Pendencia_sem_politica_nunca_se_libera_somente_atribuindo_aprovador()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        // Etapa SEM_POLITICA somente vira ALCADA_INSUFICIENTE quando há política ativa e o total excede tudo.
+        repoSql.Should().Contain("if (k is null && politicaAtual is not null && b.CausaBloqueio == \"SEM_POLITICA\")");
+        // Pendências fecham apenas comprovadamente resolvidas, tipo por tipo.
+        repoSql.Should().Contain("if (politicaAtual is not null) tiposParaFechar.Add(\"APROVACAO_SEM_POLITICA\");");
+        repoSql.Should().Contain("if (k is not null) tiposParaFechar.Add(\"APROVACAO_ALCADA_INSUFICIENTE\");");
+        repoSql.Should().Contain("if (!aindaBloqueada) tiposParaFechar.Add(\"APROVACAO_SEM_APROVADOR\");");
+    }
+
+    [Fact]
+    public void Scenario26_Reavaliacao_designa_sem_excluir_o_executor_e_limita_fanout_dois_mais_um()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        // Segregação SOMENTE do solicitante: quem executa a reavaliação também pode ser designado.
+        repoSql.Should().Contain(".Where(ap => ap != req.Value.SolicitanteId)");
+        repoSql.Should().Contain(".Take(3)");
+        repoSql.Should().NotContain("ap != context.UsuarioId && ap != req.Value.SolicitanteId");
+    }
+
+    [Fact]
+    public void Scenario27_Idempotencia_persiste_o_resultado_original_para_replay_fiel()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("set resultado=jsonb_build_object('id',@rq::text,'ciclo',@ciclo,'desbloqueadas',@desbloqueadas,'canceladas',@canceladas)");
+        repoSql.Should().Contain("coalesce(resultado::text,'') from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='REAVALIAR_ENCAMINHAMENTO'");
+        repoSql.Should().Contain("r.GetProperty(\"etapa_status\").GetString()!");
+        var enviar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        enviar.Should().Contain("set resultado=jsonb_build_object('id',@id::text,'status','PENDENTE_APROVACAO','version',@v2,'ciclo',@ciclo)");
+        enviar.Should().Contain("System.Guid.Parse(r.GetProperty(\"id\").GetString()!)");
+    }
+
+    [Fact]
+    public void Scenario28_Bloqueios_seguem_ordem_canonica_advisory_filho_entao_requisicao()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        var idxAdvisory = repoSql.IndexOf("await LockAsync(connection, tx, context, $\"REQUISICAO|{etapaRef:D}\", ct);", StringComparison.Ordinal);
+        var idxFilho = repoSql.IndexOf("select status Status,version Version,aprovador_id AprovadorId,ciclo Ciclo,requisicao_id RequisicaoId,nivel Nivel,limite Limite from sigov.compras_empresarial_aprovacao where tenant_id=@t and id=@id for update", StringComparison.Ordinal);
+        var idxRequisicao = repoSql.IndexOf("select status,version,solicitante_id SolicitanteId from sigov.compras_empresarial_requisicao where tenant_id=@t and id=@id for update", StringComparison.Ordinal);
+        idxAdvisory.Should().BeGreaterThan(-1).And.BeLessThan(idxFilho);
+        idxFilho.Should().BeGreaterThan(-1).And.BeLessThan(idxRequisicao);
+    }
+
+    [Fact]
+    public void Scenario29_Snapshot_classifica_completo_parcial_ou_indisponivel_sem_inventar_itens()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("classificacaoSnapshot = identificados ? \"COMPLETO\" : \"PARCIAL\"");
+        repoSql.Should().Contain("\"INDISPONIVEL\"");
+        var enviar = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/ComprasRepositories.cs"));
+        enviar.Should().Contain("'id',i.id,'ordem',i.ordem");
+    }
+
+    [Fact]
+    public void Scenario30_Relatorio_exibe_nome_do_aprovador_com_fallback_explicito_ao_identificador()
+    {
+        var repoSql = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/ComprasEmpresariais/AprovacaoRequisicaoRepository.cs"));
+        repoSql.Should().Contain("coalesce(os.nome,a.aprovador_id::text) AprovadorSub");
+        repoSql.Should().Contain("left join sigov.os_tecnico os on (os.tenant_id,os.usuario_id)=(a.tenant_id,a.aprovador_id) and not os.is_deleted");
     }
 }
 

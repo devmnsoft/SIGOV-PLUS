@@ -1,0 +1,122 @@
+@using Microsoft.AspNetCore.Authorization
+@using Sigov.Application.ComprasEmpresariais
+@model Sigov.Application.Common.PagedResult<CotacaoResumo>
+@inject IAuthorizationService Authorization
+@{
+    ViewData["Title"] = "Cotações de fornecedores";
+    var filtro = (CotacaoFiltro?)ViewData["Filtro"] ?? new CotacaoFiltro();
+    var canCreate = (await Authorization.AuthorizeAsync(User, "compras_empresariais.cotacoes.criar")).Succeeded;
+    var first = Model.TotalItems == 0 ? 0L : ((long)Model.Page - 1) * Model.PageSize + 1;
+    var last = Model.TotalItems == 0 ? 0L : Math.Min((long)Model.Page * Model.PageSize, Model.TotalItems);
+    var hasFilters = !string.IsNullOrWhiteSpace(filtro.Status) || filtro.RequisicaoId.HasValue;
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">CONTRATAÇÃO DIRETA</span>
+        <h1>Cotações de fornecedores</h1>
+        <p>Registre rodadas de cotação sobre requisições aprovadas, acompanhe as propostas recebidas e abra o comparativo para julgamento.</p>
+    </div>
+    @if (canCreate)
+    {
+        <a class="btn btn-primary" href="@Url.Action("NovaCotacao")">Nova cotação</a>
+    }
+</header>
+
+<details class="panel mb-3">
+    <summary class="h6">Ajuda: como funciona a cotação</summary>
+    <p>A cotação só pode ser criada a partir de uma requisição aprovada e reserva, por item, o saldo ainda disponível. Os fornecedores convidados respondem por proposta registrada pelo operador autorizado. Quando há pelo menos uma proposta, o comparativo aplica uma fórmula explícita de custo total e a seleção humana gera, na mesma transação, um pedido por fornecedor com rastreabilidade completa.</p>
+</details>
+
+<section class="panel" aria-labelledby="filtros-title">
+    <h2 id="filtros-title" class="h5">Filtros</h2>
+    <form method="get" class="requisicao-filtros" data-filter-form>
+        <div>
+            <label class="form-label" for="status">Situação</label>
+            <select class="form-select" id="status" name="status">
+                <option value="">Todas</option>
+                @foreach (var status in new[] { "ABERTA", "EM_RESPOSTA", "SELECIONADA", "ENCERRADA" })
+                {
+                    <option value="@status" selected="@(filtro.Status == status)">@status.Replace('_', ' ')</option>
+                }
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+            <a class="btn btn-outline-secondary" href="@Url.Action("Cotacoes")">Limpar filtros</a>
+        </div>
+    </form>
+</section>
+
+<section class="panel requisicoes-lista" aria-labelledby="resultado-title" aria-busy="false">
+    <div class="section-title">
+        <div>
+            <h2 id="resultado-title" class="h5 mb-1">Resultado</h2>
+            <p class="text-muted mb-0" role="status">Exibindo @first–@last de @Model.TotalItems cotações</p>
+        </div>
+    </div>
+    @if (Model.Items.Count > 0)
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th scope="col">Cotação</th><th scope="col">Requisição</th><th scope="col">Situação</th><th scope="col">Prazo de resposta</th><th scope="col">Progresso</th><th scope="col" class="text-end">Ações</th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><strong>@item.Numero</strong><br /><small class="text-muted">Rodada @item.Rodada · criada em @item.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small></td>
+                        <td><a href="@Url.Action("Requisicao", new { id = item.RequisicaoId })">@item.NumeroRequisicao</a></td>
+                        <td><span class="status-badge">@item.Status.Replace('_', ' ')</span></td>
+                        <td><time datetime="@item.Prazo.ToString("O")">@item.Prazo.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</time></td>
+                        <td>@item.Itens item(ns) · @item.ConvitesAtivos convite(s) ativo(s) · @item.Respostas resposta(s)</td>
+                        <td class="text-end"><div class="d-flex gap-1 justify-content-end flex-wrap">
+                            <a class="btn btn-sm btn-outline-primary" href="@Url.Action("Cotacao", new { id = item.Id })" aria-label="Acompanhar cotação @item.Numero">Acompanhar</a>
+                            @if (item.Respostas > 0)
+                            {
+                                <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("Comparativo", new { id = item.Id })" aria-label="Abrir comparativo da cotação @item.Numero">Comparar</a>
+                            }
+                        </div></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <h3 class="h5">@(hasFilters ? "Nenhum resultado para os filtros" : "Nenhuma cotação cadastrada")</h3>
+            <p class="text-muted">@(hasFilters ? "Revise os critérios ou limpe os filtros para consultar todas as cotações." : "Crie a primeira cotação a partir de uma requisição aprovada com saldo disponível.")</p>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Paginação das cotações">
+            <ul class="pagination justify-content-center flex-wrap mb-0">
+                @if (Model.HasPreviousPage)
+                {
+                    <li class="page-item"><a class="page-link" href="@Url.Action("Cotacoes", new { filtro.Status, filtro.RequisicaoId, pagina = Model.Page - 1, tamanho = Model.PageSize })">Anterior</a></li>
+                }
+                else
+                {
+                    <li class="page-item disabled"><span class="page-link" aria-disabled="true">Anterior</span></li>
+                }
+                @for (var pageNumber = Math.Max(1, Model.Page - 2); pageNumber <= Math.Min(Model.TotalPages, Model.Page + 2); pageNumber++)
+                {
+                    <li class="page-item @(pageNumber == Model.Page ? "active" : null)" aria-current="@(pageNumber == Model.Page ? "page" : null)"><a class="page-link" href="@Url.Action("Cotacoes", new { filtro.Status, filtro.RequisicaoId, pagina = pageNumber, tamanho = Model.PageSize })">@pageNumber</a></li>
+                }
+                @if (Model.HasNextPage)
+                {
+                    <li class="page-item"><a class="page-link" href="@Url.Action("Cotacoes", new { filtro.Status, filtro.RequisicaoId, pagina = Model.Page + 1, tamanho = Model.PageSize })">Próxima</a></li>
+                }
+                else
+                {
+                    <li class="page-item disabled"><span class="page-link" aria-disabled="true">Próxima</span></li>
+                }
+            </ul>
+        </nav>
+    }
+</section>

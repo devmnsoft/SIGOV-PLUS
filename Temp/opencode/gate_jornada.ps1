@@ -154,7 +154,7 @@ $polNow=JVal "select count(*) from sigov.compras_empresarial_aprovacao_politica 
 JAssert 'exatamente UMA politica ativa por tenant apos upsert' ($polNow -eq '1') "count=$polNow"
 
 # ------------------------------------------------------------------- S3 -----
-JHead 'S3 - Rq1 (RC-DEMO-0001, total 80000): duas etapas cumulativas -> quorum any-of -> APROVADA'
+JHead 'S3 - Rq1 (RC-DEMO-0001, total 80000): duas etapas cumulativas (X1: solicitante excluido na designacao) -> APROVADA pelo gestor'
 $r1e=JApi 'PUT' "/requisicoes/$($script:Rq1)" $script:TokA (JAtualizarJson $D1 @(JItem 'Licenças de software corporativo (demo)' 8 10000) $V1)
 JAssert 'PUT Rq1 com itens 8x10000 (=80000) aceita 204' ($r1e.status -eq 204)
 $s1=JApi 'POST' "/requisicoes/$($script:Rq1)/enviar?version=$($V1+1)" $script:TokA $null 'jornada-rq1-enviar-k1'
@@ -164,14 +164,14 @@ $n1a=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requis
 $n1b=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq1)' and nivel=1 and aprovador_id='$($script:SubB)' and status='PENDENTE';"
 $n2b=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq1)' and nivel=2 and aprovador_id='$($script:SubB)' and status='PENDENTE';"
 $ntotal=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq1)';"
-JAssert 'Rq1 gera exatamente 3 etapas PENDENTE: n1={analista,gestor}, n2={gestor}' (($n1a -eq '1') -and ($n1b -eq '1') -and ($n2b -eq '1') -and ($ntotal -eq '3')) ("counts n1a=$n1a n1b=$n1b n2b=$n2b total=$ntotal")
+JAssert 'Rq1 gera exatamente 2 etapas PENDENTE (X1: n1={gestor}, n2={gestor}; zero para o solicitante)' (($n1a -eq '0') -and ($n1b -eq '1') -and ($n2b -eq '1') -and ($ntotal -eq '2')) ("counts n1a=$n1a n1b=$n1b n2b=$n2b total=$ntotal")
 $f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
 $e1=JFilaItem $f $Gq1 1 $GB
 JAssert 'fila do gestor contem sua etapa n1 da Rq1' ($null -ne $e1)
 $d1r=JApi 'POST' "/aprovacoes/$($e1.etapaId)/decidir" $script:TokB (JDecidirJson 'APROVAR' $null ([long]$e1.version) 'jornada-rq1-d1-gestor')
 JAssert 'APROVAR n1 (gestor): etapa APROVADO, requisicao segue PENDENTE_APROVACAO' (($d1r.status -eq 200) -and $d1r.json.etapaStatus -eq 'APROVADO' -and $d1r.json.requisicaoStatus -eq 'PENDENTE_APROVACAO' -and $d1r.json.repetido -eq $false)
-$canc=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq1)' and nivel=1 and aprovador_id='$($script:SubA)' and status='CANCELADO';"
-JAssert 'quorum any-of: linha do analista na n1 fica CANCELADO apos decisao do gestor' ($canc -eq '1') "canceladas=$canc"
+$solRows=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq1)' and aprovador_id='$($script:SubA)';"
+JAssert 'segregacao do solicitante (X1): zero linhas da Rq1 para o proprio analista, em qualquer status' ($solRows -eq '0') "linhasSolicitante=$solRows"
 [void](JDb ("select a.nivel, coalesce(a.aprovador_id::text,'NULL'), a.status from sigov.compras_empresarial_aprovacao a where a.requisicao_id='$($script:Rq1)' order by a.nivel, a.id; select acao from sigov.compras_empresarial_historico where aggregate_type='REQUISICAO' and aggregate_id='$($script:Rq1)' order by created_at, id;"))
 $f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
 $e2=JFilaItem $f $Gq1 2 $GB
@@ -182,23 +182,25 @@ $st=JVal "select status from sigov.compras_empresarial_requisicao where id='$($s
 JAssert 'Rq1 final APROVADA no banco' ($st -eq 'APROVADA')
 
 # ------------------------------------------------------------------- S4 -----
-JHead 'S4 - Rq3 (RC-DEMO-0003): total EXATO 50000 => fronteira de alçada inclusiva => etapa única -> APROVADA pelo analista'
+JHead 'S4 - Rq3 (RC-DEMO-0003): total EXATO 50000 => fronteira de alçada inclusiva => etapa única designada ao gestor (X1) -> APROVADA'
 $r3e=JApi 'PUT' "/requisicoes/$($script:Rq3)" $script:TokA (JAtualizarJson $D3 @(JItem 'Serviços de consultoria técnica (demo)' 5 10000) $V3)
 JAssert 'PUT Rq3 com itens 5x10000 (=50000 exato) aceita 204' ($r3e.status -eq 204)
 $s3=JApi 'POST' "/requisicoes/$($script:Rq3)/enviar?version=$($V3+1)" $script:TokA $null 'jornada-rq3-enviar-k1'
 JAssert 'envio Rq3: 200 ciclo 1 repetido=false' (($s3.status -eq 200) -and $s3.json.ciclo -eq 1)
 $niv2=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq3)' and nivel=2;"
 $tot3=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq3)';"
-JAssert 'Rq3 gera apenas nivel 1 (limite 50000 >= total 50000): 2 linhas e zero nivel 2' (($tot3 -eq '2') -and ($niv2 -eq '0')) ("total=$tot3 nivel2=$niv2")
+JAssert 'Rq3 gera apenas nivel 1 (limite 50000 >= total 50000): 1 linha e zero nivel 2 (X1)' (($tot3 -eq '1') -and ($niv2 -eq '0')) ("total=$tot3 nivel2=$niv2")
 [void](JDb ("select a.nivel, coalesce(a.aprovador_id::text,'NULL'), a.limite, a.status from sigov.compras_empresarial_aprovacao a where a.requisicao_id='$($script:Rq3)' order by a.nivel, a.id;"))
-$f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokA).json
-$e3=JFilaItem $f $Gq3 1 $GA
-JAssert 'fila do analista contem sua etapa n1 da Rq3' ($null -ne $e3)
-$d3r=JApi 'POST' "/aprovacoes/$($e3.etapaId)/decidir" $script:TokA (JDecidirJson 'APROVAR' $null ([long]$e3.version) 'jornada-rq3-d1-analista')
-JAssert 'analista com alçada 50000 decide etapa de limite 50000 (fronteira inclusa): requisicao APROVADA' (($d3r.status -eq 200) -and $d3r.json.etapaStatus -eq 'APROVADO' -and $d3r.json.requisicaoStatus -eq 'APROVADA' -and $d3r.json.repetido -eq $false)
+$f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
+$e3=JFilaItem $f $Gq3 1 $GB
+JAssert 'fila do gestor contem a unica etapa n1 da Rq3 (X1: solicitante nao recebe etapa)' ($null -ne $e3)
+$seg=JApi 'POST' "/aprovacoes/$($e3.etapaId)/decidir" $script:TokA (JDecidirJson 'APROVAR' $null ([long]$e3.version) 'jornada-rq3-probe-segregacao')
+JAssert 'probe: solicitante decide etapa nao designada a si: 422 usuario nao designado (guard precede a segregacao)' (($seg.status -eq 422) -and $seg.body.Contains('Você não é o aprovador designado para esta etapa.')) ("http={0}" -f $seg.status)
+$d3r=JApi 'POST' "/aprovacoes/$($e3.etapaId)/decidir" $script:TokB (JDecidirJson 'APROVAR' $null ([long]$e3.version) 'jornada-rq3-d1-gestor')
+JAssert 'gestor decide a etapa unica de limite 50000 (fronteira inclusa na alçada 250000): requisicao APROVADA' (($d3r.status -eq 200) -and $d3r.json.etapaStatus -eq 'APROVADO' -and $d3r.json.requisicaoStatus -eq 'APROVADA' -and $d3r.json.repetido -eq $false)
 $st3=JVal "select status from sigov.compras_empresarial_requisicao where id='$($script:Rq3)';"
-$cancelG=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq3)' and aprovador_id='$($script:SubB)' and status='CANCELADO';"
-JAssert 'Rq3 APROVADA no banco e linha do gestor cancelada' ($st3 -eq 'APROVADA') "status=$st3 cancelGestor=$cancelG"
+$noCanc3=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq3)' and status='CANCELADO';"
+JAssert 'Rq3 APROVADA no banco e ciclo sem etapas canceladas (unico candidato por nivel sob X1)' (($st3 -eq 'APROVADA') -and ($noCanc3 -eq '0')) "status=$st3 canceladas=$noCanc3"
 
 # ------------------------------------------------------------------- S5 -----
 JHead 'S5 - Rq4 (RC-DEMO-0004): idempotencia de envio, devolucao, correcao, 409 conteudo, ciclo 2 REJEITAR, decisao dupla'
@@ -211,7 +213,7 @@ $s4r=JApi 'POST' "/requisicoes/$($script:Rq4)/enviar?version=$V4a" $script:TokA 
 JAssert 'REPLAY K1 mesmo conteudo: 200 repetido=true (sem novo ciclo/etapas)' (($s4r.status -eq 200) -and $s4r.json.repetido -eq $true -and $s4r.json.status -eq 'PENDENTE_APROVACAO' -and $s4r.json.ciclo -eq 1)
 [void](JDb ("select a.ciclo, a.nivel, coalesce(a.aprovador_id::text,'NULL'), a.status from sigov.compras_empresarial_aprovacao a where a.requisicao_id='$($script:Rq4)' order by a.ciclo, a.nivel, a.id; select chave, operacao from sigov.compras_empresarial_idempotencia where chave like 'jornada-rq4-enviar-k1';"))
 $cnt4=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq4)';"
-JAssert 'replay K1 nao cria etapas novas (total continua 3)' ($cnt4 -eq '3') "etapas=$cnt4"
+JAssert 'replay K1 nao cria etapas novas (total continua 2: n1+n2, ambos do gestor sob X1)' ($cnt4 -eq '2') "etapas=$cnt4"
 $f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
 $e4=JFilaItem $f $Gq4 1 $GB
 JAssert 'fila do gestor contem sua etapa n1 (ciclo 1) da Rq4' ($null -ne $e4)
@@ -233,7 +235,7 @@ JAssert 'reenvio com chave nova K2: 200 ciclo 2' (($s4k2.status -eq 200) -and $s
 [void](JDb ("select distinct ciclo from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq4)' order by ciclo; select a.ciclo, a.nivel, coalesce(a.aprovador_id::text,'NULL'), a.status from sigov.compras_empresarial_aprovacao a where a.requisicao_id='$($script:Rq4)' and a.ciclo=2 order by a.nivel, a.id;"))
 $ciclos=JVal "select count(distinct ciclo) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq4)';"
 $et2=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$($script:Rq4)' and ciclo=2;"
-JAssert 'ciclo 2 aberto com etapas apenas no nivel 1 (total 25000 <= 50000): 2 linhas' (($ciclos -eq '2') -and ($et2 -eq '2')) ("ciclos=$ciclos etapasC2=$et2")
+JAssert 'ciclo 2 aberto com etapa unica no nivel 1 (total 25000 <= 50000; X1: apenas o gestor)' (($ciclos -eq '2') -and ($et2 -eq '1')) ("ciclos=$ciclos etapasC2=$et2")
 $f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
 $e5=JFilaItem $f $Gq4 1 $GB
 JAssert 'fila do gestor contem sua etapa n1 do ciclo 2 da Rq4' ($null -ne $e5)
@@ -267,16 +269,15 @@ $s5=JApi 'POST' "/requisicoes/$Rq5/enviar?version=$V5" $script:TokA $null 'jorna
 JAssert 'envio Rq5 (total 80000): 200 ciclo 1' (($s5.status -eq 200) -and $s5.json.ciclo -eq 1 -and $s5.json.repetido -eq $false)
 [void](JDb ("select a.nivel, coalesce(a.aprovador_id::text,'NULL'), a.limite, a.status from sigov.compras_empresarial_aprovacao a where a.requisicao_id='$Rq5' order by a.nivel, a.id;"))
 $et5=JVal "select count(*) from sigov.compras_empresarial_aprovacao where requisicao_id='$Rq5';"
-JAssert 'Rq5 gerou 3 etapas pendentes (n1x2 + n2x1)' ($et5 -eq '3') "etapas=$et5"
+JAssert 'Rq5 gerou 2 etapas pendentes (n1x1 + n2x1; X1 exclui o solicitante)' ($et5 -eq '2') "etapas=$et5"
 
 # ------------------------------------------------------------------- S7 -----
 JHead 'S7 - PROVAS DE FALHA EXPLÍCITA (sem mutação de estado)'
-$f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokA).json
-$ea=JFilaItem $f $Rq5g 1 $GA
-JAssert 'fila do analista contem sua etapa n1 da Rq5' ($null -ne $ea)
-$pv=JApi 'POST' "/aprovacoes/$($ea.etapaId)/decidir" $script:TokA (JDecidirJson 'APROVAR' $null 999 'jornada-probe-versao-invalida')
-JAssert 'versão desatualizada: 409 com mensagem exata de recarga da fila' (($pv.status -eq 409) -and $pv.body.Contains('Versão desatualizada; recarregue a fila de aprovações e tente novamente.')) ("http={0}" -f $pv.status)
 $fb=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
+$ea=JFilaItem $fb $Rq5g 1 $GB
+JAssert 'fila do gestor contem sua etapa n1 da Rq5' ($null -ne $ea)
+$pv=JApi 'POST' "/aprovacoes/$($ea.etapaId)/decidir" $script:TokA (JDecidirJson 'APROVAR' $null 999 'jornada-probe-versao-invalida')
+JAssert 'versão desatualizada: 409 com mensagem exata de recarga da fila (guard de versão precede o de designacao)' (($pv.status -eq 409) -and $pv.body.Contains('Versão desatualizada; recarregue a fila de aprovações e tente novamente.')) ("http={0}" -f $pv.status)
 $en2=JFilaItem $fb $Rq5g 2 $GB
 JAssert 'fila do gestor contem sua etapa n2 da Rq5' ($null -ne $en2)
 $po=JApi 'POST' "/aprovacoes/$($en2.etapaId)/decidir" $script:TokA (JDecidirJson 'APROVAR' $null ([long]$en2.version) 'jornada-probe-aprovador-errado')
@@ -287,8 +288,8 @@ JHead 'S8 - ADMIN DE OUTRO CONTEXTO INSTITUCIONAL (fail-closed)'
 $ad=JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokD
 JLog ("admin GET fila => HTTP {0} (contexto institucional do admin; espera-se vazio ou negado, nunca dados do tenant demo)" -f $ad.status)
 if(($ad.status -eq 200) -and $ad.json){ $adminLeak = @($ad.json.items).Count; JAssert 'fila do admin nao vaza etapas do tenant demo' ($adminLeak -eq 0) ("itens=$adminLeak") }
-$f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokA).json
-$eax=JFilaItem $f $Rq5g 1 $GA
+$f=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=50' $script:TokB).json
+$eax=JFilaItem $f $Rq5g 2 $GB
 $ad2=JApi 'POST' "/aprovacoes/$($eax.etapaId)/decidir" $script:TokD (JDecidirJson 'APROVAR' $null ([long]$eax.version) 'jornada-probe-admin-outros-tenant')
 JAssert 'admin decide etapa do tenant demo: bloqueado (401/403/404), nunca 200/204' (($ad2.status -in @(401,403,404))) ("http={0} body={1}" -f $ad2.status,$ad2.body)
 
@@ -296,7 +297,7 @@ JAssert 'admin decide etapa do tenant demo: bloqueado (401/403/404), nunca 200/2
 JHead 'S9 - HONESTIDADE: fila/painéis/relatorio CSV vs banco vivo'
 $fa=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=100' $script:TokA).json
 $dbA=JVal "select count(*) from sigov.compras_empresarial_aprovacao a where a.tenant_id='$($script:TenantDemo)' and a.status='PENDENTE' and (a.aprovador_id='$($script:SubA)' or a.aprovador_id is null);"
-JAssert 'fila do analista bate com o banco (esperado 2: Rq2 bloqueada + Rq5 n1)' (([long]$fa.totalItems -eq 2) -and ($dbA -eq '2')) ("api=$($fa.totalItems) db=$dbA")
+JAssert 'fila do analista bate com o banco (esperado 1: apenas a Rq2 bloqueada; X1 impede designacao ao solicitante)' (([long]$fa.totalItems -eq 1) -and ($dbA -eq '1')) ("api=$($fa.totalItems) db=$dbA")
 $fb=(JApi 'GET' '/aprovacoes?pagina=1&tamanho=100' $script:TokB).json
 $dbB=JVal "select count(*) from sigov.compras_empresarial_aprovacao a where a.tenant_id='$($script:TenantDemo)' and a.status='PENDENTE' and (a.aprovador_id='$($script:SubB)' or a.aprovador_id is null);"
 JAssert 'fila do gestor bate com o banco (esperado 3: Rq2 bloqueada + Rq5 n1 + Rq5 n2)' (([long]$fb.totalItems -eq 3) -and ($dbB -eq '3')) ("api=$($fb.totalItems) db=$dbB")
@@ -308,7 +309,7 @@ $csv=JApi 'GET' '/relatorios/aprovacoes.csv' $script:TokA
 $csvLines=($csv.body -split "`r`n" | Where-Object { $_.Trim().Length -gt 0 })
 $dataRows=[int]($csvLines.Count - 1)
 $dbEt=JVal "select count(*) from sigov.compras_empresarial_aprovacao a join sigov.compras_empresarial_requisicao r on r.tenant_id=a.tenant_id and r.id=a.requisicao_id and not r.is_deleted where a.tenant_id='$($script:TenantDemo)';"
-JAssert 'relatorio CSV: linhas de dados == etapas no banco (esperado 14)' (([int]$dataRows -eq 14) -and ($dbEt -eq '14')) ("csv=$dataRows db=$dbEt")
+JAssert 'relatorio CSV: linhas de dados == etapas no banco (esperado 9: Rq1=2, Rq2=1, Rq3=1, Rq4=3, Rq5=2)' (([int]$dataRows -eq 9) -and ($dbEt -eq '9')) ("csv=$dataRows db=$dbEt")
 JAssert 'relatorio CSV contem RC-DEMO-0001..0004 + numero da Rq5' (($csv.body -match 'RC-DEMO-0001') -and ($csv.body -match 'RC-DEMO-0002') -and ($csv.body -match 'RC-DEMO-0003') -and ($csv.body -match 'RC-DEMO-0004') -and $csv.body.Contains($Num5))
 
 # ------------------------------------------------------------------ S10 -----

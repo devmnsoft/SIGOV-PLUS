@@ -1,0 +1,94 @@
+EXIT=0
+table_name | column_name
+grupo_acesso | id
+grupo_acesso | entidade_id
+grupo_acesso | exercicio_id
+grupo_acesso | nome
+grupo_acesso | descricao
+grupo_acesso | codigo_externo
+grupo_acesso | observacao
+grupo_acesso | ativo
+grupo_acesso | is_deleted
+grupo_acesso | created_at
+grupo_acesso | created_by
+grupo_acesso | updated_at
+grupo_acesso | updated_by
+grupo_acesso | deleted_at
+grupo_acesso | deleted_by
+grupo_acesso | correlation_id
+grupo_acesso | tenant_id
+grupo_perfil | grupo_acesso_id
+grupo_perfil | perfil_acesso_id
+grupo_perfil | is_deleted
+grupo_perfil | created_at
+grupo_perfil | created_by
+grupo_perfil | correlation_id
+grupo_perfil | tenant_id
+grupo_perfil | entidade_id
+grupo_perfil | exercicio_id
+grupo_perfil | unidade_id
+grupo_perfil | vigencia_inicio
+grupo_perfil | vigencia_fim
+grupo_perfil | ativo
+os_tecnico | id
+os_tecnico | tenant_id
+os_tecnico | usuario_id
+os_tecnico | equipe_id
+os_tecnico | nome
+os_tecnico | especialidade
+os_tecnico | habilidades
+os_tecnico | certificacoes
+os_tecnico | regiao
+os_tecnico | status
+os_tecnico | inicio_jornada
+os_tecnico | fim_jornada
+os_tecnico | capacidade_diaria
+os_tecnico | custo_hora
+os_tecnico | version
+os_tecnico | is_deleted
+os_tecnico | created_at
+os_tecnico | updated_at
+os_tecnico | created_by
+os_tecnico | updated_by
+os_tecnico | correlation_id
+perfil_permissao | perfil_acesso_id
+perfil_permissao | permissao_id
+perfil_permissao | created_at
+perfil_permissao | created_by
+perfil_permissao | correlation_id
+perfil_permissao | tenant_id
+perfil_permissao | entidade_id
+perfil_permissao | exercicio_id
+perfil_permissao | unidade_id
+perfil_permissao | vigencia_inicio
+perfil_permissao | vigencia_fim
+perfil_permissao | alcada_valor
+perfil_permissao | efeito
+perfil_permissao | justificativa
+perfil_permissao | updated_at
+perfil_permissao | ativo
+perfil_permissao | is_deleted
+usuario_grupo | usuario_id
+usuario_grupo | grupo_acesso_id
+usuario_grupo | created_at
+usuario_grupo | created_by
+usuario_grupo | correlation_id
+usuario_grupo | is_deleted
+usuario_grupo | tenant_id
+usuario_grupo | entidade_id
+usuario_grupo | exercicio_id
+usuario_grupo | unidade_id
+usuario_grupo | vigencia_inicio
+usuario_grupo | vigencia_fim
+usuario_grupo | ativo
+(81 rows)
+usuario_id | grupo_acesso_id | created_at | created_by | correlation_id | is_deleted | tenant_id | entidade_id | exercicio_id | unidade_id | vigencia_inicio | vigencia_fim | ativo
+101 | 9301 | 2026-09-28 12:20:08.927743+00 |  |  | f | 1 |  |  |  |  |  | t
+102 | 9302 | 2026-09-28 12:20:08.927743+00 |  |  | f | 1 |  |  |  |  |  | t
+(2 rows)
+grupo_acesso_id | perfil_acesso_id | is_deleted | created_at | created_by | correlation_id | tenant_id | entidade_id | exercicio_id | unidade_id | vigencia_inicio | vigencia_fim | ativo
+1 | 48 | f | 2026-09-28 12:20:08.038708+00 |  |  | 5 |  |  |  |  |  | t
+9301 | 9001 | f | 2026-09-28 12:20:08.927743+00 |  |  | 1 |  |  |  |  |  | t
+9302 | 9002 | f | 2026-09-28 12:20:08.927743+00 |  |  | 1 |  |  |  |  |  | t
+(3 rows)
+

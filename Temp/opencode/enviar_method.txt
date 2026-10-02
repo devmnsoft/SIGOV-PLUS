@@ -1,0 +1,74 @@
+L{n}: public async Task<RequisicaoEnvioResultado> EnviarAsync(ComprasContext x,Guid id,long version,string key,CancellationToken ct){await using var c=factory.CreateConnection();
+L{n}: await c.OpenAsync(ct);
+L{n}: await using var tx=await c.BeginTransactionAsync(ct);
+L{n}: try{await c.ExecuteAsync(new CommandDefinition("select pg_advisory_xact_lock(hashtextextended(@chaveLock,0))",new{chaveLock=$"{x.TenantId:D}|REQUISICAO|{id:D}|ENVIO"},tx,cancellationToken:ct));
+L{n}: var q=await c.QuerySingleOrDefaultAsync<(string Status,long Version,Guid SolicitanteId)?>(new CommandDefinition("select status,version,solicitante_id SolicitanteId from sigov.compras_empresarial_requisicao where tenant_i
+L{n}: d=@t and id=@id and not is_deleted for update",new{t=x.TenantId,id},tx,cancellationToken:ct));
+L{n}: if(q is null)throw new KeyNotFoundException("Requisição não encontrada no contexto autorizado.");
+L{n}: var itens=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(*) from sigov.compras_empresarial_requisicao_item i where i.tenant_id=@t and i.requisicao_id=@id and not i.is_deleted",new{t=x.TenantId,id},tx
+L{n}: ,cancellationToken:ct));
+L{n}: if(itens==0)throw new InvalidOperationException("Requisição sem itens, fora de rascunho ou versão desatualizada.");
+L{n}: var total=await c.ExecuteScalarAsync<decimal>(new CommandDefinition("select coalesce(round(sum(i.quantidade*i.valor_estimado),2),0) from sigov.compras_empresarial_requisicao_item i where i.tenant_id=@t and i.requisicao_i
+L{n}: d=@id and not i.is_deleted",new{t=x.TenantId,id},tx,cancellationToken:ct));
+L{n}: if(total<=0m)throw new InvalidOperationException("Total estimado inválido;
+L{n}:  revise os itens antes do envio.");
+L{n}: var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{version:D}|{total.ToString("0.00",CultureInfo.InvariantCulture)}|{itens:D}"))).ToLowerInvariant();
+L{n}: var anterior=await c.QuerySingleOrDefaultAsync<string>(new CommandDefinition("select request_hash from sigov.compras_empresarial_idempotencia where tenant_id=@t and operacao='REQUISICAO_ENVIAR' and chave=@key",new{t=x.Te
+L{n}: nantId,key},tx,cancellationToken:ct));
+L{n}: if(anterior is not null){if(anterior!=hash)throw new ComprasConcurrencyException("A chave de idempotência já foi usada com conteúdo diferente.");
+L{n}: var maxCiclo=await c.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(ciclo),0) from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id",new{t=x.TenantId,id},tx,cancellationTok
+L{n}: en:ct));
+L{n}: await tx.CommitAsync(ct);
+L{n}: return new RequisicaoEnvioResultado(id,q.Value.Status,q.Value.Version,maxCiclo,true);
+L{n}: }if(q.Value.Status is not ("RASCUNHO" or "DEVOLVIDA"))throw new InvalidOperationException("Somente requisições em rascunho ou devolvidas podem ser enviadas para aprovação.");
+L{n}: if(q.Value.Version!=version)throw new ComprasConcurrencyException("Requisição fora de rascunho/devolvida ou versão desatualizada.");
+L{n}: await c.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_requisicao set valor_estimado=@total,updated_at=now(),updated_by=@us,correlation_id=@corr where tenant_id=@t and id=@id",new{t=x.TenantId,id,to
+L{n}: tal,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));
+L{n}: var nucleo=await AprovacaoRequisicaoRepository.ResolverTenantNucleoAsync(c,tx,x.TenantId,ct);
+L{n}: var politica=await c.QuerySingleOrDefaultAsync<(long Id,string Nome)?>(new CommandDefinition("select id,nome from sigov.compras_empresarial_aprovacao_politica where tenant_id=@t and ativo and not is_deleted order by id d
+L{n}: esc limit 1",new{t=x.TenantId},tx,cancellationToken:ct));
+L{n}: var ciclo=await c.ExecuteScalarAsync<int>(new CommandDefinition("select coalesce(max(ciclo),0)+1 from sigov.compras_empresarial_aprovacao where tenant_id=@t and requisicao_id=@id",new{t=x.TenantId,id},tx,cancellationToke
+L{n}: n:ct));
+L{n}: var niveis=new List<(int,decimal)>();
+L{n}: if(politica is not null){var niveisBase=await c.QueryAsync<(int,decimal)>(new CommandDefinition("select ordem,limite from sigov.compras_empresarial_aprovacao_politica_nivel where tenant_id=@t and politica_id=@pol and not
+L{n}:  is_deleted order by ordem",new{t=x.TenantId,pol=politica.Value.Item1},tx,cancellationToken:ct));
+L{n}: foreach(var n in niveisBase)niveis.Add(n);
+L{n}: }var etapas=new List<(int,decimal)>();
+L{n}: foreach(var n in niveis){etapas.Add(n);
+L{n}: if(n.Item2>=total)break;
+L{n}: }var bloqueadas=new List<int>();
+L{n}: const string insereEtapa="insert into sigov.compras_empresarial_aprovacao(id,tenant_id,requisicao_id,nivel,aprovador_id,limite,status,regra_snapshot,ciclo,created_by,updated_by,correlation_id) values(gen_random_uuid(),@t
+L{n}: ,@rq,@nivel,@aprovador,@limite,'PENDENTE',jsonb_build_object('total_requisicao',@total,'alcada_etapa',@limite,'etapa',@nivel,'ciclo',@ciclo,'versao_requisicao',@versaoReq,'politica_id',@polId,'politica_nome',@polNome,'so
+L{n}: licitante_id',@solicitanteId,'itens',(select coalesce(jsonb_agg(jsonb_build_object('ordem',i.ordem,'tipo',i.tipo,'descricao',i.descricao,'especificacao',i.especificacao,'unidade',i.unidade,'quantidade',i.quantidade,'valo
+L{n}: r_estimado',i.valor_estimado,'permite_parcial',i.permite_parcial,'exige_inspecao',i.exige_inspecao) order by i.ordem),'[]'::jsonb) from sigov.compras_empresarial_requisicao_item i where i.tenant_id=@t and i.requisicao_id
+L{n}: =@rq and not i.is_deleted)),@ciclo,@us,@us,@corr)";
+L{n}: if(etapas.Count==0){await c.ExecuteAsync(new CommandDefinition(insereEtapa,new{t=x.TenantId,rq=id,nivel=1,aprovador=(Guid?)null,limite=0m,ciclo,versaoReq=version,solicitanteId=q.Value.SolicitanteId,polId=(long?)null,polN
+L{n}: ome=(string?)null,total,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));
+L{n}: }else{foreach(var e in etapas){var elegiveis=(await AprovacaoRequisicaoRepository.AprovadoresElegiveisAsync(c,tx,nucleo,e.Item2,ct)).Where(ap=>ap!=x.UsuarioId&&ap!=q.Value.SolicitanteId).ToList();
+L{n}: if(elegiveis.Count==0){bloqueadas.Add(e.Item1);
+L{n}: await c.ExecuteAsync(new CommandDefinition(insereEtapa,new{t=x.TenantId,rq=id,nivel=e.Item1,aprovador=(Guid?)null,limite=e.Item2,ciclo,versaoReq=version,solicitanteId=q.Value.SolicitanteId,polId=politica?.Item1,polNome=p
+L{n}: olitica?.Item2,total,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));
+L{n}: }else{foreach(var aprovador in elegiveis){await c.ExecuteAsync(new CommandDefinition(insereEtapa,new{t=x.TenantId,rq=id,nivel=e.Item1,aprovador=(Guid)aprovador,limite=e.Item2,ciclo,versaoReq=version,solicitanteId=q.Value
+L{n}: .SolicitanteId,polId=politica?.Item1,polNome=politica?.Item2,total,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));
+L{n}: }}}}if(etapas.Count==0||bloqueadas.Count>0){var tipo=etapas.Count==0?"APROVACAO_SEM_POLITICA":"APROVACAO_SEM_APROVADOR";
+L{n}: var titulo=etapas.Count==0?"Política de aprovação ausente":"Aprovação sem aprovador habilitado";
+L{n}: var descricao=etapas.Count==0?"Configure a política de aprovação por alçada neste contexto institucional para liberar as etapas de decisão.":"Etapas sem aprovador habilitado: "+string.Join(", ",bloqueadas.Select(b=>b.ToS
+L{n}: tring(CultureInfo.InvariantCulture)))+". Ajuste permissões ou alçadas dos perfis de acesso (solicitante segregado).";
+L{n}: await AprovacaoRequisicaoRepository.RegistrarPendenciaAsync(c,tx,x.TenantId,id,tipo,titulo,descricao,ct);
+L{n}: }await c.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_requisicao set status='PENDENTE_APROVACAO',valor_estimado=@total,version=version+1,updated_at=now(),updated_by=@us,correlation_id=@corr where 
+L{n}: tenant_id=@t and id=@id",new{t=x.TenantId,id,total,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));
+L{n}: await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_historico(tenant_id,aggregate_type,aggregate_id,acao,detalhes,created_by,correlation_id) values(@t,'REQUISICAO',@id,'ENVIADA_PARA_APROVACA
+L{n}: O',jsonb_build_object('ciclo',@ciclo,'total',@total,'etapas',@etapasCount),@us,@corr)",new{t=x.TenantId,id,ciclo,total,etapasCount=etapas.Count==0?1:etapas.Count,us=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancell
+L{n}: ationToken:ct));
+L{n}: await c.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_idempotencia(tenant_id,operacao,chave,recurso_id,request_hash) values(@t,'REQUISICAO_ENVIAR',@key,@id,@hash)",new{t=x.TenantId,key,id,hash
+L{n}: },tx,cancellationToken:ct));
+L{n}: await tx.CommitAsync(ct);
+L{n}: return new RequisicaoEnvioResultado(id,"PENDENTE_APROVACAO",version+1,ciclo,false);
+L{n}: }catch{await tx.RollbackAsync(ct);
+L{n}: throw;
+L{n}: }}
+L{n}:  private sealed record RequisicaoCabecalho(Guid Id,string Numero,string Status,string? Setor,string Urgencia,DateOnly? DataNecessaria,string Justificativa,string? Observacoes,decimal ValorEstimado,long Version);
+L{n}: 
+L{n}: }
+L{n}: public sealed class ComprasDashboardRepository(NpgsqlConnectionFactory factory):IComprasDashboardRepository
+L{n}: {

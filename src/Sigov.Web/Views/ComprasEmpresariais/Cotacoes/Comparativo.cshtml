@@ -1,0 +1,167 @@
+@using Sigov.Application.ComprasEmpresariais
+@model CotacaoComparativoViewModel
+@{
+    ViewData["Title"] = $"Comparativo da cotação {Model.Numero}";
+    var podeJulgar = (bool)(ViewData["PodeJulgar"] ?? false);
+    var podeSelecionar = podeJulgar && Model.ElegivelParaSelecao;
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">MAPA COMPARATIVO</span>
+        <h1>Comparativo da cotação @Model.Numero</h1>
+        <p>Prazo de resposta @Model.Prazo.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · versão @Model.Version · situação <span class="status-badge">@Model.Status.Replace('_', ' ')}</span></p>
+    </div>
+    <a class="btn btn-outline-primary" href="@Url.Action("Cotacao", new { id = Model.CotacaoId })">Voltar para a cotação</a>
+</header>
+
+<div class="panel mb-3" aria-labelledby="formula-title">
+    <h2 id="formula-title" class="h5">Fórmula da comparação</h2>
+    <p class="mb-0">@Model.Formula</p>
+</div>
+
+<details class="panel mb-3">
+    <summary class="h6">Ajuda: como julgar o comparativo</summary>
+    <p>Cada linha do comparativo mostra todas as propostas recebidas para o item, com preço unitário, desconto, imposto, frete, custo unitário efetivo e custo total do item já calculados pela fórmula acima. O menor custo total entre as propostas não recusadas é destacado; quando duas ou mais propostas empatam no menor custo, o empate é sinalizado para decisão humana. Para concluir a seleção, marque um vencedor por item (seleção parcial é permitida). Quando o custo escolhido for maior que o menor custo registrado, uma justificativa com pelo menos 10 caracteres é obrigatória e fica registrada na auditoria. A seleção gera um pedido por fornecedor vencedor na mesma transação.</p>
+</details>
+
+@if (!podeSelecionar)
+{
+    <div class="alert alert-info" role="note">
+        @(Model.ElegivelParaSelecao
+            ? "Só um usuário autorizado a julgar cotações pode concluir a seleção nesta tela."
+            : "A seleção só fica disponível enquanto a rodada tiver propostas registradas (situação EM RESPOSTA).")
+    </div>
+}
+
+<form id="comparativo-form" class="compras-form" data-cotacao-comparativo data-id="@Model.CotacaoId" data-version="@Model.Version" novalidate>
+    @Html.AntiForgeryToken()
+    <div class="wide alert alert-danger validation-summary" role="alert" tabindex="-1" data-validation-summary hidden></div>
+
+    <section class="panel" aria-labelledby="linhas-title">
+        <h2 id="linhas-title" class="h5">Linhas do comparativo</h2>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Item</th>
+                        <th scope="col">Fornecedor</th>
+                        <th scope="col" class="text-end">Preço unitário</th>
+                        <th scope="col" class="text-end">Desconto %</th>
+                        <th scope="col" class="text-end">Imposto %</th>
+                        <th scope="col" class="text-end">Frete</th>
+                        <th scope="col" class="text-end">CUE</th>
+                        <th scope="col" class="text-end">Custo total do item</th>
+                        <th scope="col" class="text-end">Prazo (dias)</th>
+                        <th scope="col">Marca / fabricante</th>
+                        <th scope="col">Situação</th>
+                        @if (podeSelecionar)
+                        {
+                            <th scope="col"><span class="visually-hidden">Selecionar vencedor</span></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var linha in Model.Linhas)
+                {
+                    var ofertasValidas = linha.Ofertas.Count(o => !o.Recusado);
+                    <tr class="comparativo-linha-head">
+                        <td rowspan="@(linha.SemOfertas ? 1 : linha.Ofertas.Count)">
+                            <strong>@(linha.Ordem)º @linha.Descricao</strong>
+                            @if (linha.Especificacao is not null)
+                            {
+                                <br /><small class="text-muted">@linha.Especificacao</small>
+                            }
+                            <br /><small class="text-muted">@linha.Quantidade.ToString("0.####") @linha.Unidade</small>
+                        </td>
+                        @if (!linha.SemOfertas)
+                        {
+                            @foreach (var oferta in linha.Ofertas)
+                            {
+                                <tr>
+                                    <td>@oferta.FornecedorNome</td>
+                                    <td class="text-end">@(oferta.Recusado ? "-" : oferta.PrecoUnitario.ToString("N4"))</td>
+                                    <td class="text-end">@(oferta.Recusado ? "-" : oferta.Desconto.ToString("N2"))</td>
+                                    <td class="text-end">@(oferta.Recusado ? "-" : oferta.Imposto.ToString("N2"))</td>
+                                    <td class="text-end">@(oferta.Recusado ? "-" : oferta.Frete.ToString("N2"))</td>
+                                    <td class="text-end">@(oferta.Recusado ? "-" : oferta.CustoUnitarioEfetivo.ToString("N2"))</td>
+                                    <td class="text-end"><strong>@(oferta.Recusado ? "-" : oferta.CustoTotalItem.ToString("N2"))</strong></td>
+                                    <td class="text-end">@(oferta.Recusado ? "-" : oferta.PrazoDias)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(oferta.Marca) && string.IsNullOrWhiteSpace(oferta.Fabricante) ? "-" : $"{oferta.Marca ?? "-"} / {oferta.Fabricante ?? "-"}")</td>
+                                    <td>
+                                        @if (oferta.Recusado)
+                                        {
+                                            <span class="status-badge">RECUSADO</span>
+                                        }
+                                        else if (oferta.MenorCusto && oferta.EmpateMenor)
+                                        {
+                                            <span class="status-badge">MENOR CUSTO · EMPATE</span>
+                                        }
+                                        else if (oferta.MenorCusto)
+                                        {
+                                            <span class="status-badge">MENOR CUSTO</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-badge">OFERTA</span>
+                                        }
+                                    </td>
+                                    @if (podeSelecionar)
+                                    {
+                                        <td class="comparativo-selecao-cell">
+                                            @if (!oferta.Recusado)
+                                            {
+                                                var nomeRadio = $"sel-{linha.RequisicaoItemId:N}";
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="@nomeRadio" id="@nomeRadio-@oferta.ConviteId" data-selecao-radio data-linha="@linha.RequisicaoItemId" data-convite="@oferta.ConviteId" data-custo="@oferta.CustoTotalItem.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                                                    <label class="form-check-label visually-hidden" for="@nomeRadio-@oferta.ConviteId">Selecionar proposta de @oferta.FornecedorNome para o item @linha.Descricao</label>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="visually-hidden">Proposta recusada não participa da seleção</span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        }
+                    </tr>
+                    @if (linha.SemOfertas)
+                    {
+                        <tr>
+                            <td colspan="@(podeSelecionar ? 11 : 10)"><em class="text-muted">Nenhuma proposta recebida para este item.</em></td>
+                        </tr>
+                    }
+                    @if (podeSelecionar && ofertasValidas > 0)
+                    {
+                        <tr class="comparativo-justificativa-row">
+                            <td colspan="@(podeSelecionar ? 11 : 10)">
+                                <label class="form-label" for="justificativa-@linha.RequisicaoItemId">Justificativa do item @(linha.Ordem)º <span class="text-muted">(obrigatória quando o custo escolhido é maior que o menor custo registrado; mínimo 10 caracteres)</span></label>
+                                <input class="form-control" type="text" id="justificativa-@linha.RequisicaoItemId" data-justificativa data-linha="@linha.RequisicaoItemId" maxlength="500" />
+                                <div data-justificativa-estado class="form-text" role="status"></div>
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @if (podeSelecionar)
+    {
+        <section class="panel" aria-labelledby="concluir-title">
+            <h2 id="concluir-title" class="h5">Concluir seleção</h2>
+            <p class="text-muted mb-2">Escolha ao menos um item. A seleção parcial é permitida: itens sem vencedor continuam sem reserva de pedido nesta rodada. O comparativo deve estar na versão mais recente; caso receba “versão desatualizada”, recarregue a tela antes de tentar novamente.</p>
+            <div class="form-actions">
+                <button class="btn btn-primary" type="button" data-concluir-selecao>Registrar seleção e gerar pedidos</button>
+            </div>
+        </section>
+    }
+
+    <p class="form-feedback" role="status" aria-live="polite" tabindex="-1"></p>
+</form>
+<script type="module" src="~/js/compras/compras-cotacoes.js"></script>

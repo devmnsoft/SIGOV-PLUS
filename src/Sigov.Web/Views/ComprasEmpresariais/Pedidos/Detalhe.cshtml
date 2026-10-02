@@ -1,0 +1,99 @@
+@using Sigov.Application.ComprasEmpresariais
+@model PedidoDetalhe
+@{
+    ViewData["Title"] = $"Pedido {Model.Numero}";
+    var podeReceber = (bool)(ViewData["PodeReceber"] ?? false);
+    var aptoParaRecebimento = Model.Status is "CONFIRMADO" or "PARCIALMENTE_RECEBIDO";
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">PEDIDO DE COMPRA</span>
+        <h1>Pedido @Model.Numero</h1>
+        <p>
+            Fornecedor <strong>@(Model.FornecedorNome ?? "-")</strong> · criado em @Model.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+            @if (Model.CotacaoId.HasValue)
+            {
+                <text>· cotação <a href="@Url.Action("Comparativo", new { id = Model.CotacaoId.Value })">@Model.NumeroCotacao</a></text>
+            }
+            @if (Model.RequisicaoId.HasValue)
+            {
+                <text>· requisição <a href="@Url.Action("Requisicao", new { id = Model.RequisicaoId.Value })">@Model.NumeroRequisicao</a></text>
+            }
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        <span class="status-badge" aria-label="Situação atual: @Model.Status">@Model.Status.Replace('_', ' ')</span>
+        @if (podeReceber && aptoParaRecebimento)
+        {
+            <a class="btn btn-primary" href="@Url.Action("NovoRecebimento", new { pedidoId = Model.Id })" aria-label="Registrar recebimento do pedido @Model.Numero">Registrar recebimento</a>
+        }
+    </div>
+</header>
+
+<details class="panel mb-3">
+    <summary class="h6">Ajuda: fluxo de recebimento</summary>
+    <p>Este pedido foi gerado pela seleção registrada na cotação vinculada, com rastreabilidade completa entre requisição, cotação e fornecedor vencedor. Use “Registrar recebimento” para conferir as quantidades no almoxarifado; itens marcados com “exige inspeção” passam pela inspeção antes da aceitação. Nesta etapa o sistema não baixa estoque nem cria obrigação financeira automaticamente.</p>
+</details>
+
+<section class="panel" aria-labelledby="resumo-title">
+    <h2 id="resumo-title" class="h5">Resumo</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-4">Valor total do pedido</dt>
+        <dd class="col-sm-8">@Model.ValorTotal.ToString("N2")</dd>
+        <dt class="col-sm-4">Previsão de entrega</dt>
+        <dd class="col-sm-8">@(Model.Previsao?.ToString("dd/MM/yyyy") ?? "-")</dd>
+        <dt class="col-sm-4">Versão</dt>
+        <dd class="col-sm-8">@Model.Version</dd>
+    </dl>
+</section>
+
+<section class="panel" aria-labelledby="itens-title">
+    <h2 id="itens-title" class="h5">Itens do pedido</h2>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th scope="col">Produto</th><th scope="col">Unidade</th><th scope="col" class="text-end">Quantidade</th><th scope="col" class="text-end">Cancelada</th><th scope="col" class="text-end">Valor unitário</th><th scope="col">Inspeção</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Itens)
+            {
+                <tr>
+                    <td>@(item.ProdutoNome ?? $"Produto {item.ProdutoId:D}")</td>
+                    <td>@(item.Unidade ?? "-")</td>
+                    <td class="text-end">@item.Quantidade.ToString("0.####")</td>
+                    <td class="text-end">@item.QuantidadeCancelada.ToString("0.####")</td>
+                    <td class="text-end">@item.ValorUnitario.ToString("N4")</td>
+                    <td>@(item.ExigeInspecao ? "<span class='status-badge'>EXIGE INSPEÇÃO</span>" : "-")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel" aria-labelledby="historico-title">
+    <h2 id="historico-title" class="h5">Histórico</h2>
+    @if (Model.Historico.Count > 0)
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th scope="col">Ação</th><th scope="col">Detalhes</th><th scope="col">Data e hora</th></tr></thead>
+                <tbody>
+                @foreach (var evento in Model.Historico)
+                {
+                    <tr>
+                        <td>@evento.Acao</td>
+                        <td>@(string.IsNullOrWhiteSpace(evento.Detalhes) ? "-" : evento.Detalhes)</td>
+                        <td><time datetime="@evento.CriadoEm.ToString("O")">@evento.CriadoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</time></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="text-muted mb-0">Nenhum evento registrado até o momento.</p>
+    }
+</section>

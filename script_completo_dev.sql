@@ -227,7 +227,10 @@ select exists (
         ('20260924180000', array['3a4d42ff482ea94e076d0b902769256371893048c5ff26ea2f2c4c3fa241ea73']::text[]),
         ('20260924210000', array['0517d4a32baac9d82b13c20a162bd346b3d42b50862a03dcd07dc46744d92acb']::text[]),
         ('20260925120000', array['2d2c70cc67c932e086c6eca84101110f7839ea8af604c92c18ed9708106fe5ff']::text[]),
-        ('20260927120000', array['96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346']::text[])
+        ('20260927120000', array['96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346']::text[]),
+        ('20260930120000', array['f7a8d7b2a9702eec2698e9f5af25c3280b610cbedb105f823028431d11cc99b5']::text[]),
+        ('20260930180000', array['dc5909484078eeb5bf0b312c8e144fa3f447eb004d6a11daf442fb12029745e6']::text[]),
+         ('20261001090000', array['6534bafcfc445f028c6f14a4249935a15041c618d7dd3ca91e372a52430c53c4']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -31937,6 +31940,139 @@ end $$;
 update sigov.permissao set modulo='compras_empresariais' where modulo='COMPRAS_EMPRESARIAIS';
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260927120000', 'Fluxo de aprovaÃ§Ã£o de requisiÃ§Ãµes com ciclos e polÃ­ticas persistentes multi-esfera; codificaÃ§Ã£o do resultado de encerramento de divergÃªncias', '96c614814463ee46a31448b815b74b346f756b6ca9141c1d6b674c2ba12fa346', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260930120000_compras_aprovacao_causa_bloqueio_e_resultado_idempotencia.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: f7a8d7b2a9702eec2698e9f5af25c3280b610cbedb105f823028431d11cc99b5
+-- ==================================================
+-- Jornada de aprovação: causa de bloqueio explícita por etapa e resultado original
+-- persistido na idempotência. Sem política ativa a etapa nasce bloqueada (SEM_POLITICA)
+-- e nunca se libera apenas atribuindo aprovador; alçada insuficiente (ALCADA_INSUFICIENTE)
+-- mantém a etapa final fechada até a política cobrir o total; etapa sem aprovador
+-- habilitado (SEM_APROVADOR) permanece visível e atribuível. Valores NULL preservam o legado.
+
+alter table sigov.compras_empresarial_aprovacao
+ add column if not exists causa_bloqueio varchar(40);
+
+do $$ begin
+ if not exists(select 1 from pg_constraint where conname='ck_compras_aprovacao_causa') then
+  alter table sigov.compras_empresarial_aprovacao add constraint ck_compras_aprovacao_causa check(causa_bloqueio is null or causa_bloqueio in ('SEM_POLITICA','SEM_APROVADOR','ALCADA_INSUFICIENTE'));
+ end if;
+end $$;
+
+alter table sigov.compras_empresarial_idempotencia
+ add column if not exists resultado jsonb;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260930120000', 'Causa de bloqueio explÃ­cita em etapas de aprovaÃ§Ã£o e resultado original persistido na idempotÃªncia', 'f7a8d7b2a9702eec2698e9f5af25c3280b610cbedb105f823028431d11cc99b5', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260930180000_compras_cotacao_itens_selecao.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: dc5909484078eeb5bf0b312c8e144fa3f447eb004d6a11daf442fb12029745e6
+-- ==================================================
+-- Jornada procure-to-pay (cotação -> comparativo -> seleção -> pedido): linhas da
+-- cotação por item da requisição vinculadas a produto do catálogo com saldo
+-- transacional por item; seleção humana e auditada, com snapshot de custos,
+-- justificativa obrigatória quando acima do menor custo estrito e geração atômica
+-- de pedidos por fornecedor. Multi-esfera: herda o tenant do domínio; sem regra
+-- municipal hardcoded. Idempotente (reexecução segura).
+
+create table if not exists sigov.compras_empresarial_cotacao_item (
+    id bigint generated by default as identity primary key,
+    tenant_id uuid not null,
+    cotacao_id uuid not null references sigov.compras_empresarial_cotacao(id),
+    requisicao_item_id uuid not null references sigov.compras_empresarial_requisicao_item(id),
+    produto_id uuid not null references sigov.estoque_produto(id),
+    quantidade numeric not null check (quantidade > 0),
+    created_at timestamptz not null default now(),
+    created_by varchar(100) not null default '',
+    correlation_id varchar(100) not null default ''
+);
+
+create unique index if not exists ux_ce_cotacao_item_tenant_cotacao_rq_item
+    on sigov.compras_empresarial_cotacao_item(tenant_id, cotacao_id, requisicao_item_id);
+
+create index if not exists ix_ce_cotacao_item_tenant_rq_item
+    on sigov.compras_empresarial_cotacao_item(tenant_id, requisicao_item_id);
+
+create table if not exists sigov.compras_empresarial_cotacao_selecao (
+    id bigint generated by default as identity primary key,
+    tenant_id uuid not null,
+    cotacao_id uuid not null references sigov.compras_empresarial_cotacao(id),
+    convite_id uuid not null references sigov.compras_empresarial_cotacao_convite(id),
+    fornecedor_id uuid not null,
+    requisicao_item_id uuid not null references sigov.compras_empresarial_requisicao_item(id),
+    produto_id uuid not null,
+    quantidade numeric not null check (quantidade > 0),
+    preco_unitario_efetivo numeric not null check (preco_unitario_efetivo >= 0),
+    custo_total_item numeric not null check (custo_total_item >= 0),
+    menor_custo numeric not null check (menor_custo >= 0),
+    justificativa text,
+    criado_em timestamptz not null default now(),
+    criado_por varchar(100) not null default '',
+    correlation_id varchar(100) not null default ''
+);
+
+create unique index if not exists ux_ce_cotacao_selecao_tenant_cotacao_rq_item
+    on sigov.compras_empresarial_cotacao_selecao(tenant_id, cotacao_id, requisicao_item_id);
+
+create index if not exists ix_ce_cotacao_selecao_tenant_convite
+    on sigov.compras_empresarial_cotacao_selecao(tenant_id, convite_id);
+
+alter table sigov.compras_empresarial_cotacao
+    add column if not exists selecionado_em timestamptz,
+    add column if not exists selecionado_por varchar(100);
+
+create index if not exists ix_ce_cotacao_tenant_status
+    on sigov.compras_empresarial_cotacao(tenant_id, status) where is_deleted = false;
+
+create index if not exists ix_ce_cotacao_tenant_requisicao
+    on sigov.compras_empresarial_cotacao(tenant_id, requisicao_id) where is_deleted = false;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260930180000', 'Itens de cotacao por linha com saldo transacional e selecao auditada com geracao atomica de pedidos', 'dc5909484078eeb5bf0b312c8e144fa3f447eb004d6a11daf442fb12029745e6', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261001090000_integracao_outbox_base.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 6534bafcfc445f028c6f14a4249935a15041c618d7dd3ca91e372a52430c53c4
+-- ==================================================
+-- Correcao aditiva: tabela base do outbox transacional de integracao
+-- (sigov.integracao_outbox) usada pelos repositorios compras-empresariais
+-- (fornecedor criado) e OS por pedido para publicacao transacional de
+-- eventos ao lado do agregado. Sem regra municipal hardcoded; multi-esfera
+-- por tenant. Idempotente (reexecucao segura).
+
+create table if not exists sigov.integracao_outbox (
+    id uuid not null primary key default gen_random_uuid(),
+    tenant_id uuid not null,
+    tipo_evento varchar(120) not null check (btrim(tipo_evento) <> ''),
+    aggregate_id uuid not null,
+    payload jsonb not null default '{}'::jsonb,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists ix_integracao_outbox_tenant_tipo
+    on sigov.integracao_outbox(tenant_id, tipo_evento, created_at);
+
+comment on table sigov.integracao_outbox is 'Outbox transacional de eventos de integracao (compras-empresariais e OS por pedido); consumo por worker oficial.';
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261001090000', 'Correcao aditiva: tabela base do outbox transacional de integracao (sigov.integracao_outbox)', '6534bafcfc445f028c6f14a4249935a15041c618d7dd3ca91e372a52430c53c4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

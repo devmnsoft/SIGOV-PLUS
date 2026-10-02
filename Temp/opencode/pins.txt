@@ -1,0 +1,44 @@
+A|F1|Requisição não encontrada no contexto autorizado.
+A|F1|Requisição sem itens, fora de rascunho ou versão desatualizada.
+A|F1|Total estimado inválido; revise os itens antes do envio.
+A|F1|Somente requisições em rascunho podem ser enviadas para aprovação.
+A|F1|{version:D}|{total.ToString("0.00",CultureInfo.InvariantCulture)}|{itens:D}
+A|F1|values(@t,'REQUISICAO_ENVIAR',@key,@id,@hash)
+A|F1|if(n.Item2>=total)break
+A|F1|"APROVACAO_SEM_POLITICA":"APROVACAO_SEM_APROVADOR"
+A|F1|set status='PENDENTE_APROVACAO'
+A|F1|status=case when status='DEVOLVIDA' then 'RASCUNHO' else status end
+A|F1|and status in('RASCUNHO','DEVOLVIDA')
+A|F1|@inicio::date is null or r.created_at>=@inicio
+A|F1|r.created_at<(@fim::date+1)
+B|F1|Math.Round(r.Itens.Sum(i=>i.Quantidade*i.ValorEstimado),2,MidpointRounding.AwayFromZero)
+B|F1|select coalesce(round(sum(i.quantidade*i.valor_estimado),2),0)
+B|F1|jsonb_build_object('total_requisicao',@total,'alcada_etapa',@limite,'etapa',@nivel,'ciclo',@ciclo,'politica_id',@polId,'politica_nome',@polNome,'itens',(select coalesce(jsonb_agg(jsonb_build_object('ordem',i.ordem,'quantidade',i.quantidade,'valor_estimado',i.valor_estimado) order by i.ordem),'[]'::jsonb)
+B|F1|'politica_nome',@polNome,'itens'
+B|F1|not i.is_deleted)),@ciclo,@us,@us,@corr)
+C|F2|left join sigov.os_tecnico sol on (sol.tenant_id,sol.usuario_id)=(r.tenant_id,r.solicitante_id) and not sol.is_deleted
+C|F2|(@busca::text is null or r.numero ilike @term or coalesce(r.setor,'') ilike @term or sol.nome ilike @term)
+C|F2|and (@urgencia is null or r.urgencia=@urgencia)
+C|F2|then 'Aguardando configuração institucional' when a.nivel>=(select coalesce(max(b.nivel),0)
+C|F2|then 'Decisão encerra o ciclo' else 'Próxima etapa: nível '||(a.nivel+1)::text end ProximaAcao
+C|F2|"in ('APROVADA','REJEITADA')"
+C|F2|"in ('APROVADO','REJEITADA')"
+C|F2|left join lateral(select d.motivo,d.decidido_em,d.aprovador_id from sigov.compras_empresarial_aprovacao d where d.tenant_id=r.tenant_id and d.requisicao_id=r.id and d.status {filtroEtapa} order by d.id desc limit 1) d on true
+C|F2|(r.solicitante_id=@us or exists(select 1 from sigov.compras_empresarial_aprovacao x where x.tenant_id=r.tenant_id and x.requisicao_id=r.id and (x.aprovador_id=@us or x.aprovador_id is null)))
+D|F3|var podeDecidir = Model.StatusEtapa == "PENDENTE" && Model.DecisivelPorMim && !Model.Bloqueada;
+D|F3|<pre class="compras-snapshot mb-0">@Model.RegraSnapshot</pre>
+D|F3|name="motivo" class="form-control mb-2" rows="2" minlength="10" required
+D|F3|<input type="hidden" name="version" value="@Model.VersionEtapa"/>
+D|F3|<partial name="Shared/_ComprasNav"
+D|F3|Próxima etapa do ciclo
+D|F4|asp-action="RelatorioAprovacoesCsv">Exportar CSV</a>
+D|F4|neutraliza fórmulas de planilha
+D|F4|Mostrando @Model.Items.Count de @Model.TotalItems registro(s) dos filtros aplicados (página @Model.Page)
+D|F4|<partial name="Shared/_ComprasNav"
+D|F4|Ainda não há etapas de ciclo de aprovação neste contexto; nenhum dado fictício é exibido.
+D|F5|alçada acumulada
+D|F5|as etapas são criadas cumulativamente para cada nível até (e incluindo) o primeiro cujo limite cubra o total
+D|F6|Tela em construção
+D|F6|nenhum dado fictício é exibido aqui e nenhum estado é simulado.
+D|F7|primeiras 100 linhas dos filtros aplicados, direto do PostgreSQL
+D|F7|Mostrando @Model.Resultado.Items.Count de @Model.Resultado.TotalItems registro(s) dos filtros aplicados (página @Model.Resultado.Page)

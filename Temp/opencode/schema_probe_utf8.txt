@@ -1,0 +1,198 @@
+EXIT=3
+table_name | column_name | data_type | character_maximum_length | is_nullable | dft
+compras_empresarial_aprovacao | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_aprovacao | tenant_id | uuid |  | NO | 
+compras_empresarial_aprovacao | requisicao_id | uuid |  | NO | 
+compras_empresarial_aprovacao | nivel | integer |  | NO | 
+compras_empresarial_aprovacao | aprovador_id | uuid |  | YES | 
+compras_empresarial_aprovacao | limite | numeric |  | NO | 
+compras_empresarial_aprovacao | status | character varying | 20 | NO | 'PENDENTE'::character varying
+compras_empresarial_aprovacao | motivo | text |  | YES | 
+compras_empresarial_aprovacao | regra_snapshot | jsonb |  | NO | '{}'::jsonb
+compras_empresarial_aprovacao | decidido_em | timestamp with time zone |  | YES | 
+compras_empresarial_aprovacao | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_aprovacao | created_by | character varying | 100 | NO | 
+compras_empresarial_aprovacao | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_aprovacao | updated_by | character varying | 100 | NO | 
+compras_empresarial_aprovacao | correlation_id | character varying | 100 | NO | 
+compras_empresarial_aprovacao | version | bigint |  | NO | 1
+compras_empresarial_aprovacao | ciclo | integer |  | NO | 1
+compras_empresarial_cotacao | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_cotacao | tenant_id | uuid |  | NO | 
+compras_empresarial_cotacao | requisicao_id | uuid |  | NO | 
+compras_empresarial_cotacao | numero | character varying | 40 | NO | 
+compras_empresarial_cotacao | rodada | integer |  | NO | 1
+compras_empresarial_cotacao | prazo | timestamp with time zone |  | NO | 
+compras_empresarial_cotacao | status | character varying | 20 | NO | 'RASCUNHO'::character varying
+compras_empresarial_cotacao | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_cotacao | created_by | character varying | 100 | NO | 
+compras_empresarial_cotacao | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_cotacao | updated_by | character varying | 100 | NO | 
+compras_empresarial_cotacao | correlation_id | character varying | 100 | NO | 
+compras_empresarial_cotacao | version | bigint |  | NO | 1
+compras_empresarial_cotacao | is_deleted | boolean |  | NO | false
+compras_empresarial_cotacao_convite | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_cotacao_convite | tenant_id | uuid |  | NO | 
+compras_empresarial_cotacao_convite | cotacao_id | uuid |  | NO | 
+compras_empresarial_cotacao_convite | fornecedor_id | uuid |  | NO | 
+compras_empresarial_cotacao_convite | token_hash | character | 64 | NO | 
+compras_empresarial_cotacao_convite | expira_em | timestamp with time zone |  | NO | 
+compras_empresarial_cotacao_convite | revogado_em | timestamp with time zone |  | YES | 
+compras_empresarial_cotacao_convite | acessado_em | timestamp with time zone |  | YES | 
+compras_empresarial_cotacao_convite | respondido_em | timestamp with time zone |  | YES | 
+compras_empresarial_cotacao_convite | entregue_em | timestamp with time zone |  | YES | 
+compras_empresarial_cotacao_convite | status | character varying | 20 | NO | 'PENDENTE'::character varying
+compras_empresarial_cotacao_convite | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_cotacao_convite | created_by | character varying | 100 | NO | 
+compras_empresarial_cotacao_convite | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_cotacao_convite | updated_by | character varying | 100 | NO | 
+compras_empresarial_cotacao_convite | correlation_id | character varying | 100 | NO | 
+compras_empresarial_cotacao_convite | version | bigint |  | NO | 1
+compras_empresarial_cotacao_resposta_item | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_cotacao_resposta_item | tenant_id | uuid |  | NO | 
+compras_empresarial_cotacao_resposta_item | convite_id | uuid |  | NO | 
+compras_empresarial_cotacao_resposta_item | requisicao_item_id | uuid |  | NO | 
+compras_empresarial_cotacao_resposta_item | preco_unitario | numeric |  | NO | 
+compras_empresarial_cotacao_resposta_item | desconto | numeric |  | NO | 0
+compras_empresarial_cotacao_resposta_item | imposto | numeric |  | NO | 0
+compras_empresarial_cotacao_resposta_item | frete | numeric |  | NO | 0
+compras_empresarial_cotacao_resposta_item | prazo_dias | integer |  | NO | 0
+compras_empresarial_cotacao_resposta_item | marca | character varying | 100 | YES | 
+compras_empresarial_cotacao_resposta_item | fabricante | character varying | 100 | YES | 
+compras_empresarial_cotacao_resposta_item | recusado | boolean |  | NO | false
+compras_empresarial_cotacao_resposta_item | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_cotacao_resposta_item | created_by | character varying | 100 | NO | 
+compras_empresarial_cotacao_resposta_item | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_cotacao_resposta_item | updated_by | character varying | 100 | NO | 
+compras_empresarial_cotacao_resposta_item | correlation_id | character varying | 100 | NO | 
+compras_empresarial_cotacao_resposta_item | version | bigint |  | NO | 1
+compras_empresarial_fornecedor | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_fornecedor | tenant_id | uuid |  | NO | 
+compras_empresarial_fornecedor | nome | text |  | NO | 
+compras_empresarial_fornecedor | documento | text |  | YES | 
+compras_empresarial_fornecedor | email | text |  | YES | 
+compras_empresarial_fornecedor | telefone | text |  | YES | 
+compras_empresarial_fornecedor | ativo | boolean |  | NO | true
+compras_empresarial_fornecedor | codigo | character varying | 30 | NO | 
+compras_empresarial_fornecedor | tipo_pessoa | character | 1 | NO | 'J'::bpchar
+compras_empresarial_fornecedor | documento_hash | character | 64 | NO | 
+compras_empresarial_fornecedor | documento_mascarado | character varying | 30 | NO | 
+compras_empresarial_fornecedor | razao_social | character varying | 200 | NO | 
+compras_empresarial_fornecedor | nome_fantasia | character varying | 200 | YES | 
+compras_empresarial_fornecedor | categoria | character varying | 100 | YES | 
+compras_empresarial_fornecedor | porte | character varying | 30 | YES | 
+compras_empresarial_fornecedor | condicao_pagamento | character varying | 100 | YES | 
+compras_empresarial_fornecedor | prazo_medio | integer |  | NO | 0
+compras_empresarial_fornecedor | observacoes | text |  | YES | 
+compras_empresarial_fornecedor | score | numeric |  | NO | 0
+compras_empresarial_fornecedor | status | character varying | 20 | NO | 'RASCUNHO'::character varying
+compras_empresarial_fornecedor | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_fornecedor | created_by | character varying | 100 | NO | 'migration'::character varying
+compras_empresarial_fornecedor | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_fornecedor | updated_by | character varying | 100 | NO | 'migration'::character varying
+compras_empresarial_fornecedor | correlation_id | character varying | 100 | NO | 
+compras_empresarial_fornecedor | version | bigint |  | NO | 1
+compras_empresarial_fornecedor | is_deleted | boolean |  | NO | false
+compras_empresarial_idempotencia | tenant_id | uuid |  | NO | 
+compras_empresarial_idempotencia | operacao | character varying | 60 | NO | 
+compras_empresarial_idempotencia | chave | character varying | 200 | NO | 
+compras_empresarial_idempotencia | recurso_id | uuid |  | NO | 
+compras_empresarial_idempotencia | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_idempotencia | request_hash | character | 64 | YES | 
+compras_empresarial_pedido | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_pedido | tenant_id | uuid |  | NO | 
+compras_empresarial_pedido | fornecedor_id | uuid |  | YES | 
+compras_empresarial_pedido | numero | text |  | NO | 
+compras_empresarial_pedido | status | text |  | NO | 'ABERTO'::text
+compras_empresarial_pedido | valor_total | numeric |  | NO | 0
+compras_empresarial_pedido | requisicao_id | uuid |  | YES | 
+compras_empresarial_pedido | cotacao_id | uuid |  | YES | 
+compras_empresarial_pedido | total | numeric |  | NO | 0
+compras_empresarial_pedido | previsao | date |  | YES | 
+compras_empresarial_pedido | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_pedido | created_by | character varying | 100 | NO | 'migration'::character varying
+compras_empresarial_pedido | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_pedido | updated_by | character varying | 100 | NO | 'migration'::character varying
+compras_empresarial_pedido | correlation_id | character varying | 100 | NO | 
+compras_empresarial_pedido | version | bigint |  | NO | 1
+compras_empresarial_pedido | is_deleted | boolean |  | NO | false
+compras_empresarial_pedido_item | id | bigint |  | NO | 
+compras_empresarial_pedido_item | tenant_id | uuid |  | NO | 
+compras_empresarial_pedido_item | pedido_id | uuid |  | NO | 
+compras_empresarial_pedido_item | produto_id | uuid |  | NO | 
+compras_empresarial_pedido_item | quantidade | numeric |  | NO | 
+compras_empresarial_pedido_item | quantidade_cancelada | numeric |  | NO | 0
+compras_empresarial_pedido_item | valor_unitario | numeric |  | NO | 0
+compras_empresarial_pedido_item | exige_inspecao | boolean |  | NO | false
+compras_empresarial_requisicao_item | id | uuid |  | NO | gen_random_uuid()
+compras_empresarial_requisicao_item | tenant_id | uuid |  | NO | 
+compras_empresarial_requisicao_item | requisicao_id | uuid |  | NO | 
+compras_empresarial_requisicao_item | ordem | integer |  | NO | 
+compras_empresarial_requisicao_item | tipo | character varying | 20 | NO | 
+compras_empresarial_requisicao_item | descricao | character varying | 500 | NO | 
+compras_empresarial_requisicao_item | especificacao | text |  | YES | 
+compras_empresarial_requisicao_item | unidade | character varying | 20 | NO | 
+compras_empresarial_requisicao_item | quantidade | numeric |  | NO | 
+compras_empresarial_requisicao_item | valor_estimado | numeric |  | NO | 
+compras_empresarial_requisicao_item | permite_parcial | boolean |  | NO | true
+compras_empresarial_requisicao_item | exige_inspecao | boolean |  | NO | false
+compras_empresarial_requisicao_item | created_at | timestamp with time zone |  | NO | now()
+compras_empresarial_requisicao_item | created_by | character varying | 100 | NO | 
+compras_empresarial_requisicao_item | updated_at | timestamp with time zone |  | NO | now()
+compras_empresarial_requisicao_item | updated_by | character varying | 100 | NO | 
+compras_empresarial_requisicao_item | correlation_id | character varying | 100 | NO | 
+compras_empresarial_requisicao_item | version | bigint |  | NO | 1
+compras_empresarial_requisicao_item | is_deleted | boolean |  | NO | false
+enterprise_tenant_mapping | id | bigint |  | NO | nextval('sigov.enterprise_tenant_mapping_id_seq'::regclass)
+enterprise_tenant_mapping | core_tenant_id | bigint |  | NO | 
+enterprise_tenant_mapping | enterprise_tenant_id | uuid |  | NO | 
+enterprise_tenant_mapping | ativo | boolean |  | NO | true
+enterprise_tenant_mapping | created_at | timestamp with time zone |  | NO | now()
+enterprise_tenant_mapping | updated_at | timestamp with time zone |  | YES | 
+estoque_produto | id | uuid |  | NO | gen_random_uuid()
+estoque_produto | tenant_id | uuid |  | NO | 
+estoque_produto | sku | text |  | NO | 
+estoque_produto | nome | text |  | NO | 
+estoque_produto | unidade | text |  | NO | 'UN'::text
+estoque_produto | estoque_minimo | numeric |  | NO | 0
+estoque_produto | permite_saldo_negativo | boolean |  | NO | false
+estoque_produto | ativo | boolean |  | NO | true
+usuario | id | bigint |  | NO | 
+usuario | entidade_id | bigint |  | YES | 
+usuario | exercicio_id | bigint |  | YES | 
+usuario | pessoa_id | bigint |  | YES | 
+usuario | login | character varying | 100 | NO | 
+usuario | email | character varying | 250 | NO | 
+usuario | senha_hash | text |  | NO | 
+usuario | mfa_habilitado | boolean |  | NO | false
+usuario | ultimo_login_at | timestamp with time zone |  | YES | 
+usuario | codigo_externo | character varying | 100 | YES | 
+usuario | observacao | text |  | YES | 
+usuario | ativo | boolean |  | NO | true
+usuario | is_deleted | boolean |  | NO | false
+usuario | created_at | timestamp with time zone |  | NO | now()
+usuario | created_by | bigint |  | YES | 
+usuario | updated_at | timestamp with time zone |  | YES | 
+usuario | updated_by | bigint |  | YES | 
+usuario | deleted_at | timestamp with time zone |  | YES | 
+usuario | deleted_by | bigint |  | YES | 
+usuario | correlation_id | uuid |  | YES | 
+usuario | senha_deve_ser_alterada | boolean |  | NO | false
+usuario | tentativas_invalidas | integer |  | NO | 0
+usuario | bloqueado_ate | timestamp with time zone |  | YES | 
+usuario | tenant_id | bigint |  | NO | 
+usuario | tipo_usuario | character varying | 30 | NO | 'TENANT_USER'::character varying
+usuario | nome | character varying | 200 | YES | 
+usuario | bloqueado | boolean |  | NO | false
+usuario | deve_alterar_senha | boolean |  | NO | false
+(185 rows)
+docker.exe : psql:/tmp/schema_probe.run.sql:14: ERROR:  column reference "oid" is ambiguous
+No C:\MNSOFT\SIGOV-PLUS\Temp\opencode\run_sql.ps1:17 caractere:8
++ $out = & docker exec -e PGPASSWORD="$pw" sigov-postgres psql -U "$usr ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (psql:/tmp/schem...d" is ambiguous:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+LINE 1: select conname, pg_get_constraintdef(oid) def
+                                             ^
+
