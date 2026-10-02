@@ -74,6 +74,13 @@ public sealed class DivergenciaRecebimentoApplicationService(IDivergenciaRecebim
  public Task<DivergenciaComandoResultado> AtribuirAsync(ComprasContext c,long id,AtribuirDivergenciaRequest r,CancellationToken ct){Command(c,id,r.Version,r.IdempotencyKey);if(r.ResponsavelId==Guid.Empty)throw new ArgumentException("Selecione um responsável elegível.");return repository.AtribuirAsync(c,id,r,ct);}
  public Task<DivergenciaComandoResultado> RegistrarAndamentoAsync(ComprasContext c,long id,RegistrarAndamentoDivergenciaRequest r,CancellationToken ct){Command(c,id,r.Version,r.IdempotencyKey);if(string.IsNullOrWhiteSpace(r.Descricao)||r.Descricao.Trim().Length<3||r.Descricao.Length>2000)throw new ArgumentException("O andamento deve ter entre 3 e 2.000 caracteres.");if(r.Providencia?.Length>40)throw new ArgumentException("A providência é inválida.");return repository.RegistrarAndamentoAsync(c,id,r with{Descricao=r.Descricao.Trim(),Providencia=Clean(r.Providencia)},ct);}
  public Task<DivergenciaComandoResultado> EncerrarAsync(ComprasContext c,long id,EncerrarDivergenciaRequest r,CancellationToken ct){Command(c,id,r.Version,r.IdempotencyKey);if(string.IsNullOrWhiteSpace(r.Resultado)||r.Resultado.Trim().Length<3||r.Resultado.Length>2000)throw new ArgumentException("O resultado deve ter entre 3 e 2.000 caracteres.");if(string.IsNullOrWhiteSpace(r.Justificativa)||r.Justificativa.Trim().Length<10||r.Justificativa.Length>2000)throw new ArgumentException("A justificativa de encerramento deve ter entre 10 e 2.000 caracteres.");return repository.EncerrarAsync(c,id,r with{Resultado=r.Resultado.Trim(),Justificativa=r.Justificativa.Trim()},ct);}
+ public Task<DivergenciaComandoResultado> AutorizarReposicaoAsync(ComprasContext c,long id,AutorizarReposicaoRequest r,CancellationToken ct)
+ {
+  Command(c,id,r.Version,r.IdempotencyKey);
+  if(r.Quantidade<=0m||decimal.Round(r.Quantidade,4)!=r.Quantidade)throw new ArgumentException("A quantidade de reposição deve ser positiva e ter até quatro casas decimais.");
+  if(string.IsNullOrWhiteSpace(r.Justificativa)||r.Justificativa.Trim().Length<10||r.Justificativa.Length>2000)throw new ArgumentException("A justificativa da reposição deve ter entre 10 e 2.000 caracteres.");
+  return repository.AutorizarReposicaoAsync(c,id,r with{Justificativa=r.Justificativa.Trim()},ct);
+ }
  private static void Command(ComprasContext c,long id,long version,string key){ComprasGuard.Context(c);ComprasGuard.Key(key);if(id<=0||version<=0)throw new ArgumentException("Divergência ou versão inválida.");}
  private static string? Clean(string? value)=>string.IsNullOrWhiteSpace(value)?null:value.Trim().ToUpperInvariant();
 }

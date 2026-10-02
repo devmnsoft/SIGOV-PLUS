@@ -34,7 +34,7 @@ public sealed record CentralRecebimentos(Common.PagedResult<RecebimentoResumo> R
 public sealed record PedidoRecebimentoItem(long Id, Guid ProdutoId, string Produto, string Unidade, decimal QuantidadePedida, decimal QuantidadeCancelada, decimal QuantidadeFisica, decimal QuantidadeAceita, decimal QuantidadeRejeitada, decimal QuantidadeEmConferencia, decimal QuantidadePendente, bool ExigeInspecao);
 public sealed record AlmoxarifadoOpcao(Guid Id,string Nome);
 public sealed record PedidoParaRecebimento(Guid Id, string Numero, string Status, Guid FornecedorId, string Fornecedor, long Version, IReadOnlyList<PedidoRecebimentoItem> Itens,IReadOnlyList<AlmoxarifadoOpcao> Almoxarifados);
-public sealed record RecebimentoItemRequest(long PedidoItemId, decimal Quantidade, string? Lote, DateOnly? Validade, string? NumeroSerie);
+public sealed record RecebimentoItemRequest(long PedidoItemId, decimal Quantidade, string? Lote, DateOnly? Validade, string? NumeroSerie, long? DivergenciaOrigemId = null);
 public sealed record CriarRecebimentoRequest(Guid PedidoId, Guid AlmoxarifadoId, string Documento, DateTimeOffset DataOperacao, string? Observacoes, IReadOnlyList<RecebimentoItemRequest> Itens, long PedidoVersion);
 public sealed record RecebimentoCriado(Guid Id, string Status, bool Repetido);
 public sealed record RecebimentoItemDetalhe(long Id, string Produto, string Unidade, decimal QuantidadeFisica, decimal QuantidadeAceita, decimal QuantidadeRejeitada, decimal QuantidadeConferencia, string? Lote, DateOnly? Validade, string? NumeroSerie);
@@ -49,11 +49,12 @@ public sealed record CentralDivergencias(PagedResult<DivergenciaResumo> Resultad
 public sealed record DivergenciaEvento(long Id,string Tipo,string? Descricao,string? Providencia,string? Resultado,string? Justificativa,string? ResponsavelAnterior,string? ResponsavelNovo,Guid UsuarioId,string Autor,DateTime OcorridoEm,string? CorrelationId);
 public sealed record DivergenciaDevolucaoVinculada(long DevolucaoId,string Situacao,decimal Quantidade,DateTime CriadaEm,DateTime? ExpedidaEm,DateTime? EntregueEm,string? DocumentoProtocolo,string? RecebedorOuReferencia);
 public sealed record DestinacaoRejeitadoItem(long RecebimentoItemId,string Produto,string Unidade,decimal QuantidadeRejeitada,decimal QuantidadeReservada,decimal QuantidadeExpedidaNaoEntregue,decimal QuantidadeEntregue,decimal SaldoSemDestinacao,bool Inconsistente=false,string? DiagnosticoInconsistencia=null);
-public sealed record DivergenciaDetalhe(long Id,Guid RecebimentoId,long RecebimentoItemId,string Documento,string PedidoNumero,string Fornecedor,string Produto,string Unidade,decimal QuantidadeRejeitada,string Motivo,string Situacao,Guid? ResponsavelId,string? ResponsavelNome,string? Providencia,string? Resultado,string? JustificativaEncerramento,DateTimeOffset AbertaEm,DateTimeOffset? EncerradaEm,long Version,IReadOnlyList<DivergenciaEvento> Historico,IReadOnlyList<DivergenciaDevolucaoVinculada>? DevolucoesVinculadas=null,DestinacaoRejeitadoItem? Destinacao=null);
+public sealed record DivergenciaDetalhe(long Id,Guid RecebimentoId,long RecebimentoItemId,string Documento,string PedidoNumero,string Fornecedor,string Produto,string Unidade,decimal QuantidadeRejeitada,string Motivo,string Situacao,Guid? ResponsavelId,string? ResponsavelNome,string? Providencia,string? Resultado,string? JustificativaEncerramento,DateTimeOffset AbertaEm,DateTimeOffset? EncerradaEm,long Version,IReadOnlyList<DivergenciaEvento> Historico,IReadOnlyList<DivergenciaDevolucaoVinculada>? DevolucoesVinculadas=null,DestinacaoRejeitadoItem? Destinacao=null,bool ReposicaoAutorizada=false,decimal QuantidadeReposicao=0m,decimal ReposicaoRecebida=0m,decimal SaldoReposicaoPendente=0m,string? ReposicaoJustificativa=null,long? DivergenciaOrigemId=null);
 public sealed record ResponsavelDivergencia(Guid UsuarioId,string Nome,string? Vinculo,string? Unidade);
 public sealed record AtribuirDivergenciaRequest(Guid ResponsavelId,long Version,string IdempotencyKey);
 public sealed record RegistrarAndamentoDivergenciaRequest(string Descricao,string? Providencia,long Version,string IdempotencyKey);
 public sealed record EncerrarDivergenciaRequest(string Resultado,string Justificativa,long Version,string IdempotencyKey);
+public sealed record AutorizarReposicaoRequest(decimal Quantidade, string Justificativa, long Version, string IdempotencyKey);
 public sealed record DivergenciaComandoResultado(long Id,string Situacao,long Version,bool Repetido,bool PendenciaConcluida);
 
 public interface IFornecedorRepository
@@ -74,6 +75,7 @@ public interface IDivergenciaRecebimentoRepository
  Task<DivergenciaComandoResultado> AtribuirAsync(ComprasContext context,long id,AtribuirDivergenciaRequest request,CancellationToken ct);
  Task<DivergenciaComandoResultado> RegistrarAndamentoAsync(ComprasContext context,long id,RegistrarAndamentoDivergenciaRequest request,CancellationToken ct);
  Task<DivergenciaComandoResultado> EncerrarAsync(ComprasContext context,long id,EncerrarDivergenciaRequest request,CancellationToken ct);
+ Task<DivergenciaComandoResultado> AutorizarReposicaoAsync(ComprasContext context,long id,AutorizarReposicaoRequest request,CancellationToken ct);
 }
 public interface IDivergenciaRecebimentoApplicationService
 {
@@ -83,6 +85,7 @@ public interface IDivergenciaRecebimentoApplicationService
  Task<DivergenciaComandoResultado> AtribuirAsync(ComprasContext context,long id,AtribuirDivergenciaRequest request,CancellationToken ct);
  Task<DivergenciaComandoResultado> RegistrarAndamentoAsync(ComprasContext context,long id,RegistrarAndamentoDivergenciaRequest request,CancellationToken ct);
  Task<DivergenciaComandoResultado> EncerrarAsync(ComprasContext context,long id,EncerrarDivergenciaRequest request,CancellationToken ct);
+ Task<DivergenciaComandoResultado> AutorizarReposicaoAsync(ComprasContext context,long id,AutorizarReposicaoRequest request,CancellationToken ct);
 }
 public sealed class ComprasConcurrencyException(string message):InvalidOperationException(message);
 public interface IRequisicaoCompraRepository
@@ -229,7 +232,7 @@ public interface IAprovacaoRequisicaoApplicationService
 /// <summary>Fórmula impressa em toda tela de comparativo para tornar a comparação explícita.</summary>
 public static class FormulaComparacaoCotacao
 {
- public const string Texto = "Custo Unitário Efetivo (CUE) = preço unitário × (1 + imposto% ÷ 100 − desconto% ÷ 100), arredondado para 2 casas decimais. Custo Total do Item = CUE × quantidade do item + frete informado para o item. A comparação é feita pelo menor Custo Total do Item entre os fornecedores que responderam; o empate é sinalizado quando dois ou mais fornecedores empatam no menor custo; selecionar acima do menor custo exige justificativa registrada em audito.";
+ public const string Texto = "Política monetária unificada: Base de cálculo = Preço Unitário × Quantidade (Valor Bruto). Desconto = Valor Bruto × (Desconto% ÷ 100). Imposto = Valor Bruto × (Imposto% ÷ 100). Valor Líquido = Valor Bruto − Desconto + Imposto. Custo Unitário Efetivo (CUE) = Valor Líquido ÷ Quantidade. Frete = Frete do item rateado/informado. Custo Total do Item = Valor Líquido + Frete. Total do Pedido = Soma dos Totais dos Itens. Arredondamento monetário a 2 casas decimais (MidpointRounding.AwayFromZero) aplicado em cada etapa.";
 }
 
 public sealed record CotacaoFiltro(string? Status = null, Guid? RequisicaoId = null, int Pagina = 1, int Tamanho = 20);
@@ -283,11 +286,14 @@ public sealed record PedidoItemDetalhe(
     decimal ValorLiquido = 0m,
     decimal TotalItem = 0m,
     Guid? RequisicaoItemId = null,
-    Guid? CotacaoItemId = null,
-    Guid? CotacaoSelecaoId = null);
+    long? CotacaoItemId = null,
+    long? CotacaoSelecaoId = null,
+    decimal QuantidadeReposicaoAutorizada = 0m,
+    decimal QuantidadeReposicaoRecebida = 0m,
+    decimal QuantidadeReposicaoPendente = 0m);
 
 public sealed record PedidoRecebimentoResumo(Guid Id, string Documento, string? AlmoxarifadoNome, DateTime DataOperacao, string Status, string ResultadoInspecao, int Divergencias);
-public sealed record PedidoDivergenciaResumo(long Id, string Produto, decimal QuantidadeRejeitada, string Motivo, string Situacao, string? Providencia, string? Resultado);
+public sealed record PedidoDivergenciaResumo(long Id, string Produto, decimal QuantidadeRejeitada, string Motivo, string Situacao, string? Providencia, string? Resultado, bool ReposicaoAutorizada = false, decimal QuantidadeReposicao = 0m, decimal ReposicaoRecebida = 0m, decimal SaldoReposicaoPendente = 0m, string? ReposicaoJustificativa = null);
 public sealed record PedidoDevolucaoResumo(long Id, string Situacao, decimal QuantidadeTotal, string Motivo, DateTime CriadaEm, DateTime? ExpedidaEm, DateTime? EntregueEm, string? DocumentoProtocolo);
 public sealed record PedidoProximaAcao(string Codigo, string Titulo, string Descricao, string RotaAcao, bool Disponivel);
 

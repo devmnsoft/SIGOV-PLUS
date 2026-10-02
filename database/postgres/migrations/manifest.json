@@ -2670,6 +2670,19 @@
         "20261001090000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_pedido_item' and column_name='cotacao_item_id') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_pedido' and column_name='motivo_encerramento')"
+    },
+    {
+      "version": "20261002120000",
+      "description": "Cadeia de reposicao, justificativa e rastreabilidade de divergencias sucessivas",
+      "category": "functional",
+      "file": "20261002120000_compras_reposicao_cadeia_e_divergencia.sql",
+      "checksum": "038208fc95cd90111c1970ee602a0ac5e265ef7f5243f633f448876b8869d3af",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261002100000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='reposicao_justificativa')"
     }
   ],
   "compatibilityAfterAll": [

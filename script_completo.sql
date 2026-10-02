@@ -231,7 +231,8 @@ select exists (
         ('20260930120000', array['f7a8d7b2a9702eec2698e9f5af25c3280b610cbedb105f823028431d11cc99b5']::text[]),
         ('20260930180000', array['dc5909484078eeb5bf0b312c8e144fa3f447eb004d6a11daf442fb12029745e6']::text[]),
         ('20261001090000', array['6534bafcfc445f028c6f14a4249935a15041c618d7dd3ca91e372a52430c53c4']::text[]),
-        ('20261002100000', array['ea1751977acb6da9aa91e6e0b87f264ec40842bb30465e191cdd787c1c9b414c']::text[])
+        ('20261002100000', array['ea1751977acb6da9aa91e6e0b87f264ec40842bb30465e191cdd787c1c9b414c']::text[]),
+        ('20261002120000', array['038208fc95cd90111c1970ee602a0ac5e265ef7f5243f633f448876b8869d3af']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -32147,6 +32148,41 @@ set valor_bruto = coalesce(nullif(valor_total, 0), total),
 where valor_bruto = 0 and (valor_total > 0 or total > 0);
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261002100000', 'Fechamento operacional do pedido, rastreabilidade por item e composicao monetaria reconciliavel', 'ea1751977acb6da9aa91e6e0b87f264ec40842bb30465e191cdd787c1c9b414c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261002120000_compras_reposicao_cadeia_e_divergencia.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 038208fc95cd90111c1970ee602a0ac5e265ef7f5243f633f448876b8869d3af
+-- ==================================================
+-- Cadeia de reposicao, justificativa e rastreabilidade de divergencias sucessivas.
+-- Multi-esfera: compativel com municipios, estados e Uniao. Idempotente.
+
+alter table sigov.compras_empresarial_recebimento_divergencia
+    add column if not exists divergencia_origem_id bigint references sigov.compras_empresarial_recebimento_divergencia(id),
+    add column if not exists reposicao_justificativa text;
+
+create index if not exists ix_ce_recb_div_divergencia_origem
+    on sigov.compras_empresarial_recebimento_divergencia(tenant_id, divergencia_origem_id);
+
+alter table sigov.compras_empresarial_divergencia_idempotencia
+    alter column operacao type varchar(32);
+
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'compras_empresarial_divergencia_idempotencia_operacao_check') then
+    alter table sigov.compras_empresarial_divergencia_idempotencia drop constraint compras_empresarial_divergencia_idempotencia_operacao_check;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ck_comp_div_idem_operacao') then
+    alter table sigov.compras_empresarial_divergencia_idempotencia add constraint ck_comp_div_idem_operacao check(operacao in('ATRIBUIR','ANDAMENTO','ENCERRAR','AUTORIZAR_REPOSICAO'));
+  end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261002120000', 'Cadeia de reposicao, justificativa e rastreabilidade de divergencias sucessivas', '038208fc95cd90111c1970ee602a0ac5e265ef7f5243f633f448876b8869d3af', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

@@ -58,13 +58,13 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  [HttpGet("Pedidos"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public async Task<IActionResult> Pedidos([FromQuery]PedidoFiltro filtro,CancellationToken ct=default){ViewData["Filtro"]=filtro;return View("Pedidos/Index",await cotacoes.ListarPedidosAsync(Contexto(),filtro,ct));}
  [HttpGet("Pedidos/{id:guid}"),Authorize(Policy="compras_empresariais.pedidos.visualizar")]public async Task<IActionResult> Pedido(Guid id,CancellationToken ct){var item=await cotacoes.ObterPedidoAsync(Contexto(),id,ct);if(item is null)return NotFound();ViewData["PodeReceber"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.recebimentos.registrar")).Succeeded;ViewData["PodeEmitir"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.pedidos.emitir")).Succeeded;ViewData["PodeCancelar"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.pedidos.cancelar")).Succeeded;return View("Pedidos/Detalhe",item);}
  [HttpPost("Pedidos/{id:guid}/Encerrar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.pedidos.emitir")]
- public async Task<IActionResult> EncerrarPedido(Guid id,[FromForm]long version,[FromForm]string motivo,[FromForm]string? returnUrl,CancellationToken ct)
+ public async Task<IActionResult> EncerrarPedido(Guid id,[FromForm]long version,[FromForm]string motivo,[FromForm]bool cancelarSaldoRemanescente = true,[FromForm]string? returnUrl = null,CancellationToken ct = default)
  {
      var chave = Request.Headers["Idempotency-Key"].ToString();
      if (string.IsNullOrWhiteSpace(chave)) chave = Guid.NewGuid().ToString("N");
      try
      {
-         var res = await cotacoes.EncerrarPedidoAsync(Contexto(), id, new(version, motivo), chave, ct);
+         var res = await cotacoes.EncerrarPedidoAsync(Contexto(), id, new(version, motivo, cancelarSaldoRemanescente), chave, ct);
          TempData["Success"] = res.Repetido ? "Pedido já se encontrava encerrado." : "Pedido encerrado operacionalmente com sucesso.";
      }
      catch (ComprasConcurrencyException ex) { TempData["Conflict"] = ex.Message; }
@@ -101,7 +101,21 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
   catch(ArgumentException ex){ModelState.AddModelError(string.Empty,ex.Message);}catch(InvalidOperationException ex){if(ex.Message.Contains("alterado",StringComparison.OrdinalIgnoreCase)){var latest=await recebimentos.ObterAsync(Contexto(),id,ct);model.Conflito=true;model.MensagemConflito=ex.Message;model.VersaoAtual=latest?.Version;}ModelState.AddModelError(string.Empty,ex.Message);}
   return View("Recebimentos/Detalhe",model);
  }
- [HttpGet("Pedidos/{pedidoId:guid}/Receber"),Authorize(Policy="compras_empresariais.recebimentos.registrar")]public async Task<IActionResult> NovoRecebimento(Guid pedidoId,CancellationToken ct){var pedido=await recebimentos.ObterPedidoAsync(Contexto(),pedidoId,ct);if(pedido is null)return NotFound();ViewData["IdempotencyKey"]=Guid.NewGuid().ToString("N");return View("Recebimentos/Novo",pedido);}
+ [HttpGet("Recebimentos/Novo"),HttpGet("Pedidos/{pedidoId:guid}/Receber"),Authorize(Policy="compras_empresariais.recebimentos.registrar")]
+ public async Task<IActionResult> NovoRecebimento([FromQuery]Guid? pedidoId,Guid? id,[FromQuery]long? divergenciaId,CancellationToken ct)
+ {
+  var pId = pedidoId ?? id;
+  if (!pId.HasValue) return RedirectToAction(nameof(Pedidos));
+  var pedido = await recebimentos.ObterPedidoAsync(Contexto(), pId.Value, ct);
+  if (pedido is null) return NotFound();
+  if (divergenciaId.HasValue)
+  {
+   var div = await divergencias.ObterAsync(Contexto(), divergenciaId.Value, ct);
+   ViewData["Divergencia"] = div;
+  }
+  ViewData["IdempotencyKey"] = Guid.NewGuid().ToString("N");
+  return View("Recebimentos/Novo", pedido);
+ }
  [HttpPost("Pedidos/{pedidoId:guid}/Receber"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.recebimentos.registrar")]
  public async Task<IActionResult> ConfirmarRecebimento(Guid pedidoId,Guid almoxarifadoId,string documento,DateTimeOffset dataOperacao,string? observacoes,long pedidoVersion,string idempotencyKey,List<RecebimentoItemRequest> itens,CancellationToken ct)
  {
@@ -119,6 +133,8 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  public async Task<IActionResult> AndamentoDivergencia(long id,string descricao,string? providencia,long version,string idempotencyKey,string? returnUrl,CancellationToken ct)=>await DivergenceCommand(id,returnUrl,()=>divergencias.RegistrarAndamentoAsync(Contexto(),id,new(descricao,providencia,version,idempotencyKey),ct));
  [HttpPost("Divergencias/{id:long}/Encerrar"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.divergencias.encerrar")]
  public async Task<IActionResult> EncerrarDivergencia(long id,string resultado,string justificativa,long version,string idempotencyKey,string? returnUrl,CancellationToken ct)=>await DivergenceCommand(id,returnUrl,()=>divergencias.EncerrarAsync(Contexto(),id,new(resultado,justificativa,version,idempotencyKey),ct));
+ [HttpPost("Divergencias/{id:long}/AutorizarReposicao"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.divergencias.tratar")]
+ public async Task<IActionResult> AutorizarReposicao(long id,[FromForm]decimal quantidade,[FromForm]string justificativa,[FromForm]long version,[FromForm]string idempotencyKey,[FromForm]string? returnUrl,CancellationToken ct)=>await DivergenceCommand(id,returnUrl,()=>divergencias.AutorizarReposicaoAsync(Contexto(),id,new(quantidade,justificativa,version,idempotencyKey),ct));
  [HttpGet("Relatorios/Divergencias.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]
  public async Task<IActionResult> ExportarDivergencias([FromQuery]DivergenciaFiltro filtro,CancellationToken ct){var rows=new List<DivergenciaResumo>();for(var page=1;;page++){var data=await divergencias.ListarAsync(Contexto(),filtro with{Pagina=page,Tamanho=100},ct);rows.AddRange(data.Resultado.Items);if(rows.Count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");if(!data.Resultado.HasNextPage)break;}var lines=new List<string>{"Documento;Pedido;Fornecedor;Produto;Unidade;Quantidade;Motivo;Situação;Responsável;Abertura;Encerramento;Providência;Resultado"};lines.AddRange(rows.Select(x=>string.Join(';',Csv(x.Documento),Csv(x.PedidoNumero),Csv(x.Fornecedor),Csv(x.Produto),Csv(x.Unidade),x.QuantidadeRejeitada.ToString("0.####",CultureInfo.InvariantCulture),Csv(x.Motivo),Csv(x.Situacao),Csv(x.ResponsavelNome),Csv(x.AbertaEm.ToString("O")),Csv(x.EncerradaEm?.ToString("O")),Csv(x.Providencia),Csv(x.Resultado))));return CsvFile(lines,"divergencias-recebimento");}
  [HttpGet("Faturas"),Authorize(Policy="compras_empresariais.faturas.visualizar")]public IActionResult Faturas()=>Workspace("Faturas","Operação integrada à jornada procure-to-pay.");

@@ -45,7 +45,7 @@ select count(*) Total,count(*) filter(where d.situacao='ABERTA') Abertas,count(*
 
     public async Task<DivergenciaDetalhe?> ObterAsync(Guid tenant, long id, CancellationToken ct)
     {
-        const string sql = @"select d.id,d.recebimento_id RecebimentoId,d.recebimento_item_id RecebimentoItemId,r.documento,p.numero PedidoNumero,coalesce(fo.nome_fantasia,fo.razao_social) Fornecedor,pr.nome Produto,pr.unidade,d.quantidade_rejeitada QuantidadeRejeitada,d.motivo,d.situacao,d.responsavel_id ResponsavelId,t.nome ResponsavelNome,d.providencia,d.resultado,d.justificativa_encerramento JustificativaEncerramento,d.created_at AbertaEm,d.encerrada_em EncerradaEm,d.version from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento r on (r.tenant_id,r.id)=(d.tenant_id,d.recebimento_id) join sigov.compras_empresarial_recebimento_item ri on (ri.tenant_id,ri.id)=(d.tenant_id,d.recebimento_item_id) join sigov.compras_empresarial_pedido p on (p.tenant_id,p.id)=(r.tenant_id,r.pedido_id) join sigov.compras_empresarial_fornecedor fo on (fo.tenant_id,fo.id)=(p.tenant_id,p.fornecedor_id) join sigov.estoque_produto pr on (pr.tenant_id,pr.id)=(ri.tenant_id,ri.produto_id) left join sigov.os_tecnico t on (t.tenant_id,t.usuario_id)=(d.tenant_id,d.responsavel_id) and not t.is_deleted where d.tenant_id=@tenant and d.id=@id;
+        const string sql = @"select d.id,d.recebimento_id RecebimentoId,d.recebimento_item_id RecebimentoItemId,r.documento,p.numero PedidoNumero,coalesce(fo.nome_fantasia,fo.razao_social) Fornecedor,pr.nome Produto,pr.unidade,d.quantidade_rejeitada QuantidadeRejeitada,d.motivo,d.situacao,d.responsavel_id ResponsavelId,t.nome ResponsavelNome,d.providencia,d.resultado,d.justificativa_encerramento JustificativaEncerramento,d.created_at AbertaEm,d.encerrada_em EncerradaEm,d.version,coalesce(d.reposicao_autorizada,false) ReposicaoAutorizada,coalesce(d.quantidade_reposicao,0) QuantidadeReposicao,coalesce(d.reposicao_recebida,0) ReposicaoRecebida,d.reposicao_justificativa ReposicaoJustificativa,d.divergencia_origem_id DivergenciaOrigemId from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento r on (r.tenant_id,r.id)=(d.tenant_id,d.recebimento_id) join sigov.compras_empresarial_recebimento_item ri on (ri.tenant_id,ri.id)=(d.tenant_id,d.recebimento_item_id) join sigov.compras_empresarial_pedido p on (p.tenant_id,p.id)=(r.tenant_id,r.pedido_id) join sigov.compras_empresarial_fornecedor fo on (fo.tenant_id,fo.id)=(p.tenant_id,p.fornecedor_id) join sigov.estoque_produto pr on (pr.tenant_id,pr.id)=(ri.tenant_id,ri.produto_id) left join sigov.os_tecnico t on (t.tenant_id,t.usuario_id)=(d.tenant_id,d.responsavel_id) and not t.is_deleted where d.tenant_id=@tenant and d.id=@id;
 select e.id,e.tipo,e.detalhes->>'descricao' Descricao,e.detalhes->>'providencia' Providencia,e.detalhes->>'resultado' Resultado,e.detalhes->>'justificativa' Justificativa,e.detalhes->>'responsavel_anterior' ResponsavelAnterior,e.detalhes->>'responsavel_novo' ResponsavelNovo,e.usuario_id UsuarioId,coalesce(t.nome,e.usuario_id::text) Autor,e.ocorrido_em OcorridoEm,e.correlation_id CorrelationId from sigov.compras_empresarial_recebimento_divergencia_evento e left join sigov.os_tecnico t on (t.tenant_id,t.usuario_id)=(e.tenant_id,e.usuario_id) and not t.is_deleted where e.tenant_id=@tenant and e.divergencia_id=@id order by e.ocorrido_em,e.id";
         await using var c = factory.CreateConnection();
         using var m = await c.QueryMultipleAsync(new CommandDefinition(sql, new { tenant, id }, cancellationToken: ct));
@@ -69,7 +69,8 @@ order by d.created_at desc, d.id desc";
         var diagnostico = inconsistente ? $"Inconsistência de saldo: a soma das destinações ({reservada + emTransporte + entregue:0.####}) excede a quantidade rejeitada original ({h.QuantidadeRejeitada:0.####})." : null;
         var destinacao = new DestinacaoRejeitadoItem(h.RecebimentoItemId, h.Produto, h.Unidade, h.QuantidadeRejeitada, reservada, emTransporte, entregue, saldo, inconsistente, diagnostico);
 
-        return new(h.Id, h.RecebimentoId, h.RecebimentoItemId, h.Documento, h.PedidoNumero, h.Fornecedor, h.Produto, h.Unidade, h.QuantidadeRejeitada, h.Motivo, h.Situacao, h.ResponsavelId, h.ResponsavelNome, h.Providencia, h.Resultado, h.JustificativaEncerramento, h.AbertaEm.ToUniversalTime(), h.EncerradaEm?.ToUniversalTime(), h.Version, eventos, devolucoes, destinacao);
+        var saldoReposicao = h.ReposicaoAutorizada ? Math.Max(0m, h.QuantidadeReposicao - h.ReposicaoRecebida) : 0m;
+        return new(h.Id, h.RecebimentoId, h.RecebimentoItemId, h.Documento, h.PedidoNumero, h.Fornecedor, h.Produto, h.Unidade, h.QuantidadeRejeitada, h.Motivo, h.Situacao, h.ResponsavelId, h.ResponsavelNome, h.Providencia, h.Resultado, h.JustificativaEncerramento, h.AbertaEm.ToUniversalTime(), h.EncerradaEm?.ToUniversalTime(), h.Version, eventos, devolucoes, destinacao, h.ReposicaoAutorizada, h.QuantidadeReposicao, h.ReposicaoRecebida, saldoReposicao, h.ReposicaoJustificativa, h.DivergenciaOrigemId);
     }
 
     public async Task<IReadOnlyList<ResponsavelDivergencia>> PesquisarResponsaveisAsync(Guid tenant, string? busca, int pagina, int tamanho, CancellationToken ct)
@@ -136,6 +137,35 @@ where di.tenant_id = @tenant and di.recebimento_item_id = @itemId and d.situacao
             return closed == 1;
         }, ct);
 
+    public Task<DivergenciaComandoResultado> AutorizarReposicaoAsync(ComprasContext c, long id, AutorizarReposicaoRequest r, CancellationToken ct) =>
+        Execute(c, id, "AUTORIZAR_REPOSICAO", r.IdempotencyKey, r.Version, new { r.Quantidade, r.Justificativa }, async (cn, tx, row) =>
+        {
+            if (row.Situacao == "ENCERRADA") throw new InvalidOperationException("Divergência encerrada não permite autorizar reposição.");
+            if (r.Quantidade <= 0 || r.Quantidade > row.QuantidadeRejeitada)
+                throw new InvalidOperationException($"A quantidade de reposição deve ser maior que zero e não pode exceder a quantidade rejeitada ({row.QuantidadeRejeitada:0.####}).");
+
+            var devolvido = await cn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"select coalesce(sum(di.quantidade), 0)
+from sigov.compras_empresarial_devolucao_item di
+join sigov.compras_empresarial_devolucao d on (d.tenant_id, d.id) = (di.tenant_id, di.devolucao_id)
+where di.tenant_id = @tenant and di.recebimento_item_id = @itemId and d.situacao in ('EXPEDIDA', 'ENTREGUE')", new { tenant = c.TenantId, itemId = row.RecebimentoItemId }, tx, cancellationToken: ct));
+
+            if (devolvido < r.Quantidade)
+            {
+                throw new InvalidOperationException($"Para autorizar reposição de {r.Quantidade:0.####}, é obrigatório haver devolução física registrada e expedida/entregue para o material rejeitado. Quantidade devolvida expedida/entregue atual: {devolvido:0.####}.");
+            }
+
+            var providencia = $"Reposição autorizada de {r.Quantidade:0.####}: {r.Justificativa}";
+            await Update(cn, tx, c, id, r.Version, @"reposicao_autorizada = true,
+quantidade_reposicao = @qtd,
+reposicao_justificativa = @just,
+providencia = coalesce(providencia, @prov),
+situacao = case when situacao = 'ABERTA' then 'EM_TRATAMENTO' else situacao end",
+                new { qtd = r.Quantidade, just = r.Justificativa, prov = providencia }, ct);
+
+            await Event(cn, tx, c, id, "REPOSICAO_AUTORIZADA", new { quantidade = r.Quantidade, justificativa = r.Justificativa }, ct);
+            return false;
+        }, ct);
+
     private async Task<DivergenciaComandoResultado> Execute(ComprasContext context, long id, string operation, string key, long version, object payload, Func<NpgsqlConnection, NpgsqlTransaction, LockRow, Task<bool>> body, CancellationToken ct)
     {
         await using var cn = factory.CreateConnection();
@@ -187,7 +217,7 @@ where di.tenant_id = @tenant and di.recebimento_item_id = @itemId and d.situacao
     private static string? Clean(string? x) => string.IsNullOrWhiteSpace(x) ? null : x.Trim();
     private static string? Like(string? x) => string.IsNullOrWhiteSpace(x) ? null : $"%{x.Trim()}%";
 
-    private sealed record DetailRow(long Id, Guid RecebimentoId, long RecebimentoItemId, string Documento, string PedidoNumero, string Fornecedor, string Produto, string Unidade, decimal QuantidadeRejeitada, string Motivo, string Situacao, Guid? ResponsavelId, string? ResponsavelNome, string? Providencia, string? Resultado, string? JustificativaEncerramento, DateTime AbertaEm, DateTime? EncerradaEm, long Version);
+    private sealed record DetailRow(long Id, Guid RecebimentoId, long RecebimentoItemId, string Documento, string PedidoNumero, string Fornecedor, string Produto, string Unidade, decimal QuantidadeRejeitada, string Motivo, string Situacao, Guid? ResponsavelId, string? ResponsavelNome, string? Providencia, string? Resultado, string? JustificativaEncerramento, DateTime AbertaEm, DateTime? EncerradaEm, long Version, bool ReposicaoAutorizada = false, decimal QuantidadeReposicao = 0m, decimal ReposicaoRecebida = 0m, string? ReposicaoJustificativa = null, long? DivergenciaOrigemId = null);
     private sealed record LockRow(long Id, Guid RecebimentoId, long RecebimentoItemId, decimal QuantidadeRejeitada, string Situacao, long Version, Guid? ResponsavelId);
     private sealed record IdemRow(string RequestHash, string Situacao, long Version, bool PendenciaConcluida);
 }

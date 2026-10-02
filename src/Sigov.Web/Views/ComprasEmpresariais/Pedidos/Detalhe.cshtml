@@ -366,8 +366,9 @@
                                     <th>#</th>
                                     <th>Produto</th>
                                     <th class="text-end">Qtd Rejeitada</th>
-                                    <th>Motivo</th>
                                     <th>Situação</th>
+                                    <th>Reposição</th>
+                                    <th class="text-end">Saldo Reposição</th>
                                     <th>Providência</th>
                                     <th>Resultado</th>
                                     <th class="text-end">Ações</th>
@@ -380,11 +381,40 @@
                                     <td>#@div.Id</td>
                                     <td><strong>@div.Produto</strong></td>
                                     <td class="text-end text-danger fw-bold">@div.QuantidadeRejeitada.ToString("N2")</td>
-                                    <td>@div.Motivo</td>
                                     <td><span class="badge text-bg-@(div.Situacao == "ENCERRADA" ? "success" : (div.Situacao == "EM_TRATAMENTO" ? "warning" : "danger"))">@div.Situacao</span></td>
+                                    <td>
+                                        @if (div.ReposicaoAutorizada)
+                                        {
+                                            <span class="badge text-bg-info">Autorizada: @div.QuantidadeReposicao.ToString("N2")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (div.ReposicaoAutorizada && div.SaldoReposicaoPendente > 0)
+                                        {
+                                            <span class="text-primary fw-bold">@div.SaldoReposicaoPendente.ToString("N2")</span>
+                                        }
+                                        else if (div.ReposicaoAutorizada)
+                                        {
+                                            <span class="text-success small">Concluída</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
                                     <td>@(div.Providencia ?? "-")</td>
                                     <td>@(div.Resultado ?? "-")</td>
                                     <td class="text-end">
+                                        @if (div.ReposicaoAutorizada && div.SaldoReposicaoPendente > 0 && podeReceber)
+                                        {
+                                            <a href="@Url.Action("NovoRecebimento", new { pedidoId = Model.Id, divergenciaId = div.Id })" class="btn btn-sm btn-success me-1">
+                                                Receber reposição
+                                            </a>
+                                        }
                                         <a href="@Url.Action("Divergencia", new { id = div.Id })" class="btn btn-sm btn-outline-primary">
                                             Tratar
                                         </a>
@@ -495,10 +525,31 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
-                    <p>O encerramento operacional consolida todas as entregas e finaliza o ciclo do pedido. Saldos restantes não entregues serão finalizados.</p>
+                    @{
+                        var saldoTotalRemanescente = Model.Itens.Sum(i => i.SaldoEntregavel);
+                    }
+                    <p>O encerramento operacional consolida todas as entregas e finaliza o ciclo operacional do pedido no SIGOV PLUS.</p>
                     <div class="alert alert-warning py-2 mb-3">
-                        <small>Atenção: Não é possível encerrar pedidos que possuam recebimentos em conferência, divergências em aberto ou devoluções pendentes.</small>
+                        <small>Atenção: Não é possível encerrar pedidos que possuam recebimentos em conferência, divergências em aberto, devoluções em andamento ou reposições autorizadas pendentes de recebimento.</small>
                     </div>
+                    @if (saldoTotalRemanescente > 0)
+                    {
+                        <div class="alert alert-warning py-2 mb-3">
+                            <div class="fw-bold mb-1">Atenção: Saldo remanescente a entregar (@saldoTotalRemanescente.ToString("N2") un)</div>
+                            <small>Existem itens cujo saldo físico ainda não foi entregue. Para prosseguir com o encerramento do pedido, confirme o cancelamento do saldo remanescente abaixo.</small>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="cancelarSaldoRemanescente" name="cancelarSaldoRemanescente" value="true" checked />
+                            <label class="form-check-label fw-bold" for="cancelarSaldoRemanescente">
+                                Confirmar cancelamento do saldo remanescente não entregue (@saldoTotalRemanescente.ToString("N2") un)
+                            </label>
+                            <div class="form-text">O saldo restante será cancelado individualmente por item, preservando todos os recebimentos e inspeções já realizados.</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <input type="hidden" name="cancelarSaldoRemanescente" value="false" />
+                    }
                     <div class="mb-3">
                         <label for="motivoEncerramento" class="form-label fw-bold">Motivo do Encerramento (mínimo 10 caracteres):</label>
                         <textarea class="form-control" id="motivoEncerramento" name="motivo" rows="3" required minlength="10" maxlength="500" placeholder="Descreva a conclusão das entregas ou a justificativa para encerramento operacional..."></textarea>

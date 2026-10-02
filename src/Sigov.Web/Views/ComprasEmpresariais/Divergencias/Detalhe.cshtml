@@ -36,6 +36,37 @@
    <dt class="col-sm-3">Justificativa de encerramento</dt>
    <dd class="col-sm-9">@d.JustificativaEncerramento</dd>
   }
+  <dt class="col-sm-3">Reposição autorizada</dt>
+  <dd class="col-sm-9">
+   @if (d.ReposicaoAutorizada)
+   {
+    <span class="badge text-bg-success">Sim</span>
+    <span class="ms-2">Autorizada: <strong>@d.QuantidadeReposicao.ToString("0.####") @d.Unidade</strong></span>
+    <span class="ms-2">Recebida: <strong>@d.ReposicaoRecebida.ToString("0.####")</strong></span>
+    <span class="ms-2 text-primary fw-bold">Saldo pendente: <strong>@d.SaldoReposicaoPendente.ToString("0.####")</strong></span>
+    @if (d.SaldoReposicaoPendente > 0)
+    {
+     <a class="btn btn-sm btn-primary ms-3" href="/ComprasEmpresariais/Recebimentos/Novo?divergenciaId=@d.Id">Receber reposição agora</a>
+    }
+   }
+   else
+   {
+    <span class="text-muted">Não autorizada</span>
+   }
+  </dd>
+  @if (!string.IsNullOrWhiteSpace(d.ReposicaoJustificativa))
+  {
+   <dt class="col-sm-3">Justificativa da reposição</dt>
+   <dd class="col-sm-9">@d.ReposicaoJustificativa</dd>
+  }
+  @if (d.DivergenciaOrigemId.HasValue)
+  {
+   <dt class="col-sm-3">Divergência de origem</dt>
+   <dd class="col-sm-9">
+    <a asp-action="Divergencia" asp-route-id="@d.DivergenciaOrigemId.Value">Divergência #@d.DivergenciaOrigemId.Value</a>
+    <span class="badge text-bg-warning ms-1">Nova rejeição em reposição</span>
+   </dd>
+  }
  </dl>
 </section>
 
@@ -150,6 +181,36 @@
    
    <button class="btn btn-primary mt-3" type="submit">Adicionar ao histórico</button>
   </form>
+
+  @if (!d.ReposicaoAutorizada)
+  {
+   <form class="panel border-primary" asp-action="AutorizarReposicao" asp-route-id="@d.Id" method="post" data-single-submit>
+    @Html.AntiForgeryToken()
+    <h2 class="h5 border-bottom pb-2 text-primary">Autorizar reposição de material pelo fornecedor</h2>
+    <input name="version" value="@d.Version" type="hidden"/>
+    <input name="idempotencyKey" value="@Model.IdempotencyKey-reposicao" type="hidden"/>
+    <input name="returnUrl" value="@Model.ReturnUrl" type="hidden"/>
+    
+    <div class="mb-3">
+     <label for="quantidadeReposicao" class="form-label fw-semibold">Quantidade a repor (máximo: @d.QuantidadeRejeitada.ToString("0.####") @d.Unidade)</label>
+     <div class="input-group">
+      <input id="quantidadeReposicao" name="quantidade" type="number" step="0.0001" min="0.0001" max="@d.QuantidadeRejeitada" value="@d.QuantidadeRejeitada" class="form-control" required />
+      <span class="input-group-text">@d.Unidade</span>
+     </div>
+    </div>
+
+    <div class="mb-3">
+     <label for="justificativaReposicao" class="form-label fw-semibold">Justificativa da autorização (mínimo 10 caracteres)</label>
+     <textarea id="justificativaReposicao" name="justificativa" minlength="10" maxlength="2000" required class="form-control" rows="3" placeholder="Fundamente o acordo com o fornecedor para reposição do material rejeitado..."></textarea>
+    </div>
+
+    <div class="alert alert-info small">
+     <strong>Regra de Negócio:</strong> A autorização de reposição exige que a devolução física do material rejeitado tenha sido registrada e expedida/entregue ao fornecedor. Uma vez autorizada, a nova entrega física poderá ser registrada mantendo a rastreabilidade original sem duplicar estoque nem aumentar a quantidade contratada.
+    </div>
+
+    <button class="btn btn-primary" type="submit">Autorizar reposição</button>
+   </form>
+  }
 
   <form class="panel border-warning" asp-action="EncerrarDivergencia" asp-route-id="@d.Id" method="post" data-single-submit data-confirm-close>
    @Html.AntiForgeryToken()

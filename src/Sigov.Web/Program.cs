@@ -199,7 +199,12 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+    var nonceBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+    var nonce = Convert.ToBase64String(nonceBytes);
+    context.Items["CspNonce"] = nonce;
+    // Política CSP fortalecida com nonce imprevisível por requisição.
+    // 'unsafe-inline' é mantido como exceção residual transitória documentada para compatibilidade de modais e componentes Razor existentes.
+    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self' 'unsafe-inline' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
     context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
     await next().ConfigureAwait(false);
 });

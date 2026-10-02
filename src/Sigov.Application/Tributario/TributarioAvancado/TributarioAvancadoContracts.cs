@@ -29,15 +29,29 @@ public interface ITributarioAvancadoRepository
     Task<TributarioDashboardDto> DashboardAsync(long tenantId, string recurso, CancellationToken ct);
 }
 
+public sealed record ContribuinteDebitoDto(long Id, string Numero, string Tipo, decimal ValorOriginal, decimal ValorAtualizado, DateOnly? Vencimento, string Status);
+public sealed record ContribuintePagamentoDto(long Id, string? CodigoBaixa, string? FormaPagamento, decimal ValorPago, DateTimeOffset DataPagamento, string Status);
+public sealed record CertidaoValidacaoPublicaDto(string Codigo, string Tipo, string Status, bool Autentica, string Mensagem, DateTimeOffset EmitidaEm, DateOnly? ValidadeAte);
+public sealed record ContribuinteAutorizadoInfo(long ContribuinteId, string Inscricao, string? Nome, string TipoVinculo);
+
 public interface ITributarioCarnesBoletosRepository : ITributarioAvancadoRepository { }
-public interface IPortalContribuinteRepository : ITributarioAvancadoRepository { }
+public interface IPortalContribuinteRepository : ITributarioAvancadoRepository
+{
+    Task<IReadOnlyList<ContribuinteAutorizadoInfo>> ObterContribuintesAutorizadosAsync(long tenantId, long usuarioId, string? userEmail, CancellationToken ct);
+    Task<ContribuinteAutorizadoInfo?> BuscarContribuintePorCodigoAsync(long tenantId, string codigo, CancellationToken ct);
+    Task<PagedResult<ContribuinteDebitoDto>> ListarDebitosAsync(long tenantId, long contribuinteId, int pagina, int tamanho, CancellationToken ct);
+    Task<PagedResult<ContribuintePagamentoDto>> ListarPagamentosAsync(long tenantId, long contribuinteId, int pagina, int tamanho, CancellationToken ct);
+    Task<CertidaoValidacaoPublicaDto?> ValidarCertidaoPublicaAsync(long? tenantId, string codigo, CancellationToken ct);
+    Task<TributarioDashboardDto> DashboardAutoatendimentoAsync(long tenantId, long[] contribuinteIds, long usuarioId, CancellationToken ct);
+    Task<PagedResult<TributarioRegistroDto>> ListarSolicitacoesAutoatendimentoAsync(long tenantId, long[] contribuinteIds, long usuarioId, int pagina, int tamanho, CancellationToken ct);
+}
 public interface ITributarioFiscalizacaoRepository : ITributarioAvancadoRepository { }
 public interface ITributarioNfseRepository : ITributarioAvancadoRepository { }
 public interface ITributarioCarnesBoletosService : ITributarioAvancadoRepository { }
 public interface ITributarioCarneArquivoService { Task<byte[]> GerarCsvAsync(long tenantId, long emissaoId, CancellationToken ct); }
 public interface ITributarioCarneEntregaService : ITributarioCarnesBoletosService { }
 public interface ITributarioDamService : ITributarioCarnesBoletosService { }
-public interface IPortalContribuinteService : ITributarioAvancadoRepository { }
+public interface IPortalContribuinteService : IPortalContribuinteRepository { }
 public interface IPortalContribuinteCertidaoService : IPortalContribuinteService { }
 public interface IPortalContribuinteGuiaService : IPortalContribuinteService { }
 public interface IPortalContribuinteParcelamentoService : IPortalContribuinteService { }

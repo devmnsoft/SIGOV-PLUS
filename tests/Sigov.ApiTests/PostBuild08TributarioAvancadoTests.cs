@@ -76,4 +76,72 @@ public sealed class PostBuild08TributarioAvancadoTests
         File.ReadAllText(TestRepoPath.Get("scripts/demo-local.ps1")).Should().Contain("SIGOV Pós-Build 08");
         File.Exists(TestRepoPath.Get("docs/tributario-avancado.md")).Should().BeTrue();
     }
+
+    [Fact]
+    public void Csv_sanitiza_formulas_e_delimitadores_corretamente()
+    {
+        Sigov.Infrastructure.Tributario.TributarioAvancadoRepository.SanitizarCsvCampo("=cmd|' /C calc'!A0")
+            .Should().StartWith("'=");
+        Sigov.Infrastructure.Tributario.TributarioAvancadoRepository.SanitizarCsvCampo("+12345")
+            .Should().StartWith("'+");
+        Sigov.Infrastructure.Tributario.TributarioAvancadoRepository.SanitizarCsvCampo("-exec")
+            .Should().StartWith("'-");
+        Sigov.Infrastructure.Tributario.TributarioAvancadoRepository.SanitizarCsvCampo("@SUM(B1)")
+            .Should().StartWith("'@");
+        Sigov.Infrastructure.Tributario.TributarioAvancadoRepository.SanitizarCsvCampo("normal")
+            .Should().Be("normal");
+        Sigov.Infrastructure.Tributario.TributarioAvancadoRepository.SanitizarCsvCampo("com;delimitador")
+            .Should().Be("\"com;delimitador\"");
+    }
+
+    [Fact]
+    public void PortalContribuinte_rotas_de_debitos_pagamentos_e_validacao_publica_estao_protegidas()
+    {
+        var controller = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Controllers/PortalContribuinteController.cs"));
+        controller.Should().Contain("contribuintes/{codigo}/debitos")
+            .And.Contain("contribuintes/{codigo}/pagamentos")
+            .And.Contain("ResolverContribuinteAutorizadoAsync")
+            .And.Contain("ValidarTitularidadeOperacaoAsync")
+            .And.Contain("ValidarCertidaoPublicaAsync")
+            .And.Contain("NotFound")
+            .And.Contain("AllowAnonymous");
+
+        var repo = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Tributario/TributarioAvancadoRepository.cs"));
+        repo.Should().Contain("ObterContribuintesAutorizadosAsync")
+            .And.Contain("ListarDebitosAsync")
+            .And.Contain("ListarPagamentosAsync")
+            .And.Contain("ValidarCertidaoPublicaAsync")
+            .And.Contain("SanitizarCsvCampo")
+            .And.Contain("tributario_carne_emissao");
+    }
+
+    [Fact]
+    public void XSS_pontos_em_importacao_e_telas_de_rh_eliminam_interpolacao_em_innerhtml()
+    {
+        var importJs = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/modules/operational-import.js"));
+        importJs.Should().NotContain("${i.field}: ${i.error}")
+            .And.Contain("replaceChildren")
+            .And.Contain("createTextNode");
+
+        var rhView = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Views/Rh/PortalContracheques.cshtml"));
+        rhView.Should().NotContain("${i.dados?.status??'ATIVO'}")
+            .And.Contain("replaceChildren")
+            .And.Contain("createElement('tr')");
+    }
+
+    [Fact]
+    public void CSP_e_permissoes_possuem_configuracao_segura()
+    {
+        var program = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Program.cs"));
+        program.Should().Contain("CspNonce")
+            .And.Contain("nonce-");
+
+        var perms = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/sigov.permissions.js"));
+        perms.Should().Contain("userPermissions")
+            .And.Contain("servidor");
+
+        var scriptDb = File.ReadAllText(TestRepoPath.Get("scripts/provision-sigov-db-user.ps1"));
+        scriptDb.Should().Contain("$identRegex")
+            .And.Contain("$quotedUser");
+    }
 }
