@@ -8,7 +8,7 @@
  <section id="visao-geral" aria-labelledby="visao-title"><h2 id="visao-title">Visão geral</h2><div class="edu-b3__kpis"><article><strong data-situacao>—</strong><span>Matrícula</span></article><article><strong data-frequencia>—</strong><span>Frequência lançada</span></article><article><strong data-contexto>—</strong><span>Escola, turma e ano</span></article></div></section>
  <section id="vida-escolar" class="responsive-data-table" aria-labelledby="vida-title"><h2 id="vida-title">Vida escolar</h2><div class="loading-skeleton" data-loading hidden>Consultando dados autorizados…</div><p data-empty>Escolha um aluno vinculado para consultar.</p></section>
 </section>
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 (()=>{const root=document.querySelector('.portal-responsavel'),select=root.querySelector('#portal-aluno'),error=root.querySelector('[data-error]'),loading=root.querySelector('[data-loading]');let sequence=0,controller;
 const showError=m=>{error.textContent=m;error.hidden=false};
 async function alunos(){error.hidden=true;const r=await fetch('/api/educacao/portal/alunos',{credentials:'same-origin',headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Os vínculos não puderam ser consultados. Procure a Secretaria Escolar.');const j=await r.json(),items=j.data??[];select.replaceChildren(new Option(items.length?'Selecione por nome':'Nenhum vínculo ativo',''));items.forEach(a=>select.add(new Option(`${a.nome} — ${a.escola??'escola não informada'} / ${a.turma??'turma não informada'}`,a.id)));if(!items.length)root.querySelector('[data-empty]').textContent='Nenhum vínculo ativo foi localizado. O portal não exibe cadastros de terceiros.';}

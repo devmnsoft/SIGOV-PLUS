@@ -37,7 +37,7 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
     public async Task<TributarioRegistroDto?> ObterAsync(long tenantId, string recurso, long id, CancellationToken ct)
     {
         recurso = Recurso(recurso); using var c = _context.CreateConnection();
-        var row = await c.QuerySingleOrDefaultAsync<Row>(new CommandDefinition($"select id as Id,codigo as Codigo,status as Status,tipo as Tipo,descricao as Descricao,valor as Valor,created_at as CreatedAt,dados::text as Dados from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false", new { TenantId = tenantId, Id = id }, cancellationToken: ct));
+        var row = await c.QuerySingleOrDefaultAsync<Row>(new CommandDefinition($"select id as Id,codigo as Codigo,status as Status,tipo as Tipo,descricao as Descricao,valor as Valor,created_at as CreatedAt,dados::text as Dados,contribuinte_id as ContribuinteId,referencia_id as ReferenciaId from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false", new { TenantId = tenantId, Id = id }, cancellationToken: ct));
         return row is null ? null : Mapear(row);
     }
 
@@ -49,14 +49,15 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         {
             foreach (var kvp in r.Dados)
             {
-                if (kvp.Key is "tenant_id" or "usuario_id" or "permissoes" or "roles" or "is_deleted" or "auditoria" or "admin" or "bypass_rls")
+                if (kvp.Key is "tenant_id" or "usuario_id" or "permissoes" or "roles" or "is_deleted" or "auditoria" or "admin" or "bypass_rls" or "contribuinte_id")
                     continue;
                 dadosSanitizados[kvp.Key] = kvp.Value;
             }
         }
-        const string values = "(tenant_id,entidade_id,exercicio_id,referencia_id,codigo,tipo,status,descricao,justificativa,quantidade,valor,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@ReferenciaId,@Codigo,@Tipo,@Status,@Descricao,@Justificativa,@Quantidade,@Valor,@Dados::jsonb,jsonb_build_object('acao','CRIAR','em',now()),@CorrelationId,@UsuarioId) returning id";
+        var contribuinteId = r.ReferenciaId;
+        const string values = "(tenant_id,entidade_id,exercicio_id,contribuinte_id,referencia_id,codigo,tipo,status,descricao,justificativa,quantidade,valor,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@ContribuinteId,@ReferenciaId,@Codigo,@Tipo,@Status,@Descricao,@Justificativa,@Quantidade,@Valor,@Dados::jsonb,jsonb_build_object('acao','CRIAR','em',now()),@CorrelationId,@UsuarioId) returning id";
         using var c = _context.CreateConnection();
-        return await c.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.{recurso}{values}", new { x.TenantId, x.EntidadeId, x.ExercicioId, r.ReferenciaId, r.Codigo, r.Tipo, r.Status, r.Descricao, r.Justificativa, r.Quantidade, r.Valor, Dados = JsonSerializer.Serialize(dadosSanitizados), CorrelationId = Guid.TryParse(x.CorrelationId, out var g) ? g : Guid.NewGuid(), x.UsuarioId }, cancellationToken: ct));
+        return await c.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.{recurso}{values}", new { x.TenantId, x.EntidadeId, x.ExercicioId, ContribuinteId = contribuinteId, r.ReferenciaId, r.Codigo, r.Tipo, r.Status, r.Descricao, r.Justificativa, r.Quantidade, r.Valor, Dados = JsonSerializer.Serialize(dadosSanitizados), CorrelationId = Guid.TryParse(x.CorrelationId, out var g) ? g : Guid.NewGuid(), x.UsuarioId }, cancellationToken: ct));
     }
 
     public async Task<bool> AlterarStatusAsync(TributarioAvancadoContext x, string recurso, long id, string status, string? justificativa, CancellationToken ct)
@@ -127,30 +128,36 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         var sqlAcesso = @"
             select a.contribuinte_id as ContribuinteId, coalesce(c.inscricao, a.codigo, cast(a.contribuinte_id as text)) as Inscricao, c.nome as Nome, a.tipo as TipoVinculo
             from sigov.portal_contribuinte_acesso a
-            left join sigov.contribuinte c on c.id = a.contribuinte_id and c.tenant_id = a.tenant_id
+            join sigov.contribuinte c on c.id = a.contribuinte_id and c.tenant_id = a.tenant_id and c.ativo = true and not c.is_deleted
             where a.tenant_id = @TenantId
-              and a.created_by = @UsuarioId
               and a.ativo = true
-              and a.is_deleted = false
-              and a.status in ('ATIVO', 'VALIDADO')
+              and not a.is_deleted
+              and a.status in ('ATIVO', 'VALIDADO', 'HOMOLOGADO', 'DEFERIDO')
+              and a.status not in ('REVOGADO', 'CANCELADO', 'EXPIRADO', 'SUSPENSO')
               and (a.prazo_at is null or a.prazo_at >= now())
-              and a.contribuinte_id is not null";
+              and a.contribuinte_id is not null
+              and (
+                a.referencia_id = @UsuarioId
+                or (a.dados->>'usuario_id')::bigint = @UsuarioId
+                or exists (
+                    select 1 from sigov.usuario u2
+                    join sigov.pessoa p2 on p2.id = u2.pessoa_id and p2.tenant_id = @TenantId and not p2.is_deleted
+                    where u2.id = @UsuarioId and not u2.is_deleted and p2.documento is not null and (a.dados->>'documento_representante' = p2.documento or a.dados->>'cpf_representante' = p2.documento)
+                )
+                or (a.created_by = @UsuarioId and a.tipo in ('PROCURADOR', 'REPRESENTANTE', 'AUTORIZADO', 'DELEGADO'))
+              )";
         var acessos = (await c.QueryAsync<ContribuinteAutorizadoInfo>(new CommandDefinition(sqlAcesso, new { TenantId = tenantId, UsuarioId = usuarioId }, cancellationToken: ct))).ToList();
 
         var sqlDireto = @"
             select c.id as ContribuinteId, c.inscricao as Inscricao, c.nome as Nome, 'TITULAR' as TipoVinculo
-            from sigov.contribuinte c
-            where c.tenant_id = @TenantId
-              and c.ativo = true
-              and (
-                (@Email is not null and c.email = @Email)
-                or exists(
-                    select 1 from sigov.usuario u
-                    join sigov.pessoa p on p.id = u.pessoa_id
-                    where u.id = @UsuarioId and p.tenant_id = @TenantId and p.documento is not null and p.documento = c.documento
-                )
-              )";
-        var diretos = (await c.QueryAsync<ContribuinteAutorizadoInfo>(new CommandDefinition(sqlDireto, new { TenantId = tenantId, UsuarioId = usuarioId, Email = userEmail }, cancellationToken: ct))).ToList();
+            from sigov.usuario u
+            join sigov.pessoa p on p.id = u.pessoa_id and p.tenant_id = @TenantId and p.ativo = true and not p.is_deleted
+            join sigov.contribuinte c on c.documento = p.documento and c.tenant_id = @TenantId and c.ativo = true and not c.is_deleted
+            where u.id = @UsuarioId
+              and u.ativo = true
+              and not u.is_deleted
+              and p.documento is not null";
+        var diretos = (await c.QueryAsync<ContribuinteAutorizadoInfo>(new CommandDefinition(sqlDireto, new { TenantId = tenantId, UsuarioId = usuarioId }, cancellationToken: ct))).ToList();
 
         return acessos.Concat(diretos)
             .GroupBy(x => x.ContribuinteId)
@@ -336,7 +343,7 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         if (recurso == "tributario_fiscalizacao_auto_infracao" && (string.IsNullOrWhiteSpace(r.Descricao) || !r.Valor.HasValue || r.Valor <= 0)) throw new ArgumentException("Auto de infração exige fundamento, descrição e valor.");
     }
     private static string Recurso(string recurso) => Recursos.Contains(recurso) ? recurso : throw new ArgumentException("Recurso tributário inválido.");
-    private static TributarioRegistroDto Mapear(Row r) => new(r.Id, r.Codigo, r.Status, r.Tipo, r.Descricao, r.Valor, r.CreatedAt, JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Dados) ?? new());
-    private sealed record Row(long Id, string? Codigo, string Status, string? Tipo, string? Descricao, decimal? Valor, DateTimeOffset CreatedAt, string Dados);
+    private static TributarioRegistroDto Mapear(Row r) => new(r.Id, r.Codigo, r.Status, r.Tipo, r.Descricao, r.Valor, r.CreatedAt, JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Dados) ?? new(), r.ContribuinteId, r.ReferenciaId);
+    private sealed record Row(long Id, string? Codigo, string Status, string? Tipo, string? Descricao, decimal? Valor, DateTimeOffset CreatedAt, string Dados, long? ContribuinteId = null, long? ReferenciaId = null);
     private sealed record Kpi(long Total, long Pendentes, long Concluidos, long Alertas);
 }

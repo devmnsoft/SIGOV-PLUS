@@ -197,7 +197,7 @@
  <a class="btn btn-outline-primary" asp-action="Recebimento" asp-route-id="@Model.RecebimentoId">Ver recebimento de origem</a>
 </div>
 
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 document.querySelectorAll('form[data-confirm]').forEach(f => {
  f.addEventListener('submit', function(e) {
   if (!confirm(this.dataset.confirm)) {

@@ -139,7 +139,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 function selecionarMaterial(sel) {
     var opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.value) return;

@@ -40,7 +40,7 @@
   </div>
 </section>
 
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 (() => {
  const root=document.currentScript.previousElementSibling, form=root.querySelector('[data-filtros]'), id=root.querySelector('#diario-id'), loading=root.querySelector('[data-loading]'), result=root.querySelector('[data-resultado]'), message=root.querySelector('[data-mensagem]'); let preview=null;
  const envelope=async response=>{const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.message||body.error||body.errors?.[0]||'Não foi possível concluir a operação.');return body.data??body;};

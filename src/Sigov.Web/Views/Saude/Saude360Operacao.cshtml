@@ -10,4 +10,4 @@
  <div class="card-body"><div id="saude360-status" class="text-muted" role="status">Carregando dados do contexto atual…</div><div class="table-responsive d-none" id="saude360-wrap"><table class="table table-hover align-middle"><thead><tr><th>Registro</th><th>Descrição</th><th>Situação</th></tr></thead><tbody id="saude360-itens"></tbody></table></div></div>
 </div>
 <div class="alert alert-secondary mt-3 mb-0"><sigov-icon name="sync" size="16" />O backend de sincronização opera pela rede. Este checkout não contém aplicativo Android nativo; não há simulação de câmera ou bloqueio de galeria.</div>
-@section Scripts { <script>window.saude360Config = { api: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Api)) };</script><script src="~/js/modules/saude360.operacao.js"></script> }
+@section Scripts { <script nonce="@Context.Items["CspNonce"]">window.saude360Config = { api: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Api)) };</script><script src="~/js/modules/saude360.operacao.js"></script> }

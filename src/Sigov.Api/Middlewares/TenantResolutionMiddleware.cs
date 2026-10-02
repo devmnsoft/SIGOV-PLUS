@@ -9,6 +9,7 @@ public sealed class TenantResolutionMiddleware
     {
         new("/api/health"),
         new("/api/publico"),
+        new("/api/portal-contribuinte/certidoes/validar"),
         new("/api/saas/contexto"),
         new("/api/saas/admin"),
         new("/api/operacao/backups"),

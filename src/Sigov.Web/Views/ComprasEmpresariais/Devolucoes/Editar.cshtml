@@ -129,7 +129,7 @@
 </div>
 </form>
 
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 document.querySelector('[data-single-submit]')?.addEventListener('submit', function(e) {
  const btn = this.querySelector('button[type=submit]');
  if (btn && !btn.disabled) {

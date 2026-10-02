@@ -273,7 +273,7 @@
  <a class="btn btn-outline-primary" asp-action="Recebimento" asp-route-id="@d.RecebimentoId">Ver recebimento</a>
 </div>
 
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 document.querySelectorAll('[data-single-submit]').forEach(f=>f.addEventListener('submit',e=>{
  const b=f.querySelector('button[type=submit],button:not([type])');
  if(b?.disabled){e.preventDefault();return}

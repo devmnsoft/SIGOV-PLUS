@@ -52,7 +52,7 @@
     </div>
 </section>
 @section Scripts {
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 (() => {
   const loading = document.getElementById('industriaLoading');
   const success = document.getElementById('industriaSucesso');

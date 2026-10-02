@@ -12,4 +12,4 @@
 }
 </section>
 <div class="sigov-card p-4 mt-4"><h2 class="h5">Como corrigir com segurança</h2><p class="mb-0">Execute primeiro <code>status-local.ps1</code> e <code>check-runtime.ps1</code>. Compartilhe apenas os relatórios sanitizados e o correlation id; nunca compartilhe o arquivo <code>.env.local</code>.</p></div>
-@section Scripts { <script>async function copyCommand(b){await navigator.clipboard.writeText(b.dataset.command);b.textContent='Copiado';}function downloadReport(){const text=document.getElementById('diagnostico').innerText;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='diagnostico-sigov.txt';a.click();URL.revokeObjectURL(a.href);}</script> }
+@section Scripts { <script nonce="@Context.Items["CspNonce"]">async function copyCommand(b){await navigator.clipboard.writeText(b.dataset.command);b.textContent='Copiado';}function downloadReport(){const text=document.getElementById('diagnostico').innerText;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='diagnostico-sigov.txt';a.click();URL.revokeObjectURL(a.href);}</script> }

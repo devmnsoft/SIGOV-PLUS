@@ -61,7 +61,7 @@
 </section>
 
 @section Scripts {
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 (() => {
     const root = document.querySelector('[data-industria-page]');
     if (!root) return;

@@ -19,6 +19,33 @@ namespace Sigov.Infrastructure.ComprasEmpresariais;
 public sealed class CotacaoCompraRepository(NpgsqlConnectionFactory factory) : ICotacaoCompraRepository
 {
     /// <summary>
+    /// Componentes monetários unificados com política por componentes totais:
+    /// - valorBruto = Round(PrecoUnitario * Quantidade, 2, AwayFromZero)
+    /// - desconto = Round(valorBruto * (DescontoPercentual / 100), 2, AwayFromZero)
+    /// - imposto = Round(valorBruto * (ImpostoPercentual / 100), 2, AwayFromZero)
+    /// - frete = Round(Frete, 2, AwayFromZero)
+    /// - valorLiquido = valorBruto - desconto + imposto
+    /// - totalItem = valorLiquido + frete
+    /// - precoUnitarioEfetivo = Quantidade > 0 ? Round(valorLiquido / Quantidade, 2, AwayFromZero) : 0m
+    /// Arredondamento monetário: MidpointRounding.AwayFromZero (ABNT NBR 5891 / padrão contábil).
+    /// Garante matematicamente:
+    /// bruto - desconto + imposto = líquido;
+    /// líquido + frete = total;
+    /// soma dos itens = total do pedido.
+    /// </summary>
+    public static (decimal ValorBruto, decimal Desconto, decimal Imposto, decimal Frete, decimal ValorLiquido, decimal TotalItem, decimal PrecoUnitarioEfetivo) CalcularComponentesMonetarios(decimal precoUnitario, decimal quantidade, decimal descontoPercent, decimal impostoPercent, decimal frete)
+    {
+        var vb = Math.Round(precoUnitario * quantidade, 2, MidpointRounding.AwayFromZero);
+        var des = Math.Round(vb * (descontoPercent / 100m), 2, MidpointRounding.AwayFromZero);
+        var imp = Math.Round(vb * (impostoPercent / 100m), 2, MidpointRounding.AwayFromZero);
+        var fr = Math.Round(frete, 2, MidpointRounding.AwayFromZero);
+        var vl = vb - des + imp;
+        var tot = vl + fr;
+        var cue = quantidade > 0 ? Math.Round(vl / quantidade, 2, MidpointRounding.AwayFromZero) : 0m;
+        return (vb, des, imp, fr, vl, tot, cue);
+    }
+
+    /// <summary>
     /// Saldo reservado por item da requisição: soma das quantidades em cotações ABERTA/EM_RESPOSTA
     /// mais, nas SELECIONADAS, somente os itens efetivamente selecionados. Exige a tabela
     /// requisicao_item com alias <c>i</c> em escopo. Derivada e transacional — nunca armazenada.
@@ -227,24 +254,12 @@ where co.tenant_id=@t and co.id=@id";
         {
             var ofertasDoItem = ofertas.Where(o => o.RequisicaoItemId == l.RequisicaoItemId).Select(o =>
             {
-                var valorBruto = Math.Round(o.PrecoUnitario * l.Quantidade, 2, MidpointRounding.AwayFromZero);
-                var desconto = Math.Round(valorBruto * (o.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
-                var imposto = Math.Round(valorBruto * (o.Imposto / 100m), 2, MidpointRounding.AwayFromZero);
-                var frete = Math.Round(o.Frete, 2, MidpointRounding.AwayFromZero);
-                var valorLiquido = valorBruto - desconto + imposto;
-                var custo = valorLiquido + frete;
-                var cue = l.Quantidade > 0 ? Math.Round(valorLiquido / l.Quantidade, 2, MidpointRounding.AwayFromZero) : 0m;
+                var calc = CalcularComponentesMonetarios(o.PrecoUnitario, l.Quantidade, o.Desconto, o.Imposto, o.Frete);
                 var validas = ofertas.Where(v => v.RequisicaoItemId == l.RequisicaoItemId && !v.Recusado).Select(v =>
-                {
-                    var vb = Math.Round(v.PrecoUnitario * l.Quantidade, 2, MidpointRounding.AwayFromZero);
-                    var des = Math.Round(vb * (v.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
-                    var imp = Math.Round(vb * (v.Imposto / 100m), 2, MidpointRounding.AwayFromZero);
-                    var fr = Math.Round(v.Frete, 2, MidpointRounding.AwayFromZero);
-                    return vb - des + imp + fr;
-                }).ToList();
+                    CalcularComponentesMonetarios(v.PrecoUnitario, l.Quantidade, v.Desconto, v.Imposto, v.Frete).TotalItem).ToList();
                 decimal menor = validas.Count > 0 ? validas.Min() : 0m;
                 var empate = validas.Count(v => v == menor) >= 2;
-                return new CotacaoComparativoOferta(o.ConviteId, o.FornecedorId, o.FornecedorNome, o.PrecoUnitario, o.Desconto, o.Imposto, o.Frete, cue, custo, o.PrazoDias, o.Marca, o.Fabricante, o.Recusado, !o.Recusado && custo == menor, !o.Recusado && empate && custo == menor);
+                return new CotacaoComparativoOferta(o.ConviteId, o.FornecedorId, o.FornecedorNome, o.PrecoUnitario, o.Desconto, o.Imposto, o.Frete, calc.PrecoUnitarioEfetivo, calc.TotalItem, o.PrazoDias, o.Marca, o.Fabricante, o.Recusado, !o.Recusado && calc.TotalItem == menor, !o.Recusado && empate && calc.TotalItem == menor);
             }).OrderBy(o => o.CustoTotalItem).AsList();
             return new CotacaoComparativoLinha(l.RequisicaoItemId, l.Ordem, l.Descricao, l.Especificacao, l.Unidade, l.Quantidade, ofertasDoItem, ofertasDoItem.Count == 0);
         }).AsList();
@@ -393,12 +408,7 @@ on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitar
 
             decimal CustoEfetivo(SelecItem item, OfertaRaw oferta)
             {
-                var valorBruto = Math.Round(oferta.PrecoUnitario * item.Qtd, 2, MidpointRounding.AwayFromZero);
-                var desconto = Math.Round(valorBruto * (oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
-                var imposto = Math.Round(valorBruto * (oferta.Imposto / 100m), 2, MidpointRounding.AwayFromZero);
-                var frete = Math.Round(oferta.Frete, 2, MidpointRounding.AwayFromZero);
-                var valorLiquido = valorBruto - desconto + imposto;
-                return valorLiquido + frete;
+                return CalcularComponentesMonetarios(oferta.PrecoUnitario, item.Qtd, oferta.Desconto, oferta.Imposto, oferta.Frete).TotalItem;
             }
             var menorPorItem = new Dictionary<Guid, decimal?>();
             foreach (var i in itens)
@@ -417,21 +427,15 @@ on conflict (tenant_id,convite_id,requisicao_item_id) do update set preco_unitar
                 var oferta = respostas.FirstOrDefault(o => o.ConviteId == e.ConviteId && o.RequisicaoItemId == e.RequisicaoItemId);
                 if (oferta is null) throw new ArgumentException("Não há resposta registrada para este item neste fornecedor.");
                 if (oferta.Recusado) throw new ArgumentException("Este item foi recusado pelo fornecedor selecionado; escolha outro.");
-                var custo = CustoEfetivo(item, oferta);
+                var calc = CalcularComponentesMonetarios(oferta.PrecoUnitario, item.Qtd, oferta.Desconto, oferta.Imposto, oferta.Frete);
+                var custo = calc.TotalItem;
                 var menor = menorPorItem[e.RequisicaoItemId];
                 if (menor.HasValue && Math.Round(custo, 2, MidpointRounding.AwayFromZero) > menor.Value)
                 {
                     var justificativa = e.Justificativa?.Trim() ?? string.Empty;
                     if (justificativa.Length < 10) throw new ArgumentException("A seleção acima do menor custo exige justificativa com ao menos 10 caracteres.");
                 }
-                var valorBruto = Math.Round(oferta.PrecoUnitario * item.Qtd, 2, MidpointRounding.AwayFromZero);
-                var desconto = Math.Round(valorBruto * (oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero);
-                var imposto = Math.Round(valorBruto * (oferta.Imposto / 100m), 2, MidpointRounding.AwayFromZero);
-                var frete = Math.Round(oferta.Frete, 2, MidpointRounding.AwayFromZero);
-                var cue = item.Qtd > 0 ? Math.Round(oferta.PrecoUnitario * (1m + oferta.Imposto / 100m - oferta.Desconto / 100m), 2, MidpointRounding.AwayFromZero) : 0m;
-                var valorLiquido = Math.Round(cue * item.Qtd, 2, MidpointRounding.AwayFromZero);
-                var totalItem = Math.Round(valorLiquido + frete, 2, MidpointRounding.AwayFromZero);
-                escolhidos.Add(new EscopoEscolha(item, e.ConviteId, convite.FornecedorId, convite.FornecedorNome, oferta, custo, e.Justificativa?.Trim(), cue, valorBruto, desconto, imposto, frete, valorLiquido, totalItem));
+                escolhidos.Add(new EscopoEscolha(item, e.ConviteId, convite.FornecedorId, convite.FornecedorNome, oferta, custo, e.Justificativa?.Trim(), calc.PrecoUnitarioEfetivo, calc.ValorBruto, calc.Desconto, calc.Imposto, calc.Frete, calc.ValorLiquido, calc.TotalItem));
             }
 
             // Inserir primeiro em compras_empresarial_cotacao_selecao para obter os IDs gerados (bigint identity)
@@ -540,7 +544,8 @@ left join sigov.compras_empresarial_fornecedor fo on fo.id=p.fornecedor_id and f
 left join sigov.compras_empresarial_cotacao cc on cc.id=p.cotacao_id and cc.tenant_id=p.tenant_id
 left join sigov.compras_empresarial_requisicao rr on rr.id=p.requisicao_id and rr.tenant_id=p.tenant_id
 where p.tenant_id=@t and p.id=@id and not p.is_deleted;
-select pi.id Id,pi.produto_id ProdutoId,ep.nome ProdutoNome,ep.unidade Unidade,pi.quantidade QuantidadePedida,pi.quantidade_cancelada QuantidadeCancelada,
+select pi.id Id,pi.produto_id ProdutoId,ep.nome ProdutoNome,ep.unidade Unidade,pi.quantidade Quantidade,pi.quantidade QuantidadePedida,pi.quantidade_cancelada QuantidadeCancelada,
+pi.valor_unitario ValorUnitario,pi.exige_inspecao ExigeInspecao,
 coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id),0) QuantidadeRecebidaFisica,
 coalesce((select sum(ri.quantidade_conferencia) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and r.status='EM_CONFERENCIA'),0) QuantidadeAguardandoInspecao,
 coalesce((select sum(ri.quantidade_aceita) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and r.status='CONCLUIDO'),0) QuantidadeAceita,
@@ -548,7 +553,11 @@ coalesce((select sum(ri.quantidade_rejeitada) from sigov.compras_empresarial_rec
 coalesce((select sum(di.quantidade) from sigov.compras_empresarial_devolucao_item di join sigov.compras_empresarial_devolucao d on d.id=di.devolucao_id and d.tenant_id=di.tenant_id join sigov.compras_empresarial_recebimento_item ri on ri.id=di.recebimento_item_id and ri.tenant_id=di.tenant_id where di.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.situacao<>'CANCELADA'),0) QuantidadeDevolvida,
 coalesce((select sum(d.quantidade_rejeitada) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id where d.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.situacao<>'ENCERRADA'),0) QuantidadePendenteRegularizacao,
 greatest(0,pi.quantidade-pi.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and ri.divergencia_origem_id is null),0)) SaldoEntregavel,
-pi.valor_unitario ValorUnitario,coalesce(pi.valor_bruto,pi.quantidade*pi.valor_unitario) ValorBruto,coalesce(pi.desconto,0) Desconto,coalesce(pi.imposto,0) Imposto,coalesce(pi.frete,0) Frete,coalesce(pi.valor_liquido,pi.quantidade*pi.valor_unitario) ValorLiquido,coalesce(pi.total_item,pi.quantidade*pi.valor_unitario) TotalItem,pi.exige_inspecao ExigeInspecao,pi.cotacao_item_id CotacaoItemId,pi.cotacao_selecao_id CotacaoSelecaoId,pi.requisicao_item_id RequisicaoItemId
+coalesce(pi.valor_bruto,pi.quantidade*pi.valor_unitario) ValorBruto,coalesce(pi.desconto,0) Desconto,coalesce(pi.imposto,0) Imposto,coalesce(pi.frete,0) Frete,coalesce(pi.valor_liquido,pi.quantidade*pi.valor_unitario) ValorLiquido,coalesce(pi.total_item,pi.quantidade*pi.valor_unitario) TotalItem,
+pi.requisicao_item_id RequisicaoItemId,pi.cotacao_item_id CotacaoItemId,pi.cotacao_selecao_id CotacaoSelecaoId,
+coalesce((select sum(d.quantidade_reposicao) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id where d.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.reposicao_autorizada),0) QuantidadeReposicaoAutorizada,
+coalesce((select sum(d.reposicao_recebida) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id where d.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.reposicao_autorizada),0) QuantidadeReposicaoRecebida,
+greatest(0, coalesce((select sum(d.quantidade_reposicao) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id where d.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.reposicao_autorizada),0) - coalesce((select sum(d.reposicao_recebida) from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id where d.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and d.reposicao_autorizada),0)) QuantidadeReposicaoPendente
 from sigov.compras_empresarial_pedido_item pi
 left join sigov.estoque_produto ep on ep.id=pi.produto_id and ep.tenant_id=pi.tenant_id
 where pi.tenant_id=@t and pi.pedido_id=@id

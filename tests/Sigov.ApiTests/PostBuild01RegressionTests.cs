@@ -615,8 +615,9 @@ public sealed class PostBuild01RegressionTests
         repoSql.Should().Contain("var impostoTotal = Math.Round(grupo.Sum(e => e.Imposto), 2, MidpointRounding.AwayFromZero);");
         repoSql.Should().Contain("var freteTotal = Math.Round(grupo.Sum(e => e.Frete), 2, MidpointRounding.AwayFromZero);");
         repoSql.Should().Contain("var valorTotal = Math.Round(grupo.Sum(e => e.TotalItem), 2, MidpointRounding.AwayFromZero);");
-        repoSql.Should().Contain("Math.Round(cue * item.Qtd, 2, MidpointRounding.AwayFromZero)");
-        repoSql.Should().Contain("Math.Round(valorLiquido + frete, 2, MidpointRounding.AwayFromZero)");
+        repoSql.Should().Contain("CalcularComponentesMonetarios");
+        repoSql.Should().Contain("Math.Round(precoUnitario * quantidade, 2, MidpointRounding.AwayFromZero)");
+        repoSql.Should().Contain("var vl = vb - des + imp;");
 
         // Prova matemática de reconciliação centavo a centavo
         decimal q1 = 10m, cue1 = 15.50m, desc1 = 5.00m, imp1 = 2.50m, frete1 = 3.00m;

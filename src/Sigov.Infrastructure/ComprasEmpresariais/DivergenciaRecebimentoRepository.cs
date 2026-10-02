@@ -144,6 +144,9 @@ where di.tenant_id = @tenant and di.recebimento_item_id = @itemId and d.situacao
             if (r.Quantidade <= 0 || r.Quantidade > row.QuantidadeRejeitada)
                 throw new InvalidOperationException($"A quantidade de reposição deve ser maior que zero e não pode exceder a quantidade rejeitada ({row.QuantidadeRejeitada:0.####}).");
 
+            if (row.ReposicaoRecebida > 0 && r.Quantidade < row.ReposicaoRecebida)
+                throw new InvalidOperationException($"A quantidade autorizada ({r.Quantidade:0.####}) não pode ser inferior à quantidade de reposição já recebida ({row.ReposicaoRecebida:0.####}).");
+
             var devolvido = await cn.ExecuteScalarAsync<decimal>(new CommandDefinition(@"select coalesce(sum(di.quantidade), 0)
 from sigov.compras_empresarial_devolucao_item di
 join sigov.compras_empresarial_devolucao d on (d.tenant_id, d.id) = (di.tenant_id, di.devolucao_id)
@@ -162,7 +165,8 @@ providencia = coalesce(providencia, @prov),
 situacao = case when situacao = 'ABERTA' then 'EM_TRATAMENTO' else situacao end",
                 new { qtd = r.Quantidade, just = r.Justificativa, prov = providencia }, ct);
 
-            await Event(cn, tx, c, id, "REPOSICAO_AUTORIZADA", new { quantidade = r.Quantidade, justificativa = r.Justificativa }, ct);
+            var eventoTipo = row.ReposicaoAutorizada ? "REPOSICAO_REAUTORIZADA" : "REPOSICAO_AUTORIZADA";
+            await Event(cn, tx, c, id, eventoTipo, new { quantidade = r.Quantidade, quantidade_anterior = row.QuantidadeReposicao, justificativa = r.Justificativa }, ct);
             return false;
         }, ct);
 
@@ -186,12 +190,12 @@ situacao = case when situacao = 'ABERTA' then 'EM_TRATAMENTO' else situacao end"
         var recebimento = await cn.ExecuteScalarAsync<Guid?>(new CommandDefinition("select recebimento_id from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and id=@id", new { tenant = context.TenantId, id }, tx, cancellationToken: ct));
         if (!recebimento.HasValue) throw new InvalidOperationException("Divergência não encontrada no contexto autorizado.");
         await cn.QuerySingleAsync<Guid>(new CommandDefinition("select id from sigov.compras_empresarial_recebimento where tenant_id=@tenant and id=@recebimento for update", new { tenant = context.TenantId, recebimento }, tx, cancellationToken: ct));
-        var row = await cn.QuerySingleOrDefaultAsync<LockRow>(new CommandDefinition("select id,recebimento_id RecebimentoId,recebimento_item_id RecebimentoItemId,quantidade_rejeitada QuantidadeRejeitada,situacao,version,responsavel_id ResponsavelId from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and id=@id for update", new { tenant = context.TenantId, id }, tx, cancellationToken: ct));
+        var row = await cn.QuerySingleOrDefaultAsync<LockRow>(new CommandDefinition("select id,recebimento_id RecebimentoId,recebimento_item_id RecebimentoItemId,quantidade_rejeitada QuantidadeRejeitada,situacao,version,responsavel_id ResponsavelId,coalesce(reposicao_autorizada,false) ReposicaoAutorizada,coalesce(quantidade_reposicao,0) QuantidadeReposicao,coalesce(reposicao_recebida,0) ReposicaoRecebida from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and id=@id for update", new { tenant = context.TenantId, id }, tx, cancellationToken: ct));
         if (row is null) throw new InvalidOperationException("Divergência não encontrada no contexto autorizado.");
         await cn.ExecuteAsync(new CommandDefinition("select id from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and recebimento_id=@recebimento order by id for update", new { tenant = context.TenantId, recebimento }, tx, cancellationToken: ct));
         if (row.Version != version) throw new ComprasConcurrencyException("A divergência foi alterada. Revise o estado atual antes de uma nova tentativa.");
         var closed = await body(cn, tx, row);
-        var persisted = await cn.QuerySingleAsync<LockRow>(new CommandDefinition("select id,recebimento_id RecebimentoId,recebimento_item_id RecebimentoItemId,quantidade_rejeitada QuantidadeRejeitada,situacao,version,responsavel_id ResponsavelId from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and id=@id", new { tenant = context.TenantId, id }, tx, cancellationToken: ct));
+        var persisted = await cn.QuerySingleAsync<LockRow>(new CommandDefinition("select id,recebimento_id RecebimentoId,recebimento_item_id RecebimentoItemId,quantidade_rejeitada QuantidadeRejeitada,situacao,version,responsavel_id ResponsavelId,coalesce(reposicao_autorizada,false) ReposicaoAutorizada,coalesce(quantidade_reposicao,0) QuantidadeReposicao,coalesce(reposicao_recebida,0) ReposicaoRecebida from sigov.compras_empresarial_recebimento_divergencia where tenant_id=@tenant and id=@id", new { tenant = context.TenantId, id }, tx, cancellationToken: ct));
         await cn.ExecuteAsync(new CommandDefinition("insert into sigov.compras_empresarial_divergencia_idempotencia(tenant_id,operacao,chave,request_hash,divergencia_id,situacao,version,pendencia_concluida) values(@tenant,@operation,@key,@hash,@id,@situacao,@version,@closed)", new { tenant = context.TenantId, operation, key, hash, id, situacao = persisted.Situacao, version = persisted.Version, closed }, tx, cancellationToken: ct));
         await tx.CommitAsync(ct);
         return new(id, persisted.Situacao, persisted.Version, false, closed);
@@ -218,6 +222,6 @@ situacao = case when situacao = 'ABERTA' then 'EM_TRATAMENTO' else situacao end"
     private static string? Like(string? x) => string.IsNullOrWhiteSpace(x) ? null : $"%{x.Trim()}%";
 
     private sealed record DetailRow(long Id, Guid RecebimentoId, long RecebimentoItemId, string Documento, string PedidoNumero, string Fornecedor, string Produto, string Unidade, decimal QuantidadeRejeitada, string Motivo, string Situacao, Guid? ResponsavelId, string? ResponsavelNome, string? Providencia, string? Resultado, string? JustificativaEncerramento, DateTime AbertaEm, DateTime? EncerradaEm, long Version, bool ReposicaoAutorizada = false, decimal QuantidadeReposicao = 0m, decimal ReposicaoRecebida = 0m, string? ReposicaoJustificativa = null, long? DivergenciaOrigemId = null);
-    private sealed record LockRow(long Id, Guid RecebimentoId, long RecebimentoItemId, decimal QuantidadeRejeitada, string Situacao, long Version, Guid? ResponsavelId);
+    private sealed record LockRow(long Id, Guid RecebimentoId, long RecebimentoItemId, decimal QuantidadeRejeitada, string Situacao, long Version, Guid? ResponsavelId, bool ReposicaoAutorizada = false, decimal QuantidadeReposicao = 0m, decimal ReposicaoRecebida = 0m);
     private sealed record IdemRow(string RequestHash, string Situacao, long Version, bool PendenciaConcluida);
 }

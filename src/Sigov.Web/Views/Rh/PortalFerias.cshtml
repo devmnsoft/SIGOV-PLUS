@@ -5,7 +5,7 @@
  <div class="filter-bar"><input type="search" placeholder="Buscar servidor ou matrícula" aria-label="Busca"><select aria-label="Status"><option>Todos os status</option><option>Pendente</option><option>Aprovado</option></select><input type="date" aria-label="Data inicial"><button class="btn btn-primary" type="button">Aplicar filtros</button></div>
  <div class="responsive-data-table"><table><thead><tr><th>Referência</th><th>Servidor</th><th>Período</th><th>Status</th><th>Ações</th></tr></thead><tbody data-grid><tr><td colspan="5"><div class="loading-skeleton" aria-label="Carregando"></div></td></tr></tbody></table></div>
 </section>
-<script>
+<script nonce="@Context.Items["CspNonce"]">
 (()=>{
   const root = document.currentScript.previousElementSibling;
   const body = root.querySelector('[data-grid]');
