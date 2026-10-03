@@ -232,6 +232,13 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
             (codNumeric > 0 && a.ContribuinteId == codNumeric));
     }
 
+    private static readonly HashSet<string> PortalWhitelistedFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "tipo_tributo", "exercicio", "parcela", "observacoes", "justificativa", "contato_email", "contato_telefone",
+        "endereco", "bairro", "cep", "cidade", "uf", "numero", "complemento", "motivo", "valor_estimado",
+        "quantidade_parcelas", "documento_referencia", "dados_cadastrais", "inscricao_imobiliaria", "inscricao_municipal"
+    };
+
     private async Task<TributarioOperacaoRequest> ValidarTitularidadeOperacaoAsync(long tenantId, TributarioOperacaoRequest r, CancellationToken ct)
     {
         var usuarioId = CurrentUser.UsuarioId;
@@ -247,12 +254,6 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
             if (match is null) throw new UnauthorizedAccessException("Operação não autorizada para o contribuinte informado.");
             contribuinteId = match.ContribuinteId;
         }
-        else if (r.ReferenciaId.HasValue && r.ReferenciaId.Value > 0)
-        {
-            var match = autorizados.FirstOrDefault(a => a.ContribuinteId == r.ReferenciaId.Value);
-            if (match is null) throw new UnauthorizedAccessException("Operação não autorizada para o contribuinte informado.");
-            contribuinteId = match.ContribuinteId;
-        }
         else if (autorizados.Count == 1)
         {
             contribuinteId = autorizados[0].ContribuinteId;
@@ -262,19 +263,32 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
             throw new ArgumentException("Selecione o contribuinte desejado para a operação.");
         }
 
+        long? refNegocio = null;
+        if (r.ReferenciaId.HasValue && r.ReferenciaId.Value > 0)
+        {
+            if (r.ReferenciaId.Value != contribuinteId)
+            {
+                var refPertence = await _s.ValidarReferenciaContribuinteAsync(tenantId, contribuinteId, r.ReferenciaId.Value, ct);
+                if (!refPertence)
+                {
+                    throw new UnauthorizedAccessException("A referência informada não pertence ao contribuinte autorizado ou não foi localizada.");
+                }
+                refNegocio = r.ReferenciaId.Value;
+            }
+        }
+
         var dadosSanitizados = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         if (r.Dados != null)
         {
             foreach (var (k, v) in r.Dados)
             {
-                if (k is "contribuinte_id" or "tenant_id" or "usuario_id" or "roles" or "permissoes" or "admin" or "is_deleted" or "auditoria" or "id")
-                    continue;
-                dadosSanitizados[k] = v;
+                if (PortalWhitelistedFields.Contains(k))
+                {
+                    dadosSanitizados[k] = v;
+                }
             }
         }
         dadosSanitizados["contribuinte_id"] = contribuinteId;
-
-        long? refNegocio = (r.ReferenciaId == contribuinteId) ? null : r.ReferenciaId;
 
         return r with { ContribuinteId = contribuinteId, ReferenciaId = refNegocio, Dados = dadosSanitizados };
     }

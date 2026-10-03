@@ -32,6 +32,10 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
          return RedirectToAction(nameof(Divergencias));
      if ((await authorization.AuthorizeAsync(User, "compras_empresariais.devolucoes.visualizar")).Succeeded)
          return RedirectToAction(nameof(Devolucoes));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.faturas.visualizar")).Succeeded)
+         return RedirectToAction(nameof(Faturas));
+     if ((await authorization.AuthorizeAsync(User, "compras_empresariais.faturas.criar")).Succeeded)
+         return RedirectToAction(nameof(NovaFatura));
      return Forbid();
  }
  [HttpGet("Fornecedores"),Authorize(Policy="compras_empresariais.fornecedores.visualizar")]public async Task<IActionResult> Fornecedores(string? busca,string? status,int pagina=1,CancellationToken ct=default)=>View("Fornecedores/Index",await fornecedores.ListarAsync(Contexto(),new(busca,status,pagina,20),ct));
@@ -398,59 +402,281 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
   }
   return CsvFile(lines,"devolucoes-operacionais");
  }
- [HttpGet("Faturas"),Authorize(Policy="compras_empresariais.faturas.visualizar")]
-  public async Task<IActionResult> Faturas([FromQuery]FaturaFiltro filtro,CancellationToken ct=default)
+ [HttpGet("Faturas"), Authorize(Policy = "compras_empresariais.faturas.visualizar")]
+  public async Task<IActionResult> Faturas([FromQuery] FaturaFiltro filtro, CancellationToken ct = default)
   {
-      ViewData["Filtro"]=filtro;
-      return View("Faturas/Index",await faturas.ListarAsync(Contexto(),filtro,ct));
+      ViewData["Filtro"] = filtro;
+      return View("Faturas/Index", await faturas.ListarAsync(Contexto(), filtro, ct));
   }
-  [HttpGet("Faturas/Nova"),Authorize(Policy="compras_empresariais.faturas.criar")]
-  public async Task<IActionResult> NovaFatura([FromQuery]Guid? pedidoId,CancellationToken ct=default)
+
+  [HttpGet("Faturas/Nova"), Authorize(Policy = "compras_empresariais.faturas.criar")]
+  public async Task<IActionResult> NovaFatura([FromQuery] Guid? pedidoId, [FromQuery] string? buscaPedido, [FromQuery] int paginaPedidos = 1, CancellationToken ct = default)
   {
-      if(pedidoId.HasValue&&pedidoId.Value!=Guid.Empty)
+      paginaPedidos = Math.Max(1, paginaPedidos);
+      var pedidosElegiveis = await cotacoes.ListarPedidosAsync(Contexto(), new PedidoFiltro(Busca: buscaPedido, Pagina: paginaPedidos, Tamanho: 10), ct);
+
+      var model = new NovaFaturaFormViewModel
       {
-          try{ViewData["Previa"]=await faturas.ObterConferenciaPreviaAsync(Contexto(),pedidoId.Value,ct);}
-          catch(Exception ex){TempData["Error"]=ex.Message;}
+          PedidoId = pedidoId ?? Guid.Empty,
+          BuscaPedido = buscaPedido,
+          PaginaPedidos = paginaPedidos,
+          PedidosElegiveis = pedidosElegiveis,
+          IdempotencyKey = Guid.NewGuid().ToString("N")
+      };
+
+      if (pedidoId.HasValue && pedidoId.Value != Guid.Empty)
+      {
+          try
+          {
+              var previa = await faturas.ObterConferenciaPreviaAsync(Contexto(), pedidoId.Value, ct);
+              model.PedidoId = previa.PedidoId;
+              model.FornecedorId = previa.FornecedorId;
+              model.PedidoNumero = previa.PedidoNumero;
+              model.FornecedorNome = previa.FornecedorNome;
+              model.TotalPedido = previa.TotalPedido;
+              model.Itens = previa.Itens.Select(x => new NovaFaturaItemFormModel
+              {
+                  PedidoItemId = x.PedidoItemId,
+                  ProdutoNome = x.ProdutoNome,
+                  Unidade = x.Unidade,
+                  QuantidadePedida = x.QuantidadePedida,
+                  QuantidadeCancelada = x.QuantidadeCancelada,
+                  QuantidadeVigente = x.QuantidadeVigente,
+                  QuantidadeAceitaTotal = x.QuantidadeAceitaTotal,
+                  QuantidadeAprovadaOutras = x.QuantidadeAprovadaOutras,
+                  QuantidadeReservadaOutras = x.QuantidadeReservadaOutras,
+                  SaldoDisponivel = x.SaldoDisponivel,
+                  ValorUnitarioPedido = x.ValorUnitarioPedido,
+                  Quantidade = x.SaldoDisponivel > 0 ? x.SaldoDisponivel.ToString("0.####", CultureInfo.GetCultureInfo("pt-BR")) : "0",
+                  ValorUnitario = x.ValorUnitarioPedido.ToString("0.00##", CultureInfo.GetCultureInfo("pt-BR")),
+                  Selecionado = x.SaldoDisponivel > 0,
+                  MotivoSaldoZero = x.MotivoSaldoZero
+              }).ToList();
+          }
+          catch (Exception ex)
+          {
+              TempData["Error"] = ex.Message;
+          }
       }
-      ViewData["Pedidos"]=await cotacoes.ListarPedidosAsync(Contexto(),new PedidoFiltro(Tamanho:50),ct);
-      return View("Faturas/Nova");
+
+      return View("Faturas/Nova", model);
   }
-  [HttpPost("Faturas"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.faturas.criar")]
-  public async Task<IActionResult> CriarFatura(CriarFaturaRequest request,[FromForm(Name="Idempotency-Key")]string? chave,CancellationToken ct)
+
+  [HttpPost("Faturas"), ValidateAntiForgeryToken, Authorize(Policy = "compras_empresariais.faturas.criar")]
+  public async Task<IActionResult> CriarFatura([FromForm] NovaFaturaFormViewModel model, CancellationToken ct)
   {
-      var chaveFinal=string.IsNullOrWhiteSpace(chave)?Guid.NewGuid().ToString("N"):chave;
+      var chaveFinal = string.IsNullOrWhiteSpace(model.IdempotencyKey) ? Guid.NewGuid().ToString("N") : model.IdempotencyKey;
+      model.IdempotencyKey = chaveFinal;
+
+      async Task RecarregarContextoAsync()
+      {
+          model.PedidosElegiveis = await cotacoes.ListarPedidosAsync(Contexto(), new PedidoFiltro(Busca: model.BuscaPedido, Pagina: Math.Max(1, model.PaginaPedidos), Tamanho: 10), ct);
+          if (model.PedidoId != Guid.Empty && (string.IsNullOrEmpty(model.PedidoNumero) || model.Itens.Count == 0))
+          {
+              try
+              {
+                  var previa = await faturas.ObterConferenciaPreviaAsync(Contexto(), model.PedidoId, ct);
+                  model.PedidoNumero = previa.PedidoNumero;
+                  model.FornecedorNome = previa.FornecedorNome;
+                  model.TotalPedido = previa.TotalPedido;
+                  if (model.Itens.Count == 0)
+                  {
+                      model.Itens = previa.Itens.Select(x => new NovaFaturaItemFormModel
+                      {
+                          PedidoItemId = x.PedidoItemId,
+                          ProdutoNome = x.ProdutoNome,
+                          Unidade = x.Unidade,
+                          QuantidadePedida = x.QuantidadePedida,
+                          QuantidadeCancelada = x.QuantidadeCancelada,
+                          QuantidadeVigente = x.QuantidadeVigente,
+                          QuantidadeAceitaTotal = x.QuantidadeAceitaTotal,
+                          QuantidadeAprovadaOutras = x.QuantidadeAprovadaOutras,
+                          QuantidadeReservadaOutras = x.QuantidadeReservadaOutras,
+                          SaldoDisponivel = x.SaldoDisponivel,
+                          ValorUnitarioPedido = x.ValorUnitarioPedido,
+                          Quantidade = x.SaldoDisponivel > 0 ? x.SaldoDisponivel.ToString("0.####", CultureInfo.GetCultureInfo("pt-BR")) : "0",
+                          ValorUnitario = x.ValorUnitarioPedido.ToString("0.00##", CultureInfo.GetCultureInfo("pt-BR")),
+                          Selecionado = x.SaldoDisponivel > 0,
+                          MotivoSaldoZero = x.MotivoSaldoZero
+                      }).ToList();
+                  }
+              }
+              catch { }
+          }
+      }
+
+      if (!ModelState.IsValid)
+      {
+          await RecarregarContextoAsync();
+          return View("Faturas/Nova", model);
+      }
+
+      if (string.Equals(model.TipoDocumento, "NOTA_FISCAL", StringComparison.OrdinalIgnoreCase))
+      {
+          if (string.IsNullOrWhiteSpace(model.ChaveAcesso))
+          {
+              ModelState.AddModelError(nameof(model.ChaveAcesso), "A chave de acesso é obrigatória para Nota Fiscal.");
+          }
+          else if (!FaturaCompraApplicationService.ValidarChaveAcessoNfe(model.ChaveAcesso))
+          {
+              ModelState.AddModelError(nameof(model.ChaveAcesso), "Chave de acesso de NF-e inválida. Deve conter 44 dígitos numéricos, código de UF válido e dígito verificador módulo 11 correto.");
+          }
+      }
+      else if (!string.IsNullOrWhiteSpace(model.ChaveAcesso) && !FaturaCompraApplicationService.ValidarChaveAcessoNfe(model.ChaveAcesso))
+      {
+          ModelState.AddModelError(nameof(model.ChaveAcesso), "Chave de acesso de NF-e inválida. Deve conter 44 dígitos numéricos, código de UF válido e dígito verificador módulo 11 correto.");
+      }
+
+      decimal ParseMoeda(string? str, string campo)
+      {
+          if (string.IsNullOrWhiteSpace(str)) return 0m;
+          if (!decimal.TryParse(str, NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands, CultureInfo.GetCultureInfo("pt-BR"), out var val) || val < 0m)
+          {
+              ModelState.AddModelError(campo, "Informe um valor monetário válido e não negativo.");
+              return 0m;
+          }
+          return val;
+      }
+
+      var desc = ParseMoeda(model.ValorDesconto, nameof(model.ValorDesconto));
+      var frete = ParseMoeda(model.ValorFrete, nameof(model.ValorFrete));
+      var seguro = ParseMoeda(model.ValorSeguro, nameof(model.ValorSeguro));
+      var despesas = ParseMoeda(model.ValorOutrasDespesas, nameof(model.ValorOutrasDespesas));
+
+      DateTime? dtEmissao = null;
+      if (!string.IsNullOrWhiteSpace(model.DataEmissao))
+      {
+          if (DateTime.TryParse(model.DataEmissao, CultureInfo.GetCultureInfo("pt-BR"), DateTimeStyles.AssumeLocal, out var emi))
+              dtEmissao = emi.ToUniversalTime();
+          else if (DateTime.TryParse(model.DataEmissao, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out emi))
+              dtEmissao = emi.ToUniversalTime();
+          else
+              ModelState.AddModelError(nameof(model.DataEmissao), "Data de emissão inválida.");
+      }
+
+      DateTime? dtVencimento = null;
+      if (!string.IsNullOrWhiteSpace(model.DataVencimento))
+      {
+          if (DateTime.TryParse(model.DataVencimento, CultureInfo.GetCultureInfo("pt-BR"), DateTimeStyles.AssumeLocal, out var ven))
+              dtVencimento = ven.ToUniversalTime();
+          else if (DateTime.TryParse(model.DataVencimento, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out ven))
+              dtVencimento = ven.ToUniversalTime();
+          else
+              ModelState.AddModelError(nameof(model.DataVencimento), "Data de vencimento inválida.");
+      }
+
+      var selectedItems = model.Itens.Where(i => i.Selecionado).ToList();
+      if (selectedItems.Count == 0)
+      {
+          ModelState.AddModelError(string.Empty, "Selecione ao menos um item do pedido para compor a fatura.");
+      }
+
+      var requestItens = new List<CriarFaturaItemRequest>();
+      for (int i = 0; i < model.Itens.Count; i++)
+      {
+          var it = model.Itens[i];
+          if (!it.Selecionado) continue;
+
+          if (!decimal.TryParse(it.Quantidade, NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands, CultureInfo.GetCultureInfo("pt-BR"), out var qtd) || qtd <= 0m)
+          {
+              ModelState.AddModelError($"Itens[{i}].Quantidade", "Quantidade informada deve ser maior que zero.");
+          }
+          if (!decimal.TryParse(it.ValorUnitario, NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands, CultureInfo.GetCultureInfo("pt-BR"), out var vu) || vu < 0m)
+          {
+              ModelState.AddModelError($"Itens[{i}].ValorUnitario", "Valor unitário deve ser não negativo.");
+          }
+
+          if (ModelState.IsValid)
+          {
+              requestItens.Add(new CriarFaturaItemRequest(it.PedidoItemId, qtd, vu));
+          }
+      }
+
+      if (!ModelState.IsValid)
+      {
+          await RecarregarContextoAsync();
+          return View("Faturas/Nova", model);
+      }
+
+      var req = new CriarFaturaRequest(
+          model.PedidoId,
+          model.FornecedorId,
+          model.Numero,
+          model.Serie,
+          model.TipoDocumento,
+          model.ChaveAcesso,
+          dtEmissao,
+          dtVencimento,
+          desc,
+          frete,
+          seguro,
+          despesas,
+          model.Observacoes,
+          requestItens
+      );
+
       try
       {
-          var res=await faturas.CriarAsync(Contexto(),request,chaveFinal,ct);
-          TempData["Success"]=res.Repetido?"Fatura já registrada anteriormente; exibindo conferência.":$"Fatura cadastrada com sucesso! Situação: {res.Status}, Resultado Match: {res.ResultadoMatch}.";
-          return RedirectToAction(nameof(DetalheFatura),new{id=res.Id});
+          var res = await faturas.CriarAsync(Contexto(), req, chaveFinal, ct);
+          var canView = (await authorization.AuthorizeAsync(User, "compras_empresariais.faturas.visualizar")).Succeeded;
+          if (canView)
+          {
+              TempData["Success"] = res.Repetido ? "Fatura já registrada anteriormente; exibindo conferência." : $"Fatura cadastrada com sucesso! Situação: {res.Status}, Resultado Match: {res.ResultadoMatch}.";
+              return RedirectToAction(nameof(DetalheFatura), new { id = res.Id });
+          }
+          else
+          {
+              TempData["Success"] = $"Fatura {model.Numero}/{model.Serie} cadastrada com sucesso sob protocolo idempotente.";
+              return RedirectToAction(nameof(NovaFatura));
+          }
       }
-      catch(Exception ex)
+      catch (ComprasConcurrencyException ex)
       {
-          TempData["Error"]=ex.Message;
-          return RedirectToAction(nameof(NovaFatura),new{pedidoId=request.PedidoId});
+          ModelState.AddModelError(string.Empty, "Conflito de concorrência: " + ex.Message);
       }
+      catch (ArgumentException ex)
+      {
+          ModelState.AddModelError(string.Empty, ex.Message);
+      }
+      catch (InvalidOperationException ex)
+      {
+          ModelState.AddModelError(string.Empty, ex.Message);
+      }
+      catch (Exception)
+      {
+          ModelState.AddModelError(string.Empty, $"Ocorreu uma falha técnica inesperada ao registrar a fatura. Protocolo de correlação: {HttpContext.TraceIdentifier}");
+      }
+
+      await RecarregarContextoAsync();
+      return View("Faturas/Nova", model);
   }
-  [HttpGet("Faturas/{id:guid}"),Authorize(Policy="compras_empresariais.faturas.visualizar")]
-  public async Task<IActionResult> DetalheFatura(Guid id,CancellationToken ct)
+
+  [HttpGet("Faturas/{id:guid}"), Authorize(Policy = "compras_empresariais.faturas.visualizar")]
+  public async Task<IActionResult> DetalheFatura(Guid id, CancellationToken ct)
   {
-      var item=await faturas.ObterAsync(Contexto(),id,ct);
-      if(item is null)return NotFound();
-      ViewData["PodeDecidir"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.faturas.decidir")).Succeeded;
-      return View("Faturas/Detalhe",item);
+      var item = await faturas.ObterAsync(Contexto(), id, ct);
+      if (item is null) return NotFound();
+      ViewData["PodeDecidir"] = (await authorization.AuthorizeAsync(User, "compras_empresariais.faturas.decidir")).Succeeded;
+      return View("Faturas/Detalhe", item);
   }
-  [HttpPost("Faturas/{id:guid}/Decidir"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.faturas.decidir")]
-  public async Task<IActionResult> DecidirFatura(Guid id,[FromForm]DecidirFaturaRequest request,CancellationToken ct)
+
+  [HttpPost("Faturas/{id:guid}/Decidir"), ValidateAntiForgeryToken, Authorize(Policy = "compras_empresariais.faturas.decidir")]
+  public async Task<IActionResult> DecidirFatura(Guid id, [FromForm] DecidirFaturaRequest request, CancellationToken ct)
   {
-      var chaveFinal=string.IsNullOrWhiteSpace(request.IdempotencyKey)?Guid.NewGuid().ToString("N"):request.IdempotencyKey;
+      var chaveFinal = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? Guid.NewGuid().ToString("N") : request.IdempotencyKey;
       try
       {
-          var res=await faturas.DecidirAsync(Contexto(),id,request with{IdempotencyKey=chaveFinal},ct);
-          TempData["Success"]=res.Repetido?"Decisão já processada anteriormente; resultado reapresentado.":$"Decisão '{request.Decisao}' processada com sucesso. Situação: {res.Status}.";
+          var res = await faturas.DecidirAsync(Contexto(), id, request with { IdempotencyKey = chaveFinal }, ct);
+          TempData["Success"] = res.Repetido ? "Decisão já processada anteriormente; resultado reapresentado." : $"Decisão '{request.Decisao}' processada com sucesso. Situação: {res.Status}.";
       }
-      catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message;}
-      catch(Exception ex){TempData["Error"]=ex.Message;}
-      return RedirectToAction(nameof(DetalheFatura),new{id});
+      catch (ComprasConcurrencyException ex) { TempData["Conflict"] = ex.Message; }
+      catch (ArgumentException ex) { TempData["Error"] = ex.Message; }
+      catch (InvalidOperationException ex) { TempData["Error"] = ex.Message; }
+      catch (Exception)
+      {
+          TempData["Error"] = $"Ocorreu uma falha técnica inesperada ao processar a decisão. Protocolo: {HttpContext.TraceIdentifier}";
+      }
+      return RedirectToAction(nameof(DetalheFatura), new { id });
   }
   [HttpGet("Avaliacoes"),Authorize(Policy="compras_empresariais.avaliacoes.gerenciar")]public IActionResult Avaliacoes()=>Workspace("Avaliações","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Relatorios"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> Relatorios([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Relatorio",await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=1,Tamanho=100},ct));}

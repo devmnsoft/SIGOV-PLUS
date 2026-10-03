@@ -1,9 +1,9 @@
-@using Sigov.Application.Common
-@using Sigov.Application.ComprasEmpresariais
+@using Sigov.Web.Models
+@using System.Globalization
+@model NovaFaturaFormViewModel
 @{
     ViewData["Title"] = "Nova conferência de fatura";
-    var previa = ViewData["Previa"] as FaturaConferenciaPrevia;
-    var pedidos = ViewData["Pedidos"] as PagedResult<PedidoResumo>;
+    var temPedidoSelecionado = Model.PedidoId != Guid.Empty;
 }
 <link rel="stylesheet" href="~/css/compras-empresariais.css" />
 <partial name="Shared/_ComprasNav" />
@@ -12,7 +12,7 @@
     <div>
         <span class="eyebrow">REGISTRO E CONFERÊNCIA</span>
         <h1>Nova conferência de fatura</h1>
-        <p>Entrada de documento fiscal de fornecedor e conciliação trilateral com pedido e recebimento físico.</p>
+        <p>Entrada de documento fiscal de fornecedor e conciliação trilateral com pedido homologado e inspeção física aceita.</p>
     </div>
     <div class="compras-header-actions">
         <a class="btn btn-outline-secondary" href="@Url.Action("Faturas")">Voltar à listagem</a>
@@ -23,61 +23,111 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         @TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    </div>
+}
+@if (TempData["Conflict"] is not null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        @TempData["Conflict"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 
 <details class="panel mb-3" open>
-    <summary class="h6">Passo a passo da conferência trilateral</summary>
+    <summary class="h6">Instruções operacionais: entrada e faturamento parcial</summary>
     <div class="mt-2 text-muted small">
-        <ol class="mb-0 ps-3">
-            <li><strong>Seleção do Pedido:</strong> Selecione o pedido correspondente ao fornecimento. Somente itens aceitos em inspeções físicas no almoxarifado geram saldo elegível para faturamento.</li>
-            <li><strong>Dados do Documento:</strong> Informe o número, série, tipo de documento fiscal, chave de acesso (se houver) e datas de emissão e vencimento.</li>
-            <li><strong>Confronto de Itens:</strong> O sistema pré-carrega as quantidades elegíveis e preços contratados. Informe os valores reais declarados na nota.</li>
-            <li><strong>Validação de Saldos:</strong> Quantidades além do saldo físico aceito ou preços divergentes da homologação gerarão apontamentos de divergência para análise da autoridade competente.</li>
-        </ol>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Para que serve:</strong>
+                Permite registrar faturas totais ou parciais para um pedido homologado, audita os saldos aceitos pelo almoxarifado e calcula o diagnóstico do confronto 3-way match.
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Como usar:</strong>
+                Pesquise e selecione o pedido elegível. Marque apenas os itens constantes na nota fiscal apresentada e informe as quantidades e valores unitários cobrados. Itens sem saldo têm o motivo explicitado.
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Quem pode executar:</strong>
+                Servidores ou colaboradores autorizados com permissão de criação de faturas (<code>compras_empresariais.faturas.criar</code>).
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">O que acontece depois:</strong>
+                O documento é registrado sob chave de idempotência. Se houver divergência intencional ou excesso sobre o saldo, o sistema reserva apenas até o limite elegível existente (sem consumir saldo fantasma) e submete para decisão justificada.
+            </div>
+        </div>
     </div>
 </details>
 
-@if (previa is null)
+@if (!temPedidoSelecionado)
 {
     <section class="panel" aria-labelledby="selecao-pedido-title">
         <h2 id="selecao-pedido-title" class="h5 mb-3">Selecione o pedido de compra</h2>
-        <p class="text-muted">Escolha o pedido para o qual a fatura ou nota fiscal foi emitida:</p>
+        <p class="text-muted">Pesquise o pedido por número, fornecedor, produto ou unidade de medida:</p>
 
-        @if (pedidos is not null && pedidos.Items.Count > 0)
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-8">
+                <input class="form-control" name="buscaPedido" value="@Model.BuscaPedido" placeholder="Digite número do pedido, fornecedor, produto ou unidade..." />
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button class="btn btn-primary" type="submit">Pesquisar</button>
+                <a class="btn btn-outline-secondary" href="@Url.Action("NovaFatura")">Limpar</a>
+            </div>
+        </form>
+
+        @if (Model.PedidosElegiveis is not null && Model.PedidosElegiveis.Items.Count > 0)
         {
             <div class="table-responsive">
-                <table class="table">
+                <table class="table align-middle">
                     <thead>
                         <tr>
                             <th scope="col">Número do Pedido</th>
                             <th scope="col">Fornecedor</th>
+                            <th scope="col">Itens</th>
                             <th scope="col">Situação</th>
                             <th scope="col" class="text-end">Total Contratado</th>
                             <th scope="col" class="text-end">Ação</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var p in pedidos.Items)
+                        @foreach (var p in Model.PedidosElegiveis.Items)
                         {
                             <tr>
                                 <td><strong>@p.Numero</strong></td>
                                 <td>@p.FornecedorNome</td>
+                                <td>@p.Itens item(ns)</td>
                                 <td><span class="badge bg-secondary">@p.Status.Replace('_', ' ')</span></td>
                                 <td class="text-end">@p.ValorTotal.ToString("C2")</td>
                                 <td class="text-end">
-                                    <a class="btn btn-sm btn-primary" href="@Url.Action("NovaFatura", new { pedidoId = p.Id })">Selecionar</a>
+                                    <a class="btn btn-sm btn-primary" href="@Url.Action("NovaFatura", new { pedidoId = p.Id, buscaPedido = Model.BuscaPedido, paginaPedidos = Model.PaginaPedidos })">Selecionar</a>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
+
+            @if (Model.PedidosElegiveis.TotalPages > 1)
+            {
+                <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Navegação de pedidos">
+                    <span class="text-muted small">Página @Model.PedidosElegiveis.Page de @Model.PedidosElegiveis.TotalPages (@Model.PedidosElegiveis.TotalItems pedidos)</span>
+                    <ul class="pagination pagination-sm mb-0">
+                        @if (Model.PedidosElegiveis.HasPreviousPage)
+                        {
+                            <li class="page-item"><a class="page-link" href="@Url.Action("NovaFatura", new { buscaPedido = Model.BuscaPedido, paginaPedidos = Model.PedidosElegiveis.Page - 1 })">Anterior</a></li>
+                        }
+                        @if (Model.PedidosElegiveis.HasNextPage)
+                        {
+                            <li class="page-item"><a class="page-link" href="@Url.Action("NovaFatura", new { buscaPedido = Model.BuscaPedido, paginaPedidos = Model.PedidosElegiveis.Page + 1 })">Próxima</a></li>
+                        }
+                    </ul>
+                </nav>
+            }
         }
         else
         {
-            <p class="text-muted">Nenhum pedido disponível para faturamento no momento.</p>
+            <div class="empty-state text-center p-4">
+                <p class="text-muted mb-0">Nenhum pedido encontrado para faturamento com os filtros informados.</p>
+            </div>
         }
     </section>
 }
@@ -85,126 +135,178 @@ else
 {
     <section class="panel mb-3" aria-labelledby="dados-pedido-title">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2 id="dados-pedido-title" class="h5 mb-0">Pedido selecionado: @previa.PedidoNumero</h2>
-            <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("NovaFatura")">Trocar pedido</a>
+            <h2 id="dados-pedido-title" class="h5 mb-0">Pedido selecionado: <strong>@Model.PedidoNumero</strong></h2>
+            <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("NovaFatura", new { buscaPedido = Model.BuscaPedido, paginaPedidos = Model.PaginaPedidos })">Trocar pedido</a>
         </div>
         <div class="row text-muted small">
             <div class="col-md-6">
-                <strong>Fornecedor:</strong> @previa.FornecedorNome (@previa.FornecedorCnpj)
+                <strong>Fornecedor:</strong> @Model.FornecedorNome (@Model.FornecedorCnpj)
             </div>
             <div class="col-md-6 text-md-end">
-                <strong>Total Homologado no Pedido:</strong> @previa.TotalPedido.ToString("C2")
+                <strong>Total Contratado:</strong> @Model.TotalPedido.ToString("C2")
             </div>
         </div>
     </section>
 
     <form method="post" action="@Url.Action("CriarFatura")">
         @Html.AntiForgeryToken()
-        <input type="hidden" name="PedidoId" value="@previa.PedidoId" />
-        <input type="hidden" name="FornecedorId" value="@previa.FornecedorId" />
-        <input type="hidden" name="Idempotency-Key" value="@Guid.NewGuid().ToString("N")" />
+        <input type="hidden" asp-for="PedidoId" />
+        <input type="hidden" asp-for="FornecedorId" />
+        <input type="hidden" asp-for="PedidoNumero" />
+        <input type="hidden" asp-for="FornecedorNome" />
+        <input type="hidden" asp-for="FornecedorCnpj" />
+        <input type="hidden" asp-for="TotalPedido" />
+        <input type="hidden" asp-for="BuscaPedido" />
+        <input type="hidden" asp-for="PaginaPedidos" />
+        <input type="hidden" asp-for="IdempotencyKey" />
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="alert alert-danger" role="alert">
+                <h3 class="h6 mb-2">Erros de validação encontrados:</h3>
+                <div asp-validation-summary="All" class="text-danger mb-0 small"></div>
+            </div>
+        }
 
         <section class="panel mb-3" aria-labelledby="dados-documento-title">
             <h2 id="dados-documento-title" class="h5 mb-3">Dados da fatura / documento fiscal</h2>
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label" for="Numero">Número do Documento *</label>
-                    <input class="form-control" id="Numero" name="Numero" required maxlength="50" placeholder="Ex: 00012345" />
+                <div class="col-md-3">
+                    <label class="form-label" asp-for="Numero">Número do Documento *</label>
+                    <input class="form-control" asp-for="Numero" required maxlength="50" placeholder="Ex: 00012345" />
+                    <span asp-validation-for="Numero" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label" for="Serie">Série *</label>
-                    <input class="form-control" id="Serie" name="Serie" required maxlength="20" value="1" />
+                    <label class="form-label" asp-for="Serie">Série *</label>
+                    <input class="form-control" asp-for="Serie" required maxlength="20" />
+                    <span asp-validation-for="Serie" class="text-danger small"></span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label" for="TipoDocumento">Tipo de Documento *</label>
-                    <select class="form-select" id="TipoDocumento" name="TipoDocumento" required>
-                        <option value="NOTA_FISCAL" selected>Nota Fiscal (NF-e)</option>
+                    <label class="form-label" asp-for="TipoDocumento">Tipo de Documento *</label>
+                    <select class="form-select" asp-for="TipoDocumento" required>
+                        <option value="NOTA_FISCAL">Nota Fiscal (NF-e)</option>
                         <option value="FATURA_COMERCIAL">Fatura Comercial</option>
                         <option value="RECIBO_FISCAL">Recibo / Documento Equivalente</option>
                         <option value="OUTROS">Outros</option>
                     </select>
+                    <span asp-validation-for="TipoDocumento" class="text-danger small"></span>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" asp-for="ChaveAcesso">Chave de Acesso (NF-e)</label>
+                    <input class="form-control" asp-for="ChaveAcesso" maxlength="60" placeholder="44 dígitos numéricos para NF-e" />
+                    <span asp-validation-for="ChaveAcesso" class="text-danger small"></span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label" for="ChaveAcesso">Chave de Acesso (NF-e)</label>
-                    <input class="form-control" id="ChaveAcesso" name="ChaveAcesso" maxlength="60" placeholder="44 dígitos (opcional)" />
+                    <label class="form-label" asp-for="DataEmissao">Data de Emissão</label>
+                    <input class="form-control" type="date" asp-for="DataEmissao" />
+                    <span asp-validation-for="DataEmissao" class="text-danger small"></span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label" for="DataEmissao">Data de Emissão</label>
-                    <input class="form-control" type="date" id="DataEmissao" name="DataEmissao" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label" for="DataVencimento">Data de Vencimento</label>
-                    <input class="form-control" type="date" id="DataVencimento" name="DataVencimento" />
+                    <label class="form-label" asp-for="DataVencimento">Data de Vencimento</label>
+                    <input class="form-control" type="date" asp-for="DataVencimento" />
+                    <span asp-validation-for="DataVencimento" class="text-danger small"></span>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="Observacoes">Observações Gerais</label>
-                    <input class="form-control" id="Observacoes" name="Observacoes" placeholder="Informações complementares da nota" />
+                    <label class="form-label" asp-for="Observacoes">Observações Gerais</label>
+                    <input class="form-control" asp-for="Observacoes" maxlength="2000" placeholder="Informações complementares da cobrança" />
+                    <span asp-validation-for="Observacoes" class="text-danger small"></span>
                 </div>
             </div>
         </section>
 
         <section class="panel mb-3" aria-labelledby="valores-acessorios-title">
-            <h2 id="valores-acessorios-title" class="h5 mb-3">Composição financeira adicional</h2>
+            <h2 id="valores-acessorios-title" class="h5 mb-3">Composição financeira complementar</h2>
+            <p class="text-muted small">Informe despesas ou descontos informados na fatura comercial que afetam o valor líquido a pagar:</p>
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label" for="ValorDesconto">Desconto Comercial (R$)</label>
-                    <input class="form-control" type="number" step="0.01" min="0" id="ValorDesconto" name="ValorDesconto" value="0.00" />
+                    <label class="form-label" asp-for="ValorDesconto">(-) Desconto Comercial (R$)</label>
+                    <input class="form-control text-end" asp-for="ValorDesconto" placeholder="0,00" />
+                    <span asp-validation-for="ValorDesconto" class="text-danger small"></span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label" for="ValorFrete">Frete Destacado (R$)</label>
-                    <input class="form-control" type="number" step="0.01" min="0" id="ValorFrete" name="ValorFrete" value="0.00" />
+                    <label class="form-label" asp-for="ValorFrete">(+) Frete Destacado (R$)</label>
+                    <input class="form-control text-end" asp-for="ValorFrete" placeholder="0,00" />
+                    <span asp-validation-for="ValorFrete" class="text-danger small"></span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label" for="ValorSeguro">Seguro Destacado (R$)</label>
-                    <input class="form-control" type="number" step="0.01" min="0" id="ValorSeguro" name="ValorSeguro" value="0.00" />
+                    <label class="form-label" asp-for="ValorSeguro">(+) Seguro (R$)</label>
+                    <input class="form-control text-end" asp-for="ValorSeguro" placeholder="0,00" />
+                    <span asp-validation-for="ValorSeguro" class="text-danger small"></span>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label" for="ValorOutrasDespesas">Outras Despesas (R$)</label>
-                    <input class="form-control" type="number" step="0.01" min="0" id="ValorOutrasDespesas" name="ValorOutrasDespesas" value="0.00" />
+                    <label class="form-label" asp-for="ValorOutrasDespesas">(+) Outras Despesas (R$)</label>
+                    <input class="form-control text-end" asp-for="ValorOutrasDespesas" placeholder="0,00" />
+                    <span asp-validation-for="ValorOutrasDespesas" class="text-danger small"></span>
                 </div>
             </div>
         </section>
 
         <section class="panel mb-3" aria-labelledby="itens-conferencia-title">
-            <h2 id="itens-conferencia-title" class="h5 mb-3">Itens e conciliação trilateral</h2>
-            <p class="text-muted small">Valores sugeridos baseados no saldo físico aceito no almoxarifado e no preço unitário homologado no pedido:</p>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h2 id="itens-conferencia-title" class="h5 mb-0">Itens e conciliação trilateral</h2>
+                    <p class="text-muted small mb-0">Marque apenas os itens incluídos no documento. Desmarque linhas que não fazem parte desta fatura parcial.</p>
+                </div>
+            </div>
 
             <div class="table-responsive">
-                <table class="table">
+                <table class="table align-middle">
                     <thead>
                         <tr>
+                            <th scope="col" style="width: 40px;">Faturar</th>
                             <th scope="col">Produto / Item</th>
                             <th scope="col">Unidade</th>
-                            <th scope="col" class="text-end">Qtd Pedida</th>
-                            <th scope="col" class="text-end">Qtd Aceita Almox.</th>
-                            <th scope="col" class="text-end">Faturado Outras</th>
-                            <th scope="col" class="text-end">Saldo Elegível</th>
-                            <th scope="col" class="text-end" style="width: 150px;">Qtd a Faturar *</th>
-                            <th scope="col" class="text-end" style="width: 160px;">Preço Unitário (R$) *</th>
+                            <th scope="col" class="text-end">Contratado Vigente</th>
+                            <th scope="col" class="text-end">Aceito Almox.</th>
+                            <th scope="col" class="text-end">Aprovado Outras</th>
+                            <th scope="col" class="text-end">Reservado Outras</th>
+                            <th scope="col" class="text-end">Saldo Disponível</th>
+                            <th scope="col" class="text-end" style="width: 150px;">Qtd a Faturar</th>
+                            <th scope="col" class="text-end" style="width: 150px;">Preço Unit. (R$)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @for (var i = 0; i < previa.Itens.Count; i++)
+                        @for (var i = 0; i < Model.Itens.Count; i++)
                         {
-                            var it = previa.Itens[i];
-                            var qtdPadrao = it.SaldoFaturavelElegivel > 0 ? it.SaldoFaturavelElegivel : 0m;
-                            <tr>
+                            var it = Model.Itens[i];
+                            var semSaldo = it.SaldoDisponivel <= 0;
+                            var rowClass = !it.Selecionado ? "table-light text-muted" : "";
+                            <tr class="@rowClass">
+                                <td>
+                                    <input type="checkbox" class="form-check-input" asp-for="Itens[i].Selecionado" />
+                                    <input type="hidden" asp-for="Itens[i].PedidoItemId" />
+                                    <input type="hidden" asp-for="Itens[i].ProdutoNome" />
+                                    <input type="hidden" asp-for="Itens[i].Unidade" />
+                                    <input type="hidden" asp-for="Itens[i].QuantidadePedida" />
+                                    <input type="hidden" asp-for="Itens[i].QuantidadeCancelada" />
+                                    <input type="hidden" asp-for="Itens[i].QuantidadeVigente" />
+                                    <input type="hidden" asp-for="Itens[i].QuantidadeAceitaTotal" />
+                                    <input type="hidden" asp-for="Itens[i].QuantidadeAprovadaOutras" />
+                                    <input type="hidden" asp-for="Itens[i].QuantidadeReservadaOutras" />
+                                    <input type="hidden" asp-for="Itens[i].SaldoDisponivel" />
+                                    <input type="hidden" asp-for="Itens[i].ValorUnitarioPedido" />
+                                    <input type="hidden" asp-for="Itens[i].MotivoSaldoZero" />
+                                </td>
                                 <td>
                                     <strong>@it.ProdutoNome</strong>
-                                    <input type="hidden" name="Itens[@i].PedidoItemId" value="@it.PedidoItemId" />
+                                    @if (semSaldo)
+                                    {
+                                        <div class="small text-danger">@it.MotivoSaldoZero</div>
+                                    }
                                 </td>
                                 <td><span class="badge bg-light text-dark">@it.Unidade</span></td>
-                                <td class="text-end">@it.QuantidadePedida.ToString("0.####")</td>
+                                <td class="text-end">@it.QuantidadeVigente.ToString("0.####")</td>
                                 <td class="text-end">@it.QuantidadeAceitaTotal.ToString("0.####")</td>
-                                <td class="text-end">@it.QuantidadeFaturadaOutras.ToString("0.####")</td>
-                                <td class="text-end text-primary"><strong>@it.SaldoFaturavelElegivel.ToString("0.####")</strong></td>
+                                <td class="text-end">@it.QuantidadeAprovadaOutras.ToString("0.####")</td>
+                                <td class="text-end">@it.QuantidadeReservadaOutras.ToString("0.####")</td>
+                                <td class="text-end text-primary"><strong>@it.SaldoDisponivel.ToString("0.####")</strong></td>
                                 <td class="text-end">
-                                    <input class="form-control form-control-sm text-end" type="number" step="0.0001" min="0.0001" required
-                                           name="Itens[@i].Quantidade" value="@qtdPadrao.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" />
+                                    <input class="form-control form-control-sm text-end" asp-for="Itens[i].Quantidade" placeholder="0,0000" />
+                                    <span asp-validation-for="Itens[i].Quantidade" class="text-danger small d-block"></span>
                                 </td>
                                 <td class="text-end">
-                                    <input class="form-control form-control-sm text-end" type="number" step="0.0001" min="0" required
-                                           name="Itens[@i].ValorUnitario" value="@it.ValorUnitarioPedido.ToString("0.00##", System.Globalization.CultureInfo.InvariantCulture)" />
+                                    <input class="form-control form-control-sm text-end" asp-for="Itens[i].ValorUnitario" placeholder="0,00" />
+                                    <span asp-validation-for="Itens[i].ValorUnitario" class="text-danger small d-block"></span>
                                 </td>
                             </tr>
                         }
@@ -213,8 +315,18 @@ else
             </div>
         </section>
 
+        <section class="panel mb-3">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" asp-for="RegistrarComDivergencia" id="checkDivergencia" />
+                <label class="form-check-label" for="checkDivergencia">
+                    <strong>Registrar documento com divergência intencional identificada</strong>:
+                    permite submeter a fatura com quantidades ou valores divergentes para diagnóstico e deliberação da autoridade competente. A reserva de saldo ficará limitada ao saldo elegível disponível em tempo real, sem consumir saldo inexistente.
+                </label>
+            </div>
+        </section>
+
         <div class="panel d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Ao registrar, o sistema calculará o confronto trilateral (Match) de preços e quantidades.</span>
+            <span class="text-muted small">Ao registrar, o sistema calculará o confronto trilateral (Match) e reservará as quantidades elegíveis.</span>
             <button class="btn btn-primary" type="submit">Processar e registrar conferência</button>
         </div>
     </form>

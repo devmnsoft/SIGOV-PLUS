@@ -368,7 +368,32 @@ public interface ICotacaoCompraApplicationService
 
 public sealed record FaturaFiltro(string? Busca = null, string? Status = null, Guid? FornecedorId = null, Guid? PedidoId = null, int Pagina = 1, int Tamanho = 20);
 public sealed record FaturaResumo(Guid Id, string Numero, string Serie, string TipoDocumento, Guid FornecedorId, string FornecedorNome, Guid PedidoId, string PedidoNumero, decimal Total, decimal ValorLiquido, string Status, string ResultadoMatch, DateTimeOffset CriadaEm, DateTime? DataEmissao, DateTime? DataVencimento, int ItensCount, long Version);
-public sealed record FaturaItemDetalhe(long Id, long PedidoItemId, string ProdutoNome, string Unidade, decimal QuantidadePedida, decimal QuantidadeAceitaTotal, decimal QuantidadeFaturadaOutras, decimal SaldoFaturavelElegivel, decimal QuantidadeFaturada, decimal PrecoUnitarioPedido, decimal PrecoUnitarioFatura, decimal TotalItem, string StatusItem, string? Diagnostico);
+public sealed record FaturaItemDetalhe(
+    long Id,
+    long PedidoItemId,
+    string ProdutoNome,
+    string Unidade,
+    decimal QuantidadePedida,
+    decimal QuantidadeCancelada,
+    decimal QuantidadeVigente,
+    decimal QuantidadeAceitaTotal,
+    decimal QuantidadeAprovadaOutras,
+    decimal QuantidadeReservadaOutras,
+    decimal SaldoDisponivel,
+    decimal QuantidadeDeclarada,
+    decimal QuantidadeReservada,
+    decimal QuantidadeAprovada,
+    decimal PrecoUnitarioPedido,
+    decimal PrecoUnitarioFatura,
+    decimal TotalItem,
+    string StatusItem,
+    string? Diagnostico)
+{
+    public decimal QuantidadeFaturadaOutras => QuantidadeAprovadaOutras + QuantidadeReservadaOutras;
+    public decimal SaldoFaturavelElegivel => SaldoDisponivel;
+    public decimal QuantidadeFaturada => QuantidadeDeclarada;
+}
+
 public sealed record FaturaEventoDetalhe(long Id, string Tipo, string? Detalhes, Guid UsuarioId, string? Autor, DateTimeOffset OcorridoEm, string? CorrelationId);
 public sealed record FaturaDetalhe(Guid Id, Guid TenantId, string Numero, string Serie, string TipoDocumento, string? ChaveAcesso, Guid FornecedorId, string FornecedorNome, string FornecedorCnpj, Guid PedidoId, string PedidoNumero, decimal Total, decimal ValorItens, decimal ValorDesconto, decimal ValorFrete, decimal ValorSeguro, decimal ValorOutrasDespesas, decimal ValorLiquido, string Status, string ResultadoMatch, DateTime? DataEmissao, DateTime? DataVencimento, string? Observacoes, string? Justificativa, string? DecididoPor, DateTimeOffset? DecididoEm, string? MotivoRejeicao, DateTimeOffset CriadaEm, long Version, IReadOnlyList<FaturaItemDetalhe> Itens, IReadOnlyList<FaturaEventoDetalhe> Historico);
 public sealed record CriarFaturaItemRequest(long PedidoItemId, decimal Quantidade, decimal ValorUnitario);
@@ -376,7 +401,24 @@ public sealed record CriarFaturaRequest(Guid PedidoId, Guid FornecedorId, string
 public sealed record DecidirFaturaRequest(long Version, string Decisao, string? Justificativa, string? IdempotencyKey = null);
 public sealed record FaturaComandoResultado(Guid Id, string Status, string ResultadoMatch, long Version, bool Repetido);
 
-public sealed record FaturaConferenciaPreviaItem(long PedidoItemId, string ProdutoNome, string Unidade, decimal QuantidadePedida, decimal QuantidadeAceitaTotal, decimal QuantidadeFaturadaOutras, decimal SaldoFaturavelElegivel, decimal ValorUnitarioPedido);
+public sealed record FaturaConferenciaPreviaItem(
+    long PedidoItemId,
+    string ProdutoNome,
+    string Unidade,
+    decimal QuantidadePedida,
+    decimal QuantidadeCancelada,
+    decimal QuantidadeVigente,
+    decimal QuantidadeAceitaTotal,
+    decimal QuantidadeAprovadaOutras,
+    decimal QuantidadeReservadaOutras,
+    decimal SaldoDisponivel,
+    decimal ValorUnitarioPedido,
+    string? MotivoSaldoZero = null)
+{
+    public decimal QuantidadeFaturadaOutras => QuantidadeAprovadaOutras + QuantidadeReservadaOutras;
+    public decimal SaldoFaturavelElegivel => SaldoDisponivel;
+}
+
 public sealed record FaturaConferenciaPrevia(Guid PedidoId, string PedidoNumero, Guid FornecedorId, string FornecedorNome, string FornecedorCnpj, decimal TotalPedido, IReadOnlyList<FaturaConferenciaPreviaItem> Itens);
 
 public interface IFaturaCompraRepository

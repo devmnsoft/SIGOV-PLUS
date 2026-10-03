@@ -17,6 +17,13 @@ public sealed class FaturaCompraRepository(NpgsqlConnectionFactory factory) : IF
     private static string Sha256(string valor) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(valor))).ToLowerInvariant();
 
+    private static Task LockIdempotencyAsync(NpgsqlConnection cn, NpgsqlTransaction tx, Guid tenantId, string operacao, string chave, CancellationToken ct) =>
+        cn.ExecuteAsync(new CommandDefinition(
+            "select pg_advisory_xact_lock(hashtextextended(@k, 0))",
+            new { k = $"{tenantId:D}|IDEMPOTENCY|{operacao}|{chave}" },
+            tx,
+            cancellationToken: ct));
+
     private static Task LockPedidoAsync(NpgsqlConnection cn, NpgsqlTransaction tx, Guid tenantId, Guid pedidoId, CancellationToken ct) =>
         cn.ExecuteAsync(new CommandDefinition(
             "select pg_advisory_xact_lock(hashtextextended(@k, 0))",
@@ -63,8 +70,8 @@ select
     f.status as Status,
     coalesce(f.resultado_match, 'EM_CONFERENCIA') as ResultadoMatch,
     f.created_at as CriadaEm,
-    f.data_emissao as DataEmissao,
-    f.data_vencimento as DataVencimento,
+    f.data_emissao::timestamp as DataEmissao,
+    f.data_vencimento::timestamp as DataVencimento,
     (select count(*) from sigov.compras_empresarial_fatura_item fi where fi.fatura_id = f.id and fi.tenant_id = f.tenant_id)::int as ItensCount,
     f.version as Version
 from sigov.compras_empresarial_fatura f
@@ -110,8 +117,8 @@ select
     f.valor_liquido as ValorLiquido,
     f.status as Status,
     coalesce(f.resultado_match, 'EM_CONFERENCIA') as ResultadoMatch,
-    f.data_emissao as DataEmissao,
-    f.data_vencimento as DataVencimento,
+    f.data_emissao::timestamp as DataEmissao,
+    f.data_vencimento::timestamp as DataVencimento,
     f.observacoes as Observacoes,
     f.justificativa as Justificativa,
     coalesce(u.nome, f.decidido_por) as DecididoPor,
@@ -129,13 +136,19 @@ where f.id = @id and f.tenant_id = @t;";
 select
     fi.id as Id,
     fi.pedido_item_id as PedidoItemId,
-    coalesce(ci.descricao, ep.nome, 'Item '||fi.pedido_item_id::text) as ProdutoNome,
-    coalesce(ci.unidade_medida, ep.unidade_medida, 'UN') as Unidade,
+    coalesce(ep.nome, 'Item '||fi.pedido_item_id::text) as ProdutoNome,
+    coalesce(ep.unidade, 'UN') as Unidade,
     pi.quantidade as QuantidadePedida,
-    pi.preco_unitario as PrecoUnitarioPedido,
-    fi.quantidade as QuantidadeFaturada,
+    pi.quantidade_cancelada as QuantidadeCancelada,
+    (pi.quantidade - pi.quantidade_cancelada) as QuantidadeVigente,
+    coalesce(fi.valor_unitario_pedido, pi.valor_unitario) as PrecoUnitarioPedido,
+    fi.quantidade as QuantidadeDeclarada,
+    fi.quantidade_reservada as QuantidadeReservada,
+    fi.quantidade_aprovada as QuantidadeAprovada,
     fi.valor_unitario as PrecoUnitarioFatura,
     fi.valor_total as TotalItem,
+    fi.status_item as StatusItem,
+    fi.diagnostico as Diagnostico,
     coalesce((
         select sum(ri.quantidade_aceita)
         from sigov.compras_empresarial_recebimento_item ri
@@ -145,18 +158,26 @@ select
           and r.status <> 'CANCELADO'
     ), 0) as QuantidadeAceitaTotal,
     coalesce((
-        select sum(ofi.quantidade)
+        select sum(ofi.quantidade_aprovada)
         from sigov.compras_empresarial_fatura_item ofi
         join sigov.compras_empresarial_fatura of on of.id = ofi.fatura_id and of.tenant_id = ofi.tenant_id
         where ofi.tenant_id = fi.tenant_id
           and ofi.pedido_item_id = fi.pedido_item_id
           and of.id <> fi.fatura_id
-          and of.status in ('APROVADA', 'EM_CONFERENCIA', 'CONFORME', 'COM_DIVERGENCIA')
-    ), 0) as QuantidadeFaturadaOutras
+          and of.status = 'APROVADA'
+    ), 0) as QuantidadeAprovadaOutras,
+    coalesce((
+        select sum(ofi.quantidade_reservada)
+        from sigov.compras_empresarial_fatura_item ofi
+        join sigov.compras_empresarial_fatura of on of.id = ofi.fatura_id and of.tenant_id = ofi.tenant_id
+        where ofi.tenant_id = fi.tenant_id
+          and ofi.pedido_item_id = fi.pedido_item_id
+          and of.id <> fi.fatura_id
+          and of.status in ('EM_CONFERENCIA', 'COM_DIVERGENCIA', 'CONFORME')
+    ), 0) as QuantidadeReservadaOutras
 from sigov.compras_empresarial_fatura_item fi
 join sigov.compras_empresarial_pedido_item pi on pi.id = fi.pedido_item_id and pi.tenant_id = fi.tenant_id
-left join sigov.catalogo_item ci on ci.id = pi.catalogo_item_id
-left join sigov.estoque_produto ep on ep.id = pi.produto_id
+left join sigov.estoque_produto ep on ep.id = pi.produto_id and ep.tenant_id = pi.tenant_id
 where fi.fatura_id = @id and fi.tenant_id = @t
 order by fi.id asc;";
 
@@ -185,31 +206,40 @@ order by fe.ocorrido_em desc, fe.id desc;";
         var itens = new List<FaturaItemDetalhe>(rawItens.Count);
         foreach (var r in rawItens)
         {
-            var saldoElegivel = Math.Max(0m, Math.Min(r.QuantidadePedida, r.QuantidadeAceitaTotal) - r.QuantidadeFaturadaOutras);
-            var difQtd = r.QuantidadeFaturada > saldoElegivel;
-            var difPreco = r.PrecoUnitarioFatura != r.PrecoUnitarioPedido;
+            var saldoElegivel = Math.Max(0m, Math.Min(r.QuantidadeVigente, r.QuantidadeAceitaTotal) - (r.QuantidadeAprovadaOutras + r.QuantidadeReservadaOutras));
+            var difQtd = r.QuantidadeDeclarada > saldoElegivel;
+            var difPreco = Math.Round(r.PrecoUnitarioFatura, 4) != Math.Round(r.PrecoUnitarioPedido, 4);
 
             string statusItem;
             string diagnostico;
-            if (difQtd && difPreco)
+
+            if (!string.IsNullOrWhiteSpace(r.StatusItem) && r.StatusItem is not "EM_CONFERENCIA")
             {
-                statusItem = "DIVERGENTE_MISTO";
-                diagnostico = $"Qtd faturada ({r.QuantidadeFaturada:0.####}) excede saldo elegível ({saldoElegivel:0.####}) e preço (R$ {r.PrecoUnitarioFatura:0.00}) diverge do pedido (R$ {r.PrecoUnitarioPedido:0.00}).";
-            }
-            else if (difQtd)
-            {
-                statusItem = "DIVERGENTE_QUANTIDADE";
-                diagnostico = $"Qtd faturada ({r.QuantidadeFaturada:0.####}) excede saldo elegível ({saldoElegivel:0.####}).";
-            }
-            else if (difPreco)
-            {
-                statusItem = "DIVERGENTE_VALOR";
-                diagnostico = $"Preço faturado (R$ {r.PrecoUnitarioFatura:0.00}) diverge do preço homologado (R$ {r.PrecoUnitarioPedido:0.00}).";
+                statusItem = r.StatusItem;
+                diagnostico = r.Diagnostico ?? string.Empty;
             }
             else
             {
-                statusItem = "CONFORME";
-                diagnostico = "Item em perfeita conformidade com pedido e recebimentos aceitos.";
+                if (difQtd && difPreco)
+                {
+                    statusItem = "DIVERGENTE_MISTO";
+                    diagnostico = $"Qtd faturada ({r.QuantidadeDeclarada:0.####}) excede saldo disponível ({saldoElegivel:0.####}) e preço (R$ {r.PrecoUnitarioFatura:0.00}) diverge do pedido (R$ {r.PrecoUnitarioPedido:0.00}).";
+                }
+                else if (difQtd)
+                {
+                    statusItem = "DIVERGENTE_QUANTIDADE";
+                    diagnostico = $"Qtd faturada ({r.QuantidadeDeclarada:0.####}) excede saldo disponível ({saldoElegivel:0.####}).";
+                }
+                else if (difPreco)
+                {
+                    statusItem = "DIVERGENTE_VALOR";
+                    diagnostico = $"Preço faturado (R$ {r.PrecoUnitarioFatura:0.00}) diverge do homologado no pedido (R$ {r.PrecoUnitarioPedido:0.00}).";
+                }
+                else
+                {
+                    statusItem = "CONFORME";
+                    diagnostico = "Item em conformidade trilateral (pedido x recebimento físico x fatura).";
+                }
             }
 
             itens.Add(new FaturaItemDetalhe(
@@ -218,10 +248,15 @@ order by fe.ocorrido_em desc, fe.id desc;";
                 r.ProdutoNome,
                 r.Unidade,
                 r.QuantidadePedida,
+                r.QuantidadeCancelada,
+                r.QuantidadeVigente,
                 r.QuantidadeAceitaTotal,
-                r.QuantidadeFaturadaOutras,
+                r.QuantidadeAprovadaOutras,
+                r.QuantidadeReservadaOutras,
                 saldoElegivel,
-                r.QuantidadeFaturada,
+                r.QuantidadeDeclarada,
+                r.QuantidadeReservada,
+                r.QuantidadeAprovada,
                 r.PrecoUnitarioPedido,
                 r.PrecoUnitarioFatura,
                 r.TotalItem,
@@ -281,7 +316,7 @@ select
     p.fornecedor_id as FornecedorId,
     fn.razao_social as FornecedorNome,
     fn.documento as FornecedorCnpj,
-    p.total as TotalPedido
+    p.valor_total as TotalPedido
 from sigov.compras_empresarial_pedido p
 join sigov.compras_empresarial_fornecedor fn on fn.id = p.fornecedor_id and fn.tenant_id = p.tenant_id
 where p.id = @pedidoId and p.tenant_id = @t and not p.is_deleted;";
@@ -289,10 +324,12 @@ where p.id = @pedidoId and p.tenant_id = @t and not p.is_deleted;";
         const string sqlItens = @"
 select
     pi.id as PedidoItemId,
-    coalesce(ci.descricao, ep.nome, 'Item '||pi.id::text) as ProdutoNome,
-    coalesce(ci.unidade_medida, ep.unidade_medida, 'UN') as Unidade,
+    coalesce(ep.nome, 'Item '||pi.id::text) as ProdutoNome,
+    coalesce(ep.unidade, 'UN') as Unidade,
     pi.quantidade as QuantidadePedida,
-    pi.preco_unitario as ValorUnitarioPedido,
+    pi.quantidade_cancelada as QuantidadeCancelada,
+    (pi.quantidade - pi.quantidade_cancelada) as QuantidadeVigente,
+    pi.valor_unitario as ValorUnitarioPedido,
     coalesce((
         select sum(ri.quantidade_aceita)
         from sigov.compras_empresarial_recebimento_item ri
@@ -302,16 +339,23 @@ select
           and r.status <> 'CANCELADO'
     ), 0) as QuantidadeAceitaTotal,
     coalesce((
-        select sum(fi.quantidade)
+        select sum(fi.quantidade_aprovada)
         from sigov.compras_empresarial_fatura_item fi
         join sigov.compras_empresarial_fatura f on f.id = fi.fatura_id and f.tenant_id = fi.tenant_id
         where fi.tenant_id = pi.tenant_id
           and fi.pedido_item_id = pi.id
-          and f.status in ('APROVADA', 'EM_CONFERENCIA', 'CONFORME', 'COM_DIVERGENCIA')
-    ), 0) as QuantidadeFaturadaOutras
+          and f.status = 'APROVADA'
+    ), 0) as QuantidadeAprovadaOutras,
+    coalesce((
+        select sum(fi.quantidade_reservada)
+        from sigov.compras_empresarial_fatura_item fi
+        join sigov.compras_empresarial_fatura f on f.id = fi.fatura_id and f.tenant_id = fi.tenant_id
+        where fi.tenant_id = pi.tenant_id
+          and fi.pedido_item_id = pi.id
+          and f.status in ('EM_CONFERENCIA', 'COM_DIVERGENCIA', 'CONFORME')
+    ), 0) as QuantidadeReservadaOutras
 from sigov.compras_empresarial_pedido_item pi
-left join sigov.catalogo_item ci on ci.id = pi.catalogo_item_id
-left join sigov.estoque_produto ep on ep.id = pi.produto_id
+left join sigov.estoque_produto ep on ep.id = pi.produto_id and ep.tenant_id = pi.tenant_id
 where pi.pedido_id = @pedidoId and pi.tenant_id = @t
 order by pi.id asc;";
 
@@ -324,16 +368,33 @@ order by pi.id asc;";
         var raw = (await cn.QueryAsync<PreviaItemRawDto>(new CommandDefinition(sqlItens, prms, cancellationToken: ct))).AsList();
         var itens = raw.Select(i =>
         {
-            var saldoElegivel = Math.Max(0m, Math.Min(i.QuantidadePedida, i.QuantidadeAceitaTotal) - i.QuantidadeFaturadaOutras);
+            var saldoElegivel = Math.Max(0m, Math.Min(i.QuantidadeVigente, i.QuantidadeAceitaTotal) - (i.QuantidadeAprovadaOutras + i.QuantidadeReservadaOutras));
+            string? motivoSaldoZero = null;
+            if (saldoElegivel == 0m)
+            {
+                if (i.QuantidadeVigente == 0m)
+                    motivoSaldoZero = "Item com saldo totalmente cancelado no pedido.";
+                else if (i.QuantidadeAceitaTotal == 0m)
+                    motivoSaldoZero = "Nenhum recebimento físico aceito no almoxarifado.";
+                else if (i.QuantidadeAprovadaOutras + i.QuantidadeReservadaOutras >= Math.Min(i.QuantidadeVigente, i.QuantidadeAceitaTotal))
+                    motivoSaldoZero = $"Saldo já comprometido por outros documentos ({i.QuantidadeAprovadaOutras:0.####} aprovados, {i.QuantidadeReservadaOutras:0.####} reservados).";
+                else
+                    motivoSaldoZero = "Item sem saldo faturável disponível.";
+            }
+
             return new FaturaConferenciaPreviaItem(
                 i.PedidoItemId,
                 i.ProdutoNome,
                 i.Unidade,
                 i.QuantidadePedida,
+                i.QuantidadeCancelada,
+                i.QuantidadeVigente,
                 i.QuantidadeAceitaTotal,
-                i.QuantidadeFaturadaOutras,
+                i.QuantidadeAprovadaOutras,
+                i.QuantidadeReservadaOutras,
                 saldoElegivel,
-                i.ValorUnitarioPedido);
+                i.ValorUnitarioPedido,
+                motivoSaldoZero);
         }).ToList();
 
         return new FaturaConferenciaPrevia(p.PedidoId, p.PedidoNumero, p.FornecedorId, p.FornecedorNome, p.FornecedorCnpj, p.TotalPedido, itens);
@@ -347,7 +408,10 @@ order by pi.id asc;";
 
         var requestHash = Sha256(JsonSerializer.Serialize(r, JsonOpts));
 
-        // 1. Idempotência
+        // 1. Lock de idempotência e serialização estrita
+        await LockIdempotencyAsync(cn, tx, x.TenantId, "CRIAR_FATURA", key, ct);
+
+        // 2. Re-consulta de idempotência pós-lock
         var idempotencia = await cn.QuerySingleOrDefaultAsync<IdempotenciaDto>(new CommandDefinition(
             @"select fatura_id as FaturaId, resultado as ResultadoJson, request_hash as RequestHash
               from sigov.compras_empresarial_fatura_idempotencia
@@ -359,7 +423,7 @@ order by pi.id asc;";
         if (idempotencia is not null)
         {
             if (idempotencia.RequestHash != requestHash)
-                throw new InvalidOperationException("A chave de idempotência já foi utilizada com uma carga de dados diferente.");
+                throw new ComprasConcurrencyException("A chave de idempotência já foi utilizada com uma carga de dados diferente.");
 
             if (!string.IsNullOrWhiteSpace(idempotencia.ResultadoJson))
             {
@@ -368,12 +432,13 @@ order by pi.id asc;";
             }
         }
 
-        // 2. Lock no pedido
+        // 3. Lock no pedido
         await LockPedidoAsync(cn, tx, x.TenantId, r.PedidoId, ct);
 
-        // 3. Validação do pedido e fornecedor
-        var pedido = await cn.QuerySingleOrDefaultAsync<(Guid FornecedorId, string Status)>(new CommandDefinition(
-            @"select fornecedor_id, status from sigov.compras_empresarial_pedido
+        // 4. Validação do pedido e fornecedor
+        var pedido = await cn.QuerySingleOrDefaultAsync<(Guid FornecedorId, string Status, decimal FreteTotal)>(new CommandDefinition(
+            @"select fornecedor_id as FornecedorId, status as Status, frete_total as FreteTotal
+              from sigov.compras_empresarial_pedido
               where id = @id and tenant_id = @t and not is_deleted",
             new { id = r.PedidoId, t = x.TenantId },
             tx,
@@ -385,10 +450,10 @@ order by pi.id asc;";
         if (pedido.FornecedorId != r.FornecedorId)
             throw new InvalidOperationException("O fornecedor informado diverge do fornecedor homologado no pedido.");
 
-        if (pedido.Status is "CANCELADO" or "RASCUNHO")
+        if (pedido.Status is "CANCELADO" or "RASCUNHO" or "ENCERRADO")
             throw new InvalidOperationException($"Não é permitido registrar faturas para pedidos com status '{pedido.Status}'.");
 
-        // 4. Unicidade de número/série e chave de acesso
+        // 5. Unicidade de número/série e chave de acesso
         var duplicada = await cn.ExecuteScalarAsync<int>(new CommandDefinition(
             @"select count(*) from sigov.compras_empresarial_fatura
               where tenant_id = @t and fornecedor_id = @forn and numero = @num and serie = @ser",
@@ -412,12 +477,15 @@ order by pi.id asc;";
                 throw new InvalidOperationException($"A chave de acesso '{r.ChaveAcesso}' já está cadastrada para outra fatura neste órgão.");
         }
 
-        // 5. Carregar itens do pedido e saldos para conferência trilateral
+        // 6. Carregar itens do pedido e saldos para conferência trilateral
         const string sqlItensPedido = @"
 select
     pi.id as PedidoItemId,
+    coalesce(ep.nome, 'Item '||pi.id::text) as ProdutoNome,
     pi.quantidade as QuantidadePedida,
-    pi.preco_unitario as PrecoUnitarioPedido,
+    pi.quantidade_cancelada as QuantidadeCancelada,
+    (pi.quantidade - pi.quantidade_cancelada) as QuantidadeVigente,
+    pi.valor_unitario as PrecoUnitarioPedido,
     coalesce((
         select sum(ri.quantidade_aceita)
         from sigov.compras_empresarial_recebimento_item ri
@@ -427,14 +495,23 @@ select
           and r.status <> 'CANCELADO'
     ), 0) as QuantidadeAceitaTotal,
     coalesce((
-        select sum(fi.quantidade)
+        select sum(fi.quantidade_aprovada)
         from sigov.compras_empresarial_fatura_item fi
         join sigov.compras_empresarial_fatura f on f.id = fi.fatura_id and f.tenant_id = fi.tenant_id
         where fi.tenant_id = pi.tenant_id
           and fi.pedido_item_id = pi.id
-          and f.status in ('APROVADA', 'EM_CONFERENCIA', 'CONFORME', 'COM_DIVERGENCIA')
-    ), 0) as QuantidadeFaturadaOutras
+          and f.status = 'APROVADA'
+    ), 0) as QuantidadeAprovadaOutras,
+    coalesce((
+        select sum(fi.quantidade_reservada)
+        from sigov.compras_empresarial_fatura_item fi
+        join sigov.compras_empresarial_fatura f on f.id = fi.fatura_id and f.tenant_id = fi.tenant_id
+        where fi.tenant_id = pi.tenant_id
+          and fi.pedido_item_id = pi.id
+          and f.status in ('EM_CONFERENCIA', 'COM_DIVERGENCIA', 'CONFORME')
+    ), 0) as QuantidadeReservadaOutras
 from sigov.compras_empresarial_pedido_item pi
+left join sigov.estoque_produto ep on ep.id = pi.produto_id and ep.tenant_id = pi.tenant_id
 where pi.pedido_id = @pedidoId and pi.tenant_id = @t;";
 
         var itensDb = (await cn.QueryAsync<ConferenciaItemDbDto>(new CommandDefinition(
@@ -454,15 +531,43 @@ where pi.pedido_id = @pedidoId and pi.tenant_id = @t;";
             if (!itensDb.TryGetValue(itemReq.PedidoItemId, out var piDb))
                 throw new InvalidOperationException($"O item de pedido ID {itemReq.PedidoItemId} não pertence ao pedido {r.PedidoId}.");
 
-            var saldoElegivel = Math.Max(0m, Math.Min(piDb.QuantidadePedida, piDb.QuantidadeAceitaTotal) - piDb.QuantidadeFaturadaOutras);
+            var saldoElegivel = Math.Max(0m, Math.Min(piDb.QuantidadeVigente, piDb.QuantidadeAceitaTotal) - (piDb.QuantidadeAprovadaOutras + piDb.QuantidadeReservadaOutras));
+            var qtdDeclarada = Math.Round(itemReq.Quantidade, 4, MidpointRounding.AwayFromZero);
+            var valorUnitario = Math.Round(itemReq.ValorUnitario, 4, MidpointRounding.AwayFromZero);
 
-            if (itemReq.Quantidade > saldoElegivel)
-                hasDivergenciaQtd = true;
+            // Reserva de saldo: reserva no máximo o saldo elegível disponível! Não consome saldo inexistente!
+            var qtdReservada = Math.Min(qtdDeclarada, saldoElegivel);
 
-            if (itemReq.ValorUnitario != piDb.PrecoUnitarioPedido)
-                hasDivergenciaValor = true;
+            var difQtd = qtdDeclarada > saldoElegivel;
+            var difPreco = Math.Round(valorUnitario, 4) != Math.Round(piDb.PrecoUnitarioPedido, 4);
 
-            var itemTotal = Math.Round(itemReq.Quantidade * itemReq.ValorUnitario, 2, MidpointRounding.AwayFromZero);
+            if (difQtd) hasDivergenciaQtd = true;
+            if (difPreco) hasDivergenciaValor = true;
+
+            string statusItem;
+            string diagnostico;
+            if (difQtd && difPreco)
+            {
+                statusItem = "DIVERGENTE_MISTO";
+                diagnostico = $"Qtd faturada ({qtdDeclarada:0.####}) excede saldo disponível ({saldoElegivel:0.####}) e preço (R$ {valorUnitario:0.00}) diverge do pedido (R$ {piDb.PrecoUnitarioPedido:0.00}). Reservado: {qtdReservada:0.####}.";
+            }
+            else if (difQtd)
+            {
+                statusItem = "DIVERGENTE_QUANTIDADE";
+                diagnostico = $"Qtd faturada ({qtdDeclarada:0.####}) excede saldo disponível ({saldoElegivel:0.####}). Reservado: {qtdReservada:0.####}.";
+            }
+            else if (difPreco)
+            {
+                statusItem = "DIVERGENTE_VALOR";
+                diagnostico = $"Preço faturado (R$ {valorUnitario:0.00}) diverge do homologado no pedido (R$ {piDb.PrecoUnitarioPedido:0.00}).";
+            }
+            else
+            {
+                statusItem = "CONFORME";
+                diagnostico = "Item em conformidade trilateral (pedido x recebimento físico x fatura).";
+            }
+
+            var itemTotal = Math.Round(qtdDeclarada * valorUnitario, 2, MidpointRounding.AwayFromZero);
             valorItens += itemTotal;
 
             faturaItensInsert.Add(new
@@ -470,10 +575,21 @@ where pi.pedido_id = @pedidoId and pi.tenant_id = @t;";
                 tenant_id = x.TenantId,
                 fatura_id = faturaId,
                 pedido_item_id = itemReq.PedidoItemId,
-                quantidade = itemReq.Quantidade,
-                valor_unitario = itemReq.ValorUnitario,
-                valor_total = itemTotal
+                quantidade = qtdDeclarada,
+                quantidade_reservada = qtdReservada,
+                quantidade_aprovada = 0m,
+                valor_unitario = valorUnitario,
+                valor_unitario_pedido = piDb.PrecoUnitarioPedido,
+                valor_total = itemTotal,
+                status_item = statusItem,
+                diagnostico = diagnostico
             });
+        }
+
+        // Validação de despesas acessórias contra o pedido
+        if (r.ValorFrete > 0m && pedido.FreteTotal == 0m)
+        {
+            hasDivergenciaValor = true;
         }
 
         string resultadoMatch;
@@ -492,7 +608,7 @@ where pi.pedido_id = @pedidoId and pi.tenant_id = @t;";
         if (valorLiquido < 0m)
             throw new ArgumentException("O valor líquido da fatura não pode ser negativo após descontos e despesas.");
 
-        // 6. Inserir fatura
+        // Inserir fatura
         const string sqlInsertFatura = @"
 insert into sigov.compras_empresarial_fatura (
     id, tenant_id, pedido_id, fornecedor_id, numero, serie,
@@ -508,43 +624,52 @@ insert into sigov.compras_empresarial_fatura (
     @observacoes, @created_by, @created_by, @correlation_id, 1
 );";
 
-        await cn.ExecuteAsync(new CommandDefinition(sqlInsertFatura, new
+        try
         {
-            id = faturaId,
-            tenant_id = x.TenantId,
-            pedido_id = r.PedidoId,
-            fornecedor_id = r.FornecedorId,
-            numero = r.Numero,
-            serie = r.Serie,
-            total = valorItens,
-            resultado_match = resultadoMatch,
-            status,
-            tipo_documento = r.TipoDocumento,
-            chave_acesso = r.ChaveAcesso,
-            data_emissao = r.DataEmissao,
-            data_vencimento = r.DataVencimento,
-            valor_itens = valorItens,
-            valor_desconto = r.ValorDesconto,
-            valor_frete = r.ValorFrete,
-            valor_seguro = r.ValorSeguro,
-            valor_outras_despesas = r.ValorOutrasDespesas,
-            valor_liquido = valorLiquido,
-            observacoes = r.Observacoes,
-            created_by = x.UsuarioId.ToString(),
-            correlation_id = x.CorrelationId
-        }, tx, cancellationToken: ct));
+            await cn.ExecuteAsync(new CommandDefinition(sqlInsertFatura, new
+            {
+                id = faturaId,
+                tenant_id = x.TenantId,
+                pedido_id = r.PedidoId,
+                fornecedor_id = r.FornecedorId,
+                numero = r.Numero,
+                serie = r.Serie,
+                total = valorItens,
+                resultado_match = resultadoMatch,
+                status,
+                tipo_documento = r.TipoDocumento,
+                chave_acesso = r.ChaveAcesso,
+                data_emissao = r.DataEmissao,
+                data_vencimento = r.DataVencimento,
+                valor_itens = valorItens,
+                valor_desconto = r.ValorDesconto,
+                valor_frete = r.ValorFrete,
+                valor_seguro = r.ValorSeguro,
+                valor_outras_despesas = r.ValorOutrasDespesas,
+                valor_liquido = valorLiquido,
+                observacoes = r.Observacoes,
+                created_by = x.UsuarioId.ToString(),
+                correlation_id = x.CorrelationId
+            }, tx, cancellationToken: ct));
+        }
+        catch (PostgresException pgEx) when (pgEx.SqlState == "23505")
+        {
+            throw new InvalidOperationException("Já existe uma fatura cadastrada com este número e série para este fornecedor ou com esta chave de acesso.");
+        }
 
-        // 7. Inserir itens
+        // Inserir itens
         const string sqlInsertItem = @"
 insert into sigov.compras_empresarial_fatura_item (
-    tenant_id, fatura_id, pedido_item_id, quantidade, valor_unitario, valor_total
+    tenant_id, fatura_id, pedido_item_id, quantidade, quantidade_reservada, quantidade_aprovada,
+    valor_unitario, valor_unitario_pedido, valor_total, status_item, diagnostico
 ) values (
-    @tenant_id, @fatura_id, @pedido_item_id, @quantidade, @valor_unitario, @valor_total
+    @tenant_id, @fatura_id, @pedido_item_id, @quantidade, @quantidade_reservada, @quantidade_aprovada,
+    @valor_unitario, @valor_unitario_pedido, @valor_total, @status_item, @diagnostico
 );";
 
         await cn.ExecuteAsync(new CommandDefinition(sqlInsertItem, faturaItensInsert, tx, cancellationToken: ct));
 
-        // 8. Inserir evento
+        // Inserir evento
         var eventoDetalhes = JsonSerializer.Serialize(new
         {
             resultado_match = resultadoMatch,
@@ -570,7 +695,7 @@ insert into sigov.compras_empresarial_fatura_evento (
             correlation_id = x.CorrelationId
         }, tx, cancellationToken: ct));
 
-        // 9. Registrar idempotência
+        // Inserir idempotência
         var resultado = new FaturaComandoResultado(faturaId, status, resultadoMatch, 1, false);
         var resultadoJson = JsonSerializer.Serialize(resultado, JsonOpts);
 
@@ -603,7 +728,10 @@ insert into sigov.compras_empresarial_fatura_idempotencia (
         var chave = r.IdempotencyKey ?? $"DECISAO_{id}_{r.Version}_{r.Decisao}";
         var requestHash = Sha256(JsonSerializer.Serialize(r, JsonOpts));
 
-        // 1. Idempotência
+        // 1. Lock de idempotência e serialização
+        await LockIdempotencyAsync(cn, tx, x.TenantId, $"DECIDIR_FATURA_{id}", chave, ct);
+
+        // 2. Re-consulta de idempotência pós-lock
         var idempotencia = await cn.QuerySingleOrDefaultAsync<IdempotenciaDto>(new CommandDefinition(
             @"select fatura_id as FaturaId, resultado as ResultadoJson, request_hash as RequestHash
               from sigov.compras_empresarial_fatura_idempotencia
@@ -615,7 +743,7 @@ insert into sigov.compras_empresarial_fatura_idempotencia (
         if (idempotencia is not null)
         {
             if (idempotencia.RequestHash != requestHash)
-                throw new InvalidOperationException("A chave de idempotência já foi utilizada com uma decisão diferente.");
+                throw new ComprasConcurrencyException("A chave de idempotência já foi utilizada com uma decisão diferente.");
 
             if (!string.IsNullOrWhiteSpace(idempotencia.ResultadoJson))
             {
@@ -624,10 +752,9 @@ insert into sigov.compras_empresarial_fatura_idempotencia (
             }
         }
 
-        // 2. Lock na fatura
+        // 3. Ordem de locks consistente: primeiro Fatura, depois Pedido
         await LockFaturaAsync(cn, tx, x.TenantId, id, ct);
 
-        // 3. Obter dados da fatura e checar concorrência
         var fatura = await cn.QuerySingleOrDefaultAsync<FaturaDecisaoDto>(new CommandDefinition(
             @"select id, pedido_id as PedidoId, status, version, resultado_match as ResultadoMatch
               from sigov.compras_empresarial_fatura
@@ -645,20 +772,25 @@ insert into sigov.compras_empresarial_fatura_idempotencia (
         if (fatura.Status is "APROVADA" or "REJEITADA" or "CANCELADA")
             throw new InvalidOperationException($"A fatura já se encontra na situação '{fatura.Status}' e não permite novas decisões.");
 
+        await LockPedidoAsync(cn, tx, x.TenantId, fatura.PedidoId, ct);
+
         string novoStatus;
         string novoMatch = fatura.ResultadoMatch;
         string tipoEvento;
 
         if (r.Decisao == "ACEITAR")
         {
-            // Validação de saldo concorrente antes de aprovar
-            await LockPedidoAsync(cn, tx, x.TenantId, fatura.PedidoId, ct);
-
-            const string sqlValidaSaldos = @"
+            // Recálculo e validação estrita de saldos e conformidade dentro da transação
+            const string sqlValidaItens = @"
 select
     fi.pedido_item_id as PedidoItemId,
-    fi.quantidade as QuantidadeFaturada,
+    coalesce(ep.nome, 'Item '||fi.pedido_item_id::text) as ProdutoNome,
+    fi.quantidade as QuantidadeDeclarada,
+    fi.valor_unitario as PrecoUnitarioFatura,
+    coalesce(fi.valor_unitario_pedido, pi.valor_unitario) as PrecoUnitarioPedido,
     pi.quantidade as QuantidadePedida,
+    pi.quantidade_cancelada as QuantidadeCancelada,
+    (pi.quantidade - pi.quantidade_cancelada) as QuantidadeVigente,
     coalesce((
         select sum(ri.quantidade_aceita)
         from sigov.compras_empresarial_recebimento_item ri
@@ -668,37 +800,71 @@ select
           and r.status <> 'CANCELADO'
     ), 0) as QuantidadeAceitaTotal,
     coalesce((
-        select sum(ofi.quantidade)
+        select sum(ofi.quantidade_aprovada)
         from sigov.compras_empresarial_fatura_item ofi
         join sigov.compras_empresarial_fatura of on of.id = ofi.fatura_id and of.tenant_id = ofi.tenant_id
         where ofi.tenant_id = fi.tenant_id
           and ofi.pedido_item_id = fi.pedido_item_id
           and of.id <> fi.fatura_id
-          and of.status in ('APROVADA', 'EM_CONFERENCIA', 'CONFORME', 'COM_DIVERGENCIA')
-    ), 0) as QuantidadeFaturadaOutras
+          and of.status = 'APROVADA'
+    ), 0) as QuantidadeAprovadaOutras,
+    coalesce((
+        select sum(ofi.quantidade_reservada)
+        from sigov.compras_empresarial_fatura_item ofi
+        join sigov.compras_empresarial_fatura of on of.id = ofi.fatura_id and of.tenant_id = ofi.tenant_id
+        where ofi.tenant_id = fi.tenant_id
+          and ofi.pedido_item_id = fi.pedido_item_id
+          and of.id <> fi.fatura_id
+          and of.status in ('EM_CONFERENCIA', 'COM_DIVERGENCIA', 'CONFORME')
+    ), 0) as QuantidadeReservadaOutras
 from sigov.compras_empresarial_fatura_item fi
 join sigov.compras_empresarial_pedido_item pi on pi.id = fi.pedido_item_id and pi.tenant_id = fi.tenant_id
+left join sigov.estoque_produto ep on ep.id = pi.produto_id and ep.tenant_id = pi.tenant_id
 where fi.fatura_id = @faturaId and fi.tenant_id = @t;";
 
-            var itensConferencia = (await cn.QueryAsync<ConferenciaValidacaoDto>(new CommandDefinition(
-                sqlValidaSaldos,
+            var itensConferencia = (await cn.QueryAsync<ConferenciaValidacaoDbDto>(new CommandDefinition(
+                sqlValidaItens,
                 new { faturaId = id, t = x.TenantId },
                 tx,
                 cancellationToken: ct))).AsList();
 
             foreach (var it in itensConferencia)
             {
-                var saldoElegivel = Math.Max(0m, Math.Min(it.QuantidadePedida, it.QuantidadeAceitaTotal) - it.QuantidadeFaturadaOutras);
-                if (it.QuantidadeFaturada > saldoElegivel)
+                var saldoElegivel = Math.Max(0m, Math.Min(it.QuantidadeVigente, it.QuantidadeAceitaTotal) - (it.QuantidadeAprovadaOutras + it.QuantidadeReservadaOutras));
+                if (it.QuantidadeDeclarada > saldoElegivel)
                 {
                     throw new InvalidOperationException(
-                        $"Não é possível aprovar a fatura: o item {it.PedidoItemId} possui quantidade faturada ({it.QuantidadeFaturada:0.####}) superior ao saldo elegível disponível ({saldoElegivel:0.####}) decorrente de recebimentos aceitos.");
+                        $"Não é possível aprovar a fatura: o item '{it.ProdutoNome}' possui quantidade faturada ({it.QuantidadeDeclarada:0.####}) superior ao saldo elegível disponível ({saldoElegivel:0.####}) decorrente de recebimentos aceitos.");
                 }
+
+                if (Math.Round(it.PrecoUnitarioFatura, 4) != Math.Round(it.PrecoUnitarioPedido, 4))
+                {
+                    throw new InvalidOperationException(
+                        $"Não é possível aprovar a fatura com divergência de preço: o item '{it.ProdutoNome}' possui preço faturado (R$ {it.PrecoUnitarioFatura:0.00}) divergente do homologado no pedido (R$ {it.PrecoUnitarioPedido:0.00}).");
+                }
+            }
+
+            // Não aprovar se persistir divergência financeira
+            if (fatura.ResultadoMatch is "DIVERGENCIA_VALOR" or "DIVERGENCIA_MISTA")
+            {
+                throw new InvalidOperationException(
+                    "Não é possível aprovar a fatura enquanto persistirem divergências financeiras. A aprovação exige conformidade demonstrada (MATCH_TOTAL).");
             }
 
             novoStatus = "APROVADA";
             novoMatch = "MATCH_TOTAL";
             tipoEvento = "FATURA_APROVADA";
+
+            // Transfere quantidade reservada para aprovada
+            const string sqlAtualizarItensAprovados = @"
+update sigov.compras_empresarial_fatura_item set
+    quantidade_aprovada = quantidade,
+    quantidade_reservada = 0,
+    status_item = 'APROVADA',
+    diagnostico = 'Aprovado em conformidade trilateral (pedido x recebimento físico x fatura).'
+where fatura_id = @id and tenant_id = @t;";
+
+            await cn.ExecuteAsync(new CommandDefinition(sqlAtualizarItensAprovados, new { id, t = x.TenantId }, tx, cancellationToken: ct));
 
             const string sqlAceitar = @"
 update sigov.compras_empresarial_fatura set
@@ -712,7 +878,7 @@ update sigov.compras_empresarial_fatura set
     updated_by = @decididoPor
 where id = @id and tenant_id = @t and version = @version;";
 
-            await cn.ExecuteAsync(new CommandDefinition(sqlAceitar, new
+            var affected = await cn.ExecuteAsync(new CommandDefinition(sqlAceitar, new
             {
                 id,
                 t = x.TenantId,
@@ -722,11 +888,25 @@ where id = @id and tenant_id = @t and version = @version;";
                 decididoPor = x.UsuarioId.ToString(),
                 justificativa = r.Justificativa
             }, tx, cancellationToken: ct));
+
+            if (affected == 0)
+                throw new ComprasConcurrencyException("A fatura foi modificada concorrentemente.");
         }
         else if (r.Decisao == "REJEITAR")
         {
             novoStatus = "REJEITADA";
             tipoEvento = "FATURA_REJEITADA";
+
+            // Liberação da reserva correspondente, uma única vez
+            const string sqlLiberarReservaRejeicao = @"
+update sigov.compras_empresarial_fatura_item set
+    quantidade_reservada = 0,
+    quantidade_aprovada = 0,
+    status_item = 'REJEITADA',
+    diagnostico = coalesce(diagnostico, '') || ' [Reserva de saldo liberada por rejeição formal da fatura]'
+where fatura_id = @id and tenant_id = @t;";
+
+            await cn.ExecuteAsync(new CommandDefinition(sqlLiberarReservaRejeicao, new { id, t = x.TenantId }, tx, cancellationToken: ct));
 
             const string sqlRejeitar = @"
 update sigov.compras_empresarial_fatura set
@@ -739,7 +919,7 @@ update sigov.compras_empresarial_fatura set
     updated_by = @decididoPor
 where id = @id and tenant_id = @t and version = @version;";
 
-            await cn.ExecuteAsync(new CommandDefinition(sqlRejeitar, new
+            var affected = await cn.ExecuteAsync(new CommandDefinition(sqlRejeitar, new
             {
                 id,
                 t = x.TenantId,
@@ -748,11 +928,25 @@ where id = @id and tenant_id = @t and version = @version;";
                 decididoPor = x.UsuarioId.ToString(),
                 motivo = r.Justificativa
             }, tx, cancellationToken: ct));
+
+            if (affected == 0)
+                throw new ComprasConcurrencyException("A fatura foi modificada concorrentemente.");
         }
         else
         {
             novoStatus = "CANCELADA";
             tipoEvento = "FATURA_CANCELADA";
+
+            // Liberação da reserva correspondente, uma única vez
+            const string sqlLiberarReservaCancelamento = @"
+update sigov.compras_empresarial_fatura_item set
+    quantidade_reservada = 0,
+    quantidade_aprovada = 0,
+    status_item = 'CANCELADA',
+    diagnostico = coalesce(diagnostico, '') || ' [Reserva de saldo liberada por cancelamento do documento]'
+where fatura_id = @id and tenant_id = @t;";
+
+            await cn.ExecuteAsync(new CommandDefinition(sqlLiberarReservaCancelamento, new { id, t = x.TenantId }, tx, cancellationToken: ct));
 
             const string sqlCancelar = @"
 update sigov.compras_empresarial_fatura set
@@ -765,7 +959,7 @@ update sigov.compras_empresarial_fatura set
     updated_by = @decididoPor
 where id = @id and tenant_id = @t and version = @version;";
 
-            await cn.ExecuteAsync(new CommandDefinition(sqlCancelar, new
+            var affected = await cn.ExecuteAsync(new CommandDefinition(sqlCancelar, new
             {
                 id,
                 t = x.TenantId,
@@ -774,9 +968,12 @@ where id = @id and tenant_id = @t and version = @version;";
                 decididoPor = x.UsuarioId.ToString(),
                 motivo = r.Justificativa
             }, tx, cancellationToken: ct));
+
+            if (affected == 0)
+                throw new ComprasConcurrencyException("A fatura foi modificada concorrentemente.");
         }
 
-        // 4. Inserir evento
+        // Inserir evento
         var eventoDetalhes = JsonSerializer.Serialize(new
         {
             decisao = r.Decisao,
@@ -802,7 +999,7 @@ insert into sigov.compras_empresarial_fatura_evento (
             correlation_id = x.CorrelationId
         }, tx, cancellationToken: ct));
 
-        // 5. Gravar idempotência
+        // Gravar idempotência
         var novaVersao = r.Version + 1;
         var resultado = new FaturaComandoResultado(id, novoStatus, novoMatch, novaVersao, false);
         var resultadoJson = JsonSerializer.Serialize(resultado, JsonOpts);
@@ -868,12 +1065,19 @@ insert into sigov.compras_empresarial_fatura_idempotencia (
         public string ProdutoNome { get; init; } = "";
         public string Unidade { get; init; } = "";
         public decimal QuantidadePedida { get; init; }
+        public decimal QuantidadeCancelada { get; init; }
+        public decimal QuantidadeVigente { get; init; }
         public decimal PrecoUnitarioPedido { get; init; }
-        public decimal QuantidadeFaturada { get; init; }
+        public decimal QuantidadeDeclarada { get; init; }
+        public decimal QuantidadeReservada { get; init; }
+        public decimal QuantidadeAprovada { get; init; }
         public decimal PrecoUnitarioFatura { get; init; }
         public decimal TotalItem { get; init; }
+        public string StatusItem { get; init; } = "";
+        public string? Diagnostico { get; init; }
         public decimal QuantidadeAceitaTotal { get; init; }
-        public decimal QuantidadeFaturadaOutras { get; init; }
+        public decimal QuantidadeAprovadaOutras { get; init; }
+        public decimal QuantidadeReservadaOutras { get; init; }
     }
 
     private sealed class FaturaEventoRawDto
@@ -903,27 +1107,43 @@ insert into sigov.compras_empresarial_fatura_idempotencia (
         public string ProdutoNome { get; init; } = "";
         public string Unidade { get; init; } = "";
         public decimal QuantidadePedida { get; init; }
+        public decimal QuantidadeCancelada { get; init; }
+        public decimal QuantidadeVigente { get; init; }
         public decimal ValorUnitarioPedido { get; init; }
         public decimal QuantidadeAceitaTotal { get; init; }
-        public decimal QuantidadeFaturadaOutras { get; init; }
+        public decimal QuantidadeAprovadaOutras { get; init; }
+        public decimal QuantidadeReservadaOutras { get; init; }
+        public decimal QuantidadeFaturadaOutras => QuantidadeAprovadaOutras + QuantidadeReservadaOutras;
     }
 
     private sealed class ConferenciaItemDbDto
     {
         public long PedidoItemId { get; init; }
+        public string ProdutoNome { get; init; } = "";
         public decimal QuantidadePedida { get; init; }
+        public decimal QuantidadeCancelada { get; init; }
+        public decimal QuantidadeVigente { get; init; }
         public decimal PrecoUnitarioPedido { get; init; }
         public decimal QuantidadeAceitaTotal { get; init; }
-        public decimal QuantidadeFaturadaOutras { get; init; }
+        public decimal QuantidadeAprovadaOutras { get; init; }
+        public decimal QuantidadeReservadaOutras { get; init; }
+        public decimal QuantidadeFaturadaOutras => QuantidadeAprovadaOutras + QuantidadeReservadaOutras;
     }
 
-    private sealed class ConferenciaValidacaoDto
+    private sealed class ConferenciaValidacaoDbDto
     {
         public long PedidoItemId { get; init; }
-        public decimal QuantidadeFaturada { get; init; }
+        public string ProdutoNome { get; init; } = "";
+        public decimal QuantidadeDeclarada { get; init; }
+        public decimal PrecoUnitarioFatura { get; init; }
+        public decimal PrecoUnitarioPedido { get; init; }
         public decimal QuantidadePedida { get; init; }
+        public decimal QuantidadeCancelada { get; init; }
+        public decimal QuantidadeVigente { get; init; }
         public decimal QuantidadeAceitaTotal { get; init; }
-        public decimal QuantidadeFaturadaOutras { get; init; }
+        public decimal QuantidadeAprovadaOutras { get; init; }
+        public decimal QuantidadeReservadaOutras { get; init; }
+        public decimal QuantidadeFaturadaOutras => QuantidadeAprovadaOutras + QuantidadeReservadaOutras;
     }
 
     private sealed class IdempotenciaDto

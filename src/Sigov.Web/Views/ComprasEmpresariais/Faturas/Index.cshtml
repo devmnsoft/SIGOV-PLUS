@@ -13,8 +13,8 @@
 <header class="compras-header">
     <div>
         <span class="eyebrow">CONFERÊNCIA DOCUMENTAL E LIQUIDAÇÃO</span>
-        <h1>Faturas e notas fiscais</h1>
-        <p>Conciliação trilateral entre pedidos homologados, entregas aceitas no almoxarifado e documentos de cobrança de fornecedores.</p>
+        <h1>Faturas e notas fiscais de compras</h1>
+        <p>Conciliação trilateral entre pedidos homologados, entregas aceitas no almoxarifado e documentos de cobrança dos fornecedores.</p>
     </div>
     <div class="compras-header-actions">
         <a class="btn btn-primary" href="@Url.Action("NovaFatura")">Nova conferência de fatura</a>
@@ -25,31 +25,45 @@
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         @TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 @if (TempData["Error"] is not null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         @TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 @if (TempData["Conflict"] is not null)
 {
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         @TempData["Conflict"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 
-<details class="panel mb-3">
-    <summary class="h6">Instruções e regras de negócio: conferência trilateral (3-way match)</summary>
+<details class="panel mb-3" open>
+    <summary class="h6">Instruções operacionais da conferência de faturas</summary>
     <div class="mt-2 text-muted small">
-        <p><strong>Objetivo:</strong> Assegurar que nenhum valor seja atestado sem que haja prévio pedido homologado e inspeção física concluída com aceitação formal dos itens no almoxarifado.</p>
-        <p><strong>Fórmula de saldo elegível:</strong> <code>Saldo Faturável = min(Pedido, Aceito Almoxarifado) - Faturado em Outras Faturas Ativas</code>. Reposições recebidas substituem divergências e nunca aumentam o saldo contratado além da quantidade inicial do pedido.</p>
-        <p><strong>Diagnóstico de Match:</strong> O sistema classifica automaticamente o confronto documental em <code>MATCH_TOTAL</code>, <code>DIVERGENCIA_QUANTIDADE</code>, <code>DIVERGENCIA_VALOR</code> ou <code>DIVERGENCIA_MISTA</code>.</p>
-        <p><strong>Efeitos operacionais:</strong> A aprovação da conferência fixa as quantidades faturadas, protege contra concorrência e finaliza a etapa de conferência. <em>Nenhum pagamento financeiro ou baixa contábil é disparado automaticamente</em> nesta fase, preservando a segregação de funções.</p>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Para que serve:</strong>
+                Audita o faturamento de compras mercantis antes de qualquer liquidação financeira, confrontando itens e valores cobrados com o pedido de compra homologado e o recebimento físico inspecionado no almoxarifado (3-way match).
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Como usar:</strong>
+                Localize e consulte faturas pelos filtros por número, fornecedor, pedido ou situação. Para iniciar uma conferência, clique em "Nova conferência de fatura" e selecione o pedido correspondente.
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Quem pode executar:</strong>
+                Equipe de suprimentos, fiscal de contrato ou conferente com permissão de visualização (<code>compras_empresariais.faturas.visualizar</code>) ou criação (<code>compras_empresariais.faturas.criar</code>). A decisão formal requer perfil decisor (<code>compras_empresariais.faturas.decidir</code>).
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">O que acontece depois:</strong>
+                Ao registrar, o sistema calcula os saldos disponíveis, reserva as quantidades elegíveis e gera o diagnóstico. Uma vez aprovada sem divergências, o saldo é formalizado para posterior etapa de liquidação (sem geração automática de pagamento).
+            </div>
+        </div>
     </div>
 </details>
 
@@ -58,16 +72,18 @@
     <form method="get" class="requisicao-filtros">
         <div>
             <label class="form-label" for="busca">Buscar</label>
-            <input class="form-control" id="busca" name="busca" value="@filtro.Busca" placeholder="Número, série, chave de acesso, fornecedor ou pedido" autocomplete="off" />
+            <input class="form-control" id="busca" name="busca" value="@filtro.Busca" placeholder="Número, série, chave NF-e, fornecedor ou pedido" autocomplete="off" />
         </div>
         <div>
             <label class="form-label" for="status">Situação</label>
             <select class="form-select" id="status" name="status">
                 <option value="">Todas as situações</option>
-                @foreach (var st in new[] { "CONFORME", "COM_DIVERGENCIA", "EM_CONFERENCIA", "APROVADA", "REJEITADA", "CANCELADA" })
-                {
-                    <option value="@st" selected="@(filtro.Status == st)">@st.Replace('_', ' ')</option>
-                }
+                <option value="CONFORME" selected="@(filtro.Status == "CONFORME")">Conforme</option>
+                <option value="COM_DIVERGENCIA" selected="@(filtro.Status == "COM_DIVERGENCIA")">Com divergência</option>
+                <option value="EM_CONFERENCIA" selected="@(filtro.Status == "EM_CONFERENCIA")">Em conferência</option>
+                <option value="APROVADA" selected="@(filtro.Status == "APROVADA")">Aprovada</option>
+                <option value="REJEITADA" selected="@(filtro.Status == "REJEITADA")">Rejeitada</option>
+                <option value="CANCELADA" selected="@(filtro.Status == "CANCELADA")">Cancelada</option>
             </select>
         </div>
         <div class="filter-actions">
@@ -87,7 +103,7 @@
     @if (Model.Items.Count > 0)
     {
         <div class="table-responsive">
-            <table class="table">
+            <table class="table align-middle">
                 <thead>
                     <tr>
                         <th scope="col">Número / Série</th>
@@ -97,7 +113,7 @@
                         <th scope="col">Itens</th>
                         <th scope="col" class="text-end">Total Itens</th>
                         <th scope="col" class="text-end">Valor Líquido</th>
-                        <th scope="col">Confronto (Match)</th>
+                        <th scope="col">Confronto</th>
                         <th scope="col">Situação</th>
                         <th scope="col">Emissão</th>
                         <th scope="col" class="text-end">Ações</th>
@@ -114,6 +130,14 @@
                             "DIVERGENCIA_MISTA" => "badge bg-danger",
                             _ => "badge bg-secondary"
                         };
+                        var matchText = f.ResultadoMatch switch
+                        {
+                            "MATCH_TOTAL" => "Conforme",
+                            "DIVERGENCIA_QUANTIDADE" => "Divergência de quantidade",
+                            "DIVERGENCIA_VALOR" => "Divergência de valor",
+                            "DIVERGENCIA_MISTA" => "Divergência mista",
+                            _ => f.ResultadoMatch
+                        };
                         var badgeStatus = f.Status switch
                         {
                             "CONFORME" => "badge bg-info text-dark",
@@ -122,6 +146,16 @@
                             "REJEITADA" => "badge bg-danger",
                             "CANCELADA" => "badge bg-secondary",
                             _ => "badge bg-primary"
+                        };
+                        var statusText = f.Status switch
+                        {
+                            "CONFORME" => "Conforme",
+                            "APROVADA" => "Aprovada",
+                            "COM_DIVERGENCIA" => "Com divergência",
+                            "REJEITADA" => "Rejeitada",
+                            "CANCELADA" => "Cancelada",
+                            "EM_CONFERENCIA" => "Em conferência",
+                            _ => f.Status
                         };
                         <tr>
                             <td>
@@ -137,8 +171,8 @@
                             <td>@f.ItensCount item(ns)</td>
                             <td class="text-end">@f.Total.ToString("C2")</td>
                             <td class="text-end"><strong>@f.ValorLiquido.ToString("C2")</strong></td>
-                            <td><span class="@badgeMatch">@f.ResultadoMatch.Replace('_', ' ')</span></td>
-                            <td><span class="@badgeStatus">@f.Status.Replace('_', ' ')</span></td>
+                            <td><span class="@badgeMatch">@matchText</span></td>
+                            <td><span class="@badgeStatus">@statusText</span></td>
                             <td>@(f.DataEmissao?.ToString("dd/MM/yyyy") ?? "-")</td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-primary" href="@Url.Action("DetalheFatura", new { id = f.Id })">Conferir</a>

@@ -568,5 +568,62 @@ public sealed class EnterprisePosRc07StaticTests
         await Assert.ThrowsAsync<ArgumentException>(() =>
             service.DecidirAsync(ctx, Guid.NewGuid(), new DecidirFaturaRequest(1, "CANCELAR", null, "k-1"), CancellationToken.None));
     }
+
+    [Fact]
+    public void Fatura_Validacao_Chave_Acesso_Nfe_Valida_Modulo11_E_UF()
+    {
+        // 1. Chave nula ou vazia não é uma chave válida de NF-e
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe(null));
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe(""));
+
+        // 2. Chave com tamanho diferente de 44 dígitos é inválida
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe("352001143802000001005500100000000110000000")); // 42 dígitos
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe("3520011438020000010055001000000001100000001199")); // 46 dígitos
+
+        // 3. Chave com caracteres não numéricos
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe("3520011438020000010055001000000001100000001A"));
+
+        // 4. Código de UF inválido (ex: 99)
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe("99200114380200000100550010000000011000000011"));
+
+        // 5. Chave com dígito verificador incorreto
+        Assert.False(FaturaCompraApplicationService.ValidarChaveAcessoNfe("35200114380200000100550010000000011000000010"));
+
+        // 6. Chave NF-e matematicamente válida (SP = 35)
+        // Cálculo do DV para: 3526101234567800019555001000000001123456789 -> DV
+        // Vamos calcular um par chave/dv válido:
+        var chave43 = "3526101234567800019555001000000001123456789";
+        int soma = 0, peso = 2;
+        for (int i = 42; i >= 0; i--)
+        {
+            soma += (chave43[i] - '0') * peso;
+            peso = peso == 9 ? 2 : peso + 1;
+        }
+        var resto = soma % 11;
+        var dvEsperado = (resto == 0 || resto == 1) ? 0 : 11 - resto;
+        var chave44Valida = chave43 + dvEsperado;
+
+        Assert.True(FaturaCompraApplicationService.ValidarChaveAcessoNfe(chave44Valida));
+    }
+
+    [Fact]
+    public async Task Fatura_Validacao_Tipos_Documentais_E_Escala_Monetaria()
+    {
+        var service = new FaturaCompraApplicationService(null!);
+        var ctx = new ComprasContext(Guid.NewGuid(), Guid.NewGuid(), "corr-2");
+
+        // Tipo documental fora da lista permitida
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "001", "1", "INVOICE_INTERNACIONAL", null, null, null, 0, 0, 0, 0, null, [new(1, 10, 5)]), "k-1", CancellationToken.None));
+
+        // Escala excessiva em acessórios (mais de 2 casas decimais)
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "001", "1", "NOTA_FISCAL", null, null, null, 10.555m, 0, 0, 0, null, [new(1, 10, 5)]), "k-1", CancellationToken.None));
+
+        // Escala excessiva em quantidade (mais de 4 casas decimais)
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "001", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 10.12345m, 5)]), "k-1", CancellationToken.None));
+    }
 }
+
 

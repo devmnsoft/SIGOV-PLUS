@@ -164,6 +164,34 @@ public sealed class FaturaCompraApplicationService(IFaturaCompraRepository repos
         return repository.ObterConferenciaPreviaAsync(c, pedidoId, ct);
     }
 
+    private static readonly HashSet<string> TiposDocumentoPermitidos = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "NOTA_FISCAL", "FATURA_COMERCIAL", "RECIBO", "RECIBO_FISCAL", "DUPLICATA", "OUTROS", "OUTRO"
+    };
+
+    public static bool ValidarChaveAcessoNfe(string? chave)
+    {
+        if (string.IsNullOrWhiteSpace(chave)) return false;
+        var limpa = new string(chave.Where(char.IsDigit).ToArray());
+        if (limpa.Length != 44) return false;
+        
+        var cUf = int.Parse(limpa[..2]);
+        var ufsValidas = new[] { 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 35, 41, 42, 43, 50, 51, 52, 53 };
+        if (!ufsValidas.Contains(cUf)) return false;
+
+        int soma = 0;
+        int peso = 2;
+        for (int i = 42; i >= 0; i--)
+        {
+            soma += (limpa[i] - '0') * peso;
+            peso = (peso == 9) ? 2 : peso + 1;
+        }
+        int resto = soma % 11;
+        int dvEsperado = (resto == 0 || resto == 1) ? 0 : 11 - resto;
+        int dvInformado = limpa[43] - '0';
+        return dvEsperado == dvInformado;
+    }
+
     public Task<FaturaComandoResultado> CriarAsync(ComprasContext c, CriarFaturaRequest r, string key, CancellationToken ct)
     {
         ComprasGuard.Mutation(c);
@@ -180,14 +208,38 @@ public sealed class FaturaCompraApplicationService(IFaturaCompraRepository repos
             throw new ArgumentException("A série deve ter no máximo 20 caracteres.");
         if (string.IsNullOrWhiteSpace(r.TipoDocumento))
             throw new ArgumentException("O tipo de documento é obrigatório.");
+
+        var tipoDoc = r.TipoDocumento.Trim().ToUpperInvariant();
+        if (!TiposDocumentoPermitidos.Contains(tipoDoc))
+            throw new ArgumentException($"Tipo de documento '{r.TipoDocumento}' não permitido pela política operacional.");
+
+        if (tipoDoc == "NOTA_FISCAL" && !string.IsNullOrWhiteSpace(r.ChaveAcesso))
+        {
+            if (!ValidarChaveAcessoNfe(r.ChaveAcesso))
+                throw new ArgumentException("A chave de acesso informada para a Nota Fiscal é inválida (deve conter 44 dígitos válidos com dígito verificador módulo 11 correto).");
+        }
+        else if (!string.IsNullOrWhiteSpace(r.ChaveAcesso) && r.ChaveAcesso.Trim().Length > 60)
+        {
+            throw new ArgumentException("A chave de acesso deve ter no máximo 60 caracteres.");
+        }
+
         if (r.ValorDesconto < 0m || r.ValorFrete < 0m || r.ValorSeguro < 0m || r.ValorOutrasDespesas < 0m)
             throw new ArgumentException("Valores acessórios não podem ser negativos.");
+
+        if (decimal.Round(r.ValorDesconto, 2) != r.ValorDesconto || decimal.Round(r.ValorFrete, 2) != r.ValorFrete ||
+            decimal.Round(r.ValorSeguro, 2) != r.ValorSeguro || decimal.Round(r.ValorOutrasDespesas, 2) != r.ValorOutrasDespesas)
+            throw new ArgumentException("Valores de desconto, frete, seguro e despesas devem ter no máximo duas casas decimais.");
+
         if (r.Itens is null || r.Itens.Count == 0)
             throw new ArgumentException("Informe ao menos um item para faturamento.");
         if (r.Itens.Count > 100)
             throw new ArgumentException("Número de itens excede o limite permitido (100).");
         if (r.Itens.Any(i => i.PedidoItemId <= 0 || i.Quantidade <= 0m || i.ValorUnitario < 0m))
             throw new ArgumentException("Todos os itens devem ter identificador válido, quantidade positiva e valor unitário não negativo.");
+
+        if (r.Itens.Any(i => decimal.Round(i.Quantidade, 4) != i.Quantidade || decimal.Round(i.ValorUnitario, 4) != i.ValorUnitario))
+            throw new ArgumentException("Quantidades e preços unitários dos itens devem ter no máximo quatro casas decimais.");
+
         if (r.Itens.Select(i => i.PedidoItemId).Distinct().Count() != r.Itens.Count)
             throw new ArgumentException("Não é permitido repetir o mesmo item do pedido na fatura.");
 
@@ -195,7 +247,7 @@ public sealed class FaturaCompraApplicationService(IFaturaCompraRepository repos
         {
             Numero = r.Numero.Trim(),
             Serie = r.Serie.Trim().ToUpperInvariant(),
-            TipoDocumento = r.TipoDocumento.Trim().ToUpperInvariant(),
+            TipoDocumento = tipoDoc,
             ChaveAcesso = string.IsNullOrWhiteSpace(r.ChaveAcesso) ? null : r.ChaveAcesso.Trim()
         }, key, ct);
     }

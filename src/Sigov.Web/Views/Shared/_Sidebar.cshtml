@@ -285,6 +285,8 @@
       }
       @if (hasPermission("compras_empresariais.faturas.visualizar") || isGlobalAdmin) {
       <a class="sigov-nav-link@(active("/ComprasEmpresariais/Faturas"))" href="/ComprasEmpresariais/Faturas"><sigov-icon name="finance" size="18"/><span>Faturas</span></a>
+      } else if (hasPermission("compras_empresariais.faturas.criar")) {
+      <a class="sigov-nav-link@(active("/ComprasEmpresariais/Faturas/Nova"))" href="/ComprasEmpresariais/Faturas/Nova"><sigov-icon name="finance" size="18"/><span>Nova fatura</span></a>
       }
       @if (hasPermission("compras_empresariais.avaliacoes.gerenciar") || isGlobalAdmin) {
       <a class="sigov-nav-link@(active("/ComprasEmpresariais/Avaliacoes"))" href="/ComprasEmpresariais/Avaliacoes"><sigov-icon name="audit" size="18"/><span>Avaliações</span></a>

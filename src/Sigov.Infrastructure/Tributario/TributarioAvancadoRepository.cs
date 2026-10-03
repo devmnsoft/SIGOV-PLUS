@@ -56,10 +56,6 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         }
         long? contribuinteId = r.ContribuinteId;
         long? referenciaId = r.ReferenciaId;
-        if (contribuinteId is null && recurso.StartsWith("portal_contribuinte_") && referenciaId.HasValue)
-        {
-            contribuinteId = referenciaId;
-        }
         const string values = "(tenant_id,entidade_id,exercicio_id,contribuinte_id,referencia_id,codigo,tipo,status,descricao,justificativa,quantidade,valor,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@ContribuinteId,@ReferenciaId,@Codigo,@Tipo,@Status,@Descricao,@Justificativa,@Quantidade,@Valor,@Dados::jsonb,jsonb_build_object('acao','CRIAR','em',now()),@CorrelationId,@UsuarioId) returning id";
         using var c = _context.CreateConnection();
         return await c.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.{recurso}{values}", new { x.TenantId, x.EntidadeId, x.ExercicioId, ContribuinteId = contribuinteId, ReferenciaId = referenciaId, r.Codigo, r.Tipo, r.Status, r.Descricao, r.Justificativa, r.Quantidade, r.Valor, Dados = JsonSerializer.Serialize(dadosSanitizados), CorrelationId = Guid.TryParse(x.CorrelationId, out var g) ? g : Guid.NewGuid(), x.UsuarioId }, cancellationToken: ct));
@@ -281,6 +277,11 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
 
     public async Task<TributarioDashboardDto> DashboardAutoatendimentoAsync(long tenantId, long[] contribuinteIds, long usuarioId, CancellationToken ct)
     {
+        if (contribuinteIds == null || contribuinteIds.Length == 0)
+        {
+            return new TributarioDashboardDto(0, 0, 0, 0, Array.Empty<TributarioRegistroDto>());
+        }
+
         using var c = _context.CreateConnection();
         var sql = @"
             select count(1) as Total,
@@ -290,18 +291,18 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
             from sigov.portal_contribuinte_protocolo
             where tenant_id = @TenantId
               and is_deleted = false
-              and (contribuinte_id = any(@ContribuinteIds) or created_by = @UsuarioId)";
-        var k = await c.QuerySingleAsync<Kpi>(new CommandDefinition(sql, new { TenantId = tenantId, ContribuinteIds = contribuinteIds, UsuarioId = usuarioId }, cancellationToken: ct));
+              and contribuinte_id = any(@ContribuinteIds)";
+        var k = await c.QuerySingleAsync<Kpi>(new CommandDefinition(sql, new { TenantId = tenantId, ContribuinteIds = contribuinteIds }, cancellationToken: ct));
 
         var sqlRecentes = @"
-            select id as Id, codigo as Codigo, status as Status, tipo as Tipo, descricao as Descricao, valor as Valor, created_at as CreatedAt, dados::text as Dados
+            select id as Id, codigo as Codigo, status as Status, tipo as Tipo, descricao as Descricao, valor as Valor, created_at as CreatedAt, dados::text as Dados, contribuinte_id as ContribuinteId, referencia_id as ReferenciaId
             from sigov.portal_contribuinte_protocolo
             where tenant_id = @TenantId
               and is_deleted = false
-              and (contribuinte_id = any(@ContribuinteIds) or created_by = @UsuarioId)
+              and contribuinte_id = any(@ContribuinteIds)
             order by id desc
             limit 6";
-        var rows = (await c.QueryAsync<Row>(new CommandDefinition(sqlRecentes, new { TenantId = tenantId, ContribuinteIds = contribuinteIds, UsuarioId = usuarioId }, cancellationToken: ct))).Select(Mapear).ToList();
+        var rows = (await c.QueryAsync<Row>(new CommandDefinition(sqlRecentes, new { TenantId = tenantId, ContribuinteIds = contribuinteIds }, cancellationToken: ct))).Select(Mapear).ToList();
         return new TributarioDashboardDto(k.Total, k.Pendentes, k.Concluidos, k.Alertas, rows);
     }
 
@@ -310,14 +311,20 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         pagina = Math.Max(1, pagina);
         tamanho = Math.Clamp(tamanho, 1, 100);
         var offset = (pagina - 1) * tamanho;
+
+        if (contribuinteIds == null || contribuinteIds.Length == 0)
+        {
+            return new PagedResult<TributarioRegistroDto>(Array.Empty<TributarioRegistroDto>(), pagina, tamanho, 0);
+        }
+
         using var c = _context.CreateConnection();
 
         var sql = @"
-            select id as Id, codigo as Codigo, status as Status, tipo as Tipo, descricao as Descricao, valor as Valor, created_at as CreatedAt, dados::text as Dados
+            select id as Id, codigo as Codigo, status as Status, tipo as Tipo, descricao as Descricao, valor as Valor, created_at as CreatedAt, dados::text as Dados, contribuinte_id as ContribuinteId, referencia_id as ReferenciaId
             from sigov.portal_contribuinte_solicitacao
             where tenant_id = @TenantId
               and is_deleted = false
-              and (contribuinte_id = any(@ContribuinteIds) or created_by = @UsuarioId)
+              and contribuinte_id = any(@ContribuinteIds)
             order by id desc
             limit @Tamanho offset @Offset;
 
@@ -325,12 +332,30 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
             from sigov.portal_contribuinte_solicitacao
             where tenant_id = @TenantId
               and is_deleted = false
-              and (contribuinte_id = any(@ContribuinteIds) or created_by = @UsuarioId);
+              and contribuinte_id = any(@ContribuinteIds);
         ";
-        using var m = await c.QueryMultipleAsync(new CommandDefinition(sql, new { TenantId = tenantId, ContribuinteIds = contribuinteIds, UsuarioId = usuarioId, Tamanho = tamanho, Offset = offset }, cancellationToken: ct));
+        using var m = await c.QueryMultipleAsync(new CommandDefinition(sql, new { TenantId = tenantId, ContribuinteIds = contribuinteIds, Tamanho = tamanho, Offset = offset }, cancellationToken: ct));
         var rows = (await m.ReadAsync<Row>()).Select(Mapear).ToList();
         var total = await m.ReadSingleAsync<long>();
         return new PagedResult<TributarioRegistroDto>(rows, pagina, tamanho, total);
+    }
+
+    public async Task<bool> ValidarReferenciaContribuinteAsync(long tenantId, long contribuinteId, long referenciaId, CancellationToken ct)
+    {
+        using var c = _context.CreateConnection();
+        const string sql = @"
+            select exists (
+                select 1 from sigov.parcela where tenant_id = @TenantId and contribuinte_id = @ContribuinteId and id = @ReferenciaId
+                union all
+                select 1 from sigov.portal_contribuinte_protocolo where tenant_id = @TenantId and contribuinte_id = @ContribuinteId and (id = @ReferenciaId or referencia_id = @ReferenciaId) and not is_deleted
+                union all
+                select 1 from sigov.portal_contribuinte_solicitacao where tenant_id = @TenantId and contribuinte_id = @ContribuinteId and (id = @ReferenciaId or referencia_id = @ReferenciaId) and not is_deleted
+                union all
+                select 1 from sigov.portal_contribuinte_certidao where tenant_id = @TenantId and contribuinte_id = @ContribuinteId and (id = @ReferenciaId or referencia_id = @ReferenciaId) and not is_deleted
+                union all
+                select 1 from sigov.portal_contribuinte_acesso where tenant_id = @TenantId and contribuinte_id = @ContribuinteId and (id = @ReferenciaId or referencia_id = @ReferenciaId) and not is_deleted
+            )";
+        return await c.ExecuteScalarAsync<bool>(new CommandDefinition(sql, new { TenantId = tenantId, ContribuinteId = contribuinteId, ReferenciaId = referenciaId }, cancellationToken: ct));
     }
 
     private static void Validar(string recurso, TributarioOperacaoRequest r)
@@ -347,7 +372,40 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         if (recurso == "tributario_fiscalizacao_auto_infracao" && (string.IsNullOrWhiteSpace(r.Descricao) || !r.Valor.HasValue || r.Valor <= 0)) throw new ArgumentException("Auto de infração exige fundamento, descrição e valor.");
     }
     private static string Recurso(string recurso) => Recursos.Contains(recurso) ? recurso : throw new ArgumentException("Recurso tributário inválido.");
-    private static TributarioRegistroDto Mapear(Row r) => new(r.Id, r.Codigo, r.Status, r.Tipo, r.Descricao, r.Valor, r.CreatedAt, JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Dados) ?? new(), r.ContribuinteId, r.ReferenciaId);
+
+    private static Dictionary<string, object?> SafeDeserializeJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                result[prop.Name] = ConvertJsonElement(prop.Value);
+            }
+            return result;
+        }
+        catch
+        {
+            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static object? ConvertJsonElement(JsonElement el) => el.ValueKind switch
+    {
+        JsonValueKind.String => el.GetString(),
+        JsonValueKind.Number => el.TryGetInt64(out var l) ? (object)l :
+                                el.TryGetDecimal(out var d) ? (object)d :
+                                el.GetRawText(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        JsonValueKind.Array or JsonValueKind.Object => el.GetRawText(),
+        _ => el.GetRawText()
+    };
+
+    private static TributarioRegistroDto Mapear(Row r) => new(r.Id, r.Codigo, r.Status, r.Tipo, r.Descricao, r.Valor, r.CreatedAt, SafeDeserializeJson(r.Dados), r.ContribuinteId, r.ReferenciaId);
     private sealed record Row(long Id, string? Codigo, string Status, string? Tipo, string? Descricao, decimal? Valor, DateTimeOffset CreatedAt, string Dados, long? ContribuinteId = null, long? ReferenciaId = null);
     private sealed record Kpi(long Total, long Pendentes, long Concluidos, long Alertas);
 }

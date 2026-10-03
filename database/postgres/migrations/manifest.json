@@ -2696,6 +2696,19 @@
         "20261002120000"
       ],
       "postConditionSql": "select to_regclass('sigov.compras_empresarial_fatura_item') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_fatura' and column_name='valor_liquido')"
+    },
+    {
+      "version": "20261003080000",
+      "description": "Reserva de saldo, conferencia avancada de faturas e rastreabilidade por item",
+      "category": "functional",
+      "file": "20261003080000_compras_fatura_reserva_e_conferencia_avancada.sql",
+      "checksum": "7e8eef3929eeb33e0f2abcf3bfa58f4b6b4086d376921982c509ca9498b063c9",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261002160000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_fatura_item' and column_name='quantidade_reservada') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_fatura_item' and column_name='quantidade_aprovada')"
     }
   ],
   "compatibilityAfterAll": [

@@ -44,6 +44,7 @@ public interface IPortalContribuinteRepository : ITributarioAvancadoRepository
     Task<CertidaoValidacaoPublicaDto?> ValidarCertidaoPublicaAsync(long? tenantId, string codigo, CancellationToken ct);
     Task<TributarioDashboardDto> DashboardAutoatendimentoAsync(long tenantId, long[] contribuinteIds, long usuarioId, CancellationToken ct);
     Task<PagedResult<TributarioRegistroDto>> ListarSolicitacoesAutoatendimentoAsync(long tenantId, long[] contribuinteIds, long usuarioId, int pagina, int tamanho, CancellationToken ct);
+    Task<bool> ValidarReferenciaContribuinteAsync(long tenantId, long contribuinteId, long referenciaId, CancellationToken ct);
 }
 public interface ITributarioFiscalizacaoRepository : ITributarioAvancadoRepository { }
 public interface ITributarioNfseRepository : ITributarioAvancadoRepository { }

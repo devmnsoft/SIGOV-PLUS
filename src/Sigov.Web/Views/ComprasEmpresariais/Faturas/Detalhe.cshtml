@@ -4,6 +4,8 @@
     ViewData["Title"] = $"Fatura {Model.Numero}/{Model.Serie}";
     var podeDecidir = (bool)(ViewData["PodeDecidir"] ?? false);
     var permiteDecisao = Model.Status is "CONFORME" or "COM_DIVERGENCIA" or "EM_CONFERENCIA";
+    var temDivergencia = Model.ResultadoMatch != "MATCH_TOTAL" || Model.Itens.Any(i => i.StatusItem != "CONFORME");
+
     var badgeMatch = Model.ResultadoMatch switch
     {
         "MATCH_TOTAL" => "badge bg-success",
@@ -11,6 +13,14 @@
         "DIVERGENCIA_VALOR" => "badge bg-warning text-dark",
         "DIVERGENCIA_MISTA" => "badge bg-danger",
         _ => "badge bg-secondary"
+    };
+    var matchText = Model.ResultadoMatch switch
+    {
+        "MATCH_TOTAL" => "Conforme",
+        "DIVERGENCIA_QUANTIDADE" => "Divergência de quantidade",
+        "DIVERGENCIA_VALOR" => "Divergência de valor",
+        "DIVERGENCIA_MISTA" => "Divergência mista",
+        _ => Model.ResultadoMatch
     };
     var badgeStatus = Model.Status switch
     {
@@ -20,6 +30,16 @@
         "REJEITADA" => "badge bg-danger",
         "CANCELADA" => "badge bg-secondary",
         _ => "badge bg-primary"
+    };
+    var statusText = Model.Status switch
+    {
+        "CONFORME" => "Conforme",
+        "APROVADA" => "Aprovada",
+        "COM_DIVERGENCIA" => "Com divergência",
+        "REJEITADA" => "Rejeitada",
+        "CANCELADA" => "Cancelada",
+        "EM_CONFERENCIA" => "Em conferência",
+        _ => Model.Status
     };
 }
 <link rel="stylesheet" href="~/css/compras-empresariais.css" />
@@ -32,8 +52,8 @@
         <p>Documento fiscal @Model.TipoDocumento vinculado ao Pedido <a href="@Url.Action("Pedido", new { id = Model.PedidoId })">@Model.PedidoNumero</a>.</p>
     </div>
     <div class="compras-header-actions">
-        <span class="@badgeMatch me-2 p-2">Match: @Model.ResultadoMatch.Replace('_', ' ')</span>
-        <span class="@badgeStatus me-2 p-2">Situação: @Model.Status.Replace('_', ' ')</span>
+        <span class="@badgeMatch me-2 p-2">Confronto: @matchText</span>
+        <span class="@badgeStatus me-2 p-2">Situação: @statusText</span>
         <a class="btn btn-outline-secondary" href="@Url.Action("Faturas")">Voltar</a>
     </div>
 </header>
@@ -42,34 +62,45 @@
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         @TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 @if (TempData["Error"] is not null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         @TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 @if (TempData["Conflict"] is not null)
 {
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         @TempData["Conflict"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
     </div>
 }
 
-<details class="panel mb-3">
-    <summary class="h6">Entenda a conferência trilateral e a governança documental</summary>
+<details class="panel mb-3" open>
+    <summary class="h6">Instruções operacionais: detalhe e governança da conferência</summary>
     <div class="mt-2 text-muted small">
-        <p>A conferência trilateral (<em>3-way matching</em>) audita de forma cruzada o documento de cobrança com os fatos geradores contratuais e físicos:</p>
-        <ul class="mb-2 ps-3">
-            <li><strong>Contrato/Pedido:</strong> Quantidade e preço homologados e adjudicados.</li>
-            <li><strong>Almoxarifado/Inspeção:</strong> Quantidades efetivamente recebidas e aceitas sem pendências. Reposições recebidas substituem rejeições anteriores sem inflar o saldo contratado.</li>
-            <li><strong>Fatura:</strong> Quantidade e preço faturados pelo credor.</li>
-        </ul>
-        <p class="mb-0"><strong>Importante:</strong> A aprovação da conferência atesta a regularidade física e documental. A autorização de pagamento e a baixa financeira ocorrem no módulo financeiro competente, conforme regras da Lei de Responsabilidade Fiscal e normas públicas aplicáveis.</p>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Para que serve:</strong>
+                Apresenta a auditoria completa da fatura confrontando o documento físico com os dados do pedido e o recebimento inspecionado, detalhando saldos vigentes, reservas e diagnósticos.
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Como usar:</strong>
+                Examine o quadro comparativo e a composição financeira. Caso esteja conforme, a autoridade decisora pode aprovar. Em caso de divergência insanável, registre a rejeição formal justificada.
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">Quem pode executar:</strong>
+                A visualização é permitida a usuários com <code>compras_empresariais.faturas.visualizar</code>. O deferimento, rejeição ou cancelamento exige permissão decisora <code>compras_empresariais.faturas.decidir</code>.
+            </div>
+            <div class="col-md-3">
+                <strong class="text-dark d-block mb-1">O que acontece depois:</strong>
+                A aprovação converte as quantidades reservadas em aprovadas e finaliza a conferência. A rejeição ou cancelamento libera imediatamente a reserva para que outros documentos válidos possam faturar o saldo. Não há geração automática de contas a pagar.
+            </div>
+        </div>
     </div>
 </details>
 
@@ -166,22 +197,24 @@
 <section class="panel mb-3" aria-labelledby="confronto-itens-title">
     <div class="section-title">
         <div>
-            <h2 id="confronto-itens-title" class="h5 mb-1">Itens e auditoria trilateral (Pedido x Almoxarifado x Fatura)</h2>
-            <p class="text-muted mb-0 small">Comparativo exato de quantidades pedidas, saldos aceitos e preços unitários homologados.</p>
+            <h2 id="confronto-itens-title" class="h5 mb-1">Itens e conciliação trilateral (3-way match)</h2>
+            <p class="text-muted mb-0 small">Confronto entre quantidades contratadas, físicas aceitas, faturadas em outros documentos, declaradas e reservadas.</p>
         </div>
     </div>
 
     <div class="table-responsive">
-        <table class="table">
+        <table class="table align-middle">
             <thead>
                 <tr>
                     <th scope="col">Produto / Item</th>
                     <th scope="col">Unidade</th>
-                    <th scope="col" class="text-end">Qtd Pedida</th>
-                    <th scope="col" class="text-end">Qtd Aceita Almox.</th>
-                    <th scope="col" class="text-end">Outras NFs</th>
-                    <th scope="col" class="text-end">Saldo Elegível</th>
-                    <th scope="col" class="text-end">Qtd Faturada</th>
+                    <th scope="col" class="text-end">Contratado Vigente</th>
+                    <th scope="col" class="text-end">Aceito Almox.</th>
+                    <th scope="col" class="text-end">Aprovado Outras</th>
+                    <th scope="col" class="text-end">Reservado Outras</th>
+                    <th scope="col" class="text-end">Saldo Disponível</th>
+                    <th scope="col" class="text-end">Declarado Nesta</th>
+                    <th scope="col" class="text-end">Reservado Nesta</th>
                     <th scope="col" class="text-end">Preço Pedido</th>
                     <th scope="col" class="text-end">Preço Fatura</th>
                     <th scope="col" class="text-end">Total Item</th>
@@ -200,18 +233,28 @@
                         "DIVERGENTE_MISTO" => "badge bg-danger",
                         _ => "badge bg-secondary"
                     };
+                    var itText = it.StatusItem switch
+                    {
+                        "CONFORME" => "Conforme",
+                        "DIVERGENTE_QUANTIDADE" => "Divergência de quantidade",
+                        "DIVERGENTE_VALOR" => "Divergência de valor",
+                        "DIVERGENTE_MISTO" => "Divergência mista",
+                        _ => it.StatusItem
+                    };
                     <tr>
                         <td><strong>@it.ProdutoNome</strong></td>
                         <td><span class="badge bg-light text-dark">@it.Unidade</span></td>
-                        <td class="text-end">@it.QuantidadePedida.ToString("0.####")</td>
+                        <td class="text-end">@it.QuantidadeVigente.ToString("0.####")</td>
                         <td class="text-end">@it.QuantidadeAceitaTotal.ToString("0.####")</td>
-                        <td class="text-end">@it.QuantidadeFaturadaOutras.ToString("0.####")</td>
-                        <td class="text-end">@it.SaldoFaturavelElegivel.ToString("0.####")</td>
-                        <td class="text-end font-monospace"><strong>@it.QuantidadeFaturada.ToString("0.####")</strong></td>
+                        <td class="text-end">@it.QuantidadeAprovadaOutras.ToString("0.####")</td>
+                        <td class="text-end">@it.QuantidadeReservadaOutras.ToString("0.####")</td>
+                        <td class="text-end"><strong>@it.SaldoDisponivel.ToString("0.####")</strong></td>
+                        <td class="text-end font-monospace"><strong>@it.QuantidadeDeclarada.ToString("0.####")</strong></td>
+                        <td class="text-end font-monospace">@it.QuantidadeReservada.ToString("0.####")</td>
                         <td class="text-end">@it.PrecoUnitarioPedido.ToString("C2")</td>
                         <td class="text-end font-monospace">@it.PrecoUnitarioFatura.ToString("C2")</td>
                         <td class="text-end"><strong>@it.TotalItem.ToString("C2")</strong></td>
-                        <td><span class="@itBadge">@it.StatusItem.Replace('_', ' ')</span></td>
+                        <td><span class="@itBadge">@itText</span></td>
                         <td><small class="text-muted">@it.Diagnostico</small></td>
                     </tr>
                 }
@@ -226,17 +269,24 @@
         <h2 id="decisao-fatura-title" class="h5 mb-2">Decisão e atesto da conferência</h2>
         <p class="text-muted small">Aprovação fixa o atesto documental. Rejeição e cancelamento exigem justificativa formal registrada para auditoria.</p>
 
+        @if (temDivergencia)
+        {
+            <div class="alert alert-warning mb-3">
+                <strong>Aprovação bloqueada:</strong> Esta fatura possui divergência de preço ou de quantidade em relação ao pedido homologado ou ao saldo aceito no almoxarifado. Em conformidade com as regras de governança financeira, documentos divergentes não podem ser aprovados como regulares. O documento deve ser rejeitado para retificação pelo credor ou cancelado por erro operacional.
+            </div>
+        }
+
         <div class="row g-3">
             <div class="col-md-4">
-                <div class="card p-3 h-100 border-success">
-                    <h3 class="h6 text-success">Aprovar conferência (Aceitar fatura)</h3>
-                    <p class="small text-muted mb-3">Valida o saldo concorrente em tempo real, conclui a conformidade documental e encerra a conferência.</p>
+                <div class="card p-3 h-100 @(temDivergencia ? "border-secondary bg-light" : "border-success")">
+                    <h3 class="h6 @(temDivergencia ? "text-muted" : "text-success")">Aprovar conferência (Aceitar fatura)</h3>
+                    <p class="small text-muted mb-3">Conclui a conformidade documental, valida os saldos dentro da transação e fixa as quantidades aprovadas.</p>
                     <form method="post" action="@Url.Action("DecidirFatura", new { id = Model.Id })" class="mt-auto">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="Version" value="@Model.Version" />
                         <input type="hidden" name="Decisao" value="ACEITAR" />
                         <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
-                        <button type="submit" class="btn btn-success w-100" onclick="return confirm('Confirma a aprovação da conferência desta fatura?');">
+                        <button type="submit" class="btn btn-success w-100" @(temDivergencia ? "disabled" : "") onclick="return confirm('Confirma a aprovação da conferência desta fatura?');">
                             Aprovar fatura
                         </button>
                     </form>
@@ -246,7 +296,7 @@
             <div class="col-md-4">
                 <div class="card p-3 h-100 border-danger">
                     <h3 class="h6 text-danger">Rejeitar fatura</h3>
-                    <p class="small text-muted mb-2">Recusa formal do documento de cobrança por divergência insanável.</p>
+                    <p class="small text-muted mb-2">Recusa formal do documento de cobrança por divergência insanável. Libera a reserva de saldo correspondente.</p>
                     <form method="post" action="@Url.Action("DecidirFatura", new { id = Model.Id })" class="mt-auto">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="Version" value="@Model.Version" />
@@ -265,7 +315,7 @@
             <div class="col-md-4">
                 <div class="card p-3 h-100 border-secondary">
                     <h3 class="h6 text-secondary">Cancelar fatura</h3>
-                    <p class="small text-muted mb-2">Cancelamento do lançamento por erro operacional de digitação ou substituição documental.</p>
+                    <p class="small text-muted mb-2">Cancelamento do lançamento por erro operacional de digitação ou substituição documental. Libera a reserva de saldo.</p>
                     <form method="post" action="@Url.Action("DecidirFatura", new { id = Model.Id })" class="mt-auto">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="Version" value="@Model.Version" />
@@ -289,7 +339,7 @@
     @if (Model.Historico.Count > 0)
     {
         <div class="table-responsive">
-            <table class="table table-sm">
+            <table class="table table-sm align-middle">
                 <thead>
                     <tr>
                         <th scope="col">Data / Hora</th>

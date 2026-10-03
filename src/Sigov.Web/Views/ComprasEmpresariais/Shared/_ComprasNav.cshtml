@@ -29,6 +29,10 @@
   itens.Add((l.Rotulo,l.Roteiro,Ativo(l.Grupo,l.Prefixo,l.Raiz)));
   grupoAtual=l.Grupo;
  }
+ if (!itens.Any(x => x.Rotulo == "Faturas") && (await Auth.AuthorizeAsync(User, "compras_empresariais.faturas.criar")).Succeeded)
+ {
+  itens.Add(("Nova fatura", "/ComprasEmpresariais/Faturas/Nova", Ativo(3, "/ComprasEmpresariais/Faturas", false)));
+ }
 }
 <nav class="compras-nav" aria-label="Compras Empresariais">@for(var i=0;i<itens.Count;i++)
 {
