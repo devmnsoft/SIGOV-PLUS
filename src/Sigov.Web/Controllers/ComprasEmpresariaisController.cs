@@ -8,8 +8,12 @@ using System.Globalization;
 namespace Sigov.Web.Controllers;
 
 [Authorize,Route("ComprasEmpresariais")]
-public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos,IDivergenciaRecebimentoApplicationService divergencias,IDevolucaoCompraApplicationService devolucoes,IAprovacaoRequisicaoApplicationService aprovacoes,ICotacaoCompraApplicationService cotacoes,IAuthorizationService authorization):Controller
+public sealed class ComprasEmpresariaisController(IFornecedorApplicationService fornecedores,IRequisicaoCompraApplicationService requisicoes,IComprasDashboardApplicationService dashboard,IRecebimentoCompraApplicationService recebimentos,IDivergenciaRecebimentoApplicationService divergencias,IDevolucaoCompraApplicationService devolucoes,IAprovacaoRequisicaoApplicationService aprovacoes,ICotacaoCompraApplicationService cotacoes,IFaturaCompraApplicationService faturas,IAuthorizationService authorization):Controller
 {
+    public ComprasEmpresariaisController(IFornecedorApplicationService fornecedores, IRequisicaoCompraApplicationService requisicoes, IComprasDashboardApplicationService dashboard, IRecebimentoCompraApplicationService recebimentos, IDivergenciaRecebimentoApplicationService divergencias, IDevolucaoCompraApplicationService devolucoes, IAprovacaoRequisicaoApplicationService aprovacoes, ICotacaoCompraApplicationService cotacoes, IAuthorizationService authorization)
+        : this(fornecedores, requisicoes, dashboard, recebimentos, divergencias, devolucoes, aprovacoes, cotacoes, null!, authorization)
+    {
+    }
  private ComprasContext Contexto(){if(!Guid.TryParse(User.FindFirst("enterprise_tenant_id")?.Value??User.FindFirst("tenant_id")?.Value,out var t)||!Guid.TryParse(User.FindFirst("sub")?.Value,out var u))throw new UnauthorizedAccessException("Tenant e usuário não resolvidos.");return new(t,u,HttpContext.TraceIdentifier);}
  [HttpGet("")]
  public async Task<IActionResult> Index(CancellationToken ct)
@@ -137,8 +141,6 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
  public async Task<IActionResult> AutorizarReposicao(long id,[FromForm]decimal quantidade,[FromForm]string justificativa,[FromForm]long version,[FromForm]string idempotencyKey,[FromForm]string? returnUrl,CancellationToken ct)=>await DivergenceCommand(id,returnUrl,()=>divergencias.AutorizarReposicaoAsync(Contexto(),id,new(quantidade,justificativa,version,idempotencyKey),ct));
  [HttpGet("Relatorios/Divergencias.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]
  public async Task<IActionResult> ExportarDivergencias([FromQuery]DivergenciaFiltro filtro,CancellationToken ct){var rows=new List<DivergenciaResumo>();for(var page=1;;page++){var data=await divergencias.ListarAsync(Contexto(),filtro with{Pagina=page,Tamanho=100},ct);rows.AddRange(data.Resultado.Items);if(rows.Count>50000)throw new InvalidOperationException("A exportação excede o limite explícito de 50.000 registros; refine os filtros.");if(!data.Resultado.HasNextPage)break;}var lines=new List<string>{"Documento;Pedido;Fornecedor;Produto;Unidade;Quantidade;Motivo;Situação;Responsável;Abertura;Encerramento;Providência;Resultado"};lines.AddRange(rows.Select(x=>string.Join(';',Csv(x.Documento),Csv(x.PedidoNumero),Csv(x.Fornecedor),Csv(x.Produto),Csv(x.Unidade),x.QuantidadeRejeitada.ToString("0.####",CultureInfo.InvariantCulture),Csv(x.Motivo),Csv(x.Situacao),Csv(x.ResponsavelNome),Csv(x.AbertaEm.ToString("O")),Csv(x.EncerradaEm?.ToString("O")),Csv(x.Providencia),Csv(x.Resultado))));return CsvFile(lines,"divergencias-recebimento");}
- [HttpGet("Faturas"),Authorize(Policy="compras_empresariais.faturas.visualizar")]public IActionResult Faturas()=>Workspace("Faturas","Operação integrada à jornada procure-to-pay.");
- [HttpGet("Faturas/{id:guid}"),Authorize(Policy="compras_empresariais.faturas.visualizar")]public IActionResult Fatura(Guid id)=>Workspace("Faturas","Detalhe 360, histórico e ações autorizadas.");
  [HttpGet("Devolucoes"),Authorize(Policy="compras_empresariais.devolucoes.visualizar")]
  public async Task<IActionResult> Devolucoes([FromQuery]DevolucaoFiltro filtro,CancellationToken ct)
  {
@@ -396,7 +398,61 @@ public sealed class ComprasEmpresariaisController(IFornecedorApplicationService 
   }
   return CsvFile(lines,"devolucoes-operacionais");
  }
- [HttpGet("Avaliacoes"),Authorize(Policy="compras_empresariais.avaliacoes.gerenciar")]public IActionResult Avaliacoes()=>Workspace("Avaliações","Operação integrada à jornada procure-to-pay.");
+ [HttpGet("Faturas"),Authorize(Policy="compras_empresariais.faturas.visualizar")]
+  public async Task<IActionResult> Faturas([FromQuery]FaturaFiltro filtro,CancellationToken ct=default)
+  {
+      ViewData["Filtro"]=filtro;
+      return View("Faturas/Index",await faturas.ListarAsync(Contexto(),filtro,ct));
+  }
+  [HttpGet("Faturas/Nova"),Authorize(Policy="compras_empresariais.faturas.criar")]
+  public async Task<IActionResult> NovaFatura([FromQuery]Guid? pedidoId,CancellationToken ct=default)
+  {
+      if(pedidoId.HasValue&&pedidoId.Value!=Guid.Empty)
+      {
+          try{ViewData["Previa"]=await faturas.ObterConferenciaPreviaAsync(Contexto(),pedidoId.Value,ct);}
+          catch(Exception ex){TempData["Error"]=ex.Message;}
+      }
+      ViewData["Pedidos"]=await cotacoes.ListarPedidosAsync(Contexto(),new PedidoFiltro(Tamanho:50),ct);
+      return View("Faturas/Nova");
+  }
+  [HttpPost("Faturas"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.faturas.criar")]
+  public async Task<IActionResult> CriarFatura(CriarFaturaRequest request,[FromForm(Name="Idempotency-Key")]string? chave,CancellationToken ct)
+  {
+      var chaveFinal=string.IsNullOrWhiteSpace(chave)?Guid.NewGuid().ToString("N"):chave;
+      try
+      {
+          var res=await faturas.CriarAsync(Contexto(),request,chaveFinal,ct);
+          TempData["Success"]=res.Repetido?"Fatura já registrada anteriormente; exibindo conferência.":$"Fatura cadastrada com sucesso! Situação: {res.Status}, Resultado Match: {res.ResultadoMatch}.";
+          return RedirectToAction(nameof(DetalheFatura),new{id=res.Id});
+      }
+      catch(Exception ex)
+      {
+          TempData["Error"]=ex.Message;
+          return RedirectToAction(nameof(NovaFatura),new{pedidoId=request.PedidoId});
+      }
+  }
+  [HttpGet("Faturas/{id:guid}"),Authorize(Policy="compras_empresariais.faturas.visualizar")]
+  public async Task<IActionResult> DetalheFatura(Guid id,CancellationToken ct)
+  {
+      var item=await faturas.ObterAsync(Contexto(),id,ct);
+      if(item is null)return NotFound();
+      ViewData["PodeDecidir"]=(await authorization.AuthorizeAsync(User,"compras_empresariais.faturas.decidir")).Succeeded;
+      return View("Faturas/Detalhe",item);
+  }
+  [HttpPost("Faturas/{id:guid}/Decidir"),ValidateAntiForgeryToken,Authorize(Policy="compras_empresariais.faturas.decidir")]
+  public async Task<IActionResult> DecidirFatura(Guid id,[FromForm]DecidirFaturaRequest request,CancellationToken ct)
+  {
+      var chaveFinal=string.IsNullOrWhiteSpace(request.IdempotencyKey)?Guid.NewGuid().ToString("N"):request.IdempotencyKey;
+      try
+      {
+          var res=await faturas.DecidirAsync(Contexto(),id,request with{IdempotencyKey=chaveFinal},ct);
+          TempData["Success"]=res.Repetido?"Decisão já processada anteriormente; resultado reapresentado.":$"Decisão '{request.Decisao}' processada com sucesso. Situação: {res.Status}.";
+      }
+      catch(ComprasConcurrencyException ex){TempData["Conflict"]=ex.Message;}
+      catch(Exception ex){TempData["Error"]=ex.Message;}
+      return RedirectToAction(nameof(DetalheFatura),new{id});
+  }
+  [HttpGet("Avaliacoes"),Authorize(Policy="compras_empresariais.avaliacoes.gerenciar")]public IActionResult Avaliacoes()=>Workspace("Avaliações","Operação integrada à jornada procure-to-pay.");
  [HttpGet("Relatorios"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> Relatorios([FromQuery]RecebimentoFiltro filtro,CancellationToken ct){ViewData["Filtro"]=filtro;return View("Recebimentos/Relatorio",await recebimentos.ListarAsync(Contexto(),filtro with{Pagina=1,Tamanho=100},ct));}
   [HttpGet("Relatorios/Aprovacoes"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]public async Task<IActionResult> RelatorioAprovacoes(int pagina=1,int tamanho=20,CancellationToken ct=default)=>View("Relatorios/Aprovacoes",await aprovacoes.ListarRelatorioAsync(Contexto(),pagina,tamanho,ct));
  [HttpGet("Relatorios/Recebimentos.csv"),Authorize(Policy="compras_empresariais.relatorios.visualizar")]

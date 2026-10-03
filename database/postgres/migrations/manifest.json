@@ -2683,6 +2683,19 @@
         "20261002100000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_recebimento_divergencia' and column_name='reposicao_justificativa')"
+    },
+    {
+      "version": "20261002160000",
+      "description": "Conferencia de faturas, match trilateral, itens, historico e concorrencia operacional",
+      "category": "functional",
+      "file": "20261002160000_compras_fatura_conferencia_operacional.sql",
+      "checksum": "5dfecc9efb7cb5ade89d243cb54e0a5ca8d886d0a3878a4b0739a824cba241db",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261002120000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.compras_empresarial_fatura_item') is not null and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_fatura' and column_name='valor_liquido')"
     }
   ],
   "compatibilityAfterAll": [

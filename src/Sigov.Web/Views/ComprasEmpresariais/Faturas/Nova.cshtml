@@ -1,0 +1,221 @@
+@using Sigov.Application.Common
+@using Sigov.Application.ComprasEmpresariais
+@{
+    ViewData["Title"] = "Nova conferência de fatura";
+    var previa = ViewData["Previa"] as FaturaConferenciaPrevia;
+    var pedidos = ViewData["Pedidos"] as PagedResult<PedidoResumo>;
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">REGISTRO E CONFERÊNCIA</span>
+        <h1>Nova conferência de fatura</h1>
+        <p>Entrada de documento fiscal de fornecedor e conciliação trilateral com pedido e recebimento físico.</p>
+    </div>
+    <div class="compras-header-actions">
+        <a class="btn btn-outline-secondary" href="@Url.Action("Faturas")">Voltar à listagem</a>
+    </div>
+</header>
+
+@if (TempData["Error"] is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="panel mb-3" open>
+    <summary class="h6">Passo a passo da conferência trilateral</summary>
+    <div class="mt-2 text-muted small">
+        <ol class="mb-0 ps-3">
+            <li><strong>Seleção do Pedido:</strong> Selecione o pedido correspondente ao fornecimento. Somente itens aceitos em inspeções físicas no almoxarifado geram saldo elegível para faturamento.</li>
+            <li><strong>Dados do Documento:</strong> Informe o número, série, tipo de documento fiscal, chave de acesso (se houver) e datas de emissão e vencimento.</li>
+            <li><strong>Confronto de Itens:</strong> O sistema pré-carrega as quantidades elegíveis e preços contratados. Informe os valores reais declarados na nota.</li>
+            <li><strong>Validação de Saldos:</strong> Quantidades além do saldo físico aceito ou preços divergentes da homologação gerarão apontamentos de divergência para análise da autoridade competente.</li>
+        </ol>
+    </div>
+</details>
+
+@if (previa is null)
+{
+    <section class="panel" aria-labelledby="selecao-pedido-title">
+        <h2 id="selecao-pedido-title" class="h5 mb-3">Selecione o pedido de compra</h2>
+        <p class="text-muted">Escolha o pedido para o qual a fatura ou nota fiscal foi emitida:</p>
+
+        @if (pedidos is not null && pedidos.Items.Count > 0)
+        {
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Número do Pedido</th>
+                            <th scope="col">Fornecedor</th>
+                            <th scope="col">Situação</th>
+                            <th scope="col" class="text-end">Total Contratado</th>
+                            <th scope="col" class="text-end">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in pedidos.Items)
+                        {
+                            <tr>
+                                <td><strong>@p.Numero</strong></td>
+                                <td>@p.FornecedorNome</td>
+                                <td><span class="badge bg-secondary">@p.Status.Replace('_', ' ')</span></td>
+                                <td class="text-end">@p.ValorTotal.ToString("C2")</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-primary" href="@Url.Action("NovaFatura", new { pedidoId = p.Id })">Selecionar</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">Nenhum pedido disponível para faturamento no momento.</p>
+        }
+    </section>
+}
+else
+{
+    <section class="panel mb-3" aria-labelledby="dados-pedido-title">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 id="dados-pedido-title" class="h5 mb-0">Pedido selecionado: @previa.PedidoNumero</h2>
+            <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("NovaFatura")">Trocar pedido</a>
+        </div>
+        <div class="row text-muted small">
+            <div class="col-md-6">
+                <strong>Fornecedor:</strong> @previa.FornecedorNome (@previa.FornecedorCnpj)
+            </div>
+            <div class="col-md-6 text-md-end">
+                <strong>Total Homologado no Pedido:</strong> @previa.TotalPedido.ToString("C2")
+            </div>
+        </div>
+    </section>
+
+    <form method="post" action="@Url.Action("CriarFatura")">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="PedidoId" value="@previa.PedidoId" />
+        <input type="hidden" name="FornecedorId" value="@previa.FornecedorId" />
+        <input type="hidden" name="Idempotency-Key" value="@Guid.NewGuid().ToString("N")" />
+
+        <section class="panel mb-3" aria-labelledby="dados-documento-title">
+            <h2 id="dados-documento-title" class="h5 mb-3">Dados da fatura / documento fiscal</h2>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="Numero">Número do Documento *</label>
+                    <input class="form-control" id="Numero" name="Numero" required maxlength="50" placeholder="Ex: 00012345" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="Serie">Série *</label>
+                    <input class="form-control" id="Serie" name="Serie" required maxlength="20" value="1" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="TipoDocumento">Tipo de Documento *</label>
+                    <select class="form-select" id="TipoDocumento" name="TipoDocumento" required>
+                        <option value="NOTA_FISCAL" selected>Nota Fiscal (NF-e)</option>
+                        <option value="FATURA_COMERCIAL">Fatura Comercial</option>
+                        <option value="RECIBO_FISCAL">Recibo / Documento Equivalente</option>
+                        <option value="OUTROS">Outros</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="ChaveAcesso">Chave de Acesso (NF-e)</label>
+                    <input class="form-control" id="ChaveAcesso" name="ChaveAcesso" maxlength="60" placeholder="44 dígitos (opcional)" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="DataEmissao">Data de Emissão</label>
+                    <input class="form-control" type="date" id="DataEmissao" name="DataEmissao" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="DataVencimento">Data de Vencimento</label>
+                    <input class="form-control" type="date" id="DataVencimento" name="DataVencimento" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="Observacoes">Observações Gerais</label>
+                    <input class="form-control" id="Observacoes" name="Observacoes" placeholder="Informações complementares da nota" />
+                </div>
+            </div>
+        </section>
+
+        <section class="panel mb-3" aria-labelledby="valores-acessorios-title">
+            <h2 id="valores-acessorios-title" class="h5 mb-3">Composição financeira adicional</h2>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label" for="ValorDesconto">Desconto Comercial (R$)</label>
+                    <input class="form-control" type="number" step="0.01" min="0" id="ValorDesconto" name="ValorDesconto" value="0.00" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="ValorFrete">Frete Destacado (R$)</label>
+                    <input class="form-control" type="number" step="0.01" min="0" id="ValorFrete" name="ValorFrete" value="0.00" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="ValorSeguro">Seguro Destacado (R$)</label>
+                    <input class="form-control" type="number" step="0.01" min="0" id="ValorSeguro" name="ValorSeguro" value="0.00" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="ValorOutrasDespesas">Outras Despesas (R$)</label>
+                    <input class="form-control" type="number" step="0.01" min="0" id="ValorOutrasDespesas" name="ValorOutrasDespesas" value="0.00" />
+                </div>
+            </div>
+        </section>
+
+        <section class="panel mb-3" aria-labelledby="itens-conferencia-title">
+            <h2 id="itens-conferencia-title" class="h5 mb-3">Itens e conciliação trilateral</h2>
+            <p class="text-muted small">Valores sugeridos baseados no saldo físico aceito no almoxarifado e no preço unitário homologado no pedido:</p>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Produto / Item</th>
+                            <th scope="col">Unidade</th>
+                            <th scope="col" class="text-end">Qtd Pedida</th>
+                            <th scope="col" class="text-end">Qtd Aceita Almox.</th>
+                            <th scope="col" class="text-end">Faturado Outras</th>
+                            <th scope="col" class="text-end">Saldo Elegível</th>
+                            <th scope="col" class="text-end" style="width: 150px;">Qtd a Faturar *</th>
+                            <th scope="col" class="text-end" style="width: 160px;">Preço Unitário (R$) *</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < previa.Itens.Count; i++)
+                        {
+                            var it = previa.Itens[i];
+                            var qtdPadrao = it.SaldoFaturavelElegivel > 0 ? it.SaldoFaturavelElegivel : 0m;
+                            <tr>
+                                <td>
+                                    <strong>@it.ProdutoNome</strong>
+                                    <input type="hidden" name="Itens[@i].PedidoItemId" value="@it.PedidoItemId" />
+                                </td>
+                                <td><span class="badge bg-light text-dark">@it.Unidade</span></td>
+                                <td class="text-end">@it.QuantidadePedida.ToString("0.####")</td>
+                                <td class="text-end">@it.QuantidadeAceitaTotal.ToString("0.####")</td>
+                                <td class="text-end">@it.QuantidadeFaturadaOutras.ToString("0.####")</td>
+                                <td class="text-end text-primary"><strong>@it.SaldoFaturavelElegivel.ToString("0.####")</strong></td>
+                                <td class="text-end">
+                                    <input class="form-control form-control-sm text-end" type="number" step="0.0001" min="0.0001" required
+                                           name="Itens[@i].Quantidade" value="@qtdPadrao.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" />
+                                </td>
+                                <td class="text-end">
+                                    <input class="form-control form-control-sm text-end" type="number" step="0.0001" min="0" required
+                                           name="Itens[@i].ValorUnitario" value="@it.ValorUnitarioPedido.ToString("0.00##", System.Globalization.CultureInfo.InvariantCulture)" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="panel d-flex justify-content-between align-items-center">
+            <span class="text-muted small">Ao registrar, o sistema calculará o confronto trilateral (Match) de preços e quantidades.</span>
+            <button class="btn btn-primary" type="submit">Processar e registrar conferência</button>
+        </div>
+    </form>
+}

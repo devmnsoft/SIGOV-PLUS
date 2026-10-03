@@ -522,4 +522,51 @@ public sealed class EnterprisePosRc07StaticTests
         Assert.Contains("Detalhes", view);
         Assert.Contains("Inativar", view);
     }
+
+    [Fact]
+    public async Task Fatura_Application_Service_Valida_Regras_Estruturais_E_Idempotencia()
+    {
+        var service = new FaturaCompraApplicationService(null!);
+        var ctx = new ComprasContext(Guid.NewGuid(), Guid.NewGuid(), "corr-1");
+
+        // 1. Falha em contexto somente leitura
+        var ctxReadOnly = ctx with { SomenteLeitura = true };
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CriarAsync(ctxReadOnly, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "123", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 10, 5)]), "key-1", CancellationToken.None));
+
+        // 2. Chave de idempotência vazia
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "123", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 10, 5)]), "", CancellationToken.None));
+
+        // 3. Pedido ou fornecedor vazios
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.Empty, Guid.NewGuid(), "123", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 10, 5)]), "key-1", CancellationToken.None));
+
+        // 4. Número ou série vazios
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 10, 5)]), "key-1", CancellationToken.None));
+
+        // 5. Itens vazios ou com quantidade zero/negativa
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "123", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, []), "key-1", CancellationToken.None));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "123", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 0, 5)]), "key-1", CancellationToken.None));
+
+        // 6. Itens duplicados
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CriarAsync(ctx, new CriarFaturaRequest(Guid.NewGuid(), Guid.NewGuid(), "123", "1", "NOTA_FISCAL", null, null, null, 0, 0, 0, 0, null, [new(1, 5, 5), new(1, 3, 5)]), "key-1", CancellationToken.None));
+
+        // 7. Decisão inválida
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.DecidirAsync(ctx, Guid.NewGuid(), new DecidirFaturaRequest(1, "DESCONHECIDA", null, "k-1"), CancellationToken.None));
+
+        // 8. Rejeição ou cancelamento sem justificativa mínima
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.DecidirAsync(ctx, Guid.NewGuid(), new DecidirFaturaRequest(1, "REJEITAR", "curto", "k-1"), CancellationToken.None));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.DecidirAsync(ctx, Guid.NewGuid(), new DecidirFaturaRequest(1, "CANCELAR", null, "k-1"), CancellationToken.None));
+    }
 }
+

@@ -4,7 +4,7 @@ namespace Sigov.Application.Tributario.TributarioAvancado;
 
 public sealed record TributarioAvancadoContext(long TenantId, long? EntidadeId, long? ExercicioId, long? UsuarioId, string CorrelationId);
 public sealed record TributarioRegistroDto(long Id, string? Codigo, string Status, string? Tipo, string? Descricao, decimal? Valor, DateTimeOffset CreatedAt, IReadOnlyDictionary<string, object?> Dados, long? ContribuinteId = null, long? ReferenciaId = null);
-public sealed record TributarioOperacaoRequest(string? Codigo, string? Tipo, string Status, string? Descricao, string? Justificativa, decimal? Quantidade, decimal? Valor, long? ReferenciaId, IReadOnlyDictionary<string, object?>? Dados);
+public sealed record TributarioOperacaoRequest(string? Codigo, string? Tipo, string Status, string? Descricao, string? Justificativa, decimal? Quantidade, decimal? Valor, long? ReferenciaId, IReadOnlyDictionary<string, object?>? Dados, long? ContribuinteId = null);
 public sealed record TributarioDashboardDto(long Total, long Pendentes, long Concluidos, long Alertas, IReadOnlyCollection<TributarioRegistroDto> Recentes);
 public sealed record TributarioCarneDashboardDto(long Emitidos, long EmProducao, long Entregues, long Pendentes);
 public sealed record TributarioCarneEmissaoDto(long Id, string? Codigo, string Tipo, string Status, decimal QuantidadePrevista);

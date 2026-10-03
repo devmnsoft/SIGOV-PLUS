@@ -54,10 +54,15 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
                 dadosSanitizados[kvp.Key] = kvp.Value;
             }
         }
-        var contribuinteId = r.ReferenciaId;
+        long? contribuinteId = r.ContribuinteId;
+        long? referenciaId = r.ReferenciaId;
+        if (contribuinteId is null && recurso.StartsWith("portal_contribuinte_") && referenciaId.HasValue)
+        {
+            contribuinteId = referenciaId;
+        }
         const string values = "(tenant_id,entidade_id,exercicio_id,contribuinte_id,referencia_id,codigo,tipo,status,descricao,justificativa,quantidade,valor,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@ContribuinteId,@ReferenciaId,@Codigo,@Tipo,@Status,@Descricao,@Justificativa,@Quantidade,@Valor,@Dados::jsonb,jsonb_build_object('acao','CRIAR','em',now()),@CorrelationId,@UsuarioId) returning id";
         using var c = _context.CreateConnection();
-        return await c.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.{recurso}{values}", new { x.TenantId, x.EntidadeId, x.ExercicioId, ContribuinteId = contribuinteId, r.ReferenciaId, r.Codigo, r.Tipo, r.Status, r.Descricao, r.Justificativa, r.Quantidade, r.Valor, Dados = JsonSerializer.Serialize(dadosSanitizados), CorrelationId = Guid.TryParse(x.CorrelationId, out var g) ? g : Guid.NewGuid(), x.UsuarioId }, cancellationToken: ct));
+        return await c.ExecuteScalarAsync<long>(new CommandDefinition($"insert into sigov.{recurso}{values}", new { x.TenantId, x.EntidadeId, x.ExercicioId, ContribuinteId = contribuinteId, ReferenciaId = referenciaId, r.Codigo, r.Tipo, r.Status, r.Descricao, r.Justificativa, r.Quantidade, r.Valor, Dados = JsonSerializer.Serialize(dadosSanitizados), CorrelationId = Guid.TryParse(x.CorrelationId, out var g) ? g : Guid.NewGuid(), x.UsuarioId }, cancellationToken: ct));
     }
 
     public async Task<bool> AlterarStatusAsync(TributarioAvancadoContext x, string recurso, long id, string status, string? justificativa, CancellationToken ct)
@@ -128,7 +133,7 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
         var sqlAcesso = @"
             select a.contribuinte_id as ContribuinteId, coalesce(c.inscricao, a.codigo, cast(a.contribuinte_id as text)) as Inscricao, c.nome as Nome, a.tipo as TipoVinculo
             from sigov.portal_contribuinte_acesso a
-            join sigov.contribuinte c on c.id = a.contribuinte_id and c.tenant_id = a.tenant_id and c.ativo = true and not c.is_deleted
+            join sigov.contribuinte c on c.id = a.contribuinte_id and c.tenant_id = a.tenant_id and c.ativo = true
             where a.tenant_id = @TenantId
               and a.ativo = true
               and not a.is_deleted
@@ -138,13 +143,12 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
               and a.contribuinte_id is not null
               and (
                 a.referencia_id = @UsuarioId
-                or (a.dados->>'usuario_id')::bigint = @UsuarioId
+                or (a.dados->>'usuario_id' ~ '^[0-9]+$' and (a.dados->>'usuario_id')::bigint = @UsuarioId)
                 or exists (
                     select 1 from sigov.usuario u2
                     join sigov.pessoa p2 on p2.id = u2.pessoa_id and p2.tenant_id = @TenantId and not p2.is_deleted
                     where u2.id = @UsuarioId and not u2.is_deleted and p2.documento is not null and (a.dados->>'documento_representante' = p2.documento or a.dados->>'cpf_representante' = p2.documento)
                 )
-                or (a.created_by = @UsuarioId and a.tipo in ('PROCURADOR', 'REPRESENTANTE', 'AUTORIZADO', 'DELEGADO'))
               )";
         var acessos = (await c.QueryAsync<ContribuinteAutorizadoInfo>(new CommandDefinition(sqlAcesso, new { TenantId = tenantId, UsuarioId = usuarioId }, cancellationToken: ct))).ToList();
 
@@ -152,7 +156,7 @@ public sealed class TributarioAvancadoRepository : ITributarioCarnesBoletosRepos
             select c.id as ContribuinteId, c.inscricao as Inscricao, c.nome as Nome, 'TITULAR' as TipoVinculo
             from sigov.usuario u
             join sigov.pessoa p on p.id = u.pessoa_id and p.tenant_id = @TenantId and p.ativo = true and not p.is_deleted
-            join sigov.contribuinte c on c.documento = p.documento and c.tenant_id = @TenantId and c.ativo = true and not c.is_deleted
+            join sigov.contribuinte c on c.documento = p.documento and c.tenant_id = @TenantId and c.ativo = true
             where u.id = @UsuarioId
               and u.ativo = true
               and not u.is_deleted

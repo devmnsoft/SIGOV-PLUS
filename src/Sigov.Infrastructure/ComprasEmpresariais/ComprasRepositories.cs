@@ -122,34 +122,59 @@ select tipo,detalhes::text Detalhes,ocorrido_em OcorridoEm from sigov.compras_em
   // request is returned instead of being rejected as a stale order version.
   old=await c.QuerySingleOrDefaultAsync<RecebimentoExistente>(new CommandDefinition(idempotencyQuery,idempotencyArgs,tx,cancellationToken:ct));if(old is not null){await tx.CommitAsync(ct);return new(old.Id,old.Status,true);}
    if(pedido is null||pedido.Version!=r.PedidoVersion||pedido.Status is not ("CONFIRMADO" or "PARCIALMENTE_RECEBIDO" or "RECEBIDO"))throw new InvalidOperationException("Pedido inexistente, alterado ou em situação incompatível com recebimento.");
-   if(pedido.Status == "RECEBIDO" && r.Itens.Any(i => !i.DivergenciaOrigemId.HasValue))throw new InvalidOperationException("O pedido já se encontra na situação RECEBIDO; novas entregas originais não são permitidas, apenas reposições autorizadas.");
-   if(!await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.estoque_almoxarifado where tenant_id=@t and id=@id and ativo)",new{t=x.TenantId,id=r.AlmoxarifadoId},tx,cancellationToken:ct)))throw new InvalidOperationException("O almoxarifado de destino não pertence ao contexto autorizado ou está inativo.");
-   var ids=r.Itens.Select(i=>i.PedidoItemId).Distinct().ToArray();
-   var db=(await c.QueryAsync<ItemLock>(new CommandDefinition(@"select i.id,i.produto_id ProdutoId,i.quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id),0) SaldoTotal,i.quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id and ri.divergencia_origem_id is null),0) Pendente,i.exige_inspecao ExigeInspecao from sigov.compras_empresarial_pedido_item i where i.tenant_id=@t and i.pedido_id=@pedido and i.id=any(@ids) for update",new{t=x.TenantId,pedido=r.PedidoId,ids},tx,cancellationToken:ct))).ToDictionary(i=>i.Id);
-   if(db.Count!=ids.Length)throw new InvalidOperationException("Um item não pertence ao pedido ou a quantidade supera o saldo permitido.");
-   var originaisAgrupados=r.Itens.Where(i=>!i.DivergenciaOrigemId.HasValue).GroupBy(i=>i.PedidoItemId).ToDictionary(g=>g.Key,g=>g.Sum(x=>x.Quantidade));
-   foreach(var (pid,totalQtd) in originaisAgrupados){if(!db.TryGetValue(pid,out var it)||totalQtd<=0||totalQtd>it.Pendente)throw new InvalidOperationException("Um item não pertence ao pedido ou a quantidade supera o saldo permitido.");}
-   var reposicoesAgrupadas=r.Itens.Where(i=>i.DivergenciaOrigemId.HasValue).GroupBy(i=>i.DivergenciaOrigemId!.Value).ToDictionary(g=>g.Key,g=>g.Sum(x=>x.Quantidade));
-   var divergenciasValidadas=new Dictionary<long,DivergenciaReposicaoLock>();
-   foreach(var (divId,totalQtd) in reposicoesAgrupadas)
-   {
-    var div=await c.QuerySingleOrDefaultAsync<DivergenciaReposicaoLock>(new CommandDefinition(@"select d.id,d.recebimento_id RecebimentoId,d.recebimento_item_id RecebimentoItemId,d.reposicao_autorizada ReposicaoAutorizada,coalesce(d.quantidade_reposicao,0) QuantidadeReposicao,coalesce(d.reposicao_recebida,0) ReposicaoRecebida,ri.pedido_item_id PedidoItemId,r.pedido_id PedidoId from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id join sigov.compras_empresarial_recebimento r on r.id=d.recebimento_id and r.tenant_id=d.tenant_id where d.tenant_id=@t and d.id=@divId for update",new{t=x.TenantId,divId},tx,cancellationToken:ct));
-    if(div is null)throw new InvalidOperationException("A divergência informada para reposição não existe no contexto autorizado.");
-    if(div.PedidoId!=r.PedidoId)throw new InvalidOperationException("A divergência informada não corresponde ao pedido especificado.");
-    if(!div.ReposicaoAutorizada)throw new InvalidOperationException("A reposição ainda não foi autorizada para a divergência informada.");
-    var saldoRep=div.QuantidadeReposicao-div.ReposicaoRecebida;
-    if(totalQtd<=0||totalQtd>saldoRep)throw new InvalidOperationException($"A quantidade agregada a receber na reposição ({totalQtd:0.####}) supera o saldo autorizado ({saldoRep:0.####}).");
-    divergenciasValidadas[divId]=div;
-   }
-   foreach(var (divId,totalQtd) in reposicoesAgrupadas)
-   {
-    await c.ExecuteAsync(new CommandDefinition(@"update sigov.compras_empresarial_recebimento_divergencia set reposicao_recebida=coalesce(reposicao_recebida,0)+@q,version=version+1,updated_at=now(),updated_by=@user,correlation_id=@corr where tenant_id=@t and id=@divId",new{t=x.TenantId,divId,q=totalQtd,user=x.UsuarioId.ToString(),corr=x.CorrelationId},tx,cancellationToken:ct));
-    await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_recebimento_divergencia_evento(tenant_id,divergencia_id,tipo,detalhes,usuario_id,correlation_id) values(@t,@divId,'REPOSICAO_RECEBIDA',jsonb_build_object('quantidade_recebida',@q,'recebimento_id',@id::text),@usuario,@corr)",new{t=x.TenantId,divId,q=totalQtd,id=Guid.NewGuid(),usuario=x.UsuarioId,corr=x.CorrelationId},tx,cancellationToken:ct));
-   }
-   var id=Guid.NewGuid();var inspecao=r.Itens.Any(i=>db[i.PedidoItemId].ExigeInspecao);var status=inspecao?"EM_CONFERENCIA":"CONCLUIDO";var user=x.UsuarioId.ToString();
-   await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_recebimento(id,tenant_id,pedido_id,documento,idempotency_key,resultado_inspecao,status,almoxarifado_id,data_operacao,observacoes,confirmado_em,created_by,updated_by,correlation_id) values(@id,@t,@pedido,@documento,@key,@resultado,@status,@almox,@data,@observacoes,now(),@user,@user,@corr)",new{id,t=x.TenantId,pedido=r.PedidoId,documento=r.Documento,key,resultado=inspecao?"PENDENTE":"APROVADO",status,almox=r.AlmoxarifadoId,data=r.DataOperacao,observacoes=r.Observacoes,user,corr=x.CorrelationId},tx,cancellationToken:ct));
-   foreach(var item in r.Itens){var locked=db[item.PedidoItemId];var aceita=locked.ExigeInspecao?0:item.Quantidade;var conferencia=locked.ExigeInspecao?item.Quantidade:0;await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_recebimento_item(tenant_id,recebimento_id,pedido_item_id,produto_id,quantidade_fisica,quantidade_aceita,quantidade_conferencia,lote,validade,numero_serie,divergencia_origem_id) values(@t,@id,@item,@produto,@q,@aceita,@conferencia,@lote,@validade,@serie,@divOrigem)",new{t=x.TenantId,id,item=item.PedidoItemId,produto=locked.ProdutoId,q=item.Quantidade,aceita,conferencia,item.Lote,item.Validade,serie=item.NumeroSerie,divOrigem=item.DivergenciaOrigemId},tx,cancellationToken:ct));if(aceita>0){await c.ExecuteAsync(new CommandDefinition("insert into sigov.estoque_saldo(tenant_id,produto_id,almoxarifado_id,quantidade) values(@t,@produto,@almox,@q) on conflict(tenant_id,produto_id,almoxarifado_id) do update set quantidade=sigov.estoque_saldo.quantidade+excluded.quantidade,updated_at=now();insert into sigov.estoque_movimento(tenant_id,produto_id,almoxarifado_id,tipo,quantidade,origem,origem_id) values(@t,@produto,@almox,'ENTRADA',@q,'RECEBIMENTO_COMPRA',@id)",new{t=x.TenantId,produto=locked.ProdutoId,almox=r.AlmoxarifadoId,q=aceita,id},tx,cancellationToken:ct));}}
-   var pendente=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.compras_empresarial_pedido_item i where i.tenant_id=@t and i.pedido_id=@pedido and i.quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id and ri.divergencia_origem_id is null),0)>0)",new{t=x.TenantId,pedido=r.PedidoId},tx,cancellationToken:ct));
+    if(pedido.Status == "RECEBIDO" && r.Itens.Any(i => !i.DivergenciaOrigemId.HasValue))throw new InvalidOperationException("O pedido já se encontra na situação RECEBIDO; novas entregas originais não são permitidas, apenas reposições autorizadas.");
+    if(!await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.estoque_almoxarifado where tenant_id=@t and id=@id and ativo)",new{t=x.TenantId,id=r.AlmoxarifadoId},tx,cancellationToken:ct)))throw new InvalidOperationException("O almoxarifado de destino não pertence ao contexto autorizado ou está inativo.");
+
+    if(r.Itens.Count == 0 || r.Itens.Any(i => i.Quantidade <= 0m))throw new InvalidOperationException("As quantidades informadas para recebimento devem ser estritamente positivas.");
+
+    var ids=r.Itens.Select(i=>i.PedidoItemId).Distinct().ToArray();
+    var db=(await c.QueryAsync<ItemLock>(new CommandDefinition(@"select i.id,i.produto_id ProdutoId,i.quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id),0) SaldoTotal,i.quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id and ri.divergencia_origem_id is null),0) Pendente,i.exige_inspecao ExigeInspecao from sigov.compras_empresarial_pedido_item i where i.tenant_id=@t and i.pedido_id=@pedido and i.id=any(@ids) for update",new{t=x.TenantId,pedido=r.PedidoId,ids},tx,cancellationToken:ct))).ToDictionary(i=>i.Id);
+    if(db.Count!=ids.Length)throw new InvalidOperationException("Um item não pertence ao pedido ou a quantidade supera o saldo permitido.");
+    var originaisAgrupados=r.Itens.Where(i=>!i.DivergenciaOrigemId.HasValue).GroupBy(i=>i.PedidoItemId).ToDictionary(g=>g.Key,g=>g.Sum(x=>x.Quantidade));
+    foreach(var (pid,totalQtd) in originaisAgrupados){if(!db.TryGetValue(pid,out var it)||totalQtd<=0||totalQtd>it.Pendente)throw new InvalidOperationException("Um item não pertence ao pedido ou a quantidade supera o saldo permitido.");}
+
+    var divIds=r.Itens.Where(i=>i.DivergenciaOrigemId.HasValue).Select(i=>i.DivergenciaOrigemId!.Value).Distinct().ToArray();
+    var divergenciasValidadas=new Dictionary<long,DivergenciaReposicaoLock>();
+    foreach(var divId in divIds)
+    {
+     var div=await c.QuerySingleOrDefaultAsync<DivergenciaReposicaoLock>(new CommandDefinition(@"select d.id,d.recebimento_id RecebimentoId,d.recebimento_item_id RecebimentoItemId,d.reposicao_autorizada ReposicaoAutorizada,coalesce(d.quantidade_reposicao,0) QuantidadeReposicao,coalesce(d.reposicao_recebida,0) ReposicaoRecebida,d.situacao Situacao,ri.pedido_item_id PedidoItemId,ri.produto_id ProdutoId,r.pedido_id PedidoId from sigov.compras_empresarial_recebimento_divergencia d join sigov.compras_empresarial_recebimento_item ri on ri.id=d.recebimento_item_id and ri.tenant_id=d.tenant_id join sigov.compras_empresarial_recebimento r on r.id=d.recebimento_id and r.tenant_id=d.tenant_id where d.tenant_id=@t and d.id=@divId for update",new{t=x.TenantId,divId},tx,cancellationToken:ct));
+     if(div is null)throw new InvalidOperationException("A divergência informada para reposição não existe no contexto autorizado.");
+     if(div.PedidoId!=r.PedidoId)throw new InvalidOperationException("A divergência informada não corresponde ao pedido especificado.");
+     if(div.Situacao=="ENCERRADA")throw new InvalidOperationException("A divergência de origem já foi encerrada e não permite novos recebimentos de reposição.");
+     if(!div.ReposicaoAutorizada)throw new InvalidOperationException("A reposição ainda não foi autorizada para a divergência informada.");
+     divergenciasValidadas[divId]=div;
+    }
+
+    foreach(var item in r.Itens.Where(i=>i.DivergenciaOrigemId.HasValue))
+    {
+     var div=divergenciasValidadas[item.DivergenciaOrigemId!.Value];
+     if(item.PedidoItemId!=div.PedidoItemId)throw new InvalidOperationException("O item do pedido informado não corresponde ao item original da divergência; não é permitido consumir autorização de reposição para outro item.");
+     var lockedItem=db[item.PedidoItemId];
+     if(lockedItem.ProdutoId!=div.ProdutoId)throw new InvalidOperationException("O produto do item informado diverge do produto registrado na divergência de origem.");
+    }
+
+    var reposicoesAgrupadas=r.Itens.Where(i=>i.DivergenciaOrigemId.HasValue).GroupBy(i=>i.DivergenciaOrigemId!.Value).ToDictionary(g=>g.Key,g=>g.Sum(x=>x.Quantidade));
+    foreach(var (divId,totalQtd) in reposicoesAgrupadas)
+    {
+     var div=divergenciasValidadas[divId];
+     var saldoRep=div.QuantidadeReposicao-div.ReposicaoRecebida;
+     if(totalQtd<=0||totalQtd>saldoRep)throw new InvalidOperationException($"A quantidade agregada a receber na reposição ({totalQtd:0.####}) supera o saldo autorizado ({saldoRep:0.####}).");
+    }
+
+    var id=Guid.NewGuid();
+    var inspecao=r.Itens.Any(i=>db[i.PedidoItemId].ExigeInspecao);
+    var status=inspecao?"EM_CONFERENCIA":"CONCLUIDO";
+    var user=x.UsuarioId.ToString();
+
+    foreach(var (divId,totalQtd) in reposicoesAgrupadas)
+    {
+     await c.ExecuteAsync(new CommandDefinition(@"update sigov.compras_empresarial_recebimento_divergencia set reposicao_recebida=coalesce(reposicao_recebida,0)+@q,version=version+1,updated_at=now(),updated_by=@user,correlation_id=@corr where tenant_id=@t and id=@divId",new{t=x.TenantId,divId,q=totalQtd,user,corr=x.CorrelationId},tx,cancellationToken:ct));
+     await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_recebimento_divergencia_evento(tenant_id,divergencia_id,tipo,detalhes,usuario_id,correlation_id) values(@t,@divId,'REPOSICAO_RECEBIDA',jsonb_build_object('quantidade_recebida',@q,'recebimento_id',@id::text),@usuario,@corr)",new{t=x.TenantId,divId,q=totalQtd,id,usuario=x.UsuarioId,corr=x.CorrelationId},tx,cancellationToken:ct));
+    }
+
+    await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_recebimento(id,tenant_id,pedido_id,documento,idempotency_key,resultado_inspecao,status,almoxarifado_id,data_operacao,observacoes,confirmado_em,created_by,updated_by,correlation_id) values(@id,@t,@pedido,@documento,@key,@resultado,@status,@almox,@data,@observacoes,now(),@user,@user,@corr)",new{id,t=x.TenantId,pedido=r.PedidoId,documento=r.Documento,key,resultado=inspecao?"PENDENTE":"APROVADO",status,almox=r.AlmoxarifadoId,data=r.DataOperacao,observacoes=r.Observacoes,user,corr=x.CorrelationId},tx,cancellationToken:ct));
+    foreach(var item in r.Itens){var locked=db[item.PedidoItemId];var aceita=locked.ExigeInspecao?0:item.Quantidade;var conferencia=locked.ExigeInspecao?item.Quantidade:0;await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.compras_empresarial_recebimento_item(tenant_id,recebimento_id,pedido_item_id,produto_id,quantidade_fisica,quantidade_aceita,quantidade_conferencia,lote,validade,numero_serie,divergencia_origem_id) values(@t,@id,@item,@produto,@q,@aceita,@conferencia,@lote,@validade,@serie,@divOrigem)",new{t=x.TenantId,id,item=item.PedidoItemId,produto=locked.ProdutoId,q=item.Quantidade,aceita,conferencia,item.Lote,item.Validade,serie=item.NumeroSerie,divOrigem=item.DivergenciaOrigemId},tx,cancellationToken:ct));if(aceita>0){await c.ExecuteAsync(new CommandDefinition("insert into sigov.estoque_saldo(tenant_id,produto_id,almoxarifado_id,quantidade) values(@t,@produto,@almox,@q) on conflict(tenant_id,produto_id,almoxarifado_id) do update set quantidade=sigov.estoque_saldo.quantidade+excluded.quantidade,updated_at=now();insert into sigov.estoque_movimento(tenant_id,produto_id,almoxarifado_id,tipo,quantidade,origem,origem_id) values(@t,@produto,@almox,'ENTRADA',@q,'RECEBIMENTO_COMPRA',@id)",new{t=x.TenantId,produto=locked.ProdutoId,almox=r.AlmoxarifadoId,q=aceita,id},tx,cancellationToken:ct));}}
+    var pendente=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.compras_empresarial_pedido_item i where i.tenant_id=@t and i.pedido_id=@pedido and i.quantidade-i.quantidade_cancelada-coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri where ri.tenant_id=i.tenant_id and ri.pedido_item_id=i.id and ri.divergencia_origem_id is null),0)>0)",new{t=x.TenantId,pedido=r.PedidoId},tx,cancellationToken:ct));
    var pedidoStatus=(pedido.Status=="RECEBIDO"||!pendente)?"RECEBIDO":"PARCIALMENTE_RECEBIDO";
    await c.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_pedido set status=@pedidoStatus,version=version+1,updated_at=now(),updated_by=@user,correlation_id=@corr where tenant_id=@t and id=@pedido and version=@version;insert into sigov.compras_empresarial_recebimento_evento(tenant_id,recebimento_id,tipo,detalhes,usuario_id,correlation_id) values(@t,@id,'CONFIRMADO',jsonb_build_object('pedido_id',@pedido,'status',@status),@usuario,@corr)",new{t=x.TenantId,pedido=r.PedidoId,pedidoStatus,version=r.PedidoVersion,user,usuario=x.UsuarioId,id,status,corr=x.CorrelationId},tx,cancellationToken:ct));
   if(inspecao&&await c.ExecuteAsync(new CommandDefinition(@"insert into sigov.pendencia_operacional(tenant_id,modulo,recurso,tipo,entidade,entidade_id,gravidade,titulo,descricao,rota_acao,status)
@@ -182,13 +207,14 @@ on conflict(tenant_id,modulo,tipo,entidade,entidade_id) where status in('ABERTA'
   var status=hasRejected?"COM_DIVERGENCIA":"CONCLUIDO";var resultado=hasRejected?(!hasAccepted?"RECUSADO":"REPROVADO_PARCIAL"):"APROVADO";
   var updated=await c.ExecuteAsync(new CommandDefinition("update sigov.compras_empresarial_recebimento set status=@status,resultado_inspecao=@resultado,inspecao_hash=@commandHash,version=version+1,updated_at=now(),updated_by=@user,correlation_id=@corr where tenant_id=@t and id=@id and version=@version;insert into sigov.compras_empresarial_recebimento_evento(tenant_id,recebimento_id,tipo,detalhes,usuario_id,correlation_id) values(@t,@id,'INSPECAO_CONCLUIDA',jsonb_build_object('status',@status,'justificativa',@justificativa),@usuario,@corr)",new{t=x.TenantId,id,status,resultado,commandHash,version=r.Version,user=x.UsuarioId.ToString(),usuario=x.UsuarioId,corr=x.CorrelationId,justificativa=r.Justificativa?.Trim()},tx,cancellationToken:ct));
   if(updated!=2)throw new InvalidOperationException("Conflito ao concluir a conferência; nenhuma alteração foi aplicada.");
+  var usuarioNucleo = await c.QuerySingleOrDefaultAsync<long?>(new CommandDefinition("select id from sigov.usuario where md5('sigov:usuario:'||id::text)::uuid=@us limit 1", new { us = x.UsuarioId }, tx, cancellationToken: ct));
   var closed=await c.ExecuteAsync(new CommandDefinition(@"with atualizada as (
 update sigov.pendencia_operacional p set status='RESOLVIDA',resolved_at=now(),updated_at=now(),versao=versao+1
 from sigov.enterprise_tenant_mapping m where m.enterprise_tenant_id=@t and m.ativo and p.tenant_id=m.core_tenant_id
 and p.modulo='COMPRAS_EMPRESARIAIS' and p.tipo='CONFERENCIA_RECEBIMENTO' and p.entidade='compras_empresarial_recebimento'
 and p.entidade_id=@id::text and p.status in('ABERTA','EM_TRATAMENTO') returning p.id,p.tenant_id,p.versao)
 insert into sigov.governanca_ocorrencia_historico(tenant_id,ocorrencia_tipo,ocorrencia_id,evento,usuario_id,justificativa,dados_depois)
-select tenant_id,'PENDENCIA',id,'RESOLVIDA_NA_ORIGEM',@usuario,@justificativa,jsonb_build_object('recebimento_id',@id,'status_recebimento',@status,'versao',versao) from atualizada",new{t=x.TenantId,id,usuario=x.UsuarioId,justificativa=r.Justificativa?.Trim(),status},tx,cancellationToken:ct));
+select tenant_id,'PENDENCIA',id,'RESOLVIDA_NA_ORIGEM',@usuario,@justificativa,jsonb_build_object('recebimento_id',@id,'status_recebimento',@status,'versao',versao) from atualizada",new{t=x.TenantId,id,usuario=usuarioNucleo,justificativa=r.Justificativa?.Trim(),status},tx,cancellationToken:ct));
   if(closed!=1)throw new InvalidOperationException("A pendência de conferência não estava disponível para encerramento; nenhuma alteração foi aplicada.");
   if(hasRejected)
   {
@@ -224,5 +250,5 @@ select m.core_tenant_id,'COMPRAS_EMPRESARIAIS','RECEBIMENTO','TRATAMENTO_DIVERGE
  private sealed record RecebimentoInspecaoLock(Guid Id,string Status,long Version,Guid AlmoxarifadoId,string? InspecaoHash);
  private sealed record InspecaoItemLock(long Id,Guid ProdutoId,decimal QuantidadeConferencia);
  private sealed record DivergenciaExistente(long Id,Guid RecebimentoId,decimal QuantidadeRejeitada,string Motivo);
-  private sealed record DivergenciaReposicaoLock(long Id,Guid RecebimentoId,long RecebimentoItemId,bool ReposicaoAutorizada,decimal QuantidadeReposicao,decimal ReposicaoRecebida,long PedidoItemId,Guid PedidoId);
+  private sealed record DivergenciaReposicaoLock(long Id,Guid RecebimentoId,long RecebimentoItemId,bool ReposicaoAutorizada,decimal QuantidadeReposicao,decimal ReposicaoRecebida,string Situacao,long PedidoItemId,Guid ProdutoId,Guid PedidoId);
 }

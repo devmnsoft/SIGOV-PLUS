@@ -544,7 +544,7 @@ left join sigov.compras_empresarial_fornecedor fo on fo.id=p.fornecedor_id and f
 left join sigov.compras_empresarial_cotacao cc on cc.id=p.cotacao_id and cc.tenant_id=p.tenant_id
 left join sigov.compras_empresarial_requisicao rr on rr.id=p.requisicao_id and rr.tenant_id=p.tenant_id
 where p.tenant_id=@t and p.id=@id and not p.is_deleted;
-select pi.id Id,pi.produto_id ProdutoId,ep.nome ProdutoNome,ep.unidade Unidade,pi.quantidade Quantidade,pi.quantidade QuantidadePedida,pi.quantidade_cancelada QuantidadeCancelada,
+select pi.id Id,pi.produto_id ProdutoId,ep.nome ProdutoNome,ep.unidade Unidade,pi.quantidade Quantidade,pi.quantidade_cancelada QuantidadeCancelada,
 pi.valor_unitario ValorUnitario,pi.exige_inspecao ExigeInspecao,
 coalesce((select sum(ri.quantidade_fisica) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id),0) QuantidadeRecebidaFisica,
 coalesce((select sum(ri.quantidade_conferencia) from sigov.compras_empresarial_recebimento_item ri join sigov.compras_empresarial_recebimento r on r.id=ri.recebimento_id and r.tenant_id=ri.tenant_id where ri.tenant_id=pi.tenant_id and ri.pedido_item_id=pi.id and r.status='EM_CONFERENCIA'),0) QuantidadeAguardandoInspecao,

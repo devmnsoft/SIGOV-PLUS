@@ -5,7 +5,8 @@
     var podeReceber = (bool)(ViewData["PodeReceber"] ?? false);
     var podeEmitir = (bool)(ViewData["PodeEmitir"] ?? false);
     var podeCancelar = (bool)(ViewData["PodeCancelar"] ?? false);
-    var aptoParaRecebimento = Model.Status is "CONFIRMADO" or "PARCIALMENTE_RECEBIDO";
+    var temReposicaoPendente = Model.Itens.Any(i => i.QuantidadeReposicaoPendente > 0) || (Model.Divergencias?.Any(d => d.ReposicaoAutorizada && d.SaldoReposicaoPendente > 0) ?? false);
+    var aptoParaRecebimento = Model.Status is "CONFIRMADO" or "PARCIALMENTE_RECEBIDO" || (Model.Status == "RECEBIDO" && temReposicaoPendente);
     var podeEncerrar = podeEmitir && Model.Status is not ("ENCERRADO" or "CANCELADO");
     var podeCancelarPedido = podeCancelar && Model.Status is not ("ENCERRADO" or "CANCELADO");
 }
@@ -64,8 +65,12 @@
         </span>
         @if (podeReceber && aptoParaRecebimento)
         {
-            <a class="btn btn-primary" href="@Url.Action("NovoRecebimento", new { pedidoId = Model.Id })" id="btn-registrar-entrega">
-                Registrar recebimento
+            var divPendente = Model.Divergencias?.FirstOrDefault(d => d.ReposicaoAutorizada && d.SaldoReposicaoPendente > 0);
+            var urlReceber = divPendente is not null
+                ? Url.Action("NovoRecebimento", new { pedidoId = Model.Id, divergenciaId = divPendente.Id })
+                : Url.Action("NovoRecebimento", new { pedidoId = Model.Id });
+            <a class="btn btn-primary" href="@urlReceber" id="btn-registrar-entrega">
+                @(Model.Status == "RECEBIDO" ? "Receber reposição" : "Registrar recebimento")
             </a>
         }
         @if (podeEncerrar)

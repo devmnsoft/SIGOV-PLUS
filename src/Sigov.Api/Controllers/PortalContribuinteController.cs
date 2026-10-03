@@ -18,7 +18,7 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     public async Task<ActionResult<ApiResponse<TributarioDashboardDto>>> Dashboard(CancellationToken ct)
     {
         var tenantId = TenantId();
-        if (IsServidorAdministrativo())
+        if (TemPermissaoConsultaAdmin())
         {
             return Resposta(await _s.DashboardAsync(tenantId, "portal_contribuinte_protocolo", ct));
         }
@@ -33,7 +33,7 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     public async Task<ActionResult<ApiResponse<PagedResult<TributarioRegistroDto>>>> Consulta(CancellationToken ct)
     {
         var tenantId = TenantId();
-        if (IsServidorAdministrativo())
+        if (TemPermissaoConsultaAdmin())
         {
             return Resposta(await _s.ListarAsync(tenantId, "portal_contribuinte_solicitacao", 1, 20, ct));
         }
@@ -78,7 +78,7 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     public async Task<ActionResult<ApiResponse<long>>> Guia(TributarioOperacaoRequest r, CancellationToken ct)
     {
         var tenantId = TenantId();
-        if (!IsServidorAdministrativo())
+        if (!TemPermissaoGuiaAdmin())
         {
             r = await ValidarTitularidadeOperacaoAsync(tenantId, r, ct);
         }
@@ -93,14 +93,11 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
         var guia = await _s.ObterAsync(tenantId, "portal_contribuinte_guia_emitida", id, ct);
         if (guia is null) return NotFound(ApiResponse<TributarioRegistroDto>.Fail("Guia não localizada.", cid));
 
-        if (!IsServidorAdministrativo())
+        if (!TemPermissaoConsultaAdmin())
         {
             var usuarioId = CurrentUser.UsuarioId ?? 0;
             var autorizados = await _s.ObterContribuintesAutorizadosAsync(tenantId, usuarioId, CurrentUser.Email, ct);
             long? guiaContribId = guia.ContribuinteId;
-            if (guiaContribId is null && guia.Dados != null && guia.Dados.TryGetValue("contribuinte_id", out var cVal) && long.TryParse(cVal?.ToString(), out var parsedC))
-                guiaContribId = parsedC;
-
             bool autorizado = guiaContribId.HasValue && autorizados.Any(a => a.ContribuinteId == guiaContribId.Value);
             if (!autorizado)
             {
@@ -115,7 +112,7 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     public async Task<ActionResult<ApiResponse<long>>> Certidao(TributarioOperacaoRequest r, CancellationToken ct)
     {
         var tenantId = TenantId();
-        if (!IsServidorAdministrativo())
+        if (!TemPermissaoCertidaoAdmin())
         {
             r = await ValidarTitularidadeOperacaoAsync(tenantId, r, ct);
         }
@@ -143,7 +140,7 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     public async Task<ActionResult<ApiResponse<long>>> Parcelar(TributarioOperacaoRequest r, CancellationToken ct)
     {
         var tenantId = TenantId();
-        if (!IsServidorAdministrativo())
+        if (!TemPermissaoParcelamentoAdmin())
         {
             r = await ValidarTitularidadeOperacaoAsync(tenantId, r, ct);
         }
@@ -159,14 +156,11 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
         var item = await _s.ObterAsync(tenantId, "portal_contribuinte_protocolo", id, ct);
         if (item is null) return NotFound(ApiResponse<TributarioRegistroDto>.Fail("Protocolo não localizado.", cid));
 
-        if (!IsServidorAdministrativo())
+        if (!TemPermissaoConsultaAdmin())
         {
             var usuarioId = CurrentUser.UsuarioId ?? 0;
             var autorizados = await _s.ObterContribuintesAutorizadosAsync(tenantId, usuarioId, CurrentUser.Email, ct);
             long? itemContribId = item.ContribuinteId;
-            if (itemContribId is null && item.Dados != null && item.Dados.TryGetValue("contribuinte_id", out var cVal) && long.TryParse(cVal?.ToString(), out var parsedC))
-                itemContribId = parsedC;
-
             bool autorizado = itemContribId.HasValue && autorizados.Any(a => a.ContribuinteId == itemContribId.Value);
             if (!autorizado)
             {
@@ -182,7 +176,7 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     {
         if (string.IsNullOrWhiteSpace(r.Justificativa)) throw new ArgumentException("Justificativa é obrigatória.");
         var tenantId = TenantId();
-        if (!IsServidorAdministrativo())
+        if (!TemPermissaoCadastroAdmin())
         {
             r = await ValidarTitularidadeOperacaoAsync(tenantId, r, ct);
         }
@@ -190,14 +184,39 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
     }
 
     private bool IsServidorAdministrativo() =>
-        CurrentUser.Permissions.Contains("tributario.contribuinte") ||
         CurrentUser.Permissions.Contains("tributario.admin");
+
+    private bool TemPermissaoGuiaAdmin() =>
+        IsServidorAdministrativo() ||
+        CurrentUser.Permissions.Contains("tributario.guia.gerenciar") ||
+        CurrentUser.Permissions.Contains("TRIBUTARIO_GUIA_MANAGE");
+
+    private bool TemPermissaoCertidaoAdmin() =>
+        IsServidorAdministrativo() ||
+        CurrentUser.Permissions.Contains("tributario.certidao.gerenciar") ||
+        CurrentUser.Permissions.Contains("TRIBUTARIO_CERTIDAO_MANAGE");
+
+    private bool TemPermissaoParcelamentoAdmin() =>
+        IsServidorAdministrativo() ||
+        CurrentUser.Permissions.Contains("tributario.parcelamento.gerenciar") ||
+        CurrentUser.Permissions.Contains("TRIBUTARIO_PARCELAMENTO_MANAGE");
+
+    private bool TemPermissaoCadastroAdmin() =>
+        IsServidorAdministrativo() ||
+        CurrentUser.Permissions.Contains("tributario.contribuinte.gerenciar") ||
+        CurrentUser.Permissions.Contains("TRIBUTARIO_CONTRIBUINTE_MANAGE");
+
+    private bool TemPermissaoConsultaAdmin() =>
+        IsServidorAdministrativo() ||
+        CurrentUser.Permissions.Contains("tributario.contribuinte") ||
+        CurrentUser.Permissions.Contains("tributario.contribuinte.visualizar") ||
+        CurrentUser.Permissions.Contains("TRIBUTARIO_CONTRIBUINTE_VIEW");
 
     private async Task<ContribuinteAutorizadoInfo?> ResolverContribuinteAutorizadoAsync(long tenantId, string codigo, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(codigo)) return null;
 
-        if (IsServidorAdministrativo())
+        if (TemPermissaoConsultaAdmin())
         {
             return await _s.BuscarContribuintePorCodigoAsync(tenantId, codigo, ct);
         }
@@ -222,7 +241,13 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
         if (autorizados.Count == 0) throw new UnauthorizedAccessException("Nenhum contribuinte vinculado ao usuário autenticado.");
 
         long contribuinteId;
-        if (r.ReferenciaId.HasValue && r.ReferenciaId.Value > 0)
+        if (r.ContribuinteId.HasValue && r.ContribuinteId.Value > 0)
+        {
+            var match = autorizados.FirstOrDefault(a => a.ContribuinteId == r.ContribuinteId.Value);
+            if (match is null) throw new UnauthorizedAccessException("Operação não autorizada para o contribuinte informado.");
+            contribuinteId = match.ContribuinteId;
+        }
+        else if (r.ReferenciaId.HasValue && r.ReferenciaId.Value > 0)
         {
             var match = autorizados.FirstOrDefault(a => a.ContribuinteId == r.ReferenciaId.Value);
             if (match is null) throw new UnauthorizedAccessException("Operação não autorizada para o contribuinte informado.");
@@ -242,13 +267,15 @@ public sealed class PortalContribuinteController : TributarioAvancadoControllerB
         {
             foreach (var (k, v) in r.Dados)
             {
-                if (k is "contribuinte_id" or "tenant_id" or "usuario_id" or "roles" or "permissoes" or "admin" or "is_deleted" or "auditoria")
+                if (k is "contribuinte_id" or "tenant_id" or "usuario_id" or "roles" or "permissoes" or "admin" or "is_deleted" or "auditoria" or "id")
                     continue;
                 dadosSanitizados[k] = v;
             }
         }
         dadosSanitizados["contribuinte_id"] = contribuinteId;
 
-        return r with { ReferenciaId = contribuinteId, Dados = dadosSanitizados };
+        long? refNegocio = (r.ReferenciaId == contribuinteId) ? null : r.ReferenciaId;
+
+        return r with { ContribuinteId = contribuinteId, ReferenciaId = refNegocio, Dados = dadosSanitizados };
     }
 }

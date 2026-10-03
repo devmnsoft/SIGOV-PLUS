@@ -432,6 +432,8 @@ public static class PermissionCatalog
         Purchasing("recebimentos", "rejeitar"),
         Purchasing("recebimentos", "estornar"),
         Purchasing("faturas", "visualizar"),
+        Purchasing("faturas", "criar"),
+        Purchasing("faturas", "decidir"),
         Purchasing("divergencias", "visualizar"),
         Purchasing("divergencias", "atribuir"),
         Purchasing("divergencias", "tratar"),

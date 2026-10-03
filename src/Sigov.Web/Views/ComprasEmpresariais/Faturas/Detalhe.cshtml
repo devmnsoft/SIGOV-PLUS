@@ -1,0 +1,321 @@
+@using Sigov.Application.ComprasEmpresariais
+@model FaturaDetalhe
+@{
+    ViewData["Title"] = $"Fatura {Model.Numero}/{Model.Serie}";
+    var podeDecidir = (bool)(ViewData["PodeDecidir"] ?? false);
+    var permiteDecisao = Model.Status is "CONFORME" or "COM_DIVERGENCIA" or "EM_CONFERENCIA";
+    var badgeMatch = Model.ResultadoMatch switch
+    {
+        "MATCH_TOTAL" => "badge bg-success",
+        "DIVERGENCIA_QUANTIDADE" => "badge bg-warning text-dark",
+        "DIVERGENCIA_VALOR" => "badge bg-warning text-dark",
+        "DIVERGENCIA_MISTA" => "badge bg-danger",
+        _ => "badge bg-secondary"
+    };
+    var badgeStatus = Model.Status switch
+    {
+        "CONFORME" => "badge bg-info text-dark",
+        "APROVADA" => "badge bg-success",
+        "COM_DIVERGENCIA" => "badge bg-warning text-dark",
+        "REJEITADA" => "badge bg-danger",
+        "CANCELADA" => "badge bg-secondary",
+        _ => "badge bg-primary"
+    };
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">CONFERÊNCIA TRILATERAL</span>
+        <h1>Fatura @Model.Numero <small class="text-muted">/ Série @Model.Serie</small></h1>
+        <p>Documento fiscal @Model.TipoDocumento vinculado ao Pedido <a href="@Url.Action("Pedido", new { id = Model.PedidoId })">@Model.PedidoNumero</a>.</p>
+    </div>
+    <div class="compras-header-actions">
+        <span class="@badgeMatch me-2 p-2">Match: @Model.ResultadoMatch.Replace('_', ' ')</span>
+        <span class="@badgeStatus me-2 p-2">Situação: @Model.Status.Replace('_', ' ')</span>
+        <a class="btn btn-outline-secondary" href="@Url.Action("Faturas")">Voltar</a>
+    </div>
+</header>
+
+@if (TempData["Success"] is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Error"] is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Conflict"] is not null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        @TempData["Conflict"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="panel mb-3">
+    <summary class="h6">Entenda a conferência trilateral e a governança documental</summary>
+    <div class="mt-2 text-muted small">
+        <p>A conferência trilateral (<em>3-way matching</em>) audita de forma cruzada o documento de cobrança com os fatos geradores contratuais e físicos:</p>
+        <ul class="mb-2 ps-3">
+            <li><strong>Contrato/Pedido:</strong> Quantidade e preço homologados e adjudicados.</li>
+            <li><strong>Almoxarifado/Inspeção:</strong> Quantidades efetivamente recebidas e aceitas sem pendências. Reposições recebidas substituem rejeições anteriores sem inflar o saldo contratado.</li>
+            <li><strong>Fatura:</strong> Quantidade e preço faturados pelo credor.</li>
+        </ul>
+        <p class="mb-0"><strong>Importante:</strong> A aprovação da conferência atesta a regularidade física e documental. A autorização de pagamento e a baixa financeira ocorrem no módulo financeiro competente, conforme regras da Lei de Responsabilidade Fiscal e normas públicas aplicáveis.</p>
+    </div>
+</details>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-7">
+        <section class="panel h-100" aria-labelledby="info-gerais-title">
+            <h2 id="info-gerais-title" class="h5 mb-3">Informações do documento e fornecedor</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-4 text-muted">Fornecedor</dt>
+                <dd class="col-sm-8"><strong>@Model.FornecedorNome</strong></dd>
+
+                <dt class="col-sm-4 text-muted">CNPJ / Documento</dt>
+                <dd class="col-sm-8">@Model.FornecedorCnpj</dd>
+
+                <dt class="col-sm-4 text-muted">Pedido de Compra</dt>
+                <dd class="col-sm-8"><a href="@Url.Action("Pedido", new { id = Model.PedidoId })">@Model.PedidoNumero</a></dd>
+
+                <dt class="col-sm-4 text-muted">Tipo de Documento</dt>
+                <dd class="col-sm-8"><span class="badge bg-light text-dark">@Model.TipoDocumento</span></dd>
+
+                @if (!string.IsNullOrWhiteSpace(Model.ChaveAcesso))
+                {
+                    <dt class="col-sm-4 text-muted">Chave de Acesso</dt>
+                    <dd class="col-sm-8"><code>@Model.ChaveAcesso</code></dd>
+                }
+
+                <dt class="col-sm-4 text-muted">Data de Emissão</dt>
+                <dd class="col-sm-8">@(Model.DataEmissao?.ToString("dd/MM/yyyy") ?? "-")</dd>
+
+                <dt class="col-sm-4 text-muted">Data de Vencimento</dt>
+                <dd class="col-sm-8">@(Model.DataVencimento?.ToString("dd/MM/yyyy") ?? "-")</dd>
+
+                <dt class="col-sm-4 text-muted">Registrado em</dt>
+                <dd class="col-sm-8">@Model.CriadaEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</dd>
+
+                @if (!string.IsNullOrWhiteSpace(Model.DecididoPor))
+                {
+                    <dt class="col-sm-4 text-muted">Decidido por</dt>
+                    <dd class="col-sm-8">@Model.DecididoPor em @Model.DecididoEm?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.MotivoRejeicao))
+                {
+                    <dt class="col-sm-4 text-muted text-danger">Motivo da Rejeição</dt>
+                    <dd class="col-sm-8 text-danger">@Model.MotivoRejeicao</dd>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.Justificativa))
+                {
+                    <dt class="col-sm-4 text-muted">Justificativa</dt>
+                    <dd class="col-sm-8">@Model.Justificativa</dd>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.Observacoes))
+                {
+                    <dt class="col-sm-4 text-muted">Observações</dt>
+                    <dd class="col-sm-8">@Model.Observacoes</dd>
+                }
+            </dl>
+        </section>
+    </div>
+
+    <div class="col-md-5">
+        <section class="panel h-100" aria-labelledby="totais-fatura-title">
+            <h2 id="totais-fatura-title" class="h5 mb-3">Composição financeira</h2>
+            <div class="d-flex justify-content-between py-2 border-bottom">
+                <span>Subtotal dos Itens</span>
+                <span>@Model.ValorItens.ToString("C2")</span>
+            </div>
+            <div class="d-flex justify-content-between py-2 border-bottom text-muted">
+                <span>(-) Desconto Comercial</span>
+                <span>@Model.ValorDesconto.ToString("C2")</span>
+            </div>
+            <div class="d-flex justify-content-between py-2 border-bottom text-muted">
+                <span>(+) Frete</span>
+                <span>@Model.ValorFrete.ToString("C2")</span>
+            </div>
+            <div class="d-flex justify-content-between py-2 border-bottom text-muted">
+                <span>(+) Seguro</span>
+                <span>@Model.ValorSeguro.ToString("C2")</span>
+            </div>
+            <div class="d-flex justify-content-between py-2 border-bottom text-muted">
+                <span>(+) Outras Despesas</span>
+                <span>@Model.ValorOutrasDespesas.ToString("C2")</span>
+            </div>
+            <div class="d-flex justify-content-between py-3 fs-5">
+                <strong>Valor Líquido da Fatura</strong>
+                <strong class="text-primary">@Model.ValorLiquido.ToString("C2")</strong>
+            </div>
+        </section>
+    </div>
+</div>
+
+<section class="panel mb-3" aria-labelledby="confronto-itens-title">
+    <div class="section-title">
+        <div>
+            <h2 id="confronto-itens-title" class="h5 mb-1">Itens e auditoria trilateral (Pedido x Almoxarifado x Fatura)</h2>
+            <p class="text-muted mb-0 small">Comparativo exato de quantidades pedidas, saldos aceitos e preços unitários homologados.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Produto / Item</th>
+                    <th scope="col">Unidade</th>
+                    <th scope="col" class="text-end">Qtd Pedida</th>
+                    <th scope="col" class="text-end">Qtd Aceita Almox.</th>
+                    <th scope="col" class="text-end">Outras NFs</th>
+                    <th scope="col" class="text-end">Saldo Elegível</th>
+                    <th scope="col" class="text-end">Qtd Faturada</th>
+                    <th scope="col" class="text-end">Preço Pedido</th>
+                    <th scope="col" class="text-end">Preço Fatura</th>
+                    <th scope="col" class="text-end">Total Item</th>
+                    <th scope="col">Confronto</th>
+                    <th scope="col">Diagnóstico</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var it in Model.Itens)
+                {
+                    var itBadge = it.StatusItem switch
+                    {
+                        "CONFORME" => "badge bg-success",
+                        "DIVERGENTE_QUANTIDADE" => "badge bg-warning text-dark",
+                        "DIVERGENTE_VALOR" => "badge bg-warning text-dark",
+                        "DIVERGENTE_MISTO" => "badge bg-danger",
+                        _ => "badge bg-secondary"
+                    };
+                    <tr>
+                        <td><strong>@it.ProdutoNome</strong></td>
+                        <td><span class="badge bg-light text-dark">@it.Unidade</span></td>
+                        <td class="text-end">@it.QuantidadePedida.ToString("0.####")</td>
+                        <td class="text-end">@it.QuantidadeAceitaTotal.ToString("0.####")</td>
+                        <td class="text-end">@it.QuantidadeFaturadaOutras.ToString("0.####")</td>
+                        <td class="text-end">@it.SaldoFaturavelElegivel.ToString("0.####")</td>
+                        <td class="text-end font-monospace"><strong>@it.QuantidadeFaturada.ToString("0.####")</strong></td>
+                        <td class="text-end">@it.PrecoUnitarioPedido.ToString("C2")</td>
+                        <td class="text-end font-monospace">@it.PrecoUnitarioFatura.ToString("C2")</td>
+                        <td class="text-end"><strong>@it.TotalItem.ToString("C2")</strong></td>
+                        <td><span class="@itBadge">@it.StatusItem.Replace('_', ' ')</span></td>
+                        <td><small class="text-muted">@it.Diagnostico</small></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@if (podeDecidir && permiteDecisao)
+{
+    <section class="panel mb-3" aria-labelledby="decisao-fatura-title">
+        <h2 id="decisao-fatura-title" class="h5 mb-2">Decisão e atesto da conferência</h2>
+        <p class="text-muted small">Aprovação fixa o atesto documental. Rejeição e cancelamento exigem justificativa formal registrada para auditoria.</p>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="card p-3 h-100 border-success">
+                    <h3 class="h6 text-success">Aprovar conferência (Aceitar fatura)</h3>
+                    <p class="small text-muted mb-3">Valida o saldo concorrente em tempo real, conclui a conformidade documental e encerra a conferência.</p>
+                    <form method="post" action="@Url.Action("DecidirFatura", new { id = Model.Id })" class="mt-auto">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Version" value="@Model.Version" />
+                        <input type="hidden" name="Decisao" value="ACEITAR" />
+                        <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+                        <button type="submit" class="btn btn-success w-100" onclick="return confirm('Confirma a aprovação da conferência desta fatura?');">
+                            Aprovar fatura
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card p-3 h-100 border-danger">
+                    <h3 class="h6 text-danger">Rejeitar fatura</h3>
+                    <p class="small text-muted mb-2">Recusa formal do documento de cobrança por divergência insanável.</p>
+                    <form method="post" action="@Url.Action("DecidirFatura", new { id = Model.Id })" class="mt-auto">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Version" value="@Model.Version" />
+                        <input type="hidden" name="Decisao" value="REJEITAR" />
+                        <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+                        <div class="mb-2">
+                            <input class="form-control form-control-sm" name="Justificativa" placeholder="Motivo da rejeição (mín. 10 caracteres)" required minlength="10" />
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Confirma a rejeição formal desta fatura?');">
+                            Rejeitar fatura
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card p-3 h-100 border-secondary">
+                    <h3 class="h6 text-secondary">Cancelar fatura</h3>
+                    <p class="small text-muted mb-2">Cancelamento do lançamento por erro operacional de digitação ou substituição documental.</p>
+                    <form method="post" action="@Url.Action("DecidirFatura", new { id = Model.Id })" class="mt-auto">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Version" value="@Model.Version" />
+                        <input type="hidden" name="Decisao" value="CANCELAR" />
+                        <input type="hidden" name="IdempotencyKey" value="@Guid.NewGuid().ToString("N")" />
+                        <div class="mb-2">
+                            <input class="form-control form-control-sm" name="Justificativa" placeholder="Justificativa do cancelamento (mín. 10 caracteres)" required minlength="10" />
+                        </div>
+                        <button type="submit" class="btn btn-outline-secondary w-100" onclick="return confirm('Confirma o cancelamento deste registro de fatura?');">
+                            Cancelar registro
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+}
+
+<section class="panel" aria-labelledby="historico-eventos-title">
+    <h2 id="historico-eventos-title" class="h5 mb-3">Histórico de eventos e auditoria</h2>
+    @if (Model.Historico.Count > 0)
+    {
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th scope="col">Data / Hora</th>
+                        <th scope="col">Evento</th>
+                        <th scope="col">Autor</th>
+                        <th scope="col">Detalhes</th>
+                        <th scope="col">Correlation ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ev in Model.Historico)
+                    {
+                        <tr>
+                            <td>@ev.OcorridoEm.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td><span class="badge bg-light text-dark">@ev.Tipo</span></td>
+                            <td>@ev.Autor</td>
+                            <td><small class="font-monospace text-muted">@ev.Detalhes</small></td>
+                            <td><small class="text-muted">@ev.CorrelationId</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="text-muted mb-0">Nenhum evento registrado até o momento.</p>
+    }
+</section>

@@ -1,0 +1,159 @@
+@using Sigov.Application.Common
+@using Sigov.Application.ComprasEmpresariais
+@model PagedResult<FaturaResumo>
+@{
+    ViewData["Title"] = "Conferência de faturas";
+    var filtro = (FaturaFiltro?)ViewData["Filtro"] ?? new FaturaFiltro();
+    var first = Model.TotalItems == 0 ? 0L : ((long)Model.Page - 1) * Model.PageSize + 1;
+    var last = Model.TotalItems == 0 ? 0L : Math.Min((long)Model.Page * Model.PageSize, Model.TotalItems);
+}
+<link rel="stylesheet" href="~/css/compras-empresariais.css" />
+<partial name="Shared/_ComprasNav" />
+
+<header class="compras-header">
+    <div>
+        <span class="eyebrow">CONFERÊNCIA DOCUMENTAL E LIQUIDAÇÃO</span>
+        <h1>Faturas e notas fiscais</h1>
+        <p>Conciliação trilateral entre pedidos homologados, entregas aceitas no almoxarifado e documentos de cobrança de fornecedores.</p>
+    </div>
+    <div class="compras-header-actions">
+        <a class="btn btn-primary" href="@Url.Action("NovaFatura")">Nova conferência de fatura</a>
+    </div>
+</header>
+
+@if (TempData["Success"] is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Error"] is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (TempData["Conflict"] is not null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        @TempData["Conflict"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<details class="panel mb-3">
+    <summary class="h6">Instruções e regras de negócio: conferência trilateral (3-way match)</summary>
+    <div class="mt-2 text-muted small">
+        <p><strong>Objetivo:</strong> Assegurar que nenhum valor seja atestado sem que haja prévio pedido homologado e inspeção física concluída com aceitação formal dos itens no almoxarifado.</p>
+        <p><strong>Fórmula de saldo elegível:</strong> <code>Saldo Faturável = min(Pedido, Aceito Almoxarifado) - Faturado em Outras Faturas Ativas</code>. Reposições recebidas substituem divergências e nunca aumentam o saldo contratado além da quantidade inicial do pedido.</p>
+        <p><strong>Diagnóstico de Match:</strong> O sistema classifica automaticamente o confronto documental em <code>MATCH_TOTAL</code>, <code>DIVERGENCIA_QUANTIDADE</code>, <code>DIVERGENCIA_VALOR</code> ou <code>DIVERGENCIA_MISTA</code>.</p>
+        <p><strong>Efeitos operacionais:</strong> A aprovação da conferência fixa as quantidades faturadas, protege contra concorrência e finaliza a etapa de conferência. <em>Nenhum pagamento financeiro ou baixa contábil é disparado automaticamente</em> nesta fase, preservando a segregação de funções.</p>
+    </div>
+</details>
+
+<section class="panel" aria-labelledby="filtros-title">
+    <h2 id="filtros-title" class="h5">Filtros de pesquisa</h2>
+    <form method="get" class="requisicao-filtros">
+        <div>
+            <label class="form-label" for="busca">Buscar</label>
+            <input class="form-control" id="busca" name="busca" value="@filtro.Busca" placeholder="Número, série, chave de acesso, fornecedor ou pedido" autocomplete="off" />
+        </div>
+        <div>
+            <label class="form-label" for="status">Situação</label>
+            <select class="form-select" id="status" name="status">
+                <option value="">Todas as situações</option>
+                @foreach (var st in new[] { "CONFORME", "COM_DIVERGENCIA", "EM_CONFERENCIA", "APROVADA", "REJEITADA", "CANCELADA" })
+                {
+                    <option value="@st" selected="@(filtro.Status == st)">@st.Replace('_', ' ')</option>
+                }
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+            <a class="btn btn-outline-secondary" href="@Url.Action("Faturas")">Limpar filtros</a>
+        </div>
+    </form>
+</section>
+
+<section class="panel requisicoes-lista" aria-labelledby="resultado-title">
+    <div class="section-title">
+        <div>
+            <h2 id="resultado-title" class="h5 mb-1">Faturas registradas</h2>
+            <p class="text-muted mb-0" role="status">Exibindo @first–@last de @Model.TotalItems registros</p>
+        </div>
+    </div>
+    @if (Model.Items.Count > 0)
+    {
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Número / Série</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Pedido</th>
+                        <th scope="col">Fornecedor</th>
+                        <th scope="col">Itens</th>
+                        <th scope="col" class="text-end">Total Itens</th>
+                        <th scope="col" class="text-end">Valor Líquido</th>
+                        <th scope="col">Confronto (Match)</th>
+                        <th scope="col">Situação</th>
+                        <th scope="col">Emissão</th>
+                        <th scope="col" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in Model.Items)
+                    {
+                        var badgeMatch = f.ResultadoMatch switch
+                        {
+                            "MATCH_TOTAL" => "badge bg-success",
+                            "DIVERGENCIA_QUANTIDADE" => "badge bg-warning text-dark",
+                            "DIVERGENCIA_VALOR" => "badge bg-warning text-dark",
+                            "DIVERGENCIA_MISTA" => "badge bg-danger",
+                            _ => "badge bg-secondary"
+                        };
+                        var badgeStatus = f.Status switch
+                        {
+                            "CONFORME" => "badge bg-info text-dark",
+                            "APROVADA" => "badge bg-success",
+                            "COM_DIVERGENCIA" => "badge bg-warning text-dark",
+                            "REJEITADA" => "badge bg-danger",
+                            "CANCELADA" => "badge bg-secondary",
+                            _ => "badge bg-primary"
+                        };
+                        <tr>
+                            <td>
+                                <strong>@f.Numero</strong>
+                                @if (!string.IsNullOrWhiteSpace(f.Serie))
+                                {
+                                    <span class="text-muted">/ @f.Serie</span>
+                                }
+                            </td>
+                            <td><span class="badge bg-light text-dark">@f.TipoDocumento</span></td>
+                            <td><a href="@Url.Action("Pedido", new { id = f.PedidoId })">@f.PedidoNumero</a></td>
+                            <td>@f.FornecedorNome</td>
+                            <td>@f.ItensCount item(ns)</td>
+                            <td class="text-end">@f.Total.ToString("C2")</td>
+                            <td class="text-end"><strong>@f.ValorLiquido.ToString("C2")</strong></td>
+                            <td><span class="@badgeMatch">@f.ResultadoMatch.Replace('_', ' ')</span></td>
+                            <td><span class="@badgeStatus">@f.Status.Replace('_', ' ')</span></td>
+                            <td>@(f.DataEmissao?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="@Url.Action("DetalheFatura", new { id = f.Id })">Conferir</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state text-center p-4">
+            <p class="text-muted mb-2">Nenhuma fatura encontrada com os critérios informados.</p>
+            <a class="btn btn-outline-primary" href="@Url.Action("NovaFatura")">Iniciar conferência de fatura</a>
+        </div>
+    }
+</section>

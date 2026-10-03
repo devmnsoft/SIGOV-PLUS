@@ -135,3 +135,84 @@ public sealed class CotacaoCompraApplicationService(ICotacaoCompraRepository rep
  public Task<PedidoComandoResultado> EncerrarPedidoAsync(ComprasContext c,Guid pedidoId,EncerrarPedidoRequest r,string key,CancellationToken ct){ComprasGuard.Mutation(c);ComprasGuard.Key(key);if(pedidoId==Guid.Empty||r.Version<=0)throw new ArgumentException("Pedido ou versão inválidos.");var motivo=r.Motivo?.Trim()??string.Empty;if(motivo.Length<10||motivo.Length>500)throw new ArgumentException("O motivo do encerramento deve ter entre 10 e 500 caracteres.");return repository.EncerrarPedidoAsync(c,pedidoId,r with{Motivo=motivo},key,ct);}
  public Task<PedidoComandoResultado> CancelarPedidoAsync(ComprasContext c,Guid pedidoId,CancelarPedidoRequest r,string key,CancellationToken ct){ComprasGuard.Mutation(c);ComprasGuard.Key(key);if(pedidoId==Guid.Empty||r.Version<=0)throw new ArgumentException("Pedido ou versão inválidos.");var motivo=r.Motivo?.Trim()??string.Empty;if(motivo.Length<10||motivo.Length>500)throw new ArgumentException("O motivo do cancelamento deve ter entre 10 e 500 caracteres.");return repository.CancelarPedidoAsync(c,pedidoId,r with{Motivo=motivo},key,ct);}
 }
+
+public sealed class FaturaCompraApplicationService(IFaturaCompraRepository repository) : IFaturaCompraApplicationService
+{
+    public Task<PagedResult<FaturaResumo>> ListarAsync(ComprasContext c, FaturaFiltro f, CancellationToken ct)
+    {
+        ComprasGuard.Context(c);
+        return repository.ListarAsync(c, f with
+        {
+            Status = string.IsNullOrWhiteSpace(f.Status) ? null : f.Status.Trim().ToUpperInvariant(),
+            Busca = string.IsNullOrWhiteSpace(f.Busca) ? null : f.Busca.Trim(),
+            Pagina = Math.Max(1, f.Pagina),
+            Tamanho = Math.Clamp(f.Tamanho, 1, 100)
+        }, ct);
+    }
+
+    public Task<FaturaDetalhe?> ObterAsync(ComprasContext c, Guid id, CancellationToken ct)
+    {
+        ComprasGuard.Context(c);
+        if (id == Guid.Empty) throw new ArgumentException("Fatura inválida.");
+        return repository.ObterAsync(c, id, ct);
+    }
+
+    public Task<FaturaConferenciaPrevia> ObterConferenciaPreviaAsync(ComprasContext c, Guid pedidoId, CancellationToken ct)
+    {
+        ComprasGuard.Context(c);
+        if (pedidoId == Guid.Empty) throw new ArgumentException("Pedido inválido.");
+        return repository.ObterConferenciaPreviaAsync(c, pedidoId, ct);
+    }
+
+    public Task<FaturaComandoResultado> CriarAsync(ComprasContext c, CriarFaturaRequest r, string key, CancellationToken ct)
+    {
+        ComprasGuard.Mutation(c);
+        ComprasGuard.Key(key);
+        if (r.PedidoId == Guid.Empty || r.FornecedorId == Guid.Empty)
+            throw new ArgumentException("Pedido e fornecedor são obrigatórios.");
+        if (string.IsNullOrWhiteSpace(r.Numero))
+            throw new ArgumentException("O número da fatura/NF é obrigatório.");
+        if (r.Numero.Trim().Length > 50)
+            throw new ArgumentException("O número da fatura deve ter no máximo 50 caracteres.");
+        if (string.IsNullOrWhiteSpace(r.Serie))
+            throw new ArgumentException("A série da fatura é obrigatória.");
+        if (r.Serie.Trim().Length > 20)
+            throw new ArgumentException("A série deve ter no máximo 20 caracteres.");
+        if (string.IsNullOrWhiteSpace(r.TipoDocumento))
+            throw new ArgumentException("O tipo de documento é obrigatório.");
+        if (r.ValorDesconto < 0m || r.ValorFrete < 0m || r.ValorSeguro < 0m || r.ValorOutrasDespesas < 0m)
+            throw new ArgumentException("Valores acessórios não podem ser negativos.");
+        if (r.Itens is null || r.Itens.Count == 0)
+            throw new ArgumentException("Informe ao menos um item para faturamento.");
+        if (r.Itens.Count > 100)
+            throw new ArgumentException("Número de itens excede o limite permitido (100).");
+        if (r.Itens.Any(i => i.PedidoItemId <= 0 || i.Quantidade <= 0m || i.ValorUnitario < 0m))
+            throw new ArgumentException("Todos os itens devem ter identificador válido, quantidade positiva e valor unitário não negativo.");
+        if (r.Itens.Select(i => i.PedidoItemId).Distinct().Count() != r.Itens.Count)
+            throw new ArgumentException("Não é permitido repetir o mesmo item do pedido na fatura.");
+
+        return repository.CriarAsync(c, r with
+        {
+            Numero = r.Numero.Trim(),
+            Serie = r.Serie.Trim().ToUpperInvariant(),
+            TipoDocumento = r.TipoDocumento.Trim().ToUpperInvariant(),
+            ChaveAcesso = string.IsNullOrWhiteSpace(r.ChaveAcesso) ? null : r.ChaveAcesso.Trim()
+        }, key, ct);
+    }
+
+    public Task<FaturaComandoResultado> DecidirAsync(ComprasContext c, Guid id, DecidirFaturaRequest r, CancellationToken ct)
+    {
+        ComprasGuard.Mutation(c);
+        if (id == Guid.Empty || r.Version <= 0)
+            throw new ArgumentException("Fatura ou versão inválida.");
+        ComprasGuard.Key(r.IdempotencyKey ?? string.Empty);
+        var decisao = r.Decisao?.Trim().ToUpperInvariant();
+        if (decisao is not ("ACEITAR" or "REJEITAR" or "CANCELAR"))
+            throw new ArgumentException("Decisão inválida; informe ACEITAR, REJEITAR ou CANCELAR.");
+        if (decisao is "REJEITAR" or "CANCELAR" && (string.IsNullOrWhiteSpace(r.Justificativa) || r.Justificativa.Trim().Length < 10))
+            throw new ArgumentException("A justificativa é obrigatória (mínimo de 10 caracteres) para rejeitar ou cancelar.");
+
+        return repository.DecidirAsync(c, id, r with { Decisao = decisao, Justificativa = r.Justificativa?.Trim() }, ct);
+    }
+}
+
