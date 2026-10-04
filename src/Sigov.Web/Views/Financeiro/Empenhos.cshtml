@@ -1,14 +1,87 @@
-@{ ViewData["Title"] = "Empenhos"; }
-<h1>Empenhos</h1>
-<form id="filtro-empenhos" class="row g-2 mb-3">
-  @Html.AntiForgeryToken()
-  <div class="col-md-2"><input class="form-control" name="numero" placeholder="Número" /></div>
-  <div class="col-md-2"><input class="form-control" name="fornecedor" placeholder="Fornecedor" /></div>
-  <div class="col-md-2"><select class="form-select" name="status"><option value="">Status</option><option>EMITIDO</option><option>ANULADO</option><option>PAGO_TOTAL</option></select></div>
-  <div class="col-md-2"><input class="form-control" name="inicio" type="date" /></div>
-  <div class="col-md-2"><input class="form-control" name="fim" type="date" /></div>
-  <div class="col-md-2"><button class="btn btn-primary w-100">Filtrar</button></div>
-</form>
-<a class="btn btn-success mb-3" href="/Financeiro/EmpenhoCriar">Novo empenho</a>
-<partial name="_GridEmpenhos" />
-@section Scripts { <script src="~/js/modules/financeiro.empenhos.js"></script><script src="~/js/modules/financeiro.exportacao.js"></script> }
+@{
+    ViewData["Title"] = "Financeiro — Empenhos";
+}
+<div data-fin-tela="lista">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Empenhos</h1>
+            <p class="text-muted mb-0">Reserva orçamentária de despesa. Liste, filtre e abra o detalhe para liquidar, pagar ou anular.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/Financeiro/EmpenhoCriar" class="btn btn-primary">+ Novo empenho</a>
+            <button type="button" class="btn btn-outline-secondary btn-export-csv" data-resource="empenhos">CSV</button>
+            <button type="button" class="btn btn-outline-secondary btn-export-json" data-resource="empenhos">JSON</button>
+        </div>
+    </div>
+
+    <details class="card card-body mb-3 sigov-screen-guide">
+        <summary class="fw-semibold">Empenho × liquidação × pagamento × anulação</summary>
+        <ul class="mb-0 mt-2 small text-muted">
+            <li><strong>Empenho:</strong> reserva de dotação para uma despesa futura (EMITIDO).</li>
+            <li><strong>Liquidação:</strong> confirma que o bem/serviço foi fornecido (LIQUIDADO_TOTAL/PARCIAL).</li>
+            <li><strong>Pagamento:</strong> saída efetiva de recursos da liquidação (PAGO_TOTAL/PARCIAL).</li>
+            <li><strong>Anulação:</strong> cancela a dotação empenhada, total ou parcial (ANULADO só quando integral). Estornos recomputam saldos no servidor.</li>
+        </ul>
+    </details>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col-md-2">
+                    <label class="form-label">Número</label>
+                    <input type="text" class="form-control" id="fin-lst-numero" placeholder="Nº do empenho">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fornecedor</label>
+                    <div><input type="text" class="form-control w-100" id="fin-lst-fornecedor" placeholder="Buscar por nome…"></div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Natureza</label>
+                    <div><input type="text" class="form-control w-100" id="fin-lst-natureza" placeholder="Buscar por nome…"></div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="fin-lst-status">
+                        <option value="">Todos</option>
+                        <option value="EMITIDO">Emitido</option>
+                        <option value="LIQUIDADO_PARCIAL">Liquidado parcial</option>
+                        <option value="LIQUIDADO_TOTAL">Liquidado</option>
+                        <option value="PAGO_PARCIAL">Pago parcial</option>
+                        <option value="PAGO_TOTAL">Pago</option>
+                        <option value="ANULADO">Anulado</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data inicial</label>
+                    <input type="date" class="form-control" id="fin-lst-inicio">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data final</label>
+                    <input type="date" class="form-control" id="fin-lst-fim">
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <button type="button" class="btn btn-sm btn-primary" id="btn-lst-filtrar">Filtrar</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-lst-limpar">Limpar</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nº</th><th>Data</th><th>Fornecedor</th><th>Natureza</th><th>Fonte</th>
+                            <th class="text-end">Total</th><th class="text-end">Liquidado</th><th class="text-end">Pago</th><th class="text-end">Saldo</th><th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-empenhos"><tr><td colspan="10" class="text-muted py-3">Carregando…</td></tr></tbody>
+                </table>
+            </div>
+            <div id="pager-empenhos"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.empenhos.js"></script>
+    <script src="~/js/modules/financeiro.exportacao.js"></script>
+}

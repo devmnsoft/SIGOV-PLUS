@@ -1,1 +1,25 @@
-<div class="modal fade" id="modalAnularEmpenho" tabindex="-1"><div class="modal-dialog"><form class="modal-content financeiro-form" data-api="/api/financeiro/empenhos/0/anular">@Html.AntiForgeryToken()<div class="modal-header"><h5 class="modal-title">Anular empenho</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input class="form-control money mb-2" name="valor" required /><textarea class="form-control" name="motivo" placeholder="Motivo" required></textarea></div><div class="modal-footer"><button class="btn btn-warning">Confirmar anulação</button></div></form></div></div>
+<div class="modal fade" id="modalAnularEmpenho" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="form-modal-anular-empenho" class="modal-content" novalidate onsubmit="return false">
+      <div class="modal-header">
+        <h5 class="modal-title">Anular empenho (parcial ou integral)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="form-text mb-2" id="hint-anular-empenho"></p>
+        <div class="mb-2">
+          <label class="form-label">Valor da anulação</label>
+          <input type="number" id="anu-valor" name="valor" class="form-control" min="0.01" step="0.01" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Motivo da anulação (obrigatório)</label>
+          <textarea class="form-control" name="motivo" rows="2" required></textarea>
+        </div>
+        <p class="form-text">Ao confirmar, o sistema exibe o recálculo dos saldos e do status antes de concluir. Anulação integral marca o empenho como ANULADO e bloqueia novas liquidações e pagamentos.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-warning">Confirmar anulação</button>
+      </div>
+    </form>
+  </div>
+</div>

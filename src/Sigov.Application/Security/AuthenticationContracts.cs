@@ -49,6 +49,8 @@ public interface IPasswordRecoveryService
 
 public sealed record IssuedIdentitySession(long SessionId, string Token, long AuthVersion, DateTimeOffset ExpiresAt);
 
+public sealed record ApiTokenResult(bool Valid, string? Token, long? ExercicioId, string? Erro);
+
 public sealed record IdentitySessionValidation(
     bool Valid,
     long SessionId,
@@ -62,6 +64,7 @@ public interface IIdentitySessionService
 {
     Task<IssuedIdentitySession> CreateAsync(AuthenticationUser user, TimeSpan lifetime, string? ipAddress, string? userAgent, string correlationId, CancellationToken cancellationToken);
     Task<IdentitySessionValidation?> ValidateAsync(long sessionId, long userId, long tenantId, string token, long authVersion, CancellationToken cancellationToken);
+    Task<ApiTokenResult> ResolveApiTokenAsync(long sessionId, long userId, long tenantId, string token, long authVersion, CancellationToken cancellationToken);
     Task RevokeAsync(long sessionId, long userId, string reason, CancellationToken cancellationToken);
     Task RevokeAllForUserAsync(long userId, string reason, CancellationToken cancellationToken);
 }

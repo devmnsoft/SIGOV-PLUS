@@ -52,4 +52,31 @@ public sealed class PostBuild07FinanceiroIntegradoTests
         File.Exists(TestRepoPath.Get("docs/financeiro-integrado.md")).Should().BeTrue();
         File.Exists(TestRepoPath.Get("docs/conciliacao-bancaria.md")).Should().BeTrue();
     }
+
+    private static readonly string Repositorio = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Financeiro/FinanceiroRepositories.cs"));
+    private static readonly string Contratos = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Financeiro/FinanceiroContracts.cs"));
+    private static readonly string Servicos = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Financeiro/FinanceiroServices.cs"));
+    private static readonly string CoreJs = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/wwwroot/js/modules/financeiro.core.js"));
+
+    [Fact]
+    public void Idempotencia_escopos_header_e_tela_estao_ligados()
+    {
+        // Reserva transacional protegida pelo unique index (mesma chave + carga não duplica).
+        Repositorio.Should().Contain("insert into sigov.financeiro_idempotencia");
+        Repositorio.Should().Contain("on conflict (tenant_id, escopo, chave) do nothing");
+
+        foreach (var escopo in new[] { "empenho.criar", "empenho.anular", "liquidacao.criar", "liquidacao.anular", "pagamento.criar", "pagamento.cancelar", "receita.lancamento.criar", "receita.arrecadacao.criar", "receita.lancamento.cancelar", "receita.arrecadacao.cancelar", "conferencia.ajustar" })
+        {
+            Repositorio.Should().Contain($"ConsultarReservarAsync(cn,nx,t,\"{escopo}\",chave");
+            Repositorio.Should().Contain($"ConfirmarDocumentoAsync(cn,nx,t,\"{escopo}\",chave");
+        }
+
+        // Tipos de replay/conflito nos contratos e pulso de auditoria condicionado ao replay.
+        Contratos.Should().Contain("FinanceiroIdempotenciaConflitoException").And.Contain("record struct FinanceiroResultadoComando(long DocumentoId, bool Replay)");
+        Servicos.Should().Contain("if (!op.Replay)").And.Contain("if (!replay)").And.Contain("catch (FinanceiroIdempotenciaConflitoException ex)");
+
+        // Controller lê o header HTTP e as telas reenviam a mesma chave em nova tentativa.
+        Api.Should().Contain("[\"Idempotency-Key\"]").And.Contain("IdempotencyKey()");
+        CoreJs.Should().Contain("'Idempotency-Key'").And.Contain("crypto.randomUUID").And.Contain("chaveAcao").And.Contain("concluirAcao");
+    }
 }

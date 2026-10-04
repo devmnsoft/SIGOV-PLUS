@@ -1,14 +1,230 @@
 @model Sigov.Web.Models.Financeiro.OrcamentoDespesaFormViewModel
-@{ ViewData["Title"] = "Orçamento da Despesa"; }
-<h1>Orçamento da Despesa</h1>
-<div class="card mb-3"><div class="card-body">
-<form id="form-OrcamentoDespesa" class="row g-3 financeiro-form" data-api="/api/financeiro/orcamento/despesas" method="post">
-  @Html.AntiForgeryToken()
-  <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-  <div class="col-md-3"><label class="form-label">Código/Referência</label><input class="form-control" name="codigo" required /></div>
-  <div class="col-md-5"><label class="form-label">Nome/Histórico</label><input class="form-control" name="nome" required /></div>
-  <div class="col-md-2"><label class="form-label">Valor</label><input class="form-control money" name="valor" inputmode="decimal" /></div>
-  <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Salvar</button></div>
-</form></div></div>
-<div class="card"><div class="card-header d-flex justify-content-between"><span>Grid paginado</span><button class="btn btn-sm btn-outline-secondary btn-export" data-resource="orcamentodespesa">Exportar CSV/JSON</button></div><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>Id</th><th>Número/Código</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead><tbody id="grid-OrcamentoDespesa"><tr><td colspan="5" class="text-muted">Use os filtros para carregar dados via Ajax.</td></tr></tbody></table></div></div>
-@section Scripts { <script src="~/js/modules/financeiro.orcamento.js"></script><script src="~/js/modules/financeiro.exportacao.js"></script> }
+@{
+    ViewData["Title"] = "Financeiro — Orçamento do exercício";
+}
+<div data-fin-tela="orcamento">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Orçamento do exercício</h1>
+            <p class="text-muted mb-0">Dotações de despesa e previsões de receita, com execução, movimentações orçamentárias e fórmulas centrais.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovaDotacao">+ Nova dotação</button>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNovaReceita">+ Nova previsão de receita</button>
+        </div>
+    </div>
+
+    <details class="card card-body mb-3 sigov-screen-guide">
+        <summary class="fw-semibold">Como funciona o orçamento</summary>
+        <ul class="mb-0 mt-2 small text-muted">
+            <li><strong>Dotação (despesa):</strong> valor autorizado para uma ação + natureza + fonte. A <em>Movimentação</em> registra suplementação, redução ou reserva/estorno sobre ela.</li>
+            <li><strong>Previsão (receita):</strong> compromisso orçamentário por natureza + fonte; é nela que se lançam receitas.</li>
+            <li>Os saldos exibidos usam as mesmas fórmulas centrais do servidor (recaídas no detalhe de empenhos e na conferência).</li>
+        </ul>
+    </details>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aba-despesas" type="button" role="tab">Despesas</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-receitas" type="button" role="tab">Receitas</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- ===================== DESPESAS ===================== -->
+        <div class="tab-pane fade show active" id="aba-despesas" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Ação</label>
+                            <div><input type="text" class="form-control w-100" id="fin-fil-acao" placeholder="Buscar ação por nome…"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Natureza de despesa</label>
+                            <div><input type="text" class="form-control w-100" id="fin-fil-nat" placeholder="Buscar natureza por nome…"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fonte de recurso</label>
+                            <div><input type="text" class="form-control w-100" id="fin-fil-fonte" placeholder="Buscar fonte por nome…"></div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-filtrar-despesas">Filtrar</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-limpar-despesas">Limpar</button>
+                        <div class="ms-auto d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-export-csv" data-resource="orcamento-despesas">CSV</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-export-json" data-resource="orcamento-despesas">JSON</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Nº</th><th>Programa · Ação</th><th>Natureza</th><th>Fonte</th>
+                                    <th class="text-end">Vigente</th><th class="text-end">Empenhado</th><th class="text-end">Liquidado</th><th class="text-end">Pago</th>
+                                    <th class="text-end">Saldo disp.</th><th class="text-end">Saldo a liquidar</th><th class="text-end">Saldo a pagar</th><th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-despesas"><tr><td colspan="12" class="text-muted py-3">Carregando…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div id="pager-area-despesas"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== RECEITAS ===================== -->
+        <div class="tab-pane fade" id="aba-receitas" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Natureza de receita</label>
+                            <div><input type="text" class="form-control w-100" id="fin-fil-natrec" placeholder="Buscar natureza por nome…"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fonte de recurso</label>
+                            <div><input type="text" class="form-control w-100" id="fin-fil-fontec" placeholder="Buscar fonte por nome…"></div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-filtrar-receitas">Filtrar</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-limpar-receitas">Limpar</button>
+                        <div class="ms-auto d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-export-csv" data-resource="orcamento-receitas">CSV</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-export-json" data-resource="orcamento-receitas">JSON</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Nº</th><th>Natureza</th><th>Fonte</th>
+                                    <th class="text-end">Prev. inicial</th><th class="text-end">Prev. atualizada</th><th class="text-end">Lançado</th><th class="text-end">Arrecadado</th>
+                                    <th class="text-end">Saldo a arrecadar</th><th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-receitas"><tr><td colspan="9" class="text-muted py-3">Carregando…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div id="pager-area-receitas"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-body mt-3 small text-muted">
+        <strong>Fórmulas centrais (servidor = autoridade):</strong> Saldo a empenhar = dotação vigente − empenhado · Saldo a liquidar = empenhado − liquidado · Saldo a pagar = liquidado − pago · Saldo a arrecadar = previsão atualizada − arrecadado.
+    </div>
+
+    <!-- ===================== MODAL NOVA DOTAÇÃO ===================== -->
+    <div class="modal fade" id="modalNovaDotacao" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <form id="form-nova-dotacao" class="modal-content" novalidate onsubmit="return false">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nova dotação orçamentária (despesa)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Programa</label>
+                            <div><input type="text" class="form-control w-100" id="fin-md-programa" placeholder="Buscar programa por nome…"></div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Ação</label>
+                            <div><input type="text" class="form-control w-100" id="fin-md-acao" placeholder="Buscar ação por nome…"></div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Natureza de despesa</label>
+                            <div><input type="text" class="form-control w-100" id="fin-md-nat" placeholder="Buscar natureza por nome…"></div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Fonte de recurso</label>
+                            <div><input type="text" class="form-control w-100" id="fin-md-fonte" placeholder="Buscar fonte por nome…"></div>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <label class="form-label">Dotação inicial</label>
+                            <input type="number" name="dotacaoInicial" class="form-control" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Criar dotação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================== MODAL MOVIMENTAR ===================== -->
+    <div class="modal fade" id="modalMovimentar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="form-movimentar" class="modal-content" novalidate onsubmit="return false">
+                <div class="modal-header">
+                    <h5 class="modal-title">Movimentação orçamentária</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="fin-mov-id" value="0">
+                    <p class="form-text mb-2" id="mov-resumo"></p>
+                    <div class="mb-2">
+                        <label class="form-label">Tipo de movimentação</label>
+                        <select name="tipoMovimentacao" class="form-select">
+                            <option value="SUPLEMENTACAO">Suplementação</option>
+                            <option value="REDUCAO">Redução</option>
+                            <option value="RESERVA">Reserva</option>
+                            <option value="ESTORNO_RESERVA">Estorno de reserva</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Valor</label>
+                        <input type="number" name="valor" class="form-control" min="0.01" step="0.01" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Histórico / justificativa</label>
+                        <textarea name="historico" class="form-control" rows="2" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Registrar movimentação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================== MODAL NOVA RECEITA ===================== -->
+    <div class="modal fade" id="modalNovaReceita" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <form id="form-nova-receita" class="modal-content" novalidate onsubmit="return false">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nova previsão de receita</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Natureza de receita</label>
+                            <div><input type="text" class="form-control w-100" id="fin-mdr-nat" placeholder="Buscar natureza por nome…"></div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Fonte de recurso</label>
+                            <div><input type="text" class="form-control w-100" id="fin-mdr-fonte" placeholder="Buscar fonte por nome…"></div>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <label class="form-label">Previsão inicial</label>
+                            <input type="number" name="previsaoInicial" class="form-control" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Criar previsão</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.orcamento.js"></script>
+    <script src="~/js/modules/financeiro.exportacao.js"></script>
+}

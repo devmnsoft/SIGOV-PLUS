@@ -1,14 +1,69 @@
 @model Sigov.Web.Models.Financeiro.PagamentoFormViewModel
-@{ ViewData["Title"] = "Pagamentos"; }
-<h1>Pagamentos</h1>
-<div class="card mb-3"><div class="card-body">
-<form id="form-Pagamentos" class="row g-3 financeiro-form" data-api="/api/financeiro/pagamentos" method="post">
-  @Html.AntiForgeryToken()
-  <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-  <div class="col-md-3"><label class="form-label">Código/Referência</label><input class="form-control" name="codigo" required /></div>
-  <div class="col-md-5"><label class="form-label">Nome/Histórico</label><input class="form-control" name="nome" required /></div>
-  <div class="col-md-2"><label class="form-label">Valor</label><input class="form-control money" name="valor" inputmode="decimal" /></div>
-  <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Salvar</button></div>
-</form></div></div>
-<div class="card"><div class="card-header d-flex justify-content-between"><span>Grid paginado</span><button class="btn btn-sm btn-outline-secondary btn-export" data-resource="pagamentos">Exportar CSV/JSON</button></div><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>Id</th><th>Número/Código</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead><tbody id="grid-Pagamentos"><tr><td colspan="5" class="text-muted">Use os filtros para carregar dados via Ajax.</td></tr></tbody></table></div></div>
-@section Scripts { <script src="~/js/modules/financeiro.pagamentos.js"></script><script src="~/js/modules/financeiro.exportacao.js"></script> }
+@{
+    ViewData["Title"] = "Financeiro — Pagamentos";
+}
+<div data-fin-tela="pagamentos">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Pagamentos</h1>
+            <p class="text-muted mb-0">Saída efetiva de recursos das liquidações. O cancelamento (estorno) recompõe a cadeia pagamento → liquidação → empenho.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-outline-secondary btn-export-csv" data-resource="pagamentos">CSV</button>
+            <button type="button" class="btn btn-outline-secondary btn-export-json" data-resource="pagamentos">JSON</button>
+        </div>
+    </div>
+
+    <details class="card card-body mb-3 sigov-screen-guide">
+        <summary class="fw-semibold">Como funciona o pagamento</summary>
+        <ul class="mb-0 mt-2 small text-muted">
+            <li>O pagamento é efetuado sobre uma <strong>liquidação ativa</strong>, a partir do detalhe do empenho, até o saldo a pagar dela.</li>
+            <li><strong>Cancelar pagamento</strong> (estorno) exige justificativa: o valor volta ao saldo a pagar da liquidação e o status do empenho é recalculado pelo servidor, com auditoria vinculada ao documento de origem.</li>
+        </ul>
+    </details>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col-md-3">
+                    <label class="form-label">Número</label>
+                    <input type="text" class="form-control" id="pg-numero" placeholder="Nº do pagamento">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Liquidação</label>
+                    <div><input type="text" class="form-control w-100" id="pg-liquidacao" placeholder="Buscar liquidação por número…"></div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="pg-status">
+                        <option value="">Todos</option>
+                        <option value="EFETUADO">Efetuado</option>
+                        <option value="CANCELADO">Cancelado</option>
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <button type="button" class="btn btn-sm btn-primary" id="btn-pg-filtrar">Filtrar</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-pg-limpar">Limpar</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nº</th><th>Liquidação</th><th>Data</th><th>Forma</th><th>Conta</th>
+                            <th class="text-end">Valor</th><th>Status</th><th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-pagamentos-lista"><tr><td colspan="8" class="text-muted py-3">Carregando…</td></tr></tbody>
+                </table>
+            </div>
+            <div id="pager-pagamentos"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.pagamentos.js"></script>
+    <script src="~/js/modules/financeiro.exportacao.js"></script>
+}

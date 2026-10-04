@@ -77,6 +77,60 @@ update sigov.identidade_sessao s
         }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    public async Task<ApiTokenResult> ResolveApiTokenAsync(long sessionId, long userId, long tenantId, string token, long authVersion, CancellationToken cancellationToken)
+    {
+        var validation = await ValidateAsync(sessionId, userId, tenantId, token, authVersion, cancellationToken).ConfigureAwait(false);
+        if (validation is null || !validation.Valid)
+            return new ApiTokenResult(false, null, null, "Sessão inválida ou expirada. Faça login novamente.");
+        if (validation.ExercicioId.HasValue)
+            return new ApiTokenResult(true, token, validation.ExercicioId.Value, null);
+
+        // Resolva conservadoramente: exatamente 1 exercício ativo → vincula à sessão; 0 ou >1 → nulo com mensagem.
+        long? exercicioId = null;
+        string? erro = null;
+        using var connection = context.CreateConnection();
+        const string countSql = @"
+select count(1) from sigov.exercicio
+ where tenant_id = @TenantId and entidade_id = @EntidadeId and ativo = true and coalesce(is_deleted, false) = false;";
+        var activeCount = await connection.ExecuteScalarAsync<long>(new CommandDefinition(countSql, new
+        {
+            TenantId = validation.TenantId,
+            EntidadeId = validation.EntidadeId ?? 0
+        }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (activeCount == 1)
+        {
+            exercicioId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(@"
+select id from sigov.exercicio
+ where tenant_id = @TenantId and entidade_id = @EntidadeId and ativo = true and coalesce(is_deleted, false) = false;
+", new
+            {
+                TenantId = validation.TenantId,
+                EntidadeId = validation.EntidadeId ?? 0
+            }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (exercicioId.HasValue)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(@"
+update sigov.identidade_sessao
+   set exercicio_id = @ExercicioId, updated_at = now()
+ where id = @SessionId and usuario_id = @UserId and tenant_id = @TenantId and exercicio_id is null;
+", new
+                {
+                    ExercicioId = exercicioId.Value,
+                    SessionId = sessionId,
+                    UserId = userId,
+                    TenantId = tenantId
+                }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+        }
+        else if (activeCount == 0)
+            erro = "Nenhum exercício ativo para a entidade.";
+        else
+            erro = "Múltiplos exercícios ativos para a entidade.";
+
+        return new ApiTokenResult(true, token, exercicioId, erro);
+    }
+
     public async Task RevokeAsync(long sessionId, long userId, string reason, CancellationToken cancellationToken)
     {
         const string sql = @"

@@ -39,6 +39,8 @@ public sealed class AuthPermissionRegressionTests
         authHandler.Should().Contain("X-Api-Key");
         authHandler.Should().Contain("sigov.api_key_escopo");
         authHandler.Should().Contain("AuthenticateBearerSessionAsync");
+        authHandler.Should().Contain("coalesce(t.slug, '') as TenantSlug");
+        authHandler.Should().Contain(@"new(""tenant_slug"", row.TenantSlug)");
         authHandler.Should().Contain("Context.RequestServices.GetRequiredService<DapperContext>()");
         apiKeyMiddleware.Should().Contain("context.User.Identity?.IsAuthenticated");
         apiKeyMiddleware.Should().Contain("FindFirst(\"api_key_id\")");

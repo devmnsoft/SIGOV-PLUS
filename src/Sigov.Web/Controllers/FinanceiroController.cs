@@ -47,6 +47,8 @@ public sealed class FinanceiroController : Controller
     public IActionResult Liquidacoes() => View(new LiquidacaoFormViewModel());
     public IActionResult Pagamentos() => View(new PagamentoFormViewModel());
     public IActionResult Receitas() => View(new ReceitaLancamentoFormViewModel());
+    [Route("/Financeiro/Conferencia")]
+    public IActionResult Conferencia() => View(new ConferenciaViewModel());
     [Route("/Financeiro/ContasReceber")]
     public async Task<IActionResult> ContasReceber(string? q = null, CancellationToken cancellationToken = default) => View("~/Views/Operational/Module.cshtml", await _operationalDemo.BuildAsync("Financeiro", "ContasReceber", q, cancellationToken));
     public IActionResult CentrosCusto() => View("FinanceiroEmpresarial", "Centros de Custo");

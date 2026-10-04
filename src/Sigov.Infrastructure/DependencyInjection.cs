@@ -422,6 +422,9 @@ public static class DependencyInjection
         services.AddScoped<IReceitaService, ReceitaService>();
         services.AddScoped<IFinanceiroDashboardService, FinanceiroDashboardService>();
         services.AddScoped<IFinanceiroExportacaoService, FinanceiroExportacaoService>();
+        services.AddScoped<IFinanceiroExportacaoRepository, FinanceiroExportacaoRepository>();
+        services.AddScoped<IFinanceiroConferenciaRepository, FinanceiroConferenciaRepository>();
+        services.AddScoped<IFinanceiroConferenciaService, FinanceiroConferenciaService>();
         services.AddScoped<IRelatorioExecutivoRepository, RelatorioExecutivoRepository>();
         services.AddScoped<IRelatorioExecutivoService, RelatorioExecutivoService>();
         services.AddScoped<IRelatorioExecutivoWidgetService, RelatorioExecutivoWidgetService>();

@@ -1,7 +1,86 @@
 @model long
-@{ ViewData["Title"] = "Detalhe do Empenho"; }
-<h1>Empenho @Model</h1>
-<ul class="nav nav-tabs" role="tablist"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dados">Dados gerais</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#itens">Itens</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#liq">Liquidações</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pag">Pagamentos</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aud">Auditoria</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#evt">Eventos</button></li></ul>
-<div class="tab-content border border-top-0 p-3"><div id="dados" class="tab-pane fade show active">Dados carregados via Ajax.</div><div id="itens" class="tab-pane fade">Itens</div><div id="liq" class="tab-pane fade"><partial name="_ModalLiquidar" /></div><div id="pag" class="tab-pane fade"><partial name="_ModalPagar" /></div><div id="aud" class="tab-pane fade"><partial name="_AuditoriaFinanceira" /></div><div id="evt" class="tab-pane fade">Eventos outbox</div></div>
-<div class="mt-3"><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalLiquidar">Liquidar</button> <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalAnularEmpenho">Anular</button> <a class="btn btn-secondary" href="/Financeiro/Empenhos">Voltar</a></div><partial name="_ModalAnularEmpenho" />
-@section Scripts { <script src="~/js/modules/financeiro.empenhos.js"></script> }
+@{
+    ViewData["Title"] = "Financeiro — Detalhe do empenho";
+}
+<div data-fin-tela="detalhe" data-empenho-id="@Model">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <a href="/Financeiro/Empenhos" class="small">← Voltar para a listagem</a>
+            <h1 class="h3 mb-1 mt-1" id="dt-titulo">Carregando empenho…</h1>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-primary" id="btn-liquidar" disabled>Liquidar</button>
+            <button type="button" class="btn btn-warning" id="btn-anular" disabled>Anular</button>
+            <button type="button" class="btn btn-outline-secondary btn-export-csv" data-resource="empenhos">CSV</button>
+            <button type="button" class="btn btn-outline-secondary btn-export-json" data-resource="empenhos">JSON</button>
+        </div>
+    </div>
+
+    <details class="card card-body mb-3 sigov-screen-guide">
+        <summary class="fw-semibold">Jornada do empenho</summary>
+        <ul class="mb-0 mt-2 small text-muted">
+            <li><strong>Liquidar:</strong> reconhece a despesa executada (bem/serviço recebido). Não pode exceder o saldo a liquidar; parciais mantêm o empenho ativo.</li>
+            <li><strong>Pagar:</strong> feito sobre cada liquidação ativa, até o saldo a pagar dela.</li>
+            <li><strong>Anular:</strong> libera dotação empenhada, total ou parcial, com motivo obrigatório. Anulação integral torna o empenho ANULADO e bloqueia novas liquidações e pagamentos.</li>
+            <li><strong>Estorno (cancelamento):</strong> reverte uma liquidação, um pagamento ou uma arrecadação; os acumuladores são recompostos pelo servidor e a reversão fica vinculada ao documento de origem na auditoria.</li>
+        </ul>
+    </details>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aba-dados" type="button" role="tab">Dados</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-saldos" type="button" role="tab">Saldos</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-itens" type="button" role="tab">Itens</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-liquidacoes" type="button" role="tab">Liquidações e pagamentos</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-historico" type="button" role="tab">Histórico</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="aba-dados" role="tabpanel">
+            <div class="card"><div class="card-body"><div id="dt-dados"></div></div></div>
+        </div>
+        <div class="tab-pane fade" id="aba-saldos" role="tabpanel">
+            <div class="card"><div class="card-body"><div id="dt-saldos"></div></div></div>
+        </div>
+        <div class="tab-pane fade" id="aba-itens" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead><tr><th>Descrição</th><th class="text-end">Qtd.</th><th class="text-end">Valor unitário</th><th class="text-end">Total</th></tr></thead>
+                            <tbody id="tbody-itens"><tr><td colspan="4" class="text-muted py-3">Carregando…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="aba-liquidacoes" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead><tr><th>Nº</th><th>Data</th><th>Doc. fiscal</th><th>Histórico</th><th class="text-end">Valor</th><th>Status</th><th>Ações</th></tr></thead>
+                            <tbody id="tbody-liquidacoes"><tr><td colspan="7" class="text-muted py-3">Carregando…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade" id="aba-historico" role="tabpanel">
+            <div class="card">
+                <div class="card-body p-0">
+                    <ul id="lista-historico" class="list-group list-group-flush"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@await Html.PartialAsync("_ModalLiquidar")
+@await Html.PartialAsync("_ModalPagar")
+@await Html.PartialAsync("_ModalAnularEmpenho")
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.empenhos.js"></script>
+    <script src="~/js/modules/financeiro.exportacao.js"></script>
+}

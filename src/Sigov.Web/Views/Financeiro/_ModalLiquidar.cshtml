@@ -1,1 +1,33 @@
-<div class="modal fade" id="modalLiquidar" tabindex="-1"><div class="modal-dialog"><form class="modal-content financeiro-form" data-api="/api/financeiro/empenhos/0/liquidacoes">@Html.AntiForgeryToken()<div class="modal-header"><h5 class="modal-title">Liquidar empenho</h5><button class="btn-close" data-bs-dismiss="modal" type="button"></button></div><div class="modal-body"><input class="form-control mb-2" name="documentoFiscal" placeholder="Documento fiscal" /><textarea class="form-control mb-2" name="historico" placeholder="Histórico" required></textarea><input class="form-control money" name="valor" placeholder="Valor" required /></div><div class="modal-footer"><button class="btn btn-primary">Liquidar</button></div></form></div></div>
+<div class="modal fade" id="modalLiquidar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="form-modal-liquidar" class="modal-content" novalidate onsubmit="return false">
+      <div class="modal-header">
+        <h5 class="modal-title">Registrar liquidação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="form-text mb-2" id="hint-saldo-liquidar"></p>
+        <div class="mb-2">
+          <label class="form-label">Data da liquidação</label>
+          <input type="date" class="form-control" name="dataLiquidacao" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Documento fiscal (opcional)</label>
+          <input type="text" class="form-control" name="documentoFiscal" placeholder="NF-e, nota, recibo…">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Valor a liquidar</label>
+          <input type="number" id="liq-valor" name="valor" class="form-control" min="0.01" step="0.01" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Histórico</label>
+          <textarea class="form-control" name="historico" rows="2" required></textarea>
+        </div>
+        <p class="form-text">O servidor valida o saldo a liquidar e recalcula os acumuladores e o status do empenho.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Registrar liquidação</button>
+      </div>
+    </form>
+  </div>
+</div>

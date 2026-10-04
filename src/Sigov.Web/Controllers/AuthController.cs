@@ -201,6 +201,30 @@ public sealed class AuthController : Controller
         }
     }
 
+    [HttpGet("Auth/ApiToken")]
+    [Authorize]
+    public async Task<IActionResult> ApiToken(CancellationToken cancellationToken)
+    {
+        var sessionToken = User.FindFirstValue("session_token");
+        var sessionId = long.TryParse(User.FindFirstValue("session_id"), out var sid) ? sid : 0;
+        var tenantId = long.TryParse(User.FindFirstValue("tenant_id"), out var tid) ? tid : 0;
+        var authVersion = long.TryParse(User.FindFirstValue("auth_version"), out var av) ? av : 0;
+        var userId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : 0;
+        if (string.IsNullOrWhiteSpace(sessionToken) || sessionId <= 0 || tenantId <= 0 || userId <= 0)
+            return Json(new { token = (string?)null, exercicioId = (long?)null, erro = "Sessão não encontrada. Faça login novamente." });
+
+        try
+        {
+            var result = await _identitySessionService.ResolveApiTokenAsync(sessionId, userId, tenantId, sessionToken, authVersion, cancellationToken).ConfigureAwait(false);
+            return Json(new { token = result.Token, exercicioId = result.ExercicioId, erro = result.Erro });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao resolver token da API. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+            return Json(new { token = (string?)null, exercicioId = (long?)null, erro = "Não foi possível obter o token da API agora." });
+        }
+    }
+
     private static bool IsSupportedPasswordHash(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return false;

@@ -1,36 +1,72 @@
 @model Sigov.Web.Models.Financeiro.FinanceiroDashboardViewModel
-@{ ViewData["Title"] = "Painel do exercício financeiro"; }
-<section class="container-fluid py-4 financeiro-dashboard financeiro-exercicio" data-module="financeiro">
-  <header class="financeiro-hero mb-4">
+@{
+    ViewData["Title"] = "Financeiro — Painel do exercício";
+}
+<div class="financeiro-hero mb-4">
     <div>
-      <span class="financeiro-eyebrow">Financeiro • SIAFIC</span>
-      <h1>Painel do exercício</h1>
-      <p>Este painel resume a execução orçamentária do exercício selecionado e destaca saldos que precisam de acompanhamento.</p>
+        <span class="financeiro-eyebrow">SIAFIC · Gestão financeira pública</span>
+        <h1>Painel do exercício</h1>
+        <p>Dotação orçamentária, empenhos, liquidações, pagamentos e arrecadação consolidados pela entidade e pelo exercício vigentes. Os valores são reais, carregados do banco; o servidor é autoridade sobre saldos e status.</p>
     </div>
-    <div class="financeiro-actions" aria-label="Atalhos do exercício">
-      <a class="btn btn-light" href="/Financeiro/OrcamentoDespesa">Consultar dotações</a>
-      <a class="btn btn-outline-light" href="/Financeiro/Empenhos">Ver empenhos</a>
+    <div class="financeiro-actions">
+        <a href="/Financeiro/EmpenhoCriar" class="btn btn-light">Novo empenho</a>
+        <a href="/Financeiro/OrcamentoDespesa" class="btn btn-outline-light">Orçamento</a>
+        <a href="/Financeiro/Receitas" class="btn btn-outline-light">Receitas</a>
+        <a href="/Financeiro/Conferencia" class="btn btn-outline-light">Conferência</a>
     </div>
-  </header>
+</div>
 
-  <div id="financeiro-dashboard-status" class="visually-hidden" role="status" aria-live="polite">Carregando dados reais do exercício.</div>
-  <div class="financeiro-kpis" aria-label="Indicadores da execução orçamentária">
-    @foreach (var card in new[] { ("Orçamento autorizado", "dotação vigente"), ("Empenhado", "compromissos emitidos"), ("Liquidado", "despesas reconhecidas"), ("Pago", "desembolso realizado"), ("Saldo disponível", "recurso ainda utilizável") })
-    {
-      <article class="sigov-dashboard-card financeiro-kpi"><span>@card.Item1</span><strong class="valor placeholder-glow">—</strong><small>@card.Item2</small></article>
-    }
-  </div>
+<p id="financeiro-dashboard-status" class="visually-hidden" role="status" aria-live="polite">Carregando os dados reais do exercício…</p>
+<section id="financeiro-alertas" class="mb-4" aria-live="polite"></section>
 
-  <div class="row g-4 mt-1">
-    <div class="col-12 col-xl-8">
-      <section class="sigov-dashboard-card p-4 h-100" aria-labelledby="execucao-title">
-        <div class="d-flex justify-content-between align-items-start gap-3"><div><h2 id="execucao-title" class="h5">Execução da despesa</h2><p class="text-muted">Compare as etapas do gasto público com o orçamento autorizado.</p></div><a href="/Financeiro/Pagamentos" class="btn btn-sm btn-outline-primary">Investigar pagamentos</a></div>
-        <div class="financeiro-bars" aria-label="Gráfico da execução"><div data-bar="empenhado"><span>Empenhado</span><i></i></div><div data-bar="liquidado"><span>Liquidado</span><i></i></div><div data-bar="pago"><span>Pago</span><i></i></div></div>
-      </section>
+<div class="financeiro-kpis mb-4">
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Orçamento autorizado</span><strong data-kpi="orcamento" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Empenhado</span><strong data-kpi="empenhado" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Liquidado</span><strong data-kpi="liquidado" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Pago</span><strong data-kpi="pago" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Saldo disponível (a empenhar)</span><strong data-kpi="saldo" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Receita prevista</span><strong data-kpi="prevista" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Receita lançada</span><strong data-kpi="lancada" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Receita arrecadada</span><strong data-kpi="arrecadada" class="placeholder-glow">—</strong></div>
+    <div class="card sigov-dashboard-card financeiro-kpi"><span>Saldo a arrecadar</span><strong data-kpi="arrecadar" class="placeholder-glow">—</strong></div>
+</div>
+
+<div class="card sigov-dashboard-card p-3 p-md-4 mb-4">
+    <h2 class="h6 text-uppercase text-muted fw-bold mb-2">Execução da despesa · percentual sobre o orçamento autorizado</h2>
+    <div class="financeiro-bars">
+        <div>
+            <span>Empenhado</span>
+            <div data-bar="empenhado"><i class="d-block" style="width:0%"></i></div>
+        </div>
+        <div>
+            <span>Liquidado</span>
+            <div data-bar="liquidado"><i class="d-block" style="width:0%"></i></div>
+        </div>
+        <div>
+            <span>Pago</span>
+            <div data-bar="pago"><i class="d-block" style="width:0%"></i></div>
+        </div>
     </div>
-    <div class="col-12 col-xl-4">
-      <aside class="sigov-dashboard-card p-4 h-100" aria-labelledby="alertas-title"><h2 id="alertas-title" class="h5">Pontos de atenção</h2><div id="financeiro-alertas" class="text-muted">Os alertas serão calculados com os dados disponíveis.</div></aside>
-    </div>
-  </div>
-  <nav class="financeiro-links mt-4" aria-label="Entidades relacionadas"><a href="/Financeiro/OrcamentoDespesa">Dotações</a><a href="/Financeiro/Empenhos">Empenhos</a><a href="/Financeiro/Liquidacoes">Liquidações</a><a href="/Financeiro/Pagamentos">Pagamentos</a><a href="/Financeiro/FontesRecurso">Fontes de recurso</a></nav>
-</section>
+    <p class="form-text mt-2 mb-0">As barras usam as mesmas fórmulas centrais do servidor. Saldo a empenhar = orçamento vigente − empenhado.</p>
+</div>
+
+<details class="card card-body mb-3 sigov-screen-guide">
+    <summary class="fw-semibold">Como ler este painel</summary>
+    <ul class="mb-0 mt-2 small text-muted">
+        <li><strong>Orçamento autorizado / Saldo disponível:</strong> dotação vigente e quanto ainda pode ser empenhado.</li>
+        <li><strong>Empenhado → Liquidado → Pago:</strong> a sequência de execução. Cada etapa não pode exceder a anterior; divergências aparecem no bloco de alertas e na <a href="/Financeiro/Conferencia">conferência financeira</a>.</li>
+        <li><strong>Receita prevista / lançada / arrecadada:</strong> compromisso orçamentário, lançamentos abertos e valores efetivamente recebidos. O <strong>saldo a arrecadar</strong> é previsto − arrecadado.</li>
+    </ul>
+</details>
+
+<div class="financeiro-links">
+    <a href="/Financeiro/Empenhos">Empenhos</a>
+    <a href="/Financeiro/Liquidacoes">Liquidações</a>
+    <a href="/Financeiro/Pagamentos">Pagamentos</a>
+    <a href="/Financeiro/Conferencia">Conferência financeira</a>
+</div>
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.dashboard.js"></script>
+}

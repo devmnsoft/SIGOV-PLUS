@@ -2709,6 +2709,19 @@
         "20261002160000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_fatura_item' and column_name='quantidade_reservada') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='compras_empresarial_fatura_item' and column_name='quantidade_aprovada')"
+    },
+    {
+      "version": "20261003140000",
+      "description": "Coluna motivo, idempotencia financeira, permissoes conferencia/arrecadacao.cancelar e CHECKs de status",
+      "category": "functional",
+      "file": "20261003140000_rc50_fin_jornadas_conferencia.sql",
+      "checksum": "fd5ad6bc437e07e9b6fb5714ca20220799c18493195463fe42dcd7f2c7b8810d",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261003080000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='empenho' and column_name='motivo') and exists(select 1 from information_schema.tables where table_schema='sigov' and table_name='financeiro_idempotencia') and exists(select 1 from sigov.permissao where chave='financeiro.conferencia.visualizar')"
     }
   ],
   "compatibilityAfterAll": [

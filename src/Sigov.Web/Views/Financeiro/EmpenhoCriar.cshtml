@@ -1,5 +1,83 @@
 @model Sigov.Web.Models.Financeiro.EmpenhoFormViewModel
-@{ ViewData["Title"] = "Criar Empenho"; }
-<h1>Criar Empenho</h1>
-<partial name="_FormEmpenho" model="Model" />
-@section Scripts { <script src="~/js/modules/financeiro.empenhos.js"></script> }
+@{
+    ViewData["Title"] = "Financeiro — Novo empenho";
+}
+<div data-fin-tela="criar">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <a href="/Financeiro/Empenhos" class="small">← Voltar para a listagem</a>
+            <h1 class="h3 mb-1 mt-1">Novo empenho</h1>
+            <p class="text-muted mb-0">Reserva orçamentária de despesa. Informe a dotação, o fornecedor e ao menos um item válido.</p>
+        </div>
+    </div>
+
+    <details class="card card-body mb-3 sigov-screen-guide">
+        <summary class="fw-semibold">Como emitir um empenho</summary>
+        <ul class="mb-0 mt-2 small text-muted">
+            <li><strong>Dotação</strong> (busque por nome) indica onde a despesa será onerada; o servidor valida o saldo disponível.</li>
+            <li>Cada <strong>item</strong> precisa de descrição, quantidade e valor unitário informados juntos; o total é somado automaticamente.</li>
+            <li>O <strong>histórico</strong> é obrigatório e vira a primeira linha de auditoria do documento.</li>
+        </ul>
+    </details>
+
+    <div class="card">
+        <div class="card-body">
+            <form id="form-empenho" novalidate onsubmit="return false">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Dotação orçamentária</label>
+                        <div><input type="text" class="form-control w-100" id="fin-nova-dotacao" placeholder="Buscar dotação por nome…"></div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Data do empenho</label>
+                        <input type="date" class="form-control" id="nova-data" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Tipo do empenho</label>
+                        <select class="form-select" id="nova-tipo">
+                            <option value="ORDINARIO">Ordinário</option>
+                            <option value="ADICIONAL">Adicional</option>
+                            <option value="SUPLEMENTAR">Suplementar</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fornecedor</label>
+                        <div><input type="text" class="form-control w-100" id="fin-nova-fornecedor" placeholder="Buscar fornecedor por nome…"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Histórico (obrigatório)</label>
+                    <textarea class="form-control" id="nova-historico" rows="2" required></textarea>
+                </div>
+
+                <div class="border rounded p-3 mb-3 bg-light">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0 fw-semibold">Itens do empenho</label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-item">+ Adicionar item</button>
+                    </div>
+                    <div id="nova-itens"></div>
+                    <div class="row g-2 mt-2 align-items-center">
+                        <div class="col-md-8 text-end"><span class="fw-semibold">Valor total:</span></div>
+                        <div class="col-md-4"><input type="text" class="form-control text-end" id="nova-valor-total" readonly value="R$ 0,00"></div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Observações (opcional)</label>
+                    <textarea class="form-control" id="nova-obs" rows="2"></textarea>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Emitir empenho</button>
+                    <a href="/Financeiro/Empenhos" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.empenhos.js"></script>
+}

@@ -102,7 +102,7 @@ select ak.id as Id, ak.tenant_id as TenantId, ak.api_key_hash as ApiKeyHash,
 select s.id as SessionId, s.usuario_id as UserId, s.tenant_id as TenantId, s.entidade_id as EntidadeId,
        s.exercicio_id as ExercicioId, s.auth_version as AuthVersion,
        coalesce(u.nome, u.login) as Nome, coalesce(u.email, '') as Email, u.login as Login,
-       coalesce(t.nome, '') as TenantName
+       coalesce(t.nome, '') as TenantName, coalesce(t.slug, '') as TenantSlug
   from sigov.identidade_sessao s
   join sigov.usuario u on u.id = s.usuario_id and u.ativo and not u.bloqueado and not u.is_deleted
   join sigov.tenant t on t.id = s.tenant_id and t.ativo and not t.is_deleted
@@ -132,6 +132,7 @@ select s.id as SessionId, s.usuario_id as UserId, s.tenant_id as TenantId, s.ent
         if (row.EntidadeId is not null) claims.Add(new("entidade_id", row.EntidadeId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         if (row.ExercicioId is not null) claims.Add(new("exercicio_id", row.ExercicioId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         if (!string.IsNullOrWhiteSpace(row.TenantName)) claims.Add(new("tenant_name", row.TenantName));
+        if (!string.IsNullOrWhiteSpace(row.TenantSlug)) claims.Add(new("tenant_slug", row.TenantSlug));
         var enterpriseMapping = Context.RequestServices.GetRequiredService<IEnterpriseTenantMappingService>();
         var enterpriseTenantId = await enterpriseMapping.ResolveEnterpriseTenantAsync(row.TenantId, Context.RequestAborted).ConfigureAwait(false);
         if (enterpriseTenantId.HasValue)
@@ -164,5 +165,5 @@ select s.id as SessionId, s.usuario_id as UserId, s.tenant_id as TenantId, s.ent
 
     private sealed record ApiKeyRow(long Id, long TenantId, string ApiKeyHash, string[] Scopes);
 
-    private sealed record SessionRow(long SessionId, long UserId, long TenantId, long? EntidadeId, long? ExercicioId, long AuthVersion, string Nome, string Email, string Login, string TenantName);
+    private sealed record SessionRow(long SessionId, long UserId, long TenantId, long? EntidadeId, long? ExercicioId, long AuthVersion, string Nome, string Email, string Login, string TenantName, string TenantSlug);
 }

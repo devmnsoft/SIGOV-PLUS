@@ -1,9 +1,25 @@
+// SIGOV PLUS · Financeiro SIAFIC — download de relatórios CSV/JSON via endpoint de exportação.
+// Botões esperados: class="btn-export-csv|btn-export-json" com data-resource
+// (empenhos, liquidacoes, pagamentos, receitas, orcamento-despesas, orcamento-receitas).
 (function () {
-  function toast(msg, type) { $('#sigov-alerts').html(`<div class="alert alert-${type || 'info'} alert-dismissible fade show">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`); }
-  function money(v) { return (Number(v || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-  $(document).on('input', '.item-quantidade,.item-valor', function () { let total = 0; $('.item-empenho').each(function () { const q = parseFloat(($(this).find('.item-quantidade').val() || '0').replace(',', '.')); const v = parseFloat(($(this).find('.item-valor').val() || '0').replace(',', '.')); const t = q * v; total += t; $(this).find('.item-total').val(money(t)); }); $('#valor-total-empenho').val(money(total)); });
-  $(document).on('click', '#add-item-empenho', function () { const i = $('.item-empenho').length; $('#empenho-itens').append(`<div class="row g-2 item-empenho mt-1"><div class="col-md-6"><input class="form-control item-descricao" name="Itens[${i}].Descricao" required /></div><div class="col-md-2"><input class="form-control item-quantidade money" name="Itens[${i}].Quantidade" value="1" /></div><div class="col-md-2"><input class="form-control item-valor money" name="Itens[${i}].ValorUnitario" value="0" /></div><div class="col-md-2"><input class="form-control item-total" readonly /></div></div>`); });
-  $(document).on('submit', '.financeiro-form', async function (e) { e.preventDefault(); const form = $(this); if (form.valid && !form.valid()) return; const payload = Object.fromEntries(new FormData(this).entries()); try { await window.sigovApi.request(form.data('api'), { method: 'POST', body: JSON.stringify(payload) }); toast('Operação financeira processada com sucesso.', 'success'); } catch (err) { toast(err.message || 'Falha ao processar.', 'danger'); } });
-  $(document).on('click', '.btn-export', function () { const r = $(this).data('resource') || 'empenhos'; window.open(`http://localhost:5001/api/financeiro/export/${r}.csv`, '_blank'); });
-  if ($('.financeiro-dashboard').length) { window.sigovApi.request('/api/financeiro/dashboard').then(r => { const d = r.data || r; const vals = [d.despesa?.orcamentoAutorizado, d.despesa?.empenhado, d.despesa?.liquidado, d.despesa?.pago, d.despesa?.saldoDisponivel, d.receita?.receitaPrevista, d.receita?.receitaLancada, d.receita?.receitaArrecadada]; $('.financeiro-dashboard .valor').each((i, el) => $(el).text(money(vals[i]))); }).catch(() => toast('Dashboard indisponível ou sem permissão.', 'warning')); }
-}());
+  const F = window.sigovFin;
+  if (!F) return;
+
+  async function baixar(btn, formato) {
+    const recurso = $(btn).data('resource');
+    if (!recurso) return;
+    btn.disabled = true;
+    try {
+      await F.baixarArquivo(String(recurso), formato);
+      F.toast('Arquivo ' + formato.toUpperCase() + ' gerado.', 'success');
+    } catch (err) {
+      F.falha('Falha na exportação', err);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $(document).on('click', '.btn-export-csv', function () { baixar(this, 'csv'); });
+  $(document).on('click', '.btn-export-json', function () { baixar(this, 'json'); });
+  $(document).on('click', '.btn-export:not(.btn-export-csv):not(.btn-export-json)', function () { baixar(this, 'csv'); });
+})();

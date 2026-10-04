@@ -1,0 +1,89 @@
+@model Sigov.Web.Models.Financeiro.ConferenciaViewModel
+@{
+    ViewData["Title"] = "Financeiro — Conferência financeira";
+}
+<div data-fin-tela="conferencia">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Conferência financeira</h1>
+            <p class="text-muted mb-0">Comparativo entre os acumuladores registrados e os totais calculados pelos documentos (empenhos, liquidações, pagamentos e arrecadações).</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card sigov-dashboard-card financeiro-kpi h-100">
+                <span>Total de diferença (R$)</span>
+                <strong id="cf-total-diferenca">—</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card sigov-dashboard-card financeiro-kpi h-100">
+                <span>Divergentes na página</span>
+                <strong id="cf-qtd-divergentes">—</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card sigov-dashboard-card financeiro-kpi h-100">
+                <span>Último cálculo</span>
+                <strong id="cf-atualizado" class="placeholder-glow">—</strong>
+            </div>
+        </div>
+    </div>
+
+    <details class="card card-body mb-3 sigov-screen-guide" open>
+        <summary class="fw-semibold">Como corrigir uma divergência</summary>
+        <ol class="mb-0 mt-2 small text-muted">
+            <li>Identifique o <strong>documento</strong> com diferença e a <strong>origem da divergência</strong> indicada pela conferência (acumulador divergente vs total calculado pelos documentos).</li>
+            <li>Use <strong>Ajustar</strong>: informe a justificativa (obrigatória) e confirme. O valor exato é sempre <strong>recalculado no servidor</strong> e aplicado em transação única, com registro completo em auditoria.</li>
+            <li>O ajuste requer a permissão <code>financeiro.conferencia.ajustar</code>; a visualização usa <code>financeiro.conferencia.visualizar</code>.</li>
+        </ol>
+    </details>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col-md-4">
+                    <label class="form-label">Tipo de documento</label>
+                    <select class="form-select" id="cf-tipo">
+                        <option value="">Todos</option>
+                        <option value="EMPENHO">Empenho</option>
+                        <option value="LIQUIDACAO">Liquidação</option>
+                        <option value="PAGAMENTO">Pagamento</option>
+                        <option value="ARRECADACAO">Arrecadação</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Situação</label>
+                    <select class="form-select" id="cf-situacao">
+                        <option value="">Todas</option>
+                        <option value="DIVERGENTE">Somente divergentes</option>
+                        <option value="OK">Somente conferidos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <button type="button" class="btn btn-sm btn-primary" id="btn-cf-filtrar">Filtrar</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-cf-limpar">Limpar</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th><th>Documento</th>
+                            <th class="text-end">Registrado</th><th class="text-end">Calculado</th><th class="text-end">Diferença</th>
+                            <th>Origem da divergência</th><th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-conferencia"><tr><td colspan="7" class="text-muted py-3">Executando conferência…</td></tr></tbody>
+                </table>
+            </div>
+            <div id="pager-conferencia"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/modules/financeiro.core.js"></script>
+    <script src="~/js/modules/financeiro.conferencia.js"></script>
+}
