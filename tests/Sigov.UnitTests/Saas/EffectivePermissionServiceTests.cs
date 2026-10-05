@@ -9,10 +9,21 @@ public sealed class EffectivePermissionServiceTests
     [Fact]
     public async Task Administrador_geral_tem_escopo_global()
     {
-        var service = new EffectivePermissionService(new FakeProfileRepository(new[] { "ADMINISTRADOR_GERAL" }));
+        var service = new EffectivePermissionService(new FakeProfileRepository(new[] { "ADMINISTRADOR_GERAL" }, permissions: new[] { "saas.modulos.gerenciar", "saas.plataforma.administrar" }));
         var result = await service.CalculateAsync(10, null, CancellationToken.None);
         result.Global.Should().BeTrue();
+        result.Permissions.Should().Contain("saas.modulos.gerenciar");
         result.HasPermission("saas.modulos.gerenciar").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Administrador_geral_lista_permissoes_persistidas_sem_hardcode()
+    {
+        var service = new EffectivePermissionService(new FakeProfileRepository(new[] { "SUPERADMIN" }));
+        var result = await service.CalculateAsync(10, null, CancellationToken.None);
+        result.Global.Should().BeTrue();
+        result.Permissions.Should().BeEmpty();
+        result.HasPermission("saas.qualquer.acao").Should().BeTrue();
     }
 
     [Fact]

@@ -53,15 +53,18 @@ order by Nome offset @Offset limit @Limit;";
 
     public async Task<IReadOnlyCollection<ContextOption>> GetOptionsAsync(long usuarioId, long tenantId, ContextOptionType type, CancellationToken ct)
     {
-        var access = await SearchTenantsAsync(usuarioId, null, 0, 50, ct).ConfigureAwait(false);
-        if (!access.Any(x => x.Id == tenantId)) return Array.Empty<ContextOption>();
+        await using var connection = (NpgsqlConnection)context.CreateConnection();
+        // Critério N: o acesso ao tenant é verificado diretamente pelo id solicitado, com o mesmo
+        // predicado de SearchTenantsAsync, sem teto de offset/limit.
+        const string accessSql = @"select exists(select 1 from sigov.tenant t where t.id=@TenantId and t.ativo and not t.is_deleted and t.status not in ('CANCELADO','EXCLUIDO') and (exists(select 1 from sigov.usuario_escopo_acesso ue where ue.usuario_id=@UsuarioId and ue.tenant_id=t.id and ue.ativo) or exists(select 1 from sigov.usuario u join sigov.usuario_grupo ug on ug.usuario_id=u.id join sigov.grupo_perfil gp on gp.grupo_acesso_id=ug.grupo_acesso_id join sigov.perfil_acesso pa on pa.id=gp.perfil_acesso_id and pa.sistemico join sigov.perfil_permissao pp on pp.perfil_acesso_id=pa.id and pp.ativo and not pp.is_deleted and pp.efeito='PERMITIR' join sigov.permissao p on p.id=pp.permissao_id and p.chave='contexto.empresa.visualizar' and p.ativo and not p.is_deleted where u.id=@UsuarioId and u.ativo and not u.is_deleted and ug.ativo and gp.ativo)));";
+        var temAcesso = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(accessSql, new { UsuarioId = usuarioId, TenantId = tenantId }, cancellationToken: ct)).ConfigureAwait(false);
+        if (!temAcesso) return Array.Empty<ContextOption>();
         var sql = type switch
         {
             ContextOptionType.Unidade => @"select distinct uo.id Id,coalesce(uo.codigo_externo,uo.id::text) Codigo,uo.nome Nome,case when uo.ativo then 'ATIVA' else 'INATIVA' end Situacao,uo.entidade_id ParentId from sigov.usuario_escopo_acesso ue join sigov.unidade_organizacional uo on uo.entidade_id=ue.entidade_id and uo.ativo and not uo.is_deleted where ue.usuario_id=@UsuarioId and ue.tenant_id=@TenantId and ue.ativo and (ue.escopo in ('GLOBAL','TENANT','ENTIDADE') or ue.unidade_id=uo.id) order by Nome",
             ContextOptionType.Exercicio => @"select distinct e.id Id,e.ano::text Codigo,e.ano::text Nome,case when e.ativo and current_date between e.data_inicio and e.data_fim then 'ABERTO' else 'ENCERRADO' end Situacao,e.entidade_id ParentId from sigov.usuario_escopo_acesso ue join sigov.exercicio e on e.entidade_id=ue.entidade_id and e.ativo and not e.is_deleted where ue.usuario_id=@UsuarioId and ue.tenant_id=@TenantId and ue.ativo and (ue.exercicio_id is null or ue.exercicio_id=e.id) order by Nome desc",
             _ => @"select distinct m.id Id,m.codigo Codigo,m.nome Nome,'DISPONIVEL' Situacao,m.rota_base RotaInicial,m.icone Icone from sigov.tenant_modulo tm join sigov.modulo_saas m on m.id=tm.modulo_saas_id and m.ativo and not m.is_deleted where tm.tenant_id=@TenantId and tm.ativo and not tm.is_deleted and tm.habilitado and tm.contratado and tm.inicio_at<=now() and (tm.fim_at is null or tm.fim_at>=now()) and exists(select 1 from sigov.usuario_escopo_acesso ue where ue.usuario_id=@UsuarioId and ue.tenant_id=tm.tenant_id and ue.ativo and (ue.modulo_codigo is null or ue.modulo_codigo=m.codigo)) order by m.ordem,m.nome"
         };
-        await using var connection = (NpgsqlConnection)context.CreateConnection();
         var rows = await connection.QueryAsync<ContextOption>(new CommandDefinition(sql, new { UsuarioId = usuarioId, TenantId = tenantId }, cancellationToken: ct)).ConfigureAwait(false);
         return rows.AsList();
     }

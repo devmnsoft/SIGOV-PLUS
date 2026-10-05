@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Api.Contracts;
+using Sigov.Application.Authorization;
 using Sigov.Application.Saas.B2B;
 
 namespace Sigov.Api.Controllers.Saas;
@@ -9,11 +11,13 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
 {
     private readonly IWhiteLabelB2BLaunchService _service;
     private readonly ILogger<WhiteLabelB2BLaunchController> _logger;
+    private readonly IAuthorizationEvaluator _evaluator;
 
-    public WhiteLabelB2BLaunchController(IWhiteLabelB2BLaunchService service, ILogger<WhiteLabelB2BLaunchController> logger)
+    public WhiteLabelB2BLaunchController(IWhiteLabelB2BLaunchService service, ILogger<WhiteLabelB2BLaunchController> logger, IAuthorizationEvaluator evaluator)
     {
         _service = service;
         _logger = logger;
+        _evaluator = evaluator;
     }
 
     [HttpGet("api/planos/publicos")]
@@ -87,7 +91,7 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/white-label/tenant/{tenantId:long}")]
     public async Task<ActionResult<ApiResponse<WhiteLabelConfiguracaoDto>>> WhiteLabelTenant(long tenantId, CancellationToken cancellationToken)
     {
-        if (!CanAccessTenant(tenantId))
+        if (!await CanAccessTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
         {
             return Forbid();
         }
@@ -101,7 +105,7 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     {
         try
         {
-            if (!CanAccessTenant(tenantId))
+            if (!await CanAccessTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
             {
                 return Forbid();
             }
@@ -126,9 +130,9 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     public Task<ActionResult<ApiResponse<WhiteLabelConfiguracaoDto>>> MobileConfig(CancellationToken cancellationToken) => WhiteLabelTenant(GetTenantId(), cancellationToken);
 
     [HttpPost("api/white-label/tenant/{tenantId:long}/logo")]
-    public ActionResult<ApiResponse<object>> Logo(long tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> Logo(long tenantId, CancellationToken cancellationToken)
     {
-        if (!CanAccessTenant(tenantId))
+        if (!await CanAccessTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
         {
             return Forbid();
         }
@@ -137,10 +141,10 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     }
 
     [HttpPost("api/white-label/tenant/{tenantId:long}/favicon")]
-    public ActionResult<ApiResponse<object>> Favicon(long tenantId) => Logo(tenantId);
+    public Task<ActionResult<ApiResponse<object>>> Favicon(long tenantId, CancellationToken cancellationToken) => Logo(tenantId, cancellationToken);
 
     [HttpPost("api/white-label/tenant/{tenantId:long}/banner-login")]
-    public ActionResult<ApiResponse<object>> BannerLogin(long tenantId) => Logo(tenantId);
+    public Task<ActionResult<ApiResponse<object>>> BannerLogin(long tenantId, CancellationToken cancellationToken) => Logo(tenantId, cancellationToken);
 
     [HttpGet("api/developer/overview")]
     [HttpGet("api/developer/auth")]
@@ -207,7 +211,8 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/contratos")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<ContratoSlaDto>>>> Contratos(CancellationToken cancellationToken)
     {
-        var contratos = await _service.GetContratosAsync(IsGlobalAdmin() ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
+        var isGlobal = await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false);
+        var contratos = await _service.GetContratosAsync(isGlobal ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<ContratoSlaDto>>.Ok(contratos));
     }
 
@@ -215,7 +220,8 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/contratos/{id:long}/sla")]
     public async Task<ActionResult<ApiResponse<ContratoSlaDto>>> Contrato(long id, CancellationToken cancellationToken)
     {
-        var contratos = await _service.GetContratosAsync(IsGlobalAdmin() ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
+        var isGlobal = await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false);
+        var contratos = await _service.GetContratosAsync(isGlobal ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
         var contrato = contratos.FirstOrDefault(item => item.Id == id);
         return contrato is null ? NotFound(ApiResponse<ContratoSlaDto>.Fail("Contrato não encontrado.")) : Ok(ApiResponse<ContratoSlaDto>.Ok(contrato));
     }
@@ -224,7 +230,8 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/sla/incidentes")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<ContratoSlaDto>>>> Sla(CancellationToken cancellationToken)
     {
-        var contratos = await _service.GetContratosAsync(IsGlobalAdmin() ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
+        var isGlobal = await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false);
+        var contratos = await _service.GetContratosAsync(isGlobal ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<ContratoSlaDto>>.Ok(contratos));
     }
 
@@ -259,7 +266,7 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/monitoramento/alertas")]
     public async Task<ActionResult<ApiResponse<MonitoramentoB2BDto>>> Monitoramento(CancellationToken cancellationToken)
     {
-        if (!IsGlobalAdmin())
+        if (!await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false))
         {
             return Forbid();
         }
@@ -274,7 +281,8 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/gotomarket/decisores")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<GoToMarketMaterialDto>>>> GoToMarket(CancellationToken cancellationToken)
     {
-        var materiais = await _service.GetMateriaisGoToMarketAsync(IsGlobalAdmin() ? "interno" : "parceiro", cancellationToken).ConfigureAwait(false);
+        var isGlobal = await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false);
+        var materiais = await _service.GetMateriaisGoToMarketAsync(isGlobal ? "interno" : "parceiro", cancellationToken).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<GoToMarketMaterialDto>>.Ok(materiais));
     }
 
@@ -322,7 +330,8 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     [HttpGet("api/beta/indicadores")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<BetaFeedbackDto>>>> Beta(CancellationToken cancellationToken)
     {
-        var feedbacks = await _service.GetBetaFeedbacksAsync(IsGlobalAdmin() ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
+        var isGlobal = await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false);
+        var feedbacks = await _service.GetBetaFeedbacksAsync(isGlobal ? null : GetTenantId(), cancellationToken).ConfigureAwait(false);
         return Ok(ApiResponse<IReadOnlyCollection<BetaFeedbackDto>>.Ok(feedbacks));
     }
 
@@ -330,7 +339,7 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
     {
         try
         {
-            if (!CanAccessTenant(tenantId))
+            if (!await CanAccessTenantAsync(tenantId, cancellationToken).ConfigureAwait(false))
             {
                 return Forbid();
             }
@@ -381,13 +390,21 @@ public sealed class WhiteLabelB2BLaunchController : ControllerBase
         return long.TryParse(claim, out var userId) ? userId : null;
     }
 
-    private bool CanAccessTenant(long tenantId) => IsGlobalAdmin() || tenantId == GetTenantId();
+    private async Task<bool> CanAccessTenantAsync(long tenantId, CancellationToken cancellationToken)
+        => await IsGlobalAdminAsync(cancellationToken).ConfigureAwait(false) || tenantId == GetTenantId();
 
-    private bool IsGlobalAdmin()
+    private async Task<bool> IsGlobalAdminAsync(CancellationToken cancellationToken)
     {
-        return User.IsInRole("SIGOV_ADMIN")
-            || User.IsInRole("ADMINISTRADOR_GLOBAL")
-            || string.Equals(User.FindFirst("tipo_usuario")?.Value, "SIGOV_ADMIN", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Request.Headers["X-Sigov-Admin"].FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase);
+        var rawUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("usuario_id");
+        if (!long.TryParse(rawUserId, out var userId) || userId <= 0)
+        {
+            return false;
+        }
+
+        long? tenantId = long.TryParse(User.FindFirstValue("tenant_id"), out var tenantClaim) && tenantClaim > 0 ? tenantClaim : null;
+        var decision = await _evaluator.EvaluateAsync(new AuthorizationRequest(
+            userId, "saas", "plataforma", "administrar", tenantId,
+            CorrelationId: HttpContext.TraceIdentifier, Origem: "API_B2B_LAUNCH"), cancellationToken).ConfigureAwait(false);
+        return decision.Permitido;
     }
 }

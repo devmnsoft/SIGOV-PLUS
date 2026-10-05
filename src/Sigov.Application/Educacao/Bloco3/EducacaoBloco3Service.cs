@@ -1,5 +1,6 @@
 using Sigov.Application.Abstractions;
 using Sigov.Domain.Common;
+using Sigov.Domain.Saas;
 
 namespace Sigov.Application.Educacao.Bloco3;
 
@@ -23,7 +24,7 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
     public EducacaoBloco3Service(IEducacaoBloco3Repository repository, ICurrentTenant tenant, ICurrentUser user, ICorrelationIdProvider correlation)
     { _repository = repository; _tenant = tenant; _user = user; _correlation = correlation; }
 
-    private bool Administrativo => _user.Roles.Any(x => x.Equals("admin", StringComparison.OrdinalIgnoreCase) || x.Equals("superadmin", StringComparison.OrdinalIgnoreCase))
+    private bool Administrativo => _user.Roles.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains)
         || _user.Permissions.Any(x => x.StartsWith("educacao.secretaria", StringComparison.OrdinalIgnoreCase));
 
     public async Task<Result<IReadOnlyCollection<T>>> ListarAsync<T>(string recurso, EducacaoBloco3Filtro filtro, CancellationToken ct)

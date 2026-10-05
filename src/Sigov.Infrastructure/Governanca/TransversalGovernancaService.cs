@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Governanca;
 using Sigov.Application.Health;
+using Sigov.Domain.Saas;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Governanca;
@@ -245,7 +246,7 @@ justificativa=@Justificativa where id=@Id and tenant_id=@TenantId and status in 
         if (_user.Roles.Any(IsSuper) || _user.Permissions.Contains(permission, StringComparer.OrdinalIgnoreCase)) return;
         throw new UnauthorizedAccessException("Permissão insuficiente.");
     }
-    private static bool IsSuper(string role) => role is "SUPER_ADMIN" or "SIGOV_ADMIN" or "ADMINISTRADOR_GERAL";
+    private static bool IsSuper(string role) => PerfilNivelCodigos.GlobalAdminAliases.Contains(role);
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
     private static int Size(int value) => Math.Clamp(value, 1, 100);
     private static long Offset(int page, int size) => checked((long)(Math.Max(page, 1) - 1) * Size(size));

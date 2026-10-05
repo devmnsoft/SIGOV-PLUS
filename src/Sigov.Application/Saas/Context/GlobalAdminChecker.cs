@@ -1,3 +1,5 @@
+using Sigov.Domain.Saas;
+
 namespace Sigov.Application.Saas.Context;
 
 public sealed class GlobalAdminChecker : IGlobalAdminChecker
@@ -6,7 +8,7 @@ public sealed class GlobalAdminChecker : IGlobalAdminChecker
 
     public GlobalAdminChecker(ITenantContextSwitchRepository repository) => _repository = repository;
 
-    public bool IsGlobalAdmin(IEnumerable<string> profileCodes) => profileCodes.Contains("ADMINISTRADOR_GERAL", StringComparer.Ordinal);
+    public bool IsGlobalAdmin(IEnumerable<string> profileCodes) => profileCodes.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains);
 
     public async Task<bool> IsGlobalAdminAsync(long usuarioId, CancellationToken cancellationToken)
     {

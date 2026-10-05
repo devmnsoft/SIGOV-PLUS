@@ -12,9 +12,7 @@ public sealed class EffectivePermissionService : IEffectivePermissionService
     {
         var profiles = await _repository.GetUserProfileCodesAsync(usuarioId, cancellationToken).ConfigureAwait(false);
         var isGlobal = profiles.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains);
-        var permissions = isGlobal
-            ? new[] { "saas.modulos.gerenciar", "saas.parametros.editar", "saas.perfis.gerenciar", "saas.contexto_global.trocar", "saas.contexto_global.visualizar_logs" }
-            : await _repository.GetUserPermissionsAsync(usuarioId, tenantId, cancellationToken).ConfigureAwait(false);
+        var permissions = await _repository.GetUserPermissionsAsync(usuarioId, tenantId, cancellationToken).ConfigureAwait(false);
         var scopes = isGlobal && tenantId is null
             ? Array.Empty<UserAccessScope>()
             : await _repository.GetUserScopesAsync(usuarioId, tenantId, cancellationToken).ConfigureAwait(false);

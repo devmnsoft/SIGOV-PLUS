@@ -1,3 +1,4 @@
+@using Sigov.Domain.Saas
 @inject Sigov.Web.Services.IMenuPermissionService MenuPermissions
 @inject Sigov.Application.Authorization.IRequestAuthorizationSnapshot AuthSnapshot
 @{
@@ -15,8 +16,8 @@
   var canSeeGovernanca = User.IsInRole("ADMIN_GERAL") || User.IsInRole("ADMIN_TENANT") || User.IsInRole("ADMINISTRADOR_GERAL") || User.IsInRole("AUDITOR") || auth.Permissions.Any(c => c.StartsWith("governanca.", StringComparison.OrdinalIgnoreCase));
   var canSeeIndustry = hasModule("industria_producao") && (hasPermission("industria.dashboard.visualizar") || auth.Permissions.Any(c => c.StartsWith("industria.", StringComparison.OrdinalIgnoreCase)));
   var canSeeAnyEnterprise = canSeeIndustry || new[] { "comercial", "ordem_servico", "estoque_compras", "manutencao_industrial" }.Any(codigo => MenuPermissions.CanSeeModule(User, codigo));
-  var globalRoles = new[] { "ADMINISTRADOR_GERAL", "SIGOV_ADMIN", "SUPER_ADMIN", "SUPERADMIN", "ADMIN_GERAL" };
-  var isGlobalAdmin = auth.Roles.Any(role => globalRoles.Contains(role, StringComparer.OrdinalIgnoreCase));
+  var isGlobalAdmin = auth.Roles.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains)
+      || hasPermission("saas.plataforma.administrar");
   var hasTenantContext = auth.TenantId.HasValue;
 }
 <div class="sigov-sidebar-backdrop" data-sigov-sidebar-close></div>

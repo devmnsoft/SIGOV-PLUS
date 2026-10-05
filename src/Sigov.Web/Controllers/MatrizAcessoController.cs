@@ -51,7 +51,7 @@ public sealed class MatrizAcessoController : Controller
             ? requestedProfile!.ToUpperInvariant()
             : CurrentProfile();
         var rows = Matrix(profile);
-        var canExport = IsSuperAdmin() || _permissions.HasPermission(User, "seguranca.matriz.exportar");
+        var canExport = _permissions.HasPermission(User, "saas.plataforma.administrar") || _permissions.HasPermission(User, "seguranca.matriz.exportar");
         return new AccessMatrixViewModel { Profile = profile, Profiles = Profiles, Rows = rows, CanExport = canExport };
     }
 
@@ -79,7 +79,6 @@ public sealed class MatrizAcessoController : Controller
     }
 
     private string CurrentProfile() => Profiles.FirstOrDefault(profile => User.IsInRole(profile) || User.HasClaim("perfil", profile)) ?? "LEITURA";
-    private bool IsSuperAdmin() => User.IsInRole("SUPERADMIN") || User.IsInRole("ADMIN_GERAL") || User.HasClaim("perfil", "SUPERADMIN");
     private async Task AuditAsync(string action, string profile, string reason, CancellationToken ct) =>
         await _audit.RegistrarAsync(ClaimLong("tenant_id"), ClaimLong("usuario_id"), action, "matriz_acesso", profile, null,
             new { perfil = profile, motivo = reason }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false);

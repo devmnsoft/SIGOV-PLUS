@@ -32,7 +32,7 @@ left join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.is_delete
 left join sigov.perfil_nivel pn on pn.codigo = coalesce(pa.codigo_externo, upper(replace(pa.nome, ' ', '_')))
 where u.id = @UsuarioId and u.is_deleted = false and u.ativo = true
 union
-select case when tipo_usuario in ('SIGOV_ADMIN','SUPER_ADMIN','ADMINISTRADOR_GERAL') then 'ADMINISTRADOR_GERAL' else tipo_usuario end
+select case when tipo_usuario in ('ADMINISTRADOR_GERAL','SIGOV_ADMIN','SUPER_ADMIN','SUPERADMIN','ADMIN_GERAL') then 'ADMINISTRADOR_GERAL' else tipo_usuario end
 from sigov.usuario
 where id = @UsuarioId and tipo_usuario is not null;
 ";

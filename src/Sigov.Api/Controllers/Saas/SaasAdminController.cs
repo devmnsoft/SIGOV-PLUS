@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Api.Contracts;
+using Sigov.Application.Authorization;
 using Sigov.Application.Saas;
 using Sigov.Infrastructure.Persistence.Dapper;
 
@@ -12,19 +14,22 @@ public sealed class SaasAdminController : ControllerBase
 {
     private readonly DapperContext _context;
     private readonly ITenantProvisioningService _provisioningService;
+    private readonly IAuthorizationEvaluator _evaluator;
 
-    public SaasAdminController(DapperContext context, ITenantProvisioningService provisioningService)
+    public SaasAdminController(DapperContext context, ITenantProvisioningService provisioningService, IAuthorizationEvaluator evaluator)
     {
         _context = context;
         _provisioningService = provisioningService;
+        _evaluator = evaluator;
     }
 
     [HttpGet("tenants")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<TenantInfo>>>> Tenants(CancellationToken cancellationToken)
+    public async Task<IActionResult> Tenants(CancellationToken cancellationToken)
     {
-        if (!IsSigovAdmin())
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
         {
-            return Forbid();
+            return denied;
         }
 
         const string sql = "select id, nome, slug, status, ambiente from sigov.tenant where is_deleted = false order by nome;";
@@ -34,11 +39,12 @@ public sealed class SaasAdminController : ControllerBase
     }
 
     [HttpGet("tenants/{id:long}")]
-    public async Task<ActionResult<ApiResponse<TenantInfo>>> Tenant(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Tenant(long id, CancellationToken cancellationToken)
     {
-        if (!IsSigovAdmin())
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
         {
-            return Forbid();
+            return denied;
         }
 
         using var connection = _context.CreateConnection();
@@ -47,11 +53,12 @@ public sealed class SaasAdminController : ControllerBase
     }
 
     [HttpPost("tenants/provisionar")]
-    public async Task<ActionResult<ApiResponse<ProvisionTenantResult>>> Provisionar(ProvisionTenantRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Provisionar(ProvisionTenantRequest request, CancellationToken cancellationToken)
     {
-        if (!IsSigovAdmin())
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
         {
-            return Forbid();
+            return denied;
         }
 
         var result = await _provisioningService.ProvisionarAsync(request, cancellationToken).ConfigureAwait(false);
@@ -59,26 +66,27 @@ public sealed class SaasAdminController : ControllerBase
     }
 
     [HttpPost("tenants/{id:long}/suspender")]
-    public Task<ActionResult<ApiResponse<object>>> Suspender(long id, CancellationToken cancellationToken) => AlterarStatus(id, "SUSPENSO", cancellationToken);
+    public Task<IActionResult> Suspender(long id, CancellationToken cancellationToken) => AlterarStatus(id, "SUSPENSO", cancellationToken);
 
     [HttpPost("tenants/{id:long}/reativar")]
-    public Task<ActionResult<ApiResponse<object>>> Reativar(long id, CancellationToken cancellationToken) => AlterarStatus(id, "ATIVO", cancellationToken);
+    public Task<IActionResult> Reativar(long id, CancellationToken cancellationToken) => AlterarStatus(id, "ATIVO", cancellationToken);
 
     [HttpPost("tenants/{id:long}/cancelar")]
-    public Task<ActionResult<ApiResponse<object>>> Cancelar(long id, CancellationToken cancellationToken) => AlterarStatus(id, "CANCELADO", cancellationToken);
+    public Task<IActionResult> Cancelar(long id, CancellationToken cancellationToken) => AlterarStatus(id, "CANCELADO", cancellationToken);
 
     [HttpGet("planos")]
-    public Task<ActionResult<ApiResponse<IReadOnlyCollection<object>>>> Planos(CancellationToken cancellationToken) => ListarCatalogo("plano_saas", cancellationToken);
+    public Task<IActionResult> Planos(CancellationToken cancellationToken) => ListarCatalogo("plano_saas", cancellationToken);
 
     [HttpGet("modulos")]
-    public Task<ActionResult<ApiResponse<IReadOnlyCollection<object>>>> Modulos(CancellationToken cancellationToken) => ListarCatalogo("modulo_saas", cancellationToken);
+    public Task<IActionResult> Modulos(CancellationToken cancellationToken) => ListarCatalogo("modulo_saas", cancellationToken);
 
     [HttpGet("tenants/{id:long}/uso")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<object>>>> Uso(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Uso(long id, CancellationToken cancellationToken)
     {
-        if (!IsSigovAdmin())
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
         {
-            return Forbid();
+            return denied;
         }
 
         using var connection = _context.CreateConnection();
@@ -86,11 +94,12 @@ public sealed class SaasAdminController : ControllerBase
         return Ok(ApiResponse<IReadOnlyCollection<object>>.Ok(rows.AsList()));
     }
 
-    private async Task<ActionResult<ApiResponse<object>>> AlterarStatus(long id, string status, CancellationToken cancellationToken)
+    private async Task<IActionResult> AlterarStatus(long id, string status, CancellationToken cancellationToken)
     {
-        if (!IsSigovAdmin())
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
         {
-            return Forbid();
+            return denied;
         }
 
         using var connection = _context.CreateConnection();
@@ -98,11 +107,12 @@ public sealed class SaasAdminController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { id, status }));
     }
 
-    private async Task<ActionResult<ApiResponse<IReadOnlyCollection<object>>>> ListarCatalogo(string tabela, CancellationToken cancellationToken)
+    private async Task<IActionResult> ListarCatalogo(string tabela, CancellationToken cancellationToken)
     {
-        if (!IsSigovAdmin())
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null)
         {
-            return Forbid();
+            return denied;
         }
 
         using var connection = _context.CreateConnection();
@@ -116,11 +126,35 @@ public sealed class SaasAdminController : ControllerBase
         return Ok(ApiResponse<IReadOnlyCollection<object>>.Ok(rows.AsList()));
     }
 
-    private bool IsSigovAdmin()
+    private async Task<AuthorizationDecision> EvaluateAdminAsync(CancellationToken cancellationToken)
     {
-        return User.IsInRole("SIGOV_ADMIN")
-            || string.Equals(User.FindFirst("tipo_usuario")?.Value, "SIGOV_ADMIN", StringComparison.OrdinalIgnoreCase)
-            || (HttpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()
-                && string.Equals(Request.Headers["X-Sigov-Admin"].FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase));
+        var rawUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("usuario_id");
+        long? tenantId = long.TryParse(User.FindFirstValue("tenant_id"), out var tenantClaim) && tenantClaim > 0 ? tenantClaim : null;
+        if (!long.TryParse(rawUserId, out var userId) || userId <= 0)
+        {
+            return AuthorizationDecision.Deny(AuthorizationDecisionReason.UsuarioInativoOuInexistente,
+                new AuthorizationRequest(0, "saas", "plataforma", "administrar", tenantId,
+                    CorrelationId: HttpContext.TraceIdentifier, Origem: "API_SAAS_ADMIN"), DateTimeOffset.UtcNow);
+        }
+
+        return await _evaluator.EvaluateAsync(new AuthorizationRequest(
+            userId, "saas", "plataforma", "administrar", tenantId,
+            CorrelationId: HttpContext.TraceIdentifier, Origem: "API_SAAS_ADMIN"), cancellationToken).ConfigureAwait(false);
+    }
+
+    private IActionResult ForbidAdmin(AuthorizationDecision decision) =>
+        StatusCode(StatusCodes.Status403Forbidden, new
+        {
+            success = false,
+            data = (object?)null,
+            message = decision.Mensagem,
+            correlationId = HttpContext.TraceIdentifier,
+            motivo = "SEM_PERMISSAO"
+        });
+
+    private async Task<IActionResult?> RequireSigovAdminAsync(CancellationToken cancellationToken)
+    {
+        var decision = await EvaluateAdminAsync(cancellationToken).ConfigureAwait(false);
+        return decision.Permitido ? null : ForbidAdmin(decision);
     }
 }
