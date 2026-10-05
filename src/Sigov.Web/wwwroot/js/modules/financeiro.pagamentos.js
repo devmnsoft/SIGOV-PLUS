@@ -69,7 +69,8 @@
             F.concluirAcao('fin.pagamento.cancelar:' + id, body);
             F.toast('Pagamento cancelado (estorno registrado).', 'success');
             carregar();
-          } catch (err) { F.falha('Não foi possível cancelar o pagamento', err); }
+            return true;
+          } catch (err) { F.falha('Não foi possível cancelar o pagamento', err); return false; }
         }
       });
     } catch (err) { F.falha('Não foi possível preparar o cancelamento do pagamento', err); }

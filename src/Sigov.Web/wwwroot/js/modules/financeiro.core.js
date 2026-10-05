@@ -32,10 +32,14 @@ window.sigovFin = (() => {
       `<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button></div>`;
   }
 
-  // Erro seguro: mensagem + correlation ID curto para suporte.
+  // Erro seguro: mensagem classificada por status + correlation ID curto para suporte.
+  // Mensagens técnicas do servidor (sem stack trace/SQL) são preservadas como texto.
   function falha(contexto, err) {
-    const corr = err && err.correlationId ? ` · Correlation: ${String(err.correlationId).slice(0, 8).toUpperCase()}` : '';
-    toast(`${contexto}: ${err && err.message ? err.message : 'falha inesperada.'}${corr}`, 'danger');
+    const s = err && err.status;
+    const classe = s === 401 ? 'Sessão expirada' : s === 403 ? 'Permissão insuficiente' : s === 404 ? 'Recurso não encontrado' : s === 409 ? 'Conflito' : s >= 500 ? 'Falha no servidor' : null;
+    const corr = err && err.correlationId ? ` · Correlation: ${escapa(String(err.correlationId).slice(0, 8).toUpperCase())}` : '';
+    const msg = err && err.message ? escapa(err.message) : 'falha inesperada.';
+    toast(`${contexto}${classe ? ' (' + classe.toLowerCase() + ')' : ''}: ${msg}${corr}`, 'danger');
   }
 
   // ---------------------------------------------------------------- formatos
@@ -180,7 +184,12 @@ window.sigovFin = (() => {
         if (c.obrigatorio && !v) completo = false;
       });
       if (!completo) { toast('Preencha todos os campos obrigatórios para continuar.', 'warning'); this.disabled = false; return; }
-      try { await onConfirm(valores); } finally { this.disabled = false; }
+      try {
+        // onConfirm resolve com true → sucesso: fecha a prévia. Resolve com false/undefined
+        // → falha recuperável: mantém o modal aberto com os campos e a chave idempotente preservados.
+        const ok = await onConfirm(valores);
+        if (ok === true) _confirmModal.hide();
+      } finally { this.disabled = false; }
     });
     _confirmModal.show();
   }

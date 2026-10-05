@@ -60,7 +60,7 @@ public sealed class FinanceiroExportacaoController : FinanceiroApiControllerBase
 
 [Route("api/financeiro/conferencia")]
 public sealed class FinanceiroConferenciaController : FinanceiroApiControllerBase
-{ private readonly IFinanceiroConferenciaService _s; public FinanceiroConferenciaController(IFinanceiroConferenciaService s)=>_s=s; [HttpGet] public async Task<ActionResult<ApiResponse<ConferenciaResponse>>> Listar([FromQuery]ConferenciaFiltro f,CancellationToken ct)=>FromResult(await _s.ConferirAsync(f,ct).ConfigureAwait(false)); [HttpPost("ajustar")] public async Task<ActionResult<ApiResponse<object>>> Ajustar([FromBody]ConferenciaAjustarRequest r,CancellationToken ct)=>FromResult(await _s.AjustarAsync(r,IdempotencyKey(),ct).ConfigureAwait(false)); }
+{ private readonly IFinanceiroConferenciaService _s; public FinanceiroConferenciaController(IFinanceiroConferenciaService s)=>_s=s; [HttpGet] public async Task<ActionResult<ApiResponse<ConferenciaResponse>>> Listar([FromQuery]ConferenciaFiltro f,CancellationToken ct)=>FromResult(await _s.ConferirAsync(f,ct).ConfigureAwait(false)); [HttpPost("ajustar")] public async Task<ActionResult<ApiResponse<ConferenciaAjusteResultado>>> Ajustar([FromBody]ConferenciaAjustarRequest r,CancellationToken ct)=>FromResult(await _s.AjustarAsync(r,IdempotencyKey(),ct).ConfigureAwait(false)); }
 
 public abstract class FinanceiroEmpresarialEndpointBase : FinanceiroApiControllerBase
 {

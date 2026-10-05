@@ -44,6 +44,31 @@ public static class FinanceiroInvariantes
         if (arrecadado > 0) return "PARCIALMENTE_ARRECADADA";
         return "LANCADA";
     }
+
+    /// <summary>Arredondamento monetário canônico (2 casas, meio para fora). Centraliza fórmulas derivadas.</summary>
+    public static decimal Money(decimal v) => Math.Round(v, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>Inconsistência de saldo explícita (substitui greatest(0,...) que mascarava divergência).</summary>
+    public const string Inconsistencia = "Inconsistência financeira: o saldo registrado é insuficiente para esta operação. Execute a conferência para detalhar a divergência.";
+
+    /// <summary>Conflito de concorrência (deadlock/serialization) — HTTP 409 via prefixo, sem retry cego.</summary>
+    public const string Concorrencia = "409: Conflito de concorrência em operação paralela sobre os mesmos documentos. Tente novamente.";
+}
+
+// ===========================================================================
+// Guard de contexto para escrita (entidade ativa + exercício ativo no tenant)
+// ===========================================================================
+public static class FinanceiroContextoEscrever
+{
+    public static async Task GuardarAsync(NpgsqlConnection cn,NpgsqlTransaction nx,long t,long e,long x,CancellationToken ct)
+    {
+        var ctx=await cn.QueryFirstAsync<(int Entidade,int Exercicio)>(new CommandDefinition(
+            @"select (select count(1) from sigov.entidade where id=@e and tenant_id=@t and ativo=true and is_deleted=false) as Entidade,
+                     (select count(1) from sigov.exercicio where id=@x and entidade_id=@e and tenant_id=@t and ativo=true and is_deleted=false) as Exercicio",
+            new{t,e,x},nx,cancellationToken:ct)).ConfigureAwait(false);
+        if(ctx.Entidade!=1) throw new InvalidOperationException("Contexto inválido: entidade ausente ou inativa. Selecione uma entidade ativa e tente novamente.");
+        if(ctx.Exercicio!=1) throw new InvalidOperationException("Contexto inválido: exercício encerrado ou ausente. Selecione um exercício ativo e tente novamente.");
+    }
 }
 
 // ===========================================================================
@@ -118,17 +143,41 @@ public sealed class OrcamentoRepository : BaseRepository, IOrcamentoRepository
     public async Task MovimentarDespesaAsync(long t,long e,long x,long id,MovimentacaoOrcamentariaRequest r,long? u,CancellationToken ct)
     {
         // RESERVA/ESTORNO_RESERVA → coluna reservado; REDUCAO → reducoes; SUPLEMENTACAO → suplementacoes
-        string col = r.TipoMovimentacao.ToUpperInvariant() switch
+        if(r.Valor<=0m) throw new InvalidOperationException("Valor da movimentação deve ser positivo.");
+        using var cn=(NpgsqlConnection)_context.CreateConnection();
+        await cn.OpenAsync(ct).ConfigureAwait(false);
+        await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        try
         {
-            "RESERVA" => "reservado",
-            "ESTORNO_RESERVA" => "reservado",
-            "REDUCAO" => "reducoes",
-            _ => "suplementacoes"
-        };
-        var sign = r.TipoMovimentacao.Equals("ESTORNO_RESERVA", StringComparison.OrdinalIgnoreCase) ? "-" : "+";
-        var sql = $@"update sigov.orcamento_despesa set {col}={col}{sign}@Valor,updated_at=now(),updated_by=@u where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false;
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+            var tipo=r.TipoMovimentacao?.Trim().ToUpperInvariant() ?? "";
+            string col,sinal;
+            switch(tipo)
+            {
+                case "RESERVA": col="reservado";sinal="+";break;
+                case "ESTORNO_RESERVA": col="reservado";sinal="-";break;
+                case "REDUCAO": col="reducoes";sinal="+";break;
+                case "SUPLEMENTACAO": col="suplementacoes";sinal="+";break;
+                default: throw new InvalidOperationException("Tipo de movimentação inválido.");
+            }
+            // Lock do documento e limites por tipo (sem mascaramento de inconsistência)
+            var od=await cn.QueryFirstOrDefaultAsync<(long Id,decimal SaldoDisponivel,decimal Reservado)>(new CommandDefinition(
+                @"select id,(dotacao_inicial+suplementacoes-reducoes-reservado-empenhado) as SaldoDisponivel,reservado as Reservado from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
+                new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(od.Id==0) throw new InvalidOperationException("Dotação orçamentária não encontrada.");
+            switch(tipo)
+            {
+                case "RESERVA": if(r.Valor>od.SaldoDisponivel) throw new InvalidOperationException($"Saldo disponível insuficiente para reserva. Máximo: {od.SaldoDisponivel:F2}.");break;
+                case "ESTORNO_RESERVA": if(r.Valor>od.Reservado) throw new InvalidOperationException($"Reserva insuficiente para estorno. Máximo: {od.Reservado:F2}.");break;
+                case "REDUCAO": if(r.Valor>od.SaldoDisponivel) throw new InvalidOperationException($"Redução excede o saldo disponível autorizado. Máximo: {od.SaldoDisponivel:F2}.");break;
+            }
+            var sql=$@"update sigov.orcamento_despesa set {col}={col}{sinal}@Valor,updated_at=now(),updated_by=@u where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false;
 insert into sigov.orcamento_movimentacao (tenant_id,entidade_id,exercicio_id,orcamento_despesa_id,tipo_movimentacao,valor,historico,created_by) values (@t,@e,@x,@id,@TipoMovimentacao,@Valor,@Historico,@u);";
-        using var cn=_context.CreateConnection(); await cn.ExecuteAsync(Command(sql,new{t,e,x,id,r.TipoMovimentacao,r.Valor,r.Historico,u},ct)).ConfigureAwait(false);
+            await cn.ExecuteAsync(new CommandDefinition(sql,new{t,e,x,id,r.TipoMovimentacao,r.Valor,r.Historico,u},nx,cancellationToken:ct)).ConfigureAwait(false);
+            nx.Commit();
+        }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
+        catch { nx.Rollback(); throw; }
     }
     public async Task<PagedResult<OrcamentoReceitaResponse>> ListarReceitasAsync(long t,long e,long x,OrcamentoReceitaFiltro f,CancellationToken ct){var page=Math.Max(1,f.Page);var size=Math.Clamp(f.PageSize,1,100);var where="tenant_id=@t and entidade_id=@e and exercicio_id=@x and is_deleted=false"; if(f.NaturezaReceitaId.HasValue) where+=" and natureza_receita_id=@NaturezaReceitaId"; if(f.FonteRecursoId.HasValue) where+=" and fonte_recurso_id=@FonteRecursoId"; var sql=$"select id,natureza_receita_id as NaturezaReceitaId,fonte_recurso_id as FonteRecursoId,previsao_inicial as PrevisaoInicial,previsao_atualizada as PrevisaoAtualizada,lancado,arrecadado,ativo from sigov.orcamento_receita where {where} order by id desc limit @size offset @offset; select count(1) from sigov.orcamento_receita where {where};"; using var cn=_context.CreateConnection(); using var g=await cn.QueryMultipleAsync(Command(sql,new{t,e,x,f.NaturezaReceitaId,f.FonteRecursoId,size,offset=(page-1)*size},ct)).ConfigureAwait(false); return new PagedResult<OrcamentoReceitaResponse>((await g.ReadAsync<OrcamentoReceitaResponse>().ConfigureAwait(false)).AsList(),page,size,await g.ReadSingleAsync<long>().ConfigureAwait(false));}
     public async Task<OrcamentoReceitaResponse?> ObterReceitaAsync(long t,long e,long x,long id,CancellationToken ct){const string sql="select id,natureza_receita_id as NaturezaReceitaId,fonte_recurso_id as FonteRecursoId,previsao_inicial as PrevisaoInicial,previsao_atualizada as PrevisaoAtualizada,lancado,arrecadado,ativo from sigov.orcamento_receita where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false;"; using var cn=_context.CreateConnection(); return await cn.QuerySingleOrDefaultAsync<OrcamentoReceitaResponse>(Command(sql,new{t,e,x,id},ct)).ConfigureAwait(false);}
@@ -141,7 +190,9 @@ insert into sigov.orcamento_movimentacao (tenant_id,entidade_id,exercicio_id,orc
 // ===========================================================================
 public sealed class EmpenhoRepository : BaseRepository, IEmpenhoRepository
 {
-    private readonly DapperContext _context; public EmpenhoRepository(DapperContext c) => _context = c;
+    private readonly DapperContext _context;
+    private readonly IFinanceiroSequencialService _seq;
+    public EmpenhoRepository(DapperContext c,IFinanceiroSequencialService seq) { _context=c; _seq=seq; }
 
     public async Task<PagedResult<EmpenhoResumoResponse>> ListarAsync(long t,long e,long x,EmpenhoFiltro f,CancellationToken ct)
     {
@@ -177,27 +228,54 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
         return new EmpenhoDetalheResponse(emp.Id,emp.Numero,emp.DataEmpenho,emp.OrcamentoDespesaId,emp.FornecedorPessoaId,emp.Fornecedor,emp.Historico,emp.TipoEmpenho,emp.ValorTotal,emp.ValorAnulado,emp.ValorLiquidado,emp.ValorPago,emp.Status,itens);
     }
 
-    public async Task<FinanceiroResultadoComando> CriarAsync(long t,long e,long x,string numero,int ano,EmpenhoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
+    public async Task<FinanceiroResultadoComando> CriarAsync(long t,long e,long x,int ano,EmpenhoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
     {
-        var valor=r.Itens.Sum(i=>decimal.Round(i.Quantidade*i.ValorUnitario,2));
+        foreach(var (item,pos) in r.Itens.Select((i,p)=>(item:i,pos:p+1)))
+        {
+            if(string.IsNullOrWhiteSpace(item.Descricao)) throw new ArgumentException($"Item {pos}: descrição é obrigatória.");
+            if(FinanceiroInvariantes.Money(item.Quantidade)!=item.Quantidade) throw new ArgumentException($"Item {pos}: quantidade deve ter no máximo 2 casas decimais.");
+            if(item.Quantidade<=0m) throw new ArgumentException($"Item {pos}: quantidade deve ser maior que zero.");
+            if(FinanceiroInvariantes.Money(item.ValorUnitario)!=item.ValorUnitario) throw new ArgumentException($"Item {pos}: valor unitário deve ter no máximo 2 casas decimais.");
+            if(item.ValorUnitario<=0m) throw new ArgumentException($"Item {pos}: valor unitário deve ser maior que zero.");
+        }
+        var valor=r.Itens.Sum(i=>FinanceiroInvariantes.Money(i.Quantidade*i.ValorUnitario));
         using var cn=(NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
+            if(r.FornecedorPessoaId is >0)
+            {
+                var fornecedorOk=await cn.ExecuteScalarAsync<int>(new CommandDefinition(
+                    @"select count(1) from sigov.pessoa where id=@fid and tenant_id=@t and ativo=true and is_deleted=false and (entidade_id is null or entidade_id=@e) and (exercicio_id is null or exercicio_id=@x)",
+                    new{t,e,x,fid=r.FornecedorPessoaId},nx,cancellationToken:ct)).ConfigureAwait(false);
+                if(fornecedorOk==0) throw new InvalidOperationException("Fornecedor não localizado ou inativo no contexto selecionado.");
+            }
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"empenho.criar",chave,FinanceiroIdempotencia.Hash(r),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"empenho.criar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return new FinanceiroResultadoComando(docReplay,true);
             }
 
-            // Lock orcamento_despesa e validar saldo
-            var orcamento = await cn.QueryFirstOrDefaultAsync<(long Id, decimal Saldo)>(new CommandDefinition(
-                @"select id,(dotacao_inicial+suplementacoes-reducoes-reservado-empenhado) as Saldo from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@OrcamentoDespesaId and is_deleted=false for update",
+            // Lock orcamento_despesa e validar saldo/catálogos vinculados
+            var orcamento = await cn.QueryFirstOrDefaultAsync<(long Id,decimal Saldo,long NaturezaId,long FonteId)>(new CommandDefinition(
+                @"select id,(dotacao_inicial+suplementacoes-reducoes-reservado-empenhado) as Saldo,natureza_despesa_id as NaturezaId,fonte_recurso_id as FonteId from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@OrcamentoDespesaId and is_deleted=false for update",
                 new{t,e,x,r.OrcamentoDespesaId},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(orcamento.Id==0) throw new InvalidOperationException("Dotação orçamentária não encontrada.");
             if(valor > orcamento.Saldo) throw new InvalidOperationException($"Saldo disponível insuficiente. Disponível: {orcamento.Saldo:F2}, Solicitado: {valor:F2}.");
+            var catalogos=await cn.QueryFirstAsync<(int Natureza,int Fonte)>(new CommandDefinition(
+                @"select (select count(1) from sigov.natureza_despesa where id=@nid and tenant_id=@t and ativo=true and is_deleted=false) as Natureza,
+                         (select count(1) from sigov.fonte_recurso where id=@fid and tenant_id=@t and ativo=true and is_deleted=false) as Fonte",
+                new{t,nid=orcamento.NaturezaId,fid=orcamento.FonteId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(catalogos.Natureza==0) throw new InvalidOperationException("Natureza da despesa vinculada à dotação não localizada ou inativa.");
+            if(catalogos.Fonte==0) throw new InvalidOperationException("Fonte de recurso vinculada à dotação não localizada ou inativa.");
+
+            // Sequencial LAZY: gerado dentro da transação, após o check de replay
+            var numero=await _seq.ProximoAsync(t,e,x,ano,"empenho","EMP",ct).ConfigureAwait(false);
 
             // Update acumulador
             await cn.ExecuteAsync(new CommandDefinition(
@@ -212,7 +290,7 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
             // Insert itens
             foreach(var item in r.Itens)
             {
-                var itemTotal=decimal.Round(item.Quantidade*item.ValorUnitario,2);
+                var itemTotal=FinanceiroInvariantes.Money(item.Quantidade*item.ValorUnitario);
                 await cn.ExecuteAsync(new CommandDefinition(
                     @"insert into sigov.empenho_item (tenant_id,entidade_id,exercicio_id,empenho_id,descricao,quantidade,valor_unitario,valor_total,created_by) values (@t,@e,@x,@id,@Descricao,@Quantidade,@ValorUnitario,@ValorTotal,@u)",
                     new{t,e,x,id,item.Descricao,item.Quantidade,item.ValorUnitario,ValorTotal=itemTotal,u},nx,cancellationToken:ct)).ConfigureAwait(false);
@@ -227,6 +305,7 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
             nx.Commit();
             return new FinanceiroResultadoComando(id,false);
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -246,21 +325,35 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"empenho.anular",chave,FinanceiroIdempotencia.Hash(new{id,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"empenho.anular",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},id,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return true;
             }
 
-            // Lock empenho
+            // Snapshot sem lock para localizar o pai
+            var snapOd=await cn.ExecuteScalarAsync<long?>(new CommandDefinition(
+                @"select orcamento_despesa_id from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false",
+                new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapOd is null) throw new InvalidOperationException("Empengo não encontrado.");
+
+            // Lock na ordem pai -> filho: orcamento_despesa antes de empenho
+            var od=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Empenhado)>(new CommandDefinition(
+                @"select id,empenhado as Empenhado from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=snapOd.Value},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(od.Id==0) throw new InvalidOperationException("Dotação orçamentária não encontrada.");
+
+            // Lock empenho (revalidação sob lock)
             var emp=await cn.QueryFirstOrDefaultAsync<EmpenhoRow>(new CommandDefinition(
                 @"select id as Id,valor_total as ValorTotal,valor_anulado as ValorAnulado,valor_liquidado as ValorLiquidado,valor_pago as ValorPago,status as Status,orcamento_despesa_id as OrcamentoDespesaId from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
                 new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(emp is null) throw new InvalidOperationException("Empenho não encontrado.");
             if(emp.Status=="ANULADO") throw new InvalidOperationException("409: Empenho já anulado.");
 
-            var maxAnulavel = emp.ValorTotal - emp.ValorAnulado - emp.ValorLiquidado;
+            var maxAnulavel = FinanceiroInvariantes.SaldoALiquidar(emp.ValorTotal, emp.ValorAnulado, emp.ValorLiquidado);
             if(r.Valor <= 0) throw new InvalidOperationException("Valor de anulação deve ser positivo.");
             if(r.Valor > maxAnulavel) throw new InvalidOperationException($"Valor excede o saldo anulável. Máximo: {maxAnulavel:F2}.");
 
@@ -273,10 +366,11 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
                 new{t,e,x,id,novoAnulado,novoStatus,r.Motivo,u},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(rows==0) throw new InvalidOperationException("Conflito de concorrência ao anular empenho.");
 
-            // Update orcamento_despesa
+            // Update orcamento_despesa (sem greatest(0,...): inconsistência fica explícita)
+            if(od.Empenhado < r.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
             await cn.ExecuteAsync(new CommandDefinition(
-                @"update sigov.orcamento_despesa set empenhado=greatest(0,empenhado-@Valor),updated_at=now(),updated_by=@u where id=@orcamentoDespesaId and tenant_id=@t",
-                new{t,r.Valor,orcamentoDespesaId=emp.OrcamentoDespesaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
+                @"update sigov.orcamento_despesa set empenhado=empenhado-@Valor,updated_at=now(),updated_by=@u where id=@orcamentoDespesaId and tenant_id=@t",
+                new{t,Valor=r.Valor,orcamentoDespesaId=emp.OrcamentoDespesaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             // Evento
             await cn.ExecuteAsync(new CommandDefinition(
@@ -287,6 +381,7 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
             nx.Commit();
             return false;
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -299,7 +394,9 @@ select id,descricao,quantidade,valor_unitario as ValorUnitario,valor_total as Va
 // ===========================================================================
 public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
 {
-    private readonly DapperContext _context; public LiquidacaoRepository(DapperContext c)=>_context=c;
+    private readonly DapperContext _context;
+    private readonly IFinanceiroSequencialService _seq;
+    public LiquidacaoRepository(DapperContext c,IFinanceiroSequencialService seq) { _context=c; _seq=seq; }
 
     public async Task<PagedResult<LiquidacaoResponse>> ListarAsync(long t,long e,long x,LiquidacaoFiltro f,CancellationToken ct)
     {
@@ -324,30 +421,46 @@ public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
         return row is null ? null : new LiquidacaoResponse(row.Id,row.EmpenhoId,row.Numero,row.DataLiquidacao,row.DocumentoFiscal,row.Historico,row.Valor,row.Status);
     }
 
-    public async Task<FinanceiroResultadoComando> CriarAsync(long t,long e,long x,long empenhoId,string numero,LiquidacaoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
+    public async Task<FinanceiroResultadoComando> CriarAsync(long t,long e,long x,long empenhoId,int ano,LiquidacaoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
     {
         using var cn=(NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"liquidacao.criar",chave,FinanceiroIdempotencia.Hash(new{empenhoId,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"liquidacao.criar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},empenhoId,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return new FinanceiroResultadoComando(docReplay,true);
             }
 
-            // Lock empenho
+            // Snapshot sem lock para localizar o pai
+            var snapOd=await cn.ExecuteScalarAsync<long?>(new CommandDefinition(
+                @"select orcamento_despesa_id from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@empenhoId and is_deleted=false",
+                new{t,e,x,empenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapOd is null) throw new InvalidOperationException("Empengo não encontrado.");
+
+            // Lock na ordem pai -> filho: orcamento_despesa antes de empenho
+            await cn.QueryFirstOrDefaultAsync(new CommandDefinition(
+                @"select id from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=snapOd.Value},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Lock empenho (revalidação sob lock)
             var emp=await cn.QueryFirstOrDefaultAsync<EmpenhoSaldoRow>(new CommandDefinition(
                 @"select id as Id,valor_total as ValorTotal,valor_anulado as ValorAnulado,valor_liquidado as ValorLiquidado,valor_pago as ValorPago,status as Status,orcamento_despesa_id as OrcamentoDespesaId from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@empenhoId and is_deleted=false for update",
                 new{t,e,x,empenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(emp is null) throw new InvalidOperationException("Empenho não encontrado.");
             if(emp.Status=="ANULADO") throw new InvalidOperationException("Não é possível liquidar empenho anulado.");
 
-            var saldoALiq = emp.ValorTotal - emp.ValorAnulado - emp.ValorLiquidado;
+            var saldoALiq = FinanceiroInvariantes.SaldoALiquidar(emp.ValorTotal, emp.ValorAnulado, emp.ValorLiquidado);
             if(r.Valor <= 0) throw new InvalidOperationException("Valor de liquidação deve ser positivo.");
             if(r.Valor > saldoALiq) throw new InvalidOperationException($"Valor excede o saldo a liquidar. Máximo: {saldoALiq:F2}.");
+
+            // Sequencial LAZY: gerado dentro da transação, após o check de replay
+            var numero=await _seq.ProximoAsync(t,e,x,ano,"liquidacao","LIQ",ct).ConfigureAwait(false);
 
             var novoLiquidado = emp.ValorLiquidado + r.Valor;
             var novoStatus = FinanceiroInvariantes.DerivarStatusEmpenho(emp.ValorTotal, emp.ValorAnulado, novoLiquidado, emp.ValorPago);
@@ -376,6 +489,7 @@ public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
             nx.Commit();
             return new FinanceiroResultadoComando(id,false);
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -387,34 +501,47 @@ public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"liquidacao.anular",chave,FinanceiroIdempotencia.Hash(new{id,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"liquidacao.anular",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},id,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return true;
             }
 
-            // Lock liquidação
+            // Snapshot sem lock para localizar os pais
+            var snapLiq=await cn.QueryFirstOrDefaultAsync<(long Id,long EmpenhoId)>(new CommandDefinition(
+                @"select id,empenho_id as EmpenhoId from sigov.liquidacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false",
+                new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapLiq.Id==0) throw new InvalidOperationException("Liquidação não encontrada.");
+            var odId=await cn.ExecuteScalarAsync<long>(new CommandDefinition(
+                @"select coalesce(orcamento_despesa_id,0) from sigov.empenho where id=@empenhoId",
+                new{empenhoId=snapLiq.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Locks na ordem pai -> filho: orcamento_despesa, empenho, liquidação
+            var od=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Liquidado)>(new CommandDefinition(
+                @"select id,liquidado as Liquidado from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=odId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            var emp=await cn.QueryFirstOrDefaultAsync<EmpenhoSaldoRow>(new CommandDefinition(
+                @"select id as Id,valor_total as ValorTotal,valor_anulado as ValorAnulado,valor_liquidado as ValorLiquidado,valor_pago as ValorPago,status as Status,orcamento_despesa_id as OrcamentoDespesaId from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@empenhoId and is_deleted=false for update",
+                new{t,e,x,empenhoId=snapLiq.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
             var liq=await cn.QueryFirstOrDefaultAsync<LiquidacaoDocRow>(new CommandDefinition(
                 @"select id as Id,empenho_id as EmpenhoId,valor as Valor,status as Status from sigov.liquidacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
                 new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(liq is null) throw new InvalidOperationException("Liquidação não encontrada.");
             if(liq.Status=="ANULADA") throw new InvalidOperationException("409: Liquidação já anulada.");
 
-            // Verificar pagamentos vigentes
+            // Verificar pagamentos vigentes (sob lock da liquidação)
             var pagamentosVigentes=await cn.ExecuteScalarAsync<int>(new CommandDefinition(
                 @"select count(1) from sigov.pagamento where liquidacao_id=@id and status='EFETUADO' and is_deleted=false",
                 new{id},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(pagamentosVigentes>0) throw new InvalidOperationException($"Não é possível anular: há {pagamentosVigentes} pagamento(s) vigente(s). Cancele os pagamentos primeiro.");
 
-            // Lock empenho
-            var emp=await cn.QueryFirstOrDefaultAsync<EmpenhoSaldoRow>(new CommandDefinition(
-                @"select id as Id,valor_total as ValorTotal,valor_anulado as ValorAnulado,valor_liquidado as ValorLiquidado,valor_pago as ValorPago,status as Status,orcamento_despesa_id as OrcamentoDespesaId from sigov.empenho where id=@empenhoId for update",
-                new{empenhoId=liq.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
-
-            // Decrementar
-            if(emp is null) throw new InvalidOperationException("Empenho não encontrado.");
-            var novoLiquidado = Math.Max(0m, emp.ValorLiquidado - liq.Valor);
+            // Decrementar (sem Math.Max: inconsistência fica explícita)
+            if(emp is null) throw new InvalidOperationException("Empengo não encontrado.");
+            if(emp.ValorLiquidado < liq.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
+            var novoLiquidado = emp.ValorLiquidado - liq.Valor;
             var novoStatus = FinanceiroInvariantes.DerivarStatusEmpenho(emp.ValorTotal, emp.ValorAnulado, novoLiquidado, emp.ValorPago);
 
             await cn.ExecuteAsync(new CommandDefinition(
@@ -425,8 +552,9 @@ public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
                 @"update sigov.empenho set valor_liquidado=@novoLiquidado,status=@novoStatus,updated_at=now(),updated_by=@u where id=@empenhoId",
                 new{novoLiquidado,novoStatus,empenhoId=liq.EmpenhoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
+            if(od.Liquidado < liq.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
             await cn.ExecuteAsync(new CommandDefinition(
-                @"update sigov.orcamento_despesa set liquidado=greatest(0,liquidado-@Valor),updated_at=now(),updated_by=@u where id=@orcamentoDespesaId and tenant_id=@t",
+                @"update sigov.orcamento_despesa set liquidado=liquidado-@Valor,updated_at=now(),updated_by=@u where id=@orcamentoDespesaId and tenant_id=@t",
                 new{t,Valor=liq.Valor,orcamentoDespesaId=emp.OrcamentoDespesaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             // Evento
@@ -438,6 +566,7 @@ public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
             nx.Commit();
             return false;
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -451,7 +580,9 @@ public sealed class LiquidacaoRepository : BaseRepository, ILiquidacaoRepository
 // ===========================================================================
 public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
 {
-    private readonly DapperContext _context; public PagamentoRepository(DapperContext c)=>_context=c;
+    private readonly DapperContext _context;
+    private readonly IFinanceiroSequencialService _seq;
+    public PagamentoRepository(DapperContext c,IFinanceiroSequencialService seq) { _context=c; _seq=seq; }
 
     public async Task<PagedResult<PagamentoResponse>> ListarAsync(long t,long e,long x,PagamentoFiltro f,CancellationToken ct)
     {
@@ -476,21 +607,39 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
         return row is null ? null : new PagamentoResponse(row.Id,row.LiquidacaoId,row.Numero,row.DataPagamento,row.FormaPagamento,row.ContaBancaria,row.Historico,row.Valor,row.Status);
     }
 
-    public async Task<FinanceiroResultadoComando> CriarAsync(long t,long e,long x,long liquidacaoId,string numero,PagamentoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
+    public async Task<FinanceiroResultadoComando> CriarAsync(long t,long e,long x,long liquidacaoId,int ano,PagamentoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
     {
         using var cn=(NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"pagamento.criar",chave,FinanceiroIdempotencia.Hash(new{liquidacaoId,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"pagamento.criar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},liquidacaoId,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return new FinanceiroResultadoComando(docReplay,true);
             }
 
             // Lock liquidação
+            // Snapshot sem lock para localizar os pais
+            var snapLiqPag=await cn.QueryFirstOrDefaultAsync<(long Id,long EmpenhoId)>(new CommandDefinition(
+                @"select id,empenho_id as EmpenhoId from sigov.liquidacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@liquidacaoId and is_deleted=false",
+                new{t,e,x,liquidacaoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapLiqPag.Id==0) throw new InvalidOperationException("Liquidação não encontrada.");
+            var odIdPag=await cn.ExecuteScalarAsync<long>(new CommandDefinition(
+                @"select coalesce(orcamento_despesa_id,0) from sigov.empenho where id=@empenhoId",
+                new{empenhoId=snapLiqPag.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Locks na ordem pai -> filho: orcamento_despesa, empenho, liquidação
+            await cn.QueryFirstOrDefaultAsync(new CommandDefinition(
+                @"select id from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=odIdPag},nx,cancellationToken:ct)).ConfigureAwait(false);
+            await cn.QueryFirstOrDefaultAsync(new CommandDefinition(
+                @"select id from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@empenhoId and is_deleted=false for update",
+                new{t,e,x,empenhoId=snapLiqPag.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
             var liq=await cn.QueryFirstOrDefaultAsync<(long Id,long EmpenhoId,decimal Valor)>(new CommandDefinition(
                 @"select id,empenho_id,valor from sigov.liquidacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@liquidacaoId and status='LIQUIDADA' and is_deleted=false for update",
                 new{t,e,x,liquidacaoId},nx,cancellationToken:ct)).ConfigureAwait(false);
@@ -504,9 +653,12 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
             if(r.Valor <= 0) throw new InvalidOperationException("Valor de pagamento deve ser positivo.");
             if(r.Valor > saldoAPagar) throw new InvalidOperationException($"Valor excede o saldo a pagar. Máximo: {saldoAPagar:F2}.");
 
-            // Lock empenho
-            var emp=await cn.QueryFirstOrDefaultAsync<(decimal ValorTotal,decimal ValorAnulado,decimal ValorLiquidado,decimal ValorPago,long OrcamentoDespesaId)>(new CommandDefinition(
-                @"select valor_total,valor_anulado,valor_liquidado,valor_pago,orcamento_despesa_id from sigov.empenho where id=@empenhoId for update",
+            // Sequencial LAZY: gerado dentro da transação, após o check de replay
+            var numero=await _seq.ProximoAsync(t,e,x,ano,"pagamento","PGT",ct).ConfigureAwait(false);
+
+            // Releitura do empenho já sob lock
+            var emp=await cn.QuerySingleAsync<(decimal ValorTotal,decimal ValorAnulado,decimal ValorLiquidado,decimal ValorPago,long OrcamentoDespesaId)>(new CommandDefinition(
+                @"select valor_total,valor_anulado,valor_liquidado,valor_pago,orcamento_despesa_id from sigov.empenho where id=@empenhoId",
                 new{empenhoId=liq.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             var novoPago=emp.ValorPago + r.Valor;
@@ -536,6 +688,7 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
             nx.Commit();
             return new FinanceiroResultadoComando(id,false);
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -547,14 +700,36 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"pagamento.cancelar",chave,FinanceiroIdempotencia.Hash(new{id,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"pagamento.cancelar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},id,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return true;
             }
 
-            // Lock pagamento
+            // Snapshot sem lock para localizar os pais
+            var snapPag=await cn.QueryFirstOrDefaultAsync<(long Id,long LiquidacaoId)>(new CommandDefinition(
+                @"select id,liquidacao_id as LiquidacaoId from sigov.pagamento where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false",
+                new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapPag.Id==0) throw new InvalidOperationException("Pagamento não encontrado.");
+            var paisPag=await cn.QueryFirstOrDefaultAsync<(long EmpenhoId,long OdId)>(new CommandDefinition(
+                @"select em.id as EmpenhoId,coalesce(em.orcamento_despesa_id,0) as OdId from sigov.liquidacao l join sigov.empenho em on em.id=l.empenho_id where l.id=@lid",
+                new{lid=snapPag.LiquidacaoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Locks na ordem pai -> filho: orcamento_despesa, empenho, liquidacao, pagamento
+            var odPag=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Pago)>(new CommandDefinition(
+                @"select id,pago as Pago from sigov.orcamento_despesa where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=paisPag.OdId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            await cn.QueryFirstOrDefaultAsync(new CommandDefinition(
+                @"select id from sigov.empenho where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@eid and is_deleted=false for update",
+                new{t,e,x,eid=paisPag.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            await cn.QueryFirstOrDefaultAsync(new CommandDefinition(
+                @"select id from sigov.liquidacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@lid and is_deleted=false for update",
+                new{t,e,x,lid=snapPag.LiquidacaoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Lock pagamento (revalidacao sob lock)
             var pag=await cn.QueryFirstOrDefaultAsync<(long Id,long LiquidacaoId,decimal Valor,string Status)>(new CommandDefinition(
                 @"select id,liquidacao_id,valor,status from sigov.pagamento where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
                 new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
@@ -563,14 +738,15 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
 
             // Lock liquidação→empenho
             var liq=await cn.QueryFirstOrDefaultAsync<(long Id,long EmpenhoId)>(new CommandDefinition(
-                @"select id,empenho_id from sigov.liquidacao where id=@lid for update",
+                @"select id,empenho_id from sigov.liquidacao where id=@lid",
                 new{lid=pag.LiquidacaoId},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             var emp=await cn.QueryFirstOrDefaultAsync<(decimal ValorTotal,decimal ValorAnulado,decimal ValorLiquidado,decimal ValorPago,long OrcamentoDespesaId)>(new CommandDefinition(
-                @"select valor_total,valor_anulado,valor_liquidado,valor_pago,orcamento_despesa_id from sigov.empenho where id=@eid for update",
+                @"select valor_total,valor_anulado,valor_liquidado,valor_pago,orcamento_despesa_id from sigov.empenho where id=@eid",
                 new{eid=liq.EmpenhoId},nx,cancellationToken:ct)).ConfigureAwait(false);
 
-            var novoPago=Math.Max(0, emp.ValorPago - pag.Valor);
+            if(emp.ValorPago < pag.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
+            var novoPago=emp.ValorPago - pag.Valor;
             var novoStatus=FinanceiroInvariantes.DerivarStatusEmpenho(emp.ValorTotal,emp.ValorAnulado,emp.ValorLiquidado,novoPago);
 
             await cn.ExecuteAsync(new CommandDefinition(
@@ -581,8 +757,9 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
                 @"update sigov.empenho set valor_pago=@novoPago,status=@novoStatus,updated_at=now(),updated_by=@u where id=@eid",
                 new{novoPago,novoStatus,eid=liq.EmpenhoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
+            if(odPag.Pago < pag.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
             await cn.ExecuteAsync(new CommandDefinition(
-                @"update sigov.orcamento_despesa set pago=greatest(0,pago-@Valor),updated_at=now(),updated_by=@u where id=@oid and tenant_id=@t",
+                @"update sigov.orcamento_despesa set pago=pago-@Valor,updated_at=now(),updated_by=@u where id=@oid and tenant_id=@t",
                 new{t,Valor=pag.Valor,oid=emp.OrcamentoDespesaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             // Evento
@@ -594,6 +771,7 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
             nx.Commit();
             return false;
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -605,7 +783,9 @@ public sealed class PagamentoRepository : BaseRepository, IPagamentoRepository
 // ===========================================================================
 public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
 {
-    private readonly DapperContext _context; public ReceitaRepository(DapperContext c)=>_context=c;
+    private readonly DapperContext _context;
+    private readonly IFinanceiroSequencialService _seq;
+    public ReceitaRepository(DapperContext c,IFinanceiroSequencialService seq) { _context=c; _seq=seq; }
 
     public async Task<PagedResult<ReceitaLancamentoResponse>> ListarLancamentosAsync(long t,long e,long x,ReceitaLancamentoFiltro f,CancellationToken ct)
     {
@@ -637,19 +817,40 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
         return (await cn.QueryAsync<ReceitaArrecadacaoResponse>(Command(sql,new{t,e,x,lid=lancamentoId},ct)).ConfigureAwait(false)).AsList();
     }
 
-    public async Task<FinanceiroResultadoComando> CriarLancamentoAsync(long t,long e,long x,string numero,ReceitaLancamentoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
+    public async Task<FinanceiroResultadoComando> CriarLancamentoAsync(long t,long e,long x,int ano,ReceitaLancamentoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
     {
         using var cn=(NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.lancamento.criar",chave,FinanceiroIdempotencia.Hash(r),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.lancamento.criar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return new FinanceiroResultadoComando(docReplay,true);
             }
+
+            if(r.Valor<=0m) throw new InvalidOperationException("Valor do lançamento deve ser positivo.");
+
+            if(r.ContribuintePessoaId is >0)
+            {
+                var contribuinteOk=await cn.ExecuteScalarAsync<int>(new CommandDefinition(
+                    @"select count(1) from sigov.pessoa where id=@pid and tenant_id=@t and ativo=true and is_deleted=false and (entidade_id is null or entidade_id=@e) and (exercicio_id is null or exercicio_id=@x)",
+                    new{t,e,x,pid=r.ContribuintePessoaId.Value},nx,cancellationToken:ct)).ConfigureAwait(false);
+                if(contribuinteOk==0) throw new InvalidOperationException("Contribuinte não localizado ou inativo no contexto selecionado.");
+            }
+
+            // Lock da previsao (pai) com validacao de contexto
+            var oreRow=await cn.QueryFirstOrDefaultAsync<long>(new CommandDefinition(
+                @"select id from sigov.orcamento_receita where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@OrcamentoReceitaId and ativo=true and is_deleted=false for update",
+                new{t,e,x,r.OrcamentoReceitaId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(oreRow==0) throw new InvalidOperationException("Previsão de receita não localizada ou inativa no contexto selecionado.");
+
+            // Sequencial LAZY: gerado dentro da transacao, apos o check de replay
+            var numero=await _seq.ProximoAsync(t,e,x,ano,"receita_lancamento","REC",ct).ConfigureAwait(false);
 
             var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition(
                 @"insert into sigov.receita_lancamento (tenant_id,entidade_id,exercicio_id,orcamento_receita_id,numero,data_lancamento,contribuinte_pessoa_id,historico,valor,status,created_by) values (@t,@e,@x,@OrcamentoReceitaId,@numero,@DataLancamento,@ContribuintePessoaId,@Historico,@Valor,'LANCADA',@u) returning id",
@@ -663,22 +864,36 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
             nx.Commit();
             return new FinanceiroResultadoComando(id,false);
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
-    public async Task<FinanceiroResultadoComando> ArrecadarAsync(long t,long e,long x,long lancamentoId,string numero,ReceitaArrecadacaoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
+    public async Task<FinanceiroResultadoComando> ArrecadarAsync(long t,long e,long x,long lancamentoId,int ano,ReceitaArrecadacaoCreateRequest r,long? u,string? idempotencyKey,CancellationToken ct)
     {
         using var cn=(NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.arrecadacao.criar",chave,FinanceiroIdempotencia.Hash(new{lancamentoId,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.arrecadacao.criar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},lancamentoId,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return new FinanceiroResultadoComando(docReplay,true);
             }
+
+            // Snapshot sem lock para localizar os pais
+            var snapLanc=await cn.QueryFirstOrDefaultAsync<(long Id,long OrcamentoReceitaId)>(new CommandDefinition(
+                @"select id,orcamento_receita_id as OrcamentoReceitaId from sigov.receita_lancamento where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@lancamentoId and is_deleted=false",
+                new{t,e,x,lancamentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapLanc.Id==0) throw new InvalidOperationException("Lançamento não encontrado.");
+
+            // Locks na ordem pai -> filho: orcamento_receita, lancamento
+            await cn.QueryFirstOrDefaultAsync(new CommandDefinition(
+                @"select id from sigov.orcamento_receita where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=snapLanc.OrcamentoReceitaId},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             // Lock lançamento
             var lanc=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Valor,string Status,long OrcamentoReceitaId)>(new CommandDefinition(
@@ -697,6 +912,9 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
 
             var novoArrecadado=arrecadadoAnterior + r.Valor;
             var novoStatus=FinanceiroInvariantes.DerivarStatusLancamento(lanc.Valor, novoArrecadado);
+
+            // Sequencial LAZY: gerado dentro da transacao, apos o check de replay
+            var numero=await _seq.ProximoAsync(t,e,x,ano,"receita_arrecadacao","ARQ",ct).ConfigureAwait(false);
 
             // Insert arrecadação
             var id=await cn.ExecuteScalarAsync<long>(new CommandDefinition(
@@ -722,6 +940,7 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
             nx.Commit();
             return new FinanceiroResultadoComando(id,false);
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -733,38 +952,46 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.lancamento.cancelar",chave,FinanceiroIdempotencia.Hash(new{id,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.lancamento.cancelar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},id,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return true;
             }
 
-            // Lock lançamento
+            // Snapshot sem lock para localizar os pais
+            var snapLancC=await cn.QueryFirstOrDefaultAsync<(long Id,long OrcamentoReceitaId)>(new CommandDefinition(
+                @"select id,orcamento_receita_id as OrcamentoReceitaId from sigov.receita_lancamento where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false",
+                new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapLancC.Id==0) throw new InvalidOperationException("Lançamento não encontrado.");
+
+            // Locks na ordem pai -> filho: orcamento_receita, lancamento
+            var oreLancC=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Lancado)>(new CommandDefinition(
+                @"select id,lancado as Lancado from sigov.orcamento_receita where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=snapLancC.OrcamentoReceitaId},nx,cancellationToken:ct)).ConfigureAwait(false);
             var lanc=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Valor,string Status,long OrcamentoReceitaId)>(new CommandDefinition(
                 @"select id,valor,status,orcamento_receita_id from sigov.receita_lancamento where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
                 new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(lanc.Id==0) throw new InvalidOperationException("Lançamento não encontrado.");
             if(lanc.Status=="CANCELADA") throw new InvalidOperationException("409: Lançamento já cancelado.");
 
-            // Cancela arrecadações vinculadas
-            await cn.ExecuteAsync(new CommandDefinition(
-                @"update sigov.receita_arrecadacao set status='CANCELADA',motivo='Cancelamento do lançamento',updated_at=now(),updated_by=@u where receita_lancamento_id=@id and status='ARRECADADA' and is_deleted=false",
-                new{id,u},nx,cancellationToken:ct)).ConfigureAwait(false);
-
-            // Soma arrecadações que estavam vigentes (para recompor orcamento)
-            var arrecadadoAnterior=await cn.ExecuteScalarAsync<decimal>(new CommandDefinition(
-                @"select coalesce(sum(valor),0) from sigov.receita_arrecadacao where receita_lancamento_id=@id and status='CANCELADA' and motivo='Cancelamento do lançamento' and is_deleted=false",
+            // Nao cancela arrecadacoes vigentes silenciosamente
+            var abVigentes=await cn.ExecuteScalarAsync<int>(new CommandDefinition(
+                @"select count(1) from sigov.receita_arrecadacao where receita_lancamento_id=@id and status='ARRECADADA' and is_deleted=false",
                 new{id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(abVigentes>0) throw new InvalidOperationException($"Não é possível cancelar o lançamento: há {abVigentes} arrecadação(ões) vigente(s). Cancele as arrecadações primeiro.");
 
             await cn.ExecuteAsync(new CommandDefinition(
                 @"update sigov.receita_lancamento set status='CANCELADA',motivo=@Motivo,updated_at=now(),updated_by=@u where id=@id",
                 new{id,r.Motivo,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
-            // Decompor acumuladores
+            // Decompo somente o lancado: arrecadado ja foi decomposto por cada cancelamento de arrecadacao
+            if(oreLancC.Lancado < lanc.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
             await cn.ExecuteAsync(new CommandDefinition(
-                @"update sigov.orcamento_receita set lancado=greatest(0,lancado-@Valor),arrecadado=greatest(0,arrecadado-@Arrecadado),updated_at=now(),updated_by=@u where id=@oid and tenant_id=@t",
-                new{t,Valor=lanc.Valor,Arrecadado=arrecadadoAnterior,oid=lanc.OrcamentoReceitaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
+                @"update sigov.orcamento_receita set lancado=lancado-@Valor,updated_at=now(),updated_by=@u where id=@oid and tenant_id=@t",
+                new{t,Valor=lanc.Valor,oid=lanc.OrcamentoReceitaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             // Evento
             await cn.ExecuteAsync(new CommandDefinition(
@@ -775,6 +1002,7 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
             nx.Commit();
             return false;
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
@@ -786,24 +1014,36 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.arrecadacao.cancelar",chave,FinanceiroIdempotencia.Hash(new{id,r}),u,ct).ConfigureAwait(false);
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"receita.arrecadacao.cancelar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},id,r}),u,ct).ConfigureAwait(false);
                 if(docReplay>0) return true;
             }
 
-            // Lock arrecadação
+            // Snapshot sem lock para localizar os pais
+            var snapArq=await cn.QueryFirstOrDefaultAsync<(long Id,long LancamentoId)>(new CommandDefinition(
+                @"select id,receita_lancamento_id as LancamentoId from sigov.receita_arrecadacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false",
+                new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(snapArq.Id==0) throw new InvalidOperationException("Arrecadação não encontrada.");
+            var oidArq=await cn.ExecuteScalarAsync<long>(new CommandDefinition(
+                @"select coalesce(orcamento_receita_id,0) from sigov.receita_lancamento where id=@lid",
+                new{lid=snapArq.LancamentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Locks na ordem pai -> filho: orcamento_receita, lancamento, arrecadacao
+            var oreArq=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Arrecadado)>(new CommandDefinition(
+                @"select id,arrecadado as Arrecadado from sigov.orcamento_receita where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@oid and is_deleted=false for update",
+                new{t,e,x,oid=oidArq},nx,cancellationToken:ct)).ConfigureAwait(false);
+            var lanc=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Valor,long OrcamentoReceitaId)>(new CommandDefinition(
+                @"select id,valor,orcamento_receita_id from sigov.receita_lancamento where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@lid and is_deleted=false for update",
+                new{t,e,x,lid=snapArq.LancamentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
             var arq=await cn.QueryFirstOrDefaultAsync<(long Id,long LancamentoId,decimal Valor,string Status)>(new CommandDefinition(
                 @"select id,receita_lancamento_id,valor,status from sigov.receita_arrecadacao where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
                 new{t,e,x,id},nx,cancellationToken:ct)).ConfigureAwait(false);
             if(arq.Id==0) throw new InvalidOperationException("Arrecadação não encontrada.");
             if(arq.Status=="CANCELADA") throw new InvalidOperationException("409: Arrecadação já cancelada.");
-
-            // Lock lançamento
-            var lanc=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Valor,long OrcamentoReceitaId)>(new CommandDefinition(
-                @"select id,valor,orcamento_receita_id from sigov.receita_lancamento where id=@lid for update",
-                new{lid=arq.LancamentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             await cn.ExecuteAsync(new CommandDefinition(
                 @"update sigov.receita_arrecadacao set status='CANCELADA',motivo=@Motivo,updated_at=now(),updated_by=@u where id=@id",
@@ -818,9 +1058,10 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
                 @"update sigov.receita_lancamento set status=@novoStatus,updated_at=now(),updated_by=@u where id=@lid",
                 new{novoStatus,lid=arq.LancamentoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
-            // Decompor orcamento_receita
+            // Decompor orcamento_receita (sem greatest: inconsistencia fica explicita)
+            if(oreArq.Arrecadado < arq.Valor) throw new InvalidOperationException(FinanceiroInvariantes.Inconsistencia);
             await cn.ExecuteAsync(new CommandDefinition(
-                @"update sigov.orcamento_receita set arrecadado=greatest(0,arrecadado-@Valor),updated_at=now(),updated_by=@u where id=@oid and tenant_id=@t",
+                @"update sigov.orcamento_receita set arrecadado=arrecadado-@Valor,updated_at=now(),updated_by=@u where id=@oid and tenant_id=@t",
                 new{t,Valor=arq.Valor,oid=lanc.OrcamentoReceitaId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             // Evento
@@ -832,6 +1073,7 @@ public sealed class ReceitaRepository : BaseRepository, IReceitaRepository
             nx.Commit();
             return false;
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 }
@@ -890,93 +1132,205 @@ public sealed class FinanceiroConferenciaRepository : BaseRepository, IFinanceir
 {
     private readonly DapperContext _context; public FinanceiroConferenciaRepository(DapperContext c)=>_context=c;
 
+    // Conjunto fechado de tipos de documento da conferência (ordem canônica)
+    private static readonly string[] TiposConferencia={"EMPENHO","LIQUIDACAO","PAGAMENTO","LANCAMENTO","ARRECADACAO","LIQUIDACAO_EMPENHO","PAGAMENTO_EMPENHO"};
+
+    private static string? OrigemDivergencia(decimal diferenca)=>diferenca==0m?null:(diferenca>0m?"Acumulador acima da soma dos documentos.":"Acumulador abaixo da soma dos documentos.");
+
+    private sealed record AlvoConferencia(string Tabela,string Coluna,string SqlCalculado);
+
+    // Dicionário fechado tipo -> (tabela,coluna,SQL do recálculo dentro da tx)
+    private static readonly Dictionary<string,AlvoConferencia> AlvosConferencia=new(StringComparer.Ordinal)
+    {
+        ["EMPENHO"]=new("orcamento_despesa","empenhado","select coalesce(sum(valor_total-valor_anulado),0) from sigov.empenho where orcamento_despesa_id=@id and is_deleted=false"),
+        ["LIQUIDACAO"]=new("orcamento_despesa","liquidado","select coalesce(sum(lq.valor),0) from sigov.liquidacao lq join sigov.empenho e on e.id=lq.empenho_id where e.orcamento_despesa_id=@id and lq.status='LIQUIDADA' and lq.is_deleted=false"),
+        ["PAGAMENTO"]=new("orcamento_despesa","pago","select coalesce(sum(pg.valor),0) from sigov.pagamento pg join sigov.liquidacao lq on lq.id=pg.liquidacao_id join sigov.empenho e on e.id=lq.empenho_id where e.orcamento_despesa_id=@id and pg.status='EFETUADO' and pg.is_deleted=false"),
+        ["LANCAMENTO"]=new("orcamento_receita","lancado","select coalesce(sum(valor),0) from sigov.receita_lancamento where orcamento_receita_id=@id and status<>'CANCELADA' and is_deleted=false"),
+        ["ARRECADACAO"]=new("orcamento_receita","arrecadado","select coalesce(sum(ra.valor),0) from sigov.receita_arrecadacao ra join sigov.receita_lancamento rl on rl.id=ra.receita_lancamento_id where rl.orcamento_receita_id=@id and ra.status='ARRECADADA' and ra.is_deleted=false"),
+        ["LIQUIDACAO_EMPENHO"]=new("empenho","valor_liquidado","select coalesce(sum(valor),0) from sigov.liquidacao where empenho_id=@id and status='LIQUIDADA' and is_deleted=false"),
+        ["PAGAMENTO_EMPENHO"]=new("empenho","valor_pago","select coalesce(sum(pg.valor),0) from sigov.pagamento pg join sigov.liquidacao lq on lq.id=pg.liquidacao_id where lq.empenho_id=@id and pg.status='EFETUADO' and pg.is_deleted=false")
+    };
+
+    // CTE global com 7 branches: acumulador registrado vs soma dos documentos, sempre no contexto t/e/x
+    private const string SqlCteConferencia=@"with base as (
+    select 'EMPENHO' as tipo_documento,od.id as documento_id,
+           case when a.id is null then '(dotação sem ação)' else 'Ação '||a.codigo||' '||a.nome||' | Natureza '||nd.codigo||' '||nd.nome||' | Fonte '||f.codigo end as documento_numero,
+           od.empenhado as valor_registrado,
+           coalesce((select sum(e.valor_total-e.valor_anulado) from sigov.empenho e where e.orcamento_despesa_id=od.id and e.is_deleted=false),0) as valor_calculado
+    from sigov.orcamento_despesa od
+    left join sigov.acao a on a.id=od.acao_id and a.tenant_id=@t and not a.is_deleted
+    left join sigov.natureza_despesa nd on nd.id=od.natureza_despesa_id and nd.tenant_id=@t and not nd.is_deleted
+    left join sigov.fonte_recurso f on f.id=od.fonte_recurso_id and f.tenant_id=@t and not f.is_deleted
+    where od.tenant_id=@t and od.entidade_id=@e and od.exercicio_id=@x and od.is_deleted=false
+    union all
+    select 'LIQUIDACAO',od.id,
+           case when a.id is null then '(dotação sem ação)' else 'Ação '||a.codigo||' '||a.nome||' | Natureza '||nd.codigo||' '||nd.nome||' | Fonte '||f.codigo end,
+           od.liquidado,
+           coalesce((select sum(lq.valor) from sigov.liquidacao lq join sigov.empenho e on e.id=lq.empenho_id where e.orcamento_despesa_id=od.id and lq.status='LIQUIDADA' and lq.is_deleted=false),0)
+    from sigov.orcamento_despesa od
+    left join sigov.acao a on a.id=od.acao_id and a.tenant_id=@t and not a.is_deleted
+    left join sigov.natureza_despesa nd on nd.id=od.natureza_despesa_id and nd.tenant_id=@t and not nd.is_deleted
+    left join sigov.fonte_recurso f on f.id=od.fonte_recurso_id and f.tenant_id=@t and not f.is_deleted
+    where od.tenant_id=@t and od.entidade_id=@e and od.exercicio_id=@x and od.is_deleted=false
+    union all
+    select 'PAGAMENTO',od.id,
+           case when a.id is null then '(dotação sem ação)' else 'Ação '||a.codigo||' '||a.nome||' | Natureza '||nd.codigo||' '||nd.nome||' | Fonte '||f.codigo end,
+           od.pago,
+           coalesce((select sum(pg.valor) from sigov.pagamento pg join sigov.liquidacao lq on lq.id=pg.liquidacao_id join sigov.empenho e on e.id=lq.empenho_id where e.orcamento_despesa_id=od.id and pg.status='EFETUADO' and pg.is_deleted=false),0)
+    from sigov.orcamento_despesa od
+    left join sigov.acao a on a.id=od.acao_id and a.tenant_id=@t and not a.is_deleted
+    left join sigov.natureza_despesa nd on nd.id=od.natureza_despesa_id and nd.tenant_id=@t and not nd.is_deleted
+    left join sigov.fonte_recurso f on f.id=od.fonte_recurso_id and f.tenant_id=@t and not f.is_deleted
+    where od.tenant_id=@t and od.entidade_id=@e and od.exercicio_id=@x and od.is_deleted=false
+    union all
+    select 'LANCAMENTO',ore.id,'Previsão '||nr.codigo||' '||nr.nome||' | Fonte '||fr.codigo,
+           ore.lancado,
+           coalesce((select sum(rl.valor) from sigov.receita_lancamento rl where rl.orcamento_receita_id=ore.id and rl.status<>'CANCELADA' and rl.is_deleted=false),0)
+    from sigov.orcamento_receita ore
+    left join sigov.natureza_receita nr on nr.id=ore.natureza_receita_id and nr.tenant_id=@t and not nr.is_deleted
+    left join sigov.fonte_recurso fr on fr.id=ore.fonte_recurso_id and fr.tenant_id=@t and not fr.is_deleted
+    where ore.tenant_id=@t and ore.entidade_id=@e and ore.exercicio_id=@x and ore.is_deleted=false
+    union all
+    select 'ARRECADACAO',ore.id,'Previsão '||nr.codigo||' '||nr.nome||' | Fonte '||fr.codigo,
+           ore.arrecadado,
+           coalesce((select sum(ra.valor) from sigov.receita_arrecadacao ra join sigov.receita_lancamento rl on rl.id=ra.receita_lancamento_id where rl.orcamento_receita_id=ore.id and ra.status='ARRECADADA' and ra.is_deleted=false),0)
+    from sigov.orcamento_receita ore
+    left join sigov.natureza_receita nr on nr.id=ore.natureza_receita_id and nr.tenant_id=@t and not nr.is_deleted
+    left join sigov.fonte_recurso fr on fr.id=ore.fonte_recurso_id and fr.tenant_id=@t and not fr.is_deleted
+    where ore.tenant_id=@t and ore.entidade_id=@e and ore.exercicio_id=@x and ore.is_deleted=false
+    union all
+    select 'LIQUIDACAO_EMPENHO',emp.id,emp.numero,
+           emp.valor_liquidado,
+           coalesce((select sum(lq.valor) from sigov.liquidacao lq where lq.empenho_id=emp.id and lq.status='LIQUIDADA' and lq.is_deleted=false),0)
+    from sigov.empenho emp
+    where emp.tenant_id=@t and emp.entidade_id=@e and emp.exercicio_id=@x and emp.is_deleted=false
+    union all
+    select 'PAGAMENTO_EMPENHO',emp.id,emp.numero,
+           emp.valor_pago,
+           coalesce((select sum(pg.valor) from sigov.pagamento pg join sigov.liquidacao lq on lq.id=pg.liquidacao_id where lq.empenho_id=emp.id and pg.status='EFETUADO' and pg.is_deleted=false),0)
+    from sigov.empenho emp
+    where emp.tenant_id=@t and emp.entidade_id=@e and emp.exercicio_id=@x and emp.is_deleted=false
+)
+,base_calc as (select b.*,b.valor_registrado-b.valor_calculado as diferenca from base b)
+,filtrado as (select * from base_calc where (@tipo is null or tipo_documento=@tipo) and (@situacao is null or (@situacao='OK' and diferenca=0) or (@situacao='DIVERGENTE' and diferenca<>0)))";
+
     public async Task<ConferenciaResponse> ConferirAsync(long t,long e,long x,ConferenciaFiltro f,CancellationToken ct)
     {
-        var itens = new List<ConferenciaItemResponse>();
-        using var cn=_context.CreateConnection();
-
-        // Comparar acumuladores vs soma de documentos
-        var registros = await cn.QueryAsync<ConferenciaRawRow>(new CommandDefinition(@"
-            -- Empenhos: somar documentos vs acumulador no orcamento
-            select 'EMPENHO' as TipoDocumento, od.id as DocumentoId, '' as DocumentoNumero,
-                   od.empenhado as ValorRegistrado,
-                   coalesce((select sum(valor_total - valor_anulado) from sigov.empenho where orcamento_despesa_id=od.id and is_deleted=false),0) as ValorCalculado,
-                   od.empenhado - coalesce((select sum(valor_total - valor_anulado) from sigov.empenho where orcamento_despesa_id=od.id and is_deleted=false),0) as Diferenca
-            from sigov.orcamento_despesa od where od.tenant_id=@t and od.entidade_id=@e and od.exercicio_id=@x and od.is_deleted=false
-            union all
-            -- Liquidações
-            select 'LIQUIDACAO', od.id, '',
-                   od.liquidado,
-                   coalesce((select sum(lq.valor) from sigov.liquidacao lq join sigov.empenho emp on emp.id=lq.empenho_id where emp.orcamento_despesa_id=od.id and lq.status='LIQUIDADA' and lq.is_deleted=false),0),
-                   od.liquidado - coalesce((select sum(lq.valor) from sigov.liquidacao lq join sigov.empenho emp on emp.id=lq.empenho_id where emp.orcamento_despesa_id=od.id and lq.status='LIQUIDADA' and lq.is_deleted=false),0)
-            from sigov.orcamento_despesa od where od.tenant_id=@t and od.entidade_id=@e and od.exercicio_id=@x and od.is_deleted=false
-            union all
-            -- Pagamentos
-            select 'PAGAMENTO', od.id, '',
-                   od.pago,
-                   coalesce((select sum(pg.valor) from sigov.pagamento pg join sigov.liquidacao lq on lq.id=pg.liquidacao_id join sigov.empenho emp on emp.id=lq.empenho_id where emp.orcamento_despesa_id=od.id and pg.status='EFETUADO' and pg.is_deleted=false),0),
-                   od.pago - coalesce((select sum(pg.valor) from sigov.pagamento pg join sigov.liquidacao lq on lq.id=pg.liquidacao_id join sigov.empenho emp on emp.id=lq.empenho_id where emp.orcamento_despesa_id=od.id and pg.status='EFETUADO' and pg.is_deleted=false),0)
-            from sigov.orcamento_despesa od where od.tenant_id=@t and od.entidade_id=@e and od.exercicio_id=@x and od.is_deleted=false
-            union all
-            -- Receitas (arrecadado)
-            select 'ARRECADACAO', ore.id, '',
-                   ore.arrecadado,
-                   coalesce((select sum(ra.valor) from sigov.receita_arrecadacao ra join sigov.receita_lancamento rl on rl.id=ra.receita_lancamento_id where rl.orcamento_receita_id=ore.id and ra.status='ARRECADADA' and ra.is_deleted=false),0),
-                   ore.arrecadado - coalesce((select sum(ra.valor) from sigov.receita_arrecadacao ra join sigov.receita_lancamento rl on rl.id=ra.receita_lancamento_id where rl.orcamento_receita_id=ore.id and ra.status='ARRECADADA' and ra.is_deleted=false),0)
-            from sigov.orcamento_receita ore where ore.tenant_id=@t and ore.entidade_id=@e and ore.exercicio_id=@x and ore.is_deleted=false
-        ", new{t,e,x}, cancellationToken:ct)).ConfigureAwait(false);
-
-        foreach(var r in registros)
+        var page=Math.Max(1,f.Page);var size=Math.Clamp(f.PageSize,1,100);
+        string? tipo=null;string? situacao=null;
+        if(!string.IsNullOrWhiteSpace(f.TipoDocumento))
         {
-            if(f.TipoDocumento!=null && !r.TipoDocumento.Contains(f.TipoDocumento, StringComparison.OrdinalIgnoreCase)) continue;
-            if(f.Situacao=="DIVERGENTE" && r.Diferenca==0) continue;
-            if(f.Situacao=="OK" && r.Diferenca!=0) continue;
-            itens.Add(new ConferenciaItemResponse(r.TipoDocumento, r.DocumentoId, r.DocumentoNumero, r.ValorRegistrado, r.ValorCalculado, r.Diferenca, r.Diferenca==0?null:"Acumulador divergente dos documentos."));
+            tipo=f.TipoDocumento.Trim().ToUpperInvariant();
+            if(Array.IndexOf(TiposConferencia,tipo)<0) throw new ArgumentException($"Tipo de documento inválido para conferência. Tipos válidos: {string.Join(", ",TiposConferencia)}.");
         }
-
-        // Paginação
-        var total = itens.Count;
-        var offset = (f.Page-1)*f.PageSize;
-        itens = itens.Skip(offset).Take(f.PageSize).ToList();
-
-        return new ConferenciaResponse(itens, itens.Sum(i=>Math.Abs(i.Diferenca)), DateTimeOffset.UtcNow);
+        if(!string.IsNullOrWhiteSpace(f.Situacao))
+        {
+            situacao=f.Situacao.Trim().ToUpperInvariant();
+            if(situacao!="OK"&&situacao!="DIVERGENTE") throw new ArgumentException("Situação inválida para conferência. Situações válidas: OK, DIVERGENTE.");
+        }
+        // Totais gerais sobre TODO o escopo antes da paginação; itens+paginação na segunda statement
+        var sql=$@"{SqlCteConferencia}
+select count(1) as TotalRegistros,coalesce(sum(case when abs(diferenca)>0 then 1 end),0) as TotalDivergencias,coalesce(sum(abs(diferenca)),0) as SomaAbsDiferencas from filtrado;
+{SqlCteConferencia}
+select tipo_documento as TipoDocumento,documento_id as DocumentoId,coalesce(documento_numero,'') as DocumentoNumero,valor_registrado as ValorRegistrado,valor_calculado as ValorCalculado,diferenca as Diferenca from filtrado order by abs(diferenca) desc,tipo_documento,documento_id limit @size offset @offset;";
+        using var cn=_context.CreateConnection();
+        using var g=await cn.QueryMultipleAsync(new CommandDefinition(sql,new{t,e,x,tipo,situacao,size,offset=(page-1)*size},cancellationToken:ct)).ConfigureAwait(false);
+        var totais=await g.ReadSingleAsync<(long TotalRegistros,long TotalDivergencias,decimal SomaAbsDiferencas)>().ConfigureAwait(false);
+        var rows=await g.ReadAsync<(string TipoDocumento,long DocumentoId,string DocumentoNumero,decimal ValorRegistrado,decimal ValorCalculado,decimal Diferenca)>().ConfigureAwait(false);
+        var itens=rows.Select(r=>new ConferenciaItemResponse(r.TipoDocumento,r.DocumentoId,r.DocumentoNumero,r.ValorRegistrado,r.ValorCalculado,r.Diferenca,OrigemDivergencia(r.Diferenca))).ToList();
+        return new ConferenciaResponse(itens,totais.TotalRegistros,totais.TotalDivergencias,totais.SomaAbsDiferencas,page,size,DateTimeOffset.UtcNow);
     }
 
-    public async Task<bool> AjustarAsync(long t,long e,long x,long documentoId,string tipoDocumento,decimal ajuste,string justificativa,long? u,string? idempotencyKey,CancellationToken ct)
+    public async Task<ConferenciaItemResponse?> ConsultarItemAsync(long t,long e,long x,long documentoId,string tipoDocumento,CancellationToken ct)
     {
+        var tipo=tipoDocumento.Trim().ToUpperInvariant();
+        var sql=$@"{SqlCteConferencia}
+select tipo_documento as TipoDocumento,documento_id as DocumentoId,coalesce(documento_numero,'') as DocumentoNumero,valor_registrado as ValorRegistrado,valor_calculado as ValorCalculado,diferenca as Diferenca from filtrado where tipo_documento=@tipo and documento_id=@id;";
+        using var cn=_context.CreateConnection();
+        var r=await cn.QueryFirstOrDefaultAsync<(string TipoDocumento,long DocumentoId,string DocumentoNumero,decimal ValorRegistrado,decimal ValorCalculado,decimal Diferenca)?>(new CommandDefinition(sql,new{t,e,x,tipo,situacao=(string?)null,id=documentoId},cancellationToken:ct)).ConfigureAwait(false);
+        if(r is null) return null;
+        return new ConferenciaItemResponse(r.Value.TipoDocumento,r.Value.DocumentoId,r.Value.DocumentoNumero,r.Value.ValorRegistrado,r.Value.ValorCalculado,r.Value.Diferenca,OrigemDivergencia(r.Value.Diferenca));
+    }
+
+    public async Task<bool> EhReplayAsync(long t,long e,long x,long documentoId,string tipoDocumento,string justificativa,string chave,CancellationToken ct)
+    {
+        var tipo=tipoDocumento.Trim().ToUpperInvariant();
+        using var cn=(NpgsqlConnection)_context.CreateConnection();
+        await cn.OpenAsync(ct).ConfigureAwait(false);
+        var row=await cn.QueryFirstOrDefaultAsync<(long? DocumentoId,string PayloadHash)>(new CommandDefinition(
+            @"select documento_id,payload_hash from sigov.financeiro_idempotencia where tenant_id=@t and escopo=@escopo and chave=@chave",
+            new{t,escopo="conferencia.ajustar",chave},cancellationToken:ct)).ConfigureAwait(false);
+        if(row.DocumentoId is null || row.DocumentoId.Value<=0) return false;
+        return string.Equals(row.PayloadHash,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},documentoId,tipoDocumento=tipo,justificativa}),StringComparison.Ordinal);
+    }
+
+    public async Task<ConferenciaAjusteResultado> AjustarAsync(long t,long e,long x,long documentoId,string tipoDocumento,decimal diferencaPrevista,string justificativa,long? u,string? idempotencyKey,CancellationToken ct)
+    {
+        var tipo=tipoDocumento.Trim().ToUpperInvariant();
+        if(!AlvosConferencia.TryGetValue(tipo,out var alvo)) throw new ArgumentException($"Tipo de documento inválido para ajuste de conferência. Tipos válidos: {string.Join(", ",TiposConferencia)}.");
         using var cn=(NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
         await using var nx=await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
+            await FinanceiroContextoEscrever.GuardarAsync(cn,nx,t,e,x,ct).ConfigureAwait(false);
+
             var chave=FinanceiroIdempotencia.Preparar(idempotencyKey);
             if(chave is not null)
             {
-                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"conferencia.ajustar",chave,FinanceiroIdempotencia.Hash(new{documentoId,tipoDocumento}),u,ct).ConfigureAwait(false);
-                if(docReplay>0) return true;
+                var docReplay=await FinanceiroIdempotencia.ConsultarReservarAsync(cn,nx,t,"conferencia.ajustar",chave,FinanceiroIdempotencia.Hash(new{ctx=new{t,e,x},documentoId,tipoDocumento=tipo,justificativa}),u,ct).ConfigureAwait(false);
+                if(docReplay>0) return ConferenciaAjusteResultado.Replay;
             }
 
-            if(tipoDocumento.Contains("EMPENHO",StringComparison.OrdinalIgnoreCase))
-                await cn.ExecuteAsync(new CommandDefinition(@"update sigov.orcamento_despesa set empenhado=empenhado+@ajuste,updated_at=now(),updated_by=@u where id=@id and tenant_id=@t",new{t,ajuste,id=documentoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
-            else if(tipoDocumento.Contains("LIQUIDACAO",StringComparison.OrdinalIgnoreCase))
-                await cn.ExecuteAsync(new CommandDefinition(@"update sigov.orcamento_despesa set liquidado=liquidado+@ajuste,updated_at=now(),updated_by=@u where id=@id and tenant_id=@t",new{t,ajuste,id=documentoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
-            else if(tipoDocumento.Contains("PAGAMENTO",StringComparison.OrdinalIgnoreCase))
-                await cn.ExecuteAsync(new CommandDefinition(@"update sigov.orcamento_despesa set pago=pago+@ajuste,updated_at=now(),updated_by=@u where id=@id and tenant_id=@t",new{t,ajuste,id=documentoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
-            else if(tipoDocumento.Contains("ARRECADACAO",StringComparison.OrdinalIgnoreCase))
-                await cn.ExecuteAsync(new CommandDefinition(@"update sigov.orcamento_receita set arrecadado=arrecadado+@ajuste,updated_at=now(),updated_by=@u where id=@id and tenant_id=@t",new{t,ajuste,id=documentoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
+            // Lock da linha alvo (pai dos documentos comparados), no contexto t/e/x
+            var registro=await cn.QueryFirstOrDefaultAsync<(long Id,decimal Valor)>(new CommandDefinition(
+                $@"select id,{alvo.Coluna} as Valor from sigov.{alvo.Tabela} where tenant_id=@t and entidade_id=@e and exercicio_id=@x and id=@id and is_deleted=false for update",
+                new{t,e,x,id=documentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            if(registro.Id==0) throw new InvalidOperationException("Documento não localizado para ajuste de conferência.");
 
+            // Recálculo dentro da transação: soma dos documentos vigentes
+            var calculado=await cn.ExecuteScalarAsync<decimal>(new CommandDefinition(alvo.SqlCalculado,new{id=documentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+            var deltaAtual=registro.Valor-calculado;
+            if(deltaAtual!=diferencaPrevista) throw new InvalidOperationException($"409: A diferença do documento mudou desde a prévia (prévia: {diferencaPrevista:F2}; atual: {deltaAtual:F2}). Refaça a prévia.");
+            if(deltaAtual==0m)
+            {
+                await FinanceiroIdempotencia.ConfirmarDocumentoAsync(cn,nx,t,"conferencia.ajustar",chave,documentoId,ct).ConfigureAwait(false);
+                nx.Commit();
+                return ConferenciaAjusteResultado.SemAlteracao;
+            }
+
+            var antes=registro.Valor;
+            var depois=registro.Valor-deltaAtual;
             await cn.ExecuteAsync(new CommandDefinition(
-                @"insert into sigov.fila_evento (tenant_id,entidade_id,exercicio_id,tipo_evento,payload,created_by) values (@t,@e,@x,@tipo,@payload::jsonb,@u)",
-                new{t,e,x,tipo="AJUSTE_CONFERENCIA",payload=JsonSerializer.Serialize(new{documentoId,tipoDocumento,ajuste,justificativa}),u},nx,cancellationToken:ct)).ConfigureAwait(false);
+                $@"update sigov.{alvo.Tabela} set {alvo.Coluna}={alvo.Coluna}-@Delta,updated_at=now(),updated_by=@u where id=@id and tenant_id=@t",
+                new{Delta=deltaAtual,id=documentoId,u,t},nx,cancellationToken:ct)).ConfigureAwait(false);
+
+            // Empenho: rederivar status apos o ajuste
+            if(alvo.Tabela=="empenho")
+            {
+                var emp=await cn.QueryFirstAsync<(decimal ValorTotal,decimal ValorAnulado,decimal ValorLiquidado,decimal ValorPago)>(new CommandDefinition(
+                    @"select valor_total,valor_anulado,valor_liquidado,valor_pago from sigov.empenho where id=@id",
+                    new{id=documentoId},nx,cancellationToken:ct)).ConfigureAwait(false);
+                var novoStatus=FinanceiroInvariantes.DerivarStatusEmpenho(emp.ValorTotal,emp.ValorAnulado,emp.ValorLiquidado,emp.ValorPago);
+                await cn.ExecuteAsync(new CommandDefinition(
+                    @"update sigov.empenho set status=@status,updated_at=now(),updated_by=@u where id=@id",
+                    new{status=novoStatus,id=documentoId,u},nx,cancellationToken:ct)).ConfigureAwait(false);
+            }
+
+            // Evento de auditoria com antes/depois, autor, justificativa e correlationId
+            var correlationId=Guid.NewGuid();
+            await cn.ExecuteAsync(new CommandDefinition(
+                @"insert into sigov.fila_evento (tenant_id,entidade_id,exercicio_id,tipo_evento,payload,correlation_id,created_by) values (@t,@e,@x,@tipo,@payload::jsonb,@correlationId,@u)",
+                new{t,e,x,tipo="AJUSTE_CONFERENCIA",correlationId,payload=JsonSerializer.Serialize(new{tipoDocumento=tipo,documentoId,antes,depois,diferenca=deltaAtual,justificativa,autor=u,correlationId}),u},nx,cancellationToken:ct)).ConfigureAwait(false);
 
             await FinanceiroIdempotencia.ConfirmarDocumentoAsync(cn,nx,t,"conferencia.ajustar",chave,documentoId,ct).ConfigureAwait(false);
             nx.Commit();
-            return false;
+            return ConferenciaAjusteResultado.Aplicado;
         }
+        catch (NpgsqlException npe) when(npe.SqlState is "40001" or "40P01") { nx.Rollback(); throw new InvalidOperationException(FinanceiroInvariantes.Concorrencia); }
         catch { nx.Rollback(); throw; }
     }
 
-    private sealed record ConferenciaRawRow(string TipoDocumento,long DocumentoId,string DocumentoNumero,decimal ValorRegistrado,decimal ValorCalculado,decimal Diferenca);
 }
 
 internal static class FinanceiroIdempotencia

@@ -13,13 +13,13 @@
     <div class="row g-3 mb-3">
         <div class="col-md-4">
             <div class="card sigov-dashboard-card financeiro-kpi h-100">
-                <span>Total de diferença (R$)</span>
+                <span>Soma das divergências (R$) · escopo filtrado</span>
                 <strong id="cf-total-diferenca">—</strong>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card sigov-dashboard-card financeiro-kpi h-100">
-                <span>Divergentes na página</span>
+                <span>Documentos divergentes · escopo filtrado</span>
                 <strong id="cf-qtd-divergentes">—</strong>
             </div>
         </div>
@@ -35,9 +35,19 @@
         <summary class="fw-semibold">Como corrigir uma divergência</summary>
         <ol class="mb-0 mt-2 small text-muted">
             <li>Identifique o <strong>documento</strong> com diferença e a <strong>origem da divergência</strong> indicada pela conferência (acumulador divergente vs total calculado pelos documentos).</li>
-            <li>Use <strong>Ajustar</strong>: informe a justificativa (obrigatória) e confirme. O valor exato é sempre <strong>recalculado no servidor</strong> e aplicado em transação única, com registro completo em auditoria.</li>
+            <li>Use <strong>Ajustar</strong>: a prévia mostra os valores atualizados; informe a justificativa (obrigatória) e confirme. O valor exato é sempre <strong>recalculado no servidor</strong> e aplicado em transação única, com registro completo em auditoria. Se o documento mudar entre a prévia e a confirmação, o sistema pede para refazer a prévia.</li>
             <li>O ajuste requer a permissão <code>financeiro.conferencia.ajustar</code>; a visualização usa <code>financeiro.conferencia.visualizar</code>.</li>
         </ol>
+    </details>
+
+    <details class="card card-body mb-3 sigov-screen-guide">
+        <summary class="fw-semibold">Anular, cancelar ou estornar? Qual ação evitar a divergência</summary>
+        <ul class="mb-0 mt-2 small text-muted">
+            <li><strong>Anular</strong> um empenho ou liquidação reverte o valor <strong>integral</strong> do documento e devolve o saldo acumulado. Exige justificativa e permissão própria; não pode anular empenho com liquidação vigente nem liquidação com pagamento vigente.</li>
+            <li><strong>Cancelar</strong> um pagamento, lançamento ou arrecadação reverte apenas aquela movimentação, respeitando as regras do pai (ex.: lançamento com arrecadação vigente não é cancelado silenciosamente — cancele as arrecadações primeiro).</li>
+            <li><strong>Estornar</strong> uma movimentação de orçamento (reserva/estorno/redução) desfaz o efeito daquela operação específica no saldo disponível.</li>
+            <li>A conferência compara o que ficou registrado nos acumuladores com a soma dos documentos vigentes: quando uma reversão parcial deixa saldo "no meio", o ajuste de conferência é a ferramenta de sincronização final — sempre auditada, nunca manual em banco.</li>
+        </ul>
     </details>
 
     <div class="card">
@@ -47,10 +57,13 @@
                     <label class="form-label">Tipo de documento</label>
                     <select class="form-select" id="cf-tipo">
                         <option value="">Todos</option>
-                        <option value="EMPENHO">Empenho</option>
-                        <option value="LIQUIDACAO">Liquidação</option>
-                        <option value="PAGAMENTO">Pagamento</option>
-                        <option value="ARRECADACAO">Arrecadação</option>
+                        <option value="EMPENHO">Empenho (dotação)</option>
+                        <option value="LIQUIDACAO">Liquidação (dotação)</option>
+                        <option value="PAGAMENTO">Pagamento (dotação)</option>
+                        <option value="LANCAMENTO">Lançamento de receita (previsão)</option>
+                        <option value="ARRECADACAO">Arrecadação (previsão)</option>
+                        <option value="LIQUIDACAO_EMPENHO">Liquidações no empenho</option>
+                        <option value="PAGAMENTO_EMPENHO">Pagamentos no empenho</option>
                     </select>
                 </div>
                 <div class="col-md-4">

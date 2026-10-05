@@ -118,7 +118,8 @@
             F.toast('Lançamento cancelado.', 'success');
             carregar();
             if (lancamentoAberto === id) abrirDetalhe(id);
-          } catch (err) { F.falha('Não foi possível cancelar o lançamento', err); }
+            return true;
+          } catch (err) { F.falha('Não foi possível cancelar o lançamento', err); return false; }
         }
       });
     } catch (err) { F.falha('Não foi possível preparar o cancelamento do lançamento', err); }
@@ -153,7 +154,8 @@
             F.toast('Arrecadação cancelada (estorno registrado).', 'success');
             carregar();
             abrirDetalhe(lancId);
-          } catch (err) { F.falha('Não foi possível cancelar a arrecadação', err); }
+            return true;
+          } catch (err) { F.falha('Não foi possível cancelar a arrecadação', err); return false; }
         }
       });
     } catch (err) { F.falha('Não foi possível preparar o cancelamento da arrecadação', err); }

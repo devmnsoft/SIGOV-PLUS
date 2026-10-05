@@ -296,7 +296,8 @@
               F.concluirAcao('fin.liquidacao.anular:' + liqId, body);
               F.toast('Liquidação anulada.', 'success');
               carregar();
-            } catch (err) { F.falha('Não foi possível anular a liquidação', err); }
+              return true;
+            } catch (err) { F.falha('Não foi possível anular a liquidação', err); return false; }
           }
         });
       } catch (err) { F.falha('Não foi possível preparar a anulação da liquidação', err); }
@@ -333,7 +334,8 @@
               F.concluirAcao('fin.pagamento.cancelar:' + pagId, body);
               F.toast('Pagamento cancelado (estorno registrado).', 'success');
               carregar();
-            } catch (err) { F.falha('Não foi possível cancelar o pagamento', err); }
+              return true;
+            } catch (err) { F.falha('Não foi possível cancelar o pagamento', err); return false; }
           }
         });
       } catch (err) { F.falha('Não foi possível preparar o cancelamento do pagamento', err); }
@@ -426,7 +428,8 @@
               bootstrap.Modal.getInstance(document.getElementById('modalAnularEmpenho'))?.hide();
               ev.target.reset();
               carregar();
-            } catch (err) { F.falha('Não foi possível anular o empenho', err); }
+              return true;
+            } catch (err) { F.falha('Não foi possível anular o empenho', err); return false; }
           }
         });
       } catch (err) { F.falha('Não foi possível preparar a anulação do empenho', err); ocupado = false; }

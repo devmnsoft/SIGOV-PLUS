@@ -1,5 +1,9 @@
 window.sigovApi = (() => {
-  const baseUrl = window.Sigov_API_BASE_URL || 'http://localhost:5001';
+  // Destino da API: configuração explícita (window.Sigov_API_BASE_URL) tem prioridade absoluta.
+  // Sem configuração: HTTP dev usa http://localhost:5001; HTTPS usa a origem atual (evita mixed content).
+  const configuredBaseUrl = window.Sigov_API_BASE_URL ? String(window.Sigov_API_BASE_URL).replace(/\/+$/, '') : '';
+  const baseUrl = configuredBaseUrl || (window.location.protocol === 'https:' ? window.location.origin : 'http://localhost:5001');
+  if (!configuredBaseUrl) console.warn('Sigov: Sigov_API_BASE_URL não configurada; usando destino padrão ' + baseUrl + '.');
   let cachedToken = null;
   let tokenPromise = null;
 
@@ -51,6 +55,8 @@ window.sigovApi = (() => {
       });
     };
 
+    // Retry único em 401 (seguro): o 401 é emitido na autenticação, antes da execução da ação,
+    // portanto a mutação ainda não foi processada; POST com Idempotency-Key permanece idempotente.
     let response = await doFetch();
     if (response.status === 401) {
       clearToken();

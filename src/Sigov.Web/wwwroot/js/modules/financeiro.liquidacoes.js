@@ -68,7 +68,8 @@
             F.concluirAcao('fin.liquidacao.anular:' + id, body);
             F.toast('Liquidação anulada.', 'success');
             carregar();
-          } catch (err) { F.falha('Não foi possível anular a liquidação', err); }
+            return true;
+          } catch (err) { F.falha('Não foi possível anular a liquidação', err); return false; }
         }
       });
     } catch (err) { F.falha('Não foi possível preparar a anulação da liquidação', err); }

@@ -204,7 +204,9 @@ app.Use(async (context, next) =>
     context.Items["CspNonce"] = nonce;
     // Política CSP fortalecida com nonce imprevisível por requisição.
     // 'unsafe-inline' é mantido como exceção residual transitória documentada para compatibilidade de modais e componentes Razor existentes.
-    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self' 'unsafe-inline' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+    // connect-src: em desenvolvimento/homologação local o front (HTTP :8080) consome a API em outra origem (:5001);
+    // em produção HTTPS o destino padrão é a própria origem ('self'), que permanece coberta.
+    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self' 'unsafe-inline' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' http://localhost:5001; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
     context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
     await next().ConfigureAwait(false);
 });

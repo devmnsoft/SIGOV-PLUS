@@ -1,17 +1,18 @@
 // SIGOV PLUS · Financeiro SIAFIC — Conferência financeira: comparativo dos acumuladores
-// registrados (na dotação/empenho/lançamento) com os totais calculados pelos documentos.
-// Ajuste com justificativa obrigatória: o valor exato é sempre recalculado no servidor.
+// registrados (na dotação/empenho/previsão de receita) com os totais calculados pelos documentos.
+// Indicadores globais são calculados no servidor sobre todo o escopo do filtro ANTES da paginação.
+// Ajuste com justificativa obrigatória: o valor exato é sempre recalculado no servidor; se o
+// documento mudar entre a prévia e a confirmação o servidor responde 409 e pede nova prévia.
 (function () {
   const F = window.sigovFin;
   if (!F || !document.querySelector('[data-fin-tela="conferencia"]')) return;
   const SIZE = 50;
   let pagina = 1;
 
-  function pagerHtml(p, totalItems) {
-    const totalPag = Math.max(1, Math.ceil((totalItems || 0) / SIZE));
-    return `<div class="d-flex align-items-center gap-2 mt-2">
+  function pagerHtml(p, totalPag, totalItens) {
+    return `<div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
       <button type="button" class="btn btn-sm btn-outline-secondary pager-prev" ${p <= 1 ? 'disabled' : ''}>← Anterior</button>
-      <span class="small text-muted">Página ${p} de ${totalPag} · ${totalItems || 0} registros</span>
+      <span class="small text-muted">Página ${p} de ${totalPag} · ${totalItens} registros</span>
       <button type="button" class="btn btn-sm btn-outline-secondary pager-next" ${p >= totalPag ? 'disabled' : ''}>Próxima →</button>
     </div>`;
   }
@@ -26,11 +27,16 @@
         situacao: $('#cf-situacao').val() || null
       }));
       const itens = r.itens || [];
-      const divergentes = itens.filter(i => Number(i.diferenca) !== 0);
+      // Indicadores globais do escopo filtrado (autoridade do servidor, sem perder filtros):
+      // totalRegistros / totalDivergencias / somaAbsDiferencas / instante.
+      const somaAbs = Number(r.somaAbsDiferencas || 0);
+      const qtdDiv = Number(r.totalDivergencias || 0);
+      const totalReg = Number(r.totalRegistros || 0);
       document.getElementById('cf-total-diferenca').innerHTML =
-        `<span class="${Number(r.totalDiferenca) !== 0 ? 'text-danger' : 'text-success'}">${F.money(r.totalDiferenca)}</span>`;
-      document.getElementById('cf-qtd-divergentes').textContent = String(divergentes.length);
-      document.getElementById('cf-atualizado').textContent = new Date(r.atualizadoEm).toLocaleString('pt-BR');
+        `<span class="${somaAbs !== 0 ? 'text-danger' : 'text-success'}">${F.money(somaAbs)}</span>`;
+      document.getElementById('cf-qtd-divergentes').innerHTML =
+        `<span class="${qtdDiv !== 0 ? 'text-danger fw-semibold' : 'text-success'}">${qtdDiv}</span>`;
+      document.getElementById('cf-atualizado').textContent = r.instante ? new Date(r.instante).toLocaleString('pt-BR') : '—';
       tb.html(itens.length ? itens.map(i => {
         const dif = Number(i.diferenca);
         return `<tr class="${dif !== 0 ? 'table-warning' : ''}">
@@ -45,10 +51,9 @@
             : '<span class="badge text-bg-success">OK</span>'}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="7" class="text-muted py-3">Nenhum documento para comparar neste exercício.</td></tr>');
-      // A resposta não traz total geral: mantemos "próxima" habilitada só se a página veio cheia.
-      const cheio = itens.length >= SIZE;
-      const totalAprox = cheio ? pagina * SIZE + 1 : (pagina - 1) * SIZE + itens.length;
-      $('#pager-conferencia').html(pagerHtml(pagina, totalAprox));
+      // Pager real com totais gerais (a resposta traz totalRegistros independentemente da página).
+      const totalPag = Math.max(1, Math.ceil(totalReg / SIZE));
+      $('#pager-conferencia').html(pagerHtml(r.page || pagina, totalPag, totalReg));
     } catch (err) { F.falha('Falha ao executar a conferência', err); }
   }
 
@@ -60,12 +65,12 @@
     F.confirmarReversao({
       titulo: `Ajuste do acumulador ${F.escapa(tipo)} · documento #${id}`,
       linhas: [
-        { rotulo: 'Registrado no acumulador', valor: F.money(reg) },
-        { rotulo: 'Calculado pelos documentos', valor: F.money(cal) },
-        { rotulo: 'Ajuste que será aplicado', valor: F.money(cal - reg) }
+        { rotulo: 'Registrado no acumulador (prévia)', valor: F.money(reg) },
+        { rotulo: 'Calculado pelos documentos (prévia)', valor: F.money(cal) },
+        { rotulo: 'Valor do acumulador após o ajuste', valor: F.money(cal) }
       ],
       campos: [{ id: 'justificativa', tipo: 'textarea', label: 'Justificativa (obrigatória — registrada na auditoria)', obrigatorio: true }],
-      pergunta: 'O ajuste sincroniza o acumulador ao valor calculado pelos documentos, em transação única. O valor exato é sempre recalculado no servidor no momento da confirmação e auditado com usuário, data e correlation ID.',
+      pergunta: 'O valor exato é sempre recalculado no servidor no momento da confirmação e aplicado em transação única, auditado com usuário, data e correlation ID. Se o documento mudar entre esta prévia e a confirmação, o sistema pedirá para refazer a prévia.',
       onConfirm: async v => {
         try {
           const body = { documentoId: id, tipoDocumento: tipo, justificativa: v.justificativa };
@@ -74,7 +79,12 @@
           F.concluirAcao('fin.conferencia.ajustar:' + id, body);
           F.toast('Ajuste aplicado e auditado.', 'success');
           carregar();
-        } catch (err) { F.falha('Não foi possível aplicar o ajuste', err); }
+          return true;
+        } catch (err) {
+          // Falha recuperável: a chave idempotente e a justificativa ficam preservadas na tela.
+          F.falha('Não foi possível aplicar o ajuste', err);
+          return false;
+        }
       }
     });
   }

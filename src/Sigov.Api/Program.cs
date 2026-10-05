@@ -151,11 +151,13 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing") 
     app.UseSwaggerUI();
 }
 
+// CORS deve preceder autenticação/tenant: o preflight (OPTIONS) não carrega Authorization e seria
+// rejeitado com 401 pelo TenantResolution antes de o UseCors responder 204 com os headers.
+app.UseCors("SigovCors");
 app.UseAuthentication();
 app.UseMiddleware<RequestAuthorizationSnapshotMiddleware>();
 app.UseMiddleware<ApiKeyV1Middleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
-app.UseCors("SigovCors");
 app.UseMiddleware<SimpleRateLimitMiddleware>();
 app.UseAuthorization();
 

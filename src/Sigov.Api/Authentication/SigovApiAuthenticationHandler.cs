@@ -127,6 +127,8 @@ select s.id as SessionId, s.usuario_id as UserId, s.tenant_id as TenantId, s.ent
             new("login", row.Login),
             new("session_id", row.SessionId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new("tenant_id", row.TenantId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            // auth_version é informativo para clientes da API: o bearer já é autenticado pelo
+            // token_hash único da sessão; a comparação forte com auth_version vale para o cookie Web.
             new("auth_version", row.AuthVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
         };
         if (row.EntidadeId is not null) claims.Add(new("entidade_id", row.EntidadeId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
