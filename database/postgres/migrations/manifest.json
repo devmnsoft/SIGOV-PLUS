@@ -2722,6 +2722,32 @@
         "20261003080000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='empenho' and column_name='motivo') and exists(select 1 from information_schema.tables where table_schema='sigov' and table_name='financeiro_idempotencia') and exists(select 1 from sigov.permissao where chave='financeiro.conferencia.visualizar')"
+    },
+    {
+      "version": "20261005090000",
+      "description": "Catalogo RC-SAAS-AUT: coluna delegavel, chaves saas.*/cliente.*, normalizacao saas.superadmin.*, grants de plataforma e tabela saas_alias_revisao",
+      "category": "functional",
+      "file": "20261005090000_rcsaas_aut_01_catalogo_permissoes.sql",
+      "checksum": "683917b6c185dedcf00816c4c0f48d832ae7670ccfe6129335d7b1a881fa481b",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261003140000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='permissao' and column_name='delegavel') and exists(select 1 from information_schema.tables where table_schema='sigov' and table_name='saas_alias_revisao') and exists(select 1 from sigov.permissao where chave='saas.plataforma.administrar' and recurso='plataforma' and acao='administrar') and exists(select 1 from sigov.permissao where chave='saas.superadmin.dashboard.visualizar' and recurso='saas.superadmin.dashboard' and acao='visualizar') and exists(select 1 from sigov.perfil_permissao pp join sigov.permissao p on p.id=pp.permissao_id join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id where p.chave='saas.plataforma.administrar' and pa.codigo_externo='ADMINISTRADOR_GERAL' and pp.efeito='PERMITIR' and pp.ativo and not pp.is_deleted)"
+    },
+    {
+      "version": "20261005100000",
+      "description": "FK saas_cliente.tenant_id para sigov.tenant e NOT NULL guardado por tabela vazia",
+      "category": "functional",
+      "file": "20261005100000_rcsaas_aut_02_cliente_link.sql",
+      "checksum": "e55cdeed5ca8f5e7799b7827a7276b7a3388eee7808d629a5ea2164c510ea48c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261005090000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.table_constraints tc join information_schema.referential_constraints rc on rc.constraint_name = tc.constraint_name where tc.table_schema='sigov' and tc.table_name='saas_cliente' and tc.constraint_type='FOREIGN KEY') and ((select count(*) from sigov.saas_cliente) = 0 or (select count(*) from sigov.saas_cliente where tenant_id is null) = 0)"
     }
   ],
   "compatibilityAfterAll": [

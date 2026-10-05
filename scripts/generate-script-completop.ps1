@@ -11,7 +11,8 @@ $devCompatibilityOut = Join-Path $root 'script_completo_dev.sql'
 $applyAllOut = Join-Path $root 'database/apply_all_required_migrations.sql'
 $developmentSeeds = @(
     (Join-Path $root 'database/postgres/seeds/development/999_super_admin_access_guard.sql'),
-    (Join-Path $root 'database/postgres/seeds/rc50_68a_perfis_autorizacao.sql')
+    (Join-Path $root 'database/postgres/seeds/rc50_68a_perfis_autorizacao.sql'),
+    (Join-Path $root 'database/postgres/seeds/development/fin_jornadas_contexto.sql')
 )
 $compatibilityOutputs = @(
     (Join-Path $root 'script_completo.sql'),
