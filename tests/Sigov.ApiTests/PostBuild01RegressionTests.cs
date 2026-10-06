@@ -383,6 +383,25 @@ public sealed class PostBuild01RegressionTests
     }
 
     [Fact]
+    public void RC_SAAS_AUT_A5_revogacao_por_alteracao_de_identidade_ou_permissao_em_paridade_web_e_api()
+    {
+        var sessao = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Security/IdentitySessionService.cs"));
+        sessao.Should().Contain("Task<long> DeriveAuthVersionAsync(long userId, CancellationToken cancellationToken)")
+            .And.Contain("select greatest(")
+            .And.Contain("s.auth_version = @AuthVersion");
+        var web = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Program.cs"));
+        web.Should().Contain("OnValidatePrincipal")
+            .And.Contain("DeriveAuthVersionAsync(userId, context.HttpContext.RequestAborted)")
+            .And.Contain("currentAuthVersion != validation.AuthVersion");
+        var handler = File.ReadAllText(TestRepoPath.Get("src/Sigov.Api/Authentication/SigovApiAuthenticationHandler.cs"));
+        handler.Should().Contain("DeriveAuthVersionAsync(row.UserId, Context.RequestAborted)")
+            .And.Contain("currentAuthVersion != row.AuthVersion")
+            .And.Contain("Sessao revogada por alteracao de identidade ou permissao.");
+        File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/AuthController.cs"))
+            .Should().Contain("RevokeAllForUserAsync(changed.Id, \"SENHA_REDEFINIDA\", ct)");
+    }
+
+    [Fact]
     public void Ponte_Identity_Nucleo_Empresarial_Deve_Ser_Deterministica()
     {
         var projecao = File.ReadAllText(TestRepoPath.Get("src/Sigov.Application/Security/EnterpriseIdentityProjection.cs"));

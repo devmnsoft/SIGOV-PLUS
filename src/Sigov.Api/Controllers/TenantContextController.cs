@@ -14,6 +14,7 @@ namespace Sigov.Api.Controllers;
 public sealed class TenantContextController(IOperationalContextService service, ILogger<TenantContextController> logger) : ControllerBase
 {
     private const string SessionCookie = "__Host-Sigov.Context";
+    private static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(8); // RC-SAAS-AUT (A4): vida útil da sessão de contexto
 
     [HttpGet("atual")]
     public async Task<ActionResult<ApiResponse<OperationalContext?>>> Current(CancellationToken ct)
@@ -82,7 +83,7 @@ public sealed class TenantContextController(IOperationalContextService service, 
         return id;
     }
 
-    private ContextChange Change(ContextSelection? selection) => new(UserId(), RequiredSessionHash(), selection, HttpContext.TraceIdentifier, RemoteIp(), Request.Headers.UserAgent.ToString()[..Math.Min(Request.Headers.UserAgent.ToString().Length, 500)], DateTimeOffset.UtcNow.AddHours(8));
+    private ContextChange Change(ContextSelection? selection) => new(UserId(), RequiredSessionHash(), selection, HttpContext.TraceIdentifier, RemoteIp(), Request.Headers.UserAgent.ToString()[..Math.Min(Request.Headers.UserAgent.ToString().Length, 500)], DateTimeOffset.UtcNow.Add(SessionLifetime));
     private string? RemoteIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
 
     private string RequiredSessionHash() => SessionHash(create: true)
@@ -94,7 +95,7 @@ public sealed class TenantContextController(IOperationalContextService service, 
         {
             if (!create) return null;
             token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-            Response.Cookies.Append(SessionCookie, token, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Lax, IsEssential = true, MaxAge = TimeSpan.FromHours(8), Path = "/" });
+            Response.Cookies.Append(SessionCookie, token, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Lax, IsEssential = true, MaxAge = SessionLifetime, Path = "/" });
         }
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     }

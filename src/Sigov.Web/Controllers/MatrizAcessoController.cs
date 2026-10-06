@@ -1,6 +1,8 @@
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Saas.Modules;
+using Sigov.Web.Helpers;
 using Sigov.Web.Models.Security;
 using Sigov.Web.Services;
 
@@ -10,75 +12,70 @@ namespace Sigov.Web.Controllers;
 [Route("Seguranca/MatrizAcesso")]
 public sealed class MatrizAcessoController : Controller
 {
-    private static readonly string[] Profiles =
-    {
-        "SUPERADMIN", "ADMIN_TENANT", "GESTOR_MUNICIPAL", "COORDENADOR_AREA", "OPERACIONAL",
-        "FINANCEIRO", "AUDITOR", "ATENDIMENTO", "GESTOR_MODULO", "LEITURA", "CIDADAO"
-    };
     private readonly IAuditTrailService _audit;
     private readonly IUserPermissionService _permissions;
+    private readonly SegurancaAdminService _seguranca;
 
-    public MatrizAcessoController(IAuditTrailService audit, IUserPermissionService permissions)
+    public MatrizAcessoController(IAuditTrailService audit, IUserPermissionService permissions, SegurancaAdminService seguranca)
     {
         _audit = audit;
         _permissions = permissions;
+        _seguranca = seguranca;
     }
 
     [HttpGet("")]
-    public IActionResult Index([FromQuery] string? perfil) => View(Build(perfil));
+    public async Task<IActionResult> Index([FromQuery] string? perfil, CancellationToken ct) => View(await BuildAsync(perfil, ct).ConfigureAwait(false));
 
     [HttpGet("Exportar")]
-    public async Task<IActionResult> Exportar([FromQuery] string? perfil, CancellationToken cancellationToken)
+    public async Task<IActionResult> Exportar([FromQuery] string? perfil, CancellationToken ct)
     {
-        var model = Build(perfil);
+        var model = await BuildAsync(perfil, ct).ConfigureAwait(false);
         if (!model.CanExport)
         {
-            await AuditAsync("EXPORTACAO_NEGADA", model.Profile, "permissao_exportar_ausente", cancellationToken).ConfigureAwait(false);
-            return Forbid();
+            await AuditAsync("EXPORTACAO_NEGADA", model.Profile, "permissao_exportar_ausente", ct).ConfigureAwait(false);
+            return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para exportar a matriz de acesso.");
         }
 
-        var csv = new StringBuilder("modulo;recurso;acao;liberado;motivo\n");
+        var csv = new StringBuilder("modulo;recurso;acao;liberado;delegavel;motivo\n");
         foreach (var row in model.Rows)
             csv.Append(Csv(row.Module)).Append(';').Append(Csv(row.Resource)).Append(';').Append(Csv(row.Action)).Append(';')
-                .Append(row.Allowed ? "sim" : "nao").Append(';').Append(Csv(row.Reason)).AppendLine();
-        await AuditAsync("MATRIZ_ACESSO_EXPORTADA", model.Profile, "exportacao_autorizada", cancellationToken).ConfigureAwait(false);
+                .Append(row.Allowed ? "sim" : "nao").Append(';').Append(row.Delegavel ? "sim" : "nao").Append(';').Append(Csv(row.Reason)).AppendLine();
+        await AuditAsync("MATRIZ_ACESSO_EXPORTADA", model.Profile, "exportacao_autorizada", ct).ConfigureAwait(false);
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "matriz-acesso.csv");
     }
 
-    private AccessMatrixViewModel Build(string? requestedProfile)
+    // RC-SAAS-AUT (A7): matriz 100% DB-driven — perfis de sigov.perfil_acesso e permissões de
+    // sigov.permissao/perfil_permissao (regra 12: sem catálogos hardcoded como autoridade).
+    private async Task<AccessMatrixViewModel> BuildAsync(string? requestedProfile, CancellationToken ct)
     {
-        var profile = Profiles.Contains(requestedProfile, StringComparer.OrdinalIgnoreCase)
-            ? requestedProfile!.ToUpperInvariant()
-            : CurrentProfile();
-        var rows = Matrix(profile);
+        var perfis = await _seguranca.ListarPerfisAsync(ct).ConfigureAwait(false);
+        var perfilNames = perfis.Select(p => p.Nome).ToList();
+
+        var selectedName = perfilNames.FirstOrDefault(n => n.Equals(requestedProfile, StringComparison.OrdinalIgnoreCase)) ?? CurrentProfile(perfilNames);
+
         var canExport = _permissions.HasPermission(User, "saas.plataforma.administrar") || _permissions.HasPermission(User, "seguranca.matriz.exportar");
-        return new AccessMatrixViewModel { Profile = profile, Profiles = Profiles, Rows = rows, CanExport = canExport };
-    }
 
-    private static IReadOnlyList<AccessMatrixRowViewModel> Matrix(string profile)
-    {
-        var grants = profile switch
+        AccessMatrixViewModel result;
+        if (selectedName is not null)
         {
-            "SUPERADMIN" => new[] { "todos:todos:todos" },
-            "ADMIN_TENANT" => new[] { "seguranca:usuarios:gerenciar", "seguranca:perfis:gerenciar", "tenant:configuracao:configurar" },
-            "FINANCEIRO" => new[] { "financeiro:pagamento:baixar", "financeiro:fatura:consultar", "tributario:debito:consultar", "relatorios:financeiro:visualizar" },
-            "AUDITOR" => new[] { "auditoria:trilha:visualizar", "lgpd:acessos:visualizar", "relatorios:governanca:visualizar" },
-            "ATENDIMENTO" => new[] { "processos:protocolo:criar", "ouvidoria:manifestacao:encaminhar", "esic:pedido:consultar" },
-            "COORDENADOR_AREA" => new[] { "area:dashboard:visualizar", "area:cadastro:validar", "area:tarefa:distribuir" },
-            "GESTOR_MUNICIPAL" => new[] { "area:dashboard:visualizar", "area:relatorio:visualizar", "area:operacao:aprovar" },
-            "OPERACIONAL" => new[] { "modulo:registro:criar", "modulo:registro:editar", "modulo:registro:consultar" },
-            "GESTOR_MODULO" => new[] { "modulo:parametro:configurar", "modulo:auxiliar:gerenciar" },
-            "CIDADAO" => new[] { "portal:dado_proprio:consultar", "portal:protocolo:criar" },
-            _ => new[] { "modulo:registro:consultar" }
-        };
-        var rows = grants.Select(value => value.Split(':')).Select(parts => new AccessMatrixRowViewModel(parts[0], parts[1], parts[2], true, "Liberado pelo perfil padrão.")).ToList();
-        rows.Add(new AccessMatrixRowViewModel("seguranca", "configuracao_global", "configurar", profile == "SUPERADMIN", profile == "SUPERADMIN" ? "Acesso global." : "Ação exclusiva do SuperAdmin."));
-        rows.Add(new AccessMatrixRowViewModel("financeiro", "pagamento", "estornar", profile == "SUPERADMIN", profile == "SUPERADMIN" ? "Acesso global auditado." : "Exige permissão específica e segregação de função."));
-        rows.Add(new AccessMatrixRowViewModel("saude", "dado_sensivel", "visualizar", profile == "SUPERADMIN", profile == "SUPERADMIN" ? "Acesso crítico auditado." : "Dado sensível protegido pela LGPD."));
-        return rows;
+            var perfilObj = perfis.First(p => p.Nome == selectedName);
+            var permVm = await _seguranca.ObterPermissoesPerfilAsync(perfilObj.Id, ct).ConfigureAwait(false);
+            var rows = permVm.Permissoes
+                .Select(p => new AccessMatrixRowViewModel(p.Modulo, p.Recurso, p.Acao, p.Selecionada, p.Selecionada ? "Concedida ao perfil." : "Não concedida ao perfil."))
+                .ToList();
+            result = new AccessMatrixViewModel { Profile = selectedName, Profiles = perfilNames, Rows = rows, CanExport = canExport };
+        }
+        else
+        {
+            result = new AccessMatrixViewModel { Profile = "N/D", Profiles = perfilNames, Rows = Array.Empty<AccessMatrixRowViewModel>(), CanExport = canExport };
+        }
+
+        return result;
     }
 
-    private string CurrentProfile() => Profiles.FirstOrDefault(profile => User.IsInRole(profile) || User.HasClaim("perfil", profile)) ?? "LEITURA";
+    private string? CurrentProfile(IReadOnlyList<string> availableProfiles) =>
+        availableProfiles.FirstOrDefault(profile => User.IsInRole(profile) || User.HasClaim("perfil", profile));
+
     private async Task AuditAsync(string action, string profile, string reason, CancellationToken ct) =>
         await _audit.RegistrarAsync(ClaimLong("tenant_id"), ClaimLong("usuario_id"), action, "matriz_acesso", profile, null,
             new { perfil = profile, motivo = reason }, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false);

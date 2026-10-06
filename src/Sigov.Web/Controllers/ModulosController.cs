@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Application.Commercial;
+using Sigov.Web.Helpers;
 using Sigov.Web.Services;
 
 namespace Sigov.Web.Controllers;
@@ -36,7 +37,7 @@ public sealed class ModulosController : Controller
         await _audit.RegistrarAsync(ClaimLong("tenant_id"), ClaimLong("usuario_id"), "ACESSO_NEGADO", "modulo", module.Code,
             null, new { modulo = module.Code, recurso = "catalogo", acao = "acessar", motivo = "sem_permissao_ou_contrato" },
             HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
-        return Forbid();
+        return ForbiddenResponse.Registrar(this, Sigov.Application.Saas.Modules.SaasForbiddenMotivo.SemPermissao, "Módulo não acessível para seu perfil ou contrato atual.");
     }
 
     private long? ClaimLong(string type) => long.TryParse(User.FindFirstValue(type), out var value) ? value : null;

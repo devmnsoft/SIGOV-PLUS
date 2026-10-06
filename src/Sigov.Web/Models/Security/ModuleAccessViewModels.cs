@@ -18,7 +18,10 @@ public sealed record AccessMatrixRowViewModel(
     string Resource,
     string Action,
     bool Allowed,
-    string Reason);
+    string Reason)
+{
+    public bool Delegavel { get; init; }
+}
 
 public sealed class AccessMatrixViewModel
 {

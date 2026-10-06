@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Saas.Modules;
+using Sigov.Web.Helpers;
 using Sigov.Web.Models.Lote1;
 using Sigov.Web.Services;
 
@@ -23,56 +25,56 @@ public sealed class SegurancaController : Controller
     public IActionResult Auditoria() => RedirectToAction("FalhasAcesso", "Auditoria");
 
     [HttpGet]
-    public async Task<IActionResult> Usuarios([FromQuery] UsuarioFiltroViewModel filtro, CancellationToken ct){ if(!CanUsuarios) return Forbid(); var usuarios=await _service.ListarUsuariosAsync(filtro,ct).ConfigureAwait(false); return View(new UsuariosAdminViewModel{Filtro=filtro,Usuarios=usuarios,MensagemFallback=usuarios.Any()?string.Empty:"Nenhum usuário retornado ou tabela indisponível; nenhum dado foi simulado."}); }
+    public async Task<IActionResult> Usuarios([FromQuery] UsuarioFiltroViewModel filtro, CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); var usuarios=await _service.ListarUsuariosAsync(filtro,ct).ConfigureAwait(false); return View(new UsuariosAdminViewModel{Filtro=filtro,Usuarios=usuarios,MensagemFallback=usuarios.Any()?string.Empty:"Nenhum usuário retornado ou tabela indisponível; nenhum dado foi simulado."}); }
 
     [HttpGet("Seguranca/Usuarios/Novo")]
-    public IActionResult NovoUsuario(){ if(!CanUsuarios) return Forbid(); return View("Usuarios", new UsuariosAdminViewModel{Form=new UsuarioFormViewModel(), MensagemFallback="Preencha os dados e salve para persistir em sigov.usuario."}); }
+    public IActionResult NovoUsuario(){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); return View("Usuarios", new UsuariosAdminViewModel{Form=new UsuarioFormViewModel(), MensagemFallback="Preencha os dados e salve para persistir em sigov.usuario."}); }
 
     [HttpPost("Seguranca/Usuarios/Novo")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> NovoUsuario(UsuarioFormViewModel form, CancellationToken ct){ if(!CanUsuarios) return Forbid(); return await SalvarUsuarioPost(form,ct).ConfigureAwait(false); }
+    public async Task<IActionResult> NovoUsuario(UsuarioFormViewModel form, CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); return await SalvarUsuarioPost(form,ct).ConfigureAwait(false); }
 
     [HttpGet("Seguranca/Usuarios/{id:long}")]
-    public async Task<IActionResult> UsuarioDetalhe(long id, CancellationToken ct){ if(!CanUsuarios) return Forbid(); var vm=await _service.ObterUsuarioAsync(id,ct).ConfigureAwait(false); return View(vm ?? new UsuarioDetalheViewModel{Id=id,MensagemFallback="Usuário não encontrado ou estrutura indisponível."}); }
+    public async Task<IActionResult> UsuarioDetalhe(long id, CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); var vm=await _service.ObterUsuarioAsync(id,ct).ConfigureAwait(false); return View(vm ?? new UsuarioDetalheViewModel{Id=id,MensagemFallback="Usuário não encontrado ou estrutura indisponível."}); }
 
     [HttpGet("Seguranca/Usuarios/{id:long}/Editar")]
-    public async Task<IActionResult> EditarUsuario(long id, CancellationToken ct){ if(!CanUsuarios) return Forbid(); var vm=await _service.ObterUsuarioAsync(id,ct).ConfigureAwait(false); if(vm is null){TempData["Error"]="Usuário não encontrado."; return RedirectToAction(nameof(Usuarios));} return View("Usuarios", new UsuariosAdminViewModel{Form=vm, Usuarios=await _service.ListarUsuariosAsync(new UsuarioFiltroViewModel(),ct).ConfigureAwait(false)}); }
+    public async Task<IActionResult> EditarUsuario(long id, CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); var vm=await _service.ObterUsuarioAsync(id,ct).ConfigureAwait(false); if(vm is null){TempData["Error"]="Usuário não encontrado."; return RedirectToAction(nameof(Usuarios));} return View("Usuarios", new UsuariosAdminViewModel{Form=vm, Usuarios=await _service.ListarUsuariosAsync(new UsuarioFiltroViewModel(),ct).ConfigureAwait(false)}); }
 
     [HttpPost("Seguranca/Usuarios/{id:long}/Editar")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditarUsuario(long id, UsuarioFormViewModel form, CancellationToken ct){ if(!CanUsuarios) return Forbid(); form.Id=id; return await SalvarUsuarioPost(form,ct).ConfigureAwait(false); }
+    public async Task<IActionResult> EditarUsuario(long id, UsuarioFormViewModel form, CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); form.Id=id; return await SalvarUsuarioPost(form,ct).ConfigureAwait(false); }
 
     [HttpPost("Seguranca/Usuarios/{id:long}/Inativar")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> InativarUsuario(long id,CancellationToken ct){ if(!CanUsuarios) return Forbid(); return await Status(id,false,ct).ConfigureAwait(false); }
+    public async Task<IActionResult> InativarUsuario(long id,CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); return await Status(id,false,ct).ConfigureAwait(false); }
     [HttpPost("Seguranca/Usuarios/{id:long}/Ativar")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> AtivarUsuario(long id,CancellationToken ct){ if(!CanUsuarios) return Forbid(); return await Status(id,true,ct).ConfigureAwait(false); }
+    public async Task<IActionResult> AtivarUsuario(long id,CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); return await Status(id,true,ct).ConfigureAwait(false); }
     [HttpPost("Seguranca/Usuarios/{id:long}/ResetSenha")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> ResetSenha(long id,CancellationToken ct){ if(!CanUsuarios) return Forbid(); var ok=await _service.ResetarSenhaAsync(id,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Senha resetada; troca obrigatória ativada e auditoria preparada.":"Não foi possível resetar; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Usuarios)); }
+    public async Task<IActionResult> ResetSenha(long id,CancellationToken ct){ if(!CanUsuarios) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar usuários."); var ok=await _service.ResetarSenhaAsync(id,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Senha resetada; troca obrigatória ativada e auditoria preparada.":"Não foi possível resetar; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Usuarios)); }
 
     [HttpGet]
-    public async Task<IActionResult> Perfis(CancellationToken ct){ if(!CanPerfis) return Forbid(); var perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false); return View(new PerfisAdminViewModel{Perfis=perfis,MensagemFallback=perfis.Any()?string.Empty:"Tabela de perfis indisponível; cadastro não será simulado."}); }
+    public async Task<IActionResult> Perfis(CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); var perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false); return View(new PerfisAdminViewModel{Perfis=perfis,MensagemFallback=perfis.Any()?string.Empty:"Tabela de perfis indisponível; cadastro não será simulado."}); }
     [HttpGet("Seguranca/Perfis/Novo")]
-    public async Task<IActionResult> NovoPerfil(CancellationToken ct){ if(!CanPerfis) return Forbid(); return View("Perfis", new PerfisAdminViewModel{Perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false)}); }
+    public async Task<IActionResult> NovoPerfil(CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); return View("Perfis", new PerfisAdminViewModel{Perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false)}); }
 
     [HttpPost("Seguranca/Perfis/Novo")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> NovoPerfil(PerfilFormViewModel form,CancellationToken ct){ if(!CanPerfis) return Forbid(); if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.CriarPerfilAsync(form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil salvo e auditado.":"Não foi possível salvar perfil; verifique duplicidade ou estrutura indisponível."; return RedirectToAction(nameof(Perfis)); }
+    public async Task<IActionResult> NovoPerfil(PerfilFormViewModel form,CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.CriarPerfilAsync(form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil salvo e auditado.":"Não foi possível salvar perfil; verifique duplicidade ou estrutura indisponível."; return RedirectToAction(nameof(Perfis)); }
 
     [HttpGet("Seguranca/Perfis/{id:long}/Editar")]
-    public async Task<IActionResult> EditarPerfil(long id, CancellationToken ct){ if(!CanPerfis) return Forbid(); var perfil=await _service.ObterPerfilAsync(id,ct).ConfigureAwait(false); if(perfil is null){TempData["Error"]="Perfil não encontrado."; return RedirectToAction(nameof(Perfis));} return View("Perfis", new PerfisAdminViewModel{Form=perfil, Perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false)}); }
+    public async Task<IActionResult> EditarPerfil(long id, CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); var perfil=await _service.ObterPerfilAsync(id,ct).ConfigureAwait(false); if(perfil is null){TempData["Error"]="Perfil não encontrado."; return RedirectToAction(nameof(Perfis));} return View("Perfis", new PerfisAdminViewModel{Form=perfil, Perfis=await _service.ListarPerfisAsync(ct).ConfigureAwait(false)}); }
 
     [HttpPost("Seguranca/Perfis/{id:long}/Editar")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditarPerfil(long id, PerfilFormViewModel form, CancellationToken ct){ if(!CanPerfis) return Forbid(); if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.AtualizarPerfilAsync(id,form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil atualizado e auditado.":"Perfil não foi persistido; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Perfis)); }
+    public async Task<IActionResult> EditarPerfil(long id, PerfilFormViewModel form, CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); if(!ModelState.IsValid){TempData["Error"]="Informe código e nome do perfil."; return RedirectToAction(nameof(Perfis));} var ok=await _service.AtualizarPerfilAsync(id,form,ct).ConfigureAwait(false); TempData[ok?"Success":"Error"]=ok?"Perfil atualizado e auditado.":"Perfil não foi persistido; nenhum sucesso foi simulado."; return RedirectToAction(nameof(Perfis)); }
 
     [HttpPost("Seguranca/Perfis/{id:long}/Ativar")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> AtivarPerfil(long id, CancellationToken ct){ if(!CanPerfis) return Forbid(); return await StatusPerfil(id,true,ct).ConfigureAwait(false); }
+    public async Task<IActionResult> AtivarPerfil(long id, CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); return await StatusPerfil(id,true,ct).ConfigureAwait(false); }
 
     [HttpPost("Seguranca/Perfis/{id:long}/Inativar")][ValidateAntiForgeryToken]
-    public async Task<IActionResult> InativarPerfil(long id, CancellationToken ct){ if(!CanPerfis) return Forbid(); return await StatusPerfil(id,false,ct).ConfigureAwait(false); }
+    public async Task<IActionResult> InativarPerfil(long id, CancellationToken ct){ if(!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões."); return await StatusPerfil(id,false,ct).ConfigureAwait(false); }
 
     [HttpGet("Seguranca/Perfis/{id:long}/Permissoes")]
     public async Task<IActionResult> PermissoesPerfil(long id, CancellationToken ct)
     {
-        if (!CanPerfis) return Forbid();
+        if (!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões.");
         var vm = await _service.ObterPermissoesPerfilAsync(id, ct).ConfigureAwait(false);
         return View("Permissoes", vm);
     }
@@ -81,7 +83,7 @@ public sealed class SegurancaController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PermissoesPerfil(long id, long[] permissaoIds, CancellationToken ct)
     {
-        if (!CanPerfis) return Forbid();
+        if (!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões.");
         var ok = await _service.SalvarPermissoesPerfilAsync(id, permissaoIds ?? Array.Empty<long>(), ct).ConfigureAwait(false);
         TempData[ok ? "Success" : "Error"] = ok
             ? "Permissões do perfil salvas em transação e auditadas."
@@ -96,7 +98,7 @@ public sealed class SegurancaController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Permissoes(CancellationToken ct)
     {
-        if (!CanPerfis) return Forbid();
+        if (!CanPerfis) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para gerenciar perfis e permissões.");
         var ok = await _service.SalvarPermissoesAsync(ct).ConfigureAwait(false);
         TempData[ok ? "Success" : "Warning"] = ok
             ? "Permissões salvas e auditadas."

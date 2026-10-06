@@ -159,6 +159,10 @@ update sigov.identidade_sessao
         await connection.ExecuteAsync(new CommandDefinition(sql, new { UserId = userId, Reason = reason }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public Task<long> DeriveAuthVersionAsync(long userId, CancellationToken cancellationToken)
+        => ResolveAuthVersionAsync(userId, cancellationToken);
+
     private async Task<long> ResolveAuthVersionAsync(long userId, CancellationToken cancellationToken)
     {
         const string sql = @"

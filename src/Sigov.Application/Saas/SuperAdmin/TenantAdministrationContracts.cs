@@ -39,7 +39,18 @@ public sealed record SaasTenantDetail(
     IReadOnlyList<SaasTenantEntityItem> Entities,
     IReadOnlyList<SaasTenantUserItem> Users,
     IReadOnlyList<SaasTenantContractItem> Contracts,
-    IReadOnlyList<ModuleCatalogOption> Catalog);
+    IReadOnlyList<ModuleCatalogOption> Catalog,
+    // RC-SAAS-AUT (A6): usos vs limites + histórico de assinaturas
+    Sigov.Application.Saas.Comercial.SaasUsageSummary? Usage = null,
+    IReadOnlyList<SaasSubscriptionHistoryItem> History = null!);
+
+public sealed record SaasSubscriptionHistoryItem(
+    long Id,
+    string? PlanoAnterior,
+    string? PlanoNovo,
+    string Acao,
+    string? Motivo,
+    DateTime CreatedAtUtc);
 
 public sealed record ModuleCatalogOption(string Code, string Name, IReadOnlyCollection<string> Dependencies);
 
@@ -79,7 +90,7 @@ public sealed record SaasUserStatusChangeCommand(
     bool Blocked,
     string Justification);
 
-public sealed record SaasModuleContractResult(bool Success, string Message, SaasTenantContractItem? Contract = null);
+public sealed record SaasModuleContractResult(bool Success, string Message, SaasTenantContractItem? Contract = null, Sigov.Application.Saas.Modules.SaasForbiddenMotivo? Motivo403 = null);
 
 public interface ISaasTenantAdministrationService
 {

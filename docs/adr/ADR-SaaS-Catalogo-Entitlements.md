@@ -20,6 +20,7 @@ O aplicador operacional deve recusar versões e checksums de ledger ausentes do 
 - **Leitura e escrita contratual:** `sigov.tenant_modulo_contratado`, incluindo condições congeladas, estado e vigência.
 - **Histórico:** `sigov.tenant_modulo_contratado_historico`, append-only.
 - **Compatibilidade:** `sigov.tenant_modulo` é projeção unidirecional; nunca alimenta a autoridade nova.
+- **Plano, assinatura, vigência e limites (família B):** `sigov.saas_plano`, `saas_plano_modulo`, `saas_addon`, `sigov.saas_assinatura` (+`saas_assinatura_historico`) são a fonte canônica única dessas dimensões. Toda operação comercial grava família C (contrato do módulo) e família B na mesma transação; o espelho nunca é a origem da decisão.
 - **Autorização:** identidades, vínculos, perfis e permissões persistidos, combinados pelo avaliador; menu não é fonte de decisão.
 - **Consumidores:** API, Web, sidebar e administração consultam serviços canônicos. O catálogo `Application.Commercial` remanescente atende navegação histórica e não pode contratar, habilitar ou autorizar módulos.
 - **Sincronização:** alteração nominal ou de preço do catálogo não altera a linha contratual e jamais reativa suspensão; suspensão/reativação preserva vigência e condições.
@@ -30,6 +31,17 @@ O aplicador operacional deve recusar versões e checksums de ledger ausentes do 
 - Contratação não substitui permissão do usuário.
 - Menu e API devem produzir a mesma decisão.
 - A implementação de catálogo persistido, `IModuleEntitlementEvaluator` e SuperAdmin de contratação entrou na RC51.02. Homologação permanece `AGUARDA_GATE` até PostgreSQL 16 runtime.
+
+## Plano, assinatura, vigência e limites — decisão complementar (RC-SAAS-AUT, 2026-10-06)
+
+Esta ADR permanece centrada na contratação de módulos (família C). Complementarmente, a fonte canônica única de **plano, assinatura, vigência e limites** do tenant é a família B (`saas_plano*`/`saas_assinatura*`/`saas_addon`). Invariáveis operacionais fixadas pela RC-SAAS-AUT:
+
+- As seis operações comerciais (criar, upgrade, downgrade, suspender, reativar, cancelar) executam em UMA transação PostgreSQL que grava simultaneamente a assinatura/limites da família B e o espelho do contrato da família C; o diff de módulos é calculado entre os dois planos (função pura) e aplicado por upserts idempotentes; falha implica rollback com registro `Falha`, sem delete de dados do cliente.
+- A serialização entre operações concorrentes no mesmo tenant usa lock single-table `FOR UPDATE` sobre `saas_assinatura` (sem JOIN/ORDER BY/LIMIT na sentença de lock) — correção da race EvalPlanQual do PostgreSQL 16 em READ COMMITTED, validada ao vivo.
+- Downgrade preserva todos os dados do cliente e aplica a política parametrizada de bloqueio de novas alocações; nunca apaga.
+- Bloqueio comercial (cliente ou assinatura em BLOQUEADO/SUSPENSO/INADIMPLENTE/CANCELADO/EXCLUIDO) não apaga dados: o avaliador responde `motivo=BLOQUEADO_COMERCIAL` em pré-check anterior à ladder de permissão; reativação restaura o acesso já contratado.
+- Limites são verificados transacionalmente (lock + contagem de ativos) no consumo de capacidade. `NULL` = ilimitado, distinto de "ausente" e de "não contratado": sem contrato vigente o módulo fecha independentemente de limite nulo.
+- Histórico da assinatura é append-only e o evento comercial é publicado em `sigov.saas_evento` dentro da mesma transação.
 
 ## Compatibilidade e suspensão — correção 20260914130000
 

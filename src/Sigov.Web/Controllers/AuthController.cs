@@ -342,6 +342,8 @@ public sealed class AuthController : Controller
         var passwordHash = _passwordHashService.HashPassword(novaSenha);
         var changed = await _authenticationRepository.ConsumePasswordResetTokenAsync(hash, passwordHash, ct).ConfigureAwait(false);
         if (changed is null) { ModelState.AddModelError(string.Empty, "O link de redefinição é inválido ou expirou. Solicite uma nova recuperação de senha."); return View(model); }
+        // RC-SAAS-AUT (A5): redefinição via token de recuperação revoga todas as sessões ativas em paridade Web+API.
+        await _identitySessionService.RevokeAllForUserAsync(changed.Id, "SENHA_REDEFINIDA", ct).ConfigureAwait(false);
         await _auditTrail.RegistrarAsync(changed.TenantId, changed.Id, "SENHA_REDEFINIDA", "sigov.usuario", changed.Id.ToString(), null, new { origem = "recuperacao" }, null, null, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
         return RedirectToAction(nameof(Login));
     }

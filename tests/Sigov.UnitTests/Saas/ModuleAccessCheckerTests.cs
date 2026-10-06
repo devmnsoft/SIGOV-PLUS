@@ -31,6 +31,19 @@ public sealed class ModuleAccessCheckerTests
     }
 
     [Fact]
+    public async Task Modulo_com_situacao_comercial_bloqueante_emite_BloqueadoComercial_e_nunca_fallback()
+    {
+        foreach (var status in new[] { "BLOQUEADO", "SUSPENSO", "INADIMPLENTE", "CANCELADO", "EXCLUIDO", "EXPIRADO" })
+        {
+            var checker = CreateCommercialChecker("ATIVO", null, new TenantModuleContract(1, "core", null, status, true));
+            var result = await checker.CheckModuleAsync(new ModuleAccessRequest(1, "core", new[] { "ADMINISTRADOR_TENANT" }), CancellationToken.None);
+            result.Allowed.Should().BeFalse($"status={status}");
+            result.StatusCode.Should().Be(403, $"status={status}");
+            result.Motivo.Should().Be(SaasForbiddenMotivo.BloqueadoComercial, $"status={status}");
+        }
+    }
+
+    [Fact]
     public async Task Modulo_com_vigencia_expirada_bloqueia()
     {
         var checker = CreateChecker(new TenantModuleContract(1, "core", null, "ATIVO", true,

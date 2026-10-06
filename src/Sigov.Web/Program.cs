@@ -91,6 +91,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                 {
                     context.RejectPrincipal();
                     await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+                    return;
+                }
+
+                // RC-SAAS-AUT (A5): paridade de revogação — compara a versão derivada corrente
+                // (greatest de timestamps de identidade/permissão) com a persistida na sessão;
+                // diferença implica alteração posterior ao login → encerrar sessão.
+                var currentAuthVersion = await sessionService.DeriveAuthVersionAsync(userId, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                if (currentAuthVersion != validation.AuthVersion)
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
                 }
             }
         };

@@ -67,6 +67,13 @@ public interface IIdentitySessionService
     Task<ApiTokenResult> ResolveApiTokenAsync(long sessionId, long userId, long tenantId, string token, long authVersion, CancellationToken cancellationToken);
     Task RevokeAsync(long sessionId, long userId, string reason, CancellationToken cancellationToken);
     Task RevokeAllForUserAsync(long userId, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// RC-SAAS-AUT (A5): deriva a versão de autenticação corrente do usuário a partir das
+    /// tabelas de identidade/permissão (greatest dos timestamps). Comparado com o auth_version
+    /// persistido na sessão; diferença implica revogação por alteração de identidade ou permissão.
+    /// </summary>
+    Task<long> DeriveAuthVersionAsync(long userId, CancellationToken cancellationToken);
 }
 
 public enum PasswordRecoveryResult { AccountNotFound, Cooldown, Sent }

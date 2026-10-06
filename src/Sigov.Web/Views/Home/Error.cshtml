@@ -1,11 +1,15 @@
 @{
     var code = (int?)ViewData["Code"] ?? 500;
+    // RC-SAAS-AUT (A7): 403 padronizado com motivo canônico.
+    var forbiddenMotivo = Context.Items[Sigov.Web.Helpers.ForbiddenResponse.MotivoItemKey] as string;
+    var forbiddenDetalhe = Context.Items[Sigov.Web.Helpers.ForbiddenResponse.DetalheItemKey] as string;
     var title = code == 404 ? "Página não encontrada" : code == 403 ? "Acesso não autorizado" : "Não foi possível concluir";
     var message = code == 404
         ? "O endereço informado não existe ou o recurso foi removido. Confira o menu para continuar."
         : code == 403
-            ? "Você não possui permissão para esta ação. A tentativa foi interrompida com segurança."
+            ? !string.IsNullOrEmpty(forbiddenDetalhe) ? forbiddenDetalhe
+              : "Você não possui permissão para esta ação. A tentativa foi interrompida com segurança."
             : "Tente novamente. Se o problema continuar, acione o suporte e informe o código de referência abaixo.";
     ViewData["Title"] = title;
 }
-<section class="sigov-system-state" role="@(code >= 500 ? "alert" : "status")" aria-labelledby="error-title"><sigov-icon name="@(code == 403 ? "locked" : code == 404 ? "search" : "warning")" size="32" /><span class="sigov-status-pill sigov-status-pill--@(code >= 500 ? "danger" : "warning")">Erro @code</span><h1 id="error-title">@title</h1><p>@message</p><p class="sigov-reference">Código de referência: <code>@Context.TraceIdentifier</code></p><div class="sigov-empty-state__actions"><a class="sigov-btn sigov-btn--primary" href="/MinhaCentral">Ir para Minha Central</a><a class="sigov-btn sigov-btn--ghost" href="/Ajuda">Abrir central de ajuda</a></div></section>
+<section class="sigov-system-state" role="@(code >= 500 ? "alert" : "status")" aria-labelledby="error-title"><sigov-icon name="@(code == 403 ? "locked" : code == 404 ? "search" : "warning")" size="32" /><span class="sigov-status-pill sigov-status-pill--@(code >= 500 ? "danger" : "warning")">Erro @code</span><h1 id="error-title">@title</h1><p>@message</p>@if (code == 403 && !string.IsNullOrEmpty(forbiddenMotivo)) { <p class="sigov-reference">Motivo: <code>@forbiddenMotivo</code></p> }<p class="sigov-reference">Código de referência: <code>@Context.TraceIdentifier</code></p><div class="sigov-empty-state__actions"><a class="sigov-btn sigov-btn--primary" href="/MinhaCentral">Ir para Minha Central</a><a class="sigov-btn sigov-btn--ghost" href="/Ajuda">Abrir central de ajuda</a></div></section>

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Dapper;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Saas.Comercial;
 using Sigov.Application.Saas.Modules;
 using Sigov.Application.Saas.SuperAdmin;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -45,6 +46,29 @@ public sealed class SaasTenantAdministrationService(
         var users = (await connection.QueryAsync<UserRow>(new CommandDefinition(UsersSql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).AsList();
         var contracts = (await connection.QueryAsync<SaasTenantContractItem>(new CommandDefinition(ContractsSql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).AsList();
         var catalogItems = await catalog.GetModulesAsync(cancellationToken).ConfigureAwait(false);
+
+        // RC-SAAS-AUT (A6): uso vs limites + histórico de assinaturas.
+        SaasUsageSummary? usage = null;
+        try { usage = await limitValidator.GetUsageSummaryAsync(tenantId, cancellationToken).ConfigureAwait(false); }
+        catch { /* sem assinatura ativa → null */ }
+
+        IReadOnlyList<SaasSubscriptionHistoryItem> history = Array.Empty<SaasSubscriptionHistoryItem>();
+        try
+        {
+            history = (await connection.QueryAsync<SaasSubscriptionHistoryItem>(new CommandDefinition(@"
+                select h.id Id,
+                       pa.nome PlanoAnterior, pn.nome PlanoNovo,
+                       h.acao Acao, h.motivo Motivo,
+                       h.created_at CreatedAtUtc
+                  from sigov.saas_assinatura_historico h
+                  left join sigov.saas_plano pa on pa.id=h.plano_anterior_id
+                  left join sigov.saas_plano pn on pn.id=h.plano_novo_id
+                 where h.tenant_id=@TenantId
+                 order by h.created_at desc limit 50;
+            ", new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        }
+        catch { /* tabela pode não existir em ambientes iniciais */ }
+
         return new SaasTenantDetail(
             header.Id,
             header.Name,
@@ -55,7 +79,9 @@ public sealed class SaasTenantAdministrationService(
             entities,
             users.Select(user => new SaasTenantUserItem(user.Id, user.Name, user.Email, user.Active, SplitProfiles(user.Profiles), user.Blocked)).ToArray(),
             contracts,
-            catalogItems.Select(item => new ModuleCatalogOption(item.Codigo, item.Nome, item.Dependencias)).ToArray());
+            catalogItems.Select(item => new ModuleCatalogOption(item.Codigo, item.Nome, item.Dependencias)).ToArray(),
+            usage,
+            history);
     }
 
     public Task<SaasModuleContractResult> ContractAsync(SaasModuleContractCommand command, long userId, string correlationId, CancellationToken cancellationToken = default) =>
@@ -137,7 +163,8 @@ public sealed class SaasTenantAdministrationService(
 
             // RC-SAAS-AUT Etapa B: limite comercial transacional (lock na assinatura ativa).
             var limite = await limitValidator.ValidateUserLimitTxAsync(connection, tx, command.TenantId, cancellationToken).ConfigureAwait(false);
-            if (!limite.Allowed) return Rollback(tx, limite.Alert ?? "Limite de usuários do plano atingido.");
+            // RC-SAAS-AUT (A9): negação por limite transacional é explícita e portadora do motivo canônico LIMITE_ATINGIDO.
+            if (!limite.Allowed) return Rollback(tx, limite.Alert ?? "Limite de usuários do plano atingido.", SaasForbiddenMotivo.LimiteAtingido);
 
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
             // A credencial aleatória não é revelada nem reutilizável. O titular define a
@@ -164,6 +191,33 @@ public sealed class SaasTenantAdministrationService(
                     new { command.TenantId, PerfilId = perfilId.Value }, tx);
                 if (!grupoId.HasValue)
                     return Rollback(tx, "O perfil inicial não possui grupo ativo no cliente informado.");
+
+                // RC-SAAS-AUT (A3): anti-autopromoção — ator não-global só concede chaves delegavel=true
+                // ou efetivamente suas. Global (saas.plataforma.administrar) está isento.
+                var violaAntiAutopromocao = await connection.ExecuteScalarAsync<int>(new CommandDefinition(@"
+                    select count(*) from sigov.permissao p
+                    join sigov.perfil_permissao pp on pp.permissao_id=p.id and pp.perfil_acesso_id=@PerfilId and pp.ativo and not pp.is_deleted and pp.efeito='PERMITIR'
+                    where p.ativo and not p.is_deleted
+                      and not p.delegavel
+                      and not exists(select 1
+                          from sigov.usuario u2
+                          join sigov.usuario_grupo ug2 on ug2.usuario_id=u2.id and ug2.ativo and not ug2.is_deleted
+                          join sigov.grupo_perfil gp2 on gp2.grupo_acesso_id=ug2.grupo_acesso_id and gp2.ativo and not gp2.is_deleted
+                          join sigov.perfil_acesso pa2 on pa2.id=gp2.perfil_acesso_id and pa2.ativo and not pa2.is_deleted
+                          join sigov.perfil_permissao pp2 on pp2.perfil_acesso_id=pa2.id and pp2.ativo and not pp2.is_deleted and pp2.efeito='PERMITIR'
+                          join sigov.permissao p2 on p2.id=pp2.permissao_id and p2.ativo and not p2.is_deleted
+                          where u2.id=@ActorId and p2.chave=p.chave)
+                      and not exists(select 1
+                          from sigov.usuario u3
+                          join sigov.usuario_grupo ug3 on ug3.usuario_id=u3.id and ug3.ativo and not ug3.is_deleted
+                          join sigov.grupo_perfil gp3 on gp3.grupo_acesso_id=ug3.grupo_acesso_id and gp3.ativo and not gp3.is_deleted
+                          join sigov.perfil_acesso pa3 on pa3.id=gp3.perfil_acesso_id and pa3.ativo and not pa3.is_deleted
+                          join sigov.perfil_permissao pp3 on pp3.perfil_acceso_id=pa3.id and pp3.ativo and not pp3.is_deleted and pp3.efeito='PERMITIR'
+                          join sigov.permissao p3 on p3.id=pp3.permissao_id and p3.ativo and not p3.is_deleted
+                          where u3.id=@ActorId and p3.chave='saas.plataforma.administrar')",
+                    new { PerfilId = perfilId.Value, ActorId = userId }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (violaAntiAutopromocao > 0)
+                    return Rollback(tx, "Anti-autopromoção: o perfil contém permissões que não podem ser delegadas pelo usuário atual (nem delegáveis nem efetivamente suas).");
 
                 await connection.ExecuteAsync(
                     "insert into sigov.usuario_grupo(tenant_id, usuario_id, grupo_acesso_id, ativo, created_by, correlation_id) values (@TenantId, @UserId, @GrupoId, true, @CreatedBy, @CorrelationId) on conflict do nothing",
@@ -250,6 +304,31 @@ public sealed class SaasTenantAdministrationService(
                 "select id as Id, coalesce(nome, login) as Name, email as Email, (ativo and not is_deleted) as Active, coalesce(bloqueado, false) as Blocked, null as Profiles from sigov.usuario where id=@UserId and tenant_id=@TenantId and not is_deleted for update",
                 new { command.UserId, command.TenantId }, tx);
             if (before is null) return Rollback(tx, "Usuário não encontrado.");
+
+            // RC-SAAS-AUT (A3): proteção do último administrador — não permite inativar/bloquear
+            // o único usuário ativo do tenant que detém permissão de gerenciar usuários/perfis.
+            if (!command.Active || command.Blocked)
+            {
+                var remainingAdmins = await connection.ExecuteScalarAsync<int>(new CommandDefinition("""
+                    select count(1) from sigov.usuario u
+                    where u.tenant_id = @TenantId
+                      and u.id <> @TargetUserId
+                      and u.ativo = true
+                      and not coalesce(u.bloqueado, false)
+                      and not coalesce(u.is_deleted, false)
+                      and exists (
+                        select 1 from sigov.usuario_grupo ug
+                        join sigov.grupo_perfil gp on gp.grupo_acesso_id = ug.grupo_acesso_id and gp.ativo and not gp.is_deleted
+                        join sigov.perfil_permissao pp on pp.perfil_acesso_id = gp.perfil_acesso_id and pp.efeito='PERMITIR' and pp.ativo and not pp.is_deleted
+                        join sigov.permissao p on p.id = pp.permissao_id and p.ativo and not p.is_deleted
+                        where ug.usuario_id = u.id
+                          and p.chave in ('cliente.usuarios.gerenciar', 'cliente.perfis.gerenciar')
+                      )
+                """, new { command.TenantId, TargetUserId = command.UserId }, tx, cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+                if (remainingAdmins == 0)
+                    return Rollback(tx, "Não é possível inativar ou bloquear o último administrador do cliente. Transfira a permissão para outro usuário antes.");
+            }
 
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
             await connection.ExecuteAsync(new CommandDefinition(
@@ -425,10 +504,10 @@ public sealed class SaasTenantAdministrationService(
         }
     }
 
-    private static SaasModuleContractResult Rollback(IDbTransaction transaction, string message)
+    private static SaasModuleContractResult Rollback(IDbTransaction transaction, string message, SaasForbiddenMotivo? motivo403 = null)
     {
         transaction.Rollback();
-        return new(false, message);
+        return new(false, message, null, motivo403);
     }
 
     private static Task<int> RevokeTenantSessionsAsync(IDbConnection connection, IDbTransaction transaction, long tenantId,

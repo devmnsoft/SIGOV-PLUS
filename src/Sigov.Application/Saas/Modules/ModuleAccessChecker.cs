@@ -88,20 +88,13 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
             return ModuleAccessResult.Forbidden("Módulo expirado para o tenant.", SaasForbiddenMotivo.ContratoExpirado);
         }
 
-        if (string.Equals(contract.Status, "SUSPENSO", StringComparison.OrdinalIgnoreCase))
-        {
-            return ModuleAccessResult.Forbidden("Módulo suspenso para o tenant.", SaasForbiddenMotivo.BloqueadoComercial);
-        }
-
-        if (string.Equals(contract.Status, "CANCELADO", StringComparison.OrdinalIgnoreCase))
-        {
-            return ModuleAccessResult.Forbidden("Módulo cancelado para o tenant.", SaasForbiddenMotivo.BloqueadoComercial);
-        }
-
-        if (string.Equals(contract.Status, "INADIMPLENTE", StringComparison.OrdinalIgnoreCase) ||
+        // RC-SAAS-AUT (A9): situação comercial bloqueante do contrato (BLOQUEADO/SUSPENSO/INADIMPLENTE/
+        // CANCELADO/EXCLUIDO, além de EXPIRADO) emite BLOQUEADO_COMERCIAL canônico e nunca cai no
+        // fallback de "não contratado/habilitado".
+        if (TenantCommercialStatus.IsBlocked(contract.Status) ||
             string.Equals(contract.Status, "EXPIRADO", StringComparison.OrdinalIgnoreCase))
         {
-            return ModuleAccessResult.Forbidden("Módulo indisponível por situação comercial.", SaasForbiddenMotivo.BloqueadoComercial);
+            return ModuleAccessResult.Forbidden($"Módulo em situação comercial bloqueante ({contract.Status}).", SaasForbiddenMotivo.BloqueadoComercial);
         }
 
         if (string.Equals(contract.Status, "EM_IMPLANTACAO", StringComparison.OrdinalIgnoreCase) && !request.ProfileCodes.Any(ImplantacaoProfiles.Contains))

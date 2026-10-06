@@ -119,6 +119,15 @@ select s.id as SessionId, s.usuario_id as UserId, s.tenant_id as TenantId, s.ent
             return AuthenticateResult.Fail("Sessao ausente, revogada ou expirada.");
         }
 
+        // RC-SAAS-AUT (A5): paridade de revogação — compara a versão derivada corrente com a
+        // persistida na sessão; diferença implica alteração posterior ao login.
+        var sessionService = Context.RequestServices.GetRequiredService<IIdentitySessionService>();
+        var currentAuthVersion = await sessionService.DeriveAuthVersionAsync(row.UserId, Context.RequestAborted).ConfigureAwait(false);
+        if (currentAuthVersion != row.AuthVersion)
+        {
+            return AuthenticateResult.Fail("Sessao revogada por alteracao de identidade ou permissao.");
+        }
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, row.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
