@@ -15,6 +15,7 @@ public static class RhPermissoes
     public const string Portal = "rh.portal.visualizar";
     public const string Dashboard = "rh.dashboard.visualizar";
     public const string IntegrarFinanceiro = "rh.financeiro.integrar";
+    public const string Reabrir = "rh.apuracao.reabrir";
 }
 
 // Contratos exclusivos do Bloco 2. Os nomes prefixados evitam colisões no Swagger.
@@ -25,6 +26,7 @@ public sealed record RhPontoCriarJustificativaRequest(long ServidorId, DateOnly 
 public sealed record RhPontoApuracaoRequest(long ServidorId, DateOnly PeriodoInicio, DateOnly PeriodoFim);
 public sealed record RhPontoHomologacaoRequest(string? JustificativaDivergencia = null);
 public sealed record RhPontoIntegracaoFolhaRequest(long FolhaId);
+public sealed record RhPontoReaberturaRequest(string? Justificativa = null);
 public sealed record RhFeriasPeriodoAquisitivoDto(long ServidorId, DateOnly PeriodoInicio, DateOnly PeriodoFim);
 public sealed record RhFeriasSolicitacaoRequest(long ServidorId, long PeriodoAquisitivoId, DateOnly PeriodoInicio, DateOnly PeriodoFim);
 public sealed record RhFeriasAprovacaoRequest(string? Observacao = null);
@@ -53,6 +55,10 @@ public sealed record RhApuracaoJanelaDto(long Id, string Status);
 public sealed record RhPontoAjusteResumoDto(long RegistroId, DateTimeOffset AjustadoEm, int ApuracoesInvalidadas, DateOnly JanelaInicio, DateOnly JanelaFim);
 public sealed record RhJustificativaDecisaoDto(long JustificativaId, string Status, long? DecididoPor, int ApuracoesInvalidadas);
 
+// RC-EVO-RH §6: homologação/reabertura (prévia com memória+pendências, versão revalidada, concorrência sem efeito duplicado).
+public sealed record RhApuracaoHomologacaoResumoDto(long ApuracaoId, string Status, DateTimeOffset TransicaoEm, string VersaoRegras, IReadOnlyList<string> PendenciasGlobais, bool JaHomologada);
+public sealed record RhApuracaoReaberturaResumoDto(long ApuracaoId, string Status, DateTimeOffset TransicaoEm, long? ReabertoPor, bool JaReaberta);
+
 public interface IRhRepository
 {
     Task<PagedResult<RhRegistroResponse>> ListarAsync(long tenantId, string recurso, RhFiltro filtro, CancellationToken ct);
@@ -80,6 +86,9 @@ public interface IRhRepository
     Task<IReadOnlyList<RhApuracaoJanelaDto>> ApuracoesCobertasPorJanelaAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct);
     Task<int> InvalidarApuracoesPorAjusteAsync(long tenantId, IReadOnlyCollection<long> ids, string motivo, long? usuarioId, CancellationToken ct);
     Task AtualizarComDeltaAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long? usuarioId, CancellationToken ct);
+    // RC-EVO-RH §6: homologação/reabertura (update guardado por status + integrações de destino da apuração)
+    Task<int> AtualizarStatusApuracaoGuardadoAsync(long tenantId, long id, string statusGuard, string novoStatus, string deltaJson, string operacao, object? antes, object? depois, string? justificativa, long? usuarioId, CancellationToken ct);
+    Task<IReadOnlyList<RhRegistroComOrigemDto>> ListarIntegracoesFolhaDaApuracaoAsync(long tenantId, long apuracaoId, CancellationToken ct);
 }
 
 public interface IRhService
@@ -96,4 +105,7 @@ public interface IRhService
     Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct);
     Task<Result<RhPontoAjusteResumoDto>> AjustarPontoRegistroAsync(long registroId, RhPontoRegistrarBatidaRequest request, CancellationToken ct);
     Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct);
+    // RC-EVO-RH §6: homologação/reabertura de apuração
+    Task<Result<RhApuracaoHomologacaoResumoDto>> HomologarApuracaoPontoAsync(long apuracaoId, string? observacao, CancellationToken ct);
+    Task<Result<RhApuracaoReaberturaResumoDto>> ReabrirApuracaoPontoAsync(long apuracaoId, string justificativa, CancellationToken ct);
 }

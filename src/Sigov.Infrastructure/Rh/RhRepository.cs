@@ -428,6 +428,44 @@ where tenant_id = @TenantId and id = any(@Ids) and is_deleted = false
         await RegistrarEventoAsync(cn, tenantId, recurso, operacao, id, ParseJsonb(deltaJson), usuarioId, ct).ConfigureAwait(false);
     }
 
+    // RC-EVO-RH §6: homologação/reabertura — update guardado por status (concorrência sem efeito
+    // duplicado), auditoria append-only, justificativa estruturada na reabertura e evento de fila.
+    public async Task<int> AtualizarStatusApuracaoGuardadoAsync(long tenantId, long id, string statusGuard, string novoStatus, string deltaJson, string operacao, object? antes, object? depois, string? justificativa, long? usuarioId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        var auditoria = BuildAuditJson(operacao, usuarioId, antes, depois);
+        var linhas = await cn.ExecuteAsync(Command(@"
+update sigov.rh_ponto_apuracao
+set status = @NovoStatus,
+    justificativa = coalesce(nullif(@Justificativa,''), justificativa),
+    dados = dados || cast(@Delta as jsonb),
+    auditoria = coalesce(auditoria, '{}'::jsonb) || cast(@Auditoria as jsonb),
+    updated_by = @UsuarioId,
+    updated_at = now()
+where tenant_id = @TenantId and id = @Id and is_deleted = false
+  and coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') = @StatusGuard;",
+            new { TenantId = tenantId, Id = id, StatusGuard = statusGuard, NovoStatus = novoStatus, Delta = deltaJson, Auditoria = auditoria, Justificativa = justificativa, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+        if (linhas > 0)
+        {
+            await RegistrarEventoAsync(cn, tenantId, "ponto-apuracoes", operacao, id, ParseJsonb(deltaJson), usuarioId, ct).ConfigureAwait(false);
+        }
+        return linhas;
+    }
+
+    public async Task<IReadOnlyList<RhRegistroComOrigemDto>> ListarIntegracoesFolhaDaApuracaoAsync(long tenantId, long apuracaoId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        var rows = await cn.QueryAsync<RegistroComOrigemRow>(Command(@"
+select id, dados::text as Dados, servidor_id as ServidorId, created_by as CriadoPor, created_at as CriadoEm,
+       coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as Status
+from sigov.rh_ponto_integracao_folha
+where tenant_id = @TenantId and is_deleted = false
+  and (case when coalesce(nullif(dados->>'apuracaoId',''), nullif(dados->>'ApuracaoId',''),'') ~ '^[0-9]+$'
+            then coalesce(nullif(dados->>'apuracaoId',''), nullif(dados->>'ApuracaoId',''))::bigint end) = @ApuracaoId
+order by id;", new { TenantId = tenantId, ApuracaoId = apuracaoId }, ct)).ConfigureAwait(false);
+        return rows.Select(r => new RhRegistroComOrigemDto(r.Id, r.Dados ?? "{}", r.ServidorId, r.CriadoPor, r.CriadoEm, r.Status)).ToList();
+    }
+
     // ==== Helpers JSONB case-insensitive (PascalCase da API / camelCase da engine) ===
 
     private static Dictionary<string, object?> ParseJsonb(string? json)

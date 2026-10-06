@@ -326,4 +326,48 @@ public sealed class RhRulesTests
         PontoTransicoes.TipoBatidaValido("").Should().BeFalse();
         PontoTransicoes.TipoBatidaValido(null).Should().BeFalse();
     }
+
+    [Fact]
+    public void Homologar_Somente_Apartir_De_Apurada()
+    {
+        PontoTransicoes.ValidarHomologacao("APURADA").Should().BeNull();
+        PontoTransicoes.ValidarHomologacao("apurada").Should().BeNull();
+        PontoTransicoes.ValidarHomologacao("HOMOLOGADA").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarHomologacao("INVALIDADA").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarHomologacao("RASCUNHO").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarHomologacao("").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarHomologacao(null).Should().Be(PontoTransicoes.TransicaoInvalida);
+    }
+
+    [Fact]
+    public void Reabrir_Somente_Apartir_De_Homologada()
+    {
+        PontoTransicoes.ValidarReabertura("HOMOLOGADA").Should().BeNull();
+        PontoTransicoes.ValidarReabertura("homologada").Should().BeNull();
+        PontoTransicoes.ValidarReabertura("APURADA").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarReabertura("INVALIDADA").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarReabertura(null).Should().Be(PontoTransicoes.TransicaoInvalida);
+    }
+
+    [Fact]
+    public void Homologar_Exige_Versao_Vigente_Das_Regras()
+    {
+        PontoTransicoes.VersaoRegrasCompativel("RH-APURACAO-1", "RH-APURACAO-1").Should().BeTrue();
+        PontoTransicoes.VersaoRegrasCompativel(" rh-apuracao-1 ", "RH-APURACAO-1").Should().BeTrue();
+        PontoTransicoes.VersaoRegrasCompativel("RH-APURACAO-2", "RH-APURACAO-1").Should().BeFalse();
+        PontoTransicoes.VersaoRegrasCompativel(null, "RH-APURACAO-1").Should().BeFalse();
+        PontoTransicoes.VersaoRegrasCompativel("  ", "RH-APURACAO-1").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Homologar_Exige_Memoria_Por_Dia_No_Payload()
+    {
+        var memoriaArray = System.Text.Json.JsonDocument.Parse("[]").RootElement.Clone();
+        var memoriaObjeto = System.Text.Json.JsonDocument.Parse("{}").RootElement.Clone();
+
+        PontoTransicoes.PossuiMemoriaPorDia(new Dictionary<string, object?> { ["memoriaPorDia"] = memoriaArray }).Should().BeTrue();
+        PontoTransicoes.PossuiMemoriaPorDia(new Dictionary<string, object?> { ["MemoriaPorDia"] = memoriaObjeto }).Should().BeTrue();
+        PontoTransicoes.PossuiMemoriaPorDia(new Dictionary<string, object?> { ["status"] = "APURADA" }).Should().BeFalse();
+        PontoTransicoes.PossuiMemoriaPorDia(new Dictionary<string, object?> { ["memoriaPorDia"] = null }).Should().BeFalse();
+    }
 }

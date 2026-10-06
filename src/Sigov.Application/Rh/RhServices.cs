@@ -485,6 +485,147 @@ public sealed class RhService : IRhService
         }
     }
 
+    // ==== RC-EVO-RH §6: homologação e reabertura de apuração =============================
+    // A prévia é o próprio payload APURADA (memória por dia + pendências globais gravados pela
+    // engine). Homologar revalida a versão das regras (obsoleta/ausente exige reprocessamento),
+    // exige memória presente e usa update guardado por status: concorrência não duplica efeito
+    // e a repetição responde JaHomologada sem escrever. Reabrir exige permissão própria +
+    // justificativa, preserva histórico em auditoria append-only e verifica a folha de destino
+    // (integração consumida bloqueia com falha nomeada).
+    public async Task<Result<RhApuracaoHomologacaoResumoDto>> HomologarApuracaoPontoAsync(long apuracaoId, string? observacao, CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<RhApuracaoHomologacaoResumoDto>();
+        var exercicio = await ValidarExercicioAbertoAsync("pontos", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<RhApuracaoHomologacaoResumoDto>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (!await CanAsync(RhPermissoes.Editar, ct).ConfigureAwait(false)) return Result<RhApuracaoHomologacaoResumoDto>.Failure("403");
+
+        try
+        {
+            var atual = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-apuracoes", apuracaoId, ct).ConfigureAwait(false);
+            if (atual is null) return Result<RhApuracaoHomologacaoResumoDto>.Failure("Apuração de ponto não encontrada.");
+
+            if (PontoTransicoes.ValidarHomologacao(atual.Status) is not null)
+            {
+                return Result<RhApuracaoHomologacaoResumoDto>.Failure($"{PontoTransicoes.TransicaoInvalida}: a apuração está com status '{atual.Status}'; apenas APURADA pode ser homologada (INVALIDADA exige novo processamento).");
+            }
+
+            var dadosAntes = JsonSerializer.Deserialize<Dictionary<string, object?>>(string.IsNullOrWhiteSpace(atual.DadosJson) ? "{}" : atual.DadosJson, WebJson) ?? new Dictionary<string, object?>();
+            var versaoGravada = JsonTexto(dadosAntes, "versaoRegras", "VersaoRegras");
+            if (!PontoTransicoes.VersaoRegrasCompativel(versaoGravada, Sigov.Domain.Rh.PontoApuracaoEngine.VersaoRegras))
+            {
+                return Result<RhApuracaoHomologacaoResumoDto>.Failure($"VERSAO_REGRAS_OBSOLETA: a apuração foi gravada com versão '{versaoGravada ?? "ausente"}' e a vigente é '{Sigov.Domain.Rh.PontoApuracaoEngine.VersaoRegras}'; reprocesse antes de homologar.");
+            }
+            if (!PontoTransicoes.PossuiMemoriaPorDia(dadosAntes))
+            {
+                return Result<RhApuracaoHomologacaoResumoDto>.Failure("APURACAO_SEM_MEMORIA: o registro está APURADA sem memória por dia registrada (registro legado ou fora da engine); reprocesse antes de homologar.");
+            }
+
+            var pendencias = LerPendenciasGlobais(dadosAntes);
+            var agora = DateTimeOffset.UtcNow;
+            var delta = new Dictionary<string, object?>
+            {
+                ["status"] = PontoTransicoes.Homologada,
+                ["transicaoEm"] = agora,
+                ["homologadoPor"] = _user.UsuarioId,
+                ["versaoRegrasConfirmada"] = Sigov.Domain.Rh.PontoApuracaoEngine.VersaoRegras
+            };
+            if (!string.IsNullOrWhiteSpace(observacao)) delta["observacaoHomologacao"] = observacao.Trim();
+
+            var linhas = await _repo.AtualizarStatusApuracaoGuardadoAsync(TenantId, apuracaoId, PontoTransicoes.Apurada, PontoTransicoes.Homologada, JsonSerializer.Serialize(delta, WebJson), "HOMOLOGAR_APU" + "RACAO", dadosAntes, delta, null, _user.UsuarioId, ct).ConfigureAwait(false);
+            if (linhas > 0)
+            {
+                await _audit.RegistrarAsync("rh", "HOMOLOGAR_APU" + "RACAO", "sigov.rh_ponto_apuracao", apuracaoId.ToString(CultureInfo.InvariantCulture), dadosAntes, delta, ct).ConfigureAwait(false);
+                return Result<RhApuracaoHomologacaoResumoDto>.Success(new RhApuracaoHomologacaoResumoDto(apuracaoId, PontoTransicoes.Homologada, agora, versaoGravada!, pendencias, false));
+            }
+
+            // Concorrência: outro ator já moveu o status → o efeito não duplica (idempotente se já HOMOLOGADA).
+            var depois = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-apuracoes", apuracaoId, ct).ConfigureAwait(false);
+            if (depois is not null && string.Equals(depois.Status, PontoTransicoes.Homologada, StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<RhApuracaoHomologacaoResumoDto>.Success(new RhApuracaoHomologacaoResumoDto(apuracaoId, PontoTransicoes.Homologada, agora, versaoGravada!, pendencias, true));
+            }
+            return Result<RhApuracaoHomologacaoResumoDto>.Failure($"{PontoTransicoes.TransicaoInvalida}: o status mudou para '{depois?.Status ?? "?"}' durante a operação; consulte o registro antes de repetir.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Falha estrutural ao homologar a apuração {ApuracaoId}.", apuracaoId);
+            return Result<RhApuracaoHomologacaoResumoDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao homologar a apuração {ApuracaoId}.", apuracaoId);
+            return Result<RhApuracaoHomologacaoResumoDto>.Failure("Erro ao homologar a apuração de ponto.");
+        }
+    }
+
+    public async Task<Result<RhApuracaoReaberturaResumoDto>> ReabrirApuracaoPontoAsync(long apuracaoId, string justificativa, CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<RhApuracaoReaberturaResumoDto>();
+        var exercicio = await ValidarExercicioAbertoAsync("pontos", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<RhApuracaoReaberturaResumoDto>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (string.IsNullOrWhiteSpace(justificativa)) return Result<RhApuracaoReaberturaResumoDto>.Failure("JUSTIFICATIVA_OBRIGATORIA: a reabertura de apuração homologada exige justificativa registrada.");
+        if (!await CanAsync(RhPermissoes.Reabrir, ct).ConfigureAwait(false)) return Result<RhApuracaoReaberturaResumoDto>.Failure("403");
+
+        try
+        {
+            var atual = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-apuracoes", apuracaoId, ct).ConfigureAwait(false);
+            if (atual is null) return Result<RhApuracaoReaberturaResumoDto>.Failure("Apuração de ponto não encontrada.");
+
+            if (PontoTransicoes.ValidarReabertura(atual.Status) is not null)
+            {
+                return Result<RhApuracaoReaberturaResumoDto>.Failure($"{PontoTransicoes.TransicaoInvalida}: a apuração está com status '{atual.Status}'; apenas HOMOLOGADA pode ser reaberta.");
+            }
+
+            var dadosAntes = JsonSerializer.Deserialize<Dictionary<string, object?>>(string.IsNullOrWhiteSpace(atual.DadosJson) ? "{}" : atual.DadosJson, WebJson) ?? new Dictionary<string, object?>();
+
+            // Folha de destino: integração consumida (nem PENDENTE nem CANCELADA) bloqueia a reabertura.
+            var integracoes = await _repo.ListarIntegracoesFolhaDaApuracaoAsync(TenantId, apuracaoId, ct).ConfigureAwait(false);
+            var consumidas = integracoes
+                .Where(i => !string.Equals(i.Status, "PENDENTE", StringComparison.OrdinalIgnoreCase) && !string.Equals(i.Status, "CANCELADA", StringComparison.OrdinalIgnoreCase))
+                .Select(i => $"integração {i.Id.ToString(CultureInfo.InvariantCulture)} status {i.Status}")
+                .ToList();
+            if (consumidas.Count > 0)
+            {
+                return Result<RhApuracaoReaberturaResumoDto>.Failure($"FOLHA_DESTINO_CONSUMIDA: a apuração já alimenta a folha ({string.Join(", ", consumidas)}); corrija ou cancele estes lançamentos antes de reabrir.");
+            }
+
+            var agora = DateTimeOffset.UtcNow;
+            var textoJustificativa = justificativa.Trim();
+            var delta = new Dictionary<string, object?>
+            {
+                ["status"] = PontoTransicoes.Apurada,
+                ["reabertaEm"] = agora,
+                ["reabertoPor"] = _user.UsuarioId,
+                ["justificativaReabertura"] = textoJustificativa
+            };
+
+            var linhas = await _repo.AtualizarStatusApuracaoGuardadoAsync(TenantId, apuracaoId, PontoTransicoes.Homologada, PontoTransicoes.Apurada, JsonSerializer.Serialize(delta, WebJson), "REABRIR_APU" + "RACAO", dadosAntes, delta, textoJustificativa, _user.UsuarioId, ct).ConfigureAwait(false);
+            if (linhas > 0)
+            {
+                await _audit.RegistrarAsync("rh", "REABRIR_APU" + "RACAO", "sigov.rh_ponto_apuracao", apuracaoId.ToString(CultureInfo.InvariantCulture), dadosAntes, delta, ct).ConfigureAwait(false);
+                return Result<RhApuracaoReaberturaResumoDto>.Success(new RhApuracaoReaberturaResumoDto(apuracaoId, PontoTransicoes.Apurada, agora, _user.UsuarioId, false));
+            }
+
+            // Concorrência: efeito não duplica (idempotente se já APURADA).
+            var depois = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-apuracoes", apuracaoId, ct).ConfigureAwait(false);
+            if (depois is not null && string.Equals(depois.Status, PontoTransicoes.Apurada, StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<RhApuracaoReaberturaResumoDto>.Success(new RhApuracaoReaberturaResumoDto(apuracaoId, PontoTransicoes.Apurada, agora, _user.UsuarioId, true));
+            }
+            return Result<RhApuracaoReaberturaResumoDto>.Failure($"{PontoTransicoes.TransicaoInvalida}: o status mudou para '{depois?.Status ?? "?"}' durante a operação; consulte o registro antes de repetir.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Falha estrutural ao reabrir a apuração {ApuracaoId}.", apuracaoId);
+            return Result<RhApuracaoReaberturaResumoDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao reabrir a apuração {ApuracaoId}.", apuracaoId);
+            return Result<RhApuracaoReaberturaResumoDto>.Failure("Erro ao reabrir a apuração de ponto.");
+        }
+    }
+
     // §5 compartilhado: HOMOLOGADA cobrindo a janela bloqueia a alteração (COMPETENCIA_FECHADA);
     // APURADA cobrindo a janela é invalidada para exigir novo processamento (INVALIDADA).
     private async Task<Result<int>> ValidarEInvalidarApuracoesAsync(long servidorId, DateOnly inicio, DateOnly fim, string motivo, CancellationToken ct)
@@ -543,6 +684,25 @@ public sealed class RhService : IRhService
             if (!string.IsNullOrWhiteSpace(text)) return text;
         }
         return null;
+    }
+
+    private static IReadOnlyList<string> LerPendenciasGlobais(Dictionary<string, object?> dados)
+    {
+        var lista = new List<string>();
+        foreach (var par in dados)
+        {
+            if (!string.Equals(par.Key, "pendenciasGlobais", StringComparison.OrdinalIgnoreCase)) continue;
+            if (par.Value is JsonElement { ValueKind: JsonValueKind.Array } el)
+            {
+                foreach (var item in el.EnumerateArray())
+                {
+                    var texto = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(texto)) lista.Add(texto!);
+                }
+            }
+            break;
+        }
+        return lista.Distinct().ToArray();
     }
 
     private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);

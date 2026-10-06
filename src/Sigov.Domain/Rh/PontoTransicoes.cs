@@ -40,4 +40,37 @@ public static class PontoTransicoes
     /// <summary>Ajuste exige tipo de batida reconhecível (sem inventar categorias).</summary>
     public static bool TipoBatidaValido(string? tipo)
         => !string.IsNullOrWhiteSpace(tipo) && Enum.TryParse<PontoTipo>(tipo!, true, out _);
+
+    // ==== RC-EVO-RH §6: homologação e reabertura de apuração =============================
+
+    public const string Apurada = "APURADA";
+    public const string Homologada = "HOMOLOGADA";
+
+    /// <summary>Transição válida para homologação: somente APURADA pode ser homologada.</summary>
+    public static string? ValidarHomologacao(string? statusAtual)
+        => string.Equals(statusAtual, Apurada, StringComparison.OrdinalIgnoreCase) ? null : TransicaoInvalida;
+
+    /// <summary>Transição válida para reabertura: somente HOMOLOGADA pode ser reaberta.</summary>
+    public static string? ValidarReabertura(string? statusAtual)
+        => string.Equals(statusAtual, Homologada, StringComparison.OrdinalIgnoreCase) ? null : TransicaoInvalida;
+
+    /// <summary>Homologação revalida a versão das regras: versão ausente ou obsoleta exige reprocessamento.</summary>
+    public static bool VersaoRegrasCompativel(string? gravada, string versaoVigente)
+        => !string.IsNullOrWhiteSpace(gravada) && string.Equals(gravada.Trim(), versaoVigente, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Memória por dia é requisito de homologação: ausente ou nulo é falha nomeada, nunca sucesso simulado.</summary>
+    public static bool PossuiMemoriaPorDia(IReadOnlyDictionary<string, object?> dados)
+    {
+        foreach (var par in dados)
+        {
+            if (!string.Equals(par.Key, "memoriaPorDia", StringComparison.OrdinalIgnoreCase)) continue;
+            if (par.Value is null) return false;
+            return par.Value switch
+            {
+                System.Text.Json.JsonElement el => el.ValueKind is System.Text.Json.JsonValueKind.Array or System.Text.Json.JsonValueKind.Object,
+                _ => true
+            };
+        }
+        return false;
+    }
 }

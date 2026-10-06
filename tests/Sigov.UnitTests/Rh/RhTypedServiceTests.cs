@@ -82,5 +82,7 @@ public sealed class RhTypedServiceTests
         public Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct) => Task.FromResult(Result<long>.Success(1));
         public Task<Result<RhPontoAjusteResumoDto>> AjustarPontoRegistroAsync(long registroId, RhPontoRegistrarBatidaRequest request, CancellationToken ct) => Task.FromResult(Result<RhPontoAjusteResumoDto>.Success(new RhPontoAjusteResumoDto(registroId, DateTimeOffset.UtcNow, 0, default(DateOnly), default(DateOnly))));
         public Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct) => Task.FromResult(Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, decisao, 1, 0)));
+        public Task<Result<RhApuracaoHomologacaoResumoDto>> HomologarApuracaoPontoAsync(long apuracaoId, string? observacao, CancellationToken ct) => Task.FromResult(Result<RhApuracaoHomologacaoResumoDto>.Success(new RhApuracaoHomologacaoResumoDto(apuracaoId, "HOMOLOGADA", DateTimeOffset.UtcNow, "RH-APURACAO-1", Array.Empty<string>(), false)));
+        public Task<Result<RhApuracaoReaberturaResumoDto>> ReabrirApuracaoPontoAsync(long apuracaoId, string justificativa, CancellationToken ct) => Task.FromResult(Result<RhApuracaoReaberturaResumoDto>.Success(new RhApuracaoReaberturaResumoDto(apuracaoId, "APURADA", DateTimeOffset.UtcNow, 1, false)));
     }
 }
