@@ -98,6 +98,7 @@ select exists (
         ('20260807120000', array['a30d8f7595b84c27fd786b9076a2c4e556e9d6b701e01ff0111e249ff2cc6be6']::text[]),
         ('20260809120000', array['77889bb6bad806646473e6309ac07e58b911d42430e985323676177f3cd01821']::text[]),
         ('20260809160000', array['c9879e5a853fe2b42ccd38e756fa8b4cdae858ead423faf3c0eb46fbe9d907ae','be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735']::text[]),
+        ('20260813193000', array['755a77f67431091f9e83a86703816e5d8f50c20c5eae6091fd1e3fe765fe6f2d']::text[]),
         ('20260813223000', array['e7cfa03b784033b79a4da64a3050022641bcd460c894302937c94ef0d987cfc1']::text[]),
         ('20260813230000', array['717441d428e6451c358adcbbfc1b726e623f6003990414f9c636d17995505bc5']::text[]),
         ('20260813231000', array['52f6cb9773f5d26322d1715aa7434b65c384ac28d167a4164922328b7cb5d3a5']::text[]),
@@ -237,7 +238,11 @@ select exists (
         ('20261003080000', array['7e8eef3929eeb33e0f2abcf3bfa58f4b6b4086d376921982c509ca9498b063c9']::text[]),
         ('20261003140000', array['fd5ad6bc437e07e9b6fb5714ca20220799c18493195463fe42dcd7f2c7b8810d']::text[]),
         ('20261005090000', array['683917b6c185dedcf00816c4c0f48d832ae7670ccfe6129335d7b1a881fa481b']::text[]),
-        ('20261005100000', array['e55cdeed5ca8f5e7799b7827a7276b7a3388eee7808d629a5ea2164c510ea48c']::text[])
+        ('20261005100000', array['e55cdeed5ca8f5e7799b7827a7276b7a3388eee7808d629a5ea2164c510ea48c']::text[]),
+        ('20261005110000', array['e648f3243022cdbfec024fa03343120fb9e6883daaee4c5f6b4fa4ae333227dc']::text[]),
+        ('20261005120000', array['e1a4c4c7f95bbcc135118d098a8323bdc7cf694e338df8f1a0709ad0055b2159']::text[]),
+        ('20261006120000', array['ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58']::text[]),
+        ('20261006230000', array['0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -1469,7 +1474,16 @@ begin
         where conname = 'uk_sigov_permissao_modulo_recurso_acao'
           and conrelid = 'sigov.permissao'::regclass
     ) then
-        alter table sigov.permissao add constraint uk_sigov_permissao_modulo_recurso_acao unique (modulo, recurso, acao);
+        begin
+            alter table sigov.permissao add constraint uk_sigov_permissao_modulo_recurso_acao unique (modulo, recurso, acao);
+        exception when unique_violation then
+            -- Desde RC50.68C a unicidade canonica de permissao e (modulo, chave) e o bootstrap
+            -- 083 removeu esta UC em bases evolutivas onde modulos como cidadao360 mantem de
+            -- forma intencional varias permissoes com o mesmo (modulo, recurso, acao). A falha
+            -- esperada em base evolutiva nao deve interromper a execucao idempotente do script
+            -- canonico (RC-SAAS-AUT: correcao de idempotencia em reexecucao do baseline).
+            null;
+        end;
     end if;
 end $$;
 
@@ -11529,6 +11543,100 @@ do $$ begin
 end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260809160000', 'rc49_workflow_platform', 'c9879e5a853fe2b42ccd38e756fa8b4cdae858ead423faf3c0eb46fbe9d907ae', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20260813193000_rc50_29_parametros_modulos.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: 755a77f67431091f9e83a86703816e5d8f50c20c5eae6091fd1e3fe765fe6f2d
+-- ==================================================
+-- RC50.29 - parâmetros funcionais por tenant. Database=postgres, schema=sigov.
+create table if not exists sigov.parametro_modulo (
+ id bigserial primary key, modulo varchar(40) not null, codigo varchar(100) not null, nome varchar(180) not null,
+ descricao text null, tipo varchar(20) not null, valor_padrao jsonb not null, sensivel boolean not null default false,
+ ordem integer not null default 0, ativo boolean not null default true, created_at timestamptz not null default now(),
+ updated_at timestamptz null, is_deleted boolean not null default false,
+ constraint ck_parametro_modulo_tipo check (tipo in ('BOOLEAN','INTEGER','DECIMAL','TEXT','JSON')));
+create unique index if not exists ux_parametro_modulo_codigo on sigov.parametro_modulo(modulo,codigo) where is_deleted=false;
+
+create table if not exists sigov.parametro_modulo_valor (
+ id bigserial primary key, tenant_id bigint not null, parametro_id bigint not null references sigov.parametro_modulo(id),
+ valor jsonb not null, created_at timestamptz not null default now(), updated_at timestamptz null,
+ created_by bigint null, updated_by bigint null, correlation_id varchar(100) not null, is_deleted boolean not null default false);
+create unique index if not exists ux_parametro_modulo_valor_tenant on sigov.parametro_modulo_valor(tenant_id,parametro_id) where is_deleted=false;
+create index if not exists ix_parametro_modulo_valor_consulta on sigov.parametro_modulo_valor(tenant_id,parametro_id,updated_at desc) where is_deleted=false;
+
+create table if not exists sigov.parametro_modulo_historico (
+ id bigserial primary key, tenant_id bigint not null, parametro_id bigint not null references sigov.parametro_modulo(id),
+ valor_anterior jsonb null, valor_novo jsonb not null, usuario_id bigint null, correlation_id varchar(100) not null,
+ auditoria jsonb not null default '{}'::jsonb, created_at timestamptz not null default now());
+create index if not exists ix_parametro_modulo_historico on sigov.parametro_modulo_historico(tenant_id,parametro_id,created_at desc,id desc);
+
+insert into sigov.parametro_modulo(modulo,codigo,nome,tipo,valor_padrao,ordem)
+values
+('EDUCACAO','FREQUENCIA_MINIMA','Percentual mínimo de frequência','DECIMAL','75',10),
+('EDUCACAO','ESCALA_NOTAS','Escala de notas','DECIMAL','10',20),('EDUCACAO','MEDIA_APROVACAO','Média mínima de aprovação','DECIMAL','6',30),
+('EDUCACAO','MEDIA_RECUPERACAO','Média de recuperação','DECIMAL','5',40),('EDUCACAO','CAPACIDADE_TURMA_PADRAO','Capacidade padrão da turma','INTEGER','30',50),
+('EDUCACAO','PERMITIR_EXCEDER_CAPACIDADE','Permitir matrícula acima da capacidade','BOOLEAN','false',60),('EDUCACAO','EXIGIR_RESPONSAVEL','Exigir responsável','BOOLEAN','true',70),
+('EDUCACAO','EXIGIR_DOCUMENTO_ALUNO','Exigir documento do aluno','BOOLEAN','true',80),('EDUCACAO','EXIGIR_DOCUMENTO_RESPONSAVEL','Exigir documento do responsável','BOOLEAN','true',90),
+('EDUCACAO','IDADE_POR_SERIE','Idade mínima e máxima por série','JSON','{}',100),('EDUCACAO','HABILITAR_PRE_MATRICULA','Habilitar pré-matrícula','BOOLEAN','true',110),
+('EDUCACAO','HABILITAR_PORTAL_RESPONSAVEL','Habilitar portal do responsável','BOOLEAN','true',120),
+('RH','EXIGIR_CPF','Exigir CPF','BOOLEAN','true',10),('RH','MATRICULA_FUNCIONAL_UNICA','Exigir matrícula funcional única','BOOLEAN','true',20),
+('RH','EXIGIR_DADOS_BANCARIOS_FOLHA','Exigir dados bancários para folha','BOOLEAN','true',30),('RH','EXIGIR_CARGO_ATIVO','Exigir cargo ativo','BOOLEAN','true',40),
+('RH','EXIGIR_LOTACAO_ATIVA','Exigir lotação ativa','BOOLEAN','true',50),('RH','EXIGIR_VINCULO_ATIVO','Exigir vínculo ativo','BOOLEAN','true',60),
+('RH','PERMITIR_MULTIPLOS_VINCULOS','Permitir múltiplos vínculos','BOOLEAN','false',70),('RH','PRAZO_FERIAS_VENCIDAS_DIAS','Prazo de férias vencidas','INTEGER','365',80),
+('RH','PRAZO_AFASTAMENTO_SEM_FIM_DIAS','Prazo de afastamento sem data fim','INTEGER','30',90),('RH','PERMITIR_PONTO_MANUAL','Permitir ponto manual','BOOLEAN','false',100),
+('FOLHA','PERMITIR_COMPLEMENTAR','Permitir folha complementar','BOOLEAN','true',10),('FOLHA','BLOQUEAR_CALCULO_COM_CRITICA','Bloquear cálculo com crítica','BOOLEAN','true',20),
+('FOLHA','PERMITIR_CRITICA_NAO_BLOQUEANTE','Permitir crítica não bloqueante','BOOLEAN','true',30),('FOLHA','EXIGIR_APROVACAO_FECHAMENTO','Exigir aprovação antes do fechamento','BOOLEAN','true',40),
+('FOLHA','EXIGIR_JUSTIFICATIVA_REABRIR','Exigir justificativa para reabrir','BOOLEAN','true',50),('FOLHA','PERMITIR_LANCAMENTO_NEGATIVO','Permitir lançamento negativo','BOOLEAN','false',60),
+('FOLHA','PERMITIR_SIMULACAO','Permitir simulação','BOOLEAN','true',70),('FOLHA','HABILITAR_INTEGRACAO_FINANCEIRA','Habilitar integração financeira','BOOLEAN','false',80),
+('FOLHA','HABILITAR_REMESSA_CSV','Habilitar remessa CSV','BOOLEAN','true',90),
+('PORTAL_SERVIDOR','HABILITADO','Habilitar portal do servidor','BOOLEAN','true',10),('PORTAL_EDUCACAO','HABILITADO','Habilitar portal da educação','BOOLEAN','true',10)
+on conflict do nothing;
+
+create or replace function sigov.salvar_parametro_modulo(p_tenant_id bigint,p_modulo varchar,p_codigo varchar,p_valor jsonb,p_usuario_id bigint,p_correlation_id varchar)
+returns void language plpgsql as $function$
+declare v_parametro_id bigint; v_anterior jsonb;
+begin
+ if p_tenant_id is null or p_tenant_id <= 0 then raise exception 'Tenant obrigatório'; end if;
+ if nullif(trim(p_correlation_id),'') is null then raise exception 'CorrelationId obrigatório'; end if;
+ select id into v_parametro_id from sigov.parametro_modulo where modulo=upper(p_modulo) and codigo=upper(p_codigo) and ativo and not is_deleted;
+ if v_parametro_id is null then raise exception 'Parâmetro não encontrado: %.%',p_modulo,p_codigo; end if;
+ select valor into v_anterior from sigov.parametro_modulo_valor where tenant_id=p_tenant_id and parametro_id=v_parametro_id and not is_deleted for update;
+ insert into sigov.parametro_modulo_valor(tenant_id,parametro_id,valor,created_by,updated_by,correlation_id)
+ values(p_tenant_id,v_parametro_id,p_valor,p_usuario_id,p_usuario_id,p_correlation_id)
+ on conflict (tenant_id,parametro_id) where is_deleted=false do update set valor=excluded.valor,updated_at=now(),updated_by=p_usuario_id,correlation_id=p_correlation_id;
+ insert into sigov.parametro_modulo_historico(tenant_id,parametro_id,valor_anterior,valor_novo,usuario_id,correlation_id,auditoria)
+ values(p_tenant_id,v_parametro_id,v_anterior,p_valor,p_usuario_id,p_correlation_id,jsonb_build_object('antes',v_anterior,'depois',p_valor,'modulo',upper(p_modulo)));
+end $function$;
+
+-- Permissões granulares. O seed preserva perfis administrativos ao conceder todas as novas chaves.
+do $permissions$
+declare permission_key text;
+begin
+ foreach permission_key in array array[
+ 'educacao.dashboard.visualizar','educacao.escolas.visualizar','educacao.escolas.criar','educacao.escolas.editar','educacao.alunos.visualizar','educacao.alunos.criar','educacao.alunos.editar','educacao.alunos.dados_sensiveis.visualizar','educacao.matriculas.criar','educacao.matriculas.confirmar','educacao.matriculas.cancelar','educacao.matriculas.transferir','educacao.frequencia.lancar','educacao.frequencia.justificar','educacao.notas.lancar','educacao.boletim.visualizar','educacao.secretaria.documentos.emitir','educacao.diario.editar','educacao.conselho.aprovar','educacao.relatorios.visualizar',
+ 'rh.dashboard.visualizar','rh.servidores.visualizar','rh.servidores.criar','rh.servidores.editar','rh.servidores.dados_sensiveis.visualizar','rh.cargos.gerenciar','rh.lotacoes.gerenciar','rh.vinculos.gerenciar','rh.ponto.lancar','rh.ponto.homologar','rh.ferias.gerenciar','rh.afastamentos.gerenciar','rh.saude_ocupacional.visualizar','rh.portal.visualizar','rh.relatorios.visualizar',
+ 'folha.visualizar','folha.criar','folha.editar','folha.calcular','folha.simular','folha.conferir','folha.aprovar','folha.fechar','folha.reabrir','folha.cancelar','folha.eventos.gerenciar','folha.lancamentos.gerenciar','folha.contracheques.visualizar','folha.contracheques.todos.visualizar','folha.integracao_financeira.gerenciar','folha.remessa.gerar','folha.relatorios.visualizar']
+ loop
+  insert into sigov.permissao(chave,descricao,modulo,recurso,acao,ativo)
+  values(permission_key,'Permissão granular RC50.29',split_part(permission_key,'.',1),split_part(permission_key,'.',2),split_part(permission_key,'.',3),true)
+  on conflict (chave) do update set ativo=true,is_deleted=false;
+ end loop;
+ insert into sigov.perfil_permissao(tenant_id,perfil_acesso_id,permissao_id)
+ select coalesce(pa.tenant_id,t.id),pa.id,p.id
+ from sigov.perfil_acesso pa cross join sigov.tenant t join sigov.permissao p on p.descricao='Permissão granular RC50.29'
+ where pa.ativo and not pa.is_deleted and t.ativo and not t.is_deleted
+   and (upper(coalesce(pa.codigo_externo,'')) in ('ADMINISTRADOR_GERAL','ADMINISTRADOR_TENANT','SUPERADMIN') or upper(pa.nome) like '%ADMINISTRADOR%')
+   and (pa.tenant_id is null or pa.tenant_id=t.id)
+ on conflict do nothing;
+end $permissions$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20260813193000', 'RC50.29 parametros funcionais por tenant (parametro_modulo/valor/historico, salvar_parametro_modulo e permissoes granulares)', '755a77f67431091f9e83a86703816e5d8f50c20c5eae6091fd1e3fe765fe6f2d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -32707,6 +32815,284 @@ begin
 end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261005100000', 'FK saas_cliente.tenant_id para sigov.tenant e NOT NULL guardado por tabela vazia', 'e55cdeed5ca8f5e7799b7827a7276b7a3388eee7808d629a5ea2164c510ea48c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261005110000_rcsaas_aut_03_comercial_planos_limites.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: e648f3243022cdbfec024fa03343120fb9e6883daaee4c5f6b4fa4ae333227dc
+-- ==================================================
+-- RC-SAAS-AUT Etapa B - Comercial família B: quantidade dos addons de usuários/armazenamento
+-- e política de downgrade (parametrizada por esfera, banco como autoridade).
+-- Idempotente: colunas add-if-not-exists, constraint drop/add, seeds com where-not-exists/update-if-null.
+
+alter table sigov.saas_addon add column if not exists valor_quantidade int null;
+alter table sigov.saas_addon add column if not exists unidade_quantidade varchar(40) null;
+
+alter table sigov.saas_addon drop constraint if exists ck_saas_addon_valor_quantidade;
+alter table sigov.saas_addon add constraint ck_saas_addon_valor_quantidade check (valor_quantidade is null or valor_quantidade > 0);
+
+update sigov.saas_addon set valor_quantidade = 10, unidade_quantidade = 'usuarios' where codigo = 'USUARIOS_EXTRAS' and valor_quantidade is null;
+update sigov.saas_addon set valor_quantidade = 5120, unidade_quantidade = 'MB' where codigo = 'ARMAZENAMENTO_EXTRA' and valor_quantidade is null;
+
+insert into sigov.parametro_modulo (modulo, codigo, nome, descricao, tipo, valor_padrao, sensivel, ordem)
+select 'SAAS', 'DOWNGRADE_BLOQUEIO_NOVAS_ALOCACOES', 'Downgrade: suspensão de módulos excedentes', 'Política de downgrade comercial da família B. true (padrão): módulos fora do novo plano passam para SUSPENSO no contrato do cliente (família C), preservando dados e bloqueando novas alocações. false: mantém os módulos excedentes operando durante a transição.', 'BOOLEAN', 'true'::jsonb, false, 10
+where not exists (select 1 from sigov.parametro_modulo p where p.modulo = 'SAAS' and p.codigo = 'DOWNGRADE_BLOQUEIO_NOVAS_ALOCACOES');
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261005110000', 'Comercial familia B: quantidade dos addons (usuarios/armazenamento) e politica de downgrade parametrizada (SAAS/DOWNGRADE_BLOQUEIO_NOVAS_ALOCACOES)', 'e648f3243022cdbfec024fa03343120fb9e6883daaee4c5f6b4fa4ae333227dc', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261005120000_rcsaas_aut_04_dashboard_administrar.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: e1a4c4c7f95bbcc135118d098a8323bdc7cf694e338df8f1a0709ad0055b2159
+-- ==================================================
+-- RC-SAAS-AUT Etapa B - Corretiva: chave ausente 'saas.superadmin.dashboard/administrar'.
+-- O SaasAdminController (Web) avalia ('saas','saas.superadmin.dashboard','administrar') nas ações
+-- de administração (contratos, usuários do cliente e bloqueios), mas o catálogo só continha
+-- visualizar/exportar para esse recurso; após a convergência fail-closed do avaliador canônico,
+-- as ações administrativas passaram a NEGAR para todos os perfis.
+-- Esta migration cria a chave (idempotente) e espelha no grant os perfis que já administram a
+-- plataforma via 'saas.plataforma.administrar' (1768), mantendo o banco como fonte de autoridade.
+
+insert into sigov.permissao (modulo, recurso, chave, descricao, acao, critica, delegavel, ativo, is_deleted, created_at, correlation_id)
+select 'saas', 'saas.superadmin.dashboard', 'saas.superadmin.dashboard.administrar',
+       'Administração operacional do dashboard SaaS MNSOFT: clientes, usuários do cliente, contratos e bloqueios comerciais',
+       'administrar', false, false, true, false, now(), gen_random_uuid()
+where not exists (select 1 from sigov.permissao where modulo = 'saas' and chave = 'saas.superadmin.dashboard.administrar');
+
+insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id, tenant_id, efeito, ativo, is_deleted, created_at)
+select pp.perfil_acesso_id, n.id, pp.tenant_id, 'PERMITIR', true, false, now()
+from sigov.perfil_permissao pp
+join sigov.perfil_acesso pa on pa.id = pp.perfil_acesso_id and pa.ativo and not pa.is_deleted
+join sigov.permissao p on p.id = pp.permissao_id
+join sigov.permissao n on n.modulo = 'saas' and n.chave = 'saas.superadmin.dashboard.administrar'
+where p.modulo = 'saas' and p.chave = 'saas.plataforma.administrar'
+  and pp.ativo and not pp.is_deleted and upper(pp.efeito) = 'PERMITIR'
+  and not exists (select 1 from sigov.perfil_permissao x where x.perfil_acesso_id = pp.perfil_acesso_id and x.permissao_id = n.id);
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261005120000', 'Corretiva RC-SAAS-AUT: chave saas.superadmin.dashboard/administrar e grants espelhados da plataforma (1768)', 'e1a4c4c7f95bbcc135118d098a8323bdc7cf694e338df8f1a0709ad0055b2159', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261006120000_rcsaas_aut_05_grants_plataforma.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58
+-- ==================================================
+-- RC-SAAS-AUT Etapa B - Corretiva: grants de escopo plataforma (tenant_id IS NULL) para a
+-- administracao global MNSOFT do dashboard SaaS (Web) e da API comercial.
+-- Root cause (Gates H/I): o SaasAdminController (Web) avalia ('saas','saas.superadmin.dashboard',acao)
+-- com TenantId = tenant ALVO e ('saas','saas.superadmin.autorizacao','administrar') com TenantId NULL,
+-- mas os grants dos administradores globais estao escopados ao proprio tenant; o avaliador canonico
+-- so casa linhas com (tenant_id IS NULL OR tenant_id = @TenantId) e nao existia nenhuma linha de
+-- escopo plataforma (zero rows com tenant_id NULL nas tabelas de vinculo).
+-- ADEC: ok=false motivo=SEMCONCESSAOAPLICAVEL origem=WEB_SUPERADMIN_DASHBOARD.
+-- Correcao: cadeia de vinculo dedicada de escopo plataforma (grupo/perfil/vinculos com tenant_id NULL)
+-- para os logins admin e superadmin, cobrindo as chaves avaliadas pela Web
+-- (saas.superadmin.dashboard/{visualizar,administrar,exportar} e saas.superadmin.autorizacao/administrar)
+-- e pela API comercial (saas.plataforma/administrar). Banco como fonte de autoridade (regra 11);
+-- idempotente; tenant_id da cadeia passa a admitir NULL (escopo plataforma; DDL idempotente);
+-- triggers de preenchimento de tenant desabilitadas apenas durante os upserts
+-- (DDL transacional: em falha o rollback restaura o estado anterior).
+
+do $$
+declare
+    v_chaves text[] := array[
+        'saas.plataforma.administrar',
+        'saas.superadmin.autorizacao.administrar',
+        'saas.superadmin.dashboard.administrar',
+        'saas.superadmin.dashboard.exportar',
+        'saas.superadmin.dashboard.visualizar'
+    ];
+    v_ga_id bigint;
+    v_pa_id bigint;
+    v_users integer;
+    v_ok integer;
+begin
+    -- 1a) Escopo plataforma exige tenant_id anulavel na cadeia (DDL idempotente; no-op onde ja e anulavel).
+    alter table sigov.grupo_acesso alter column tenant_id drop not null;
+    alter table sigov.grupo_perfil alter column tenant_id drop not null;
+    alter table sigov.perfil_permissao alter column tenant_id drop not null;
+    alter table sigov.usuario_grupo alter column tenant_id drop not null;
+
+    -- 1) Usuarios-alvo e catalogo completos e ativos (falha explicita; regra 13).
+    select count(*) into v_users from sigov.usuario where lower(login) in ('admin', 'superadmin') and ativo and not is_deleted;
+    if v_users = 0 then
+        raise exception 'RC-SAAS-AUT grants plataforma: nenhum usuario ativo com login admin/superadmin';
+    end if;
+
+    if (select count(distinct chave) from sigov.permissao where modulo = 'saas' and chave = any (v_chaves) and ativo and not is_deleted) <> cardinality(v_chaves) then
+        raise exception 'RC-SAAS-AUT grants plataforma: chaves ausentes/inativas no catalogo (% de %)',
+            (select count(distinct chave) from sigov.permissao where modulo = 'saas' and chave = any (v_chaves) and ativo and not is_deleted),
+            cardinality(v_chaves);
+    end if;
+
+    -- 2) Grupo e perfil de escopo plataforma (tenant_id NULL).
+    select id into v_ga_id from sigov.grupo_acesso where nome = 'Plataforma MNSOFT' and tenant_id is null order by id limit 1;
+    if v_ga_id is null then
+        insert into sigov.grupo_acesso (nome, descricao, codigo_externo, ativo, is_deleted, created_at, created_by)
+        values ('Plataforma MNSOFT',
+                'Grupo global de administracao da plataforma SaaS MNSOFT (escopo multi-tenant, sem tenant)',
+                'PLATAFORMA_MNSOFT', true, false, now(), null)
+        returning id into v_ga_id;
+    else
+        update sigov.grupo_acesso set ativo = true, is_deleted = false, updated_at = now() where id = v_ga_id;
+    end if;
+
+    select id into v_pa_id from sigov.perfil_acesso where codigo_externo = 'ADMIN_PLATAFORMA_MNSOFT' order by is_deleted, ativo desc, id desc limit 1;
+    if v_pa_id is null then
+        insert into sigov.perfil_acesso (nome, descricao, codigo_externo, sistemico, ativo, is_deleted, created_at, created_by)
+        values ('Administrador de Plataforma MNSOFT',
+                'Perfil global da administracao SaaS MNSOFT: dashboard de clientes, usuarios do cliente e acoes comerciais',
+                'ADMIN_PLATAFORMA_MNSOFT', true, true, false, now(), null)
+        returning id into v_pa_id;
+    else
+        update sigov.perfil_acesso set ativo = true, is_deleted = false, sistemico = true, updated_at = now() where id = v_pa_id;
+    end if;
+
+    -- 3) Vinculos de escopo plataforma (tenant_id NULL). As triggers trg_*_tenant derivam
+    -- tenant_id quando NULL (do usuario/grupo/perfil pai) e bloqueiam valores nao resolvel;
+    -- sao desabilitadas somente durante estes upserts.
+    alter table sigov.usuario_grupo disable trigger user;
+    alter table sigov.grupo_perfil disable trigger user;
+    alter table sigov.perfil_permissao disable trigger user;
+
+    insert into sigov.grupo_perfil (grupo_acesso_id, perfil_acesso_id, tenant_id, entidade_id, exercicio_id, unidade_id, vigencia_inicio, vigencia_fim, ativo, is_deleted, created_at, created_by)
+    values (v_ga_id, v_pa_id, null, null, null, null, null, null, true, false, now(), null)
+    on conflict (grupo_acesso_id, perfil_acesso_id) do update
+        set tenant_id = null, entidade_id = null, exercicio_id = null, unidade_id = null,
+            vigencia_inicio = null, vigencia_fim = null, ativo = true, is_deleted = false;
+
+    insert into sigov.perfil_permissao (perfil_acesso_id, permissao_id, tenant_id, entidade_id, exercicio_id, unidade_id, efeito, alcada_valor, justificativa, ativo, is_deleted, created_at, created_by, updated_at)
+    select v_pa_id, p.id, null, null, null, null, 'PERMITIR', null,
+           'RC-SAAS-AUT: escopo plataforma multi-tenant para administracao global SaaS MNSOFT',
+           true, false, now(), null, now()
+    from sigov.permissao p
+    where p.modulo = 'saas' and p.chave = any (v_chaves) and p.ativo and not p.is_deleted
+    on conflict (perfil_acesso_id, permissao_id) do update
+        set tenant_id = null, entidade_id = null, exercicio_id = null, unidade_id = null,
+            vigencia_inicio = null, vigencia_fim = null, efeito = 'PERMITIR', alcada_valor = null,
+            ativo = true, is_deleted = false, updated_at = now();
+
+    insert into sigov.usuario_grupo (usuario_id, grupo_acesso_id, tenant_id, entidade_id, exercicio_id, unidade_id, vigencia_inicio, vigencia_fim, ativo, is_deleted, created_at, created_by)
+    select u.id, v_ga_id, null, null, null, null, null, null, true, false, now(), null
+    from sigov.usuario u
+    where lower(u.login) in ('admin', 'superadmin') and u.ativo and not u.is_deleted
+    on conflict (usuario_id, grupo_acesso_id) do update
+        set tenant_id = null, entidade_id = null, exercicio_id = null, unidade_id = null,
+            vigencia_inicio = null, vigencia_fim = null, ativo = true, is_deleted = false;
+
+    alter table sigov.usuario_grupo enable trigger user;
+    alter table sigov.grupo_perfil enable trigger user;
+    alter table sigov.perfil_permissao enable trigger user;
+
+    -- 4) Autoverificacao: cada usuario-alvo deve cobrir as 5 chaves via cadeia plataforma.
+    select count(*) into v_ok from (
+        select distinct u.id, p.chave
+        from sigov.usuario u
+        join sigov.usuario_grupo ug on ug.usuario_id = u.id and ug.ativo and not ug.is_deleted
+        join sigov.grupo_acesso ga on ga.id = ug.grupo_acesso_id and ga.ativo and not ga.is_deleted
+        join sigov.grupo_perfil gp on gp.grupo_acesso_id = ga.id and gp.ativo and not gp.is_deleted
+        join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo and not pa.is_deleted
+        join sigov.perfil_permissao pp on pp.perfil_acesso_id = pa.id and pp.ativo and not pp.is_deleted
+        join sigov.permissao p on p.id = pp.permissao_id and p.ativo and not p.is_deleted
+        where lower(u.login) in ('admin', 'superadmin') and u.ativo and not u.is_deleted
+          and p.modulo = 'saas' and p.chave = any (v_chaves)
+          and ug.tenant_id is null and gp.tenant_id is null and pp.tenant_id is null
+          and upper(pp.efeito) = 'PERMITIR'
+    ) x;
+    if v_ok <> v_users * cardinality(v_chaves) then
+        raise exception 'RC-SAAS-AUT grants plataforma: autoverificacao falhou (cobertura % <> esperada %)',
+            v_ok, v_users * cardinality(v_chaves);
+    end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006120000', 'Corretiva RC-SAAS-AUT: grants de escopo plataforma (tenant_id NULL) para admin/superadmin - dashboard SaaS Web multi-tenant', 'ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- ==================================================
+-- MIGRATION: 
+20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 
+0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987
+-- ==================================================
+-- RC-SAAS-AUT Etapa B - Corretiva: normalizacao canonica de modulo/recurso/acao das chaves
+-- saas.superadmin.* (dashboard.visualizar, dashboard.exportar, dashboard.administrar e
+-- autorizacao.administrar) e da chave saas.plataforma.administrar.
+-- Root cause: reexecucao parcial do script completo consolidado aplicou a regra de derivacao
+-- %admin% da migration 013 (recurso = split_part(chave,'.',1); acao = split_part(chave,'.',2))
+-- e parou antes das secoes de normalizacao da migration 01, deixando as linhas com valores
+-- grossos ('saas','saas','<parte>'), incompativeis com os tuplos canonicos do avaliador
+-- persistente ('saas','saas.superadmin.dashboard'|'saas.superadmin.autorizacao'|'plataforma',acao),
+-- o que quebra as pos-condicoes 20261005090000 (01) e 20261005120000 (04).
+-- Regra 8: correcao em migration nova e idempotente; migrations publicadas nao sao alteradas.
+
+update sigov.permissao
+   set modulo = 'saas',
+       recurso = 'plataforma',
+       acao = 'administrar',
+       updated_at = now()
+ where modulo = 'saas' and chave = 'saas.plataforma.administrar';
+
+update sigov.permissao
+   set modulo = 'saas',
+       recurso = 'saas.superadmin.dashboard',
+       acao = 'visualizar',
+       updated_at = now()
+ where modulo = 'saas' and chave = 'saas.superadmin.dashboard.visualizar';
+
+update sigov.permissao
+   set modulo = 'saas',
+       recurso = 'saas.superadmin.dashboard',
+       acao = 'exportar',
+       updated_at = now()
+ where modulo = 'saas' and chave = 'saas.superadmin.dashboard.exportar';
+
+update sigov.permissao
+   set modulo = 'saas',
+       recurso = 'saas.superadmin.autorizacao',
+       acao = 'administrar',
+       updated_at = now()
+ where modulo = 'saas' and chave = 'saas.superadmin.autorizacao.administrar';
+
+update sigov.permissao
+   set modulo = 'saas',
+       recurso = 'saas.superadmin.dashboard',
+       acao = 'administrar',
+       updated_at = now()
+ where modulo = 'saas' and chave = 'saas.superadmin.dashboard.administrar';
+
+do $$
+declare
+    v_ok integer;
+begin
+    select count(*) into v_ok
+    from sigov.permissao
+    where modulo = 'saas' and ativo and not is_deleted and (
+        (chave = 'saas.plataforma.administrar' and recurso = 'plataforma' and acao = 'administrar')
+     or (chave = 'saas.superadmin.dashboard.visualizar' and recurso = 'saas.superadmin.dashboard' and acao = 'visualizar')
+     or (chave = 'saas.superadmin.dashboard.exportar' and recurso = 'saas.superadmin.dashboard' and acao = 'exportar')
+     or (chave = 'saas.superadmin.autorizacao.administrar' and recurso = 'saas.superadmin.autorizacao' and acao = 'administrar')
+     or (chave = 'saas.superadmin.dashboard.administrar' and recurso = 'saas.superadmin.dashboard' and acao = 'administrar')
+    );
+    if v_ok <> 5 then
+        raise exception 'RC-SAAS-AUT normalizacao superadmin/plataforma: apenas % de 5 chaves canonicas ativas', v_ok;
+    end if;
+end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006230000', 'Corretiva RC-SAAS-AUT: normalizacao canonica de recurso/acao das chaves saas.superadmin.* e saas.plataforma.administrar apos drift da regra %admin% da migration 013', '0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

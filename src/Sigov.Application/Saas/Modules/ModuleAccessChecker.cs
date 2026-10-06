@@ -35,7 +35,7 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
 
         if (isGlobalAdmin && !request.HasAuditedTenantContext)
         {
-            return ModuleAccessResult.Forbidden("Administrador geral precisa de troca de contexto auditada para atuar em tenant.");
+            return ModuleAccessResult.Forbidden("Administrador geral precisa de troca de contexto auditada para atuar em tenant.", SaasForbiddenMotivo.ForaEscopo);
         }
 
         if (request.TenantId is null)
@@ -43,53 +43,75 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
             return ModuleAccessResult.Forbidden("Usuário comum precisa estar vinculado a um tenant ativo.");
         }
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var tenantStatus = await _repository.GetTenantStatusAsync(request.TenantId.Value, cancellationToken).ConfigureAwait(false);
+        if (TenantCommercialStatus.IsBlocked(tenantStatus))
+        {
+            return ModuleAccessResult.Forbidden($"Cliente em situação comercial bloqueante ({tenantStatus}).", SaasForbiddenMotivo.BloqueadoComercial);
+        }
+
+        var subscription = await _repository.GetActiveSubscriptionAsync(request.TenantId.Value, cancellationToken).ConfigureAwait(false);
+        if (subscription is not null)
+        {
+            var assinaturaAtiva = string.Equals(subscription.Status, "ATIVA", StringComparison.OrdinalIgnoreCase);
+            if (!assinaturaAtiva)
+            {
+                return ModuleAccessResult.Forbidden($"Assinatura comercial do cliente com status {subscription.Status}; acesso suspenso.", SaasForbiddenMotivo.BloqueadoComercial);
+            }
+
+            if (subscription.ValidUntil.HasValue && subscription.ValidUntil.Value < today)
+            {
+                return ModuleAccessResult.Forbidden("Vigência da assinatura comercial expirada.", SaasForbiddenMotivo.ContratoExpirado);
+            }
+        }
+
         var module = await _catalogService.FindByCodeAsync(request.ModuleCode, cancellationToken).ConfigureAwait(false);
         if (module is null)
         {
-            return ModuleAccessResult.Forbidden("Módulo não existe no catálogo vendável do sigov.");
+            return ModuleAccessResult.Forbidden("Módulo não existe no catálogo vendável do sigov.", SaasForbiddenMotivo.ModuloNaoContratado);
         }
 
         var contract = await _repository.GetTenantModuleAsync(request.TenantId.Value, module.Codigo, cancellationToken).ConfigureAwait(false);
         if (contract is null || !contract.Active)
         {
-            return ModuleAccessResult.Forbidden("Módulo não contratado para o tenant.");
+            return ModuleAccessResult.Forbidden("Módulo não contratado para o tenant.", SaasForbiddenMotivo.ModuloNaoContratado);
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         if (contract.EffectiveFrom.HasValue && contract.EffectiveFrom.Value > today)
         {
-            return ModuleAccessResult.Forbidden("Vigência do módulo ainda não iniciada.");
+            return ModuleAccessResult.Forbidden("Vigência do módulo ainda não iniciada.", SaasForbiddenMotivo.ContratoExpirado);
         }
 
         if (contract.EffectiveUntil.HasValue && contract.EffectiveUntil.Value < today)
         {
-            return ModuleAccessResult.Forbidden("Módulo expirado para o tenant.");
+            return ModuleAccessResult.Forbidden("Módulo expirado para o tenant.", SaasForbiddenMotivo.ContratoExpirado);
         }
 
         if (string.Equals(contract.Status, "SUSPENSO", StringComparison.OrdinalIgnoreCase))
         {
-            return ModuleAccessResult.Forbidden("Módulo suspenso para o tenant.");
+            return ModuleAccessResult.Forbidden("Módulo suspenso para o tenant.", SaasForbiddenMotivo.BloqueadoComercial);
         }
 
         if (string.Equals(contract.Status, "CANCELADO", StringComparison.OrdinalIgnoreCase))
         {
-            return ModuleAccessResult.Forbidden("Módulo cancelado para o tenant.");
+            return ModuleAccessResult.Forbidden("Módulo cancelado para o tenant.", SaasForbiddenMotivo.BloqueadoComercial);
         }
 
         if (string.Equals(contract.Status, "INADIMPLENTE", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(contract.Status, "EXPIRADO", StringComparison.OrdinalIgnoreCase))
         {
-            return ModuleAccessResult.Forbidden("Módulo indisponível por situação comercial.");
+            return ModuleAccessResult.Forbidden("Módulo indisponível por situação comercial.", SaasForbiddenMotivo.BloqueadoComercial);
         }
 
         if (string.Equals(contract.Status, "EM_IMPLANTACAO", StringComparison.OrdinalIgnoreCase) && !request.ProfileCodes.Any(ImplantacaoProfiles.Contains))
         {
-            return ModuleAccessResult.Forbidden("Módulo em implantação exige perfil autorizado.");
+            return ModuleAccessResult.Forbidden("Módulo em implantação exige perfil autorizado.", SaasForbiddenMotivo.ForaEscopo);
         }
 
         if (!IsEnabledStatus(contract.Status))
         {
-            return ModuleAccessResult.Forbidden("Módulo ainda não está habilitado para operação.");
+            return ModuleAccessResult.Forbidden("Módulo ainda não está habilitado para operação.", SaasForbiddenMotivo.ModuloNaoContratado);
         }
 
         foreach (var dependency in module.Dependencias)
@@ -97,7 +119,7 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
             var dependencyContract = await _repository.GetTenantModuleAsync(request.TenantId.Value, dependency, cancellationToken).ConfigureAwait(false);
             if (dependencyContract is null || !IsEffectiveContract(dependencyContract, today))
             {
-                return ModuleAccessResult.Forbidden($"Dependência de módulo não atendida: {dependency}.");
+                return ModuleAccessResult.Forbidden($"Dependência de módulo não atendida: {dependency}.", SaasForbiddenMotivo.ModuloNaoContratado);
             }
         }
 
@@ -118,7 +140,7 @@ public sealed class ModuleAccessChecker : IModuleAccessChecker
         }
 
         var enabled = await _repository.IsFeatureEnabledAsync(request.TenantId.Value, request.ModuleCode, featureCode, cancellationToken).ConfigureAwait(false);
-        return enabled ? ModuleAccessResult.Allow("Feature habilitada.") : ModuleAccessResult.Forbidden("Feature desabilitada para o tenant.");
+        return enabled ? ModuleAccessResult.Allow("Feature habilitada.") : ModuleAccessResult.Forbidden("Feature desabilitada para o tenant.", SaasForbiddenMotivo.ForaEscopo);
     }
 
     private static bool IsEnabledStatus(string status) => string.Equals(status, "HABILITADO", StringComparison.OrdinalIgnoreCase)

@@ -62,4 +62,27 @@ do update set status = excluded.status, ativo = true, updated_at = now(), update
         using var connection = _context.CreateConnection();
         await connection.ExecuteAsync(new CommandDefinition(sql, new { TenantId = tenantId, ModuleCode = moduleCode, Status = status, UserId = userId, CorrelationId = correlationId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
+
+    public async Task<string?> GetTenantStatusAsync(long tenantId, CancellationToken cancellationToken)
+    {
+        const string sql = @"select upper(t.status)
+from sigov.tenant t
+where t.id = @TenantId
+limit 1;
+";
+        using var connection = _context.CreateConnection();
+        return await connection.QueryFirstOrDefaultAsync<string>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    public async Task<SaasSubscriptionSnapshot?> GetActiveSubscriptionAsync(long tenantId, CancellationToken cancellationToken)
+    {
+        const string sql = @"select upper(a.status) as Status, a.data_fim as ValidUntil
+from sigov.saas_assinatura a
+where a.tenant_id = @TenantId
+order by case when upper(a.status) = 'ATIVA' then 0 else 1 end, a.created_at desc
+limit 1;
+";
+        using var connection = _context.CreateConnection();
+        return await connection.QueryFirstOrDefaultAsync<SaasSubscriptionSnapshot>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
 }

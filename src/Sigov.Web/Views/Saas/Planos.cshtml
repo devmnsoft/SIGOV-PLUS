@@ -1,10 +1,42 @@
 @model Sigov.Web.Models.PostBuild.SaasPlanosViewModel
-@{ ViewData["Title"]="Planos SaaS"; ViewData["PageTitle"]="Planos SaaS"; ViewData["PageDescription"]="CRUD real quando sigov.plano_saas existe; catálogo honesto quando não existe."; }
+@{
+  ViewData["Title"] = "Planos SaaS";
+  ViewData["PageTitle"] = "Planos SaaS";
+  ViewData["PageDescription"] = "Catálogo comercial persistido em sigov.saas_plano, com módulos, limites e condições reais de cada plano.";
+}
 @await Html.PartialAsync("_PageIntro")
-@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback <span class="badge bg-secondary">Em implantação</span></div> }
-<div class="d-flex justify-content-between mb-3"><h2 class="h5">Catálogo comercial</h2><a class="sigov-btn sigov-btn--primary @(Model?.PodePersistir == true ? "" : "disabled")" href="/Saas/Planos/Novo">Novo plano</a></div>
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
+<div class="d-flex justify-content-between align-items-center mb-3"><h2 class="h5">Catálogo comercial</h2><small class="text-muted">@(Model?.Planos.Count ?? 0) plano(s) cadastrado(s)</small></div>
 <section class="row g-3">
 @foreach (var p in Model?.Planos ?? Array.Empty<Sigov.Web.Models.PostBuild.SaasPlanoViewModel>()) {
-  <div class="col-md-6 col-xl-4"><article class="sigov-card p-4 h-100 @(p.Recomendado ? "border border-primary" : "")"><div class="d-flex justify-content-between"><h3 class="h4">@p.Nome</h3><span class="badge bg-@(p.Persistido ? "success" : "info")">@(p.Persistido ? "Real" : "Demonstrativo")</span></div><p>@p.Descricao</p><p><strong>Mensal:</strong> @p.ValorMensal.ToString("C") <strong>Anual:</strong> @p.ValorAnual.ToString("C")</p><p><strong>Limites:</strong> @p.LimiteUsuarios usuários / @p.LimiteStorageGb GB / @p.LimiteTenants entidades</p><p><strong>Módulos:</strong> @p.ModulosInclusos</p><p><strong>Suporte:</strong> @p.Suporte</p><div class="d-flex gap-2"><a class="sigov-btn sigov-btn--ghost" href="/Saas/Planos/@p.Id">Detalhes</a><a class="sigov-btn sigov-btn--ghost @(Model?.PodePersistir == true ? "" : "disabled")" href="/Saas/Planos/@p.Id/Editar">Editar</a></div></article></div>
+  <div class="col-md-6 col-xl-4">
+    <article class="sigov-card p-4 h-100 @(p.Destaque ? "border border-primary" : "") @(p.Ativo ? "" : "opacity-75")">
+      <div class="d-flex justify-content-between align-items-start">
+        <div><h3 class="h5 mb-1">@p.Nome</h3><span class="text-muted small">@p.Codigo</span></div>
+        <div class="d-flex gap-1 flex-column align-items-end">
+          @if (p.Destaque) { <span class="badge bg-primary">Destaque</span> }
+          @if (!p.Ativo) { <span class="badge bg-secondary">Inativo</span> }
+          @if (!p.Publico) { <span class="badge bg-info text-dark">Interno</span> }
+        </div>
+      </div>
+      <p class="mb-2 small text-muted">@p.Descricao</p>
+      <p class="fw-semibold mb-1">@(p.PrecoBase.HasValue ? p.PrecoBase.Value.ToString("C", System.Globalization.CultureInfo.InvariantCulture) + " / " + p.Periodicidade.ToLowerInvariant() : "Preço sob contrato")</p>
+      <ul class="list-unstyled small mb-2">
+        <li>Usuários: @LimitText(p.LimiteUsuarios)</li>
+        <li>Entidades contratadas: @LimitText(p.LimiteEntidades)</li>
+        <li>Armazenamento: @LimitStorageText(p.LimiteArmazenamentoMb)</li>
+        <li>White label: @(p.PermiteWhiteLabel ? "Sim" : "Não") · Domínio próprio: @(p.PermiteDominioCustomizado ? "Sim" : "Não")</li>
+      </ul>
+      <p class="small mb-2"><strong>Módulos incluídos:</strong><br />@p.ModulosInclusos</p>
+      <div class="d-flex justify-content-between align-items-center"><small class="text-muted">@p.TipoPlano</small><a class="sigov-btn sigov-btn--ghost" href="/Saas/Planos/@p.Id">Detalhes</a></div>
+    </article>
+  </div>
+}
+@if (!(Model?.Planos.Any() ?? false)) {
+  <div class="col-12 sigov-card p-4"><p class="mb-0 text-muted">Nenhum plano cadastrado em sigov.saas_plano.</p></div>
 }
 </section>
+@functions {
+  static string LimitText(int? valor) => valor is null ? "Ilimitado" : valor.Value.ToString(System.Globalization.CultureInfo.CurrentCulture);
+  static string LimitStorageText(int? valor) => valor is null ? "Ilimitado" : (valor.Value >= 1024 ? Math.Round(valor.Value / 1024.0, 1).ToString("N1", System.Globalization.CultureInfo.CurrentCulture) + " GB" : valor.Value.ToString(System.Globalization.CultureInfo.CurrentCulture) + " MB");
+}

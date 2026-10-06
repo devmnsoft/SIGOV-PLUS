@@ -17,7 +17,7 @@ public sealed class ModuleEntitlementEvaluator(
             new ModuleAccessRequest(request.TenantId, request.ModuleCode, request.ProfileCodes, request.HasAuditedTenantContext),
             cancellationToken).ConfigureAwait(false);
         if (!module.Allowed)
-            return ModuleEntitlementDecision.Deny(module.Reason);
+            return ModuleEntitlementDecision.Deny(module.Reason, module.Motivo);
 
         if (string.IsNullOrWhiteSpace(request.Permission))
             return ModuleEntitlementDecision.Allow(module.Reason);
@@ -44,6 +44,8 @@ public sealed class ModuleEntitlementEvaluator(
             Origem: "ENTITLEMENT"), cancellationToken).ConfigureAwait(false);
         return decision.Permitido
             ? ModuleEntitlementDecision.Allow("Contrato e permissão vigentes.")
-            : ModuleEntitlementDecision.Deny("Permissão insuficiente para o módulo.");
+            : ModuleEntitlementDecision.Deny(
+                "Permissão insuficiente para o módulo.",
+                decision.Motivo == AuthorizationDecisionReason.AlcadaInsuficiente ? SaasForbiddenMotivo.ForaEscopo : SaasForbiddenMotivo.SemPermissao);
     }
 }

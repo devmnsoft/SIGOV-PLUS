@@ -37,7 +37,14 @@ public sealed class RequireModuleAttribute : Attribute, IAsyncActionFilter
             context.HttpContext.RequestAborted).ConfigureAwait(false);
         if (!decision.Allowed)
         {
-            context.Result = new ObjectResult(new { message = decision.Reason }) { StatusCode = StatusCodes.Status403Forbidden };
+            context.Result = new ObjectResult(new
+            {
+                success = false,
+                data = (object?)null,
+                message = decision.Reason,
+                correlationId = context.HttpContext.TraceIdentifier,
+                motivo = SaasForbiddenMotivos.ToWire(decision.Motivo ?? SaasForbiddenMotivo.SemPermissao)
+            }) { StatusCode = StatusCodes.Status403Forbidden };
             return;
         }
 

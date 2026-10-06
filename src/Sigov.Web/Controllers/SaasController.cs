@@ -1,5 +1,9 @@
+using System.Globalization;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Sigov.Application.Authorization;
+using IAuthorizationEvaluator = Sigov.Application.Authorization.IAuthorizationEvaluator;
 using Sigov.Web.Models.PostBuild;
 using Sigov.Web.Services;
 
@@ -9,11 +13,13 @@ namespace Sigov.Web.Controllers;
 public sealed class SaasController : Controller
 {
     private readonly PostBuildSaasService _service;
+    private readonly IAuthorizationEvaluator _authorization;
     private readonly ILogger<SaasController> _logger;
 
-    public SaasController(PostBuildSaasService service, ILogger<SaasController> logger)
+    public SaasController(PostBuildSaasService service, IAuthorizationEvaluator authorization, ILogger<SaasController> logger)
     {
         _service = service;
+        _authorization = authorization;
         _logger = logger;
     }
 
@@ -79,45 +85,134 @@ public sealed class SaasController : Controller
     public async Task<IActionResult> Planos(CancellationToken cancellationToken) => View(await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false));
 
     [HttpGet("Saas/Planos/Novo")]
-    public async Task<IActionResult> NovoPlano(CancellationToken cancellationToken) { TempData["Warning"] = "Salvar só é habilitado quando sigov.plano_saas existir."; return View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)); }
+    public async Task<IActionResult> NovoPlano(CancellationToken cancellationToken) { TempData["Warning"] = "O catálogo de planos é mantido em sigov.saas_plano como fonte de autoridade; nenhum plano é criado nesta tela."; return View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)); }
 
     [HttpGet("Saas/Planos/{id:long}")]
     public async Task<IActionResult> DetalhePlano(long id, CancellationToken cancellationToken) => View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false));
 
     [HttpGet("Saas/Planos/{id:long}/Editar")]
-    public async Task<IActionResult> EditarPlano(long id, CancellationToken cancellationToken) { TempData["Warning"] = "Edição de plano exige tabela sigov.plano_saas com colunas comerciais."; return View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)); }
+    public async Task<IActionResult> EditarPlano(long id, CancellationToken cancellationToken) { TempData["Warning"] = "A edição de planos ocorre em sigov.saas_plano como fonte de autoridade; esta tela exibe o catálogo persistido."; return View("Planos", await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)); }
 
     [HttpGet("Saas/Assinaturas")]
-    public async Task<IActionResult> Assinaturas(CancellationToken cancellationToken) => View(await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
+    public async Task<IActionResult> Assinaturas(CancellationToken cancellationToken)
+    {
+        ViewBag.Planos = (await _service.ListarPlanosAsync(cancellationToken).ConfigureAwait(false)).Planos;
+        return View(await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
+    }
 
     [HttpGet("Saas/Assinaturas/Nova")]
-    public async Task<IActionResult> NovaAssinatura(CancellationToken cancellationToken) { TempData["Warning"] = "Nova assinatura só será gravada quando sigov.assinatura_saas existir."; return View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false)); }
+    public async Task<IActionResult> NovaAssinatura(CancellationToken cancellationToken) => View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
 
     [HttpGet("Saas/Assinaturas/{id:long}")]
     public async Task<IActionResult> DetalheAssinatura(long id, CancellationToken cancellationToken) => View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false));
 
     [HttpGet("Saas/Assinaturas/{id:long}/Editar")]
-    public async Task<IActionResult> EditarAssinatura(long id, CancellationToken cancellationToken) { TempData["Warning"] = "Alteração de assinatura exige persistência real; nenhum salvamento é simulado."; return View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false)); }
+    public async Task<IActionResult> EditarAssinatura(long id, CancellationToken cancellationToken) { TempData["Warning"] = "Use as ações da assinatura (upgrade, downgrade, suspender, reativar, cancelar); nenhuma edição é simulada."; return View("Assinaturas", await _service.ListarAssinaturasAsync(cancellationToken).ConfigureAwait(false)); }
 
     [HttpPost("Saas/Assinaturas/Nova")]
     [ValidateAntiForgeryToken]
-    public IActionResult NovaAssinaturaPost() { TempData["Warning"] = "Assinatura não foi salva: persistência real depende de sigov.assinatura_saas."; return RedirectToAction(nameof(Assinaturas)); }
+    public async Task<IActionResult> NovaAssinaturaPost([FromForm] long TenantId, [FromForm] long PlanoId, CancellationToken cancellationToken)
+    {
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null) return denied;
+        if (TenantId <= 0 || PlanoId <= 0)
+        {
+            TempData["Error"] = "Informe o tenant e o plano para criar a assinatura.";
+            return RedirectToAction(nameof(Assinaturas));
+        }
+        try
+        {
+            var resultado = await _service.CriarAssinaturaComercialAsync(TenantId, PlanoId, CurrentUserId(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            TempData[resultado.Sucesso ? "Success" : "Error"] = resultado.Mensagem;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao criar assinatura comercial para tenant {TenantId}.", TenantId);
+            TempData["Error"] = "Não foi possível criar a assinatura agora.";
+        }
+        return RedirectToAction(nameof(Assinaturas));
+    }
 
-    [HttpPost("Saas/Assinaturas/{id:long}/Editar")]
+    [HttpPost("Saas/Assinaturas/Tenants/{tenantId:long}/Upgrade")]
     [ValidateAntiForgeryToken]
-    public IActionResult EditarAssinaturaPost(long id) { TempData["Warning"] = "Assinatura não foi alterada: edição real exige schema persistente."; return RedirectToAction(nameof(Assinaturas)); }
+    public async Task<IActionResult> UpgradeAssinatura(long tenantId, [FromForm] long NovoPlanoId, [FromForm] string? Motivo, CancellationToken cancellationToken) =>
+        await TrocarPlano(tenantId, NovoPlanoId, Motivo, upgrade: true, cancellationToken).ConfigureAwait(false);
+
+    [HttpPost("Saas/Assinaturas/Tenants/{tenantId:long}/Downgrade")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DowngradeAssinatura(long tenantId, [FromForm] long NovoPlanoId, [FromForm] string? Motivo, CancellationToken cancellationToken) =>
+        await TrocarPlano(tenantId, NovoPlanoId, Motivo, upgrade: false, cancellationToken).ConfigureAwait(false);
+
+    private async Task<IActionResult> TrocarPlano(long tenantId, long novoPlanoId, string? motivo, bool upgrade, CancellationToken cancellationToken)
+    {
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null) return denied;
+        if (tenantId <= 0 || novoPlanoId <= 0)
+        {
+            TempData["Error"] = "Informe o tenant e o plano destino para alterar a assinatura.";
+            return RedirectToAction(nameof(Assinaturas));
+        }
+        try
+        {
+            var resultado = await _service.TrocarPlanoComercialAsync(tenantId, novoPlanoId, motivo, upgrade, CurrentUserId(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            TempData[resultado.Sucesso ? "Success" : "Error"] = resultado.Mensagem;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro em {Operacao} da assinatura do tenant {TenantId}.", upgrade ? "upgrade" : "downgrade", tenantId);
+            TempData["Error"] = "Não foi possível alterar o plano da assinatura agora.";
+        }
+        return RedirectToAction(nameof(Assinaturas));
+    }
 
     [HttpPost("Saas/Assinaturas/{id:long}/Suspender")]
     [ValidateAntiForgeryToken]
-    public IActionResult SuspenderAssinatura(long id) { TempData["Warning"] = "Suspensão não executada sem persistência real; nenhum status foi simulado."; return RedirectToAction(nameof(Assinaturas)); }
+    public async Task<IActionResult> SuspenderAssinatura(long id, [FromForm] string? Motivo, CancellationToken cancellationToken) =>
+        await AlterarStatusAssinatura(id, "SUSPENSA", Motivo, cancellationToken).ConfigureAwait(false);
 
     [HttpPost("Saas/Assinaturas/{id:long}/Reativar")]
     [ValidateAntiForgeryToken]
-    public IActionResult ReativarAssinatura(long id) { TempData["Warning"] = "Reativação não executada sem persistência real; nenhum status foi simulado."; return RedirectToAction(nameof(Assinaturas)); }
+    public async Task<IActionResult> ReativarAssinatura(long id, [FromForm] string? Motivo, CancellationToken cancellationToken) =>
+        await AlterarStatusAssinatura(id, "ATIVA", Motivo, cancellationToken).ConfigureAwait(false);
 
     [HttpPost("Saas/Assinaturas/{id:long}/Cancelar")]
     [ValidateAntiForgeryToken]
-    public IActionResult CancelarAssinatura(long id) { TempData["Warning"] = "Cancelamento não executado sem persistência real; nenhum status foi simulado."; return RedirectToAction(nameof(Assinaturas)); }
+    public async Task<IActionResult> CancelarAssinatura(long id, [FromForm] string? Motivo, CancellationToken cancellationToken) =>
+        await AlterarStatusAssinatura(id, "CANCELADA", Motivo, cancellationToken).ConfigureAwait(false);
+
+    private async Task<IActionResult> AlterarStatusAssinatura(long id, string statusDestino, string? motivo, CancellationToken cancellationToken)
+    {
+        var denied = await RequireSigovAdminAsync(cancellationToken).ConfigureAwait(false);
+        if (denied is not null) return denied;
+        try
+        {
+            var resultado = await _service.AlterarStatusAssinaturaPorIdAsync(id, statusDestino, motivo, CurrentUserId(), HttpContext.TraceIdentifier, cancellationToken).ConfigureAwait(false);
+            TempData[resultado.Sucesso ? "Success" : "Error"] = resultado.Mensagem;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao alterar status da assinatura {AssinaturaId}.", id);
+            TempData["Error"] = "Não foi possível alterar o status da assinatura agora.";
+        }
+        return RedirectToAction(nameof(Assinaturas));
+    }
+
+    private long CurrentUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? User.FindFirstValue("usuario_id");
+        return long.TryParse(raw, CultureInfo.InvariantCulture, out var userId) ? userId : 0;
+    }
+
+    private async Task<IActionResult?> RequireSigovAdminAsync(CancellationToken cancellationToken)
+    {
+        var userId = CurrentUserId();
+        if (userId <= 0) return Forbid();
+        long? tenantId = long.TryParse(User.FindFirstValue("tenant_id"), CultureInfo.InvariantCulture, out var tenantClaim) && tenantClaim > 0 ? tenantClaim : null;
+        var decision = await _authorization.EvaluateAsync(new AuthorizationRequest(
+            userId, "saas", "plataforma", "administrar", tenantId,
+            CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SAAS_COMERCIAL"), cancellationToken).ConfigureAwait(false);
+        return decision.Permitido ? null : Forbid();
+    }
 
     [HttpGet]
     public IActionResult Implantacao(long? tenantId) => View(tenantId ?? 0);

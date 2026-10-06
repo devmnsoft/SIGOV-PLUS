@@ -115,7 +115,11 @@
       "category": "schema",
       "includeInBaseline": true,
       "applyAutomatically": true,
-      "checksum": "83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367"
+      "checksum": "97972c61f5d740c094d13c65cacb0dc74eb1231900eb66d7893dc7048f411f6d",
+      "knownChecksums": [
+        "83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367"
+      ],
+      "postConditionSql": "select count(*) = 3 from information_schema.columns where table_schema='sigov' and table_name='permissao' and column_name in ('modulo','recurso','acao')"
     },
     {
       "version": "014",
@@ -661,6 +665,19 @@
       "knownChecksums": [
         "be8b17d626843dc4cc20d3c2d6fd4d57b801be63ba242224f004b86462fac735"
       ]
+    },
+    {
+      "version": "20260813193000",
+      "file": "20260813193000_rc50_29_parametros_modulos.sql",
+      "description": "RC50.29 parametros funcionais por tenant (parametro_modulo/valor/historico, salvar_parametro_modulo e permissoes granulares)",
+      "category": "schema",
+      "includeInBaseline": true,
+      "applyAutomatically": true,
+      "checksum": "755a77f67431091f9e83a86703816e5d8f50c20c5eae6091fd1e3fe765fe6f2d",
+      "dependencies": [
+        "20260809160000"
+      ],
+      "postConditionSql": "select to_regclass('sigov.parametro_modulo') is not null and to_regclass('sigov.parametro_modulo_valor') is not null and to_regclass('sigov.parametro_modulo_historico') is not null and exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='salvar_parametro_modulo') and exists(select 1 from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='FREQUENCIA_MINIMA')"
     },
     {
       "version": "20260813223000",
@@ -2748,6 +2765,58 @@
         "20261005090000"
       ],
       "postConditionSql": "select exists(select 1 from information_schema.table_constraints tc join information_schema.referential_constraints rc on rc.constraint_name = tc.constraint_name where tc.table_schema='sigov' and tc.table_name='saas_cliente' and tc.constraint_type='FOREIGN KEY') and ((select count(*) from sigov.saas_cliente) = 0 or (select count(*) from sigov.saas_cliente where tenant_id is null) = 0)"
+    },
+    {
+      "version": "20261005110000",
+      "description": "Comercial familia B: quantidade dos addons (usuarios/armazenamento) e politica de downgrade parametrizada (SAAS/DOWNGRADE_BLOQUEIO_NOVAS_ALOCACOES)",
+      "category": "functional",
+      "file": "20261005110000_rcsaas_aut_03_comercial_planos_limites.sql",
+      "checksum": "e648f3243022cdbfec024fa03343120fb9e6883daaee4c5f6b4fa4ae333227dc",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261005100000"
+      ],
+      "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saas_addon' and column_name='valor_quantidade') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='saas_addon' and column_name='unidade_quantidade') and exists(select 1 from sigov.parametro_modulo p where p.modulo='SAAS' and p.codigo='DOWNGRADE_BLOQUEIO_NOVAS_ALOCACOES' and p.ativo and not p.is_deleted) and exists(select 1 from sigov.saas_addon a where a.codigo='USUARIOS_EXTRAS' and a.valor_quantidade=10)"
+    },
+    {
+      "version": "20261005120000",
+      "description": "Corretiva RC-SAAS-AUT: chave saas.superadmin.dashboard/administrar e grants espelhados da plataforma (1768)",
+      "category": "functional",
+      "file": "20261005120000_rcsaas_aut_04_dashboard_administrar.sql",
+      "checksum": "e1a4c4c7f95bbcc135118d098a8323bdc7cf694e338df8f1a0709ad0055b2159",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261005110000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.administrar' and acao='administrar' and ativo and not is_deleted) and ((select count(*) from sigov.permissao where modulo='saas' and chave='saas.plataforma.administrar') = 0 or exists(select 1 from sigov.perfil_permissao a join sigov.perfil_permissao b on b.perfil_acesso_id=a.perfil_acesso_id join sigov.permissao pa on pa.id=a.permissao_id join sigov.permissao pb on pb.id=b.permissao_id where pa.modulo='saas' and pa.chave='saas.plataforma.administrar' and pb.modulo='saas' and pb.chave='saas.superadmin.dashboard.administrar' and a.ativo and not a.is_deleted and upper(a.efeito)='PERMITIR'))"
+    },
+    {
+      "version": "20261006120000",
+      "description": "Corretiva RC-SAAS-AUT: grants de escopo plataforma (tenant_id NULL) para admin/superadmin - dashboard SaaS Web multi-tenant",
+      "category": "functional",
+      "file": "20261006120000_rcsaas_aut_05_grants_plataforma.sql",
+      "checksum": "ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261005120000"
+      ],
+      "postConditionSql": "select (select count(distinct concat(u.id::text, '|', p.chave)) from sigov.usuario u join sigov.usuario_grupo ug on ug.usuario_id = u.id and ug.ativo and not ug.is_deleted join sigov.grupo_acesso ga on ga.id = ug.grupo_acesso_id and ga.ativo and not ga.is_deleted join sigov.grupo_perfil gp on gp.grupo_acesso_id = ga.id and gp.ativo and not gp.is_deleted join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo and not pa.is_deleted join sigov.perfil_permissao pp on pp.perfil_acesso_id = pa.id and pp.ativo and not pp.is_deleted join sigov.permissao p on p.id = pp.permissao_id and p.ativo and not p.is_deleted where lower(u.login) in ('admin','superadmin') and u.ativo and not u.is_deleted and p.modulo = 'saas' and p.chave in ('saas.plataforma.administrar','saas.superadmin.autorizacao.administrar','saas.superadmin.dashboard.administrar','saas.superadmin.dashboard.exportar','saas.superadmin.dashboard.visualizar') and ug.tenant_id is null and gp.tenant_id is null and pp.tenant_id is null and upper(pp.efeito) = 'PERMITIR') >= 10"
+    },
+    {
+      "version": "20261006230000",
+      "description": "Corretiva RC-SAAS-AUT: normalizacao canonica de recurso/acao das chaves saas.superadmin.* e saas.plataforma.administrar apos drift da regra %admin% da migration 013",
+      "category": "functional",
+      "file": "20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql",
+      "checksum": "0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261006120000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.plataforma.administrar' and recurso='plataforma' and acao='administrar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.visualizar' and recurso='saas.superadmin.dashboard' and acao='visualizar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.exportar' and recurso='saas.superadmin.dashboard' and acao='exportar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.autorizacao.administrar' and recurso='saas.superadmin.autorizacao' and acao='administrar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.administrar' and recurso='saas.superadmin.dashboard' and acao='administrar' and ativo and not is_deleted)"
     }
   ],
   "compatibilityAfterAll": [

@@ -1,5 +1,6 @@
 using Dapper;
 using Sigov.Application.Abstractions;
+using Sigov.Application.Saas.Comercial;
 using Sigov.Infrastructure.Persistence.Dapper;
 using Sigov.Web.Models.PostBuild;
 using Sigov.Web.Helpers;
@@ -12,13 +13,15 @@ public sealed class PostBuildSaasService
     private readonly ILogger<PostBuildSaasService> _logger;
     private readonly IDatabaseSchemaInspector _schemaInspector;
     private readonly ITenantContextAccessor _tenantContextAccessor;
+    private readonly ISaasAssinaturaComercialService _comercial;
 
-    public PostBuildSaasService(NpgsqlConnectionFactory connectionFactory, ILogger<PostBuildSaasService> logger, IDatabaseSchemaInspector schemaInspector, ITenantContextAccessor tenantContextAccessor)
+    public PostBuildSaasService(NpgsqlConnectionFactory connectionFactory, ILogger<PostBuildSaasService> logger, IDatabaseSchemaInspector schemaInspector, ITenantContextAccessor tenantContextAccessor, ISaasAssinaturaComercialService comercial)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
         _schemaInspector = schemaInspector;
         _tenantContextAccessor = tenantContextAccessor;
+        _comercial = comercial;
     }
 
     public async Task<IReadOnlyCollection<TenantListItemViewModel>> ListarTenantsAsync(string? busca, CancellationToken cancellationToken)
@@ -536,31 +539,28 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
     {
         try
         {
-            var columns = await _schemaInspector.GetColumnsAsync("sigov", "plano_saas", cancellationToken).ConfigureAwait(false);
-            if (!columns.Contains("id") || !columns.Contains("nome"))
-            {
-                return new SaasPlanosViewModel { Planos = DefaultPlans(), PodePersistir = false, MensagemFallback = "Tabela sigov.plano_saas indisponível; catálogo exibido é demonstrativo e nenhum salvamento é simulado." };
-            }
+            if (!await _schemaInspector.TableExistsAsync("sigov", "saas_plano", cancellationToken).ConfigureAwait(false))
+                return new SaasPlanosViewModel { PodePersistir = false, MensagemFallback = "Catálogo de planos indisponível: a tabela sigov.saas_plano não existe no schema atual; nenhum plano foi simulado." };
             using var connection = _connectionFactory.CreateConnection();
-            var codigo = columns.Contains("codigo") ? "coalesce(codigo, id::text)" : "id::text";
-            var descricao = columns.Contains("descricao") ? "coalesce(descricao,'')" : "''";
-            var mensal = columns.Contains("valor_mensal") ? "coalesce(valor_mensal,0)" : "0";
-            var anual = columns.Contains("valor_anual") ? "coalesce(valor_anual,0)" : "0";
-            var usuarios = columns.Contains("limite_usuarios") ? "coalesce(limite_usuarios,0)" : "0";
-            var storage = columns.Contains("limite_storage_gb") ? "coalesce(limite_storage_gb,0)" : "0";
-            var tenants = columns.Contains("limite_tenants") ? "coalesce(limite_tenants,0)" : "0";
-            var suporte = columns.Contains("suporte_incluso") ? "coalesce(suporte_incluso,'')" : "''";
-            var modulos = columns.Contains("modulos_inclusos") ? "coalesce(modulos_inclusos::text,'')" : "''";
-            var ativo = columns.Contains("ativo") ? "coalesce(ativo,true)" : "true";
-            var recomendado = columns.Contains("recomendado") ? "coalesce(recomendado,false)" : "false";
-            var ordem = columns.Contains("ordem") ? "coalesce(ordem,0)" : "0";
-            var rows = await connection.QueryAsync<SaasPlanoRow>(new CommandDefinition($@"select id, {codigo} as Codigo, nome, {descricao} as Descricao, {mensal} as ValorMensal, {anual} as ValorAnual, {usuarios} as LimiteUsuarios, {storage} as LimiteStorageGb, {tenants} as LimiteTenants, {suporte} as Suporte, {modulos} as ModulosInclusos, {ativo} as Ativo, {recomendado} as Recomendado, {ordem} as Ordem from sigov.plano_saas order by {ordem}, nome limit 100;", cancellationToken: cancellationToken)).ConfigureAwait(false);
-            return new SaasPlanosViewModel { Planos = rows.Select(x => new SaasPlanoViewModel(x.Id, x.Codigo, x.Nome, x.Descricao, x.ValorMensal, x.ValorAnual, x.LimiteUsuarios, x.LimiteStorageGb, x.LimiteTenants, x.Suporte, x.ModulosInclusos, x.Ativo, x.Recomendado, x.Ordem, true)).ToArray(), PodePersistir = true };
+            var rows = await connection.QueryAsync<SaasPlanoRow>(new CommandDefinition(@"select p.id, coalesce(p.codigo,'') as Codigo, p.nome, coalesce(p.descricao,'') as Descricao,
+coalesce(p.tipo_plano,'') as TipoPlano, p.preco_base as PrecoBase, coalesce(p.moeda,'BRL') as Moeda, upper(coalesce(p.periodicidade,'MENSAL')) as Periodicidade,
+p.limite_usuarios as LimiteUsuarios, p.limite_entidades as LimiteEntidades, p.limite_tenants as LimiteTenants, p.limite_armazenamento_mb as LimiteArmazenamentoMb,
+coalesce(p.permite_white_label,false) as PermiteWhiteLabel, coalesce(p.permite_dominio_customizado,false) as PermiteDominioCustomizado,
+coalesce(p.publico,true) as Publico, coalesce(p.destaque,false) as Destaque, coalesce(p.ativo,true) as Ativo, coalesce(p.ordem,0) as Ordem,
+coalesce((select string_agg(pm.modulo_codigo, ', ' order by pm.modulo_codigo) from sigov.saas_plano_modulo pm where pm.plano_id=p.id and pm.incluso=true), 'Nenhum módulo incluído.') as ModulosInclusos
+from sigov.saas_plano p order by p.ordem, p.nome limit 100;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return new SaasPlanosViewModel
+            {
+                Planos = rows.Select(x => new SaasPlanoViewModel(x.Id, x.Codigo, x.Nome, x.Descricao, x.TipoPlano, x.PrecoBase, x.Moeda, x.Periodicidade,
+                    x.LimiteUsuarios, x.LimiteEntidades, x.LimiteTenants, x.LimiteArmazenamentoMb,
+                    x.PermiteWhiteLabel, x.PermiteDominioCustomizado, x.Publico, x.Destaque, x.Ativo, x.Ordem, x.ModulosInclusos)).ToArray(),
+                PodePersistir = true
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha ao listar planos SaaS.");
-            return new SaasPlanosViewModel { Planos = DefaultPlans(), PodePersistir = false, MensagemFallback = "Não foi possível consultar planos reais; catálogo demonstrativo seguro exibido." };
+            return new SaasPlanosViewModel { PodePersistir = false, MensagemFallback = "Não foi possível consultar os planos persistidos agora; nenhum catálogo foi simulado." };
         }
     }
 
@@ -568,16 +568,63 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
     {
         try
         {
-            if (!await _schemaInspector.TableExistsAsync("sigov", "assinatura_saas", cancellationToken).ConfigureAwait(false))
-                return new SaasAssinaturasViewModel { PodePersistir = false, MensagemFallback = "Assinaturas em implantação: tabela sigov.assinatura_saas não encontrada; nenhuma contratação é simulada." };
+            if (!await _schemaInspector.TableExistsAsync("sigov", "saas_assinatura", cancellationToken).ConfigureAwait(false))
+                return new SaasAssinaturasViewModel { PodePersistir = false, MensagemFallback = "Assinaturas indisponíveis: a tabela sigov.saas_assinatura não existe no schema atual; nenhuma contratação foi simulada." };
             using var connection = _connectionFactory.CreateConnection();
-            var rows = await connection.QueryAsync<SaasAssinaturaViewModel>(new CommandDefinition(@"select a.id, coalesce(a.tenant_id,0) as TenantId, coalesce(t.nome,'Tenant não informado') as Tenant, coalesce(a.plano_id,0) as PlanoId, coalesce(p.nome,'Plano não informado') as Plano, coalesce(a.status,'Trial') as Status, a.data_inicio as Inicio, a.data_fim as Fim, coalesce(a.valor,0) as Valor, coalesce(a.ciclo_cobranca,'mensal') as Ciclo, coalesce(a.limite_usuarios,0) as LimiteUsuarios, coalesce(a.limite_storage_gb,0) as LimiteStorageGb, coalesce(a.observacoes,'') as Observacoes, coalesce(a.modulos_incluidos::text,'') as ModulosIncluidos, true as Persistida from sigov.assinatura_saas a left join sigov.tenant t on t.id=a.tenant_id left join sigov.plano_saas p on p.id=a.plano_id order by a.id desc limit 100;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var rows = await connection.QueryAsync<SaasAssinaturaViewModel>(new CommandDefinition(@"select a.id, coalesce(a.tenant_id,0) as TenantId, coalesce(t.nome,'Tenant não informado') as Tenant,
+coalesce(a.plano_id,0) as PlanoId, coalesce(p.nome,'Plano não informado') as Plano, upper(coalesce(a.status,'NÃO INFORMADO')) as Status, a.data_inicio as Inicio, a.data_fim as Fim,
+a.valor_contratado as ValorContratado, coalesce(a.moeda, p.moeda, 'BRL') as Moeda, upper(coalesce(a.periodicidade, p.periodicidade, 'MENSAL')) as Periodicidade,
+a.usuarios_contratados as UsuariosContratados,
+(select count(*) from sigov.usuario u where u.tenant_id=a.tenant_id and coalesce(u.ativo,true) and coalesce(u.is_deleted,false)) as UsuariosAtivos,
+coalesce(a.observacao,'') as Observacao,
+coalesce((select string_agg(m.modulo_codigo, ', ' order by m.modulo_codigo) from sigov.saas_assinatura_modulo m where m.assinatura_id=a.id and coalesce(m.habilitado,false)), 'Nenhum módulo habilitado.') as ModulosIncluidos
+from sigov.saas_assinatura a
+left join sigov.tenant t on t.id=a.tenant_id
+left join sigov.saas_plano p on p.id=a.plano_id
+order by a.id desc limit 100;", cancellationToken: cancellationToken)).ConfigureAwait(false);
             return new SaasAssinaturasViewModel { Assinaturas = rows.ToArray(), PodePersistir = true };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha ao listar assinaturas SaaS.");
-            return new SaasAssinaturasViewModel { PodePersistir = false, MensagemFallback = "Assinaturas indisponíveis no schema atual; nenhuma informação foi simulada." };
+            return new SaasAssinaturasViewModel { PodePersistir = false, MensagemFallback = "Não foi possível consultar as assinaturas persistidas agora; nenhuma contratação foi simulada." };
+        }
+    }
+
+    public Task<SaasComercialResultado> CriarAssinaturaComercialAsync(long tenantId, long planoId, long usuarioId, string correlationId, CancellationToken cancellationToken)
+        => _comercial.CriarAsync(tenantId, planoId, usuarioId, correlationId, cancellationToken);
+
+    public Task<SaasComercialResultado> TrocarPlanoComercialAsync(long tenantId, long novoPlanoId, string? motivo, bool upgrade, long usuarioId, string correlationId, CancellationToken cancellationToken)
+        => upgrade
+            ? _comercial.UpgradeAsync(tenantId, novoPlanoId, motivo, usuarioId, correlationId, cancellationToken)
+            : _comercial.DowngradeAsync(tenantId, novoPlanoId, motivo, usuarioId, correlationId, cancellationToken);
+
+    public async Task<SaasComercialResultado> AlterarStatusAssinaturaPorIdAsync(long assinaturaId, string statusDestino, string? motivo, long usuarioId, string correlationId, CancellationToken cancellationToken)
+    {
+        var tenantId = await ObterTenantDaAssinaturaAsync(assinaturaId, cancellationToken).ConfigureAwait(false);
+        if (tenantId is null) return SaasComercialResultado.Falha("Assinatura não encontrada no catálogo persistido.");
+        var operacao = statusDestino.Trim().ToUpperInvariant() switch
+        {
+            "ATIVA" => _comercial.ReativarAsync(tenantId.Value, motivo, usuarioId, correlationId, cancellationToken),
+            "SUSPENSA" => _comercial.SuspenderAsync(tenantId.Value, motivo, usuarioId, correlationId, cancellationToken),
+            "CANCELADA" => _comercial.CancelarAsync(tenantId.Value, motivo, usuarioId, correlationId, cancellationToken),
+            _ => Task.FromResult(SaasComercialResultado.Falha($"Status destino inválido: {statusDestino}."))
+        };
+        return await operacao.ConfigureAwait(false);
+    }
+
+    public async Task<long?> ObterTenantDaAssinaturaAsync(long assinaturaId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!await _schemaInspector.TableExistsAsync("sigov", "saas_assinatura", cancellationToken).ConfigureAwait(false)) return null;
+            using var connection = _connectionFactory.CreateConnection();
+            return await connection.QueryFirstOrDefaultAsync<long?>(new CommandDefinition("select tenant_id from sigov.saas_assinatura where id=@Id;", new { Id = assinaturaId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao localizar assinatura {AssinaturaId}.", assinaturaId);
+            return null;
         }
     }
 
@@ -636,14 +683,8 @@ values (@Acao, @Entidade, @Depois::jsonb, now());";
         return new GlobalSearchViewModel { Query = query, Resultados = results, AreasIgnoradas = ignored.Distinct().ToArray(), MensagemFallback = ignored.Count > 0 ? "Algumas áreas foram ignoradas porque o schema não está disponível; resultados reais encontrados respeitam tenant e mascaramento LGPD." : (tenantContext.MensagemFallback ?? string.Empty) };
     }
 
-    private static IReadOnlyCollection<SaasPlanoViewModel> DefaultPlans() => new[]
-    {
-        new SaasPlanoViewModel(0, "starter", "Starter", "Catálogo demonstrativo para operação inicial.", 990, 9900, 15, 10, 1, "Comercial", "Dashboard, Usuários, Ajuda", true, false, 1, false),
-        new SaasPlanoViewModel(0, "gov-plus", "Gov Plus", "Catálogo demonstrativo recomendado para gestão pública integrada.", 4990, 49900, 150, 150, 5, "Prioritário", "Tributário, Protocolo, GED, LGPD", true, true, 2, false),
-        new SaasPlanoViewModel(0, "enterprise", "Enterprise", "Catálogo demonstrativo para multi-entidade e white label.", 12990, 129900, 0, 1024, 0, "SLA premium", "Todos os módulos, integrações, white label", true, false, 3, false)
-    };
     private static string MaskSearch(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : (value.Contains('@') ? MaskEmail(value) : value);
-    private sealed record SaasPlanoRow(long Id, string Codigo, string Nome, string Descricao, decimal ValorMensal, decimal ValorAnual, int LimiteUsuarios, int LimiteStorageGb, int LimiteTenants, string Suporte, string ModulosInclusos, bool Ativo, bool Recomendado, int Ordem);
+    private sealed record SaasPlanoRow(long Id, string Codigo, string Nome, string Descricao, string TipoPlano, decimal? PrecoBase, string Moeda, string Periodicidade, int? LimiteUsuarios, int? LimiteEntidades, int? LimiteTenants, int? LimiteArmazenamentoMb, bool PermiteWhiteLabel, bool PermiteDominioCustomizado, bool Publico, bool Destaque, bool Ativo, int Ordem, string ModulosInclusos);
     private sealed record SearchRow(string Id, string Titulo, string Descricao, string Status, string Url, DateTimeOffset? Data, bool LgpdMascarado);
 
 }

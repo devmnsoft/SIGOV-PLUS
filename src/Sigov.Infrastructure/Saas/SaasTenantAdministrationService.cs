@@ -12,7 +12,8 @@ namespace Sigov.Infrastructure.Saas;
 public sealed class SaasTenantAdministrationService(
     DapperContext context,
     IModuleCatalogService catalog,
-    IPasswordHashService passwordHashService) : ISaasTenantAdministrationService
+    IPasswordHashService passwordHashService,
+    Sigov.Application.Saas.Comercial.ISaasLimitValidator limitValidator) : ISaasTenantAdministrationService
 {
     public async Task<SaasTenantListPage> ListAsync(SaasTenantListFilter filter, CancellationToken cancellationToken = default)
     {
@@ -133,6 +134,10 @@ public sealed class SaasTenantAdministrationService(
                 "select exists(select 1 from sigov.usuario where (email=@Email or login=@Login) and tenant_id=@TenantId and not is_deleted)",
                 new { command.TenantId, Email = command.Email.Trim(), Login = login }, tx);
             if (exists) return Rollback(tx, "Já existe usuário cadastrado com este e-mail ou login neste cliente.");
+
+            // RC-SAAS-AUT Etapa B: limite comercial transacional (lock na assinatura ativa).
+            var limite = await limitValidator.ValidateUserLimitTxAsync(connection, tx, command.TenantId, cancellationToken).ConfigureAwait(false);
+            if (!limite.Allowed) return Rollback(tx, limite.Alert ?? "Limite de usuários do plano atingido.");
 
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
             // A credencial aleatória não é revelada nem reutilizável. O titular define a
@@ -364,9 +369,14 @@ public sealed class SaasTenantAdministrationService(
                 if (isReactivation && currentContract.CancellationScheduledFor is { } cancellationDate && cancellationDate <= todayUtc)
                     return Rollback(transaction, "O cancelamento agendado já produziu efeito; reativação exige nova decisão contratual.");
             }
-            if (command.ExpectedUpdatedAt.HasValue && before is not null &&
-                before.UpdatedAt != command.ExpectedUpdatedAt && before.CreatedAt != command.ExpectedUpdatedAt)
-                return Rollback(transaction, "O contrato foi alterado por outro usuário. Recarregue e tente novamente.");
+            if (command.ExpectedUpdatedAt is { } expected && before is not null)
+            {
+                var updatedAtUtc = before.UpdatedAt?.ToUniversalTime();
+                var createdAtUtc = before.CreatedAt.ToUniversalTime();
+                var esperadoUtc = expected.UtcDateTime;
+                if (updatedAtUtc != esperadoUtc && createdAtUtc != esperadoUtc)
+                    return Rollback(transaction, "O contrato foi alterado por outro usuário. Recarregue e tente novamente.");
+            }
 
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
             var from = requestedStart;
@@ -443,10 +453,10 @@ public sealed class SaasTenantAdministrationService(
     private static IReadOnlyList<string> SplitProfiles(string? value) =>
         string.IsNullOrWhiteSpace(value) ? Array.Empty<string>() : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    private sealed record TenantHeader(long Id, string Name, string Status, string Esfera, string? Plan, DateTimeOffset? LastActivityUtc);
-    private sealed record UserRow(long Id, string Name, string Email, bool Active, string? Profiles, bool Blocked = false);
+    private sealed record TenantHeader(long Id, string Name, string Status, string Esfera, string? Plan, DateTime? LastActivityUtc);
+    private sealed record UserRow(long Id, string Name, string Email, bool Active, bool Blocked, string? Profiles);
     private sealed record ContractRow(long Id, string Status, DateOnly? EffectiveFrom, DateOnly? EffectiveUntil,
-        DateOnly? CancellationScheduledFor, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+        DateOnly? CancellationScheduledFor, DateTime CreatedAt, DateTime? UpdatedAt);
 
     private const string ListSql = """
 select count(*)::int
@@ -455,7 +465,7 @@ left join lateral (
   select string_agg(distinct lower(coalesce(sc.esfera_governo, e.esfera_governo)), ', ') as esfera
   from sigov.tenant_entidade te
   left join sigov.entidade e on e.id=te.entidade_id
-  left join sigov.saas_cliente sc on sc.tenant_id=t.id and sc.entidade_id=te.entidade_id and sc.ativo and not sc.is_deleted
+  left join sigov.saas_cliente sc on sc.tenant_id=t.id and sc.entidade_id=te.entidade_id and sc.status <> 'cancelado'
   where te.tenant_id=t.id and te.ativo
 ) esfera on true
 where t.ativo and not t.is_deleted
@@ -478,7 +488,7 @@ left join lateral (
   select string_agg(distinct lower(coalesce(sc.esfera_governo, e.esfera_governo)), ', ') as esfera
   from sigov.tenant_entidade te
   left join sigov.entidade e on e.id=te.entidade_id
-  left join sigov.saas_cliente sc on sc.tenant_id=t.id and sc.entidade_id=te.entidade_id and sc.ativo and not sc.is_deleted
+  left join sigov.saas_cliente sc on sc.tenant_id=t.id and sc.entidade_id=te.entidade_id and sc.status <> 'cancelado'
   where te.tenant_id=t.id and te.ativo
 ) esfera on true
 left join lateral (
@@ -512,7 +522,7 @@ select t.id as Id, coalesce(t.nome_fantasia,t.nome,t.slug,'Tenant '||t.id::text)
          select string_agg(distinct lower(coalesce(sc.esfera_governo, e.esfera_governo)), ', ')
          from sigov.tenant_entidade te
          left join sigov.entidade e on e.id=te.entidade_id
-         left join sigov.saas_cliente sc on sc.tenant_id=t.id and sc.entidade_id=te.entidade_id and sc.ativo and not sc.is_deleted
+         left join sigov.saas_cliente sc on sc.tenant_id=t.id and sc.entidade_id=te.entidade_id and sc.status <> 'cancelado'
          where te.tenant_id=t.id and te.ativo
        ), 'nao_informada') as Esfera,
        p.nome as Plan,

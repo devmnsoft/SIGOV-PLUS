@@ -10,7 +10,7 @@ public sealed record SaasTenantListItem(
     int Entities,
     int ActiveUsers,
     int Modules,
-    DateTimeOffset? LastActivityUtc,
+    DateTime? LastActivityUtc,
     string? Plan);
 
 public sealed record SaasTenantListPage(IReadOnlyList<SaasTenantListItem> Items, int Page, int PageSize, int Total);
@@ -27,7 +27,7 @@ public sealed record SaasTenantContractItem(
     string? PlanCode,
     decimal? ContractedValue,
     string? Reason,
-    DateTimeOffset? UpdatedAt);
+    DateTime? UpdatedAt);
 
 public sealed record SaasTenantDetail(
     long Id,
@@ -35,7 +35,7 @@ public sealed record SaasTenantDetail(
     string Status,
     string Esfera,
     string? Plan,
-    DateTimeOffset? LastActivityUtc,
+    DateTime? LastActivityUtc,
     IReadOnlyList<SaasTenantEntityItem> Entities,
     IReadOnlyList<SaasTenantUserItem> Users,
     IReadOnlyList<SaasTenantContractItem> Contracts,

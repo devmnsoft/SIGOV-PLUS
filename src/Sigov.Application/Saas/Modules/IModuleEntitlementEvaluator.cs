@@ -16,8 +16,8 @@ public sealed record ModuleEntitlementRequest(
     bool HasAuditedTenantContext = false,
     string? CorrelationId = null);
 
-public sealed record ModuleEntitlementDecision(bool Allowed, string Reason)
+public sealed record ModuleEntitlementDecision(bool Allowed, string Reason, SaasForbiddenMotivo? Motivo = null)
 {
     public static ModuleEntitlementDecision Allow(string reason = "Acesso permitido.") => new(true, reason);
-    public static ModuleEntitlementDecision Deny(string reason) => new(false, reason);
+    public static ModuleEntitlementDecision Deny(string reason, SaasForbiddenMotivo? motivo = null) => new(false, reason, motivo);
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Sigov.Application.Saas;
+using Sigov.Application.Saas.Modules;
 
 namespace Sigov.Api.Middlewares;
 
@@ -23,7 +24,14 @@ public sealed class RequireFeatureAttribute : Attribute, IAsyncActionFilter
         var service = context.HttpContext.RequestServices.GetRequiredService<IFeatureFlagService>();
         if (!await service.IsEnabledAsync(tenantContext.TenantId.Value, _featureCode, context.HttpContext.RequestAborted).ConfigureAwait(false))
         {
-            context.Result = new ObjectResult(new { message = "Feature flag desabilitada para o tenant." }) { StatusCode = StatusCodes.Status403Forbidden };
+            context.Result = new ObjectResult(new
+            {
+                success = false,
+                data = (object?)null,
+                message = "Feature flag desabilitada para o tenant.",
+                correlationId = context.HttpContext.TraceIdentifier,
+                motivo = SaasForbiddenMotivos.ToWire(SaasForbiddenMotivo.ForaEscopo)
+            }) { StatusCode = StatusCodes.Status403Forbidden };
             return;
         }
 

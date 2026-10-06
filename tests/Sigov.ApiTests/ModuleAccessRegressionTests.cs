@@ -24,6 +24,31 @@ public sealed class ModuleAccessRegressionTests
     }
 
     [Fact]
+    public void Envelope_403_Deve_Incluir_Motivo_Canonico()
+    {
+        var moduleAttribute = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Middlewares", "RequireModuleAttribute.cs"));
+        var featureAttribute = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Middlewares", "RequireFeatureAttribute.cs"));
+
+        moduleAttribute.Should().Contain("motivo = SaasForbiddenMotivos.ToWire(decision.Motivo ?? SaasForbiddenMotivo.SemPermissao)");
+        featureAttribute.Should().Contain("motivo = SaasForbiddenMotivos.ToWire(SaasForbiddenMotivo.ForaEscopo)");
+    }
+
+    [Fact]
+    public void Motivos_caberam_no_enum_canonico_sem_valores_fantasma()
+    {
+        var motivos = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Saas", "Modules", "SaasForbiddenMotivo.cs"));
+
+        motivos.Should().Contain("SemPermissao");
+        motivos.Should().Contain("ForaEscopo");
+        motivos.Should().Contain("ModuloNaoContratado");
+        motivos.Should().Contain("LimiteAtingido");
+        motivos.Should().Contain("BloqueadoComercial");
+        motivos.Should().Contain("ContratoExpirado");
+        motivos.Should().Contain("BLOQUEADO_COMERCIAL");
+        motivos.Should().Contain("CONTRATO_EXPIRADO");
+    }
+
+    [Fact]
     public void TenantAccessGuard_Deve_Bloquear_Tenant_Suspenso_Cancelado_E_Module_Feature_Desabilitados()
     {
         var guard = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Saas", "TenantAccessGuard.cs"));

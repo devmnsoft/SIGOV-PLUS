@@ -1,9 +1,65 @@
 @model Sigov.Web.Models.PostBuild.SaasAssinaturasViewModel
-@{ ViewData["Title"]="Assinaturas SaaS"; ViewData["PageTitle"]="Assinaturas SaaS"; ViewData["PageDescription"]="Status, ciclo, limites e módulos contratados com fallback honesto."; }
+@{
+  ViewData["Title"] = "Assinaturas SaaS";
+  ViewData["PageTitle"] = "Assinaturas SaaS";
+  ViewData["PageDescription"] = "Contratações reais em sigov.saas_assinatura: criação, upgrade, downgrade e status com auditoria.";
+  var planos = (ViewBag.Planos as IReadOnlyCollection<Sigov.Web.Models.PostBuild.SaasPlanoViewModel>) ?? Array.Empty<Sigov.Web.Models.PostBuild.SaasPlanoViewModel>();
+}
 @await Html.PartialAsync("_PageIntro")
-@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback <span class="badge bg-secondary">Em implantação</span></div> }
-<a class="sigov-btn sigov-btn--primary mb-3 @(Model?.PodePersistir == true ? "" : "disabled")" href="/Saas/Assinaturas/Nova">Nova assinatura</a>
-<div class="table-responsive sigov-card"><table class="table align-middle"><thead><tr><th>Tenant</th><th>Plano</th><th>Status</th><th>Vigência</th><th>Valor</th><th>Limites</th><th>Ações</th></tr></thead><tbody>
-@foreach (var a in Model?.Assinaturas ?? Array.Empty<Sigov.Web.Models.PostBuild.SaasAssinaturaViewModel>()) { <tr><td>@a.Tenant</td><td>@a.Plano</td><td><span class="badge bg-success">@a.Status</span></td><td>@a.Inicio?.ToString("dd/MM/yyyy") - @a.Fim?.ToString("dd/MM/yyyy")</td><td>@a.Valor.ToString("C") / @a.Ciclo</td><td>@a.LimiteUsuarios usuários / @a.LimiteStorageGb GB</td><td><a href="/Saas/Assinaturas/@a.Id">Detalhes</a></td></tr> }
-@if (!(Model?.Assinaturas.Any() ?? false)) { <tr><td colspan="7" class="text-muted">Nenhuma assinatura real encontrada.</td></tr> }
-</tbody></table></div>
+@if (!string.IsNullOrWhiteSpace(Model?.MensagemFallback)) { <div class="alert alert-warning">@Model.MensagemFallback</div> }
+<div class="d-flex justify-content-between align-items-center mb-3"><h2 class="h5">Contratações ativas</h2><small class="text-muted">@(Model?.Assinaturas.Count ?? 0) assinatura(s)</small></div>
+@if (Model?.PodePersistir == true && planos.Count > 0) {
+  <div class="sigov-card p-3 mb-3">
+    <h3 class="h6 mb-2">Nova assinatura</h3>
+    <form method="post" action="/Saas/Assinaturas/Nova" class="row g-2 align-items-end">
+      @Html.AntiForgeryToken()
+      <div class="col-auto"><label class="form-label small mb-1" for="nova-tenant">Tenant (id)</label><input type="number" id="nova-tenant" name="TenantId" min="1" class="form-control form-control-sm" style="width:140px" required /></div>
+      <div class="col-auto"><label class="form-label small mb-1" for="nova-plano">Plano</label><select id="nova-plano" name="PlanoId" class="form-select form-select-sm w-auto" required>@foreach (var plano in planos) { <option value="@plano.Id">@plano.Nome (@plano.Codigo)</option> }</select></div>
+      <div class="col-auto"><button type="submit" class="sigov-btn sigov-btn--primary btn-sm">Criar assinatura</button></div>
+    </form>
+  </div>
+}
+<div class="table-responsive sigov-card">
+  <table class="table align-middle table-hover">
+    <thead><tr><th>Tenant</th><th>Plano</th><th>Status</th><th>Vigência</th><th>Valor</th><th>Usuários</th><th>Módulos contratados</th><th>Ações</th></tr></thead>
+    <tbody>
+    @foreach (var a in Model?.Assinaturas ?? Array.Empty<Sigov.Web.Models.PostBuild.SaasAssinaturaViewModel>()) {
+      var status = a.Status?.ToUpperInvariant() ?? string.Empty;
+      <tr>
+        <td>@a.Tenant<span class="text-muted small d-block">id @a.TenantId</span></td>
+        <td>@a.Plano</td>
+        <td><span class="badge @BadgeStatus(status)">@a.Status</span></td>
+        <td>@(a.Inicio?.ToString("dd/MM/yyyy") ?? "—") até @(a.Fim?.ToString("dd/MM/yyyy") ?? "sem fim")</td>
+        <td title="@a.Moeda">@(a.ValorContratado?.ToString("C", System.Globalization.CultureInfo.InvariantCulture) ?? "—") / @a.Periodicidade</td>
+        <td>@a.UsuariosAtivos ativos<br /><span class="text-muted small">@(a.UsuariosContratados?.ToString() ?? "ilimitado") contratados</span></td>
+        <td class="small" title="@a.ModulosIncluidos">@a.ModulosIncluidos</td>
+        <td style="white-space:nowrap">
+          <div class="d-flex flex-column gap-1">
+            <div class="d-flex gap-1">
+              @if (status == "ATIVA") { <form method="post" action="/Saas/Assinaturas/@a.Id/Suspender" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="Motivo" value="" /><button type="submit" class="btn btn-sm btn-outline-warning">Suspender</button></form> }
+              @if (status == "SUSPENSA" || status == "SUSPENSO") { <form method="post" action="/Saas/Assinaturas/@a.Id/Reativar" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="Motivo" value="" /><button type="submit" class="btn btn-sm btn-outline-success">Reativar</button></form> }
+              @if (status == "ATIVA" || status == "SUSPENSA" || status == "SUSPENSO") { <form method="post" action="/Saas/Assinaturas/@a.Id/Cancelar" class="d-inline">@Html.AntiForgeryToken()<input type="hidden" name="Motivo" value="" /><button type="submit" class="btn btn-sm btn-outline-danger">Cancelar</button></form> }
+            </div>
+            <div class="d-flex gap-1 flex-wrap">
+              <form method="post" action="/Saas/Assinaturas/Tenants/@a.TenantId/Upgrade" class="d-inline d-flex gap-1 align-items-center">@Html.AntiForgeryToken()<select name="NovoPlanoId" class="form-select form-select-sm w-auto" aria-label="Plano destino do upgrade">@foreach (var plano in planos) { if (plano.Id != a.PlanoId) { <option value="@plano.Id">@plano.Nome</option> } }</select><button type="submit" class="btn btn-sm btn-outline-primary">Upgrade</button></form>
+              <form method="post" action="/Saas/Assinaturas/Tenants/@a.TenantId/Downgrade" class="d-inline d-flex gap-1 align-items-center">@Html.AntiForgeryToken()<select name="NovoPlanoId" class="form-select form-select-sm w-auto" aria-label="Plano destino do downgrade">@foreach (var plano in planos) { if (plano.Id != a.PlanoId) { <option value="@plano.Id">@plano.Nome</option> } }</select><button type="submit" class="btn btn-sm btn-outline-secondary">Downgrade</button></form>
+            </div>
+          </div>
+          <a class="small" href="/Saas/Assinaturas/@a.Id">Detalhes</a>
+        </td>
+      </tr>
+    }
+    @if (!(Model?.Assinaturas.Any() ?? false)) { <tr><td colspan="8" class="text-muted">Nenhuma assinatura encontrada no catálogo persistido.</td></tr> }
+    </tbody>
+  </table>
+</div>
+@functions {
+  static string BadgeStatus(string s) => s switch
+  {
+    "ATIVA" => "bg-success",
+    "SUSPENSA" or "SUSPENSO" => "bg-warning text-dark",
+    "CANCELADA" => "bg-secondary",
+    "TRIAL" => "bg-info text-dark",
+    _ => "bg-light text-dark border"
+  };
+}

@@ -33,7 +33,16 @@ begin
         where conname = 'uk_sigov_permissao_modulo_recurso_acao'
           and conrelid = 'sigov.permissao'::regclass
     ) then
-        alter table sigov.permissao add constraint uk_sigov_permissao_modulo_recurso_acao unique (modulo, recurso, acao);
+        begin
+            alter table sigov.permissao add constraint uk_sigov_permissao_modulo_recurso_acao unique (modulo, recurso, acao);
+        exception when unique_violation then
+            -- Desde RC50.68C a unicidade canonica de permissao e (modulo, chave) e o bootstrap
+            -- 083 removeu esta UC em bases evolutivas onde modulos como cidadao360 mantem de
+            -- forma intencional varias permissoes com o mesmo (modulo, recurso, acao). A falha
+            -- esperada em base evolutiva nao deve interromper a execucao idempotente do script
+            -- canonico (RC-SAAS-AUT: correcao de idempotencia em reexecucao do baseline).
+            null;
+        end;
     end if;
 end $$;
 

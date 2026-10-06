@@ -46,8 +46,10 @@ public sealed class PostBuild03EvolutionTests
         Migration.Should().Contain("ux_saas_assinatura_ativa_tenant");
         var controller = Api("src/Sigov.Api/Controllers/SaasTenantComercialController.cs");
         controller.Should().Contain("saas_assinatura_historico");
-        controller.Should().Contain("ASSINATURA_UPGRADE");
-        controller.Should().Contain("ASSINATURA_DOWNGRADE");
+        // RC-SAAS-AUT Etapa B: acoes ASSINATURA_UPGRADE/DOWNGRADE e gravacao de historico
+        // migraram para o servico comercial (camada Infrastructure), mantendo o mesmo contrato.
+        var service = Api("src/Sigov.Infrastructure/Saas/Comercial/SaasAssinaturaComercialService.cs");
+        service.Should().Contain("ASSINATURA_UPGRADE").And.Contain("ASSINATURA_DOWNGRADE").And.Contain("saas_assinatura_historico");
     }
 
     [Fact]

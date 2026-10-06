@@ -158,7 +158,10 @@ public sealed class AtividadeRecenteViewModel
     public DateTime? Data { get; init; }
 }
 
-public sealed record SaasPlanoViewModel(long Id, string Codigo, string Nome, string Descricao, decimal ValorMensal, decimal ValorAnual, int LimiteUsuarios, int LimiteStorageGb, int LimiteTenants, string Suporte, string ModulosInclusos, bool Ativo, bool Recomendado, int Ordem, bool Persistido);
+public sealed record SaasPlanoViewModel(
+    long Id, string Codigo, string Nome, string Descricao, string TipoPlano, decimal? PrecoBase, string Moeda, string Periodicidade,
+    int? LimiteUsuarios, int? LimiteEntidades, int? LimiteTenants, int? LimiteArmazenamentoMb,
+    bool PermiteWhiteLabel, bool PermiteDominioCustomizado, bool Publico, bool Destaque, bool Ativo, int Ordem, string ModulosInclusos);
 public sealed class SaasPlanosViewModel
 {
     public IReadOnlyCollection<SaasPlanoViewModel> Planos { get; init; } = Array.Empty<SaasPlanoViewModel>();
@@ -182,7 +185,7 @@ public sealed class SaasPlanoFormViewModel
     public bool Recomendado { get; set; }
     public int Ordem { get; set; }
 }
-public sealed record SaasAssinaturaViewModel(long Id, long TenantId, string Tenant, long PlanoId, string Plano, string Status, DateTime? Inicio, DateTime? Fim, decimal Valor, string Ciclo, int LimiteUsuarios, int LimiteStorageGb, string Observacoes, string ModulosIncluidos, bool Persistida);
+public sealed record SaasAssinaturaViewModel(long Id, long TenantId, string Tenant, long PlanoId, string Plano, string Status, DateTime? Inicio, DateTime? Fim, decimal? ValorContratado, string Moeda, string Periodicidade, int? UsuariosContratados, int UsuariosAtivos, string Observacao, string ModulosIncluidos);
 public sealed class SaasAssinaturasViewModel
 {
     public IReadOnlyCollection<SaasAssinaturaViewModel> Assinaturas { get; init; } = Array.Empty<SaasAssinaturaViewModel>();
