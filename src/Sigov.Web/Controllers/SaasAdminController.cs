@@ -215,6 +215,8 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
 
         // RC-SAAS-AUT (A4): troca de contexto auditada — atualiza a sessão em place e re-assina o
         // ticket com claims do tenant destino + contexto_auditado=true.
+        // RC-EVO A: logId fora do try para que uma falha posterior finalize (compensa) a auditoria.
+        long? logId = null;
         try
         {
             var fromTenant = long.TryParse(User.FindFirstValue("tenant_id"), out var ft) ? ft : 0;
@@ -222,7 +224,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
             var guid = Guid.TryParse(traceId, out var g) ? g : Guid.NewGuid();
 
             // 1. Iniciar auditoria da troca
-            var logId = await switchRepo.StartSwitchAsync(new(
+            logId = await switchRepo.StartSwitchAsync(new(
                 userId.Value, id, null, $"ALTERAR_CONTEXTO para tenant {id}",
                 HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), guid), ct).ConfigureAwait(false);
 
@@ -236,7 +238,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
             ", new { To = id, UserId = userId.Value, From = fromTenant }, cancellationToken: ct)).ConfigureAwait(false);
             if (updated == 0)
             {
-                await switchRepo.FinishSwitchAsync(logId, userId.Value, ct).ConfigureAwait(false);
+                await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false);
                 TempData["SaasAdminError"] = "Não foi possível alternar o contexto. Sessão inválida.";
                 return RedirectToAction(nameof(TenantDetalhe), new { id });
             }
@@ -252,7 +254,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
                 new AuthenticationProperties { IsPersistent = true, AllowRefresh = true }).ConfigureAwait(false);
 
             // 4. Finalizar auditoria
-            await switchRepo.FinishSwitchAsync(logId, userId.Value, ct).ConfigureAwait(false);
+            await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false);
 
             TempData["SaasAdminSuccess"] = $"Contexto alternado para o tenant #{id}.";
             return Redirect("/Dashboard");
@@ -260,6 +262,12 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         catch (Exception ex)
         {
             logger.LogError(ex, "Falha ao alternar contexto para tenant {Id}. CorrelationId={CorrelationId}", id, HttpContext.TraceIdentifier);
+            // RC-EVO A: compensação best-effort — sem ela, a auditoria da troca ficaria aberta para sempre.
+            if (logId.HasValue)
+            {
+                try { await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false); }
+                catch (Exception exFinish) { logger.LogWarning(exFinish, "Compensação da auditoria de troca de contexto falhou (logId={LogId}). CorrelationId={CorrelationId}", logId.Value, HttpContext.TraceIdentifier); }
+            }
             TempData["SaasAdminError"] = "Falha ao alternar o contexto. Tente novamente.";
             return RedirectToAction(nameof(TenantDetalhe), new { id });
         }
@@ -280,13 +288,15 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
             return RedirectToAction(nameof(Dashboard));
         }
 
+        // RC-EVO A: logId fora do try para que uma falha posterior finalize (compensa) a auditoria.
+        long? logId = null;
         try
         {
             var currentTenant = long.TryParse(User.FindFirstValue("tenant_id"), out var ctVal) ? ctVal : 0;
             var traceId = HttpContext.TraceIdentifier;
             var guid = Guid.TryParse(traceId, out var g) ? g : Guid.NewGuid();
 
-            var logId = await switchRepo.StartSwitchAsync(new(
+            logId = await switchRepo.StartSwitchAsync(new(
                 userId.Value, null, null, "RETORNO_CONTEXTO para tenant original",
                 HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), guid), ct).ConfigureAwait(false);
 
@@ -298,7 +308,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
                 new { UserId = userId.Value }, cancellationToken: ct)).ConfigureAwait(false);
             if (originalTenant is null || originalTenant.Value <= 0)
             {
-                await switchRepo.FinishSwitchAsync(logId, userId.Value, ct).ConfigureAwait(false);
+                if (logId.HasValue) await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false);
                 TempData["SaasAdminError"] = "Tenant original não encontrado.";
                 return RedirectToAction(nameof(Dashboard));
             }
@@ -310,7 +320,7 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
             ", new { To = originalTenant.Value, UserId = userId.Value, From = currentTenant }, cancellationToken: ct)).ConfigureAwait(false);
             if (updated == 0)
             {
-                await switchRepo.FinishSwitchAsync(logId, userId.Value, ct).ConfigureAwait(false);
+                if (logId.HasValue) await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false);
                 TempData["SaasAdminError"] = "Não foi possível voltar ao contexto original.";
                 return RedirectToAction(nameof(Dashboard));
             }
@@ -324,13 +334,19 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal,
                 new AuthenticationProperties { IsPersistent = true, AllowRefresh = true }).ConfigureAwait(false);
 
-            await switchRepo.FinishSwitchAsync(logId, userId.Value, ct).ConfigureAwait(false);
+            if (logId.HasValue) await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false);
             TempData["SaasAdminSuccess"] = "Contexto original restaurado.";
             return Redirect("/Dashboard");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Falha ao voltar do contexto. CorrelationId={CorrelationId}", HttpContext.TraceIdentifier);
+            // RC-EVO A: compensação best-effort — sem ela, a auditoria da troca ficaria aberta para sempre.
+            if (logId.HasValue)
+            {
+                try { await switchRepo.FinishSwitchAsync(logId.Value, userId.Value, ct).ConfigureAwait(false); }
+                catch (Exception exFinish) { logger.LogWarning(exFinish, "Compensação da auditoria de retorno de contexto falhou (logId={LogId}). CorrelationId={CorrelationId}", logId.Value, HttpContext.TraceIdentifier); }
+            }
             TempData["SaasAdminError"] = "Falha ao voltar ao contexto original.";
             return RedirectToAction(nameof(Dashboard));
         }
@@ -445,14 +461,19 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
     {
         var userId = CurrentUserId();
         if (userId is null) return false;
+        // RC-EVO A (RC-SAAS-AUT): o avaliador fail-closed é o único decisor. O bypass de
+        // "admin local" apenas resolve o escopo: sem tenant explícito usa o tenant atual e
+        // nunca alcança outro tenant distinto.
+        var effectiveTenant = tenantId;
         if (IsLocalTenantAdmin())
         {
-            var ownTenant = long.TryParse(User.FindFirstValue("tenant_id"), out var currentTenant) ? currentTenant : (long?)null;
-            if (string.Equals(action, "administrar", StringComparison.OrdinalIgnoreCase))
+            var ownTenant = long.TryParse(User.FindFirstValue("tenant_id"), out var currentTenant) ? (long?)currentTenant : null;
+            if (!effectiveTenant.HasValue)
+                effectiveTenant = ownTenant;
+            else if (ownTenant.HasValue && effectiveTenant != ownTenant)
                 return false;
-            return ownTenant.HasValue && (!tenantId.HasValue || tenantId == ownTenant);
         }
-        var decision = await authorization.EvaluateAsync(new(userId.Value, "saas", "saas.superadmin.dashboard", action, tenantId,
+        var decision = await authorization.EvaluateAsync(new(userId.Value, "saas", "saas.superadmin.dashboard", action, effectiveTenant,
             CorrelationId: HttpContext.TraceIdentifier, Origem: "WEB_SUPERADMIN_DASHBOARD"), ct);
         return decision.Permitido;
     }

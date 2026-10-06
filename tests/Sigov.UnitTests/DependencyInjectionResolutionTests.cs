@@ -79,6 +79,8 @@ public sealed class DependencyInjectionResolutionTests
     public void Web_operational_services_resolve_with_infrastructure_services()
     {
         var services = CreateBaseServices().AddInfrastructure();
+        // RC-EVO A: BuscaGlobalService consulta o decisor de permissões da request (mesmo registro do Program.cs).
+        services.AddScoped<IUserPermissionService, UserPermissionService>();
         services.AddSigovWebOperationalServices();
 
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });

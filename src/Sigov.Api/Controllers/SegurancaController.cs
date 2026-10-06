@@ -107,9 +107,12 @@ public sealed class SegurancaController : ControllerBase
     {
         if (request.PermissaoIds.Length == 0 || request.PermissaoIds.Length > 500) return BadRequest(ApiResponse<object>.Fail("Informe entre 1 e 500 permissões."));
         var tenantId = TenantId(); using var c = _db.CreateConnection();
-        var entityTable = tipo == "perfil" ? "perfil_acesso" : "usuario";
-        var existsSql = $"select exists(select 1 from sigov.{entityTable} where id=@Id and ativo and not is_deleted)";
-        if (!await c.ExecuteScalarAsync<bool>(new CommandDefinition(existsSql, new { Id = id }, cancellationToken: ct))) return NotFound(ApiResponse<object>.Fail($"{tipo} não encontrado."));
+        // RC-EVO A: scoping do registro-alvo pelo contexto atual — usuário pelo tenant e perfil pela
+        // entidade jurisdicionada (perfil corporativo com entidade_id null alcança as duas).
+        var existsSql = tipo == "perfil"
+            ? "select exists(select 1 from sigov.perfil_acesso where id=@Id and ativo and not is_deleted and (entidade_id is null or entidade_id=@EntidadeId))"
+            : "select exists(select 1 from sigov.usuario where id=@Id and ativo and not is_deleted and tenant_id=@TenantId)";
+        if (!await c.ExecuteScalarAsync<bool>(new CommandDefinition(existsSql, new { Id = id, TenantId = tenantId, EntidadeId = _tenant.EntidadeId }, cancellationToken: ct))) return NotFound(ApiResponse<object>.Fail($"{tipo} não encontrado."));
         const string validSql = "select count(*) from sigov.seguranca_permissao_granular where id=any(@Ids) and ativo and (tenant_id is null or tenant_id=@TenantId)";
         var valid = await c.ExecuteScalarAsync<int>(new CommandDefinition(validSql, new { Ids = request.PermissaoIds.Distinct().ToArray(), TenantId = tenantId }, cancellationToken: ct));
         if (valid != request.PermissaoIds.Distinct().Count()) return BadRequest(ApiResponse<object>.Fail("Uma ou mais permissões são inválidas para o tenant."));

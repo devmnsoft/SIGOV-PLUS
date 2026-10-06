@@ -1,5 +1,6 @@
 using Dapper;
 using Sigov.Application.Saas.Profiles;
+using Sigov.Domain.Saas;
 using Sigov.Infrastructure.Persistence.Dapper;
 
 namespace Sigov.Infrastructure.Saas;
@@ -32,13 +33,15 @@ left join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.is_delete
 left join sigov.perfil_nivel pn on pn.codigo = coalesce(pa.codigo_externo, upper(replace(pa.nome, ' ', '_')))
 where u.id = @UsuarioId and u.is_deleted = false and u.ativo = true
 union
-select case when tipo_usuario in ('ADMINISTRADOR_GERAL','SIGOV_ADMIN','SUPER_ADMIN','SUPERADMIN','ADMIN_GERAL') then 'ADMINISTRADOR_GERAL' else tipo_usuario end
+select tipo_usuario
 from sigov.usuario
 where id = @UsuarioId and tipo_usuario is not null;
 ";
         using var connection = _context.CreateConnection();
         var rows = await connection.QueryAsync<string>(new CommandDefinition(sql, new { UsuarioId = usuarioId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Where(row => !string.IsNullOrWhiteSpace(row)).ToArray();
+        // RC-EVO A: alias de admin global normalizado no .NET (canon de PerfilNivelCodigos) — o CASE
+        // no SQL duplicava a regra e divergia dos aliases mantidos no domínio.
+        return rows.Select(row => PerfilNivelCodigos.Normalize(row)).Where(row => !string.IsNullOrWhiteSpace(row)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     public async Task<IReadOnlyCollection<string>> GetUserPermissionsAsync(long usuarioId, long? tenantId, CancellationToken cancellationToken)

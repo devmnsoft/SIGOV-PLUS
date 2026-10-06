@@ -20,7 +20,7 @@ from sigov.saas_assinatura_addon aa join sigov.saas_addon add on add.codigo=aa.a
 where aa.assinatura_id=a.id and upper(aa.status)='ATIVO' and add.tipo_addon like 'USUARIOS%'),0) end as LimiteUsuarios,
 coalesce((select count(*)::int from sigov.usuario u where u.tenant_id=@TenantId and u.ativo=true and u.is_deleted=false),0) as UsuariosAtivos,
 coalesce((select count(*)::int from sigov.saas_assinatura_modulo m where m.tenant_id=@TenantId and m.habilitado=true),0) as ModulosAtivos,
-null::int as LimiteModulos, p.permite_white_label as WhiteLabelPermitido, p.permite_dominio_customizado as DominioCustomizadoPermitido
+null::int as LimiteModulos, p.permite_white_label as WhiteLabelPermitido, p.permite_dominio_customizado as DominioCustomizadoPermitido, a.data_fim as DataFim
 from sigov.saas_assinatura a join sigov.saas_plano p on p.id=a.plano_id
 where a.tenant_id=@TenantId and a.status='ATIVA' order by a.created_at desc limit 1";
 
@@ -28,9 +28,9 @@ where a.tenant_id=@TenantId and a.status='ATIVA' order by a.created_at desc limi
 
     public async Task<SaasLimitValidationResult> ValidateUserLimitAsync(long tenantId, CancellationToken cancellationToken = default)
     {
-        var usage = await GetUsageSummaryAsync(tenantId, cancellationToken);
-        var allowed = usage.LimiteUsuarios is null || usage.UsuariosAtivos < usage.LimiteUsuarios;
-        return new SaasLimitValidationResult(allowed, allowed ? null : "Limite de usuários do plano atingido.", usage);
+        using var connection = _context.CreateConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<UsageRow>(new CommandDefinition(UsoBase, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return UserLimitDecision(tenantId, row);
     }
 
     /// <summary>
@@ -40,12 +40,25 @@ where a.tenant_id=@TenantId and a.status='ATIVA' order by a.created_at desc limi
     public async Task<SaasLimitValidationResult> ValidateUserLimitTxAsync(IDbConnection connection, IDbTransaction transaction, long tenantId, CancellationToken cancellationToken = default)
     {
         var row = await connection.QuerySingleOrDefaultAsync<UsageRow>(new CommandDefinition(UsoComLock, new { TenantId = tenantId }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        var usage = row is null
-            ? new SaasUsageSummary(tenantId, null, 0, null, 0, null, false, false, 0)
-            : new SaasUsageSummary(tenantId, row.Plano, row.UsuariosAtivos, row.LimiteUsuarios, row.ModulosAtivos, row.LimiteModulos, row.WhiteLabelPermitido, row.DominioCustomizadoPermitido, Percentual(row));
+        return UserLimitDecision(tenantId, row);
+    }
+
+    /// <summary>
+    /// RC-EVO A: falha explícita de vigência (regra 13) — ausência de assinatura ativa nunca equivale a
+    /// "ilimitado" e assinatura vencida (<c>data_fim &lt; hoje</c>) bloqueia a operação dependente.
+    /// </summary>
+    private static SaasLimitValidationResult UserLimitDecision(long tenantId, UsageRow? row)
+    {
+        var usage = BuildUsage(tenantId, row);
+        if (row is null) return new SaasLimitValidationResult(false, "Nenhuma assinatura ativa para este tenant.", usage);
+        if (row.DataFim is not null && row.DataFim < DateOnly.FromDateTime(DateTime.Today)) return new SaasLimitValidationResult(false, "Assinatura vencida.", usage);
         var allowed = usage.LimiteUsuarios is null || usage.UsuariosAtivos < usage.LimiteUsuarios;
         return new SaasLimitValidationResult(allowed, allowed ? null : "Limite de usuários do plano atingido.", usage);
     }
+
+    private static SaasUsageSummary BuildUsage(long tenantId, UsageRow? row) => row is null
+        ? new SaasUsageSummary(tenantId, null, 0, null, 0, null, false, false, 0)
+        : new SaasUsageSummary(tenantId, row.Plano, row.UsuariosAtivos, row.LimiteUsuarios, row.ModulosAtivos, row.LimiteModulos, row.WhiteLabelPermitido, row.DominioCustomizadoPermitido, Percentual(row));
 
     public async Task<SaasLimitValidationResult> ValidateModuleLimitAsync(long tenantId, string moduloCodigo, CancellationToken cancellationToken = default)
     {
@@ -68,12 +81,12 @@ where a.tenant_id=@TenantId and a.status='ATIVA' and pm.modulo_codigo=@Modulo)",
     {
         using var connection = _context.CreateConnection();
         var row = await connection.QuerySingleOrDefaultAsync<UsageRow>(new CommandDefinition(UsoBase, new { TenantId = tenantId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        if (row is null) return new SaasUsageSummary(tenantId, null, 0, null, 0, null, false, false, 0);
-        return new SaasUsageSummary(tenantId, row.Plano, row.UsuariosAtivos, row.LimiteUsuarios, row.ModulosAtivos, row.LimiteModulos, row.WhiteLabelPermitido, row.DominioCustomizadoPermitido, Percentual(row));
+        // Resumo tolerante (uso em telas): não aplica o gate de vigência — ele pertence às validações.
+        return BuildUsage(tenantId, row);
     }
 
     private static decimal Percentual(UsageRow row) =>
         row.LimiteUsuarios is null or 0 ? 0 : Math.Round((decimal)row.UsuariosAtivos * 100 / row.LimiteUsuarios.Value, 2);
 
-    private sealed record UsageRow(long TenantId, string? Plano, int? LimiteUsuarios, int UsuariosAtivos, int ModulosAtivos, int? LimiteModulos, bool WhiteLabelPermitido, bool DominioCustomizadoPermitido);
+    private sealed record UsageRow(long TenantId, string? Plano, int? LimiteUsuarios, int UsuariosAtivos, int ModulosAtivos, int? LimiteModulos, bool WhiteLabelPermitido, bool DominioCustomizadoPermitido, DateOnly? DataFim);
 }

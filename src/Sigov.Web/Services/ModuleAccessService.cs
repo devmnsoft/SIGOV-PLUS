@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Sigov.Application.Authorization;
 using Sigov.Application.Commercial;
-using Sigov.Domain.Saas;
 using Sigov.Web.Models.Security;
 
 namespace Sigov.Web.Services;
@@ -32,10 +31,10 @@ public sealed class ModuleAccessService : IModuloAccessService, IMenuPermissionS
         _permissions = permissions;
     }
 
+    // RC-EVO A (RC-SAAS-AUT): decisão única pelo snapshot efetivo de permissões da request
+    // ("saas.plataforma.administrar"); claim de role/perfil não decide mais.
     public bool IsSuperAdmin(ClaimsPrincipal user) =>
-        user.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Any(PerfilNivelCodigos.GlobalAdminAliases.Contains) ||
-        user.FindAll("perfil").Select(claim => claim.Value).Any(PerfilNivelCodigos.GlobalAdminAliases.Contains) ||
-        _snapshot.Current.Roles.Any(PerfilNivelCodigos.GlobalAdminAliases.Contains);
+        user.Identity?.IsAuthenticated == true && _snapshot.Current.HasPermission("saas.plataforma.administrar");
 
     public bool CanAccess(ClaimsPrincipal user, ModuleCatalogItem module)
     {

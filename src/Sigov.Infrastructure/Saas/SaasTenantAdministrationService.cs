@@ -330,6 +330,15 @@ public sealed class SaasTenantAdministrationService(
                     return Rollback(tx, "Não é possível inativar ou bloquear o último administrador do cliente. Transfira a permissão para outro usuário antes.");
             }
 
+            // RC-EVO A: ativação/reativação passa pela mesma validação transacional de criação
+            // (limite do plano + vigência da assinatura com trava na assinatura ativa), para o
+            // último administrador nunca esconder estouro de limite nem estender usuário vencido.
+            if (command.Active && !command.Blocked)
+            {
+                var limit = await limitValidator.ValidateUserLimitTxAsync(connection, tx, command.TenantId, cancellationToken).ConfigureAwait(false);
+                if (!limit.Allowed) return Rollback(tx, limit.Alert ?? "Limite do plano atingido.");
+            }
+
             var correlation = Guid.TryParse(correlationId, out var parsed) ? parsed : Guid.NewGuid();
             await connection.ExecuteAsync(new CommandDefinition(
                 "update sigov.usuario set ativo=@Active, bloqueado=@Blocked, updated_at=now(), updated_by=@UserId, correlation_id=@CorrelationId where id=@TargetUserId and tenant_id=@TenantId",

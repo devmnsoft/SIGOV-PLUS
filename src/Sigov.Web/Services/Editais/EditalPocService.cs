@@ -21,7 +21,8 @@ public sealed class EditalPocService
     }
     public async Task<EditalDetalheViewModel> ObterDetalheAsync(long editalId, CancellationToken ct)
     {
-        var editais = await ListarEditaisAsync(ct); var edital = editais.FirstOrDefault(x=>x.Id==editalId) ?? editais.First();
+        // RC-EVO A: tabela existente porém vazia não pode derrubar First() — fallback explícito (Id 0, não persistido).
+        var editais = await ListarEditaisAsync(ct); var edital = editais.FirstOrDefault(x=>x.Id==editalId) ?? editais.FirstOrDefault() ?? new EditalResumoViewModel(0,"Edital não encontrado (nenhum cadastro persistido)","Órgão a definir","Município","UF","Rascunho","Nenhum edital persistido para exibir detalhes.",null,null,false);
         var requisitos = await ListarRequisitosAsync(edital.Id, ct); var evidencias = await ListarEvidenciasAsync(edital.Id, null, ct); var resumo = CalcularResumo(requisitos);
         return new EditalDetalheViewModel(edital, requisitos, evidencias, CatalogoModulos(), resumo, await SchemaEditalDisponivelAsync(ct), await SchemaEditalDisponivelAsync(ct) ? "Dados reais quando tabelas existem; campos ausentes entram em fallback seguro." : "Tabela sigov.edital não encontrada. Nenhum edital foi simulado como salvo; tela opera como guia de implantação e pré-cadastro.");
     }

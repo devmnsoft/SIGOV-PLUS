@@ -205,6 +205,8 @@ public sealed class AuthController : Controller
     [Authorize]
     public async Task<IActionResult> ApiToken(CancellationToken cancellationToken)
     {
+        // RC-EVO A: resposta carrega bearer token — nunca deve ficar em cache do navegador/proxy.
+        Response.Headers.CacheControl = "no-store";
         var sessionToken = User.FindFirstValue("session_token");
         var sessionId = long.TryParse(User.FindFirstValue("session_id"), out var sid) ? sid : 0;
         var tenantId = long.TryParse(User.FindFirstValue("tenant_id"), out var tid) ? tid : 0;

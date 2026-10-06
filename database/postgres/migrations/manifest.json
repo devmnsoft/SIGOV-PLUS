@@ -2817,6 +2817,19 @@
         "20261006120000"
       ],
       "postConditionSql": "select exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.plataforma.administrar' and recurso='plataforma' and acao='administrar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.visualizar' and recurso='saas.superadmin.dashboard' and acao='visualizar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.exportar' and recurso='saas.superadmin.dashboard' and acao='exportar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.autorizacao.administrar' and recurso='saas.superadmin.autorizacao' and acao='administrar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.administrar' and recurso='saas.superadmin.dashboard' and acao='administrar' and ativo and not is_deleted)"
+    },
+    {
+      "version": "20261006233000",
+      "description": "Corretiva RC-EVO (Bloco A): tuplos insatisfazeis, duplicatas exatas e grants de jornada para administracao local e plataforma",
+      "category": "functional",
+      "file": "20261006233000_evo_a01_tuplos_e_grants_jornada.sql",
+      "checksum": "f5865a893e6da98ca11e89a1c515b45c7ab786d1673cee971f973204b4781d0c",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261006230000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.permissao where chave='financeiro.exportar' and btrim(coalesce(acao,''))='visualizar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where chave='rh.exportar' and btrim(coalesce(acao,''))='visualizar' and ativo and not is_deleted) and (not exists(select 1 from sigov.perfil_acesso where codigo_externo in ('ADMIN_TENANT','ADMINISTRADOR_TENANT') and tenant_id is not null and ativo and not is_deleted) or exists(select 1 from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where pa.codigo_externo in ('ADMIN_TENANT','ADMINISTRADOR_TENANT') and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.ativo and not p.is_deleted and p.modulo='compras_empresariais')) and (not exists(select 1 from sigov.perfil_acesso where codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and ativo and not is_deleted) or exists(select 1 from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where pa.codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and pp.tenant_id is null and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.ativo and not p.is_deleted and p.modulo='compras_empresariais'))"
     }
   ],
   "compatibilityAfterAll": [

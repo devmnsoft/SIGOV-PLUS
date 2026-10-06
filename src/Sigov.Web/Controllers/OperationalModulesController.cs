@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sigov.Web.Services;
 
@@ -14,6 +15,7 @@ public sealed class OperationalModulesController : Controller
         _logger = logger;
     }
 
+    [Authorize]
     [Route("/{module:regex(^(Contratos|Juridico|Rh|Agro|Social|Varejo|Atacado|Estoque|Industria|OrdemServico|Manutencao|MobileCampo|Integracoes|IA)$)}")]
     [Route("/{module:regex(^(Contratos|Juridico|Rh|Agro|Social|Varejo|Atacado|Estoque|Industria|OrdemServico|Manutencao|MobileCampo|Integracoes|IA)$)}/{screen}")]
     [Route("/{module:regex(^(Contratos|Juridico|OrdemServico|Manutencao)$)}/Detalhes/{id:long}")]
@@ -27,11 +29,13 @@ public sealed class OperationalModulesController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha ao carregar módulo operacional {Module}/{Screen}", module, screen);
-            TempData["Error"] = "Não foi possível carregar os dados reais agora. Exibimos uma visão demonstrativa segura.";
+            // RC-EVO A: falha explícita — o módulo está em implantação e a visão demonstrativa não é autoridade.
+            TempData["Error"] = "Módulo em implantação: os dados reais não puderam ser carregados agora. A visão exibida é demonstrativa e não é autoridade.";
             return View("~/Views/Operational/Module.cshtml", _demo.Build(module, "Em implantação"));
         }
     }
 
+    [Authorize]
     [HttpPost("/{module}/BulkAction")]
     public IActionResult BulkAction(string module, string actionName)
     {
@@ -43,11 +47,12 @@ public sealed class OperationalModulesController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha em ação em massa {Action} no módulo {Module}", actionName, module);
-            TempData["Error"] = "A ação não pôde ser concluída. Tente novamente ou acione o suporte.";
+            TempData["Error"] = "Módulo em implantação: a ação não pôde ser concluída agora com dados reais.";
         }
         return RedirectToAction("Module", new { module });
     }
 
+    [Authorize]
     [HttpGet("/{module}/ExportCsv")]
     public IActionResult ExportCsv(string module)
     {
@@ -60,7 +65,7 @@ public sealed class OperationalModulesController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Falha ao exportar CSV do módulo {Module}", module);
-            TempData["Error"] = "Exportação indisponível no momento.";
+            TempData["Error"] = "Módulo em implantação: exportação com dados reais indisponível.";
             return RedirectToAction("Module", new { module });
         }
     }

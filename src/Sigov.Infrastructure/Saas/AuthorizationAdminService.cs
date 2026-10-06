@@ -74,6 +74,48 @@ public sealed class AuthorizationAdminService(DapperContext context) : IAuthoriz
         else { if (!rightId.HasValue) return Fail("Identificador do vínculo obrigatório."); var link=Link(kind); table=link.Table; where=$"{link.Left}=@LeftId and {link.Right}=@RightId"; }
         var before=await connection.QuerySingleOrDefaultAsync<object>(new CommandDefinition($"select * from sigov.{table} where {where}",new{LeftId=leftId,RightId=rightId},tx,cancellationToken:ct));
         if(before is null) return Fail("Registro não encontrado.");
+        // RC-EVO A: proteção do último administrador de plataforma — inativar/excluir só pode
+        // prosseguir se restar ao menos uma cadeia efetiva de PERMITIR para 'saas.plataforma.administrar'
+        // com o registro-alvo excluído do caminho (fail-closed; regra do último admin).
+        if (!active || delete)
+        {
+            var currentActive = await connection.ExecuteScalarAsync<bool>(new CommandDefinition($"select coalesce(ativo,false) from sigov.{table} where {where}", new { LeftId = leftId, RightId = rightId }, tx, cancellationToken: ct));
+            if (currentActive)
+            {
+                var exclude = kind switch
+                {
+                    "perfil" => "pa.id <> @LeftId",
+                    "grupo" => "ga.id <> @LeftId",
+                    "permissao" => "p.id <> @LeftId",
+                    "usuario-grupo" => "not (ug.usuario_id = @LeftId and ug.grupo_acesso_id = @RightId)",
+                    "grupo-perfil" => "not (gp.grupo_acesso_id = @LeftId and gp.perfil_acesso_id = @RightId)",
+                    "perfil-permissao" => "not (pp.perfil_acesso_id = @LeftId and pp.permissao_id = @RightId)",
+                    _ => null
+                };
+                if (exclude is not null)
+                {
+                    const string guardSql = """
+                        select count(distinct u.id)
+                          from sigov.usuario u
+                         where u.ativo = true and not coalesce(u.is_deleted, false)
+                           and exists (
+                             select 1
+                               from sigov.usuario_grupo ug
+                               join sigov.grupo_acesso ga on ga.id = ug.grupo_acesso_id and ga.ativo = true and not ga.is_deleted
+                               join sigov.grupo_perfil gp on gp.grupo_acesso_id = ga.id and gp.ativo = true and not gp.is_deleted
+                               join sigov.perfil_acesso pa on pa.id = gp.perfil_acesso_id and pa.ativo = true and not pa.is_deleted
+                               join sigov.perfil_permissao pp on pp.perfil_acceso_id = pa.id and pp.efeito = 'PERMITIR' and pp.ativo = true and not pp.is_deleted
+                               join sigov.permissao p on p.id = pp.permissao_id and p.chave = 'saas.plataforma.administrar' and p.ativo = true and not p.is_deleted
+                              where ug.usuario_id = u.id
+                                and ug.ativo = true and not ug.is_deleted
+                                and __EXCLUDE__
+                           )
+                        """;
+                    var remaining = await connection.ExecuteScalarAsync<int>(new CommandDefinition(guardSql.Replace("__EXCLUDE__", exclude), new { LeftId = leftId, RightId = rightId }, tx, cancellationToken: ct));
+                    if (remaining == 0) return Fail("Operação impedida: removeria a única cadeia que confere a permissão 'saas.plataforma.administrar' (último administrador de plataforma).");
+                }
+            }
+        }
         var sql=$"update sigov.{table} set ativo=@Active,is_deleted=@Delete"+(kind is "perfil" or "grupo" or "permissao"?",updated_at=now(),updated_by=@Actor,deleted_at=case when @Delete then now() else null end,deleted_by=case when @Delete then @Actor else null end":"")+$" where {where}";
         await connection.ExecuteAsync(new CommandDefinition(sql,new{LeftId=leftId,RightId=rightId,Active=active&&!delete,Delete=delete,Actor=actor},tx,cancellationToken:ct));
         await Audit(connection,tx,$"{kind}.{(delete?"excluir":active?"ativar":"inativar")}",table,$"{leftId}:{rightId}",actor,correlationId,before,new{active,delete},ct); tx.Commit(); return Ok(delete?"Exclusão lógica concluída.":active?"Registro ativado.":"Registro inativado.");

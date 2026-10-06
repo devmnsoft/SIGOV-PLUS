@@ -18,7 +18,13 @@ public sealed class BuscaGlobalService
     };
 
     private readonly ILogger<BuscaGlobalService> _logger;
-    public BuscaGlobalService(ILogger<BuscaGlobalService> logger) => _logger = logger;
+    private readonly IUserPermissionService _permissions;
+
+    public BuscaGlobalService(ILogger<BuscaGlobalService> logger, IUserPermissionService permissions)
+    {
+        _logger = logger;
+        _permissions = permissions;
+    }
 
     public Task<IReadOnlyCollection<BuscaSugestaoViewModel>> SugerirAsync(string? query, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
@@ -30,7 +36,10 @@ public sealed class BuscaGlobalService
                 ? Fallback
                 : Fallback.Where(x => (x.Area + " " + x.Titulo + " " + x.Descricao + " " + x.Badge).Contains(termo, StringComparison.OrdinalIgnoreCase)).ToArray();
 
-            if (!user.IsInRole("ADMIN_GERAL") && !user.IsInRole("ADMIN_TENANT") && !user.IsInRole("ADMINISTRADOR_GERAL"))
+            // RC-EVO A: visibilidade da sugestão /Seguranca segue o mesmo critério do
+            // SegurancaController (permissões efetivas do snapshot, não claim de role).
+            var podeSeguranca = _permissions.HasPermission(user, "saas.plataforma.administrar") || _permissions.HasPermission(user, "cliente.usuarios.gerenciar");
+            if (!podeSeguranca)
             {
                 resultados = resultados.Where(x => !x.Url.StartsWith("/Seguranca", StringComparison.OrdinalIgnoreCase)).ToArray();
             }
