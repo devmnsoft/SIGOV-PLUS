@@ -162,6 +162,290 @@ public sealed class RhRepository : BaseRepository, IRhRepository
         return await cn.ExecuteScalarAsync<bool>(Command(sql, new { TenantId = tenantId, ExercicioId = exercicioId.Value }, ct)).ConfigureAwait(false);
     }
 
+    // ==== RC-EVO-RH §4: leitura/gravacao da apuracao real de ponto =================
+    // As tabelas ponto-* sao genericas em JSONB; os metodos abaixo aceitam as duas
+    // casings (PascalCase escrito pela API e camelCase escrito pela engine) e as
+    // colunas estruturadas quando populadas (legacy pode ter tudo em `dados`).
+
+    public async Task<IReadOnlyList<Sigov.Domain.Rh.JornadaPontoRegra>> ListarJornadasAtivasAsync(long tenantId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = "select id, dados::text as Dados, ativo, created_at as CreatedAt from sigov.rh_jornada where tenant_id = @TenantId and is_deleted = false and ativo = true order by id;";
+        var rows = await cn.QueryAsync<Row>(Command(sql, new { TenantId = tenantId }, ct)).ConfigureAwait(false);
+        var result = new List<Sigov.Domain.Rh.JornadaPontoRegra>();
+        foreach (var row in rows)
+        {
+            var dados = ParseJsonb(row.Dados);
+            if (TryJsonText(dados, out var nome, "Nome", "nome")
+                && TryJsonDecimal(dados, out var carga, "CargaHoraria", "cargaHoraria")
+                && TryJsonTimeOnly(dados, out var entrada, "Entrada", "entrada")
+                && TryJsonTimeOnly(dados, out var saida, "Saida", "saida")
+                && TryParseDiasSemana(JsonText(dados, "DiasSemana", "diasSemana"), out var dias))
+            {
+                var tolerancia = TryJsonInt(dados, out var toleranciaRaw, "ToleranciaMinutos", "toleranciaMinutos") ? toleranciaRaw : 0;
+                try { result.Add(new Sigov.Domain.Rh.JornadaPontoRegra(row.Id, nome, carga, entrada, saida, tolerancia, dias)); }
+                catch (ArgumentException) { /* Jornada incompleta: fica explícita na apuração como JORNADA_AUSENTE */ }
+            }
+        }
+        return result;
+    }
+
+    public async Task<IReadOnlyList<Sigov.Domain.Rh.EscalaPontoResumo>> ListarEscalasPorServidorAsync(long tenantId, long servidorId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select id, dados::text as Dados, ativo, created_at as CreatedAt
+from sigov.rh_escala
+where tenant_id = @TenantId and is_deleted = false
+  and coalesce(nullif(dados->>'ServidorId',''), dados->>'servidorId','') = @ServidorIdText
+order by id;";
+        var rows = await cn.QueryAsync<Row>(Command(sql, new { TenantId = tenantId, ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture) }, ct)).ConfigureAwait(false);
+        var result = new List<Sigov.Domain.Rh.EscalaPontoResumo>();
+        foreach (var row in rows)
+        {
+            var dados = ParseJsonb(row.Dados);
+            if (!TryJsonLong(dados, out var jornadaId, "JornadaId", "jornadaId")) continue;
+            if (!TryJsonDate(dados, out var periodoInicio, "PeriodoInicio", "periodoInicio")) continue;
+            var temFim = TryJsonDate(dados, out var periodoFim, "PeriodoFim", "periodoFim");
+            var status = JsonText(dados, "Status", "status") ?? string.Empty;
+            var ativa = row.Ativo && status is not ("INATIVA" or "CANCELADA" or "EXPIRADA" or "ENCERRADA");
+            result.Add(new Sigov.Domain.Rh.EscalaPontoResumo(row.Id, jornadaId, periodoInicio, temFim ? periodoFim : null, ativa));
+        }
+        return result;
+    }
+
+    public async Task<IReadOnlyList<Sigov.Domain.Rh.BatidaPonto>> ListarBatidasPeriodoAsync(long tenantId, long servidorId, DateTimeOffset inicioUtc, DateTimeOffset fimUtc, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select id, dados::text as Dados, ativo, created_at as CreatedAt
+from sigov.rh_ponto_registro
+where tenant_id = @TenantId and is_deleted = false
+  and (servidor_id = @ServidorId or coalesce(nullif(dados->>'ServidorId',''), dados->>'servidorId','') = @ServidorIdText)
+  and created_at >= @Inicio and created_at <= @Fim
+order by created_at, id;";
+        var rows = await cn.QueryAsync<Row>(Command(sql, new { TenantId = tenantId, ServidorId = servidorId, ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture), Inicio = inicioUtc, Fim = fimUtc }, ct)).ConfigureAwait(false);
+        var result = new List<Sigov.Domain.Rh.BatidaPonto>();
+        foreach (var row in rows)
+        {
+            var dados = ParseJsonb(row.Dados);
+            // Instante oficial da batida vem do JSONB; texto ausente/inválido cai no
+            // created_at (registrado como fallback, nunca inventado).
+            if (!TryJsonDateTimeOffset(dados, out var instante, "DataHora", "dataHora")) instante = row.CreatedAt;
+            if (instante < inicioUtc || instante > fimUtc) continue;
+            if (!TryJsonText(dados, out var tipoTexto, "Tipo", "tipo") || !Enum.TryParse<Sigov.Domain.Rh.PontoTipo>(tipoTexto, true, out var tipo)) continue;
+            var origem = JsonText(dados, "Origem", "origem") ?? "MANUAL";
+            result.Add(new Sigov.Domain.Rh.BatidaPonto(row.Id, instante, tipo, origem));
+        }
+        return result;
+    }
+
+    public async Task<IReadOnlyCollection<DateOnly>> ListarFeriadosPeriodoAsync(long tenantId, DateOnly inicio, DateOnly fim, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        var existeTabela = await cn.ExecuteScalarAsync<long>(Command(
+            "select count(1) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'sigov' and c.relname = 'rh_feriado';", null, ct)).ConfigureAwait(false);
+        if (existeTabela == 0) throw new InvalidOperationException("Migrations de RH pendentes: a tabela sigov.rh_feriado não existe neste banco. Aplique a migration grande RH.");
+        const string sql = "select distinct data_referencia::date from sigov.rh_feriado where tenant_id = @TenantId and is_deleted = false and ativo = true and data_referencia::date between @Inicio and @Fim;";
+        var rows = await cn.QueryAsync<DateOnly>(Command(sql, new { TenantId = tenantId, Inicio = inicio, Fim = fim }, ct)).ConfigureAwait(false);
+        return rows.ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<DateOnly>> ListarAusenciasJustificadasAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        // Justificativa APROVADA cobre a data na coluna data_referencia ou no JSONB
+        // (duas casings), com guard de formato antes de castar para date.
+        const string sql = @"
+select distinct coalesce(
+      j.data_referencia,
+      (case when (coalesce(nullif(j.dados->>'DataReferencia',''), j.dados->>'dataReferencia','')) ~ '^\d{4}-\d{2}-\d{2}$'
+            then coalesce(nullif(j.dados->>'DataReferencia',''), j.dados->>'dataReferencia','') end)::date
+    ) as data
+from sigov.rh_ponto_justificativa j
+where j.tenant_id = @TenantId and j.is_deleted = false
+  and (j.servidor_id = @ServidorId or coalesce(nullif(j.dados->>'ServidorId',''), j.dados->>'servidorId','') = @ServidorIdText)
+  and coalesce(nullif(j.dados->>'status',''), j.status,'') = 'APROVADA'
+  and coalesce(
+      j.data_referencia,
+      (case when (coalesce(nullif(j.dados->>'DataReferencia',''), j.dados->>'dataReferencia','')) ~ '^\d{4}-\d{2}-\d{2}$'
+            then coalesce(nullif(j.dados->>'DataReferencia',''), j.dados->>'dataReferencia','') end)::date
+    ) between @Inicio and @Fim;";
+        var rows = await cn.QueryAsync<DateOnly>(Command(sql, new { TenantId = tenantId, ServidorId = servidorId, ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture), Inicio = inicio, Fim = fim }, ct)).ConfigureAwait(false);
+        return rows.ToArray();
+    }
+
+    public async Task<string?> ObterFusoOperacaoAsync(CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        return await cn.ExecuteScalarAsync<string>(Command("select current_setting('TimeZone');", null, ct)).ConfigureAwait(false);
+    }
+
+    public async Task<RhApuracaoExistenteDto?> ObterApuracaoExistenteAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select id,
+       coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as status,
+       dados::text as anterior
+from sigov.rh_ponto_apuracao
+where tenant_id = @TenantId and is_deleted = false
+  and (servidor_id = @ServidorId or coalesce(nullif(dados->>'servidorId',''), dados->>'ServidorId','') = @ServidorIdText)
+  and ((periodo_inicio = @Inicio and periodo_fim = @Fim)
+       or (coalesce(nullif(dados->>'periodoInicio',''), dados->>'PeriodoInicio','') = @InicioText
+           and coalesce(nullif(dados->>'periodoFim',''), dados->>'PeriodoFim','') = @FimText))
+order by id desc limit 1;";
+        var row = await cn.QueryFirstOrDefaultAsync<ApuracaoExistenteRow>(Command(sql, new
+        {
+            TenantId = tenantId,
+            ServidorId = servidorId,
+            ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture),
+            Inicio = inicio,
+            Fim = fim,
+            InicioText = inicio.ToString("yyyy-MM-dd"),
+            FimText = fim.ToString("yyyy-MM-dd")
+        }, ct)).ConfigureAwait(false);
+        return row is null ? null : new RhApuracaoExistenteDto(row.Id, row.Status, row.Anterior);
+    }
+
+    public async Task<long> SalvarApuracaoPontoAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, string dadosJson, long? anteriorId, string? anteriorDadosJson, long? usuarioId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        long id;
+        if (anteriorId.HasValue)
+        {
+            // Retry/reprocessamento: mesmo registro, colunas estruturadas garantidas,
+            // auditoria acumulada com o estado anterior (nunca sobrescrito).
+            var auditoria = JsonSerializer.Serialize(new { operacao = "REPROCESSAR", usuarioId, before = ParseJsonb(anteriorDadosJson) }, JsonOptions);
+            id = await cn.ExecuteScalarAsync<long>(Command(@"
+update sigov.rh_ponto_apuracao
+set status = 'APURADA',
+    servidor_id = @ServidorId,
+    competencia = @Inicio,
+    periodo_inicio = @Inicio,
+    periodo_fim = @Fim,
+    dados = cast(@Dados as jsonb),
+    auditoria = coalesce(auditoria, '{}'::jsonb) || cast(@Auditoria as jsonb),
+    updated_by = @UsuarioId,
+    updated_at = now()
+where tenant_id = @TenantId and id = @Id and is_deleted = false
+returning id;", new { TenantId = tenantId, Id = anteriorId.Value, ServidorId = servidorId, Inicio = inicio, Fim = fim, Dados = dadosJson, Auditoria = auditoria, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+        }
+        else
+        {
+            id = await cn.ExecuteScalarAsync<long>(Command(@"
+insert into sigov.rh_ponto_apuracao (tenant_id, servidor_id, competencia, periodo_inicio, periodo_fim, status, auditoria, dados, created_by)
+values (@TenantId, @ServidorId, @Inicio, @Inicio, @Fim, 'APURADA',
+        jsonb_build_object('operacao','CRIAR','usuarioId',@UsuarioId,'recurso','ponto-apuracoes'),
+        cast(@Dados as jsonb), @UsuarioId)
+returning id;", new { TenantId = tenantId, ServidorId = servidorId, Inicio = inicio, Fim = fim, Dados = dadosJson, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+        }
+        var dados = ParseJsonb(dadosJson);
+        await RegistrarEventoAsync(cn, tenantId, "ponto-apuracoes", "APURAR", id, dados, usuarioId, ct).ConfigureAwait(false);
+        return id;
+    }
+
+    // ==== Helpers JSONB case-insensitive (PascalCase da API / camelCase da engine) ===
+
+    private static Dictionary<string, object?> ParseJsonb(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new Dictionary<string, object?>();
+        try { return JsonSerializer.Deserialize<Dictionary<string, object?>>(json, JsonOptions) ?? new Dictionary<string, object?>(); }
+        catch (JsonException) { return new Dictionary<string, object?>(); }
+    }
+
+    private static string? JsonText(Dictionary<string, object?> dados, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!dados.TryGetValue(key, out var value) || value is null) continue;
+            var text = value switch
+            {
+                JsonElement { ValueKind: JsonValueKind.String } el => el.GetString(),
+                JsonElement el => el.GetRawText(),
+                _ => Convert.ToString(value, CultureInfo.InvariantCulture)
+            };
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        return null;
+    }
+
+    private static bool TryJsonText(Dictionary<string, object?> dados, out string value, params string[] keys)
+    {
+        value = string.Empty;
+        var text = JsonText(dados, keys);
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        value = text.Trim();
+        return true;
+    }
+
+    private static bool TryJsonDate(Dictionary<string, object?> dados, out DateOnly value, params string[] keys)
+    {
+        value = default;
+        var text = JsonText(dados, keys);
+        if (text is null) return false;
+        if (DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out value)) return true;
+        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)) { value = DateOnly.FromDateTime(dt); return true; }
+        return false;
+    }
+
+    private static bool TryJsonDateTimeOffset(Dictionary<string, object?> dados, out DateTimeOffset value, params string[] keys)
+    {
+        value = default;
+        var text = JsonText(dados, keys);
+        if (text is null) return false;
+        return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out value);
+    }
+
+    private static bool TryJsonTimeOnly(Dictionary<string, object?> dados, out TimeOnly value, params string[] keys)
+    {
+        value = default;
+        var text = JsonText(dados, keys);
+        if (text is null) return false;
+        if (TimeOnly.TryParseExact(text, ["HH:mm:ss", "HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out value)) return true;
+        return TimeOnly.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out value);
+    }
+
+    private static bool TryJsonInt(Dictionary<string, object?> dados, out int value, params string[] keys)
+    {
+        value = default;
+        var text = JsonText(dados, keys);
+        return text is not null && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryJsonLong(Dictionary<string, object?> dados, out long value, params string[] keys)
+    {
+        value = default;
+        var text = JsonText(dados, keys);
+        return text is not null && long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryJsonDecimal(Dictionary<string, object?> dados, out decimal value, params string[] keys)
+    {
+        value = default;
+        var text = JsonText(dados, keys);
+        return text is not null && decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryParseDiasSemana(string? text, out List<int> dias)
+    {
+        dias = new List<int>();
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        foreach (var parte in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!int.TryParse(parte, NumberStyles.Integer, CultureInfo.InvariantCulture, out var dia) || dia is < 1 or > 7) return false;
+            if (!dias.Contains(dia)) dias.Add(dia);
+        }
+        return dias.Count > 0;
+    }
+
+    private sealed class ApuracaoExistenteRow
+    {
+        public long Id { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string? Anterior { get; init; }
+    }
+
     private static Dictionary<string, object?> EnriquecerDados(string recurso, Dictionary<string, object?>? dados)
     {
         var copy = dados is null ? new Dictionary<string, object?>() : new Dictionary<string, object?>(dados, StringComparer.OrdinalIgnoreCase);

@@ -79,5 +79,6 @@ public sealed class RhTypedServiceTests
             return Task.FromResult(Result<long>.Success(99));
         }
         public Task<Result<byte[]>> ExportarAsync(string recurso, string formato, CancellationToken ct) => Task.FromResult(Result<byte[]>.Success(Array.Empty<byte>()));
+        public Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct) => Task.FromResult(Result<long>.Success(1));
     }
 }

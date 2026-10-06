@@ -1,5 +1,6 @@
 using Sigov.Application.Common;
 using Sigov.Domain.Common;
+using Sigov.Domain.Rh;
 
 namespace Sigov.Application.Rh;
 
@@ -43,6 +44,9 @@ public sealed record RhDashboardResponse(long ServidoresAtivos, long VinculosAti
 public sealed record RhFinanceiroIntegracaoRequest(long FolhaId, DateOnly DataCompetencia, long? NaturezaDespesaId, long? FonteRecursoId, string Historico);
 public sealed record RhPortalResumoResponse(long ServidorId, string Nome, IReadOnlyCollection<RhRegistroResponse> Contracheques, IReadOnlyCollection<RhRegistroResponse> Ferias, IReadOnlyCollection<RhRegistroResponse> Afastamentos);
 
+// Apuração existente (lookup estruturado) usada para idempotência/reprocessamento §4.
+public sealed record RhApuracaoExistenteDto(long Id, string Status, string? AnteriorDadosJson);
+
 public interface IRhRepository
 {
     Task<PagedResult<RhRegistroResponse>> ListarAsync(long tenantId, string recurso, RhFiltro filtro, CancellationToken ct);
@@ -56,6 +60,15 @@ public interface IRhRepository
     Task<long> PrepararIntegracaoFinanceiraAsync(long tenantId, RhFinanceiroIntegracaoRequest request, long? usuarioId, CancellationToken ct);
     Task<byte[]> ExportarAsync(long tenantId, string recurso, string formato, CancellationToken ct);
     Task<bool> ExercicioAbertoAsync(long tenantId, long? exercicioId, CancellationToken ct);
+    // RC-EVO-RH §4: apuração real de ponto (leitura das entradas + upsert idempotente)
+    Task<IReadOnlyList<JornadaPontoRegra>> ListarJornadasAtivasAsync(long tenantId, CancellationToken ct);
+    Task<IReadOnlyList<EscalaPontoResumo>> ListarEscalasPorServidorAsync(long tenantId, long servidorId, CancellationToken ct);
+    Task<IReadOnlyList<BatidaPonto>> ListarBatidasPeriodoAsync(long tenantId, long servidorId, DateTimeOffset inicioUtc, DateTimeOffset fimUtc, CancellationToken ct);
+    Task<IReadOnlyCollection<DateOnly>> ListarFeriadosPeriodoAsync(long tenantId, DateOnly inicio, DateOnly fim, CancellationToken ct);
+    Task<IReadOnlyCollection<DateOnly>> ListarAusenciasJustificadasAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct);
+    Task<string?> ObterFusoOperacaoAsync(CancellationToken ct);
+    Task<RhApuracaoExistenteDto?> ObterApuracaoExistenteAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct);
+    Task<long> SalvarApuracaoPontoAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, string dadosJson, long? anteriorId, string? anteriorDadosJson, long? usuarioId, CancellationToken ct);
 }
 
 public interface IRhService
@@ -69,4 +82,5 @@ public interface IRhService
     Task<Result<RhPortalResumoResponse>> PortalServidorAsync(long servidorId, CancellationToken ct);
     Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct);
     Task<Result<byte[]>> ExportarAsync(string recurso, string formato, CancellationToken ct);
+    Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct);
 }

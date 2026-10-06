@@ -239,6 +239,137 @@ public sealed class RhService : IRhService
         return Result<byte[]>.Success(await _repo.ExportarAsync(TenantId, Normalizar(recurso), formato, ct).ConfigureAwait(false));
     }
 
+    // RC-EVO-RH §4: apuração real de ponto. Calcula de fato (minutos/TimeSpan + memória
+    // por dia + versão das regras), usa o fuso da operação do banco como autoridade de
+    // dia local das batidas e é idempotente por (tenant, servidor, período): retry é
+    // UPDATE no mesmo registro com auditoria antes/depois; apuração HOMOLOGADA nunca é
+    // sobrescrita (reabrir antes). Falhas estruturais têm nome: SEM_ESCALA,
+    // JORNADA_AUSENTE, APURACAO_HOMOLOGADA.
+    public async Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<long>();
+        if (request.ServidorId <= 0) return Result<long>.Failure("Servidor obrigatório para apuração de ponto.");
+        if (request.PeriodoFim < request.PeriodoInicio) return Result<long>.Failure("Período final da apuração não pode ser anterior ao inicial.");
+        var exercicio = await ValidarExercicioAbertoAsync("pontos", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<long>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (!await CanAsync(RhPermissoes.Criar, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
+
+        try
+        {
+            var fusoNome = (await _repo.ObterFusoOperacaoAsync(ct).ConfigureAwait(false) ?? string.Empty).Trim();
+            TimeZoneInfo zona;
+            try { zona = string.IsNullOrEmpty(fusoNome) ? TimeZoneInfo.Utc : TimeZoneInfo.FindSystemTimeZoneById(fusoNome); }
+            catch (TimeZoneNotFoundException) { zona = TimeZoneInfo.Utc; }
+            catch (InvalidTimeZoneException) { zona = TimeZoneInfo.Utc; }
+
+            var jornadasPorId = (await _repo.ListarJornadasAtivasAsync(TenantId, ct).ConfigureAwait(false)).ToDictionary(j => j.Id);
+            var escalas = await _repo.ListarEscalasPorServidorAsync(TenantId, request.ServidorId, ct).ConfigureAwait(false);
+            var ativas = escalas
+                .Where(e => e.Ativa && e.PeriodoInicio <= request.PeriodoFim && (e.PeriodoFim is null || e.PeriodoFim >= request.PeriodoInicio))
+                .OrderByDescending(e => e.Id) // múltiplas escalas ativas no dia: prevalece a última registrada (maior id)
+                .ToList();
+            if (ativas.Count == 0)
+            {
+                return Result<long>.Failure($"SEM_ESCALA: o servidor {request.ServidorId.ToString(CultureInfo.InvariantCulture)} não possui escala ativa cobrindo o período {request.PeriodoInicio:yyyy-MM-dd} a {request.PeriodoFim:yyyy-MM-dd}.");
+            }
+            foreach (var escala in ativas)
+            {
+                if (!jornadasPorId.ContainsKey(escala.JornadaId))
+                {
+                    return Result<long>.Failure($"JORNADA_AUSENTE: a escala {escala.Id.ToString(CultureInfo.InvariantCulture)} referencia a jornada {escala.JornadaId.ToString(CultureInfo.InvariantCulture)}, que não existe ou está inativa.");
+                }
+            }
+
+            Func<DateOnly, Sigov.Domain.Rh.JornadaPontoRegra?> resolverJornada = data =>
+                ativas.FirstOrDefault(e => e.Cobre(data)) is { } escala ? jornadasPorId[escala.JornadaId] : null;
+
+            var inicioUtc = ZonaParaUtc(request.PeriodoInicio, new TimeOnly(0, 0), zona);
+            var fimUtc = ZonaParaUtc(request.PeriodoFim.AddDays(2), new TimeOnly(6, 0), zona);
+            var batidas = await _repo.ListarBatidasPeriodoAsync(TenantId, request.ServidorId, inicioUtc, fimUtc, ct).ConfigureAwait(false);
+            var feriados = await _repo.ListarFeriadosPeriodoAsync(TenantId, request.PeriodoInicio, request.PeriodoFim, ct).ConfigureAwait(false);
+            var ausenciasJustificadas = await _repo.ListarAusenciasJustificadasAsync(TenantId, request.ServidorId, request.PeriodoInicio, request.PeriodoFim, ct).ConfigureAwait(false);
+
+            var resultado = Sigov.Domain.Rh.PontoApuracaoEngine.Calcular(request.ServidorId, request.PeriodoInicio, request.PeriodoFim, zona, batidas, resolverJornada, feriados, ausenciasJustificadas);
+
+            var existente = await _repo.ObterApuracaoExistenteAsync(TenantId, request.ServidorId, request.PeriodoInicio, request.PeriodoFim, ct).ConfigureAwait(false);
+            if (existente is not null && string.Equals(existente.Status, "HOMOLOGADA", StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<long>.Failure($"APURACAO_HOMOLOGADA: a apuração {existente.Id.ToString(CultureInfo.InvariantCulture)} do período já está homologada; reabra antes de reprocessar.");
+            }
+
+            Dictionary<string, object?>? anteriorDados = null;
+            var reprocessamentos = 0;
+            if (existente is not null)
+            {
+                anteriorDados = JsonSerializer.Deserialize<Dictionary<string, object?>>(string.IsNullOrWhiteSpace(existente.AnteriorDadosJson) ? "{}" : existente.AnteriorDadosJson, WebJson) ?? new Dictionary<string, object?>();
+                if (anteriorDados.TryGetValue("reprocessamentos", out var rawReprocessamentos) &&
+                    int.TryParse(Convert.ToString(rawReprocessamentos, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var reprocessamentosAtuais))
+                {
+                    reprocessamentos = Math.Max(0, reprocessamentosAtuais);
+                }
+                reprocessamentos++;
+            }
+
+            var payloadDados = new
+            {
+                status = "APURADA",
+                versaoRegras = Sigov.Domain.Rh.PontoApuracaoEngine.VersaoRegras,
+                fusoHorarioOperacao = zona.Id,
+                calculadoEm = DateTimeOffset.UtcNow,
+                servidorId = request.ServidorId,
+                periodoInicio = request.PeriodoInicio,
+                periodoFim = request.PeriodoFim,
+                reprocessamentos,
+                jornadaIds = ativas.Select(a => a.JornadaId).Distinct().OrderBy(x => x).ToArray(),
+                diasUteisPrevistos = resultado.DiasUteisPrevistos,
+                diasSemEscala = resultado.DiasSemEscala,
+                diasFalta = resultado.DiasFalta,
+                diasAusenciaJustificada = resultado.DiasAusenciaJustificada,
+                totalTrabalhadoMinutos = resultado.TotalTrabalhadoMinutos,
+                totalIntervaloMinutos = resultado.TotalIntervaloMinutos,
+                totalAtrasoMinutos = resultado.TotalAtrasoMinutos,
+                totalAusenciaMinutos = resultado.TotalAusenciaMinutos,
+                totalHoraExtraMinutos = resultado.TotalHoraExtraMinutos,
+                resumo = new
+                {
+                    totalTrabalhadoFormatado = FormatDuracao(resultado.TotalTrabalhado),
+                    totalAtrasoFormatado = FormatDuracao(resultado.TotalAtraso),
+                    totalAusenciaFormatado = FormatDuracao(resultado.TotalAusencia),
+                    totalHoraExtraFormatado = FormatDuracao(resultado.TotalHoraExtra)
+                },
+                memoriaPorDia = resultado.MemoriaPorDia,
+                pendenciasGlobais = resultado.PendenciasGlobais,
+                tenantIsolation = true,
+                softDelete = true
+            };
+            var dadosJson = JsonSerializer.Serialize(payloadDados, WebJson);
+            var id = await _repo.SalvarApuracaoPontoAsync(TenantId, request.ServidorId, request.PeriodoInicio, request.PeriodoFim, dadosJson, existente?.Id, existente?.AnteriorDadosJson, _user.UsuarioId, ct).ConfigureAwait(false);
+            await _audit.RegistrarAsync("rh", "APURAR_PONTO", "sigov.rh_ponto_apuracao", id.ToString(CultureInfo.InvariantCulture), anteriorDados, payloadDados, ct).ConfigureAwait(false);
+            return Result<long>.Success(id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Falha estrutural ao apurar ponto do servidor {ServidorId}.", request.ServidorId);
+            return Result<long>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao apurar ponto do servidor {ServidorId}.", request.ServidorId);
+            return Result<long>.Failure("Erro ao apurar ponto do servidor.");
+        }
+    }
+
+    private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
+
+    private static DateTimeOffset ZonaParaUtc(DateOnly data, TimeOnly hora, TimeZoneInfo zona)
+    {
+        var local = data.ToDateTime(hora);
+        var utc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zona);
+        return new DateTimeOffset(utc, TimeSpan.Zero);
+    }
+
+    private static string FormatDuracao(TimeSpan valor) => $"{valor.TotalHours.ToString("0.#", CultureInfo.GetCultureInfo("pt-BR"))}h";
+
     private static List<ValidationError> ValidarPayload(string recurso, Dictionary<string, object?>? dados)
     {
         var erros = new List<ValidationError>();
