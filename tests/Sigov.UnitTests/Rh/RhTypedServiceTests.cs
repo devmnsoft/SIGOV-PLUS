@@ -80,5 +80,7 @@ public sealed class RhTypedServiceTests
         }
         public Task<Result<byte[]>> ExportarAsync(string recurso, string formato, CancellationToken ct) => Task.FromResult(Result<byte[]>.Success(Array.Empty<byte>()));
         public Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct) => Task.FromResult(Result<long>.Success(1));
+        public Task<Result<RhPontoAjusteResumoDto>> AjustarPontoRegistroAsync(long registroId, RhPontoRegistrarBatidaRequest request, CancellationToken ct) => Task.FromResult(Result<RhPontoAjusteResumoDto>.Success(new RhPontoAjusteResumoDto(registroId, DateTimeOffset.UtcNow, 0, default(DateOnly), default(DateOnly))));
+        public Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct) => Task.FromResult(Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, decisao, 1, 0)));
     }
 }

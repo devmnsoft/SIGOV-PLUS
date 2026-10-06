@@ -275,4 +275,55 @@ public sealed class RhRulesTests
         var ex = Assert.Throws<ArgumentException>(() => PontoApuracaoEngine.Calcular(1, PontoSeg.AddDays(1), PontoSeg, ZonaBrasilia, Array.Empty<BatidaPonto>(), _ => JornadaPadrao));
         ex.Message.Should().Contain("Período final");
     }
+
+    // ==== RC-EVO-RH §5: decisão de justificativas/ajustes (regras puras) ====
+
+    [Fact]
+    public void Justificativa_Somente_Estados_Pendentes_Podem_Ser_Decididos()
+    {
+        PontoTransicoes.ValidarDecisao(null).Should().BeNull();
+        PontoTransicoes.ValidarDecisao("RASCUNHO").Should().BeNull();
+        PontoTransicoes.ValidarDecisao("PENDENTE").Should().BeNull();
+        PontoTransicoes.ValidarDecisao("APROVADA").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarDecisao("REPROVADA").Should().Be(PontoTransicoes.TransicaoInvalida);
+        PontoTransicoes.ValidarDecisao("CONCLUIDA").Should().Be(PontoTransicoes.TransicaoInvalida);
+    }
+
+    [Fact]
+    public void Justificativa_Autor_Nao_Decide_Propria_Por_Padrao()
+    {
+        PontoTransicoes.ValidarAutoprovacao(7, 7).Should().Be(PontoTransicoes.AutoprovacaoBloqueada);
+        PontoTransicoes.ValidarAutoprovacao(7, 8).Should().BeNull();
+        PontoTransicoes.ValidarAutoprovacao(null, 8).Should().BeNull(); // autor desconhecido: não bloqueia por suposição
+    }
+
+    [Fact]
+    public void Janela_De_Ajuste_Cobre_Ambos_Instantes_Com_Margem_De_Fuso()
+    {
+        var antes = new DateTimeOffset(2026, 10, 5, 22, 30, 0, TimeSpan.Zero);
+        var depois = new DateTimeOffset(2026, 10, 7, 3, 30, 0, TimeSpan.Zero);
+
+        var (ini, fim) = PontoTransicoes.JanelaAjuste(antes, depois);
+        ini.Should().Be(new DateOnly(2026, 10, 4)); // mínimo - 1 dia
+        fim.Should().Be(new DateOnly(2026, 10, 8)); // máximo + 1 dia
+
+        var (iniSim, fimSim) = PontoTransicoes.JanelaAjuste(depois, antes); // simétrico
+        iniSim.Should().Be(ini);
+        fimSim.Should().Be(fim);
+
+        var (ini3, fim3) = PontoTransicoes.JanelaAjuste(antes, antes); // mesmo instante: margem simétrica
+        ini3.Should().Be(new DateOnly(2026, 10, 4));
+        fim3.Should().Be(new DateOnly(2026, 10, 6));
+    }
+
+    [Fact]
+    public void Ajuste_Exige_Tipo_De_Batida_Reconhecivel()
+    {
+        PontoTransicoes.TipoBatidaValido("Entrada").Should().BeTrue();
+        PontoTransicoes.TipoBatidaValido("saida").Should().BeTrue();
+        PontoTransicoes.TipoBatidaValido("IntervaloFim").Should().BeTrue();
+        PontoTransicoes.TipoBatidaValido("Almoço").Should().BeFalse();
+        PontoTransicoes.TipoBatidaValido("").Should().BeFalse();
+        PontoTransicoes.TipoBatidaValido(null).Should().BeFalse();
+    }
 }

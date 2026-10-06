@@ -47,6 +47,12 @@ public sealed record RhPortalResumoResponse(long ServidorId, string Nome, IReadO
 // Apuração existente (lookup estruturado) usada para idempotência/reprocessamento §4.
 public sealed record RhApuracaoExistenteDto(long Id, string Status, string? AnteriorDadosJson);
 
+// RC-EVO-RH §5: decisão de justificativas/ajustes (origem preservada, transições nomeadas, invalidação de dependentes).
+public sealed record RhRegistroComOrigemDto(long Id, string DadosJson, long? ServidorId, long? CriadoPor, DateTimeOffset CriadoEm, string Status);
+public sealed record RhApuracaoJanelaDto(long Id, string Status);
+public sealed record RhPontoAjusteResumoDto(long RegistroId, DateTimeOffset AjustadoEm, int ApuracoesInvalidadas, DateOnly JanelaInicio, DateOnly JanelaFim);
+public sealed record RhJustificativaDecisaoDto(long JustificativaId, string Status, long? DecididoPor, int ApuracoesInvalidadas);
+
 public interface IRhRepository
 {
     Task<PagedResult<RhRegistroResponse>> ListarAsync(long tenantId, string recurso, RhFiltro filtro, CancellationToken ct);
@@ -69,6 +75,11 @@ public interface IRhRepository
     Task<string?> ObterFusoOperacaoAsync(CancellationToken ct);
     Task<RhApuracaoExistenteDto?> ObterApuracaoExistenteAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct);
     Task<long> SalvarApuracaoPontoAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, string dadosJson, long? anteriorId, string? anteriorDadosJson, long? usuarioId, CancellationToken ct);
+    // RC-EVO-RH §5: decisão de justificativas/ajustes (origem preservada + invalidação de apurações dependentes)
+    Task<RhRegistroComOrigemDto?> ObterRegistroComOrigemAsync(long tenantId, string recurso, long id, CancellationToken ct);
+    Task<IReadOnlyList<RhApuracaoJanelaDto>> ApuracoesCobertasPorJanelaAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct);
+    Task<int> InvalidarApuracoesPorAjusteAsync(long tenantId, IReadOnlyCollection<long> ids, string motivo, long? usuarioId, CancellationToken ct);
+    Task AtualizarComDeltaAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long? usuarioId, CancellationToken ct);
 }
 
 public interface IRhService
@@ -83,4 +94,6 @@ public interface IRhService
     Task<Result<long>> IntegrarFinanceiroAsync(RhFinanceiroIntegracaoRequest request, CancellationToken ct);
     Task<Result<byte[]>> ExportarAsync(string recurso, string formato, CancellationToken ct);
     Task<Result<long>> ApurarPontoAsync(RhPontoApuracaoRequest request, CancellationToken ct);
+    Task<Result<RhPontoAjusteResumoDto>> AjustarPontoRegistroAsync(long registroId, RhPontoRegistrarBatidaRequest request, CancellationToken ct);
+    Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct);
 }

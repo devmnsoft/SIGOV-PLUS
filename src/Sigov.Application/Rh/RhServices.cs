@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Common;
 using Sigov.Domain.Common;
+using Sigov.Domain.Rh;
 
 namespace Sigov.Application.Rh;
 
@@ -357,6 +358,191 @@ public sealed class RhService : IRhService
             _logger.LogError(ex, "Erro ao apurar ponto do servidor {ServidorId}.", request.ServidorId);
             return Result<long>.Failure("Erro ao apurar ponto do servidor.");
         }
+    }
+
+    // ==== RC-EVO-RH §5: decisão de justificativas / ajuste de batidas =====================
+
+    // O ajuste preserva o original (quem/quando/antes/depois/origem) no próprio registro e na
+    // auditoria, invalida as apurações APURADA dependentes que cobrem a janela afetada e nunca
+    // altera competência fechada (falha nomeada COMPETENCIA_FECHADA quando há HOMOLOGADA).
+    public async Task<Result<RhPontoAjusteResumoDto>> AjustarPontoRegistroAsync(long registroId, RhPontoRegistrarBatidaRequest request, CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<RhPontoAjusteResumoDto>();
+        var exercicio = await ValidarExercicioAbertoAsync("pontos", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<RhPontoAjusteResumoDto>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (string.IsNullOrWhiteSpace(request.Justificativa)) return Result<RhPontoAjusteResumoDto>.Failure("Justificativa obrigatória para ajuste manual.");
+        if (!PontoTransicoes.TipoBatidaValido(request.Tipo)) return Result<RhPontoAjusteResumoDto>.Failure($"Tipo de batida inválido: {request.Tipo}.");
+        if (!await CanAsync(RhPermissoes.Editar, ct).ConfigureAwait(false)) return Result<RhPontoAjusteResumoDto>.Failure("403");
+
+        try
+        {
+            var atual = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-registros", registroId, ct).ConfigureAwait(false);
+            if (atual is null) return Result<RhPontoAjusteResumoDto>.Failure("Registro de ponto não encontrado.");
+
+            var dadosAntes = JsonSerializer.Deserialize<Dictionary<string, object?>>(string.IsNullOrWhiteSpace(atual.DadosJson) ? "{}" : atual.DadosJson, WebJson) ?? new Dictionary<string, object?>();
+            if (!TryJsonText(dadosAntes, out var dataHoraTexto, "DataHora", "dataHora")
+                || !DateTimeOffset.TryParse(dataHoraTexto, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dataHoraAnterior))
+            {
+                return Result<RhPontoAjusteResumoDto>.Failure("DataHora original não reconhecida no registro de ponto; o ajuste não é possível sem o instante original.");
+            }
+
+            var (janelaInicio, janelaFim) = PontoTransicoes.JanelaAjuste(dataHoraAnterior, request.DataHora);
+            var efeito = await ValidarEInvalidarApuracoesAsync(request.ServidorId, janelaInicio, janelaFim, $"ajuste da batida {registroId.ToString(CultureInfo.InvariantCulture)}", ct).ConfigureAwait(false);
+            if (efeito.IsFailure) return Result<RhPontoAjusteResumoDto>.Failure(efeito.Error ?? "Competência fechada.");
+
+            var agora = DateTimeOffset.UtcNow;
+            var delta = new Dictionary<string, object?>
+            {
+                ["DataHora"] = request.DataHora.ToString("O"),
+                ["Tipo"] = request.Tipo,
+                ["Origem"] = "AJUSTADO",
+                ["Justificativa"] = request.Justificativa,
+                ["dataHoraAnterior"] = dataHoraAnterior.ToString("O"),
+                ["tipoAnterior"] = JsonTexto(dadosAntes, "Tipo", "tipo"),
+                ["origemAnterior"] = JsonTexto(dadosAntes, "Origem", "origem") ?? "MANUAL",
+                ["ajustadoPor"] = _user.UsuarioId,
+                ["ajustadoEm"] = agora
+            };
+            await _repo.AtualizarComDeltaAsync(TenantId, "ponto-registros", registroId, JsonSerializer.Serialize(delta, WebJson), "AJUSTAR_PONTO", dadosAntes, delta, _user.UsuarioId, ct).ConfigureAwait(false);
+            await _audit.RegistrarAsync("rh", "AJUSTAR_PONTO", "sigov.rh_ponto_registro", registroId.ToString(CultureInfo.InvariantCulture), dadosAntes, delta, ct).ConfigureAwait(false);
+            return Result<RhPontoAjusteResumoDto>.Success(new RhPontoAjusteResumoDto(registroId, agora, efeito.Value is int invalidadas ? invalidadas : 0, janelaInicio, janelaFim));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Falha estrutural ao ajustar o registro de ponto {RegistroId}.", registroId);
+            return Result<RhPontoAjusteResumoDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao ajustar o registro de ponto {RegistroId}.", registroId);
+            return Result<RhPontoAjusteResumoDto>.Failure("Erro ao ajustar registro de ponto.");
+        }
+    }
+
+    // Decisão de justificativa: transição válida somente a partir de estados pendentes, sem
+    // autoaprovação por padrão e com invalidação das apurações APURADA dependentes da data de
+    // referência (competência HOMOLOGADA permanece bloqueando a decisão).
+    public async Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<RhJustificativaDecisaoDto>();
+        var alvo = decisao?.Trim().ToUpperInvariant();
+        if (alvo is not (PontoTransicoes.Aprovada or PontoTransicoes.Reprovada))
+        {
+            return Result<RhJustificativaDecisaoDto>.Failure($"Decisão inválida: {decisao}.");
+        }
+        var exercicio = await ValidarExercicioAbertoAsync("pontos", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<RhJustificativaDecisaoDto>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (!await CanAsync(RhPermissoes.Editar, ct).ConfigureAwait(false)) return Result<RhJustificativaDecisaoDto>.Failure("403");
+
+        try
+        {
+            var atual = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-justificativas", justificativaId, ct).ConfigureAwait(false);
+            if (atual is null) return Result<RhJustificativaDecisaoDto>.Failure("Justificativa não encontrada.");
+
+            var transicao = PontoTransicoes.ValidarDecisao(atual.Status);
+            if (transicao is not null)
+            {
+                return Result<RhJustificativaDecisaoDto>.Failure($"{transicao}: a justificativa está com status '{atual.Status}'; apenas pendentes podem ser decididas.");
+            }
+            if (PontoTransicoes.ValidarAutoprovacao(atual.CriadoPor, _user.UsuarioId) is not null)
+            {
+                return Result<RhJustificativaDecisaoDto>.Failure($"{PontoTransicoes.AutoprovacaoBloqueada}: o autor da justificativa não pode aprová-la ou reprová-la por padrão; outra pessoa habilitada deve decidir.");
+            }
+
+            var dadosAntes = JsonSerializer.Deserialize<Dictionary<string, object?>>(string.IsNullOrWhiteSpace(atual.DadosJson) ? "{}" : atual.DadosJson, WebJson) ?? new Dictionary<string, object?>();
+            if (!TryJsonDate(dadosAntes, out var dataReferencia, "DataReferencia", "dataReferencia"))
+            {
+                return Result<RhJustificativaDecisaoDto>.Failure("DATA_REFERENCIA_AUSENTE: a justificativa não possui DataReferencia reconhecível; não é possível determinar a competência afetada.");
+            }
+            long servidorEfetivo;
+            if (atual.ServidorId is long servidorEstruturado)
+            {
+                servidorEfetivo = servidorEstruturado;
+            }
+            else if (!TryJsonLong(dadosAntes, out servidorEfetivo, "ServidorId", "servidorId"))
+            {
+                return Result<RhJustificativaDecisaoDto>.Failure("SERVIDOR_AUSENTE: a justificativa não referencia um servidor reconhecível.");
+            }
+
+            var efeito = await ValidarEInvalidarApuracoesAsync(servidorEfetivo, dataReferencia, dataReferencia, $"decisão {alvo} da justificativa {justificativaId.ToString(CultureInfo.InvariantCulture)}", ct).ConfigureAwait(false);
+            if (efeito.IsFailure) return Result<RhJustificativaDecisaoDto>.Failure(efeito.Error ?? "Competência fechada.");
+
+            var agora = DateTimeOffset.UtcNow;
+            var delta = new Dictionary<string, object?>
+            {
+                ["status"] = alvo,
+                ["transicaoEm"] = agora,
+                ["decididoPor"] = _user.UsuarioId
+            };
+            await _repo.AtualizarComDeltaAsync(TenantId, "ponto-justificativas", justificativaId, JsonSerializer.Serialize(delta, WebJson), $"DECIDIR_JUSTIFICATIVA:{alvo}", dadosAntes, delta, _user.UsuarioId, ct).ConfigureAwait(false);
+            await _audit.RegistrarAsync("rh", "DECIDIR_JUSTIFICATIVA", "sigov.rh_ponto_justificativa", justificativaId.ToString(CultureInfo.InvariantCulture), dadosAntes, delta, ct).ConfigureAwait(false);
+            return Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, alvo, _user.UsuarioId, efeito.Value is int invalidadas2 ? invalidadas2 : 0));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao decidir a justificativa de ponto {JustificativaId}.", justificativaId);
+            return Result<RhJustificativaDecisaoDto>.Failure("Erro ao decidir justificativa de ponto.");
+        }
+    }
+
+    // §5 compartilhado: HOMOLOGADA cobrindo a janela bloqueia a alteração (COMPETENCIA_FECHADA);
+    // APURADA cobrindo a janela é invalidada para exigir novo processamento (INVALIDADA).
+    private async Task<Result<int>> ValidarEInvalidarApuracoesAsync(long servidorId, DateOnly inicio, DateOnly fim, string motivo, CancellationToken ct)
+    {
+        var cobertas = await _repo.ApuracoesCobertasPorJanelaAsync(TenantId, servidorId, inicio, fim, ct).ConfigureAwait(false);
+        var homologadas = cobertas.Where(a => string.Equals(a.Status, "HOMOLOGADA", StringComparison.OrdinalIgnoreCase)).Select(a => a.Id).ToArray();
+        if (homologadas.Length > 0)
+        {
+            return Result<int>.Failure($"COMPETENCIA_FECHADA: existe apuração HOMOLOGADA ({string.Join(", ", homologadas.Select(i => i.ToString(CultureInfo.InvariantCulture)))}) cobrindo o período afetado; reabra a apuração antes de registrar alterações.");
+        }
+        var invalidaveis = cobertas.Where(a => string.Equals(a.Status, "APURADA", StringComparison.OrdinalIgnoreCase)).Select(a => a.Id).Distinct().ToArray();
+        if (invalidaveis.Length == 0) return Result<int>.Success(0);
+        var invalidadas = await _repo.InvalidarApuracoesPorAjusteAsync(TenantId, invalidaveis, motivo, _user.UsuarioId, ct).ConfigureAwait(false);
+        return Result<int>.Success(invalidadas);
+    }
+
+    private static bool TryJsonText(Dictionary<string, object?> dados, out string value, params string[] keys)
+    {
+        value = string.Empty;
+        var text = JsonTexto(dados, keys);
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        value = text.Trim();
+        return true;
+    }
+
+    private static bool TryJsonLong(Dictionary<string, object?> dados, out long value, params string[] keys)
+    {
+        value = default;
+        return TryJsonText(dados, out var text, keys) && long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryJsonDate(Dictionary<string, object?> dados, out DateOnly value, params string[] keys)
+    {
+        value = default;
+        if (!TryJsonText(dados, out var text, keys)) return false;
+        if (DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out value)) return true;
+        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        {
+            value = DateOnly.FromDateTime(dt);
+            return true;
+        }
+        return false;
+    }
+
+    private static string? JsonTexto(Dictionary<string, object?> dados, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!dados.TryGetValue(key, out var value) || value is null) continue;
+            var text = value switch
+            {
+                JsonElement { ValueKind: JsonValueKind.String } el => el.GetString(),
+                JsonElement el => el.GetRawText(),
+                _ => Convert.ToString(value, CultureInfo.InvariantCulture)
+            };
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        return null;
     }
 
     private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);

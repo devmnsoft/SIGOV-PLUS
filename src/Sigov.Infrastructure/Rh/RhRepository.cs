@@ -345,6 +345,89 @@ returning id;", new { TenantId = tenantId, ServidorId = servidorId, Inicio = ini
         return id;
     }
 
+    // ==== RC-EVO-RH §5: decisão de justificativas/ajustes (origem + invalidação de dependentes) ===
+
+    private sealed class RegistroComOrigemRow
+    {
+        public long Id { get; init; }
+        public string? Dados { get; init; }
+        public long? ServidorId { get; init; }
+        public long? CriadoPor { get; init; }
+        public DateTimeOffset CriadoEm { get; init; }
+        public string Status { get; init; } = string.Empty;
+    }
+
+    private sealed class ApuracaoJanelaRow
+    {
+        public long Id { get; init; }
+        public string Status { get; init; } = string.Empty;
+    }
+
+    public async Task<RhRegistroComOrigemDto?> ObterRegistroComOrigemAsync(long tenantId, string recurso, long id, CancellationToken ct)
+    {
+        var table = Table(recurso);
+        using var cn = _context.CreateConnection();
+        var row = await cn.QueryFirstOrDefaultAsync<RegistroComOrigemRow>(Command(
+            "select id, dados::text as Dados, servidor_id as ServidorId, created_by as CriadoPor, created_at as CriadoEm, coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as Status from " + table + " where tenant_id = @TenantId and id = @Id and is_deleted = false;",
+            new { TenantId = tenantId, Id = id }, ct)).ConfigureAwait(false);
+        return row is null ? null : new RhRegistroComOrigemDto(row.Id, row.Dados ?? "{}", row.ServidorId, row.CriadoPor, row.CriadoEm, row.Status);
+    }
+
+    public async Task<IReadOnlyList<RhApuracaoJanelaDto>> ApuracoesCobertasPorJanelaAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select id, coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as status
+from sigov.rh_ponto_apuracao
+where tenant_id = @TenantId and is_deleted = false
+  and (servidor_id = @ServidorId or coalesce(nullif(dados->>'servidorId',''), nullif(dados->>'ServidorId',''),'') = @ServidorIdText)
+  and coalesce(periodo_inicio,
+        (case when coalesce(nullif(dados->>'PeriodoInicio',''), nullif(dados->>'periodoInicio',''),'') ~ '^\d{4}-\d{2}-\d{2}$'
+              then coalesce(nullif(dados->>'PeriodoInicio',''), nullif(dados->>'periodoInicio',''))::date end)) <= @Fim
+  and coalesce(periodo_fim,
+        (case when coalesce(nullif(dados->>'PeriodoFim',''), nullif(dados->>'periodoFim',''),'') ~ '^\d{4}-\d{2}-\d{2}$'
+              then coalesce(nullif(dados->>'PeriodoFim',''), nullif(dados->>'periodoFim',''))::date end)) >= @Inicio
+order by id desc;";
+        var rows = await cn.QueryAsync<ApuracaoJanelaRow>(Command(sql, new
+        {
+            TenantId = tenantId,
+            ServidorId = servidorId,
+            ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture),
+            Inicio = inicio,
+            Fim = fim
+        }, ct)).ConfigureAwait(false);
+        return rows.Select(r => new RhApuracaoJanelaDto(r.Id, r.Status)).ToList();
+    }
+
+    public async Task<int> InvalidarApuracoesPorAjusteAsync(long tenantId, IReadOnlyCollection<long> ids, string motivo, long? usuarioId, CancellationToken ct)
+    {
+        if (ids.Count == 0) return 0;
+        using var cn = _context.CreateConnection();
+        var delta = JsonSerializer.Serialize(new { status = "INVALIDADA", invalidadaPorAjuste = true }, JsonOptions);
+        var auditoria = BuildAuditJson("INVALIDAR_POR_AJUSTE", usuarioId, null, new { motivo });
+        return await cn.ExecuteAsync(Command(@"
+update sigov.rh_ponto_apuracao
+set status = 'INVALIDADA',
+    motivo = @Motivo,
+    dados = dados || cast(@Delta as jsonb),
+    auditoria = coalesce(auditoria, '{}'::jsonb) || cast(@Auditoria as jsonb),
+    updated_by = @UsuarioId,
+    updated_at = now()
+where tenant_id = @TenantId and id = any(@Ids) and is_deleted = false
+  and coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') = 'APURADA';",
+            new { TenantId = tenantId, Ids = ids.ToArray(), Motivo = motivo, Delta = delta, Auditoria = auditoria, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+    }
+
+    public async Task AtualizarComDeltaAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long? usuarioId, CancellationToken ct)
+    {
+        var table = Table(recurso);
+        using var cn = _context.CreateConnection();
+        var auditoria = BuildAuditJson(operacao, usuarioId, antes, depois);
+        await cn.ExecuteAsync(Command("update " + table + " set dados = dados || cast(@Delta as jsonb), auditoria = coalesce(auditoria, '{}'::jsonb) || cast(@Auditoria as jsonb), updated_by = @UsuarioId, updated_at = now() where tenant_id = @TenantId and id = @Id and is_deleted = false;",
+            new { TenantId = tenantId, Id = id, Delta = deltaJson, Auditoria = auditoria, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+        await RegistrarEventoAsync(cn, tenantId, recurso, operacao, id, ParseJsonb(deltaJson), usuarioId, ct).ConfigureAwait(false);
+    }
+
     // ==== Helpers JSONB case-insensitive (PascalCase da API / camelCase da engine) ===
 
     private static Dictionary<string, object?> ParseJsonb(string? json)
