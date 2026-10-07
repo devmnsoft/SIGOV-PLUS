@@ -2882,6 +2882,19 @@
         "20261007100000"
       ],
       "postConditionSql": "select exists(select 1 from sigov.permissao where chave='rh.portal.visualizar' and ativo and not is_deleted) and not exists(select 1 from sigov.perfil_acesso pa where pa.tenant_id is not null and coalesce(pa.sistemico,false)=false and pa.ativo and not pa.is_deleted and pa.codigo_externo in ('COORDENADOR','SERVIDOR') and not exists(select 1 from sigov.perfil_permissao pp join sigov.permissao p on p.id=pp.permissao_id where pp.perfil_acesso_id=pa.id and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.chave='rh.portal.visualizar' and p.ativo and not p.is_deleted))"
+    },
+    {
+      "version": "20261007120000",
+      "description": "RC-EVO-RH s9: parametros FOLHA da relacao financeira da integracao de ponto (ORCAMENTO_DESPESA_FOLHA_ID, FORNECEDOR_FOLHA_ID) c/ seed ficticio dev (tenant 5)",
+      "category": "functional",
+      "file": "20261007120000_evo_rh_folha_financeira_parametros.sql",
+      "checksum": "d9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261007110000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='ORCAMENTO_DESPESA_FOLHA_ID' and tipo='INTEGER' and ativo and not is_deleted) and exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='FORNECEDOR_FOLHA_ID' and tipo='INTEGER' and ativo and not is_deleted)"
     }
   ],
   "compatibilityAfterAll": [

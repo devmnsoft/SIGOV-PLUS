@@ -21,6 +21,9 @@ var builder = Host.CreateDefaultBuilder(args)
         services.AddScoped<IOutboxHandlerFactory, OutboxHandlerFactory>();
         services.AddScoped<IOutboxProcessor, OutboxProcessor>();
         services.AddScoped<IOutboxJob, OutboxJob>();
+        // RC-EVO-RH §9: registrado PRIMEIRO — a fábrica resolve First(CanHandle); o tipo RH_FOLHA_PONTO_FINANCEIRO
+        // não casa com nenhum handler anterior, mas a ordem deixa a precedência explícita e testável.
+        services.AddScoped<IOutboxHandler, FolhaPontoFinanceiraOutboxHandler>();
         services.AddScoped<IOutboxHandler, WebhookOutboxHandler>();
         services.AddScoped<IOutboxHandler, IntegracaoOutboxHandler>();
         services.AddScoped<IOutboxHandler, RelatorioOutboxHandler>();

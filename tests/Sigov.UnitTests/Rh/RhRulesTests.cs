@@ -580,4 +580,138 @@ public sealed class RhRulesTests
         PortalRegras.Competencia(2026, 0, null).Should().BeNull(); // mês inválido
         PortalRegras.Competencia(null, null, null).Should().BeNull();
     }
+
+    // ==== RC-EVO-RH §9: regras puras da relação Folha de ponto → Financeiro ===========
+
+    private static string PayloadJson(string itens) =>
+        """{"integracaoId":77,"apuracaoId":88,"folhaId":9,"servidorId":3,"versaoRegras":"RH-PONTO-v3","periodoInicio":"2026-08-28","periodoFim":"2026-09-27","competenciaAno":2026,"competenciaMes":9,"entidadeId":1,"exercicioId":1,"totalProventos":13.00,"totalDescontos":4.00,"usuarioId":102,"itens":[__ITENS__]}""".Replace("__ITENS__", itens);
+
+    [Fact]
+    public void S9_Parse_Aceita_CamelCase_E_Legado_PascalCase_Sem_Inventar_Valores()
+    {
+        var payload = FolhaPontoFinanceiraRegras.Parse(PayloadJson("""{"codigo":"PONT-HOR","nome":"Horas trabalhadas (ponto)","tipo":"PROVENTO","valor":10.00}"""));
+        payload.IntegracaoId.Should().Be(77);
+        payload.ApuracaoId.Should().Be(88);
+        payload.PeriodoInicio.Should().Be(new DateOnly(2026, 8, 28));
+        payload.PeriodoFim.Should().Be(new DateOnly(2026, 9, 27));
+        payload.CompetenciaMes.Should().Be(9);
+        payload.UsuarioId.Should().Be(102);
+        payload.Itens.Should().ContainSingle().Which.Valor.Should().Be(10.00m);
+
+        // Legacy PascalCase continua legível (produções anteriores) e ausência de opcional → null explícita.
+        var pascal = """{"IntegracaoId":77,"ApuracaoId":88,"FolhaId":9,"ServidorId":3,"VersaoRegras":"RH-PONTO-v3","PeriodoInicio":"2026-08-28","PeriodoFim":"2026-09-27","CompetenciaAno":2026,"CompetenciaMes":9,"EntidadeId":1,"ExercicioId":1,"TotalProventos":13.00,"TotalDescontos":4.00,"Itens":[{"Codigo":"PONT-INT","Nome":"Intervalo fracionado (ponto)","Tipo":"PROVENTO","Valor":3.00}]}""";
+        var legado = FolhaPontoFinanceiraRegras.Parse(pascal);
+        legado.IntegracaoId.Should().Be(77);
+        legado.Itens.Should().ContainSingle().Which.Valor.Should().Be(3.00m);
+        legado.UsuarioId.Should().BeNull();
+    }
+
+    [Fact]
+    public void S9_Parse_Emite_Falha_Nomeada_Citando_O_Campo_Ausente_Ou_Invalido()
+    {
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse(null))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaPayloadInvalido);
+
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse("{"))
+            .Message.Should().Contain("não é um JSON válido");
+
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse("[1]"))
+            .Message.Should().Contain("esperado objeto JSON");
+
+        var baseItem = """{"codigo":"PONT-HOR","nome":"x","tipo":"PROVENTO","valor":1}""";
+        var semIntegracao = PayloadJson(baseItem).Replace("\"integracaoId\":77,", "");
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse(semIntegracao))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaPayloadInvalido).And.Contain("IntegracaoId");
+
+        var mesInvalido = PayloadJson(baseItem).Replace("\"competenciaMes\":9", "\"competenciaMes\":13");
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse(mesInvalido))
+            .Message.Should().Contain("CompetenciaMes");
+    }
+
+    [Fact]
+    public void S9_ConstruirEmpenho_So_Empenha_Proventos_Positivos_E_Guarda_Memoria_Nas_Observacoes()
+    {
+        const string itens = """{"codigo":"PONT-HOR","nome":"Horas trabalhadas (ponto)","tipo":"PROVENTO","valor":10.00},{"codigo":"PONT-INT","nome":"Intervalo fracionado (ponto)","tipo":"PROVENTO","valor":3.00},{"codigo":"PONT-FALTA","nome":"Dia de falta (ponto)","tipo":"DESCONTO","valor":4.00},{"codigo":"PONT-ZERO","nome":"Provento zerado","tipo":"PROVENTO","valor":0.00}""";
+        var payload = FolhaPontoFinanceiraRegras.Parse(PayloadJson(itens));
+
+        var plano = FolhaPontoFinanceiraRegras.ConstruirEmpenho(payload, orcamentoDespesaId: 1, fornecedorPessoaId: 3);
+
+        plano.OrcamentoDespesaId.Should().Be(1);
+        plano.FornecedorPessoaId.Should().Be(3);
+        plano.ValorTotal.Should().Be(13.00m);                       // desconto e provento zerado ficam fora do documento
+        plano.Itens.Should().HaveCount(2);                          // apenas PONT-HOR + PONT-INT
+        plano.Itens.Should().AllSatisfy(i => i.Quantidade.Should().Be(1m));
+        plano.Itens[0].Descricao.Should().Be("Ponto: PONT-HOR Horas trabalhadas (ponto) (9/2026)");
+        plano.Historico.Should().Contain("9/2026").And.Contain("servidor 3").And.Contain("RH-PONTO-v3");
+        plano.Observacoes.Should().Contain("proventos")
+            .And.Contain("descontos")
+            .And.Contain("Empenho sem liquidação nem pagamento automático.");
+    }
+
+    [Fact]
+    public void S9_ConstruirEmpenho_Sem_Provento_Positivo_Falha_Nomeada_Sem_Valor_Ficticio()
+    {
+        const string baseItem = """{"codigo":"PONT-HOR","nome":"x","tipo":"PROVENTO","valor":1.00}""";
+
+        var soDesconto = FolhaPontoFinanceiraRegras.Parse(PayloadJson("""{"codigo":"PONT-FALTA","nome":"Dia de falta (ponto)","tipo":"DESCONTO","valor":4.00}"""));
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.ConstruirEmpenho(soDesconto, 1, 3))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaSemProventos);
+
+        var soZero = FolhaPontoFinanceiraRegras.Parse(PayloadJson("""{"codigo":"PONT-ZERO","nome":"Provento zerado","tipo":"PROVENTO","valor":0.00}"""));
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.ConstruirEmpenho(soZero, 1, 3))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaSemProventos);
+
+        // Regra insuficiente falha antes de qualquer documento.
+        var proventoValido = FolhaPontoFinanceiraRegras.Parse(PayloadJson(baseItem));
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.ConstruirEmpenho(proventoValido, 0, 3))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaRegrasInsuficientes);
+    }
+
+    [Fact]
+    public void S9_ValidarRegras_Sinaliza_Cada_Parametro_Ausente_Nomeadamente()
+    {
+        FolhaPontoFinanceiraRegras.ValidarRegras(1, 3).Should().BeNull();
+
+        var semOrcamento = FolhaPontoFinanceiraRegras.ValidarRegras(0, 3)!;
+        semOrcamento.Should().Contain(FolhaPontoFinanceiraRegras.FalhaRegrasInsuficientes)
+            .And.Contain(FolhaPontoFinanceiraRegras.ParametroOrcamento)
+            .And.NotContain(FolhaPontoFinanceiraRegras.ParametroFornecedor);
+
+        var semFornecedor = FolhaPontoFinanceiraRegras.ValidarRegras(5, 0)!;
+        semFornecedor.Should().Contain(FolhaPontoFinanceiraRegras.ParametroFornecedor)
+            .And.NotContain(FolhaPontoFinanceiraRegras.ParametroOrcamento);
+
+        var nenhum = FolhaPontoFinanceiraRegras.ValidarRegras(0, 0)!;
+        nenhum.Should().Contain(FolhaPontoFinanceiraRegras.ParametroOrcamento)
+            .And.Contain(FolhaPontoFinanceiraRegras.ParametroFornecedor);
+    }
+
+    [Fact]
+    public void S9_InterpretarParametroLong_E_FailClosed_Para_Vazio_Null_Ou_Invalido()
+    {
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong(null).Should().Be(0);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("").Should().Be(0);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("   ").Should().Be(0);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("null").Should().Be(0); // valor_padrao neutro do catálogo
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("12").Should().Be(12);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("-5").Should().Be(-5);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("\"12\"").Should().Be(12); // JSON string numérico
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("\"abc\"").Should().Be(0);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("1E2").Should().Be(0);   // notação científica não é INTEGER simples → falha fechada (0)
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("7.5").Should().Be(0);   // decimal não é INTEGER válido → 0
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("{\"id\":9}").Should().Be(0);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("[9]").Should().Be(0);
+        FolhaPontoFinanceiraRegras.InterpretarParametroLong("true").Should().Be(0);
+    }
+
+    [Fact]
+    public void S9_Chave_Integracao_E_Money_Sao_Deterministicos()
+    {
+        FolhaPontoFinanceiraRegras.ChaveIntegracao(5, 77).Should().Be("rh.folha-ponto-5-77");
+        FolhaPontoFinanceiraRegras.ChaveIntegracao(1, 77).Should().Be("rh.folha-ponto-1-77");
+
+        FolhaPontoFinanceiraRegras.Money(10.345m).Should().Be(10.35m);
+        FolhaPontoFinanceiraRegras.Money(-10.345m).Should().Be(-10.35m);
+        FolhaPontoFinanceiraRegras.Money(10.344m).Should().Be(10.34m);
+    }
 }

@@ -63,7 +63,11 @@ public sealed record RhApuracaoReaberturaResumoDto(long ApuracaoId, string Statu
 public sealed record RhLancamentoPontoPayload(string RubricaCodigo, string RubricaNome, string Tipo, string Base, int QuantidadeBase, decimal Valor);
 public sealed record RhIntegracaoLancamentoDto(long Id, string RubricaCodigo, string RubricaNome, string Tipo, string Base, int QuantidadeBase, decimal Valor);
 public sealed record RhIntegracaoFolhaTx(long IntegracaoId, long? EventoId, IReadOnlyList<RhIntegracaoLancamentoDto> Lancamentos, decimal TotalProventos, decimal TotalDescontos, bool JaProcessada);
-public sealed record RhIntegracaoFolhaResumoDto(long ApuracaoId, long FolhaId, long IntegracaoId, long? EventoFolhaId, string VersaoRegras, IReadOnlyList<RhIntegracaoLancamentoDto> Lancamentos, decimal TotalProventos, decimal TotalDescontos, decimal Liquido, IReadOnlyList<string> CriticasNaoBloqueantes, bool JaProcessada);
+public sealed record RhIntegracaoFolhaResumoDto(long ApuracaoId, long FolhaId, long IntegracaoId, long? EventoFolhaId, string VersaoRegras, IReadOnlyList<RhIntegracaoLancamentoDto> Lancamentos, decimal TotalProventos, decimal TotalDescontos, decimal Liquido, IReadOnlyList<string> CriticasNaoBloqueantes, bool JaProcessada, RhIntegracaoFolhaFinanceiraStatusDto Financeira);
+
+// RC-EVO-RH §9: relação explícita fila/consumido/documento/falha (ausente = desligado; nunca omitida nem sucesso simulado).
+public sealed record RhIntegracaoFolhaFinanceiraStatusDto(bool Habilitada, string? ChaveIdempotencia, long? EventoFilaId, string? StatusFila, int TentativasFila, string? ErroFila, DateTime? ProcessadaEm, long? DocumentoEmpenhoId);
+public sealed record RhIntegracaoFinanceiraConsulta(long? EventoFilaId, string? StatusFila, int TentativasFila, string? ErroFila, DateTime? ProcessadaEm, long? DocumentoEmpenhoId);
 
 // RC-EVO-RH §8: portal com escopo próprio (vínculo usuário→servidor resolvido no servidor; totais recalculados).
 public sealed record RhPortalVinculoDto(long ServidorId, string Nome);
@@ -106,8 +110,11 @@ public interface IRhRepository
     // RC-EVO-RH §6: homologação/reabertura (update guardado por status + integrações de destino da apuração)
     Task<int> AtualizarStatusApuracaoGuardadoAsync(long tenantId, long id, string statusGuard, string novoStatus, string deltaJson, string operacao, object? antes, object? depois, string? justificativa, long? usuarioId, CancellationToken ct);
     Task<IReadOnlyList<RhRegistroComOrigemDto>> ListarIntegracoesFolhaDaApuracaoAsync(long tenantId, long apuracaoId, CancellationToken ct);
-    // RC-EVO-RH §7: integração real da apuração homologada na folha (evento + lançamentos em transação única)
-    Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, CancellationToken ct);
+    // RC-EVO-RH §7/§9: integração real da apuração homologada na folha (evento + lançamentos em transação única);
+    // quando habilitada, publica também o evento da fila financeira (outbox) na mesma transação.
+    Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId, int competenciaAno, int competenciaMes, CancellationToken ct);
+    // RC-EVO-RH §9: consulta do estado da relação financeira (fila → consumido → documento → falha) por integração
+    Task<RhIntegracaoFinanceiraConsulta> ConsultarIntegracaoFinanceiraAsync(long tenantId, long integracaoId, CancellationToken ct);
     // RC-EVO-RH §8: portal com escopo próprio (vínculo sigov.rh_portal_usuario; filtro pelo próprio servidor)
     Task<RhPortalVinculoDto?> ServidorDoPortalAsync(long tenantId, long usuarioId, CancellationToken ct);
     Task<long> ContarCompetenciasPortalAsync(long tenantId, long servidorId, CancellationToken ct);

@@ -130,6 +130,78 @@ public sealed class RhModuleSmokeTests
         controller.Should().Contain("[HttpGet(\"portal/pendencias\")]");
     }
 
+    [Fact]
+    public void S9_Outbox_Deve_Usar_Schema_Real_Da_Fila_E_Registro_De_Retry()
+    {
+        var queries = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Outbox/OutboxSqlQueries.cs"));
+        queries.Should().Contain("lower(status) in ('pendente','pending','erro')");
+        queries.Should().Contain("next_attempt_at is null or next_attempt_at <= now()");
+        queries.Should().Contain("f.tipo_evento as TipoEvento");
+        queries.Should().Contain("processed_at=now()");
+        queries.Should().Contain("left(@Erro, 500)");
+        queries.Should().NotContain("is_deleted");
+        queries.Should().NotContain("proxima_tentativa_at");
+        queries.Should().NotContain("erro_mascarado=null");
+
+        // O handler financeiro precisa ser o PRIMEIRO na cadeia (ordem de registro resolve via First).
+        var program = File.ReadAllText(Path.Combine(Root, "src/Sigov.Worker/Program.cs"));
+        var posFolha = program.IndexOf("FolhaPontoFinanceiraOutboxHandler", StringComparison.Ordinal);
+        var posWebhook = program.IndexOf("WebhookOutboxHandler", StringComparison.Ordinal);
+        posFolha.Should().BeGreaterThan(-1);
+        posWebhook.Should().BeGreaterThan(posFolha);
+    }
+
+    [Fact]
+    public void S9_Produzidor_Da_Fila_E_Consumidor_Do_Empenho_Deve_Compartilhar_Chave_Idempotencia()
+    {
+        var repo = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Rh/RhRepository.cs"));
+        repo.Should().Contain("insert into sigov.outbox_evento");
+        repo.Should().Contain("on conflict (idempotency_key) where idempotency_key is not null do nothing");
+        repo.Should().Contain("InserirFilaFinanceiraAsync(integracaoId, dtos, proventos, descontos)");
+        repo.Should().Contain("ConsultarIntegracaoFinanceiraAsync");
+        repo.Should().Contain("FolhaPontoFinanceiraRegras.ChaveIntegracao(tenantId, integracaoId)");
+
+        var handler = File.ReadAllText(Path.Combine(Root, "src/Sigov.Worker/Outbox/Handlers/FolhaPontoFinanceiraOutboxHandler.cs"));
+        handler.Should().Contain("string.Equals(tipoEvento, FolhaPontoFinanceiraRegras.TipoEvento, StringComparison.Ordinal)");
+        handler.Should().Contain("FolhaPontoFinanceiraRegras.ChaveIntegracao(message.TenantId, payload.IntegracaoId)");
+        handler.Should().Contain("FolhaPontoFinanceiraRegras.ConstruirEmpenho(payload, orcamento, fornecedor)");
+        handler.Should().Contain("FalhaExercicioAusente");
+        handler.Should().Contain("_empenhos.CriarAsync(message.TenantId, payload.EntidadeId, payload.ExercicioId, ano, request, payload.UsuarioId, chave, cancellationToken)");
+
+        var contracts = File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Rh/RhContracts.cs"));
+        contracts.Should().Contain("RhIntegracaoFolhaFinanceiraStatusDto(bool Habilitada, string? ChaveIdempotencia, long? EventoFilaId, string? StatusFila, int TentativasFila, string? ErroFila, DateTime? ProcessadaEm, long? DocumentoEmpenhoId)");
+        contracts.Should().Contain("Task<RhIntegracaoFinanceiraConsulta> ConsultarIntegracaoFinanceiraAsync(long tenantId, long integracaoId, CancellationToken ct)");
+
+        var services = File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Rh/RhServices.cs"));
+        services.Should().Contain("FolhaPontoFinanceiraRegras.ParametroHabilitar");
+        services.Should().Contain("_repo.ConsultarIntegracaoFinanceiraAsync(TenantId, integracao.IntegracaoId, ct)");
+    }
+
+    [Fact]
+    public void S9_Migration_Parametros_Folha_Financeira_Deve_Ser_Idempotente_FailClosed_E_Nunca_Habilitar_Por_Padrao()
+    {
+        var sql = File.ReadAllText(Path.Combine(Root, "database/postgres/migrations/20261007120000_evo_rh_folha_financeira_parametros.sql"));
+        sql.Should().Contain("'ORCAMENTO_DESPESA_FOLHA_ID'");
+        sql.Should().Contain("'FORNECEDOR_FOLHA_ID'");
+        sql.Should().Contain("on conflict (modulo,codigo) where is_deleted=false");
+        sql.Should().Contain("'null'::jsonb");
+        sql.Should().Contain("select id from sigov.tenant where id = 5 and ativo and not is_deleted loop");
+        sql.Should().Contain("SEED_FICTICIO_DEV");
+        // HABILITAR_INTEGRACAO_FINANCEIRA nunca é semeado true: a ativação é ato do administrador.
+        sql.Should().NotContain("'HABILITAR_INTEGRACAO_FINANCEIRA'");
+
+        var manifest = File.ReadAllText(Path.Combine(Root, "database/postgres/migrations/manifest.json"));
+        manifest.Should().Contain("\"version\": \"20261007120000\"");
+        manifest.Should().Contain("d9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4");
+
+        foreach (var script in new[] { "script_completop.sql", "script_completo.sql", "script_completo_dev.sql", "database/script_completo.sql" })
+        {
+            var consolidado = File.ReadAllText(Path.Combine(Root, script));
+            consolidado.Should().Contain("20261007120000_evo_rh_folha_financeira_parametros.sql");
+            consolidado.Should().Contain("d9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4");
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

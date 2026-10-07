@@ -690,6 +690,8 @@ public sealed class RhService : IRhService
             var criticas = LerPendenciasGlobais(dados);
             var bloquearComCritica = ParametroBool(parametros, "BLOQUEAR_CALCULO_COM_CRITICA", false);
             var permitirNaoBloqueante = ParametroBool(parametros, "PERMITIR_CRITICA_NAO_BLOQUEANTE", true);
+            // RC-EVO-RH §9: relação com o Financeiro — publicado na fila somente com o parâmetro habilitado (banco é a autoridade).
+            var habilitarIntegracaoFinanceira = ParametroBool(parametros, FolhaPontoFinanceiraRegras.ParametroHabilitar, false);
             if (FolhaRegras.CriticaBloqueia(bloquearComCritica, permitirNaoBloqueante, criticas))
             {
                 return Result<RhIntegracaoFolhaResumoDto>.Failure($"CRITICA_BLOQUEANTE: a apuração possui {criticas.Count.ToString(CultureInfo.InvariantCulture)} pendência(s) ({string.Join("; ", criticas)}); resolva-as antes de integrar ou ajuste BLOQUEAR_CALCULO_COM_CRITICA/PERMITIR_CRITICA_NAO_BLOQUEANTE no módulo FOLHA.");
@@ -716,7 +718,7 @@ public sealed class RhService : IRhService
                 ["diasFalta"] = diasFalta
             };
 
-            var integracao = await _repo.IntegrarApuracaoNaFolhaAsync(TenantId, apuracaoId, folhaId, servidorId, periodoInicio, periodoFim, versaoRegras, JsonSerializer.Serialize(resumo, WebJson), JsonSerializer.Serialize(criticas, WebJson), lancamentos, _user.UsuarioId, ct).ConfigureAwait(false);
+            var integracao = await _repo.IntegrarApuracaoNaFolhaAsync(TenantId, apuracaoId, folhaId, servidorId, periodoInicio, periodoFim, versaoRegras, JsonSerializer.Serialize(resumo, WebJson), JsonSerializer.Serialize(criticas, WebJson), lancamentos, _user.UsuarioId, habilitarIntegracaoFinanceira, _tenant.EntidadeId ?? 0, _tenant.ExercicioId ?? 0, anoFolha, mesFolha, ct).ConfigureAwait(false);
 
             await _audit.RegistrarAsync("rh", "INTEGRAR_FOLHA_PONTO", "sigov.rh_ponto_integracao_folha", integracao.IntegracaoId.ToString(CultureInfo.InvariantCulture), dados, new
             {
@@ -725,10 +727,24 @@ public sealed class RhService : IRhService
                 lancamentoIds = integracao.Lancamentos.Select(l => l.Id),
                 totalProventos = integracao.TotalProventos,
                 totalDescontos = integracao.TotalDescontos,
-                jaProcessada = integracao.JaProcessada
+                jaProcessada = integracao.JaProcessada,
+                integracaoFinanceiraHabilitada = habilitarIntegracaoFinanceira
             }, ct).ConfigureAwait(false);
 
-            return Result<RhIntegracaoFolhaResumoDto>.Success(new RhIntegracaoFolhaResumoDto(apuracaoId, folhaId, integracao.IntegracaoId, integracao.EventoId, versaoRegras, integracao.Lancamentos, integracao.TotalProventos, integracao.TotalDescontos, integracao.TotalProventos - integracao.TotalDescontos, criticas, integracao.JaProcessada));
+            // RC-EVO-RH §9: bloco financeiro SEMPRE presente — desligado = explícito (habilitada=false, campos nulos), nunca omitido.
+            var chaveFinanceira = FolhaPontoFinanceiraRegras.ChaveIntegracao(TenantId, integracao.IntegracaoId);
+            RhIntegracaoFolhaFinanceiraStatusDto statusFinanceiro;
+            if (habilitarIntegracaoFinanceira)
+            {
+                var fila = await _repo.ConsultarIntegracaoFinanceiraAsync(TenantId, integracao.IntegracaoId, ct).ConfigureAwait(false);
+                statusFinanceiro = new RhIntegracaoFolhaFinanceiraStatusDto(true, chaveFinanceira, fila.EventoFilaId, fila.StatusFila, fila.TentativasFila, fila.ErroFila, fila.ProcessadaEm, fila.DocumentoEmpenhoId);
+            }
+            else
+            {
+                statusFinanceiro = new RhIntegracaoFolhaFinanceiraStatusDto(false, chaveFinanceira, null, null, 0, null, null, null);
+            }
+
+            return Result<RhIntegracaoFolhaResumoDto>.Success(new RhIntegracaoFolhaResumoDto(apuracaoId, folhaId, integracao.IntegracaoId, integracao.EventoId, versaoRegras, integracao.Lancamentos, integracao.TotalProventos, integracao.TotalDescontos, integracao.TotalProventos - integracao.TotalDescontos, criticas, integracao.JaProcessada, statusFinanceiro));
         }
         catch (InvalidOperationException ex)
         {

@@ -21,7 +21,7 @@ public sealed class SaasComercialTests
         manifest.IndexOf("\"version\": \"20260813193000\"", StringComparison.Ordinal).Should().BeLessThan(manifest.IndexOf("\"version\": \"20260813223000\"", StringComparison.Ordinal));
     }
 
-    [Fact] public void Manifest_tem_216_migrations_registradas_para_a_rc_saas_aut()
+    [Fact] public void Manifest_tem_217_migrations_registradas_para_a_rc_saas_aut()
     {
         var manifest = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/manifest.json"));
         // RC-EVO A: +1 entry (20261006233000_evo_a01_tuplos_e_grants_jornada) → 212 entradas + texto inicial.
@@ -29,7 +29,8 @@ public sealed class SaasComercialTests
         // RC-EVO A03: +1 entry (20261006110000_evo_a03_precond_credencial_plataforma) → 214 entradas + texto inicial.
         // RC-EVO-RH/folha: +1 entry (20261007100000_evo_rh_folha_feriado_parametros_grants) → 215 entradas + texto inicial.
         // RC-EVO-RH s8: +1 entry (20261007110000_evo_rh_portal_grants) → 216 entradas + texto inicial.
-        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(217);
+        // RC-EVO-RH s9: +1 entry (20261007120000_evo_rh_folha_financeira_parametros) → 217 entradas + texto inicial.
+        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(218);
     }
 
     [Fact] public void Migration_comercial_familia_B_idempotente_e_politica_de_downgrade_parametrizada()

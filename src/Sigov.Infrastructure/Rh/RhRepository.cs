@@ -481,7 +481,7 @@ order by id;", new { TenantId = tenantId, ApuracaoId = apuracaoId }, ct)).Config
     // o efeito anterior sem gravar de novo (JaProcessada); PENDENTE/FALHA/CANCELADA reaproveita a
     // linha; outro status bloqueia como INTEGRACAO_EM_ANDAMENTO. Sem sucesso parcial: tudo commita
     // ou tudo volta.
-    public async Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, CancellationToken ct)
+    public async Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId, int competenciaAno, int competenciaMes, CancellationToken ct)
     {
         using var cn = (NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
@@ -489,6 +489,53 @@ order by id;", new { TenantId = tenantId, ApuracaoId = apuracaoId }, ct)).Config
         try
         {
             await cn.ExecuteAsync(new CommandDefinition("select set_config('sigov.tenant_id', @TenantId, true);", new { TenantId = tenantId.ToString(CultureInfo.InvariantCulture) }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+            // ==== RC-EVO-RH §9: fila financeira na mesma transação do efeito =================================
+            // Publica o evento RH_FOLHA_PONTO_FINANCEIRO com os lançamentos EFETIVOS desta execução
+            // (imune a mudança posterior de rubricas no replay). Idempotente pela chave única parcial do
+            // outbox_evento (idempotency_key): retry da integração não duplica evento na fila.
+            async Task<long?> InserirFilaFinanceiraAsync(long idIntegracao, IReadOnlyList<RhIntegracaoLancamentoDto> lancamentosEfetivos, decimal totalProventos, decimal totalDescontos)
+            {
+                if (!habilitarIntegracaoFinanceira || entidadeId <= 0 || exercicioId <= 0 || competenciaAno <= 0 || competenciaMes is < 1 or > 12)
+                {
+                    return null;
+                }
+                const string sqlFila = @"
+insert into sigov.outbox_evento
+(tenant_id, tipo_evento, event_id, event_type, event_version, aggregate_type, aggregate_id, user_id, correlation_id, occurred_at, payload, status, attempts, tentativas, next_attempt_at, idempotency_key)
+values
+(@TenantId, @TipoEvento, gen_random_uuid(), @TipoEvento, 1, @AgregadoTipo, @AgregadoId, @UsuarioId, gen_random_uuid(), now(), cast(@Payload as jsonb), 'pendente', 0, 0, now(), @Chave)
+on conflict (idempotency_key) where idempotency_key is not null do nothing
+returning id;";
+                var payloadFila = JsonSerializer.Serialize(new
+                {
+                    integracaoId = idIntegracao,
+                    apuracaoId,
+                    folhaId,
+                    servidorId,
+                    versaoRegras,
+                    periodoInicio = periodoInicio.ToString("yyyy-MM-dd"),
+                    periodoFim = periodoFim.ToString("yyyy-MM-dd"),
+                    competenciaAno,
+                    competenciaMes,
+                    entidadeId,
+                    exercicioId,
+                    totalProventos = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(totalProventos),
+                    totalDescontos = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(totalDescontos),
+                    usuarioId,
+                    itens = lancamentosEfetivos.Select(lancamento => new { codigo = lancamento.RubricaCodigo, nome = lancamento.RubricaNome, tipo = lancamento.Tipo, valor = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(lancamento.Valor) }).ToList()
+                }, JsonOptions);
+                return await cn.ExecuteScalarAsync<long?>(new CommandDefinition(sqlFila, new
+                {
+                    TenantId = tenantId,
+                    TipoEvento = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.TipoEvento,
+                    AgregadoTipo = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.AgregadoTipo,
+                    AgregadoId = idIntegracao.ToString(CultureInfo.InvariantCulture),
+                    UsuarioId = usuarioId,
+                    Payload = payloadFila,
+                    Chave = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.ChaveIntegracao(tenantId, idIntegracao)
+                }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            }
 
             const string sqlBuscaIntegracao = @"
 select id, dados::text as Dados,
@@ -536,6 +583,7 @@ where tenant_id=@TenantId and id=@ApuracaoId and is_deleted=false
                 var efeitosPrevios = await LerEfeitoProcessadoAsync(cn, tx, tenantId, existente, ct).ConfigureAwait(false);
                 if (efeitosPrevios is not null)
                 {
+                    await InserirFilaFinanceiraAsync(integracaoId, efeitosPrevios.Lancamentos, efeitosPrevios.TotalProventos, efeitosPrevios.TotalDescontos).ConfigureAwait(false);
                     await tx.CommitAsync(ct).ConfigureAwait(false);
                     return efeitosPrevios;
                 }
@@ -579,6 +627,7 @@ returning id;";
                     {
                         throw new InvalidOperationException("INTEGRACAO_EM_ANDAMENTO: outra integração desta apuração ainda está sendo materializada; aguarde alguns segundos e repita.");
                     }
+                    await InserirFilaFinanceiraAsync(integracaoId, efeitoVencedor.Lancamentos, efeitoVencedor.TotalProventos, efeitoVencedor.TotalDescontos).ConfigureAwait(false);
                     await tx.CommitAsync(ct).ConfigureAwait(false);
                     return efeitoVencedor;
                 }
@@ -687,6 +736,7 @@ where tenant_id=@TenantId and id=@Id and is_deleted=false;",
                 ["jaProcessada"] = false
             }, usuarioId, ct).ConfigureAwait(false);
 
+            await InserirFilaFinanceiraAsync(integracaoId, dtos, proventos, descontos).ConfigureAwait(false);
             await tx.CommitAsync(ct).ConfigureAwait(false);
             return new RhIntegracaoFolhaTx(integracaoId, eventoFolhaId, dtos, proventos, descontos, false);
         }
@@ -696,6 +746,30 @@ where tenant_id=@TenantId and id=@Id and is_deleted=false;",
             // as falhas nomeadas (InvalidOperationException) sobem para o serviço, que converte em Result.
             throw;
         }
+    }
+
+    // ==== RC-EVO-RH §9: relação financeira fila → consumido → documento → falha =========================
+    // Não simula sucesso: devolve exatamente o estado da fila e, quando existe, o documento referenciado
+    // pela idempotência financeira (escopo 'empenho.criar') com a mesma chave do producer.
+    public async Task<RhIntegracaoFinanceiraConsulta> ConsultarIntegracaoFinanceiraAsync(long tenantId, long integracaoId, CancellationToken ct)
+    {
+        const string sql = @"
+select o.id as EventoFilaId,
+       o.status as StatusFila,
+       coalesce(o.tentativas, 0) as TentativasFila,
+       o.erro as ErroFila,
+       o.processed_at as ProcessadaEm,
+       i.documento_id as DocumentoEmpenhoId
+from sigov.outbox_evento o
+left join sigov.financeiro_idempotencia i
+       on i.tenant_id = o.tenant_id and i.escopo = 'empenho.criar' and i.chave = @Chave
+where o.tenant_id = @TenantId and o.idempotency_key = @Chave
+limit 1;";
+        using var cn = _context.CreateConnection();
+        var linha = await cn.QueryFirstOrDefaultAsync<FilaFinanceiraRow>(Command(sql, new { TenantId = tenantId, Chave = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.ChaveIntegracao(tenantId, integracaoId) }, ct)).ConfigureAwait(false);
+        return linha is null
+            ? new RhIntegracaoFinanceiraConsulta(null, null, 0, null, null, null)
+            : new RhIntegracaoFinanceiraConsulta(linha.EventoFilaId, linha.StatusFila, linha.TentativasFila, linha.ErroFila, linha.ProcessadaEm, linha.DocumentoEmpenhoId);
     }
 
     // ==== RC-EVO-RH §8: portal com escopo próprio ==============================================
@@ -1214,5 +1288,16 @@ order by id;";
         public bool Ativo { get; init; }
         public DateTimeOffset CreatedAt { get; init; }
         public DateTimeOffset? UpdatedAt { get; init; }
+    }
+
+    // RC-EVO-RH §9: estado bruto da fila financeira + documento referenciado (consulta explícita, sem sucesso simulado).
+    private sealed class FilaFinanceiraRow
+    {
+        public long? EventoFilaId { get; init; }
+        public string? StatusFila { get; init; }
+        public int TentativasFila { get; init; }
+        public string? ErroFila { get; init; }
+        public DateTime? ProcessadaEm { get; init; }
+        public long? DocumentoEmpenhoId { get; init; }
     }
 }

@@ -4,6 +4,7 @@ using Sigov.Application.Common;
 using Sigov.Application.Rh;
 using Sigov.Application.Rh.Dto;
 using Sigov.Domain.Common;
+using Sigov.Domain.Rh;
 using Xunit;
 
 namespace Sigov.UnitTests.Rh;
@@ -62,6 +63,23 @@ public sealed class RhTypedServiceTests
         inner.IntegrarChamadas.Should().Be(0);
     }
 
+    [Fact]
+    public async Task S9_Integracao_Folha_Expo_Bloco_Financeira_Consistente_Com_Chave_Idempotencia()
+    {
+        var inner = new FakeRhService();
+
+        var result = await inner.IntegrarPontoNaFolhaAsync(88, 9, CancellationToken.None);
+
+        result.IsFailure.Should().BeFalse();
+        // Bloco Financeira sempre presente no resumo: desligado → explicitamente false, nunca omitido.
+        result.Value!.Financeira.Should().NotBeNull();
+        result.Value.Financeira.Habilitada.Should().BeFalse();
+        result.Value.Financeira.ChaveIdempotencia.Should().Be("rh.folha-ponto-1-77");
+        result.Value.Financeira.ChaveIdempotencia.Should().Be(FolhaPontoFinanceiraRegras.ChaveIntegracao(1, result.Value.IntegracaoId));
+        result.Value.Financeira.DocumentoEmpenhoId.Should().BeNull(); // nada consumido na fila ainda
+        result.Value.Financeira.ErroFila.Should().BeNull();
+    }
+
     private sealed class FakeRhService : IRhService
     {
         public int CriarChamadas { get; private set; }
@@ -84,7 +102,7 @@ public sealed class RhTypedServiceTests
         public Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct) => Task.FromResult(Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, decisao, 1, 0)));
         public Task<Result<RhApuracaoHomologacaoResumoDto>> HomologarApuracaoPontoAsync(long apuracaoId, string? observacao, CancellationToken ct) => Task.FromResult(Result<RhApuracaoHomologacaoResumoDto>.Success(new RhApuracaoHomologacaoResumoDto(apuracaoId, "HOMOLOGADA", DateTimeOffset.UtcNow, "RH-APURACAO-1", Array.Empty<string>(), false)));
         public Task<Result<RhApuracaoReaberturaResumoDto>> ReabrirApuracaoPontoAsync(long apuracaoId, string justificativa, CancellationToken ct) => Task.FromResult(Result<RhApuracaoReaberturaResumoDto>.Success(new RhApuracaoReaberturaResumoDto(apuracaoId, "APURADA", DateTimeOffset.UtcNow, 1, false)));
-        public Task<Result<RhIntegracaoFolhaResumoDto>> IntegrarPontoNaFolhaAsync(long apuracaoId, long folhaId, CancellationToken ct) => Task.FromResult(Result<RhIntegracaoFolhaResumoDto>.Success(new RhIntegracaoFolhaResumoDto(apuracaoId, folhaId, 77, 88, "RH-APURACAO-1", Array.Empty<RhIntegracaoLancamentoDto>(), 0m, 0m, 0m, Array.Empty<string>(), false)));
+        public Task<Result<RhIntegracaoFolhaResumoDto>> IntegrarPontoNaFolhaAsync(long apuracaoId, long folhaId, CancellationToken ct) => Task.FromResult(Result<RhIntegracaoFolhaResumoDto>.Success(new RhIntegracaoFolhaResumoDto(apuracaoId, folhaId, 77, 88, "RH-APURACAO-1", Array.Empty<RhIntegracaoLancamentoDto>(), 0m, 0m, 0m, Array.Empty<string>(), false, new RhIntegracaoFolhaFinanceiraStatusDto(false, "rh.folha-ponto-1-77", null, null, 0, null, null, null))));
         public Task<Result<PagedResult<RhRegistroResponse>>> PortalSecaoAsync(string secao, RhFiltro filtro, CancellationToken ct) => Task.FromResult(Result<PagedResult<RhRegistroResponse>>.Success(PagedResult<RhRegistroResponse>.Empty(filtro.Page, filtro.PageSize)));
         public Task<Result<PagedResult<RhPortalPendenciaItem>>> PortalPendenciasAsync(CancellationToken ct) => Task.FromResult(Result<PagedResult<RhPortalPendenciaItem>>.Success(PagedResult<RhPortalPendenciaItem>.Empty(1, 100)));
         public Task<Result<RhRegistroResponse>> ObterPortalLancamentoAsync(long lancamentoId, CancellationToken ct) => Task.FromResult(Result<RhRegistroResponse>.Failure("not found"));
