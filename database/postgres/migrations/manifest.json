@@ -2856,6 +2856,19 @@
         "20261006230000"
       ],
       "postConditionSql": "select exists(select 1 from sigov.permissao where chave='financeiro.exportar' and btrim(coalesce(acao,''))='visualizar' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where chave='rh.exportar' and btrim(coalesce(acao,''))='visualizar' and ativo and not is_deleted) and (not exists(select 1 from sigov.perfil_acesso where codigo_externo in ('ADMIN_TENANT','ADMINISTRADOR_TENANT') and tenant_id is not null and ativo and not is_deleted) or exists(select 1 from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where pa.codigo_externo in ('ADMIN_TENANT','ADMINISTRADOR_TENANT') and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.ativo and not p.is_deleted and p.modulo='compras_empresariais')) and (not exists(select 1 from sigov.perfil_acesso where codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and ativo and not is_deleted) or exists(select 1 from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where pa.codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and pp.tenant_id is null and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.ativo and not p.is_deleted and p.modulo='compras_empresariais'))"
+    },
+    {
+      "version": "20261007100000",
+      "description": "RC-EVO-RH/folha: rh_feriado c/ seed de feriados nacionais 2026, FOLHA/RUBRICAS_PONTO c/ seed ficticio dev, modulo rh habilitado nos tenants dev, grants rh.apuracao.reabrir e backfill estruturado de apuracao",
+      "category": "functional",
+      "file": "20261007100000_evo_rh_folha_feriado_parametros_grants.sql",
+      "checksum": "1701ee93f8a2090740a644f42429821ee98bdb92d5dc88c84ea6ed872c79b048",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261006233000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='RUBRICAS_PONTO' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where chave='rh.apuracao.reabrir' and btrim(coalesce(acao,''))='reabrir' and btrim(coalesce(recurso,''))='apuracao' and ativo and not is_deleted) and exists(select 1 from sigov.rh_feriado where is_deleted=false and ativo) and (not exists(select 1 from sigov.perfil_acesso where codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and ativo and not is_deleted) or exists(select 1 from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where pa.codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and pp.tenant_id is null and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.chave='rh.apuracao.reabrir'))"
     }
   ],
   "compatibilityAfterAll": [
