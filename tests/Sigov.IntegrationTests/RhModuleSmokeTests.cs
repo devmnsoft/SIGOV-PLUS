@@ -103,6 +103,33 @@ public sealed class RhModuleSmokeTests
         js.Should().Contain("status === 403");
     }
 
+    [Fact]
+    public void Rh_Portal_S8_Deve_Resolver_Vinculo_No_Servidor_E_Filtrar_Pelo_Proprio_Servidor()
+    {
+        var domain = File.ReadAllText(Path.Combine(Root, "src/Sigov.Domain/Rh/PortalRegras.cs"));
+        domain.Should().Contain("VINCULO_PORTAL_NAO_ENCONTRADO");
+        domain.Should().Contain("LANCAMENTO_FORA_DO_ESCOPO");
+        domain.Should().Contain("Math.Abs(valor)");
+
+        var repo = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Rh/RhRepository.cs"));
+        repo.Should().Contain("sigov.rh_portal_usuario v");
+        repo.Should().Contain("v.servidor_id as ServidorId");
+        repo.Should().Contain("RecursosComColunaServidorId");
+        repo.Should().Contain("'INTEGRACAO_FOLHA'::varchar");
+
+        var service = File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Rh/RhServices.cs"));
+        service.Should().Contain("ResolverVinculoPortalAsync");
+        service.Should().Contain("PortalRegras.TotaisPorTipo");
+        service.Should().Contain("PertenceAoServidor(LerServidorIdDoPayload");
+        service.Should().Contain("\"portal-competencias\"");
+        service.Should().Contain("PORTAL_SECAO");
+
+        var controller = File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/RhBloco2Controller.cs"));
+        controller.Should().Contain("PortalSecaoAsync(secao");
+        controller.Should().Contain("ObterPortalLancamentoAsync(id,ct)");
+        controller.Should().Contain("[HttpGet(\"portal/pendencias\")]");
+    }
+
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

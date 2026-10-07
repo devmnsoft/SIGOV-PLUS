@@ -742,6 +742,140 @@ public sealed class RhService : IRhService
         }
     }
 
+    // RC-EVO-RH §8: portal com escopo próprio. O vínculo usuário→servidor é resolvido no servidor
+    // (sigov.rh_portal_usuario ativo apontando para servidor ativo e não excluído) — o portal nunca
+    // aceita o servidor via payload. Totais são recalculados dos lançamentos materializados.
+    // Falhas nomeadas: VINCULO_PORTAL_NAO_ENCONTRADO (404 via "não encontrado") e escopo fora →
+    // exatamente "403" (Forbid do FromResult).
+    private async Task<Result<RhPortalVinculoDto>> ResolverVinculoPortalAsync(CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<RhPortalVinculoDto>();
+        if (!_user.UsuarioId.HasValue) return Result<RhPortalVinculoDto>.Failure("Usuário não autenticado.");
+        if (!await CanAsync(RhPermissoes.Portal, ct).ConfigureAwait(false)) return Result<RhPortalVinculoDto>.Failure("403");
+        var vinculo = await _repo.ServidorDoPortalAsync(TenantId, _user.UsuarioId.Value, ct).ConfigureAwait(false);
+        return vinculo is null
+            ? Result<RhPortalVinculoDto>.Failure($"{PortalRegras.FalhaVinculoAusente}: vínculo de portal (usuário → servidor) não encontrado; cadastre o vínculo em RH > Portal antes de consultar o espelho.")
+            : Result<RhPortalVinculoDto>.Success(vinculo);
+    }
+
+    public async Task<Result<PagedResult<RhRegistroResponse>>> PortalSecaoAsync(string secao, RhFiltro filtro, CancellationToken ct)
+    {
+        var vinculo = await ResolverVinculoPortalAsync(ct).ConfigureAwait(false);
+        if (vinculo.IsFailure) return Result<PagedResult<RhRegistroResponse>>.Failure(vinculo.Error ?? string.Empty);
+        var servidorProprio = vinculo.Value!.ServidorId;
+        var pagina = Math.Max(1, filtro.Page);
+        var tamanhoPagina = Math.Clamp(filtro.PageSize <= 0 ? 24 : filtro.PageSize, 1, 100);
+        try
+        {
+            var filtroPaginado = new RhFiltro(pagina, tamanhoPagina, filtro.Termo, filtro.Ativo);
+            var resultado = secao switch
+            {
+                "contracheques" => await CarregarCompetenciasPortalAsync(servidorProprio, pagina, tamanhoPagina, ct).ConfigureAwait(false),
+                "ferias" => await _repo.ListarPorServidorAsync(TenantId, "ferias-programacoes", servidorProprio, filtroPaginado, ct).ConfigureAwait(false),
+                "afastamentos" => await _repo.ListarPorServidorAsync(TenantId, "afastamentos", servidorProprio, filtroPaginado, ct).ConfigureAwait(false),
+                "ponto" => await _repo.ListarPorServidorAsync(TenantId, "ponto-registros", servidorProprio, filtroPaginado, ct).ConfigureAwait(false),
+                _ => PagedResult<RhRegistroResponse>.Empty(pagina, tamanhoPagina)
+            };
+            await _audit.RegistrarAsync("rh", "PORTAL_SECAO", "sigov.rh_portal_usuario", servidorProprio.ToString(CultureInfo.InvariantCulture), null, new { secao, pagina, Itens = resultado.TotalItems }, ct).ConfigureAwait(false);
+            return Result<PagedResult<RhRegistroResponse>>.Success(resultado);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao consultar a seção {Secao} do portal RH do servidor {ServidorId}.", secao, servidorProprio);
+            return Result<PagedResult<RhRegistroResponse>>.Failure("Erro ao consultar a seção do portal.");
+        }
+    }
+
+    private async Task<PagedResult<RhRegistroResponse>> CarregarCompetenciasPortalAsync(long servidorId, int pagina, int tamanhoPagina, CancellationToken ct)
+    {
+        var total = await _repo.ContarCompetenciasPortalAsync(TenantId, servidorId, ct).ConfigureAwait(false);
+        var fontes = await _repo.ListarCompetenciasPortalAsync(TenantId, servidorId, tamanhoPagina, (pagina - 1) * tamanhoPagina, ct).ConfigureAwait(false);
+        return new PagedResult<RhRegistroResponse>(fontes.Select(f => MontarItemCompetencia(f)).ToArray(), pagina, tamanhoPagina, total);
+    }
+
+    private static RhRegistroResponse MontarItemCompetencia(RhPortalCompetenciaFonte fonte)
+    {
+        var (proventos, descontos, liquido) = PortalRegras.TotaisPorTipo(fonte.Lancamentos.Select(l => (l.Tipo, l.Valor)).ToList());
+        JsonElement? memoria = null;
+        JsonElement? resumo = null;
+        JsonElement? pendenciasGlobais = null;
+        if (!string.IsNullOrWhiteSpace(fonte.ApuracaoDadosJson))
+        {
+            using var doc = JsonDocument.Parse(fonte.ApuracaoDadosJson);
+            var raiz = doc.RootElement;
+            memoria = PortalRegras.MemoriaPorDia(raiz);
+            if (raiz.ValueKind == JsonValueKind.Object && raiz.TryGetProperty("resumo", out var resumoEl) && resumoEl.ValueKind is JsonValueKind.Object or JsonValueKind.Array) resumo = resumoEl.Clone();
+            if (raiz.ValueKind == JsonValueKind.Object && raiz.TryGetProperty("pendenciasGlobais", out var pgEl) && pgEl.ValueKind is JsonValueKind.Object or JsonValueKind.Array) pendenciasGlobais = pgEl.Clone();
+        }
+        var dados = new Dictionary<string, object?>
+        {
+            ["id"] = fonte.IntegracaoId,
+            ["status"] = fonte.StatusIntegracao,
+            ["competencia"] = PortalRegras.Competencia(fonte.AnoFolha, fonte.MesFolha, fonte.PeriodoInicio),
+            ["periodoInicio"] = fonte.PeriodoInicio?.ToString("yyyy-MM-dd"),
+            ["periodoFim"] = fonte.PeriodoFim?.ToString("yyyy-MM-dd"),
+            ["folhaId"] = fonte.FolhaId,
+            ["apuracaoId"] = fonte.ApuracaoId,
+            ["eventoFolhaId"] = fonte.EventoFolhaId,
+            ["versaoRegras"] = fonte.VersaoRegras,
+            ["statusFolha"] = fonte.StatusFolha,
+            ["statusApuracao"] = fonte.StatusApuracao,
+            ["totalProventos"] = proventos,
+            ["totalDescontos"] = descontos,
+            ["liquido"] = liquido,
+            ["lancamentos"] = fonte.Lancamentos.ToList(),
+            ["memoriaPorDia"] = memoria,
+            ["resumo"] = resumo,
+            ["pendenciasGlobais"] = pendenciasGlobais,
+            ["criticasNaoBloqueantes"] = fonte.CriticasNaoBloqueantes?.ToList(),
+            ["processadaEm"] = fonte.ProcessadaEm
+        };
+        return new RhRegistroResponse(fonte.IntegracaoId, "portal-competencias", dados, true, fonte.CriadoEm, fonte.AtualizadoEm);
+    }
+
+    public async Task<Result<PagedResult<RhPortalPendenciaItem>>> PortalPendenciasAsync(CancellationToken ct)
+    {
+        var vinculo = await ResolverVinculoPortalAsync(ct).ConfigureAwait(false);
+        if (vinculo.IsFailure) return Result<PagedResult<RhPortalPendenciaItem>>.Failure(vinculo.Error ?? string.Empty);
+        var servidorProprio = vinculo.Value!.ServidorId;
+        try
+        {
+            var itens = await _repo.ListarPendenciasPortalAsync(TenantId, servidorProprio, 100, ct).ConfigureAwait(false);
+            var pendencias = itens.Where(i => PortalRegras.EhPendencia(i.Tipo, i.Status)).ToList();
+            await _audit.RegistrarAsync("rh", "PORTAL_PENDENCIAS", "sigov.rh_portal_usuario", servidorProprio.ToString(CultureInfo.InvariantCulture), null, new { Pendencias = pendencias.Count }, ct).ConfigureAwait(false);
+            return Result<PagedResult<RhPortalPendenciaItem>>.Success(new PagedResult<RhPortalPendenciaItem>(pendencias, 1, 100, pendencias.Count));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao consultar as pendências do portal RH do servidor {ServidorId}.", servidorProprio);
+            return Result<PagedResult<RhPortalPendenciaItem>>.Failure("Erro ao consultar as pendências do portal.");
+        }
+    }
+
+    public async Task<Result<RhRegistroResponse>> ObterPortalLancamentoAsync(long lancamentoId, CancellationToken ct)
+    {
+        var vinculo = await ResolverVinculoPortalAsync(ct).ConfigureAwait(false);
+        if (vinculo.IsFailure) return Result<RhRegistroResponse>.Failure(vinculo.Error ?? string.Empty);
+        var servidorProprio = vinculo.Value!.ServidorId;
+        var lancamento = await _repo.ObterAsync(TenantId, "folha-lancamentos", lancamentoId, ct).ConfigureAwait(false);
+        if (lancamento is null) return Result<RhRegistroResponse>.Failure("Lançamento de folha não encontrado.");
+        // Escopo próprio: falha fechada — id ausente ou de outro servidor recusa com 403 exato.
+        if (!PortalRegras.PertenceAoServidor(LerServidorIdDoPayload(lancamento.Dados), servidorProprio))
+        {
+            await _audit.RegistrarAsync("rh", "PORTAL_LANCAMENTO_FORA_DO_ESCOPO", "sigov.folha_lancamento", lancamentoId.ToString(CultureInfo.InvariantCulture), null, new { motivo = PortalRegras.FalhaLancamentoForaDoEscopo, servidorProprio }, ct).ConfigureAwait(false);
+            return Result<RhRegistroResponse>.Failure("403");
+        }
+        await _audit.RegistrarAsync("rh", "PORTAL_LANCAMENTO", "sigov.folha_lancamento", lancamentoId.ToString(CultureInfo.InvariantCulture), null, new { servidorProprio }, ct).ConfigureAwait(false);
+        return Result<RhRegistroResponse>.Success(lancamento);
+    }
+
+    private static string? LerServidorIdDoPayload(Dictionary<string, object?>? dados)
+    {
+        if (dados is null) return null;
+        var valor = dados.FirstOrDefault(kv => string.Equals(kv.Key, "servidorId", StringComparison.OrdinalIgnoreCase)).Value;
+        return valor?.ToString();
+    }
+
     // §5 compartilhado: HOMOLOGADA cobrindo a janela bloqueia a alteração (COMPETENCIA_FECHADA);
     // APURADA cobrindo a janela é invalidada para exigir novo processamento (INVALIDADA).
     private async Task<Result<int>> ValidarEInvalidarApuracoesAsync(long servidorId, DateOnly inicio, DateOnly fim, string motivo, CancellationToken ct)

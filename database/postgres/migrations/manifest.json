@@ -2869,6 +2869,19 @@
         "20261006233000"
       ],
       "postConditionSql": "select exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='RUBRICAS_PONTO' and ativo and not is_deleted) and exists(select 1 from sigov.permissao where chave='rh.apuracao.reabrir' and btrim(coalesce(acao,''))='reabrir' and btrim(coalesce(recurso,''))='apuracao' and ativo and not is_deleted) and exists(select 1 from sigov.rh_feriado where is_deleted=false and ativo) and (not exists(select 1 from sigov.perfil_acesso where codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and ativo and not is_deleted) or exists(select 1 from sigov.perfil_permissao pp join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id join sigov.permissao p on p.id=pp.permissao_id where pa.codigo_externo='ADMIN_PLATAFORMA_MNSOFT' and pp.tenant_id is null and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.chave='rh.apuracao.reabrir'))"
+    },
+    {
+      "version": "20261007110000",
+      "description": "RC-EVO-RH s8: grant rh.portal.visualizar PERMITIR para perfis locais SERVIDOR e COORDENADOR (espelho de folha no portal: contracheques e pendencias)",
+      "category": "functional",
+      "file": "20261007110000_evo_rh_portal_grants.sql",
+      "checksum": "8482c7ce8151f9f850c115ab7661ac8a9f5025316a11a25608ce603e778d8924",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261007100000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.permissao where chave='rh.portal.visualizar' and ativo and not is_deleted) and not exists(select 1 from sigov.perfil_acesso pa where pa.tenant_id is not null and coalesce(pa.sistemico,false)=false and pa.ativo and not pa.is_deleted and pa.codigo_externo in ('COORDENADOR','SERVIDOR') and not exists(select 1 from sigov.perfil_permissao pp join sigov.permissao p on p.id=pp.permissao_id where pp.perfil_acesso_id=pa.id and upper(pp.efeito)='PERMITIR' and pp.ativo and not pp.is_deleted and p.chave='rh.portal.visualizar' and p.ativo and not p.is_deleted))"
     }
   ],
   "compatibilityAfterAll": [

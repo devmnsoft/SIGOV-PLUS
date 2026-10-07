@@ -224,7 +224,11 @@ select id, dados::text as Dados, ativo, created_at as CreatedAt
 from sigov.rh_ponto_registro
 where tenant_id = @TenantId and is_deleted = false
   and (servidor_id = @ServidorId or coalesce(nullif(dados->>'ServidorId',''), dados->>'servidorId','') = @ServidorIdText)
-  and created_at >= @Inicio and created_at <= @Fim
+  -- Janela coarse em SQL: o instante oficial e o DataHora do JSONB (filtro exato em C#).
+  -- created_at cobre linhas legadas sem DataHora. Filtrar somente por created_at excluiria
+  -- batidas registradas/reparadas fora do periodo e falaria ausencia falsa na apuracao.
+  and (created_at >= @Inicio and created_at <= @Fim
+       or coalesce(nullif(dados->>'dataHora',''), dados->>'DataHora') ~ '^\d{4}-\d{2}-\d{2}T\d{2}:')
 order by created_at, id;";
         var rows = await cn.QueryAsync<Row>(Command(sql, new { TenantId = tenantId, ServidorId = servidorId, ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture), Inicio = inicioUtc, Fim = fimUtc }, ct)).ConfigureAwait(false);
         var result = new List<Sigov.Domain.Rh.BatidaPonto>();
@@ -694,6 +698,213 @@ where tenant_id=@TenantId and id=@Id and is_deleted=false;",
         }
     }
 
+    // ==== RC-EVO-RH §8: portal com escopo próprio ==============================================
+    // O portal nunca aceita o servidor via payload: o vínculo vive em sigov.rh_portal_usuario
+    // (usuario_id/servidor_id), ativo, válido e apontando para servidor ativo e não excluído.
+    // Vínculo ausente → null explícita (sem sucesso simulado). Todos os listamentos filtram pelo
+    // próprio servidor (coluna estruturada quando a tabela tem; JSONB sempre considerado).
+
+    public async Task<RhPortalVinculoDto?> ServidorDoPortalAsync(long tenantId, long usuarioId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select v.servidor_id as ServidorId,
+       coalesce(nullif(trim(s.dados->>'nome'), ''), nullif(trim(s.dados->>'Nome'), ''), 'Servidor') as Nome
+from sigov.rh_portal_usuario v
+join sigov.servidor s
+  on s.id = v.servidor_id and s.tenant_id = v.tenant_id and s.ativo = true and s.is_deleted = false
+where v.tenant_id = @TenantId and v.usuario_id = @UsuarioId and v.ativo = true and v.is_deleted = false
+order by v.id
+limit 1;";
+        var linha = await cn.QueryFirstOrDefaultAsync<PortalVinculoRow>(Command(sql, new { TenantId = tenantId, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
+        return linha is null ? null : new RhPortalVinculoDto(linha.ServidorId, linha.Nome);
+    }
+
+    public async Task<long> ContarCompetenciasPortalAsync(long tenantId, long servidorId, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select count(1)
+from sigov.rh_ponto_integracao_folha i
+where i.tenant_id = @TenantId and i.is_deleted = false
+  and (i.servidor_id = @ServidorId or coalesce(nullif(i.dados->>'servidorId', ''), nullif(i.dados->>'ServidorId', '')) = @ServidorIdTexto);";
+        return await cn.ExecuteScalarAsync<long>(Command(sql, new { TenantId = tenantId, ServidorId = servidorId, ServidorIdTexto = servidorId.ToString(CultureInfo.InvariantCulture) }, ct)).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<RhPortalCompetenciaFonte>> ListarCompetenciasPortalAsync(long tenantId, long servidorId, int limite, int offset, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select i.id as Id,
+       coalesce(nullif(i.dados->>'status', ''), nullif(i.dados->>'Status', ''), i.status, '') as StatusIntegracao,
+       i.dados::text as IntegraDados,
+       f.id as FolhaId,
+       f.dados::text as FolhaDados,
+       a.id as ApuracaoId,
+       coalesce(nullif(a.dados->>'status', ''), nullif(a.dados->>'Status', ''), a.status, '') as StatusApuracao,
+       a.dados::text as ApuracaoDados,
+       e.id as EventoFolhaId,
+       e.dados::text as EventoDados,
+       to_char(i.periodo_inicio, 'YYYY-MM-DD') as PeriodoInicio,
+       to_char(i.periodo_fim, 'YYYY-MM-DD') as PeriodoFim,
+       i.created_at as CreatedAt,
+       coalesce(i.updated_at, i.created_at) as UpdatedAt
+from sigov.rh_ponto_integracao_folha i
+left join sigov.folha f
+  on f.tenant_id = i.tenant_id and f.is_deleted = false
+ and f.id = coalesce(nullif(i.dados->>'folhaId', ''), nullif(i.dados->>'FolhaId', ''))::bigint
+left join sigov.rh_ponto_apuracao a
+  on a.tenant_id = i.tenant_id and a.is_deleted = false
+ and a.id = coalesce(nullif(i.dados->>'apuracaoId', ''), nullif(i.dados->>'ApuracaoId', ''))::bigint
+left join sigov.folha_evento e
+  on e.tenant_id = i.tenant_id and e.is_deleted = false
+ and e.id = coalesce(nullif(i.dados->>'eventoFolhaId', ''), nullif(i.dados->>'EventoFolhaId', ''))::bigint
+where i.tenant_id = @TenantId and i.is_deleted = false
+  and (i.servidor_id = @ServidorId or coalesce(nullif(i.dados->>'servidorId', ''), nullif(i.dados->>'ServidorId', '')) = @ServidorIdTexto)
+order by i.competencia desc nulls last, i.id desc
+limit @Limite offset @Offset;";
+        var linhas = (await cn.QueryAsync<PortalCompetenciaRow>(Command(sql, new
+        {
+            TenantId = tenantId,
+            ServidorId = servidorId,
+            ServidorIdTexto = servidorId.ToString(CultureInfo.InvariantCulture),
+            Limite = Math.Max(1, limite),
+            Offset = Math.Max(0, offset)
+        }, ct)).ConfigureAwait(false)).ToList();
+        var resultado = new List<RhPortalCompetenciaFonte>(linhas.Count);
+        foreach (var linha in linhas)
+        {
+            var integracao = ParseJsonb(linha.IntegraDados);
+            var folha = ParseJsonb(linha.FolhaDados);
+            resultado.Add(new RhPortalCompetenciaFonte(
+                IntegracaoId: linha.Id,
+                StatusIntegracao: linha.StatusIntegracao,
+                ProcessadaEm: TryJsonDateTimeOffset(integracao, out var processadaEm, "processadaEm", "ProcessadaEm") ? processadaEm : null,
+                FolhaId: linha.FolhaId,
+                StatusFolha: JsonText(folha, "status", "Status"),
+                AnoFolha: TryJsonInt(folha, out var anoFolha, "ano", "Ano") ? anoFolha : null,
+                MesFolha: TryJsonInt(folha, out var mesFolha, "mes", "Mes") ? mesFolha : null,
+                ApuracaoId: linha.ApuracaoId,
+                StatusApuracao: linha.StatusApuracao,
+                EventoFolhaId: linha.EventoFolhaId,
+                VersaoRegras: JsonText(integracao, "versaoRegras", "VersaoRegras"),
+                PeriodoInicio: DateOnly.TryParse(linha.PeriodoInicio, CultureInfo.InvariantCulture, DateTimeStyles.None, out var periodoInicio) ? periodoInicio : null,
+                PeriodoFim: DateOnly.TryParse(linha.PeriodoFim, CultureInfo.InvariantCulture, DateTimeStyles.None, out var periodoFim) ? periodoFim : null,
+                ApuracaoDadosJson: linha.ApuracaoDados,
+                CriticasNaoBloqueantes: ExtrairCriticasNaoBloqueantes(ParseJsonb(linha.EventoDados)),
+                Lancamentos: await CarregarLancamentosDoPortalAsync(cn, tenantId, linha.Id, ct).ConfigureAwait(false),
+                CriadoEm: linha.CreatedAt,
+                AtualizadoEm: linha.UpdatedAt));
+        }
+        return resultado;
+    }
+
+    public async Task<IReadOnlyList<RhPortalPendenciaItem>> ListarPendenciasPortalAsync(long tenantId, long servidorId, int limite, CancellationToken ct)
+    {
+        using var cn = _context.CreateConnection();
+        const string sql = @"
+select 'APURACAO' as Tipo, p.id as Id,
+       coalesce(nullif(p.dados->>'status', ''), nullif(p.dados->>'Status', ''), p.status, '') as Status,
+       'Apuracao de ponto: periodo ' || coalesce(to_char(p.periodo_inicio, 'YYYY-MM-DD'), '?') || ' a ' || coalesce(to_char(p.periodo_fim, 'YYYY-MM-DD'), '?') as Descricao,
+       coalesce(p.updated_at, p.created_at)::timestamptz as Em
+from sigov.rh_ponto_apuracao p
+where p.tenant_id = @TenantId and p.is_deleted = false
+  and (p.servidor_id = @ServidorId or coalesce(nullif(p.dados->>'servidorId', ''), nullif(p.dados->>'ServidorId', '')) = @ServidorIdTexto)
+union all
+select 'JUSTIFICATIVA'::varchar, j.id,
+       coalesce(nullif(j.dados->>'status', ''), nullif(j.dados->>'Status', ''), j.status, ''),
+       'Justificativa de ponto em ' || coalesce(to_char(j.data_referencia, 'YYYY-MM-DD'), '?') || ': ' || coalesce(btrim(j.motivo), 'sem motivo'),
+       coalesce(j.updated_at, j.created_at)::timestamptz
+from sigov.rh_ponto_justificativa j
+where j.tenant_id = @TenantId and j.is_deleted = false
+  and (j.servidor_id = @ServidorId or coalesce(nullif(j.dados->>'servidorId', ''), nullif(j.dados->>'ServidorId', '')) = @ServidorIdTexto)
+union all
+select 'INTEGRACAO_FOLHA'::varchar, i.id,
+       coalesce(nullif(i.dados->>'status', ''), nullif(i.dados->>'Status', ''), i.status, ''),
+       'Integracao de ponto na folha ' || coalesce(nullif(i.dados->>'folhaId', ''), nullif(i.dados->>'FolhaId', ''), '?') || ' (status ' || i.status || ')',
+       coalesce(i.updated_at, i.created_at)::timestamptz
+from sigov.rh_ponto_integracao_folha i
+where i.tenant_id = @TenantId and i.is_deleted = false
+  and (i.servidor_id = @ServidorId or coalesce(nullif(i.dados->>'servidorId', ''), nullif(i.dados->>'ServidorId', '')) = @ServidorIdTexto)
+order by Em desc
+limit @Limite;";
+        return (await cn.QueryAsync<RhPortalPendenciaItem>(Command(sql, new
+        {
+            TenantId = tenantId,
+            ServidorId = servidorId,
+            ServidorIdTexto = servidorId.ToString(CultureInfo.InvariantCulture),
+            Limite = Math.Max(1, limite)
+        }, ct)).ConfigureAwait(false)).ToList();
+    }
+
+    public async Task<PagedResult<RhRegistroResponse>> ListarPorServidorAsync(long tenantId, string recurso, long servidorId, RhFiltro filtro, CancellationToken ct)
+    {
+        var table = Table(recurso);
+        var page = Math.Max(1, filtro.Page);
+        var pageSize = Math.Clamp(filtro.PageSize, 1, 100);
+        var escopo = RecursosComColunaServidorId.Contains(recurso)
+            ? "(servidor_id = @ServidorId or coalesce(nullif(dados->>'servidorId', ''), nullif(dados->>'ServidorId', '')) = @ServidorIdTexto)"
+            : "coalesce(nullif(dados->>'servidorId', ''), nullif(dados->>'ServidorId', '')) = @ServidorIdTexto";
+        var where = new StringBuilder("tenant_id = @TenantId and is_deleted = false");
+        if (filtro.Ativo.HasValue) where.Append(" and ativo = @Ativo");
+        if (!string.IsNullOrWhiteSpace(filtro.Termo)) where.Append(" and dados::text ilike @Termo");
+        where.Append(" and ").Append(escopo);
+        var parameters = new
+        {
+            TenantId = tenantId,
+            ServidorId = servidorId,
+            ServidorIdTexto = servidorId.ToString(CultureInfo.InvariantCulture),
+            filtro.Ativo,
+            Termo = $"%{filtro.Termo}%",
+            Limit = pageSize,
+            Offset = (page - 1) * pageSize
+        };
+        using var cn = _context.CreateConnection();
+        var total = await cn.ExecuteScalarAsync<long>(Command($"select count(1) from {table} where {where};", parameters, ct)).ConfigureAwait(false);
+        var rows = await cn.QueryAsync<Row>(Command($"select id, dados::text as dados, ativo, created_at as CreatedAt, updated_at as UpdatedAt from {table} where {where} order by id desc limit @Limit offset @Offset;", parameters, ct)).ConfigureAwait(false);
+        return new PagedResult<RhRegistroResponse>(rows.Select(r => ToResponse(recurso, r)).ToArray(), page, pageSize, total);
+    }
+
+    private async Task<List<RhIntegracaoLancamentoDto>> CarregarLancamentosDoPortalAsync(System.Data.IDbConnection cn, long tenantId, long integracaoId, CancellationToken ct)
+    {
+        const string sql = @"
+select id, dados::text as Dados
+from sigov.folha_lancamento
+where tenant_id=@TenantId and is_deleted=false
+  and coalesce(nullif(dados->>'integracaoId', ''), nullif(dados->>'IntegracaoId', ''), '')=@IntegracaoIdTexto
+order by id;";
+        var rows = await cn.QueryAsync<LancamentoRow>(Command(sql, new { TenantId = tenantId, IntegracaoIdTexto = integracaoId.ToString(CultureInfo.InvariantCulture) }, ct)).ConfigureAwait(false);
+        var lista = new List<RhIntegracaoLancamentoDto>();
+        foreach (var row in rows)
+        {
+            var dados = ParseJsonb(row.Dados);
+            lista.Add(new RhIntegracaoLancamentoDto(row.Id,
+                JsonText(dados, "rubricaCodigo", "RubricaCodigo") ?? string.Empty,
+                JsonText(dados, "rubricaNome", "RubricaNome") ?? string.Empty,
+                JsonText(dados, "tipo", "Tipo") ?? string.Empty,
+                JsonText(dados, "base", "Base") ?? string.Empty,
+                TryJsonInt(dados, out var quantidade, "quantidadeBase", "QuantidadeBase") ? quantidade : 0,
+                TryJsonDecimal(dados, out var valor, "valor", "Valor") ? valor : 0m));
+        }
+        return lista;
+    }
+
+    private static IReadOnlyList<string>? ExtrairCriticasNaoBloqueantes(Dictionary<string, object?> eventoDados)
+    {
+        foreach (var chave in new[] { "criticasNaoBloqueantes", "CriticasNaoBloqueantes" })
+        {
+            if (!eventoDados.TryGetValue(chave, out var raw) || raw is not JsonElement { ValueKind: JsonValueKind.Array } array) continue;
+            var itens = new List<string>();
+            foreach (var item in array.EnumerateArray())
+            {
+                var texto = item.ValueKind == JsonValueKind.String ? item.GetString() ?? string.Empty : item.GetRawText();
+                if (!string.IsNullOrWhiteSpace(texto)) itens.Add(texto);
+            }
+            return itens;
+        }
+        return null;
+    }
+
     private async Task<RhIntegracaoFolhaTx?> LerEfeitoProcessadoAsync(NpgsqlConnection cn, NpgsqlTransaction tx, long tenantId, IntegracaoFolhaRow linha, CancellationToken ct)
     {
         if (!string.Equals(linha.Status, Sigov.Domain.Rh.FolhaRegras.IntegracaoProcessada, StringComparison.OrdinalIgnoreCase)) return null;
@@ -761,6 +972,36 @@ order by id;";
         public long Id { get; init; }
         public string Dados { get; init; } = "{}";
     }
+
+    private sealed class PortalVinculoRow
+    {
+        public long ServidorId { get; init; }
+        public string Nome { get; init; } = "Servidor";
+    }
+
+    private sealed class PortalCompetenciaRow
+    {
+        public long Id { get; init; }
+        public string StatusIntegracao { get; init; } = string.Empty;
+        public string IntegraDados { get; init; } = "{}";
+        public long? FolhaId { get; init; }
+        public string? FolhaDados { get; init; }
+        public long? ApuracaoId { get; init; }
+        public string StatusApuracao { get; init; } = string.Empty;
+        public string? ApuracaoDados { get; init; }
+        public long? EventoFolhaId { get; init; }
+        public string? EventoDados { get; init; }
+        public string? PeriodoInicio { get; init; }
+        public string? PeriodoFim { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+        public DateTimeOffset? UpdatedAt { get; init; }
+    }
+
+    // §8: recursos cuja tabela possui coluna estruturada `servidor_id` (sigov.afastamento NÃO tem).
+    private static readonly HashSet<string> RecursosComColunaServidorId = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ponto-registros", "ponto-justificativas", "ponto-apuracoes", "ponto-integracoes-folha", "ferias-programacoes"
+    };
 
     // ==== Helpers JSONB case-insensitive (PascalCase da API / camelCase da engine) ===
 

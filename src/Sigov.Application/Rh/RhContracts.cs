@@ -65,6 +65,17 @@ public sealed record RhIntegracaoLancamentoDto(long Id, string RubricaCodigo, st
 public sealed record RhIntegracaoFolhaTx(long IntegracaoId, long? EventoId, IReadOnlyList<RhIntegracaoLancamentoDto> Lancamentos, decimal TotalProventos, decimal TotalDescontos, bool JaProcessada);
 public sealed record RhIntegracaoFolhaResumoDto(long ApuracaoId, long FolhaId, long IntegracaoId, long? EventoFolhaId, string VersaoRegras, IReadOnlyList<RhIntegracaoLancamentoDto> Lancamentos, decimal TotalProventos, decimal TotalDescontos, decimal Liquido, IReadOnlyList<string> CriticasNaoBloqueantes, bool JaProcessada);
 
+// RC-EVO-RH §8: portal com escopo próprio (vínculo usuário→servidor resolvido no servidor; totais recalculados).
+public sealed record RhPortalVinculoDto(long ServidorId, string Nome);
+public sealed record RhPortalCompetenciaFonte(
+    long IntegracaoId, string StatusIntegracao, DateTimeOffset? ProcessadaEm,
+    long? FolhaId, string? StatusFolha, int? AnoFolha, int? MesFolha,
+    long? ApuracaoId, string? StatusApuracao, long? EventoFolhaId, string? VersaoRegras,
+    DateOnly? PeriodoInicio, DateOnly? PeriodoFim, string? ApuracaoDadosJson,
+    IReadOnlyList<string>? CriticasNaoBloqueantes, IReadOnlyList<RhIntegracaoLancamentoDto> Lancamentos,
+    DateTimeOffset CriadoEm, DateTimeOffset? AtualizadoEm);
+public sealed record RhPortalPendenciaItem(string Tipo, long Id, string Status, string? Descricao, DateTime Em);
+
 public interface IRhRepository
 {
     Task<PagedResult<RhRegistroResponse>> ListarAsync(long tenantId, string recurso, RhFiltro filtro, CancellationToken ct);
@@ -97,6 +108,12 @@ public interface IRhRepository
     Task<IReadOnlyList<RhRegistroComOrigemDto>> ListarIntegracoesFolhaDaApuracaoAsync(long tenantId, long apuracaoId, CancellationToken ct);
     // RC-EVO-RH §7: integração real da apuração homologada na folha (evento + lançamentos em transação única)
     Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, CancellationToken ct);
+    // RC-EVO-RH §8: portal com escopo próprio (vínculo sigov.rh_portal_usuario; filtro pelo próprio servidor)
+    Task<RhPortalVinculoDto?> ServidorDoPortalAsync(long tenantId, long usuarioId, CancellationToken ct);
+    Task<long> ContarCompetenciasPortalAsync(long tenantId, long servidorId, CancellationToken ct);
+    Task<IReadOnlyList<RhPortalCompetenciaFonte>> ListarCompetenciasPortalAsync(long tenantId, long servidorId, int limite, int offset, CancellationToken ct);
+    Task<IReadOnlyList<RhPortalPendenciaItem>> ListarPendenciasPortalAsync(long tenantId, long servidorId, int limite, CancellationToken ct);
+    Task<PagedResult<RhRegistroResponse>> ListarPorServidorAsync(long tenantId, string recurso, long servidorId, RhFiltro filtro, CancellationToken ct);
 }
 
 public interface IRhService
@@ -118,4 +135,8 @@ public interface IRhService
     Task<Result<RhApuracaoReaberturaResumoDto>> ReabrirApuracaoPontoAsync(long apuracaoId, string justificativa, CancellationToken ct);
     // RC-EVO-RH §7: integra a apuração homologada na folha de destino (lançamentos reais, retry idempotente)
     Task<Result<RhIntegracaoFolhaResumoDto>> IntegrarPontoNaFolhaAsync(long apuracaoId, long folhaId, CancellationToken ct);
+    // RC-EVO-RH §8: portal com escopo próprio (contracheques c/ totais recalculados, pendências e seções do próprio servidor)
+    Task<Result<PagedResult<RhRegistroResponse>>> PortalSecaoAsync(string secao, RhFiltro filtro, CancellationToken ct);
+    Task<Result<PagedResult<RhPortalPendenciaItem>>> PortalPendenciasAsync(CancellationToken ct);
+    Task<Result<RhRegistroResponse>> ObterPortalLancamentoAsync(long lancamentoId, CancellationToken ct);
 }

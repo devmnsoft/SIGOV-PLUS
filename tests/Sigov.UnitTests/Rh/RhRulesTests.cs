@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Sigov.Domain.Rh;
+using System.Text.Json;
 using Xunit;
 
 namespace Sigov.UnitTests.Rh;
@@ -490,5 +491,93 @@ public sealed class RhRulesTests
         var porIntervalo = new FolhaRegras.RubricaPonto("I", "I", FolhaRegras.RubricaProvento, FolhaRegras.BaseMinutosIntervalo, 1.5m);
         FolhaRegras.QuantidadeBase(porIntervalo, 10, 25, 0).Should().Be(25);
         FolhaRegras.ValorLancamento(porIntervalo, 5).Should().Be(0.13m); // 1.5 x 5 / 60 = 0.125 -> 0.13 (AwayFromZero)
+    }
+
+    // ==== RC-EVO-RH §8: portal com escopo próprio ==============================================
+
+    [Fact]
+    public void Portal_ServidorId_Do_Payload_E_FailClosed()
+    {
+        PortalRegras.LerServidorId("42").Should().Be(42L);
+        PortalRegras.LerServidorId(" 7 ").Should().Be(7L);
+        PortalRegras.LerServidorId(null).Should().BeNull();
+        PortalRegras.LerServidorId("").Should().BeNull();
+        PortalRegras.LerServidorId("abc").Should().BeNull();
+        PortalRegras.LerServidorId("1.5").Should().BeNull();
+
+        PortalRegras.PertenceAoServidor("42", 42).Should().BeTrue();
+        PortalRegras.PertenceAoServidor("42", 43).Should().BeFalse();
+        PortalRegras.PertenceAoServidor(null, 42).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Portal_Totais_Sao_Recalculados_Dos_Lancamentos_Sem_Sinal_Inventado()
+    {
+        var lancamentos = new (string, decimal)[]
+        {
+            ("PROVENTO", -100m),   // valor gravado negativo vira absoluto; sinal vem do tipo
+            ("desconto", 30.5m),
+            ("OUTRO_TIPO", 50m),   // tipo não reconhecido contribui zero
+            (null!, 99m),          // tipo ausente contribui zero
+        };
+
+        var (proventos, descontos, liquido) = PortalRegras.TotaisPorTipo(lancamentos);
+        proventos.Should().Be(100m);
+        descontos.Should().Be(30.5m);
+        liquido.Should().Be(69.5m);
+    }
+
+    [Fact]
+    public void Portal_Pendencias_Sao_Classificadas_Pelo_Status_De_Cada_Tipo()
+    {
+        // Apuração: só APURADA é pendência; HOMOLOGADA/RASCUNHO fecham ou não se enquadram.
+        PortalRegras.EhPendencia("APURACAO", "APURADA").Should().BeTrue();
+        PortalRegras.EhPendencia("APURACAO", "apurada").Should().BeTrue(); // case-insensitive
+        PortalRegras.EhPendencia("APURACAO", "HOMOLOGADA").Should().BeFalse();
+        PortalRegras.EhPendencia("APURACAO", null).Should().BeFalse();
+
+        // Justificativa: estados em análise são pendência; decisão (APROVADA/REPROVADA) encerra.
+        PortalRegras.EhPendencia("JUSTIFICATIVA", "PENDENTE").Should().BeTrue();
+        PortalRegras.EhPendencia("JUSTIFICATIVA", "").Should().BeTrue();
+        PortalRegras.EhPendencia("JUSTIFICATIVA", "APROVADA").Should().BeFalse();
+        PortalRegras.EhPendencia("JUSTIFICATIVA", "REPROVADA").Should().BeFalse();
+
+        // Integração: PROCESSADA/CANCELADA encerram; o restante é pendência.
+        PortalRegras.EhPendencia("INTEGRACAO_FOLHA", "PROCESSADA").Should().BeFalse();
+        PortalRegras.EhPendencia("INTEGRACAO_FOLHA", "CANCELADA").Should().BeFalse();
+        PortalRegras.EhPendencia("INTEGRACAO_FOLHA", "PENDENTE").Should().BeTrue();
+        PortalRegras.EhPendencia("INTEGRACAO_FOLHA", "FALHA").Should().BeTrue();
+        PortalRegras.EhPendencia("INTEGRACAO_FOLHA", null).Should().BeTrue();
+
+        // Tipo desconhecido nunca é pendência.
+        PortalRegras.EhPendencia("DESPACHO", "APURADA").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Portal_MemoriaPorDia_E_Competencia_Leem_Ausencias_Como_Null()
+    {
+        var comMemoria = JsonDocument.Parse("""{"memoriaPorDia":[{"dia":"2026-09-01"}]}""");
+        PortalRegras.MemoriaPorDia(comMemoria.RootElement).Should().NotBeNull();
+
+        var camel = JsonDocument.Parse("""{"memoriaPorDia":{"a":1}}""");
+        PortalRegras.MemoriaPorDia(camel.RootElement).Should().NotBeNull();
+
+        var pascal = JsonDocument.Parse("""{"MemoriaPorDia":[{"dia":"x"}]}""");
+        PortalRegras.MemoriaPorDia(pascal.RootElement).Should().NotBeNull(); // case-insensitive
+
+        var ausente = JsonDocument.Parse("""{"resumo":{"total":1}}""");
+        PortalRegras.MemoriaPorDia(ausente.RootElement).Should().BeNull();
+
+        var invalido = JsonDocument.Parse("""{"memoriaPorDia":"texto"}""");
+        PortalRegras.MemoriaPorDia(invalido.RootElement).Should().BeNull(); // nem array nem objeto → null explícita
+
+        var escopo = JsonDocument.Parse("[1,2]");
+        PortalRegras.MemoriaPorDia(escopo.RootElement).Should().BeNull();
+
+        PortalRegras.Competencia(2026, 9, new DateOnly(2026, 8, 31)).Should().Be("2026-09");
+        PortalRegras.Competencia(null, null, new DateOnly(2026, 8, 31)).Should().Be("2026-08");
+        PortalRegras.Competencia(0, 9, null).Should().BeNull();   // ano inválido e sem período → não deriva
+        PortalRegras.Competencia(2026, 0, null).Should().BeNull(); // mês inválido
+        PortalRegras.Competencia(null, null, null).Should().BeNull();
     }
 }

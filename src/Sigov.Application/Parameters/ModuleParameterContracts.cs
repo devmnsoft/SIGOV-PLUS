@@ -1,7 +1,9 @@
 namespace Sigov.Application.Parameters;
 
-public sealed record ModuleParameterValue(string Code, string Name, string Type, string ValueJson, bool Sensitive, DateTimeOffset UpdatedAt);
-public sealed record ModuleParameterHistory(long Id, string Code, string? PreviousValueJson, string ValueJson, long? ChangedBy, string CorrelationId, DateTimeOffset ChangedAt);
+// Dapper+Npgsql expoe timestamptz como DateTime no constructor mapping (GetFieldType),
+// portanto os campos temporais dos records mapeados usam DateTime (Kind=Utc via provider).
+public sealed record ModuleParameterValue(string Code, string Name, string Type, string ValueJson, bool Sensitive, DateTime UpdatedAt);
+public sealed record ModuleParameterHistory(long Id, string Code, string? PreviousValueJson, string ValueJson, long? ChangedBy, string CorrelationId, DateTime ChangedAt);
 public sealed record SaveModuleParametersRequest(IReadOnlyDictionary<string, string> Values);
 
 public interface IModuleParameterRepository
