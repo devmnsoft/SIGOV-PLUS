@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Common;
+using Sigov.Application.Parameters;
 using Sigov.Domain.Common;
 using Sigov.Domain.Rh;
 
@@ -50,10 +51,11 @@ public sealed class RhService : IRhService
     private readonly IPermissionService _permissions;
     private readonly IAuditService _audit;
     private readonly ILogger<RhService> _logger;
+    private readonly IModuleParameterService _parametros;
 
-    public RhService(IRhRepository repo, ICurrentTenant tenant, ICurrentUser user, IPermissionService permissions, IAuditService audit, ILogger<RhService> logger)
+    public RhService(IRhRepository repo, ICurrentTenant tenant, ICurrentUser user, IPermissionService permissions, IAuditService audit, ILogger<RhService> logger, IModuleParameterService parametros)
     {
-        _repo = repo; _tenant = tenant; _user = user; _permissions = permissions; _audit = audit; _logger = logger;
+        _repo = repo; _tenant = tenant; _user = user; _permissions = permissions; _audit = audit; _logger = logger; _parametros = parametros;
     }
 
     private long TenantId => _tenant.TenantId ?? 0;
@@ -626,6 +628,120 @@ public sealed class RhService : IRhService
         }
     }
 
+    // RC-EVO-RH §7: integração da apuração homologada na folha — pré-condições explícitas, catálogo
+    // RUBRICAS_PONTO e parâmetros do módulo FOLHA interpretados fail-closed, materialização real
+    // (evento + lançamentos) na transação do repositório e unicidade origem→destino com retry idempotente.
+    public async Task<Result<RhIntegracaoFolhaResumoDto>> IntegrarPontoNaFolhaAsync(long apuracaoId, long folhaId, CancellationToken ct)
+    {
+        if (!EscopoValido) return EscopoFailure<RhIntegracaoFolhaResumoDto>();
+        if (folhaId <= 0) return Result<RhIntegracaoFolhaResumoDto>.Failure("FOLHA_OBRIGATORIA: informe a folha de destino para integrar a apuração de ponto.");
+        var exercicio = await ValidarExercicioAbertoAsync("folhas", ct).ConfigureAwait(false);
+        if (exercicio.IsFailure) return Result<RhIntegracaoFolhaResumoDto>.Failure(exercicio.Error ?? "Exercício encerrado.");
+        if (!await CanAsync(RhPermissoes.IntegrarFinanceiro, ct).ConfigureAwait(false)) return Result<RhIntegracaoFolhaResumoDto>.Failure("403");
+
+        try
+        {
+            var atual = await _repo.ObterRegistroComOrigemAsync(TenantId, "ponto-apuracoes", apuracaoId, ct).ConfigureAwait(false);
+            if (atual is null) return Result<RhIntegracaoFolhaResumoDto>.Failure("Apuração de ponto não encontrada.");
+            if (!string.Equals(atual.Status, PontoTransicoes.Homologada, StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure($"NAO_HOMOLOGADA: apenas apuração HOMOLOGADA pode ser integrada à folha (status atual '{atual.Status}'); homologue antes de integrar.");
+            }
+
+            var dados = JsonSerializer.Deserialize<Dictionary<string, object?>>(string.IsNullOrWhiteSpace(atual.DadosJson) ? "{}" : atual.DadosJson, WebJson) ?? new Dictionary<string, object?>();
+            var servidorId = atual.ServidorId ?? 0;
+            if (servidorId <= 0 && TryJsonLong(dados, out var servidorJson, "servidorId", "ServidorId") && servidorJson > 0) servidorId = servidorJson;
+            if (servidorId <= 0) return Result<RhIntegracaoFolhaResumoDto>.Failure("APURACAO_SEM_SERVIDOR: a apuração não possui servidor vinculado; corrija o registro antes de integrar.");
+            if (!TryJsonText(dados, out var versaoRegras, "versaoRegras", "VersaoRegras"))
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure("APURACAO_SEM_VERSAO: a apuração não possui a versão das regras de cálculo registrada; processe novamente antes de integrar.");
+            }
+            DateOnly periodoInicio, periodoFim;
+            if (!TryJsonDate(dados, out periodoInicio, "periodoInicio", "PeriodoInicio") || !TryJsonDate(dados, out periodoFim, "periodoFim", "PeriodoFim"))
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure("APURACAO_SEM_PERIODO: a apuração não possui o período inicial e final registrados; processe novamente antes de integrar.");
+            }
+            var minutosTrabalhados = TryJsonInt(dados, out var mt, "totalTrabalhadoMinutos", "TotalTrabalhadoMinutos") ? mt : 0;
+            var minutosIntervalo = TryJsonInt(dados, out var mi, "totalIntervaloMinutos", "TotalIntervaloMinutos") ? mi : 0;
+            var diasFalta = TryJsonInt(dados, out var df, "diasFalta", "DiasFalta") ? df : 0;
+
+            // Folha de destino (sigov.folha em shape genérico): existência, status aceitável, competência e vínculo com o servidor.
+            var folha = await _repo.ObterAsync(TenantId, "folhas", folhaId, ct).ConfigureAwait(false);
+            if (folha is null) return Result<RhIntegracaoFolhaResumoDto>.Failure("Folha de destino não encontrada.");
+            if (FolhaRegras.ValidarStatusFolha(JsonTexto(folha.Dados, "status", "Status")) is { } falhaFolha)
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure(falhaFolha);
+            }
+            int anoFolha = 0, mesFolha = 0;
+            var competenciaCompleta = TryJsonInt(folha.Dados, out anoFolha, "ano", "Ano")
+                && TryJsonInt(folha.Dados, out mesFolha, "mes", "Mes") && anoFolha > 0 && mesFolha >= 1 && mesFolha <= 12;
+            if (!competenciaCompleta || !TryJsonText(folha.Dados, out _, "tipo", "Tipo"))
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure("FOLHA_INCOMPLETA: a folha de destino não possui a competência (ano/mês) ou o tipo registrados; complete o registro antes de integrar.");
+            }
+            var servidorFolha = TryJsonLong(folha.Dados, out var servidorFolhaJson, "servidorId", "ServidorId") ? servidorFolhaJson : 0;
+            if (servidorFolha > 0 && servidorFolha != servidorId)
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure($"FOLHA_DE_OUTRO_SERVIDOR: a folha {folhaId.ToString(CultureInfo.InvariantCulture)} pertence ao servidor {servidorFolha.ToString(CultureInfo.InvariantCulture)}; a apuração refere o servidor {servidorId.ToString(CultureInfo.InvariantCulture)}.");
+            }
+
+            // Parâmetros do módulo FOLHA: bloqueio por críticas e catálogo de rubricas (fail-closed).
+            var parametros = await _parametros.ListAsync(TenantId, "FOLHA", ct).ConfigureAwait(false);
+            var criticas = LerPendenciasGlobais(dados);
+            var bloquearComCritica = ParametroBool(parametros, "BLOQUEAR_CALCULO_COM_CRITICA", false);
+            var permitirNaoBloqueante = ParametroBool(parametros, "PERMITIR_CRITICA_NAO_BLOQUEANTE", true);
+            if (FolhaRegras.CriticaBloqueia(bloquearComCritica, permitirNaoBloqueante, criticas))
+            {
+                return Result<RhIntegracaoFolhaResumoDto>.Failure($"CRITICA_BLOQUEANTE: a apuração possui {criticas.Count.ToString(CultureInfo.InvariantCulture)} pendência(s) ({string.Join("; ", criticas)}); resolva-as antes de integrar ou ajuste BLOQUEAR_CALCULO_COM_CRITICA/PERMITIR_CRITICA_NAO_BLOQUEANTE no módulo FOLHA.");
+            }
+            var rubricasJson = parametros.FirstOrDefault(p => string.Equals(p.Code, "RUBRICAS_PONTO", StringComparison.OrdinalIgnoreCase))?.ValueJson;
+            var (rubricas, falhaRubricas) = FolhaRegras.InterpretarRubricasPonto(rubricasJson);
+            if (falhaRubricas is not null) return Result<RhIntegracaoFolhaResumoDto>.Failure(falhaRubricas);
+
+            var lancamentos = new List<RhLancamentoPontoPayload>(rubricas.Count);
+            foreach (var rubrica in rubricas)
+            {
+                var quantidade = FolhaRegras.QuantidadeBase(rubrica, minutosTrabalhados, minutosIntervalo, diasFalta);
+                lancamentos.Add(new RhLancamentoPontoPayload(rubrica.Codigo, rubrica.Nome, rubrica.Tipo, rubrica.Base, quantidade, FolhaRegras.ValorLancamento(rubrica, quantidade)));
+            }
+
+            var resumo = new Dictionary<string, object?>
+            {
+                ["servidorId"] = servidorId,
+                ["versaoRegras"] = versaoRegras,
+                ["periodoInicio"] = periodoInicio.ToString("yyyy-MM-dd"),
+                ["periodoFim"] = periodoFim.ToString("yyyy-MM-dd"),
+                ["totalTrabalhadoMinutos"] = minutosTrabalhados,
+                ["totalIntervaloMinutos"] = minutosIntervalo,
+                ["diasFalta"] = diasFalta
+            };
+
+            var integracao = await _repo.IntegrarApuracaoNaFolhaAsync(TenantId, apuracaoId, folhaId, servidorId, periodoInicio, periodoFim, versaoRegras, JsonSerializer.Serialize(resumo, WebJson), JsonSerializer.Serialize(criticas, WebJson), lancamentos, _user.UsuarioId, ct).ConfigureAwait(false);
+
+            await _audit.RegistrarAsync("rh", "INTEGRAR_FOLHA_PONTO", "sigov.rh_ponto_integracao_folha", integracao.IntegracaoId.ToString(CultureInfo.InvariantCulture), dados, new
+            {
+                integracaoId = integracao.IntegracaoId,
+                eventoFolhaId = integracao.EventoId,
+                lancamentoIds = integracao.Lancamentos.Select(l => l.Id),
+                totalProventos = integracao.TotalProventos,
+                totalDescontos = integracao.TotalDescontos,
+                jaProcessada = integracao.JaProcessada
+            }, ct).ConfigureAwait(false);
+
+            return Result<RhIntegracaoFolhaResumoDto>.Success(new RhIntegracaoFolhaResumoDto(apuracaoId, folhaId, integracao.IntegracaoId, integracao.EventoId, versaoRegras, integracao.Lancamentos, integracao.TotalProventos, integracao.TotalDescontos, integracao.TotalProventos - integracao.TotalDescontos, criticas, integracao.JaProcessada));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Falha estrutural ao integrar a apuração {ApuracaoId} na folha {FolhaId}.", apuracaoId, folhaId);
+            return Result<RhIntegracaoFolhaResumoDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao integrar a apuração {ApuracaoId} na folha {FolhaId}.", apuracaoId, folhaId);
+            return Result<RhIntegracaoFolhaResumoDto>.Failure("Erro ao integrar a apuração de ponto na folha.");
+        }
+    }
+
     // §5 compartilhado: HOMOLOGADA cobrindo a janela bloqueia a alteração (COMPETENCIA_FECHADA);
     // APURADA cobrindo a janela é invalidada para exigir novo processamento (INVALIDADA).
     private async Task<Result<int>> ValidarEInvalidarApuracoesAsync(long servidorId, DateOnly inicio, DateOnly fim, string motivo, CancellationToken ct)
@@ -655,6 +771,22 @@ public sealed class RhService : IRhService
     {
         value = default;
         return TryJsonText(dados, out var text, keys) && long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryJsonInt(Dictionary<string, object?> dados, out int value, params string[] keys)
+    {
+        value = default;
+        return TryJsonText(dados, out var text, keys) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+    }
+
+    // §7: parâmetros do módulo FOLHA como booleano fail-closed — ausente/ilegível devolve o padrão informado.
+    private static bool ParametroBool(IReadOnlyCollection<ModuleParameterValue> parametros, string codigo, bool padrao)
+    {
+        var valor = parametros.FirstOrDefault(p => string.Equals(p.Code, codigo, StringComparison.OrdinalIgnoreCase));
+        if (valor is null || string.IsNullOrWhiteSpace(valor.ValueJson)) return padrao;
+        var texto = valor.ValueJson.Trim();
+        if (texto.Length >= 2 && texto.StartsWith('"') && texto.EndsWith('"')) texto = texto[1..^1].Trim();
+        return bool.TryParse(texto, out var resultado) ? resultado : padrao;
     }
 
     private static bool TryJsonDate(Dictionary<string, object?> dados, out DateOnly value, params string[] keys)

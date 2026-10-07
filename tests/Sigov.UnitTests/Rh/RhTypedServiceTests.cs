@@ -84,5 +84,6 @@ public sealed class RhTypedServiceTests
         public Task<Result<RhJustificativaDecisaoDto>> DecidirJustificativaPontoAsync(long justificativaId, string decisao, CancellationToken ct) => Task.FromResult(Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, decisao, 1, 0)));
         public Task<Result<RhApuracaoHomologacaoResumoDto>> HomologarApuracaoPontoAsync(long apuracaoId, string? observacao, CancellationToken ct) => Task.FromResult(Result<RhApuracaoHomologacaoResumoDto>.Success(new RhApuracaoHomologacaoResumoDto(apuracaoId, "HOMOLOGADA", DateTimeOffset.UtcNow, "RH-APURACAO-1", Array.Empty<string>(), false)));
         public Task<Result<RhApuracaoReaberturaResumoDto>> ReabrirApuracaoPontoAsync(long apuracaoId, string justificativa, CancellationToken ct) => Task.FromResult(Result<RhApuracaoReaberturaResumoDto>.Success(new RhApuracaoReaberturaResumoDto(apuracaoId, "APURADA", DateTimeOffset.UtcNow, 1, false)));
+        public Task<Result<RhIntegracaoFolhaResumoDto>> IntegrarPontoNaFolhaAsync(long apuracaoId, long folhaId, CancellationToken ct) => Task.FromResult(Result<RhIntegracaoFolhaResumoDto>.Success(new RhIntegracaoFolhaResumoDto(apuracaoId, folhaId, 77, 88, "RH-APURACAO-1", Array.Empty<RhIntegracaoLancamentoDto>(), 0m, 0m, 0m, Array.Empty<string>(), false)));
     }
 }

@@ -370,4 +370,125 @@ public sealed class RhRulesTests
         PontoTransicoes.PossuiMemoriaPorDia(new Dictionary<string, object?> { ["status"] = "APURADA" }).Should().BeFalse();
         PontoTransicoes.PossuiMemoriaPorDia(new Dictionary<string, object?> { ["memoriaPorDia"] = null }).Should().BeFalse();
     }
+
+    // ==== RC-EVO-RH §7: regras puras da integração da apuração na folha =====================
+
+    [Fact]
+    public void Folha_Somente_Aberta_ou_Calculada_Aceita_Integracao()
+    {
+        FolhaRegras.ValidarStatusFolha("ABERTA").Should().BeNull();
+        FolhaRegras.ValidarStatusFolha("calculada").Should().BeNull();
+        FolhaRegras.ValidarStatusFolha(" CALCULADA ").Should().BeNull();
+        FolhaRegras.ValidarStatusFolha("FECHADA").Should().StartWith(FolhaRegras.FalhaFolhaFechada);
+        FolhaRegras.ValidarStatusFolha("cancelada").Should().StartWith(FolhaRegras.FalhaFolhaCancelada);
+        FolhaRegras.ValidarStatusFolha("PROCESSANDO").Should().StartWith(FolhaRegras.FalhaFolhaStatusInvalido);
+        FolhaRegras.ValidarStatusFolha("").Should().StartWith(FolhaRegras.FalhaFolhaStatusInvalido);
+        FolhaRegras.ValidarStatusFolha(null).Should().StartWith(FolhaRegras.FalhaFolhaStatusInvalido);
+    }
+
+    [Fact]
+    public void StatusDeIntegracao_Somente_Os_Without_Efeito_Materializado_Sao_Reutilizaveis()
+    {
+        FolhaRegras.StatusIntegracaoReutilizavel("PENDENTE").Should().BeTrue();
+        FolhaRegras.StatusIntegracaoReutilizavel("FALHA").Should().BeTrue();
+        FolhaRegras.StatusIntegracaoReutilizavel("CANCELADA").Should().BeTrue();
+        FolhaRegras.StatusIntegracaoReutilizavel("processada").Should().BeTrue();
+        FolhaRegras.StatusIntegracaoReutilizavel("PROCESSANDO").Should().BeFalse();
+        FolhaRegras.StatusIntegracaoReutilizavel("RASCUNHO").Should().BeFalse();
+        FolhaRegras.StatusIntegracaoReutilizavel(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Critica_Bloqueia_Somente_Com_Pendencias_E_Parametro_Habilitado()
+    {
+        FolhaRegras.CriticaBloqueia(true, false, new[] { "PENDENCIA" }).Should().BeTrue();
+        FolhaRegras.CriticaBloqueia(true, true, new[] { "PENDENCIA" }).Should().BeFalse();
+        FolhaRegras.CriticaBloqueia(false, false, new[] { "PENDENCIA" }).Should().BeFalse();
+        FolhaRegras.CriticaBloqueia(true, false, Array.Empty<string>()).Should().BeFalse();
+        FolhaRegras.CriticaBloqueia(true, true, Array.Empty<string>()).Should().BeFalse();
+        FolhaRegras.CriticaBloqueia(true, false, null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Rubricas_Ausentes_ou_Vazias_Geram_Falha_Nomeada()
+    {
+        var (semJson, falhaNula) = FolhaRegras.InterpretarRubricasPonto(null);
+        falhaNula.Should().StartWith(FolhaRegras.RubricasAusentes);
+        semJson.Should().BeEmpty();
+
+        var (espaco, falhaEspaco) = FolhaRegras.InterpretarRubricasPonto(" ");
+        falhaEspaco.Should().StartWith(FolhaRegras.RubricasAusentes);
+        espaco.Should().BeEmpty();
+
+        var (arrayVazio, falhaArray) = FolhaRegras.InterpretarRubricasPonto("[]");
+        falhaArray.Should().StartWith(FolhaRegras.RubricasAusentes);
+        arrayVazio.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Rubricas_Validas_Normalizam_Tipo_Base_E_Aceitam_Taxa_String()
+    {
+        const string json = "[{\"codigo\":\"VT-EXT\",\"nome\":\"Viagem\",\"tipo\":\"provento\",\"base\":\"minutos_trabalhados\",\"taxa\":15},{\"codigo\":\"DES-FALTA\",\"nome\":\"Falta\",\"tipo\":\"DESCONTO\",\"base\":\"DIAS_FALTA\",\"taxa\":\"2.5\"}]";
+        var (rubricas, falha) = FolhaRegras.InterpretarRubricasPonto(json);
+        falha.Should().BeNull();
+        rubricas.Should().HaveCount(2);
+        rubricas[0].Codigo.Should().Be("VT-EXT");
+        rubricas[0].Tipo.Should().Be(FolhaRegras.RubricaProvento);
+        rubricas[0].Base.Should().Be(FolhaRegras.BaseMinutosTrabalhados);
+        rubricas[0].Taxa.Should().Be(15m);
+        rubricas[0].EmMinutos.Should().BeTrue();
+        rubricas[1].Tipo.Should().Be(FolhaRegras.RubricaDesconto);
+        rubricas[1].Base.Should().Be(FolhaRegras.BaseDiasFalta);
+        rubricas[1].Taxa.Should().Be(2.5m);
+        rubricas[1].EmMinutos.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Rubricas_Invalidas_Apontam_O_Item_Problema()
+    {
+        void DeveriaFalhar(string json)
+        {
+            var (rubricas, falha) = FolhaRegras.InterpretarRubricasPonto(json);
+            falha.Should().StartWith(FolhaRegras.RubricasInvalidas);
+            falha.Should().Contain("[0]");
+            rubricas.Should().BeEmpty();
+        }
+
+        DeveriaFalhar("[\"NÃO-OBJETO\"]"); // item não é objeto
+        DeveriaFalhar("[{\"codigo\":\"A\",\"tipo\":\"PROVENTO\",\"base\":\"MINUTOS_TRABALHADOS\",\"taxa\":1}]"); // nome ausente
+        DeveriaFalhar("[{\"codigo\":\"A\",\"nome\":\"N\",\"tipo\":\"XPTO\",\"base\":\"MINUTOS_TRABALHADOS\",\"taxa\":1}]"); // tipo inválido
+        DeveriaFalhar("[{\"codigo\":\"A\",\"nome\":\"N\",\"tipo\":\"PROVENTO\",\"base\":\"SEMANAS\",\"taxa\":1}]"); // base inválida
+        DeveriaFalhar("[{\"codigo\":\"A\",\"nome\":\"N\",\"tipo\":\"PROVENTO\",\"base\":\"MINUTOS_TRABALHADOS\",\"taxa\":-2}]"); // taxa negativa
+        DeveriaFalhar("[{\"codigo\":\"A\",\"nome\":\"N\",\"tipo\":\"PROVENTO\",\"base\":\"MINUTOS_TRABALHADOS\"}]"); // taxa ausente
+
+        var (naoArray, falhaNaoArray) = FolhaRegras.InterpretarRubricasPonto("\"123\"");
+        falhaNaoArray.Should().StartWith(FolhaRegras.RubricasInvalidas);
+        naoArray.Should().BeEmpty();
+
+        var (malformado, falhaMalformado) = FolhaRegras.InterpretarRubricasPonto("{");
+        falhaMalformado.Should().StartWith(FolhaRegras.RubricasInvalidas);
+        malformado.Should().BeEmpty();
+
+        var (duplicado, falhaDuplicado) = FolhaRegras.InterpretarRubricasPonto("[{\"codigo\":\"A\",\"nome\":\"N\",\"tipo\":\"PROVENTO\",\"base\":\"MINUTOS_TRABALHADOS\",\"taxa\":1},{\"codigo\":\"a\",\"nome\":\"M\",\"tipo\":\"DESCONTO\",\"base\":\"DIAS_FALTA\",\"taxa\":2}]");
+        falhaDuplicado.Should().StartWith(FolhaRegras.RubricasInvalidas);
+        falhaDuplicado.Should().Contain("[1]");
+        duplicado.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Lancamento_Multiplica_Taxa_Pela_Base_Minutos_ou_Dias()
+    {
+        var porMinuto = new FolhaRegras.RubricaPonto("A", "A", FolhaRegras.RubricaProvento, FolhaRegras.BaseMinutosTrabalhados, 15m);
+        FolhaRegras.QuantidadeBase(porMinuto, 90, 30, 0).Should().Be(90);
+        FolhaRegras.ValorLancamento(porMinuto, 90).Should().Be(22.50m); // 15 x 90 min / 60
+        FolhaRegras.ValorLancamento(porMinuto, 0).Should().Be(0m);
+
+        var porDia = new FolhaRegras.RubricaPonto("F", "F", FolhaRegras.RubricaDesconto, FolhaRegras.BaseDiasFalta, 100m);
+        FolhaRegras.QuantidadeBase(porDia, 0, 0, 2).Should().Be(2);
+        FolhaRegras.ValorLancamento(porDia, 2).Should().Be(200m);
+
+        var porIntervalo = new FolhaRegras.RubricaPonto("I", "I", FolhaRegras.RubricaProvento, FolhaRegras.BaseMinutosIntervalo, 1.5m);
+        FolhaRegras.QuantidadeBase(porIntervalo, 10, 25, 0).Should().Be(25);
+        FolhaRegras.ValorLancamento(porIntervalo, 5).Should().Be(0.13m); // 1.5 x 5 / 60 = 0.125 -> 0.13 (AwayFromZero)
+    }
 }

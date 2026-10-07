@@ -1,7 +1,9 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Dapper;
+using Npgsql;
 using Sigov.Application.Common;
 using Sigov.Application.Rh;
 using Sigov.Infrastructure.Persistence.Dapper;
@@ -464,6 +466,300 @@ where tenant_id = @TenantId and is_deleted = false
             then coalesce(nullif(dados->>'apuracaoId',''), nullif(dados->>'ApuracaoId',''))::bigint end) = @ApuracaoId
 order by id;", new { TenantId = tenantId, ApuracaoId = apuracaoId }, ct)).ConfigureAwait(false);
         return rows.Select(r => new RhRegistroComOrigemDto(r.Id, r.Dados ?? "{}", r.ServidorId, r.CriadoPor, r.CriadoEm, r.Status)).ToList();
+    }
+
+    // ==== RC-EVO-RH §7: integração real da apuração homologada na folha (transação única) ====
+    // Revalida sob lock a linha de integração existente, a folha de destino e a homologação da
+    // apuração; materializa um folha_evento real e um folha_lancamento por rubrica (valor positivo;
+    // o sinal vem do tipo) e fecha a linha de integração em PROCESSADA. A unicidade origem→destino
+    // (tenant + apuracaoId + evento, índice ux_rh_ponto_integracao_origem) resolve o retry
+    // concorrente por ON CONFLICT DO NOTHING + releitura do efeito vencedor; linha PROCESSADA devolve
+    // o efeito anterior sem gravar de novo (JaProcessada); PENDENTE/FALHA/CANCELADA reaproveita a
+    // linha; outro status bloqueia como INTEGRACAO_EM_ANDAMENTO. Sem sucesso parcial: tudo commita
+    // ou tudo volta.
+    public async Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, CancellationToken ct)
+    {
+        using var cn = (NpgsqlConnection)_context.CreateConnection();
+        await cn.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await cn.ExecuteAsync(new CommandDefinition("select set_config('sigov.tenant_id', @TenantId, true);", new { TenantId = tenantId.ToString(CultureInfo.InvariantCulture) }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+            const string sqlBuscaIntegracao = @"
+select id, dados::text as Dados,
+       coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as Status
+from sigov.rh_ponto_integracao_folha
+where tenant_id=@TenantId and is_deleted=false
+  and coalesce(nullif(dados->>'evento',''), nullif(dados->>'Evento',''),'')=@Evento
+  and coalesce(nullif(dados->>'apuracaoId',''), nullif(dados->>'ApuracaoId',''),'')=@ApuracaoIdText";
+            var parametrosBusca = new { TenantId = tenantId, Evento = Sigov.Domain.Rh.FolhaRegras.EventoIntegracaoFolha, ApuracaoIdText = apuracaoId.ToString(CultureInfo.InvariantCulture) };
+            var existente = await cn.QueryFirstOrDefaultAsync<IntegracaoFolhaRow>(new CommandDefinition(sqlBuscaIntegracao + " for update;", parametrosBusca, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+            var folha = await cn.QueryFirstOrDefaultAsync<FolhaLockRow>(new CommandDefinition(@"
+select id, dados::text as Dados
+from sigov.folha
+where tenant_id=@TenantId and id=@FolhaId and is_deleted=false
+for update;", new { TenantId = tenantId, FolhaId = folhaId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (folha is null)
+            {
+                throw new InvalidOperationException($"FOLHA_INDISPONIVEL: a folha {folhaId.ToString(CultureInfo.InvariantCulture)} não existe no momento da integração; verifique o destino e repita.");
+            }
+            if (Sigov.Domain.Rh.FolhaRegras.ValidarStatusFolha(JsonText(ParseJsonb(folha.Dados), "status", "Status")) is { } falhaFolha)
+            {
+                throw new InvalidOperationException(falhaFolha);
+            }
+
+            var homologadas = await cn.ExecuteScalarAsync<int>(new CommandDefinition(@"
+select count(*)
+from sigov.rh_ponto_apuracao
+where tenant_id=@TenantId and id=@ApuracaoId and is_deleted=false
+  and coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'')='HOMOLOGADA';",
+                new { TenantId = tenantId, ApuracaoId = apuracaoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (homologadas == 0)
+            {
+                throw new InvalidOperationException($"NAO_HOMOLOGADA: a apuração {apuracaoId.ToString(CultureInfo.InvariantCulture)} não está HOMOLOGADA no momento da integração; homologue antes de repetir.");
+            }
+
+            long integracaoId = 0;
+            if (existente is not null)
+            {
+                if (!Sigov.Domain.Rh.FolhaRegras.StatusIntegracaoReutilizavel(existente.Status))
+                {
+                    throw new InvalidOperationException($"INTEGRACAO_EM_ANDAMENTO: a integração {existente.Id.ToString(CultureInfo.InvariantCulture)} desta apuração está com status '{existente.Status}'; verifique antes de tentar novamente.");
+                }
+                integracaoId = existente.Id;
+                var efeitosPrevios = await LerEfeitoProcessadoAsync(cn, tx, tenantId, existente, ct).ConfigureAwait(false);
+                if (efeitosPrevios is not null)
+                {
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    return efeitosPrevios;
+                }
+            }
+            else
+            {
+                const string sqlInsereIntegracao = @"
+insert into sigov.rh_ponto_integracao_folha
+(tenant_id, servidor_id, competencia, periodo_inicio, periodo_fim, tipo, status, descricao, auditoria, dados, created_by, updated_by)
+values
+(@TenantId, @ServidorId, @Competencia, @PeriodoInicio, @PeriodoFim, 'PONTO_INTEGRACAO_FOLHA', 'PROCESSADA', @Descricao, '{}'::jsonb,
+ jsonb_build_object('status','PROCESSADA','origem','PONTO','evento','INTEGRACAO_FOLHA','apuracaoId',@ApuracaoId,'folhaId',@FolhaId,'versaoRegras',@VersaoRegras,'periodoInicio',@PeriodoInicioText,'periodoFim',@PeriodoFimText),
+ @UsuarioId, @UsuarioId)
+on conflict (tenant_id, (dados ->> 'apuracaoId'::text), (dados ->> 'evento'::text)) where is_deleted = false do nothing
+returning id;";
+                var inserido = await cn.ExecuteScalarAsync<long>(new CommandDefinition(sqlInsereIntegracao, new
+                {
+                    TenantId = tenantId,
+                    ServidorId = servidorId,
+                    Competencia = periodoInicio,
+                    PeriodoInicio = periodoInicio,
+                    PeriodoFim = periodoFim,
+                    Descricao = $"Apuração de ponto {apuracaoId.ToString(CultureInfo.InvariantCulture)} integrada à folha {folhaId.ToString(CultureInfo.InvariantCulture)}",
+                    ApuracaoId = apuracaoId,
+                    FolhaId = folhaId,
+                    VersaoRegras = versaoRegras,
+                    PeriodoInicioText = periodoInicio.ToString("yyyy-MM-dd"),
+                    PeriodoFimText = periodoFim.ToString("yyyy-MM-dd"),
+                    UsuarioId = usuarioId
+                }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                if (inserido == 0)
+                {
+                    // Integração concorrente venceu no índice único: releia a linha commitada e devolva o efeito dela.
+                    var vencedor = await cn.QueryFirstOrDefaultAsync<IntegracaoFolhaRow>(new CommandDefinition(sqlBuscaIntegracao + ";", parametrosBusca, tx, cancellationToken: ct)).ConfigureAwait(false);
+                    if (vencedor is null || !Sigov.Domain.Rh.FolhaRegras.StatusIntegracaoReutilizavel(vencedor.Status))
+                    {
+                        throw new InvalidOperationException($"INTEGRACAO_EM_ANDAMENTO: outra integração desta apuração está em andamento ou com status '{vencedor?.Status ?? "?"}'; aguarde e repita.");
+                    }
+                    var efeitoVencedor = await LerEfeitoProcessadoAsync(cn, tx, tenantId, vencedor, ct).ConfigureAwait(false);
+                    if (efeitoVencedor is null)
+                    {
+                        throw new InvalidOperationException("INTEGRACAO_EM_ANDAMENTO: outra integração desta apuração ainda está sendo materializada; aguarde alguns segundos e repita.");
+                    }
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    return efeitoVencedor;
+                }
+                integracaoId = inserido;
+            }
+
+            const string sqlInsereEventoFolha = @"
+insert into sigov.folha_evento (tenant_id, dados, created_by)
+values (@TenantId,
+ jsonb_build_object('tipo','folha.integracao.ponto','origem','PONTO','apuracaoId',@ApuracaoId,'folhaId',@FolhaId,'servidorId',@ServidorId,'versaoRegras',@VersaoRegras,'periodoInicio',@PeriodoInicioText,'periodoFim',@PeriodoFimText,'resumoApuracao',cast(@Resumo as jsonb),'criticasNaoBloqueantes',cast(@Criticas as jsonb)),
+ @UsuarioId)
+returning id;";
+            var eventoFolhaId = await cn.ExecuteScalarAsync<long>(new CommandDefinition(sqlInsereEventoFolha, new
+            {
+                TenantId = tenantId,
+                ApuracaoId = apuracaoId,
+                FolhaId = folhaId,
+                ServidorId = servidorId,
+                VersaoRegras = versaoRegras,
+                PeriodoInicioText = periodoInicio.ToString("yyyy-MM-dd"),
+                PeriodoFimText = periodoFim.ToString("yyyy-MM-dd"),
+                Resumo = resumoJson,
+                Criticas = criticasJson,
+                UsuarioId = usuarioId
+            }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+            // Defesa em profundidade: remove resquício de lançamentos órfãos desta integração
+            // (caso atípico — tentativas falhas voltam inteiramente).
+            await cn.ExecuteAsync(new CommandDefinition(@"
+update sigov.folha_lancamento
+set is_deleted=true, deleted_at=now(), deleted_by=@UsuarioId
+where tenant_id=@TenantId and is_deleted=false
+  and coalesce(nullif(dados->>'integracaoId',''), nullif(dados->>'IntegracaoId',''),'')=@IntegracaoIdText;",
+                new { TenantId = tenantId, UsuarioId = usuarioId, IntegracaoIdText = integracaoId.ToString(CultureInfo.InvariantCulture) }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+            // Materializa os lançamentos reais (um por rubrica do catálogo; valor positivo, sinal definido pelo tipo).
+            const string sqlInsereLancamento = @"
+insert into sigov.folha_lancamento (tenant_id, dados, created_by)
+values (@TenantId,
+ jsonb_build_object('folhaId',@FolhaId,'servidorId',@ServidorId,'eventoId',@EventoId,'integracaoId',@IntegracaoId,'apuracaoId',@ApuracaoId,'versaoRegras',@VersaoRegras,'rubricaCodigo',@Codigo,'rubricaNome',@Nome,'tipo',@Tipo,'base',@Base,'unidade',@Unidade,'quantidadeBase',@Qtd,'valor',@Valor,'origem','PONTO'),
+ @UsuarioId)
+returning id;";
+            var lancamentoIds = new List<long>(lancamentos.Count);
+            foreach (var lancamento in lancamentos)
+            {
+                var unidade = string.Equals(lancamento.Base, Sigov.Domain.Rh.FolhaRegras.BaseDiasFalta, StringComparison.OrdinalIgnoreCase) ? "DIAS" : "MINUTOS";
+                var idLancamento = await cn.ExecuteScalarAsync<long>(new CommandDefinition(sqlInsereLancamento, new
+                {
+                    TenantId = tenantId,
+                    FolhaId = folhaId,
+                    ServidorId = servidorId,
+                    EventoId = eventoFolhaId,
+                    IntegracaoId = integracaoId,
+                    ApuracaoId = apuracaoId,
+                    VersaoRegras = versaoRegras,
+                    Codigo = lancamento.RubricaCodigo,
+                    Nome = lancamento.RubricaNome,
+                    Tipo = lancamento.Tipo,
+                    Base = lancamento.Base,
+                    Unidade = unidade,
+                    Qtd = lancamento.QuantidadeBase,
+                    Valor = lancamento.Valor,
+                    UsuarioId = usuarioId
+                }, tx, cancellationToken: ct)).ConfigureAwait(false);
+                lancamentoIds.Add(idLancamento);
+            }
+
+            var dtos = lancamentos.Select((lancamento, indice) => new RhIntegracaoLancamentoDto(lancamentoIds[indice], lancamento.RubricaCodigo, lancamento.RubricaNome, lancamento.Tipo, lancamento.Base, lancamento.QuantidadeBase, lancamento.Valor)).ToList();
+            var (proventos, descontos) = TotaisLancamentos(dtos);
+            var delta = new Dictionary<string, object?>
+            {
+                ["status"] = Sigov.Domain.Rh.FolhaRegras.IntegracaoProcessada,
+                ["origem"] = "PONTO",
+                ["evento"] = Sigov.Domain.Rh.FolhaRegras.EventoIntegracaoFolha,
+                ["apuracaoId"] = apuracaoId,
+                ["folhaId"] = folhaId,
+                ["versaoRegras"] = versaoRegras,
+                ["eventoFolhaId"] = eventoFolhaId,
+                ["lancamentoIds"] = lancamentoIds,
+                ["totalProventos"] = proventos,
+                ["totalDescontos"] = descontos,
+                ["liquido"] = proventos - descontos,
+                ["processadaEm"] = DateTimeOffset.UtcNow
+            };
+            var auditoriaJson = BuildAuditJson("INTEGRAR_FOLHA_PONTO", usuarioId, existente is null ? null : ParseJsonb(existente.Dados), new { integracaoId, eventoFolhaId, lancamentoIds });
+            var linhasFinal = await cn.ExecuteAsync(new CommandDefinition(@"
+update sigov.rh_ponto_integracao_folha
+set status='PROCESSADA',
+    auditoria=coalesce(auditoria,'{}'::jsonb)||cast(@Auditoria as jsonb),
+    dados=dados||cast(@Delta as jsonb),
+    updated_by=@UsuarioId,
+    updated_at=now()
+where tenant_id=@TenantId and id=@Id and is_deleted=false;",
+                new { Auditoria = auditoriaJson, Delta = JsonSerializer.Serialize(delta, JsonOptions), UsuarioId = usuarioId, TenantId = tenantId, Id = integracaoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (linhasFinal == 0)
+            {
+                throw new InvalidOperationException($"INTEGRACAO_INDISPONIVEL: a linha de integração {integracaoId.ToString(CultureInfo.InvariantCulture)} foi removida durante a operação; verifique o registro antes de repetir.");
+            }
+
+            await RegistrarEventoAsync(cn, tenantId, "ponto-integracoes-folha", "INTEGRAR_FOLHA", integracaoId, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["eventoFolhaId"] = eventoFolhaId,
+                ["lancamentoIds"] = lancamentoIds,
+                ["totalProventos"] = proventos,
+                ["totalDescontos"] = descontos,
+                ["jaProcessada"] = false
+            }, usuarioId, ct).ConfigureAwait(false);
+
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return new RhIntegracaoFolhaTx(integracaoId, eventoFolhaId, dtos, proventos, descontos, false);
+        }
+        catch
+        {
+            // Sem efeito colateral parcial: o dispose de `await using tx` faz rollback em qualquer exceção;
+            // as falhas nomeadas (InvalidOperationException) sobem para o serviço, que converte em Result.
+            throw;
+        }
+    }
+
+    private async Task<RhIntegracaoFolhaTx?> LerEfeitoProcessadoAsync(NpgsqlConnection cn, NpgsqlTransaction tx, long tenantId, IntegracaoFolhaRow linha, CancellationToken ct)
+    {
+        if (!string.Equals(linha.Status, Sigov.Domain.Rh.FolhaRegras.IntegracaoProcessada, StringComparison.OrdinalIgnoreCase)) return null;
+        var lancamentos = await CarregarLancamentosDaIntegracaoAsync(cn, tx, tenantId, linha.Id, ct).ConfigureAwait(false);
+        if (lancamentos.Count == 0) return null;
+        var (proventos, descontos) = TotaisLancamentos(lancamentos);
+        long? eventoId = null;
+        if (TryJsonLong(ParseJsonb(linha.Dados), out var eventoIdGravado, "eventoFolhaId", "EventoFolhaId")) eventoId = eventoIdGravado;
+        return new RhIntegracaoFolhaTx(linha.Id, eventoId, lancamentos, proventos, descontos, true);
+    }
+
+    private async Task<List<RhIntegracaoLancamentoDto>> CarregarLancamentosDaIntegracaoAsync(NpgsqlConnection cn, NpgsqlTransaction tx, long tenantId, long integracaoId, CancellationToken ct)
+    {
+        const string sql = @"
+select id, dados::text as Dados
+from sigov.folha_lancamento
+where tenant_id=@TenantId and is_deleted=false
+  and coalesce(nullif(dados->>'integracaoId',''), nullif(dados->>'IntegracaoId',''),'')=@IntegracaoIdText
+order by id;";
+        var rows = (await cn.QueryAsync<LancamentoRow>(new CommandDefinition(sql, new { TenantId = tenantId, IntegracaoIdText = integracaoId.ToString(CultureInfo.InvariantCulture) }, tx, cancellationToken: ct)).ConfigureAwait(false)).ToList();
+        var lista = new List<RhIntegracaoLancamentoDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            var dados = ParseJsonb(row.Dados);
+            var quantidade = TryJsonInt(dados, out var qtd, "quantidadeBase", "QuantidadeBase") ? qtd : 0;
+            var valor = TryJsonDecimal(dados, out var val, "valor", "Valor") ? val : 0m;
+            lista.Add(new RhIntegracaoLancamentoDto(row.Id,
+                JsonText(dados, "rubricaCodigo", "RubricaCodigo") ?? string.Empty,
+                JsonText(dados, "rubricaNome", "RubricaNome") ?? string.Empty,
+                (JsonText(dados, "tipo", "Tipo") ?? string.Empty).ToUpperInvariant(),
+                (JsonText(dados, "base", "Base") ?? string.Empty).ToUpperInvariant(),
+                quantidade,
+                valor));
+        }
+        return lista;
+    }
+
+    private static (decimal Proventos, decimal Descontos) TotaisLancamentos(IReadOnlyList<RhIntegracaoLancamentoDto> lancamentos)
+    {
+        decimal proventos = 0m;
+        decimal descontos = 0m;
+        foreach (var lancamento in lancamentos)
+        {
+            if (string.Equals(lancamento.Tipo, Sigov.Domain.Rh.FolhaRegras.RubricaProvento, StringComparison.OrdinalIgnoreCase)) proventos += lancamento.Valor;
+            else if (string.Equals(lancamento.Tipo, Sigov.Domain.Rh.FolhaRegras.RubricaDesconto, StringComparison.OrdinalIgnoreCase)) descontos += lancamento.Valor;
+        }
+        return (proventos, descontos);
+    }
+
+    private sealed class IntegracaoFolhaRow
+    {
+        public long Id { get; init; }
+        public string Dados { get; init; } = "{}";
+        public string Status { get; init; } = string.Empty;
+    }
+
+    private sealed class FolhaLockRow
+    {
+        public long Id { get; init; }
+        public string Dados { get; init; } = "{}";
+    }
+
+    private sealed class LancamentoRow
+    {
+        public long Id { get; init; }
+        public string Dados { get; init; } = "{}";
     }
 
     // ==== Helpers JSONB case-insensitive (PascalCase da API / camelCase da engine) ===
