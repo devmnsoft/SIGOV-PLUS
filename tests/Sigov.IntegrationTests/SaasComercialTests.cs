@@ -89,4 +89,62 @@ public sealed class SaasComercialTests
         src.Should().Contain(".OrderBy(l => l.Status == \"ATIVA\" ? 0 : 1)");
         src.Should().Contain(".ThenByDescending(l => l.CriadoEm)");
     }
+
+    [Fact]
+    public void RC_EVO_S3_2_limite_comercial_lock_single_table_e_contagem_fresca_admite_exatamente_uma_ultima_vaga()
+    {
+        // Regressão RC-EVO S3.2: o antigo UsoComLock (UsoBase + " for update of a") era um SELECT de lock
+        // com JOIN + ORDER BY/LIMIT — mesmo risco do GATE.G em PG16/READ COMMITTED (o recheck EvalPlanQual
+        // pode perder a linha após aguardar o lock concorrente), e a contagem de usuários embutida naquele
+        // mesmo SELECT não garantia snapshot fresco do usuário commitado pela disputa serializada.
+        // Fix: lock single-table nas assinaturas ATIVAS + escolha da mais recente em memória + contagens
+        // independentes executadas com o lock mantido (exatamente uma vencedora na última vaga).
+        var src = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Saas/Comercial/SaasLimitValidator.cs"));
+
+        // 1) Sentença de lock single-table: entre SELECT e FOR UPDATE não há JOIN/ORDER BY/LIMIT.
+        var start = src.IndexOf("select id as Id, plano_id as PlanoId, created_at as CriadoEm, data_fim as DataFim", StringComparison.Ordinal);
+        var end = src.IndexOf("for update", start, StringComparison.Ordinal);
+        start.Should().BeGreaterThan(0, "sentença de lock transacional presente");
+        end.Should().BeGreaterThan(start, "cláusula for update presente");
+        var lockSql = src.Substring(start, end - start + "for update".Length).ToLowerInvariant();
+        lockSql.Should().Contain("from sigov.saas_assinatura");
+        lockSql.Should().Contain("status='ativa'");
+        lockSql.Should().NotContain("join");
+        lockSql.Should().NotContain("order by");
+        lockSql.Should().NotContain("limit");
+
+        // 2) O padrão antigo sumiu: UsoComLock removido e o ORDER BY/LIMIT sobrevive apenas no UsoBase
+        //    (caminho não transacional de leitura de resumo, sem lock).
+        src.Should().NotContain("UsoComLock");
+        var ordPos = src.IndexOf("order by a.created_at desc limit 1", StringComparison.Ordinal);
+        ordPos.Should().BeGreaterThan(0, "UsoBase preserva a semântica original de leitura");
+        src.IndexOf("order by a.created_at desc limit 1", ordPos + 1, StringComparison.Ordinal)
+            .Should().BeLessThan(0, "nenhuma segunda ocorrência de ORDER BY/LIMIT no arquivo");
+
+        // 3) Semântica preservada: mais recente em memória; assinatura ausente ou plano órfão falham explícitos.
+        src.Should().Contain(".OrderByDescending(a => a.CriadoEm).FirstOrDefault()");
+        src.Should().Contain("if (melhor is null) return UserLimitDecision(tenantId, null);");
+        src.Should().Contain("if (plano is null) return UserLimitDecision(tenantId, null);");
+
+        // 4) Contagem de usuários é sentença independente (sem FOR UPDATE/JOIN dentro dela) e o método
+        //    transacional executa lock + plano + contagens todos na MESMA transação (lock mantido).
+        var cuIdx = src.IndexOf("CountUsuariosAtivos =", StringComparison.Ordinal);
+        cuIdx.Should().BeGreaterThan(0);
+        var cuLine = src.Substring(cuIdx, src.IndexOf('\n', cuIdx) - cuIdx);
+        cuLine.Should().Contain("count(*)::int from sigov.usuario")
+            .And.Contain("u.ativo=true")
+            .And.NotContain("for update")
+            .And.NotContain("join");
+        var txStart = src.IndexOf("public async Task<SaasLimitValidationResult> ValidateUserLimitTxAsync", StringComparison.Ordinal);
+        var txEnd = src.IndexOf("private static SaasLimitValidationResult UserLimitDecision", txStart, StringComparison.Ordinal);
+        txStart.Should().BeGreaterThan(0);
+        txEnd.Should().BeGreaterThan(txStart);
+        var txBody = src.Substring(txStart, txEnd - txStart);
+        txBody.Should().Contain("new CommandDefinition(LockAssinaturasAtivas");
+        txBody.Should().Contain("new CommandDefinition(LimitePlanoApósLock");
+        txBody.Should().Contain("new CommandDefinition(CountUsuariosAtivos");
+        txBody.Should().Contain("new CommandDefinition(CountModulosAtivos");
+        txBody.Split(", transaction,", StringSplitOptions.None).Length
+            .Should().Be(5, "as 4 sentenças rodam na transação que mantém o lock (3 ocorrências + abertura)");
+    }
 }
