@@ -108,6 +108,19 @@ begin
      order by id
      limit 1;
 
+    -- Adotacao cross-tenant (RC-EVO A03): em instalacao limpa a migration
+    -- 20261006110000 cria o 'admin' no tenant de plataforma
+    -- 'plataforma-mnsoft'; logins sao unicos globais (idx_usuario_login),
+    -- entao o instalador adota a linha existente em vez de inserir outra.
+    if v_usuario_id is null then
+        select id into v_usuario_id
+          from sigov.usuario
+         where (lower(login) = lower('__SIGOV_ADMIN_LOGIN__') or lower(email) = lower('__SIGOV_ADMIN_EMAIL__'))
+           and is_deleted = false
+         order by id
+         limit 1;
+    end if;
+
     if v_usuario_id is null then
         insert into sigov.usuario (
             tenant_id, entidade_id, exercicio_id, pessoa_id, nome, login, email,
@@ -125,7 +138,8 @@ begin
         v_admin_criado := true;
     else
         update sigov.usuario
-           set entidade_id = v_entidade_id,
+           set tenant_id = v_tenant_id,
+               entidade_id = v_entidade_id,
                exercicio_id = v_exercicio_id,
                pessoa_id = coalesce(pessoa_id, v_pessoa_id),
                nome = '__SIGOV_ADMIN_NAME__',

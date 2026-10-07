@@ -2741,6 +2741,19 @@
       "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='empenho' and column_name='motivo') and exists(select 1 from information_schema.tables where table_schema='sigov' and table_name='financeiro_idempotencia') and exists(select 1 from sigov.permissao where chave='financeiro.conferencia.visualizar')"
     },
     {
+      "version": "20261004090000",
+      "description": "RC-EVO A02: precondicao de instalacao limpa - fn_preencher_tenant_vinculo e triggers de derivacao de tenant_id nos vinculos de acesso (usuario_entidade, usuario_exercicio, usuario_grupo, grupo_perfil, perfil_permissao)",
+      "category": "compatibility",
+      "file": "20261004090000_evo_a02_precond_tenant_vinculo.sql",
+      "checksum": "c066542d273313249a479a6a8b88ce7b0321a73fcfcdd93e89e8a1c4520ccb03",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261003140000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='sigov' and p.proname='fn_preencher_tenant_vinculo') and not exists(select 1 from (values ('usuario_entidade','trg_usuario_entidade_tenant'),('usuario_exercicio','trg_usuario_exercicio_tenant'),('usuario_grupo','trg_usuario_grupo_tenant'),('grupo_perfil','trg_grupo_perfil_tenant'),('perfil_permissao','trg_perfil_permissao_tenant')) v(tabela,tg) where not exists(select 1 from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname=v.tabela and t.tgname=v.tg and not t.tgisinternal))"
+    },
+    {
       "version": "20261005090000",
       "description": "Catalogo RC-SAAS-AUT: coluna delegavel, chaves saas.*/cliente.*, normalizacao saas.superadmin.*, grants de plataforma e tabela saas_alias_revisao",
       "category": "functional",
@@ -2791,6 +2804,19 @@
         "20261005110000"
       ],
       "postConditionSql": "select exists(select 1 from sigov.permissao where modulo='saas' and chave='saas.superadmin.dashboard.administrar' and acao='administrar' and ativo and not is_deleted) and ((select count(*) from sigov.permissao where modulo='saas' and chave='saas.plataforma.administrar') = 0 or exists(select 1 from sigov.perfil_permissao a join sigov.perfil_permissao b on b.perfil_acesso_id=a.perfil_acesso_id join sigov.permissao pa on pa.id=a.permissao_id join sigov.permissao pb on pb.id=b.permissao_id where pa.modulo='saas' and pa.chave='saas.plataforma.administrar' and pb.modulo='saas' and pb.chave='saas.superadmin.dashboard.administrar' and a.ativo and not a.is_deleted and upper(a.efeito)='PERMITIR'))"
+    },
+    {
+      "version": "20261006110000",
+      "description": "RC-EVO A03: precondicao das grants plataforma (aut_05) em instalacao limpa - cria tenant plataforma-mnsoft e credenciais admin/superadmin quando nenhuma existe ativa (no-op em ambiente legado)",
+      "category": "compatibility",
+      "file": "20261006110000_evo_a03_precond_credencial_plataforma.sql",
+      "checksum": "7163949cf5580811933188e43f220fc0c070f89caad452953571d45b09cdd630",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261005120000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.usuario where lower(login) in ('admin','superadmin') and ativo and not is_deleted)"
     },
     {
       "version": "20261006120000",

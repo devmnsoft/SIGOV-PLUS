@@ -32572,6 +32572,139 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20261004090000_evo_a02_precond_tenant_vinculo.sql
+-- CATEGORY: compatibility
+-- CHECKSUM_SHA256: c066542d273313249a479a6a8b88ce7b0321a73fcfcdd93e89e8a1c4520ccb03
+-- ==================================================
+-- ============================================================
+-- RC-EVO (Bloco A) | 20261004090000
+-- Precondicao de instalacao limpa: fn_preencher_tenant_vinculo e
+-- triggers de derivacao de tenant_id nos vinculos de acesso
+-- (usuario_entidade, usuario_exercicio, usuario_grupo,
+--  grupo_perfil, perfil_permissao).
+--
+-- Raiz do defeito (baseline 2026-10-06, banco descartavel):
+--   Na instalacao limpa a execucao parava em 20261005090000
+--   (RC-SAAS-AUT aut_01) com "null value in column tenant_id of
+--   relation perfil_permissao". Os grants da aut_01 inserem em
+--   perfil_permissao sem tenant_id, confiando no trigger
+--   trg_perfil_permissao_tenant para derivar o tenant do
+--   perfil_acesso. O DDL dessa funcao e desses triggers existia
+--   apenas no bootstrap 850_post_migration_compatibility.sql, que
+--   roda DEPOIS de todas as migrations; nenhuma migration de
+--   arquivo os criava. Em bancos legados/upgrade o bootstrap ja
+--   havia criado os objetos, por isso a falha so aparecia em
+--   instalacao limpa.
+--
+-- Correcao (regra 8: migration nova; nenhuma publicada e alterada):
+--   Materializa a precondicao nesta migration, posicionada entre
+--   20261003140000 e 20261005090000. O DDL e identico ao estagio
+--   850 (create or replace + drop/create trigger); o bootstrap
+--   reexecuta depois como no-op idempotente. Grants posteriores de
+--   escopo plataforma (20261006120000) e evo_a01 (20261006233000)
+--   ja desabilitam os triggers user ao redor dos respectivos
+--   upserts, sem conflito. As cinco tabelas ja existem desde 004/013.
+-- Idempotente; sem credencial literal; falha explicita via
+-- postConditionSql (regra 13).
+-- ============================================================
+
+create or replace function sigov.fn_preencher_tenant_vinculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.tenant_id is not null then
+        return new;
+    end if;
+
+    case tg_table_name
+        when 'usuario_entidade' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select e.tenant_id into new.tenant_id
+                  from sigov.entidade e
+                 where e.id = new.entidade_id;
+            end if;
+
+        when 'usuario_exercicio' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select x.tenant_id into new.tenant_id
+                  from sigov.exercicio x
+                 where x.id = new.exercicio_id;
+            end if;
+
+        when 'usuario_grupo' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select g.tenant_id into new.tenant_id
+                  from sigov.grupo_acesso g
+                 where g.id = new.grupo_acesso_id;
+            end if;
+
+        when 'grupo_perfil' then
+            select g.tenant_id into new.tenant_id
+              from sigov.grupo_acesso g
+             where g.id = new.grupo_acesso_id;
+            if new.tenant_id is null then
+                select p.tenant_id into new.tenant_id
+                  from sigov.perfil_acesso p
+                 where p.id = new.perfil_acesso_id;
+            end if;
+
+        when 'perfil_permissao' then
+            select p.tenant_id into new.tenant_id
+              from sigov.perfil_acesso p
+             where p.id = new.perfil_acesso_id;
+    end case;
+
+    if new.tenant_id is null then
+        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
+            using errcode = '23502';
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
+create trigger trg_usuario_entidade_tenant
+before insert or update on sigov.usuario_entidade
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
+create trigger trg_usuario_exercicio_tenant
+before insert or update on sigov.usuario_exercicio
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
+create trigger trg_usuario_grupo_tenant
+before insert or update on sigov.usuario_grupo
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
+create trigger trg_grupo_perfil_tenant
+before insert or update on sigov.grupo_perfil
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
+create trigger trg_perfil_permissao_tenant
+before insert or update on sigov.perfil_permissao
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261004090000', 'RC-EVO A02: precondicao de instalacao limpa - fn_preencher_tenant_vinculo e triggers de derivacao de tenant_id nos vinculos de acesso (usuario_entidade, usuario_exercicio, usuario_grupo, grupo_perfil, perfil_permissao)', 'c066542d273313249a479a6a8b88ce7b0321a73fcfcdd93e89e8a1c4520ccb03', 'compatibility', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- MIGRATION: 20261005090000_rcsaas_aut_01_catalogo_permissoes.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: 683917b6c185dedcf00816c4c0f48d832ae7670ccfe6129335d7b1a881fa481b
@@ -32887,6 +33020,163 @@ drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,t
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
+-- MIGRATION: 20261006110000_evo_a03_precond_credencial_plataforma.sql
+-- CATEGORY: compatibility
+-- CHECKSUM_SHA256: 7163949cf5580811933188e43f220fc0c070f89caad452953571d45b09cdd630
+-- ==================================================
+-- ============================================================
+-- RC-EVO (Bloco A) | 20261006110000 | A03
+-- Precondicao das grants de escopo plataforma (RC-SAAS-AUT
+-- aut_05, 20261006120000) em instalacao limpa.
+--
+-- Raiz do defeito (baseline 2026-10-06, banco descartavel):
+--   Com A02 aplicada, a instalacao limpa passou da aut_01 e parou
+--   na aut_05 com "nenhum usuario ativo com login
+--   admin/superadmin". Nenhuma migration cria usuarios: as
+--   credenciais so existem DEPOIS das migrations, criadas pelo
+--   instalador one-shot 900_runtime_bootstrap.sql (login
+--   parametrizado, padrao 'admin', fora dos scripts consolidados)
+--   ou pelo seed development
+--   999_super_admin_access_guard.sql (guard exclusivo de
+--   Development, tambem fora dos scripts de baseline). Em bancos
+--   legados/upgrade os usuarios ja existem, por isso a falha so
+--   aparecia em instalacao limpa (mascarada ate agora pela parada
+--   anterior da aut_01/A02).
+--   O alvo exige duas credenciais: a pos-condicao publicada da
+--   aut_05 requer >= 10 pares (usuario x chave saas) na cadeia
+--   plataforma, o que pressupoe 'admin' E 'superadmin' ativos.
+--
+-- Correcao (regra 8: migration nova; nenhuma publicada e
+-- alterada): posicionada entre 20261005120000 (aut_04) e
+-- 20261006120000 (aut_05) no manifest. Semantica:
+--   * ambiente legado (ja existe admin/superadmin ativo):
+--     NAO FAZ NADA;
+--   * banco novo: cria o tenant de plataforma 'plataforma-mnsoft'
+--     com entidade, exercicio, pessoas ficticias e os usuarios
+--     'admin' e 'superadmin' (hashes PBKDF2 documentados no seed
+--     999; alteracao obrigatoria no primeiro acesso). O instalador
+--     one-shot (900) adota o 'admin' para o tenant cliente em
+--     execucao posterior (logins sao unicos globais, indice
+--     idx_usuario_login); o seed 999 adota ambos em Development.
+--   * dupla passada do instalador (idempotencia): segunda execucao
+--     eh no-op pelo proprio guard.
+-- Regras 9/10/13: somente dados ficticios, sem segredo real,
+-- falha explicita via raise interno e postConditionSql no
+-- manifest.
+-- ============================================================
+
+do $a03$
+declare
+    v_tenant_id bigint;
+    v_entidade_id bigint;
+    v_exercicio_id bigint;
+    v_pessoa_id bigint;
+    v_user_id bigint;
+    v_ano int;
+    v_login text;
+    v_email text;
+    v_nome text;
+    v_documento text;
+    v_hash text;
+begin
+    -- Ambiente legado (ou bootstrap previo): nao faz nada.
+    if exists (select 1 from sigov.usuario
+               where lower(login) in ('admin', 'superadmin')
+                 and ativo and not is_deleted) then
+        return;
+    end if;
+
+    v_ano := extract(year from current_date)::int;
+
+    insert into sigov.tenant (nome, nome_fantasia, slug, status, ambiente, metadados, ativo, is_deleted)
+    values ('Plataforma MNSOFT', 'Plataforma MNSOFT', 'plataforma-mnsoft', 'ATIVO',
+            upper(coalesce(nullif(current_setting('sigov.environment', true), ''), 'PRODUCTION')),
+            '{"bootstrap":"RC-EVO-A03","plataforma":true}'::jsonb, true, false)
+    on conflict (slug) do update
+        set status = 'ATIVO', ativo = true, is_deleted = false, updated_at = now();
+    select id into strict v_tenant_id from sigov.tenant where slug = 'plataforma-mnsoft';
+
+    insert into sigov.entidade (tenant_id, nome, cnpj, ativo, is_deleted)
+    select v_tenant_id, 'Plataforma MNSOFT', '00000000000000', true, false
+    where not exists (select 1 from sigov.entidade where tenant_id = v_tenant_id and cnpj = '00000000000000');
+    select id into v_entidade_id from sigov.entidade
+    where tenant_id = v_tenant_id and cnpj = '00000000000000'
+    order by is_deleted, ativo desc, id desc limit 1;
+    if v_entidade_id is null then
+        raise exception 'RC-EVO A03: entidade de plataforma nao ficou disponivel';
+    end if;
+
+    insert into sigov.exercicio (tenant_id, entidade_id, ano, data_inicio, data_fim, ativo, is_deleted)
+    values (v_tenant_id, v_entidade_id, v_ano, make_date(v_ano, 1, 1), make_date(v_ano, 12, 31), true, false)
+    on conflict (entidade_id, ano) do update
+        set tenant_id = excluded.tenant_id, ativo = true, is_deleted = false, updated_at = now();
+    select id into v_exercicio_id from sigov.exercicio where entidade_id = v_entidade_id and ano = v_ano;
+    if v_exercicio_id is null then
+        raise exception 'RC-EVO A03: exercicio de plataforma nao ficou disponivel';
+    end if;
+
+    foreach v_login in array array['admin', 'superadmin'] loop
+        if v_login = 'admin' then
+            v_email := 'admin@sigov.local';
+            v_nome := 'Administrador Geral';
+            v_documento := '00000000000001';
+            v_hash := 'SIGOV_PBKDF2_V1$210000$U0lHT1ZfREVWX1NBTFQhIQ==$kKnj2QPLDyk92OudwUguJk6BJV8qHTDJTvWv+v9JLxQ=';
+        else
+            v_email := 'superadmin@sigov.local';
+            v_nome := 'Super Administrador';
+            v_documento := '00000000000002';
+            v_hash := 'SIGOV_PBKDF2_V1$210000$U0lHT1ZfU1VQRVJfU0FMVA==$55mXRMqQ4e9CW6f4f2qCvH/Ony2irtPRb4S7SjfeqFI=';
+        end if;
+
+        select id into v_pessoa_id from sigov.pessoa
+        where tenant_id = v_tenant_id and documento = v_documento
+        order by is_deleted, ativo desc, id desc limit 1;
+        if v_pessoa_id is null then
+            insert into sigov.pessoa (tenant_id, entidade_id, exercicio_id, tipo_pessoa, nome, documento, ativo, is_deleted)
+            values (v_tenant_id, v_entidade_id, v_exercicio_id, 'F', v_nome, v_documento, true, false)
+            returning id into v_pessoa_id;
+        else
+            update sigov.pessoa
+               set entidade_id = v_entidade_id, exercicio_id = v_exercicio_id, nome = v_nome,
+                   ativo = true, is_deleted = false, updated_at = now()
+             where id = v_pessoa_id;
+        end if;
+
+        insert into sigov.usuario (tenant_id, entidade_id, exercicio_id, pessoa_id, nome, login, email, senha_hash,
+                                   tipo_usuario, senha_deve_ser_alterada, deve_alterar_senha, bloqueado, tentativas_invalidas,
+                                   bloqueado_ate, ativo, is_deleted, observacao)
+        values (v_tenant_id, v_entidade_id, v_exercicio_id, v_pessoa_id, v_nome, v_login, v_email, v_hash,
+                'ADMINISTRADOR_GERAL', true, true, false, 0, null, true, false,
+                'Credencial de plataforma criada por RC-EVO A03 em instalacao limpa. Alteracao obrigatoria no primeiro acesso.')
+        returning id into v_user_id;
+
+        insert into sigov.usuario_entidade (usuario_id, entidade_id, ativo)
+        values (v_user_id, v_entidade_id, true)
+        on conflict (usuario_id, entidade_id) do update set ativo = true;
+        insert into sigov.usuario_exercicio (usuario_id, exercicio_id, ativo)
+        values (v_user_id, v_exercicio_id, true)
+        on conflict (usuario_id, exercicio_id) do update set ativo = true;
+        insert into sigov.usuario_escopo_acesso (tenant_id, usuario_id, entidade_id, exercicio_id, modulo_codigo, escopo, ativo)
+        values (v_tenant_id, v_user_id, null, null, null, 'TENANT', true)
+        on conflict do nothing;
+    end loop;
+
+    -- Autoverificacao (falha explicita; regra 13).
+    if (select count(*) from sigov.usuario
+        where lower(login) in ('admin', 'superadmin') and ativo and not is_deleted) < 2 then
+        raise exception 'RC-EVO A03: credenciais de plataforma nao ficaram ativas';
+    end if;
+end
+$a03$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006110000', 'RC-EVO A03: precondicao das grants plataforma (aut_05) em instalacao limpa - cria tenant plataforma-mnsoft e credenciais admin/superadmin quando nenhuma existe ativa (no-op em ambiente legado)', '7163949cf5580811933188e43f220fc0c070f89caad452953571d45b09cdd630', 'compatibility', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
 -- MIGRATION: 20261006120000_rcsaas_aut_05_grants_plataforma.sql
 -- CATEGORY: functional
 -- CHECKSUM_SHA256: ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58
@@ -33022,11 +33312,9 @@ end $$;
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006120000', 'Corretiva RC-SAAS-AUT: grants de escopo plataforma (tenant_id NULL) para admin/superadmin - dashboard SaaS Web multi-tenant', 'ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- ==================================================
--- MIGRATION: 
-20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
+-- MIGRATION: 20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 
-0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987
+-- CHECKSUM_SHA256: 0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987
 -- ==================================================
 -- RC-SAAS-AUT Etapa B - Corretiva: normalizacao canonica de modulo/recurso/acao das chaves
 -- saas.superadmin.* (dashboard.visualizar, dashboard.exportar, dashboard.administrar e
@@ -33331,11 +33619,9 @@ create unique index if not exists ux_bootstrap_grupo_nome_tenant
     on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
 
 -- ==================================================
--- MIGRATION: 
-20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
+-- MIGRATION: 20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 
-0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987
+-- CHECKSUM_SHA256: 0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987
 -- ==================================================
 -- RC-SAAS-AUT Etapa B - Corretiva: normalizacao canonica de modulo/recurso/acao das chaves
 -- saas.superadmin.* (dashboard.visualizar, dashboard.exportar, dashboard.administrar e
@@ -33402,11 +33688,9 @@ begin
 end $$;
 
 -- ==================================================
--- MIGRATION: 
-20261006233000_evo_a01_tuplos_e_grants_jornada.sql
+-- MIGRATION: 20261006233000_evo_a01_tuplos_e_grants_jornada.sql
 -- CATEGORY: functional
--- CHECKSUM_SHA256: 
-f5865a893e6da98ca11e89a1c515b45c7ab786d1673cee971f973204b4781d0c
+-- CHECKSUM_SHA256: f5865a893e6da98ca11e89a1c515b45c7ab786d1673cee971f973204b4781d0c
 -- ==================================================
 -- RC-EVO (Bloco A) - Corretiva de catalogo de permissoes e grants de jornada.
 -- Idempotente; banco como fonte de autoridade (regra 11); falha explicita em autoverificacao (regra 13).
@@ -33599,6 +33883,8 @@ begin
 
     raise notice 'RC-EVO A01 concluida: tuplos normalizados, chaves canonicas reparadas e grants de jornada aplicados.';
 end $$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006233000', 'Corretiva RC-EVO (Bloco A): tuplos insatisfazeis, duplicatas exatas e grants de jornada para administracao local e plataforma', 'f5865a893e6da98ca11e89a1c515b45c7ab786d1673cee971f973204b4781d0c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 \else
 \echo 'Baseline canônico já registrado; nenhuma migration foi reaplicada.'
