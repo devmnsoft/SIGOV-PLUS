@@ -1,65 +1,149 @@
 @{ ViewData["Title"] = "Meus contracheques"; }
-<section class="rh-b2-shell" data-endpoint="/api/rh/portal/contracheques">
- <header class="rh-b2-hero"><span class="lgpd-badge">LGPD • acesso auditado</span><h1>Meus contracheques</h1><p>Documentos financeiros protegidos</p></header>
- <div class="rh-b2-kpis"><article class="rh-b2-card"><small>Registros</small><strong data-kpi>—</strong><span>no filtro atual</span></article><article class="rh-b2-card"><small>Status</small><strong>Ativo</strong><span>fluxo operacional</span></article><article class="rh-b2-card"><small>Auditoria</small><strong>100%</strong><span>correlation ID</span></article></div>
- <div class="filter-bar"><input type="search" placeholder="Buscar servidor ou matrícula" aria-label="Busca"><select aria-label="Status"><option>Todos os status</option><option>Pendente</option><option>Aprovado</option></select><input type="date" aria-label="Data inicial"><button class="btn btn-primary" type="button">Aplicar filtros</button></div>
- <div class="responsive-data-table"><table><thead><tr><th>Referência</th><th>Servidor</th><th>Período</th><th>Status</th><th>Ações</th></tr></thead><tbody data-grid><tr><td colspan="5"><div class="loading-skeleton" aria-label="Carregando"></div></td></tr></tbody></table></div>
+<section class="rh-b2-shell" id="rp-portal-contracheques">
+  <header class="rh-b2-hero d-flex flex-wrap align-items-end justify-content-between gap-2">
+    <div>
+      <span class="lgpd-badge">LGPD • acesso auditado</span>
+      <h1>Meus contracheques</h1>
+      <p>Competências com proventos, descontos, líquido e memória por dia — resolvidas no servidor pelo vínculo do seu usuário.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-primary" data-action="recarregar">Atualizar</button>
+    </div>
+  </header>
+  <div class="rh-b2-kpis">
+    <article class="rh-b2-card"><small>Competências</small><strong data-kpi>—</strong><span>disponíveis para você</span></article>
+    <article class="rh-b2-card"><small>Acesso</small><strong>Ligado</strong><span>por vínculo de servidor</span></article>
+    <article class="rh-b2-card"><small>Auditoria</small><strong>100%</strong><span>correlation ID por chamada</span></article>
+  </div>
+  <div class="responsive-data-table"><table>
+    <thead><tr><th>Competência</th><th>Período</th><th>Folha</th><th>Situação</th><th>Proventos</th><th>Descontos</th><th>Líquido</th><th>Ações</th></tr></thead>
+    <tbody data-grid><tr><td colspan="8"><div class="loading-skeleton" aria-label="Carregando"></div></td></tr></tbody>
+  </table></div>
 </section>
+<script src="~/js/modules/rh.ponto-ui.js"></script>
 <script nonce="@Context.Items["CspNonce"]">
-(()=>{
-  const root = document.currentScript.previousElementSibling;
+(() => {
+  const U = window.SigovRhPonto && window.SigovRhPonto.ui;
+  const root = document.getElementById('rp-portal-contracheques');
+  if (!root || !U) return;
   const body = root.querySelector('[data-grid]');
-  fetch(root.dataset.endpoint, { headers: { 'X-Correlation-Id': crypto.randomUUID() } })
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(x => {
-      const items = x.data?.items ?? x.items ?? [];
-      root.querySelector('[data-kpi]').textContent = items.length;
-      body.replaceChildren();
-      if (items.length) {
+  const kpi = root.querySelector('[data-kpi]');
+  const pick = U.pick;
+  let aberto = null;
+
+  function cell(content) {
+    const td = document.createElement('td');
+    if (content === null || content === undefined || content === '') content = '—';
+    if (typeof content === 'string' || typeof content === 'number') td.appendChild(document.createTextNode(String(content)));
+    else td.appendChild(content);
+    return td;
+  }
+
+  function situacaoCell(d) {
+    const span = document.createElement('span');
+    const st = pick(d, 'status', 'Status');
+    span.appendChild(U.statusChip(st || (d.processadaEm ? 'PROCESSADA' : 'EMITIDA')));
+    const sf = pick(d, 'statusFolha', 'StatusFolha');
+    if (sf) {
+      span.appendChild(document.createTextNode(' • folha '));
+      span.appendChild(U.statusChip(sf));
+    }
+    return cell(span);
+  }
+
+  // Linha expandida: lançamentos autorizados + memória por dia + pendências/críticas (§8).
+  function detalheRow(item) {
+    const d = item.dados || {};
+    const tr = document.createElement('tr');
+    tr.className = 'rp-detalhe';
+    tr.style.background = '#f8fafc';
+    const td = document.createElement('td');
+    td.colSpan = '8';
+    const box = document.createElement('div');
+    box.className = 'p-3';
+    const lanc = pick(d, 'lancamentos', 'Lancamentos');
+    box.appendChild(document.createTextNode(Array.isArray(lanc) && lanc.length
+      ? 'Lançamentos da competência:'
+      : 'Sem lançamentos autorizados nesta competência.'));
+    if (Array.isArray(lanc) && lanc.length) box.appendChild(U.lancTable(lanc));
+    const mem = pick(d, 'memoriaPorDia', 'MemoriaPorDia');
+    if (Array.isArray(mem) && mem.length) {
+      const h = document.createElement('h6');
+      h.className = 'mt-3 mb-1';
+      h.textContent = 'Memória por dia da apuração de origem';
+      box.appendChild(h);
+      box.appendChild(U.memoriaTable(mem));
+    }
+    const pg = pick(d, 'pendenciasGlobais', 'PendenciasGlobais');
+    if (Array.isArray(pg) && pg.length) {
+      const w = document.createElement('div');
+      w.className = 'alert alert-warning py-2';
+      w.textContent = 'Pendências globais: ' + pg.join(', ');
+      box.appendChild(w);
+    }
+    const cr = pick(d, 'criticasNaoBloqueantes', 'CriticasNaoBloqueantes');
+    if (Array.isArray(cr) && cr.length) {
+      const w = document.createElement('div');
+      w.className = 'alert alert-warning py-2';
+      w.textContent = 'Críticas não bloqueantes: ' + cr.join('; ');
+      box.appendChild(w);
+    }
+    const vr = pick(d, 'versaoRegras', 'VersaoRegras');
+    if (vr) {
+      const s = document.createElement('small');
+      s.className = 'text-muted';
+      s.textContent = 'Versão das regras aplicada: ' + vr + (d.eventoFolhaId ? ' • Evento na folha #' + d.eventoFolhaId : '');
+      box.appendChild(s);
+    }
+    td.appendChild(box);
+    tr.appendChild(td);
+    return tr;
+  }
+
+  function carregar() {
+    U.skeletonRow(body, 8);
+    U.req('/api/rh/portal/contracheques?page=1&pageSize=100')
+      .then(env => {
+        const d = (env && env.data) || {};
+        const items = Array.isArray(d.items) ? d.items : [];
+        if (kpi) kpi.textContent = String(Number(d.totalItems) || items.length);
+        const rows = [];
         items.forEach(i => {
-          const tr = document.createElement('tr');
-          const tdId = document.createElement('td');
-          tdId.textContent = `#${i.id}`;
-          const tdProt = document.createElement('td');
-          tdProt.textContent = 'Dados protegidos';
-          const tdDash = document.createElement('td');
-          tdDash.textContent = '—';
-          const tdStatus = document.createElement('td');
-          const chip = document.createElement('span');
-          chip.className = 'status-chip';
-          chip.textContent = String(i.dados?.status ?? 'ATIVO');
-          tdStatus.appendChild(chip);
-          const tdAcao = document.createElement('td');
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-sm btn-outline-primary';
-          btn.textContent = 'Detalhes';
-          tdAcao.appendChild(btn);
-          tr.append(tdId, tdProt, tdDash, tdStatus, tdAcao);
-          body.appendChild(tr);
+          const dd = i.dados || {};
+          const main = document.createElement('tr');
+          main.appendChild(cell(pick(dd, 'competencia', 'Competencia')));
+          main.appendChild(cell(U.fmtDate(pick(dd, 'periodoInicio', 'PeriodoInicio')) + ' a ' + U.fmtDate(pick(dd, 'periodoFim', 'PeriodoFim'))));
+          main.appendChild(cell(dd.folhaId ? '#' + dd.folhaId : '—'));
+          main.appendChild(situacaoCell(dd));
+          main.appendChild(cell(U.money(pick(dd, 'totalProventos', 'TotalProventos'))));
+          main.appendChild(cell(U.money(pick(dd, 'totalDescontos', 'TotalDescontos'))));
+          main.appendChild(cell(U.money(pick(dd, 'liquido', 'Liquido'))));
+          const abrir = aberto === i.id;
+          main.appendChild(cell(U.actBtn(abrir ? 'Ocultar' : 'Detalhar', abrir ? 'btn-primary' : 'btn-outline-primary', () => {
+            aberto = abrir ? null : i.id;
+            carregar();
+          })));
+          rows.push(main);
+          if (abrir) rows.push(detalheRow(i));
         });
-      } else {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 5;
-        const div = document.createElement('div');
-        div.className = 'empty-state';
-        div.textContent = 'Nenhum registro encontrado para este filtro.';
-        td.appendChild(div);
-        tr.appendChild(td);
-        body.appendChild(tr);
-      }
-    })
-    .catch(() => {
-      body.replaceChildren();
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 5;
-      const div = document.createElement('div');
-      div.className = 'empty-state';
-      div.textContent = 'Não foi possível carregar. Confirme seu vínculo e tente novamente.';
-      td.appendChild(div);
-      tr.appendChild(td);
-      body.appendChild(tr);
-    });
+        body.replaceChildren(...rows);
+        if (!rows.length) U.emptyRow(body, 8, 'Nenhuma competência publicada para o seu vínculo ainda.');
+      })
+      .catch(e => {
+        const m = U.normError(e, 'Não foi possível carregar seus contracheques.').message;
+        U.toast(m, 'error');
+        U.emptyRow(body, 8, 'Falha ao carregar: ' + m);
+      });
+  }
+
+  function boot() {
+    const refresh = root.querySelector('[data-action="recarregar"]');
+    if (refresh) refresh.addEventListener('click', carregar);
+    carregar();
+  }
+  // O corpo renderiza antes de sigov.api.js (fim do body no layout); só busca
+  // dados quando window.sigovApi já existe (DOMContentLoaded).
+  if (document.readyState !== 'loading') boot();
+  else document.addEventListener('DOMContentLoaded', boot, { once: true });
 })();
 </script>

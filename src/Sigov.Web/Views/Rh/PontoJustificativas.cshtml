@@ -1,65 +1,35 @@
 @{ ViewData["Title"] = "Justificativas"; }
-<section class="rh-b2-shell" data-endpoint="/api/rh/ponto/justificativas">
- <header class="rh-b2-hero"><span class="lgpd-badge">LGPD • acesso auditado</span><h1>Justificativas</h1><p>Pendências para aprovação da chefia</p></header>
- <div class="rh-b2-kpis"><article class="rh-b2-card"><small>Registros</small><strong data-kpi>—</strong><span>no filtro atual</span></article><article class="rh-b2-card"><small>Status</small><strong>Ativo</strong><span>fluxo operacional</span></article><article class="rh-b2-card"><small>Auditoria</small><strong>100%</strong><span>correlation ID</span></article></div>
- <div class="filter-bar"><input type="search" placeholder="Buscar servidor ou matrícula" aria-label="Busca"><select aria-label="Status"><option>Todos os status</option><option>Pendente</option><option>Aprovado</option></select><input type="date" aria-label="Data inicial"><button class="btn btn-primary" type="button">Aplicar filtros</button></div>
- <div class="responsive-data-table"><table><thead><tr><th>Referência</th><th>Servidor</th><th>Período</th><th>Status</th><th>Ações</th></tr></thead><tbody data-grid><tr><td colspan="5"><div class="loading-skeleton" aria-label="Carregando"></div></td></tr></tbody></table></div>
+<section class="rh-b2-shell" id="rp-justificativas">
+  <header class="rh-b2-hero d-flex flex-wrap align-items-end justify-content-between gap-2">
+    <div>
+      <span class="lgpd-badge">LGPD • acesso auditado</span>
+      <h1>Justificativas de ponto</h1>
+      <p>Análise e decisão de justificativas de ausência ou atraso. O servidor não decide sobre a própria justificativa.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-primary" data-action="novo">Nova justificativa</button>
+      <button type="button" class="btn btn-outline-light" data-action="recarregar">Atualizar</button>
+    </div>
+  </header>
+  <div class="rh-b2-kpis">
+    <article class="rh-b2-card"><small>Registros</small><strong data-kpi>—</strong><span>no filtro atual</span></article>
+    <article class="rh-b2-card"><small>Autoaprovação</small><strong>Bloqueada</strong><span>criador ≠ decisor</span></article>
+    <article class="rh-b2-card"><small>Efeito da decisão</small><strong>Invalidação</strong><span>apuradas dependentes recalcular</span></article>
+  </div>
+  <div class="filter-bar">
+    <input type="search" data-search placeholder="Buscar por servidor, data ou motivo" aria-label="Buscar">
+    <button class="btn btn-primary" type="button" data-search-go>Filtrar</button>
+    <button class="btn btn-outline-secondary" type="button" data-search-clear>Limpar</button>
+  </div>
+  <div class="responsive-data-table"><table>
+    <thead><tr><th>#</th><th>Servidor</th><th>Data de referência</th><th>Motivo</th><th>Situação</th><th>Ações</th></tr></thead>
+    <tbody data-grid><tr><td colspan="6"><div class="loading-skeleton" aria-label="Carregando"></div></td></tr></tbody>
+  </table></div>
 </section>
+<script src="~/js/modules/rh.ponto-ui.js"></script>
 <script nonce="@Context.Items["CspNonce"]">
-(()=>{
-  const root = document.currentScript.previousElementSibling;
-  const body = root.querySelector('[data-grid]');
-  fetch(root.dataset.endpoint, { headers: { 'X-Correlation-Id': crypto.randomUUID() } })
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(x => {
-      const items = x.data?.items ?? x.items ?? [];
-      root.querySelector('[data-kpi]').textContent = items.length;
-      body.replaceChildren();
-      if (items.length) {
-        items.forEach(i => {
-          const tr = document.createElement('tr');
-          const tdId = document.createElement('td');
-          tdId.textContent = `#${i.id}`;
-          const tdProt = document.createElement('td');
-          tdProt.textContent = 'Dados protegidos';
-          const tdDash = document.createElement('td');
-          tdDash.textContent = '—';
-          const tdStatus = document.createElement('td');
-          const chip = document.createElement('span');
-          chip.className = 'status-chip';
-          chip.textContent = String(i.dados?.status ?? 'ATIVO');
-          tdStatus.appendChild(chip);
-          const tdAcao = document.createElement('td');
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-sm btn-outline-primary';
-          btn.textContent = 'Detalhes';
-          tdAcao.appendChild(btn);
-          tr.append(tdId, tdProt, tdDash, tdStatus, tdAcao);
-          body.appendChild(tr);
-        });
-      } else {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 5;
-        const div = document.createElement('div');
-        div.className = 'empty-state';
-        div.textContent = 'Nenhum registro encontrado para este filtro.';
-        td.appendChild(div);
-        tr.appendChild(td);
-        body.appendChild(tr);
-      }
-    })
-    .catch(() => {
-      body.replaceChildren();
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 5;
-      const div = document.createElement('div');
-      div.className = 'empty-state';
-      div.textContent = 'Não foi possível carregar. Confirme seu vínculo e tente novamente.';
-      td.appendChild(div);
-      tr.appendChild(td);
-      body.appendChild(tr);
-    });
+(() => {
+  const root = document.getElementById('rp-justificativas');
+  if (root && window.SigovRhPonto) window.SigovRhPonto.initJustificativas(root);
 })();
 </script>

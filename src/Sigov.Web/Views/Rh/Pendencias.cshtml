@@ -1,3 +1,28 @@
 @{ ViewData["Title"] = "Pendências de RH"; }
-<div class="sigov-ops-hero"><div><span class="sigov-eyebrow">Qualificação funcional</span><h1>Pendências dos servidores</h1><p>Priorize inconsistências cadastrais, funcionais, de ponto e de folha.</p></div><button class="btn btn-outline-primary">Exportar CSV</button></div>
-<div class="sigov-operation-grid"><article class="sigov-pendency-card is-critical"><strong>Documentação</strong><b>CPF ou matrícula ausente</b><span>Requer ação</span></article><article class="sigov-pendency-card"><strong>Vínculo</strong><b>Cargo ou lotação pendente</b><span>Revisar</span></article><article class="sigov-pendency-card"><strong>Folha</strong><b>Críticas bloqueantes</b><span>Alta prioridade</span></article></div>
+<section class="rh-b2-shell" id="rp-pendencias">
+  <header class="rh-b2-hero d-flex flex-wrap align-items-end justify-content-between gap-2">
+    <div>
+      <span class="lgpd-badge">LGPD • acesso auditado</span>
+      <h1>Pendências do servidor</h1>
+      <p>Ponto, justificativas, apurações e folha — resolvidas no servidor pelo vínculo do seu usuário.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-primary" data-action="recarregar">Atualizar</button>
+    </div>
+  </header>
+  <div class="rh-b2-kpis">
+    <article class="rh-b2-card"><small>Ativas</small><strong data-kpi>—</strong><span>aguardando tratamento</span></article>
+    <article class="rh-b2-card"><small>Origem</small><strong>Portal RH</strong><span>falha fechada, sem sucesso simulado</span></article>
+    <article class="rh-b2-card"><small>Auditoria</small><strong>100%</strong><span>correlation ID por chamada</span></article>
+  </div>
+  <div class="sigov-operation-grid row g-3" data-cards>
+    <div class="loading-skeleton col-12" aria-label="Carregando"></div>
+  </div>
+</section>
+<script src="~/js/modules/rh.ponto-ui.js"></script>
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.getElementById('rp-pendencias');
+  if (root && window.SigovRhPonto) window.SigovRhPonto.initPendencias(root);
+})();
+</script>

@@ -208,7 +208,13 @@ app.UseHttpsRedirection();
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
+    // Exceção restrita ao desenvolvimento: ?embed=1 permite incorporar a página em iframe da própria origem
+    // (exclusivo para validação responsiva 360/768/1440 px). Em staging/produção X-Frame-Options permanece DENY.
+    var allowEmbedFrame = app.Environment.IsDevelopment() && context.Request.Query.ContainsKey("embed");
+    if (!allowEmbedFrame)
+    {
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+    }
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     var nonceBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
     var nonce = Convert.ToBase64String(nonceBytes);
@@ -217,11 +223,20 @@ app.Use(async (context, next) =>
     // 'unsafe-inline' é mantido como exceção residual transitória documentada para compatibilidade de modais e componentes Razor existentes.
     // connect-src: em desenvolvimento/homologação local o front (HTTP :8080) consome a API em outra origem (:5001);
     // em produção HTTPS o destino padrão é a própria origem ('self'), que permanece coberta.
-    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self' 'unsafe-inline' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' http://localhost:5001; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self' 'unsafe-inline' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' http://localhost:5001; object-src 'none'; frame-ancestors {(allowEmbedFrame ? "'self'" : "'none'")}; base-uri 'self'; form-action 'self'";
     context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
     await next().ConfigureAwait(false);
 });
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // Desenvolvimento: evita cache heurística de CSS/JS entre rebuilds locais
+    // (a validação responsiva via ?embed=1 consumia estilos obsoletos do cache do navegador).
+    OnPrepareResponse = ctx =>
+    {
+        if (app.Environment.IsDevelopment())
+            ctx.Context.Response.Headers.CacheControl = "no-store";
+    }
+});
 app.UseRouting();
 app.UseRateLimiter();
 app.Use(async (context, next) =>

@@ -8,8 +8,10 @@ public sealed class RhController : Controller
     [Route("/RH")]
     public IActionResult Index() => RedirectToAction(nameof(Dashboard));
     public IActionResult Importacoes() => View();
+    [Route("/RH/Pendencias")]
     public IActionResult Pendencias() => View();
     public IActionResult Dashboard() => View();
+    [Route("/RH/Servidores")]
     public IActionResult Servidores() => View(new RhRegistroViewModel("servidores", "Servidores"));
     [Route("/Rh/Servidores/Novo")]
     [Route("/RH/Servidores/Create")]
@@ -30,6 +32,7 @@ public sealed class RhController : Controller
     public IActionResult Frequencia() => View("RegistroFunc12", new RhRegistroViewModel("frequencias", "Frequência"));
     public IActionResult Lotacoes() => View(new RhRegistroViewModel("lotacoes", "Lotações"));
     public IActionResult Vinculos() => View(new RhRegistroViewModel("vinculos", "Vínculos"));
+    [Route("/RH/Folhas")]
     public IActionResult Folhas() => View(new RhRegistroViewModel("folhas", "Folhas de Pagamento"));
     public IActionResult Folha() => RedirectToAction(nameof(Folhas));
     [Route("/Rh/Folha/Calcular")]
@@ -40,6 +43,7 @@ public sealed class RhController : Controller
     public IActionResult IntegracaoFinanceira() => View("RegistroFunc12", new RhRegistroViewModel("integracoes-financeiras", "Integração financeira"));
     public IActionResult Relatorios() => View("Relatorios");
     public IActionResult Auditoria() => View("RegistroFunc12", new RhRegistroViewModel("auditoria", "Auditoria de RH"));
+    [Route("/RH/FolhaCriar")]
     public IActionResult FolhaCriar() => View(new RhRegistroViewModel("folhas", "Nova Folha"));
     public IActionResult FolhaDetalhe(long id) { ViewData["FolhaId"] = id; return View(new RhRegistroViewModel("folhas", "Detalhe da Folha")); }
     public IActionResult FolhaEventos() => View(new RhRegistroViewModel("folha-eventos", "Eventos da Folha"));
@@ -66,18 +70,27 @@ public sealed class RhController : Controller
     public IActionResult Previdencia() => View("RegistroFunc12", new RhRegistroViewModel("previdencia", "Previdência"));
     public IActionResult Consignacoes() => View("RegistroFunc12", new RhRegistroViewModel("consignacoes", "Consignações"));
     public IActionResult Portal() => View();
+    [Route("/RH/PortalContracheques")]
     public IActionResult PortalContracheques() => View();
     public IActionResult PortalFerias() => View();
     public IActionResult PortalAfastamentos() => View();
+    [Route("/RH/PortalPonto")]
     public IActionResult PortalPonto() => View();
     public IActionResult PortalSolicitacoes() => View();
     public IActionResult PortalDadosCadastrais() => View("Portal");
+    [Route("/RH/PontoDashboard")]
     public IActionResult PontoDashboard() => View();
+    [Route("/RH/PontoJornadas")]
     public IActionResult PontoJornadas() => View();
+    [Route("/RH/PontoEscalas")]
     public IActionResult PontoEscalas() => View();
+    [Route("/RH/PontoRegistros")]
     public IActionResult PontoRegistros() => View();
+    [Route("/RH/PontoJustificativas")]
     public IActionResult PontoJustificativas() => View();
+    [Route("/RH/PontoApuracao")]
     public IActionResult PontoApuracao() => View();
+    [Route("/RH/PontoEspelho")]
     public IActionResult PontoEspelho() => View();
     public IActionResult FeriasDashboard() => View();
     public IActionResult FeriasProgramacao() => View();
