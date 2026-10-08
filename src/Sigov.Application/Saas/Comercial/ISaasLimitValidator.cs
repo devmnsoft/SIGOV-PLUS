@@ -6,6 +6,13 @@ public interface ISaasLimitValidator
 
     /// <summary>Validação transacional do limite de usuários (lock <c>for update</c> na assinatura ativa).</summary>
     Task<SaasLimitValidationResult> ValidateUserLimitTxAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, long tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Validação transacional do limite quantitativo de módulos do plano (RC-EVO S3.3): lock <c>for update</c>
+    /// na assinatura ativa + contagem fresca de contratos vigentes em <c>tenant_modulo_contratado</c>.
+    /// Distinto de <see cref="ValidateModuleLimitAsync"/>, que verifica a inclusão do módulo no plano contratado.
+    /// </summary>
+    Task<SaasLimitValidationResult> ValidateModuleLimitTxAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, long tenantId, CancellationToken cancellationToken = default);
     Task<SaasLimitValidationResult> ValidateModuleLimitAsync(long tenantId, string moduloCodigo, CancellationToken cancellationToken = default);
     Task<SaasLimitValidationResult> ValidateWhiteLabelAllowedAsync(long tenantId, CancellationToken cancellationToken = default);
     Task<SaasUsageSummary> GetUsageSummaryAsync(long tenantId, CancellationToken cancellationToken = default);

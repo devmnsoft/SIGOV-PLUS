@@ -430,6 +430,14 @@ public sealed class SaasTenantAdministrationService(
                     if (!existing)
                         return Rollback(transaction, $"Dependência contratual não atendida: {dependency}.");
                 }
+
+                // RC-EVO S3.3: limite comercial de módulos do plano — lock single-table nas assinaturas ativas
+                // (mesma lição do S3.2) + contagem fresca de contratos vigentes sob READ COMMITTED: na última
+                // vaga do saas_plano.limite_modulos (null = ilimitado) exatamente uma contratação concorrente
+                // é admitida. Negação leva o motivo canônico LIMITE_ATINGIDO (403 padronizado na camada Web).
+                var moduloLimit = await limitValidator.ValidateModuleLimitTxAsync(connection, transaction, command.TenantId, cancellationToken).ConfigureAwait(false);
+                if (!moduloLimit.Allowed)
+                    return Rollback(transaction, moduloLimit.Alert ?? "Limite de módulos do plano atingido.", SaasForbiddenMotivo.LimiteAtingido);
             }
 
             var before = await connection.QuerySingleOrDefaultAsync<ContractRow>(new CommandDefinition(

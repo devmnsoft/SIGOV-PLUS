@@ -30,7 +30,8 @@ public sealed class SaasComercialTests
         // RC-EVO-RH/folha: +1 entry (20261007100000_evo_rh_folha_feriado_parametros_grants) → 215 entradas + texto inicial.
         // RC-EVO-RH s8: +1 entry (20261007110000_evo_rh_portal_grants) → 216 entradas + texto inicial.
         // RC-EVO-RH s9: +1 entry (20261007120000_evo_rh_folha_financeira_parametros) → 217 entradas + texto inicial.
-        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(218);
+        // RC-EVO-A S3.3: +1 entry (20261007130000_evo_a_s33_limite_modulos_plano) → 218 entradas + texto inicial.
+        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(219);
     }
 
     [Fact] public void Migration_comercial_familia_B_idempotente_e_politica_de_downgrade_parametrizada()
@@ -146,5 +147,82 @@ public sealed class SaasComercialTests
         txBody.Should().Contain("new CommandDefinition(CountModulosAtivos");
         txBody.Split(", transaction,", StringSplitOptions.None).Length
             .Should().Be(5, "as 4 sentenças rodam na transação que mantém o lock (3 ocorrências + abertura)");
+    }
+
+    [Fact]
+    public void RC_EVO_S3_3_limite_modulos_migration_manifest_consolidados_e_gate_transacional()
+    {
+        // Regressão RC-EVO S3.3: limite comercial de módulos do plano — migration aditiva idempotente
+        // (saas_plano.limite_modulos, null = ilimitado), validação transacional que conta contratos vigentes
+        // na fonte contratual tenant_modulo_contratado sob o lock single-table do S3.2 e negação com motivo
+        // canônico LIMITE_ATINGIDO (403 padronizado na camada Web).
+        var mig = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/20261007130000_evo_a_s33_limite_modulos_plano.sql"));
+        mig.Should().Contain("alter table sigov.saas_plano add column if not exists limite_modulos int");
+        mig.Should().Contain("drop constraint if exists ck_saas_plano_limites");
+        mig.Should().Contain("limite_modulos is null or limite_modulos >= 0");
+        mig.Should().Contain("raise exception");
+        mig.ToLowerInvariant().Should().NotContain("drop table").And.NotContain("truncate");
+
+        var manifest = File.ReadAllText(TestRepoPath.Get("database/postgres/migrations/manifest.json"));
+        manifest.Should().Contain("\"version\": \"20261007130000\"");
+        manifest.Should().Contain("20261007130000_evo_a_s33_limite_modulos_plano.sql");
+        manifest.Should().Contain("b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998");
+
+        // Sincronização dos 6 consolidados (regra 7), incluindo o backfill de 20261007120000 no par postgres.
+        foreach (var script in new[]
+        {
+            "script_completo.sql", "script_completop.sql", "script_completo_dev.sql",
+            "database/script_completo.sql", "database/postgres/script_completo.sql", "database/postgres/script_completo_dev.sql"
+        })
+        {
+            var consolidado = File.ReadAllText(TestRepoPath.Get(script));
+            consolidado.Should().Contain("MIGRATION: 20261007130000_evo_a_s33_limite_modulos_plano.sql");
+            consolidado.Should().Contain("limite_modulos is null or limite_modulos >= 0");
+            consolidado.Split("MIGRATION: 20261007130000", StringSplitOptions.None).Length
+                .Should().Be(2, $"{script}: bloco 130000 exatamente uma vez");
+            consolidado.Split("MIGRATION: 20261007120000", StringSplitOptions.None).Length
+                .Should().Be(2, $"{script}: bloco 120000 presente (backfill no par postgres)");
+        }
+
+        var src = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Saas/Comercial/SaasLimitValidator.cs"));
+        src.Should().Contain("ValidateModuleLimitTxAsync");
+        var ccIdx = src.IndexOf("CountContratosVigentes =", StringComparison.Ordinal);
+        ccIdx.Should().BeGreaterThan(0, "contagem de contratos vigentes presente");
+        var ccLine = src.Substring(ccIdx, src.IndexOf('\n', ccIdx) - ccIdx);
+        ccLine.Should().Contain("tenant_modulo_contratado")
+            .And.Contain("'CONTRATADO','HABILITADO','ATIVO','TRIAL','EM_IMPLANTACAO','BETA'")
+            .And.Contain("vigencia_fim>=current_date")
+            .And.NotContain("for update")
+            .And.NotContain("join");
+
+        var txStart = src.IndexOf("public async Task<SaasLimitValidationResult> ValidateModuleLimitTxAsync", StringComparison.Ordinal);
+        var txEnd = src.IndexOf("private static SaasLimitValidationResult ModuleLimitDecision", txStart, StringComparison.Ordinal);
+        txStart.Should().BeGreaterThan(0);
+        txEnd.Should().BeGreaterThan(txStart);
+        var txBody = src.Substring(txStart, txEnd - txStart);
+        txBody.Should().Contain("new CommandDefinition(LockAssinaturasAtivas");
+        txBody.Should().Contain("new CommandDefinition(LimitePlanoApósLock");
+        txBody.Should().Contain("new CommandDefinition(CountContratosVigentes");
+        txBody.Split(", transaction,", StringSplitOptions.None).Length
+            .Should().Be(4, "as 3 sentenças rodam na transação que mantém o lock (3 ocorrências + abertura)");
+        src.Should().Contain("if (melhor is null) return ModuleLimitDecision(tenantId, null);");
+        src.Should().Contain("if (plano is null) return ModuleLimitDecision(tenantId, null);");
+        src.Should().Contain("row.LimiteModulos is null || row.ContratosVigentes < row.LimiteModulos");
+
+        var svc = File.ReadAllText(TestRepoPath.Get("src/Sigov.Infrastructure/Saas/SaasTenantAdministrationService.cs"));
+        var mutStart = svc.IndexOf("private async Task<SaasModuleContractResult> MutateAsync", StringComparison.Ordinal);
+        mutStart.Should().BeGreaterThan(0);
+        var mutEnd = svc.IndexOf("private static SaasModuleContractResult Rollback", mutStart, StringComparison.Ordinal);
+        mutEnd.Should().BeGreaterThan(mutStart);
+        var mutBody = svc.Substring(mutStart, mutEnd - mutStart);
+        mutBody.Should().Contain("limitValidator.ValidateModuleLimitTxAsync(connection, transaction, command.TenantId, cancellationToken)");
+        mutBody.Should().Contain("Rollback(transaction, moduloLimit.Alert ?? \"Limite de módulos do plano atingido.\", SaasForbiddenMotivo.LimiteAtingido)");
+
+        var ctl = File.ReadAllText(TestRepoPath.Get("src/Sigov.Web/Controllers/SaasAdminController.cs"));
+        ctl.Split("SAAS_MODULO_CONTRATAR_LIMITE", StringSplitOptions.None).Length
+            .Should().Be(2, "auditoria SAAS_MODULO_CONTRATAR_LIMITE registrada uma única vez");
+        ctl.Split("SAAS_MODULO_REATIVAR_LIMITE", StringSplitOptions.None).Length
+            .Should().Be(2, "auditoria SAAS_MODULO_REATIVAR_LIMITE registrada uma única vez");
+        ctl.Should().Contain("ForbiddenResponse.Registrar(this, result.Motivo403.Value, result.Message)");
     }
 }

@@ -2895,6 +2895,19 @@
         "20261007110000"
       ],
       "postConditionSql": "select exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='ORCAMENTO_DESPESA_FOLHA_ID' and tipo='INTEGER' and ativo and not is_deleted) and exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='FORNECEDOR_FOLHA_ID' and tipo='INTEGER' and ativo and not is_deleted)"
+    },
+    {
+      "version": "20261007130000",
+      "description": "RC-EVO-A S3.3: limite comercial de modulos - coluna saas_plano.limite_modulos + check estendido de nao-negatividade (idempotente)",
+      "category": "schema",
+      "file": "20261007130000_evo_a_s33_limite_modulos_plano.sql",
+      "checksum": "b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261007120000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='saas_plano' and a.attname='limite_modulos' and not a.attisdropped)"
     }
   ],
   "compatibilityAfterAll": [

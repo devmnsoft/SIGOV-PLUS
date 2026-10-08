@@ -85,6 +85,14 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         var identity = CurrentUserId();
         if (identity is null) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para executar esta operação.");
         var result = await tenants.ContractAsync(new(id, moduleCode, "CONTRATADO", effectiveFrom, effectiveUntil, justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        if (!result.Success && result.Motivo403.HasValue)
+        {
+            // RC-EVO S3.3: negação pelo limite comercial de módulos vira 403 padronizado com motivo LIMITE_ATINGIDO.
+            await audit.RegistrarAsync(id, identity.Value, "SAAS_MODULO_CONTRATAR_LIMITE", "sigov.tenant_modulo_contratado", moduleCode, null,
+                new { motivo = SaasForbiddenMotivos.ToWire(result.Motivo403.Value), detalhe = result.Message },
+                HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+            return ForbiddenResponse.Registrar(this, result.Motivo403.Value, result.Message);
+        }
         TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
         return RedirectToAction(nameof(TenantDetalhe), new { id });
     }
@@ -109,6 +117,14 @@ public sealed class SaasAdminController(ISuperAdminOperationalDashboardService d
         var identity = CurrentUserId();
         if (identity is null) return ForbiddenResponse.Registrar(this, SaasForbiddenMotivo.SemPermissao, "Sem permissão para executar esta operação.");
         var result = await tenants.ReactivateAsync(new(id, moduleCode, "HABILITADO", effectiveFrom, effectiveUntil, justification ?? string.Empty, expectedUpdatedAt), identity.Value, HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+        if (!result.Success && result.Motivo403.HasValue)
+        {
+            // RC-EVO S3.3: reativação além da cota do plano negada com 403 padronizado e motivo LIMITE_ATINGIDO.
+            await audit.RegistrarAsync(id, identity.Value, "SAAS_MODULO_REATIVAR_LIMITE", "sigov.tenant_modulo_contratado", moduleCode, null,
+                new { motivo = SaasForbiddenMotivos.ToWire(result.Motivo403.Value), detalhe = result.Message },
+                HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), HttpContext.TraceIdentifier, ct).ConfigureAwait(false);
+            return ForbiddenResponse.Registrar(this, result.Motivo403.Value, result.Message);
+        }
         TempData[result.Success ? "SaasAdminSuccess" : "SaasAdminError"] = result.Message;
         return RedirectToAction(nameof(TenantDetalhe), new { id });
     }

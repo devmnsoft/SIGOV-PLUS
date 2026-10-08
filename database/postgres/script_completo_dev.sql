@@ -34231,6 +34231,137 @@ end $grants$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007110000', 'RC-EVO-RH s8: grant rh.portal.visualizar PERMITIR para perfis locais SERVIDOR e COORDENADOR (espelho de folha no portal: contracheques e pendencias)', '8482c7ce8151f9f850c115ab7661ac8a9f5025316a11a25608ce603e778d8924', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- ==================================================
+-- MIGRATION: 20261007120000_evo_rh_folha_financeira_parametros.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: d9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4
+-- ==================================================
+-- RC-EVO-RH s9 | 20261007120000 - Parametros FOLHA da relacao financeira da integracao de ponto (idempotente).
+-- A relacao folha de ponto -> Financeiro (secao 9) usa parametros como regras (banco e a
+-- autoridade, regra 11); o consumidor da fila so age com regras suficientes:
+--   P1  FOLHA/ORCAMENTO_DESPESA_FOLHA_ID (INTEGER) - orcamento de despesa (sigov.orcamento_despesa)
+--       usado no empenho gerado a partir da integracao. valor_padrao 'null' => fail-closed:
+--       tenant sem mapping falha explicitamente com REGRAS_FINANCEIRAS_INSUFICIENTES
+--       (sem documento ficticio, regra 13).
+--   P2  FOLHA/FORNECEDOR_FOLHA_ID (INTEGER) - fornecedor (sigov.pessoa) referenciado no
+--       empenho. valor_padrao 'null' => mesmo fail-closed.
+--   P3  HABILITAR_INTEGRACAO_FINANCEIRA ja existe no catalogo (id 30, padrao false) e NUNCA e
+--       semeado true aqui: a ativacao e ato do administrador via API (PUT api/parametros/FOLHA),
+--       mantendo o banco como fonte de autoridade (regra 11).
+--   P4  Seed FICTICIO (regras 9/10) somente para o tenant de desenvolvimento/homologacao (5):
+--       orcamento=1 / fornecedor=3 (registros ficticios ja existentes no banco dev), com
+--       historico auditado (origem SEED_FICTICIO_DEV). Idempotente via not exists - reexecucao
+--       nao sobrescreve valor que o administrador ja tenha ajustado.
+-- Neutro multi-esfera (regras 21-24): o mapping e por tenant (parametro_modulo_valor), sem
+-- hardcode municipal; sem taxa, percentual ou regra legal inventada; sem credencial literal;
+-- autoverificacao com falha explicita (regra 13).
+
+insert into sigov.parametro_modulo (modulo, codigo, nome, descricao, tipo, valor_padrao, sensivel, ordem)
+values ('FOLHA','ORCAMENTO_DESPESA_FOLHA_ID','Orcamento de despesa padrao da folha de ponto',
+        'Identificador (numero inteiro) do item sigov.orcamento_despesa usado pelo consumidor da fila ao emitir o empenho da integracao de ponto na folha. Nulo ou indefinido gera a falha explicita REGRAS_FINANCEIRAS_INSUFICIENTES.',
+        'INTEGER','null'::jsonb,false,101)
+on conflict (modulo,codigo) where is_deleted=false
+do update set nome = excluded.nome, descricao = excluded.descricao, tipo = excluded.tipo, ativo = true, is_deleted = false;
+
+insert into sigov.parametro_modulo (modulo, codigo, nome, descricao, tipo, valor_padrao, sensivel, ordem)
+values ('FOLHA','FORNECEDOR_FOLHA_ID','Fornecedor padrao da folha de ponto',
+        'Identificador (numero inteiro) da sigov.pessoa (fornecedor) referenciada no empenho da integracao de ponto na folha. Nulo ou indefinido gera a falha explicita REGRAS_FINANCEIRAS_INSUFICIENTES.',
+        'INTEGER','null'::jsonb,false,102)
+on conflict (modulo,codigo) where is_deleted=false
+do update set nome = excluded.nome, descricao = excluded.descricao, tipo = excluded.tipo, ativo = true, is_deleted = false;
+
+do $folha_financeira$
+declare
+    v_orcamento bigint;
+    v_fornecedor bigint;
+    v_tenant_id bigint;
+begin
+    select id into v_orcamento
+      from sigov.parametro_modulo
+     where modulo = 'FOLHA' and codigo = 'ORCAMENTO_DESPESA_FOLHA_ID' and ativo and not is_deleted;
+    select id into v_fornecedor
+      from sigov.parametro_modulo
+     where modulo = 'FOLHA' and codigo = 'FORNECEDOR_FOLHA_ID' and ativo and not is_deleted;
+
+    if v_orcamento is null or v_fornecedor is null then
+        raise exception 'RC-EVO-RH 20261007120000: parametro FOLHA/ORCAMENTO_DESPESA_FOLHA_ID ou FOLHA/FORNECEDOR_FOLHA_ID ausente do catalogo apos upsert';
+    end if;
+
+    -- Mapping FICTICIO somente para o tenant de desenvolvimento/homologacao (regras 9/10):
+    -- orcamento_despesa id 1 e pessoa id 3 (Fornecedor Ficticio de Homologacao) ja existem
+    -- no banco dev. Reexecucao nao sobrescreve (not exists), preservando ajuste do administrador.
+    for v_tenant_id in select id from sigov.tenant where id = 5 and ativo and not is_deleted loop
+        if not exists (select 1 from sigov.parametro_modulo_valor
+                       where tenant_id = v_tenant_id and parametro_id = v_orcamento and not is_deleted) then
+            insert into sigov.parametro_modulo_valor (tenant_id, parametro_id, valor, created_by, updated_by, correlation_id)
+            values (v_tenant_id, v_orcamento, '1'::jsonb, null, null, 'evo-rh-folha-financeira-seed');
+            insert into sigov.parametro_modulo_historico (tenant_id, parametro_id, valor_anterior, valor_novo, usuario_id, correlation_id, auditoria)
+            values (v_tenant_id, v_orcamento, null, '1'::jsonb, null, 'evo-rh-folha-financeira-seed', '{"origem":"SEED_FICTICIO_DEV"}'::jsonb);
+        end if;
+
+        if not exists (select 1 from sigov.parametro_modulo_valor
+                       where tenant_id = v_tenant_id and parametro_id = v_fornecedor and not is_deleted) then
+            insert into sigov.parametro_modulo_valor (tenant_id, parametro_id, valor, created_by, updated_by, correlation_id)
+            values (v_tenant_id, v_fornecedor, '3'::jsonb, null, null, 'evo-rh-folha-financeira-seed');
+            insert into sigov.parametro_modulo_historico (tenant_id, parametro_id, valor_anterior, valor_novo, usuario_id, correlation_id, auditoria)
+            values (v_tenant_id, v_fornecedor, null, '3'::jsonb, null, 'evo-rh-folha-financeira-seed', '{"origem":"SEED_FICTICIO_DEV"}'::jsonb);
+        end if;
+    end loop;
+end $folha_financeira$;
+
+do $check$
+begin
+    if not exists (select 1 from sigov.parametro_modulo
+                   where modulo = 'FOLHA' and codigo = 'ORCAMENTO_DESPESA_FOLHA_ID' and tipo = 'INTEGER' and ativo and not is_deleted)
+       or not exists (select 1 from sigov.parametro_modulo
+                      where modulo = 'FOLHA' and codigo = 'FORNECEDOR_FOLHA_ID' and tipo = 'INTEGER' and ativo and not is_deleted)
+    then
+        raise exception 'RC-EVO-RH 20261007120000: parametros FOLHA da relacao financeira ausentes apos seed';
+    end if;
+
+    raise notice 'RC-EVO-RH 20261007120000 concluida: ORCAMENTO_DESPESA_FOLHA_ID e FORNECEDOR_FOLHA_ID no catalogo FOLHA c/ seed ficticio dev (tenant 5: orcamento=1, fornecedor=3). HABILITAR_INTEGRACAO_FINANCEIRA permanece desligada por padrao.';
+end $check$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007120000', 'RC-EVO-RH s9: parametros FOLHA da relacao financeira da integracao de ponto (ORCAMENTO_DESPESA_FOLHA_ID, FORNECEDOR_FOLHA_ID) c/ seed ficticio dev (tenant 5)', 'd9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- ==================================================
+-- MIGRATION: 20261007130000_evo_a_s33_limite_modulos_plano.sql
+-- CATEGORY: schema
+-- CHECKSUM_SHA256: b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998
+-- ==================================================
+-- RC-EVO-A S3.3 | 20261007130000 - Limite comercial de modulos do plano (idempotente).
+-- saas_plano.limite_modulos e a cota de contratos de modulo vigentes que o tenant pode deter:
+-- null = ilimitado (mesma semantica de limite_usuarios), inteiro >= 0 = teto. Nao se semeia valor
+-- (regra 11): cada plano recebe sua cota por ato administrativo dentro do banco. O enforcement e
+-- transacional em codigo (SaasLimitValidator.ValidateModuleLimitTxAsync +
+-- SaasTenantAdministrationService.MutateAsync): trava as assinaturas ativas (lock single-table,
+-- mesma licao do S3.2) e conta contratos vigentes na fonte contratual
+-- sigov.tenant_modulo_contratado com a mesma janela de status/vigencia do dependency check; a
+-- contagem sob READ COMMITTED usa snapshot fresco e serializa a disputa pela ultima vaga.
+-- Sem bonus, sem ADDON inventado; neutro multi-esfera (regras 21-24); sem credencial literal;
+-- autoverificacao com falha explicita (regra 13).
+
+alter table sigov.saas_plano add column if not exists limite_modulos int;
+
+alter table sigov.saas_plano drop constraint if exists ck_saas_plano_limites;
+alter table sigov.saas_plano add constraint ck_saas_plano_limites
+    check ((limite_usuarios is null or limite_usuarios >= 0) and (limite_entidades is null or limite_entidades >= 0) and (limite_armazenamento_mb is null or limite_armazenamento_mb >= 0) and (limite_modulos is null or limite_modulos >= 0));
+
+do $s33$
+begin
+    if not exists (select 1 from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='saas_plano' and a.attname='limite_modulos' and not a.attisdropped) then
+        raise exception 'RC-EVO-A S3.3 20261007130000: coluna limite_modulos ausente em sigov.saas_plano apos o alter';
+    end if;
+
+    if not exists (select 1 from pg_constraint c join pg_class t on t.oid=c.conrelid where c.conname='ck_saas_plano_limites' and t.relname='saas_plano' and t.relnamespace='sigov'::regnamespace and c.contype='c' and c.consrc like '%limite_modulos%') then
+        raise exception 'RC-EVO-A S3.3 20261007130000: check ck_saas_plano_limites sem cobertura de limite_modulos';
+    end if;
+
+    raise notice 'RC-EVO-A S3.3 20261007130000 concluida: saas_plano.limite_modulos disponivel (null = ilimitado).';
+end $s33$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007130000', 'RC-EVO-A S3.3: limite comercial de modulos - coluna saas_plano.limite_modulos + check estendido de nao-negatividade (idempotente)', 'b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
 \else
 \echo 'Baseline canônico já registrado; nenhuma migration foi reaplicada.'
 \endif
