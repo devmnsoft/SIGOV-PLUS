@@ -34352,7 +34352,7 @@ begin
         raise exception 'RC-EVO-A S3.3 20261007130000: coluna limite_modulos ausente em sigov.saas_plano apos o alter';
     end if;
 
-    if not exists (select 1 from pg_constraint c join pg_class t on t.oid=c.conrelid where c.conname='ck_saas_plano_limites' and t.relname='saas_plano' and t.relnamespace='sigov'::regnamespace and c.contype='c' and c.consrc like '%limite_modulos%') then
+    if not exists (select 1 from pg_constraint c join pg_class t on t.oid=c.conrelid where c.conname='ck_saas_plano_limites' and t.relname='saas_plano' and t.relnamespace='sigov'::regnamespace and c.contype='c' and pg_get_constraintdef(c.oid) like '%limite_modulos%') then
         raise exception 'RC-EVO-A S3.3 20261007130000: check ck_saas_plano_limites sem cobertura de limite_modulos';
     end if;
 
