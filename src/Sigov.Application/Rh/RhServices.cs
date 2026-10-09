@@ -748,6 +748,11 @@ public sealed class RhService : IRhService
             var permitirNaoBloqueante = ParametroBool(parametros, "PERMITIR_CRITICA_NAO_BLOQUEANTE", true);
             // RC-EVO-RH §9: relação com o Financeiro — publicado na fila somente com o parâmetro habilitado (banco é a autoridade).
             var habilitarIntegracaoFinanceira = ParametroBool(parametros, FolhaPontoFinanceiraRegras.ParametroHabilitar, false);
+            // RC-EVO-B §6: habilitada sem entidade/exercício na sessão é recusa nomeada ANTES de
+            // materializar — a fila nunca pode ser pulada em silêncio com resposta de sucesso.
+            var falhaContexto = FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro(
+                habilitarIntegracaoFinanceira, _tenant.EntidadeId ?? 0, _tenant.ExercicioId ?? 0);
+            if (falhaContexto is not null) return Result<RhIntegracaoFolhaResumoDto>.Failure(falhaContexto);
             if (FolhaRegras.CriticaBloqueia(bloquearComCritica, permitirNaoBloqueante, criticas))
             {
                 return Result<RhIntegracaoFolhaResumoDto>.Failure($"CRITICA_BLOQUEANTE: a apuração possui {criticas.Count.ToString(CultureInfo.InvariantCulture)} pendência(s) ({string.Join("; ", criticas)}); resolva-as antes de integrar ou ajuste BLOQUEAR_CALCULO_COM_CRITICA/PERMITIR_CRITICA_NAO_BLOQUEANTE no módulo FOLHA.");

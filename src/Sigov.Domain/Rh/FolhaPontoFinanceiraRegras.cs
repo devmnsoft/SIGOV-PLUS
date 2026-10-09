@@ -46,6 +46,8 @@ public static class FolhaPontoFinanceiraRegras
     public const string FalhaSemProventos = "SEM_PROVENTOS_PARA_EMPENHO";
     public const string FalhaRegrasInsuficientes = "REGRAS_FINANCEIRAS_INSUFICIENTES";
     public const string FalhaExercicioAusente = "EXERCICIO_AUSENTE";
+    // RC-EVO-B §6: integração habilitada sem entidade/exercício resolvidos na sessão.
+    public const string FalhaContextoAusente = "CONTEXTO_FINANCEIRO_AUSENTE";
     // RC-EVO-B §5: integridade do payload entre publicação e consumo (checksum persistido na origem).
     public const string FalhaHashAusente = "PAYLOAD_FINANCEIRO_SEM_HASH";
     public const string FalhaChecksumDivergente = "PAYLOAD_FINANCEIRO_CHECKSUM_DIVERGENTE";
@@ -136,6 +138,23 @@ public static class FolhaPontoFinanceiraRegras
         return ausentes.Count == 0
             ? null
             : $"{FalhaRegrasInsuficientes}: regras de integração financeira insuficientes — {string.Join("; ", ausentes)}; defina-os no módulo FOLHA antes de consumir.";
+    }
+
+    /// <summary>
+    /// RC-EVO-B §6: com HABILITAR_INTEGRACAO_FINANCEIRA=true a sessão precisa trazer entidade e
+    /// exercício resolvidos — ausente nunca vira fila pulada em silêncio (o custo da folha sumiria
+    /// do Financeiro com resposta de sucesso). Desabilitada → null (a integração responde sem
+    /// promessa financeira). null = contexto suficiente; senão falha nomeada listando as ausências.
+    /// </summary>
+    public static string? ValidarContextoFinanceiro(bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId)
+    {
+        if (!habilitarIntegracaoFinanceira) return null;
+        var ausentes = new List<string>();
+        if (entidadeId <= 0) ausentes.Add("entidade");
+        if (exercicioId <= 0) ausentes.Add("exercício");
+        return ausentes.Count == 0
+            ? null
+            : $"{FalhaContextoAusente}: a integração financeira está habilitada mas a sessão não resolve {string.Join(" nem ", ausentes)}; selecione o contexto operacional (exercício ativo único vinculado à sessão) antes de integrar a apuração na folha — nenhuma integração foi registrada.";
     }
 
     // ==== Payload da fila ===========================================================

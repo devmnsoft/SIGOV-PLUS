@@ -924,4 +924,24 @@ public sealed class RhRulesTests
         FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("\"patrimonial\"").Should().Be("PATRIMONIAL");
         FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("\"  estimativo  \"").Should().Be("ESTIMATIVO");
     }
+
+    // ==== RC-EVO-B §6: contexto financeiro da sessão na integração ==============================
+
+    [Fact]
+    public void S6_IntegracaoHabilitada_Sem_Entidade_Ou_Exercicio_Na_Sessao_Falha_Nomeada()
+    {
+        // Habilitada sem contexto: recusa nomeada listando as ausências — a fila nunca é pulada em silêncio.
+        FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro(true, 0, 5)!.Should()
+            .Contain(FolhaPontoFinanceiraRegras.FalhaContextoAusente).And.Contain("entidade");
+        FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro(true, 2, 0)!.Should()
+            .Contain(FolhaPontoFinanceiraRegras.FalhaContextoAusente).And.Contain("exercício");
+        FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro(true, -1, -1)!.Should()
+            .Contain("entidade").And.Contain("exercício");
+
+        // Desabilitada: não é recusa — não há promessa ao Financeiro e a integração responde habilitada=false.
+        FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro(false, 0, 0).Should().BeNull();
+
+        // Contexto completo: null = suficiente para integrar e publicar na fila.
+        FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro(true, 2, 7).Should().BeNull();
+    }
 }
