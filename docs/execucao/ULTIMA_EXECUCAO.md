@@ -1,5 +1,20 @@
 # Última execução
 
+Data: 2026-10-09. RC-EVO-B §6 + fechamento P0.1/Gate A item 6. Estado: **VALIDADO COM EVIDÊNCIA (build/suítes + PostgreSQL 16 ao vivo)**.
+
+- Baseline: worktree `swift-circuit`, HEAD `6c7b269a`, árvore limpa. SDK .NET 10.0.400 (`global.json` 10.0.100 + latestFeature); Docker 29.4.3 e PostgreSQL 16.14 (`postgres:16`, container `sigov-postgres`) disponíveis neste host.
+- Parte 1 — RC-EVO-B §6 (contexto financeiro da sessão na integração ponto→folha): regra fail-closed `FolhaPontoFinanceiraRegras.ValidarContextoFinanceiro` + recusa nomeada `CONTEXTO_FINANCEIRO_AUSENTE` **antes** de materializar (a fila nunca é pulada com sucesso falso quando entidade/exercício não estão resolvidos na sessão) já estava commitada; desta execução validou a suíte completa e registrou a evidência que o commit "ajutes novos" não trazia. Sem migration/permissão/interface.
+- Gates da Parte 1: build Release `-warnaserror` **0w/0e**; UnitTests **508/508**; IntegrationTests **158/158**; ApiTests **158/158**; manifest JSON válido (220 entradas, última `20261008130000`, 4 excluídas do baseline). Nota: restore `-locked-mode` acusou `NU1004` por RID do lockfile ser `linux-x64` (artefato de ambiente deste host); evidência de compilação obtida com restore padrão + `-warnaserror`.
+- Parte 2 — fechamento do item 6 (gap RC50.68A / P0.1): executou-se o fluxo oficial do runner (`database/docker/apply-migrations.sh` corrente, reconciliação bidirecional §6) **ao vivo no PG16** em duas cenas com bancos descartáveis:
+  - Instalação limpa (`evo_c_clean`, vazio): exit 0; canônico 216/última `20261008130000`; sidecar 217 (=216+marker por design); divergências lado-a-lado **0**; canônico ⊆ sidecar.
+  - Upgrade legado de `7ece53c1` (`evo_c_legacy`, canônico 212/última `20261007110000`, marker semeado no shape legado): fase 1 pulada, aplicadas exatamente as 4 pendentes (`20261007120000`,`20261007130000`,`20261008120000`,`20261008130000`) e **reconciliadas no canônico com `source='docker-sidecar'`** (o defeito original: canônico ficava para trás); canônico 212→216; divergências **0**.
+  - Sem `ERROR: column "version" does not exist`; teardown `DROP ... WITH (FORCE)` e residuo zerado verificado.
+- Promovido na matriz: `MATRIZ_FLUXOS_VERTICAIS.md` P0.1 → item 6 FECHADO; comando normativo apontando para os sub-itens P0 restantes (P0.2/P0.3/P0.4) e só então Gate B.
+- Evidências: `docs/evidencias/rcevo/relatorio_s6_contexto_financeiro.md` e `docs/evidencias/rcevo/relatorio_p0_1_fechamento_item6_pg16.md`; logs em `Temp\opencode\` (`evo_c_faseA_clean.log`, `evo_c_faseB_upgrade.log`).
+- Próximo item exato: retomar os sub-itens P0 ainda PARCIAIS (P0.2 conferir os contratos estáticos históricos de ApiTests no estado atual — hoje 158/158 verdes; P0.3 auditoria integral de conflitos de rotas; P0.4 jornada login/CPF/CNPJ/logout/revogação/tent suspenso/dois tenants no banco oficial); somente após P0 integralmente verde, Gate B (SaaS canônico). GED permanece por último.
+
+---
+
 Data: 2026-09-22. RC51.03A — retry concorrente do recebimento de compras. Estado: **CORRIGIDO ESTATICAMENTE / GATE RUNTIME BLOCKED**.
 
 - Baseline: branch `work`, HEAD inicial `7443a8a4b7cb62173e6bb28083dbdaca9ffd3a77`, árvore limpa. O fluxo selecionado foi rastreado da navegação de Compras Empresariais às rotas MVC, application service, repositório Dapper, tabelas de recebimento/eventos e efeitos em saldo/movimento de estoque.
