@@ -8,14 +8,24 @@ public static class OutboxSqlQueries
     // tipo_evento, erro, next_attempt_at); não referencia colunas de geração anterior da
     // fila que não existem nessa tabela. Os status são comparados sem diferenciar
     // maiúsculas porque os produtores históricos usam 'pendente' e convenções 'PENDING'.
+    // RC-EVO-B §5: o claim usa next_attempt_at como LEASE (now()+@LeaseSeconds). Um worker que
+    // morre no meio do processamento deixa a mensagem em PROCESSANDO; vencida a locação ela volta
+    // a ser elegível (claim é idempotente pela chave compartilhada empenho.criar). Linhas antigas
+    // pré-lease (PROCESSANDO sem vencimento) são retomadas após 30 minutos sem atualização.
     public const string FetchPending = @"update sigov.outbox_evento f
-set status = 'PROCESSANDO', updated_at = now()
+set status = 'PROCESSANDO',
+    next_attempt_at = now() + (@LeaseSeconds * interval '1 second'),
+    updated_at = now()
 from (
     select id
     from sigov.outbox_evento
     where tenant_id is not null
-      and lower(status) in ('pendente','pending','erro')
-      and (next_attempt_at is null or next_attempt_at <= now())
+      and (
+        (lower(status) in ('pendente','pending','erro')
+             and (next_attempt_at is null or next_attempt_at <= now()))
+        or (lower(status) = 'processando' and next_attempt_at is not null and next_attempt_at <= now())
+        or (lower(status) = 'processando' and next_attempt_at is null and updated_at < now() - interval '30 minutes')
+      )
     order by created_at asc
     limit @BatchSize
     for update skip locked

@@ -2908,6 +2908,32 @@
         "20261007120000"
       ],
       "postConditionSql": "select exists(select 1 from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='saas_plano' and a.attname='limite_modulos' and not a.attisdropped)"
+    },
+    {
+      "version": "20261008120000",
+      "description": "RC-EVO-B s3/s5: parametros PONTO/POLITICA_TOLERANCIA (motor v2, fail-closed c/ pendencia) e FOLHA/TIPO_EMPENHO_INTEGRACAO_PONTO (default ORDINARIO) c/ seed ficticio dev (tenant 5)",
+      "category": "functional",
+      "file": "20261008120000_evo_rh_ponto_politica_tolerancia_tipo_empenho.sql",
+      "checksum": "a72d0ca1481e6566b81735267f873d22b92c0b8788b630651ee97d74f3cbad9a",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261007130000"
+      ],
+      "postConditionSql": "select exists(select 1 from sigov.parametro_modulo where modulo='PONTO' and codigo='POLITICA_TOLERANCIA' and tipo='JSON' and ativo and not is_deleted) and exists(select 1 from sigov.parametro_modulo where modulo='FOLHA' and codigo='TIPO_EMPENHO_INTEGRACAO_PONTO' and tipo='JSON' and ativo and not is_deleted)"
+    },
+    {
+      "version": "20261008130000",
+      "description": "RC-EVO-B: libera o cnpj placeholder 00000000000000 da entidade da plataforma (tenant plataforma-mnsoft passa a 00000000000090, ficticio) para desbloquear ux_entidade_cnpj no seed dev 999 em instalacao limpa do script_completo_dev",
+      "category": "functional",
+      "file": "20261008130000_evo_liberacao_cnpj_placeholder_plataforma.sql",
+      "checksum": "faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261006110000"
+      ],
+      "postConditionSql": "select not exists(select 1 from sigov.entidade p join sigov.tenant tp on tp.id = p.tenant_id and tp.slug = 'plataforma-mnsoft' where p.cnpj = '00000000000000' and exists(select 1 from sigov.entidade o where o.cnpj = p.cnpj and o.tenant_id <> p.tenant_id))"
     }
   ],
   "compatibilityAfterAll": [

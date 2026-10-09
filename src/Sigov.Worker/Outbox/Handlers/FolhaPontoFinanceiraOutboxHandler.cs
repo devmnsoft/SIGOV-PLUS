@@ -10,11 +10,14 @@ namespace Sigov.Worker.Outbox.Handlers;
 
 /// <summary>
 /// RC-EVO-RH §9: consome RH_FOLHA_PONTO_FINANCEIRO e materializa o documento real no Financeiro —
-/// um empenho por integração (tipo ORDINARIO), SEM liquidação nem pagamento automático.
+/// um empenho por integração, SEM liquidação nem pagamento automático. RC-EVO-B §5: o tipo do
+/// empenho vem do parâmetro FOLHA TIPO_EMPENHO_INTEGRACAO_PONTO (padrão ORDINARIO) e a data de
+/// emissão é a congelada no payload na publicação — o retry não troca a data do documento.
 /// O consumidor só age com regras suficientes (ORCAMENTO_DESPESA_FOLHA_ID + FORNECEDOR_FOLHA_ID no
-/// módulo FOLHA); sem elas falha com a falha nomeada REGRAS_FINANCEIRAS_INSUFICIENTES e volta a tentar
-/// (backoff) até o administrador corrigir (self-heal). Retry é idempotente pela chave compartilhada
-/// com o producer (outbox) e o escopo 'empenho.criar' da idempotência financeira.
+/// módulo FOLHA) e com o payload assinado conferido (payloadHash); falhas definitivas nomeadas
+/// (config/payload/checksum/saldo) viram dead-letter rastreável (FALHOU) — o administrador corrige
+/// o parâmetro e reabre a mensagem. Transitórias mantêm o retry com backoff. Retry é idempotente
+/// pela chave compartilhada com o producer (outbox) e o escopo 'empenho.criar' da idempotência financeira.
 /// </summary>
 public sealed class FolhaPontoFinanceiraOutboxHandler : DefaultOutboxHandler
 {
@@ -37,22 +40,41 @@ public sealed class FolhaPontoFinanceiraOutboxHandler : DefaultOutboxHandler
 
     public override async Task HandleAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
-        var payload = FolhaPontoFinanceiraRegras.Parse(message.Payload);
+        // RC-EVO-B §5: taxonomia de erros — falhas nomeadas das regras (payload inválido/sem checksum,
+        // configuração insuficiente, sem proventos, exercício inativo) são DEFINITIVAS e viram
+        // dead-letter rastreável; exceções de banco/transporte seguem comuns e mantêm backoff.
+        FolhaPontoFinanceiraRegras.FolhaPontoFinanceiraPayload payload;
+        FolhaPontoFinanceiraRegras.EmpenhoPlano plano;
+        int ano;
+        string tipoEmpenho;
+        try
+        {
+            payload = FolhaPontoFinanceiraRegras.Parse(message.Payload);
+            // Integridade antes de qualquer efeito: payload publicado é assinado (payloadHash);
+            // divergência significa corrosão/alteração entre publicar e consumir — nada é registrado.
+            FolhaPontoFinanceiraRegras.VerificarIntegridade(payload);
 
-        var parametros = await _parametros.ListAsync(message.TenantId, "FOLHA", cancellationToken).ConfigureAwait(false);
-        var orcamento = FolhaPontoFinanceiraRegras.InterpretarParametroLong(parametros.FirstOrDefault(p => string.Equals(p.Code, FolhaPontoFinanceiraRegras.ParametroOrcamento, StringComparison.OrdinalIgnoreCase))?.ValueJson);
-        var fornecedor = FolhaPontoFinanceiraRegras.InterpretarParametroLong(parametros.FirstOrDefault(p => string.Equals(p.Code, FolhaPontoFinanceiraRegras.ParametroFornecedor, StringComparison.OrdinalIgnoreCase))?.ValueJson);
+            var parametros = await _parametros.ListAsync(message.TenantId, "FOLHA", cancellationToken).ConfigureAwait(false);
+            var orcamento = FolhaPontoFinanceiraRegras.InterpretarParametroLong(parametros.FirstOrDefault(p => string.Equals(p.Code, FolhaPontoFinanceiraRegras.ParametroOrcamento, StringComparison.OrdinalIgnoreCase))?.ValueJson);
+            var fornecedor = FolhaPontoFinanceiraRegras.InterpretarParametroLong(parametros.FirstOrDefault(p => string.Equals(p.Code, FolhaPontoFinanceiraRegras.ParametroFornecedor, StringComparison.OrdinalIgnoreCase))?.ValueJson);
+            // Tipo do empenho vem do parâmetro FOLHA TIPO_EMPENHO_INTEGRACAO_PONTO; ausente → padrão
+            // documentado ORDINARIO (não é valor inventado). Data de emissão: congelada no payload.
+            tipoEmpenho = FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho(parametros.FirstOrDefault(p => string.Equals(p.Code, FolhaPontoFinanceiraRegras.ParametroTipoEmpenho, StringComparison.OrdinalIgnoreCase))?.ValueJson);
 
-        // Falha nomeada aqui (REGRAS_FINANCEIRAS_INSUFICIENTES / SEM_PROVENTOS_PARA_EMPENHO) → worker marca ERRO c/ backoff.
-        var plano = FolhaPontoFinanceiraRegras.ConstruirEmpenho(payload, orcamento, fornecedor);
-        var ano = await CarregarExercicioAnoAsync(message.TenantId, payload.EntidadeId, payload.ExercicioId, cancellationToken).ConfigureAwait(false);
+            plano = FolhaPontoFinanceiraRegras.ConstruirEmpenho(payload, orcamento, fornecedor);
+            ano = await CarregarExercicioAnoAsync(message.TenantId, payload.EntidadeId, payload.ExercicioId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new OutboxPermanentFailureException(ex.Message, ex);
+        }
 
         var request = new EmpenhoCreateRequest(
             plano.OrcamentoDespesaId,
-            DateOnly.FromDateTime(DateTime.UtcNow),
+            payload.DataEmissao,
             plano.FornecedorPessoaId,
             plano.Historico,
-            FolhaPontoFinanceiraRegras.TipoEmpenho,
+            tipoEmpenho,
             plano.Itens.Select(i => new EmpenhoItemRequest(i.Descricao, i.Quantidade, i.ValorUnitario)).ToList(),
             plano.Observacoes);
 

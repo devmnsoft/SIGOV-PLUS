@@ -34,6 +34,15 @@ public sealed class OutboxProcessor : IOutboxProcessor
                 processed++;
                 _logger.LogInformation("Outbox processada. EventId={EventId} TenantId={TenantId} TipoEvento={TipoEvento} CorrelationId={CorrelationId}", message.Id, message.TenantId, message.TipoEvento, message.CorrelationId);
             }
+            catch (OutboxPermanentFailureException ex)
+            {
+                // RC-EVO-B §5: falha definitiva nomeada (config/payload/checksum/saldo) → dead-letter
+                // imediato com o motivo rastreável; backoff seria queima de tentativas de algo que
+                // só muda com intervenção do administrador (que pode reabrir a mensagem depois).
+                failed++;
+                await _repository.MarkFailureAsync(message, message.Tentativas + 1, true, TimeSpan.Zero, ex.Message, cancellationToken).ConfigureAwait(false);
+                _logger.LogWarning("Evento outbox enviado para dead-letter (falha definitiva). EventId={EventId} TenantId={TenantId} TipoEvento={TipoEvento} CorrelationId={CorrelationId} Motivo={Motivo}", message.Id, message.TenantId, message.TipoEvento, message.CorrelationId, ex.Message);
+            }
             catch (Exception ex)
             {
                 failed++;

@@ -31,13 +31,6 @@
       "disposition": "excluded_pending_runtime_reconciliation"
     },
     {
-      "file": "20260813193000_rc50_29_parametros_modulos.sql",
-      "checksum": "755a77f67431091f9e83a86703816e5d8f50c20c5eae6091fd1e3fe765fe6f2d",
-      "classification": "necessaria",
-      "reason": "ModuleParameterRepository consome parametro_modulo e salvar_parametro_modulo. Grants por nome de perfil exigem revisão de autorização antes de reconciliar a função/schema.",
-      "disposition": "excluded_pending_runtime_reconciliation"
-    },
-    {
       "file": "20260813195500_rc50_30_governanca_executiva.sql",
       "checksum": "c0233bd72365fc085975efd6765ce0368f2608868eff417d8df58b21c229effc",
       "classification": "necessaria",

@@ -47,7 +47,7 @@ select exists (
         ('009', array['be7ca9bbfdd434e1a34e5ebb3f1c991c76e457060d04c01b2562d99a5d19d441']::text[]),
         ('010', array['ff6b20cdc7fbc111b653c2e9236cde4ad6d55fac63f1d51b4b0579747f4179f3']::text[]),
         ('012', array['cdcfb4c2be906034aa3f84989580f2603f34dbaef3a9d67ca3353c2abd87f699']::text[]),
-        ('013', array['83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367']::text[]),
+        ('013', array['97972c61f5d740c094d13c65cacb0dc74eb1231900eb66d7893dc7048f411f6d','83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367']::text[]),
         ('014', array['b6617e6857b29d8d2cc10deb00d7a2b5a96e2b10767c17a3462d72562028fce0']::text[]),
         ('015', array['0bc8dffc1bd1c554cccd87b5bd29fd2653c0f2b78b7ce05dc1f77a2ad7d4801f']::text[]),
         ('016', array['b2828db9342edf4bba6bf3a0dde03525a473662f51594ab4dbb2cf0fc054de55']::text[]),
@@ -237,12 +237,21 @@ select exists (
         ('20261002160000', array['5dfecc9efb7cb5ade89d243cb54e0a5ca8d886d0a3878a4b0739a824cba241db']::text[]),
         ('20261003080000', array['7e8eef3929eeb33e0f2abcf3bfa58f4b6b4086d376921982c509ca9498b063c9']::text[]),
         ('20261003140000', array['fd5ad6bc437e07e9b6fb5714ca20220799c18493195463fe42dcd7f2c7b8810d']::text[]),
+        ('20261004090000', array['c066542d273313249a479a6a8b88ce7b0321a73fcfcdd93e89e8a1c4520ccb03']::text[]),
         ('20261005090000', array['683917b6c185dedcf00816c4c0f48d832ae7670ccfe6129335d7b1a881fa481b']::text[]),
         ('20261005100000', array['e55cdeed5ca8f5e7799b7827a7276b7a3388eee7808d629a5ea2164c510ea48c']::text[]),
         ('20261005110000', array['e648f3243022cdbfec024fa03343120fb9e6883daaee4c5f6b4fa4ae333227dc']::text[]),
         ('20261005120000', array['e1a4c4c7f95bbcc135118d098a8323bdc7cf694e338df8f1a0709ad0055b2159']::text[]),
+        ('20261006110000', array['7163949cf5580811933188e43f220fc0c070f89caad452953571d45b09cdd630']::text[]),
         ('20261006120000', array['ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58']::text[]),
-        ('20261006230000', array['0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987']::text[])
+        ('20261006230000', array['0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987']::text[]),
+        ('20261006233000', array['f5865a893e6da98ca11e89a1c515b45c7ab786d1673cee971f973204b4781d0c']::text[]),
+        ('20261007100000', array['1701ee93f8a2090740a644f42429821ee98bdb92d5dc88c84ea6ed872c79b048']::text[]),
+        ('20261007110000', array['8482c7ce8151f9f850c115ab7661ac8a9f5025316a11a25608ce603e778d8924']::text[]),
+        ('20261007120000', array['d9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4']::text[]),
+        ('20261007130000', array['b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998']::text[]),
+        ('20261008120000', array['a72d0ca1481e6566b81735267f873d22b92c0b8788b630651ee97d74f3cbad9a']::text[]),
+        ('20261008130000', array['faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -1437,7 +1446,7 @@ drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],t
 -- ==================================================
 -- MIGRATION: 013_sigov_foundation_refactor_fixups.sql
 -- CATEGORY: schema
--- CHECKSUM_SHA256: 83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367
+-- CHECKSUM_SHA256: 97972c61f5d740c094d13c65cacb0dc74eb1231900eb66d7893dc7048f411f6d
 -- ==================================================
 create table if not exists sigov.controle_sequencial (
     id bigint generated always as identity primary key,
@@ -1548,7 +1557,7 @@ create index if not exists idx_usuario_email on sigov.usuario (email) where is_d
 create index if not exists idx_permissao_modulo_recurso_acao on sigov.permissao (modulo, recurso, acao) where is_deleted = false;
 create index if not exists idx_controle_sequencial_chave on sigov.controle_sequencial (chave, ano);
 
-insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('013', 'sigov_foundation_refactor_fixups', '83feb1dd51b0ab70a4c75bb1f0a15630ff6a63ff8763ef4b747b82dfbecf9367', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('013', 'sigov_foundation_refactor_fixups', '97972c61f5d740c094d13c65cacb0dc74eb1231900eb66d7893dc7048f411f6d', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
@@ -33311,6 +33320,11 @@ end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006120000', 'Corretiva RC-SAAS-AUT: grants de escopo plataforma (tenant_id NULL) para admin/superadmin - dashboard SaaS Web multi-tenant', 'ff66d4f9d6b791f000cee09a07579929394516acee3e6a1265d08b7a4df06e58', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
 -- CATEGORY: functional
@@ -33386,306 +33400,6 @@ insert into sigov.schema_migrations(version, description, checksum, category, so
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
 drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
-
--- ==================================================
--- COMPATIBILITY: 850_post_migration_compatibility.sql
--- STAGE: AFTER ALL MIGRATIONS
--- ==================================================
--- SIGOV+ RC38E
--- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
-
-create extension if not exists pgcrypto;
-
-alter table sigov.usuario add column if not exists tenant_id bigint null;
-alter table sigov.usuario add column if not exists nome varchar(200) null;
-alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
-alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
-alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
-alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
-alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
-alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
-
-alter table sigov.entidade add column if not exists tenant_id bigint null;
-alter table sigov.exercicio add column if not exists tenant_id bigint null;
-alter table sigov.pessoa add column if not exists tenant_id bigint null;
-alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
-alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
-alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
-alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
-alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
-alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
-alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
-alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
-alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
-alter table sigov.politica_senha add column if not exists tenant_id bigint null;
-
-alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
-alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
-alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
-alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
-
-alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
-alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
-alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
-
--- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
--- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
--- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
--- seus checksums e sem criar vínculos fora do tenant correto.
-create or replace function sigov.fn_preencher_tenant_vinculo()
-returns trigger
-language plpgsql
-as $$
-begin
-    if new.tenant_id is not null then
-        return new;
-    end if;
-
-    case tg_table_name
-        when 'usuario_entidade' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select e.tenant_id into new.tenant_id
-                  from sigov.entidade e
-                 where e.id = new.entidade_id;
-            end if;
-
-        when 'usuario_exercicio' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select x.tenant_id into new.tenant_id
-                  from sigov.exercicio x
-                 where x.id = new.exercicio_id;
-            end if;
-
-        when 'usuario_grupo' then
-            select u.tenant_id into new.tenant_id
-              from sigov.usuario u
-             where u.id = new.usuario_id;
-            if new.tenant_id is null then
-                select g.tenant_id into new.tenant_id
-                  from sigov.grupo_acesso g
-                 where g.id = new.grupo_acesso_id;
-            end if;
-
-        when 'grupo_perfil' then
-            select g.tenant_id into new.tenant_id
-              from sigov.grupo_acesso g
-             where g.id = new.grupo_acesso_id;
-            if new.tenant_id is null then
-                select p.tenant_id into new.tenant_id
-                  from sigov.perfil_acesso p
-                 where p.id = new.perfil_acesso_id;
-            end if;
-
-        when 'perfil_permissao' then
-            select p.tenant_id into new.tenant_id
-              from sigov.perfil_acesso p
-             where p.id = new.perfil_acesso_id;
-    end case;
-
-    if new.tenant_id is null then
-        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
-            using errcode = '23502';
-    end if;
-
-    return new;
-end $$;
-
-drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
-create trigger trg_usuario_entidade_tenant
-before insert or update on sigov.usuario_entidade
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
-create trigger trg_usuario_exercicio_tenant
-before insert or update on sigov.usuario_exercicio
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
-create trigger trg_usuario_grupo_tenant
-before insert or update on sigov.usuario_grupo
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
-create trigger trg_grupo_perfil_tenant
-before insert or update on sigov.grupo_perfil
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
-drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
-create trigger trg_perfil_permissao_tenant
-before insert or update on sigov.perfil_permissao
-for each row execute function sigov.fn_preencher_tenant_vinculo();
-
--- Bancos que já foram executados parcialmente podem possuir perfis e grupos
--- duplicados por tenant. Antes de criar os índices únicos usados pelo bootstrap,
--- preservamos todos os registros e seus vínculos, mantendo como canônico o item
--- com maior uso em relacionamentos e renomeando apenas a chave/nome dos legados.
-do $$
-begin
-    if to_regclass('sigov.perfil_acesso') is not null then
-        with perfil_uso as (
-            select p.id,
-                   count(distinct gp.grupo_acesso_id) + count(distinct pp.permissao_id) as total_vinculos
-              from sigov.perfil_acesso p
-              left join sigov.grupo_perfil gp on gp.perfil_acesso_id = p.id
-              left join sigov.perfil_permissao pp on pp.perfil_acesso_id = p.id
-             group by p.id
-        ), perfil_rank as (
-            select p.id,
-                   p.codigo_externo,
-                   row_number() over (
-                       partition by p.tenant_id, p.codigo_externo
-                       order by coalesce(u.total_vinculos, 0) desc,
-                                case when p.ativo then 0 else 1 end,
-                                p.created_at nulls last,
-                                p.id
-                   ) as rn
-              from sigov.perfil_acesso p
-              left join perfil_uso u on u.id = p.id
-             where p.tenant_id is not null
-               and nullif(p.codigo_externo, '') is not null
-               and p.is_deleted = false
-        )
-        update sigov.perfil_acesso p
-           set codigo_externo = concat(
-                   left(r.codigo_externo, greatest(1, 100 - length('_LEGACY_' || p.id::text))),
-                   '_LEGACY_',
-                   p.id::text
-               ),
-               observacao = concat_ws(E'\n',
-                   nullif(p.observacao, ''),
-                   'Código externo legado ajustado para remover duplicidade antes do índice ux_bootstrap_perfil_codigo_tenant. Código anterior: ' || r.codigo_externo
-               ),
-               updated_at = now()
-          from perfil_rank r
-         where p.id = r.id
-           and r.rn > 1;
-    end if;
-
-    if to_regclass('sigov.grupo_acesso') is not null then
-        with grupo_uso as (
-            select g.id,
-                   count(distinct ug.usuario_id) + count(distinct gp.perfil_acesso_id) as total_vinculos
-              from sigov.grupo_acesso g
-              left join sigov.usuario_grupo ug on ug.grupo_acesso_id = g.id
-              left join sigov.grupo_perfil gp on gp.grupo_acesso_id = g.id
-             group by g.id
-        ), grupo_rank as (
-            select g.id,
-                   g.nome,
-                   row_number() over (
-                       partition by g.tenant_id, g.nome
-                       order by coalesce(u.total_vinculos, 0) desc,
-                                case when g.ativo then 0 else 1 end,
-                                g.created_at nulls last,
-                                g.id
-                   ) as rn
-              from sigov.grupo_acesso g
-              left join grupo_uso u on u.id = g.id
-             where g.tenant_id is not null
-               and nullif(g.nome, '') is not null
-               and g.is_deleted = false
-        )
-        update sigov.grupo_acesso g
-           set nome = concat(
-                   left(r.nome, greatest(1, 150 - length(' (legado ' || g.id::text || ')'))),
-                   ' (legado ',
-                   g.id::text,
-                   ')'
-               ),
-               observacao = concat_ws(E'\n',
-                   nullif(g.observacao, ''),
-                   'Nome legado ajustado para remover duplicidade antes do índice ux_bootstrap_grupo_nome_tenant. Nome anterior: ' || r.nome
-               ),
-               updated_at = now()
-          from grupo_rank r
-         where g.id = r.id
-           and r.rn > 1;
-    end if;
-end $$;
-
-create unique index if not exists ux_bootstrap_usuario_login_tenant
-    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
-create unique index if not exists ux_bootstrap_usuario_email_tenant
-    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
-create unique index if not exists ux_bootstrap_perfil_codigo_tenant
-    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
-create unique index if not exists ux_bootstrap_grupo_nome_tenant
-    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
-
--- ==================================================
--- MIGRATION: 20261006230000_rcsaas_aut_06_normalizacao_superadmin.sql
--- CATEGORY: functional
--- CHECKSUM_SHA256: 0d091e37144ec119c5d7c59c7fe1fa4e11aaf6d58d56cdd7cc85204f6c154987
--- ==================================================
--- RC-SAAS-AUT Etapa B - Corretiva: normalizacao canonica de modulo/recurso/acao das chaves
--- saas.superadmin.* (dashboard.visualizar, dashboard.exportar, dashboard.administrar e
--- autorizacao.administrar) e da chave saas.plataforma.administrar.
--- Root cause: reexecucao parcial do script completo consolidado aplicou a regra de derivacao
--- %admin% da migration 013 (recurso = split_part(chave,'.',1); acao = split_part(chave,'.',2))
--- e parou antes das secoes de normalizacao da migration 01, deixando as linhas com valores
--- grossos ('saas','saas','<parte>'), incompativeis com os tuplos canonicos do avaliador
--- persistente ('saas','saas.superadmin.dashboard'|'saas.superadmin.autorizacao'|'plataforma',acao),
--- o que quebra as pos-condicoes 20261005090000 (01) e 20261005120000 (04).
--- Regra 8: correcao em migration nova e idempotente; migrations publicadas nao sao alteradas.
-
-update sigov.permissao
-   set modulo = 'saas',
-       recurso = 'plataforma',
-       acao = 'administrar',
-       updated_at = now()
- where modulo = 'saas' and chave = 'saas.plataforma.administrar';
-
-update sigov.permissao
-   set modulo = 'saas',
-       recurso = 'saas.superadmin.dashboard',
-       acao = 'visualizar',
-       updated_at = now()
- where modulo = 'saas' and chave = 'saas.superadmin.dashboard.visualizar';
-
-update sigov.permissao
-   set modulo = 'saas',
-       recurso = 'saas.superadmin.dashboard',
-       acao = 'exportar',
-       updated_at = now()
- where modulo = 'saas' and chave = 'saas.superadmin.dashboard.exportar';
-
-update sigov.permissao
-   set modulo = 'saas',
-       recurso = 'saas.superadmin.autorizacao',
-       acao = 'administrar',
-       updated_at = now()
- where modulo = 'saas' and chave = 'saas.superadmin.autorizacao.administrar';
-
-update sigov.permissao
-   set modulo = 'saas',
-       recurso = 'saas.superadmin.dashboard',
-       acao = 'administrar',
-       updated_at = now()
- where modulo = 'saas' and chave = 'saas.superadmin.dashboard.administrar';
-
-do $$
-declare
-    v_ok integer;
-begin
-    select count(*) into v_ok
-    from sigov.permissao
-    where modulo = 'saas' and ativo and not is_deleted and (
-        (chave = 'saas.plataforma.administrar' and recurso = 'plataforma' and acao = 'administrar')
-     or (chave = 'saas.superadmin.dashboard.visualizar' and recurso = 'saas.superadmin.dashboard' and acao = 'visualizar')
-     or (chave = 'saas.superadmin.dashboard.exportar' and recurso = 'saas.superadmin.dashboard' and acao = 'exportar')
-     or (chave = 'saas.superadmin.autorizacao.administrar' and recurso = 'saas.superadmin.autorizacao' and acao = 'administrar')
-     or (chave = 'saas.superadmin.dashboard.administrar' and recurso = 'saas.superadmin.dashboard' and acao = 'administrar')
-    );
-    if v_ok <> 5 then
-        raise exception 'RC-SAAS-AUT normalizacao superadmin/plataforma: apenas % de 5 chaves canonicas ativas', v_ok;
-    end if;
-end $$;
 
 -- ==================================================
 -- MIGRATION: 20261006233000_evo_a01_tuplos_e_grants_jornada.sql
@@ -33885,6 +33599,12 @@ begin
 end $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261006233000', 'Corretiva RC-EVO (Bloco A): tuplos insatisfazeis, duplicatas exatas e grants de jornada para administracao local e plataforma', 'f5865a893e6da98ca11e89a1c515b45c7ab786d1673cee971f973204b4781d0c', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20261007100000_evo_rh_folha_feriado_parametros_grants.sql
 -- CATEGORY: functional
@@ -34154,6 +33874,12 @@ begin
 end $check$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007100000', 'RC-EVO-RH/folha: rh_feriado c/ seed de feriados nacionais 2026, FOLHA/RUBRICAS_PONTO c/ seed ficticio dev, modulo rh habilitado nos tenants dev, grants rh.apuracao.reabrir e backfill estruturado de apuracao', '1701ee93f8a2090740a644f42429821ee98bdb92d5dc88c84ea6ed872c79b048', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20261007110000_evo_rh_portal_grants.sql
 -- CATEGORY: functional
@@ -34230,6 +33956,11 @@ begin
 end $grants$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007110000', 'RC-EVO-RH s8: grant rh.portal.visualizar PERMITIR para perfis locais SERVIDOR e COORDENADOR (espelho de folha no portal: contracheques e pendencias)', '8482c7ce8151f9f850c115ab7661ac8a9f5025316a11a25608ce603e778d8924', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
 
 -- ==================================================
 -- MIGRATION: 20261007120000_evo_rh_folha_financeira_parametros.sql
@@ -34324,6 +34055,11 @@ end $check$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007120000', 'RC-EVO-RH s9: parametros FOLHA da relacao financeira da integracao de ponto (ORCAMENTO_DESPESA_FOLHA_ID, FORNECEDOR_FOLHA_ID) c/ seed ficticio dev (tenant 5)', 'd9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20261007130000_evo_a_s33_limite_modulos_plano.sql
 -- CATEGORY: schema
@@ -34361,6 +34097,383 @@ begin
 end $s33$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261007130000', 'RC-EVO-A S3.3: limite comercial de modulos - coluna saas_plano.limite_modulos + check estendido de nao-negatividade (idempotente)', 'b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998', 'schema', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261008120000_evo_rh_ponto_politica_tolerancia_tipo_empenho.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: a72d0ca1481e6566b81735267f873d22b92c0b8788b630651ee97d74f3cbad9a
+-- ==================================================
+-- RC-EVO-B 3/5 | 20261008120000 - Parametros PONTO/FOLHA do motor v2 e do documento financeiro (idempotente).
+-- O banco e a autoridade das regras (regra 11); nada aqui inventa percentual ou criterio legal:
+--   P1  PONTO/POLITICA_TOLERANCIA (JSON) - politica de tolerancia de atraso na apuracao do ponto.
+--       Vocabulario aceito pelo motor (PontoApuracaoEngine.InterpretarPoliticaTolerancia):
+--         'SOBRE_EXCEDENTE' - atraso dentro da tolerancia so desconta o excedente apurado;
+--         'ATRASO_COMPLETO' - atraso fora da tolerancia desconta o atraso inteiro.
+--       valor_padrao 'null' e FAIL-CLOSED (regra 13): tenant sem politica aprovada apura com o
+--       comportamento historico SOBRE_EXCEDENTE e recebe a pendencia nomeada
+--       PARAMETRO_POLITICA_TOLERANCIA_AUSENTE no resultado - nunca sucesso simulado.
+--   P2  FOLHA/TIPO_EMPENHO_INTEGRACAO_PONTO (JSON) - tipo do empenho emitido pelo consumidor da
+--       fila financeira (FolhaPontoFinanceiraOutboxHandler). Padrao '"ORDINARIO"' apenas por ser o
+--       vocabulario ja usado pela UI Financeiro; nao e invento comercial, e o tipo neutro padrao.
+--   P3  Seed FICTICIO (regras 9/10) somente para o tenant de desenvolvimento/homologacao (5):
+--       POLITICA_TOLERANCIA = 'SOBRE_EXCEDENTE' (comportamento historico, escolhido por ser o
+--       menos punitivo e servir de linha de base dos testes de aceite), com historia auditada
+--       (origem SEED_FICTICIO_DEV). Idempotente via not exists - reexecucao nao sobrescreve
+--       escolha que o administrador ja tenha registrado.
+-- Neutro multi-esfera (regras 21-24): parametros por tenant (parametro_modulo_valor), sem hardcode
+-- municipal e sem taxa/percentual inventado; sem credencial literal; autoverificacao com falha
+-- explicita (regra 13).
+
+insert into sigov.parametro_modulo (modulo, codigo, nome, descricao, tipo, valor_padrao, sensivel, ordem)
+values ('PONTO','POLITICA_TOLERANCIA','Politica de tolerancia de atraso na apuracao de ponto',
+        'Define como a tolerancia de atraso incide na apuracao do ponto: ''SOBRE_EXCEDENTE'' desconta somente o excedente apurado; ''ATRASO_COMPLETO'' desconta o atraso inteiro. Nulo ou ilegitimo apura com o comportamento historico SOBRE_EXCEDENTE e grava a pendencia explicita PARAMETRO_POLITICA_TOLERANCIA_AUSENTE.',
+        'JSON','null'::jsonb,false,100)
+on conflict (modulo,codigo) where is_deleted=false
+do update set nome = excluded.nome, descricao = excluded.descricao, tipo = excluded.tipo, ativo = true, is_deleted = false;
+
+insert into sigov.parametro_modulo (modulo, codigo, nome, descricao, tipo, valor_padrao, sensivel, ordem)
+values ('FOLHA','TIPO_EMPENHO_INTEGRACAO_PONTO','Tipo de empenho da integracao financeira de ponto',
+        'Tipo do empenho emitido pelo consumidor da fila ao materializar a integracao de ponto no Financeiro. Aceita o vocabulario da UI Financeiro (ORDINARIO, GLOBAL, PATRIMONIAL, ESTIMATIVO). Ausente ou ilegivel usa ORDINARIO.',
+        'JSON','"ORDINARIO"'::jsonb,false,103)
+on conflict (modulo,codigo) where is_deleted=false
+do update set nome = excluded.nome, descricao = excluded.descricao, tipo = excluded.tipo, ativo = true, is_deleted = false;
+
+do $ponto_tolerancia$
+declare
+    v_politica bigint;
+    v_tenant_id bigint;
+begin
+    select id into v_politica
+      from sigov.parametro_modulo
+     where modulo = 'PONTO' and codigo = 'POLITICA_TOLERANCIA' and ativo and not is_deleted;
+
+    if v_politica is null then
+        raise exception 'RC-EVO-B 20261008120000: parametro PONTO/POLITICA_TOLERANCIA ausente do catalogo apos upsert';
+    end if;
+
+    -- Valor FICTICIO somente para o tenant de desenvolvimento/homologacao (regras 9/10).
+    -- Reexecucao nao sobrescreve (not exists), preservando a escolha do administrador.
+    for v_tenant_id in select id from sigov.tenant where id = 5 and ativo and not is_deleted loop
+        if not exists (select 1 from sigov.parametro_modulo_valor
+                       where tenant_id = v_tenant_id and parametro_id = v_politica and not is_deleted) then
+            insert into sigov.parametro_modulo_valor (tenant_id, parametro_id, valor, created_by, updated_by, correlation_id)
+            values (v_tenant_id, v_politica, '"SOBRE_EXCEDENTE"'::jsonb, null, null, 'evo-rh-ponto-tolerancia-seed');
+            insert into sigov.parametro_modulo_historico (tenant_id, parametro_id, valor_anterior, valor_novo, usuario_id, correlation_id, auditoria)
+            values (v_tenant_id, v_politica, null, '"SOBRE_EXCEDENTE"'::jsonb, null, 'evo-rh-ponto-tolerancia-seed', '{"origem":"SEED_FICTICIO_DEV"}'::jsonb);
+        end if;
+    end loop;
+end $ponto_tolerancia$;
+
+do $check$
+begin
+    if not exists (select 1 from sigov.parametro_modulo
+                   where modulo = 'PONTO' and codigo = 'POLITICA_TOLERANCIA' and tipo = 'JSON'
+                     and valor_padrao = 'null'::jsonb and ativo and not is_deleted)
+       or not exists (select 1 from sigov.parametro_modulo
+                      where modulo = 'FOLHA' and codigo = 'TIPO_EMPENHO_INTEGRACAO_PONTO' and tipo = 'JSON'
+                        and valor_padrao = '"ORDINARIO"'::jsonb and ativo and not is_deleted)
+    then
+        raise exception 'RC-EVO-B 20261008120000: parametros PONTO/POLITICA_TOLERANCIA ou FOLHA/TIPO_EMPENHO_INTEGRACAO_PONTO inconsistentes apos seed';
+    end if;
+
+    raise notice 'RC-EVO-B 20261008120000 concluida: PONTO/POLITICA_TOLERANCIA (fail-closed, pendencia quando ausente) e FOLHA/TIPO_EMPENHO_INTEGRACAO_PONTO (padrao ORDINARIO) no catalogo c/ seed ficticio dev (tenant 5: SOBRE_EXCEDENTE).';
+end $check$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261008120000', 'RC-EVO-B s3/s5: parametros PONTO/POLITICA_TOLERANCIA (motor v2, fail-closed c/ pendencia) e FOLHA/TIPO_EMPENHO_INTEGRACAO_PONTO (default ORDINARIO) c/ seed ficticio dev (tenant 5)', 'a72d0ca1481e6566b81735267f873d22b92c0b8788b630651ee97d74f3cbad9a', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261008130000_evo_liberacao_cnpj_placeholder_plataforma.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5
+-- ==================================================
+-- ============================================================
+-- RC-EVO-B: liberacao do CNPJ placeholder global para o seed dev 999.
+-- Contexto: a migration publicada 20261006110000 (evo_a03) cria, em
+-- banco novo, a entidade 'Plataforma MNSOFT' (tenant plataforma-mnsoft)
+-- com cnpj '00000000000000'. A unicidade de sigov.entidade.cnpj e
+-- global (ux_entidade_cnpj), e o seed de desenvolvimento
+-- 999_super_admin_access_guard.sql insere a 'Entidade Principal' do
+-- tenant 'sigov-local' com o mesmo cnpj, sempre por caminho
+-- "insert ... where not exists (tenant, cnpj)". Em instalacao limpa do
+-- script_completo_dev.sql isso viola ux_entidade_cnpj (regras 9/13).
+-- Correcao por migration nova (regra 8: nao alterar publicada): move o
+-- placeholder da plataforma para '00000000000090' (ficticio, regra 10),
+-- preservando qualquer outro ocupante legitimo do ...90 e sem tocar em
+-- demais tenants (multi-esfera). Idempotente.
+-- ============================================================
+
+do $evo_b_cnpj$
+declare
+    v_tenant_plataforma bigint;
+begin
+    select t.id into v_tenant_plataforma
+      from sigov.tenant t
+     where t.slug = 'plataforma-mnsoft';
+
+    if v_tenant_plataforma is null then
+        return;
+    end if;
+
+    update sigov.entidade
+       set cnpj = '00000000000090',
+           updated_at = now()
+     where tenant_id = v_tenant_plataforma
+       and cnpj = '00000000000000'
+       and not exists (
+           select 1
+             from sigov.entidade outro
+            where outro.cnpj = '00000000000090'
+       );
+end
+$evo_b_cnpj$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261008130000', 'RC-EVO-B: libera o cnpj placeholder 00000000000000 da entidade da plataforma (tenant plataforma-mnsoft passa a 00000000000090, ficticio) para desbloquear ux_entidade_cnpj no seed dev 999 em instalacao limpa do script_completo_dev', 'faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- COMPATIBILITY: 850_post_migration_compatibility.sql
+-- STAGE: AFTER ALL MIGRATIONS
+-- ==================================================
+-- SIGOV+ RC38E
+-- Compatibilidade mínima exigida pelo bootstrap operacional após todas as migrations.
+
+create extension if not exists pgcrypto;
+
+alter table sigov.usuario add column if not exists tenant_id bigint null;
+alter table sigov.usuario add column if not exists nome varchar(200) null;
+alter table sigov.usuario add column if not exists tipo_usuario varchar(80) null;
+alter table sigov.usuario add column if not exists senha_deve_ser_alterada boolean not null default false;
+alter table sigov.usuario add column if not exists deve_alterar_senha boolean not null default false;
+alter table sigov.usuario add column if not exists bloqueado boolean not null default false;
+alter table sigov.usuario add column if not exists tentativas_invalidas integer not null default 0;
+alter table sigov.usuario add column if not exists bloqueado_ate timestamptz null;
+
+alter table sigov.entidade add column if not exists tenant_id bigint null;
+alter table sigov.exercicio add column if not exists tenant_id bigint null;
+alter table sigov.pessoa add column if not exists tenant_id bigint null;
+alter table sigov.grupo_acesso add column if not exists tenant_id bigint null;
+alter table sigov.perfil_acesso add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists tenant_id bigint null;
+alter table sigov.usuario_grupo add column if not exists is_deleted boolean not null default false;
+alter table sigov.grupo_perfil add column if not exists tenant_id bigint null;
+alter table sigov.grupo_perfil add column if not exists is_deleted boolean not null default false;
+alter table sigov.perfil_permissao add column if not exists tenant_id bigint null;
+alter table sigov.usuario_entidade add column if not exists tenant_id bigint null;
+alter table sigov.usuario_exercicio add column if not exists tenant_id bigint null;
+alter table sigov.politica_senha add column if not exists tenant_id bigint null;
+
+alter table sigov.tenant_feature_flag add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_feature_flag add column if not exists feature_codigo varchar(120) null;
+alter table sigov.tenant_feature_flag add column if not exists habilitada boolean not null default false;
+alter table sigov.tenant_feature_flag add column if not exists parametros_json jsonb not null default '{}'::jsonb;
+
+alter table sigov.tenant_parametro_valor add column if not exists usuario_id bigint null;
+alter table sigov.tenant_parametro_valor add column if not exists modulo_codigo varchar(80) null;
+alter table sigov.tenant_parametro_valor add column if not exists escopo varchar(40) not null default 'TENANT';
+
+-- Migrations históricas inserem apenas as chaves dos relacionamentos. Depois que o
+-- schema é tenantizado, tenant_id passa a ser obrigatório. O trigger deriva o tenant
+-- da entidade principal do vínculo, permitindo reexecutar as migrations sem alterar
+-- seus checksums e sem criar vínculos fora do tenant correto.
+create or replace function sigov.fn_preencher_tenant_vinculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.tenant_id is not null then
+        return new;
+    end if;
+
+    case tg_table_name
+        when 'usuario_entidade' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select e.tenant_id into new.tenant_id
+                  from sigov.entidade e
+                 where e.id = new.entidade_id;
+            end if;
+
+        when 'usuario_exercicio' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select x.tenant_id into new.tenant_id
+                  from sigov.exercicio x
+                 where x.id = new.exercicio_id;
+            end if;
+
+        when 'usuario_grupo' then
+            select u.tenant_id into new.tenant_id
+              from sigov.usuario u
+             where u.id = new.usuario_id;
+            if new.tenant_id is null then
+                select g.tenant_id into new.tenant_id
+                  from sigov.grupo_acesso g
+                 where g.id = new.grupo_acesso_id;
+            end if;
+
+        when 'grupo_perfil' then
+            select g.tenant_id into new.tenant_id
+              from sigov.grupo_acesso g
+             where g.id = new.grupo_acesso_id;
+            if new.tenant_id is null then
+                select p.tenant_id into new.tenant_id
+                  from sigov.perfil_acesso p
+                 where p.id = new.perfil_acesso_id;
+            end if;
+
+        when 'perfil_permissao' then
+            select p.tenant_id into new.tenant_id
+              from sigov.perfil_acesso p
+             where p.id = new.perfil_acesso_id;
+    end case;
+
+    if new.tenant_id is null then
+        raise exception 'Não foi possível determinar tenant_id para %.', tg_table_name
+            using errcode = '23502';
+    end if;
+
+    return new;
+end $$;
+
+drop trigger if exists trg_usuario_entidade_tenant on sigov.usuario_entidade;
+create trigger trg_usuario_entidade_tenant
+before insert or update on sigov.usuario_entidade
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_exercicio_tenant on sigov.usuario_exercicio;
+create trigger trg_usuario_exercicio_tenant
+before insert or update on sigov.usuario_exercicio
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_usuario_grupo_tenant on sigov.usuario_grupo;
+create trigger trg_usuario_grupo_tenant
+before insert or update on sigov.usuario_grupo
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_grupo_perfil_tenant on sigov.grupo_perfil;
+create trigger trg_grupo_perfil_tenant
+before insert or update on sigov.grupo_perfil
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+drop trigger if exists trg_perfil_permissao_tenant on sigov.perfil_permissao;
+create trigger trg_perfil_permissao_tenant
+before insert or update on sigov.perfil_permissao
+for each row execute function sigov.fn_preencher_tenant_vinculo();
+
+-- Bancos que já foram executados parcialmente podem possuir perfis e grupos
+-- duplicados por tenant. Antes de criar os índices únicos usados pelo bootstrap,
+-- preservamos todos os registros e seus vínculos, mantendo como canônico o item
+-- com maior uso em relacionamentos e renomeando apenas a chave/nome dos legados.
+do $$
+begin
+    if to_regclass('sigov.perfil_acesso') is not null then
+        with perfil_uso as (
+            select p.id,
+                   count(distinct gp.grupo_acesso_id) + count(distinct pp.permissao_id) as total_vinculos
+              from sigov.perfil_acesso p
+              left join sigov.grupo_perfil gp on gp.perfil_acesso_id = p.id
+              left join sigov.perfil_permissao pp on pp.perfil_acesso_id = p.id
+             group by p.id
+        ), perfil_rank as (
+            select p.id,
+                   p.codigo_externo,
+                   row_number() over (
+                       partition by p.tenant_id, p.codigo_externo
+                       order by coalesce(u.total_vinculos, 0) desc,
+                                case when p.ativo then 0 else 1 end,
+                                p.created_at nulls last,
+                                p.id
+                   ) as rn
+              from sigov.perfil_acesso p
+              left join perfil_uso u on u.id = p.id
+             where p.tenant_id is not null
+               and nullif(p.codigo_externo, '') is not null
+               and p.is_deleted = false
+        )
+        update sigov.perfil_acesso p
+           set codigo_externo = concat(
+                   left(r.codigo_externo, greatest(1, 100 - length('_LEGACY_' || p.id::text))),
+                   '_LEGACY_',
+                   p.id::text
+               ),
+               observacao = concat_ws(E'\n',
+                   nullif(p.observacao, ''),
+                   'Código externo legado ajustado para remover duplicidade antes do índice ux_bootstrap_perfil_codigo_tenant. Código anterior: ' || r.codigo_externo
+               ),
+               updated_at = now()
+          from perfil_rank r
+         where p.id = r.id
+           and r.rn > 1;
+    end if;
+
+    if to_regclass('sigov.grupo_acesso') is not null then
+        with grupo_uso as (
+            select g.id,
+                   count(distinct ug.usuario_id) + count(distinct gp.perfil_acesso_id) as total_vinculos
+              from sigov.grupo_acesso g
+              left join sigov.usuario_grupo ug on ug.grupo_acesso_id = g.id
+              left join sigov.grupo_perfil gp on gp.grupo_acesso_id = g.id
+             group by g.id
+        ), grupo_rank as (
+            select g.id,
+                   g.nome,
+                   row_number() over (
+                       partition by g.tenant_id, g.nome
+                       order by coalesce(u.total_vinculos, 0) desc,
+                                case when g.ativo then 0 else 1 end,
+                                g.created_at nulls last,
+                                g.id
+                   ) as rn
+              from sigov.grupo_acesso g
+              left join grupo_uso u on u.id = g.id
+             where g.tenant_id is not null
+               and nullif(g.nome, '') is not null
+               and g.is_deleted = false
+        )
+        update sigov.grupo_acesso g
+           set nome = concat(
+                   left(r.nome, greatest(1, 150 - length(' (legado ' || g.id::text || ')'))),
+                   ' (legado ',
+                   g.id::text,
+                   ')'
+               ),
+               observacao = concat_ws(E'\n',
+                   nullif(g.observacao, ''),
+                   'Nome legado ajustado para remover duplicidade antes do índice ux_bootstrap_grupo_nome_tenant. Nome anterior: ' || r.nome
+               ),
+               updated_at = now()
+          from grupo_rank r
+         where g.id = r.id
+           and r.rn > 1;
+    end if;
+end $$;
+
+create unique index if not exists ux_bootstrap_usuario_login_tenant
+    on sigov.usuario (tenant_id, lower(login)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_usuario_email_tenant
+    on sigov.usuario (tenant_id, lower(email)) where is_deleted = false;
+create unique index if not exists ux_bootstrap_perfil_codigo_tenant
+    on sigov.perfil_acesso (tenant_id, codigo_externo) where codigo_externo is not null and is_deleted = false;
+create unique index if not exists ux_bootstrap_grupo_nome_tenant
+    on sigov.grupo_acesso (tenant_id, nome) where is_deleted = false;
 
 \else
 \echo 'Baseline canônico já registrado; nenhuma migration foi reaplicada.'

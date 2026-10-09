@@ -185,7 +185,11 @@ public sealed class RhRepository : BaseRepository, IRhRepository
                 && TryParseDiasSemana(JsonText(dados, "DiasSemana", "diasSemana"), out var dias))
             {
                 var tolerancia = TryJsonInt(dados, out var toleranciaRaw, "ToleranciaMinutos", "toleranciaMinutos") ? toleranciaRaw : 0;
-                try { result.Add(new Sigov.Domain.Rh.JornadaPontoRegra(row.Id, nome, carga, entrada, saida, tolerancia, dias)); }
+                // RC-EVO-B §3.2: duração diária prevista explícita (jornadas 24h/12h); ausente mantém a leitura da janela horária.
+                var duracao = TryJsonInt(dados, out var duracaoRaw, "DuracaoPrevistaMinutos", "duracaoPrevistaMinutos") && duracaoRaw is > 0 and <= 1440 ? duracaoRaw : (int?)null;
+                // Intervalo previsto declarado: alimenta só a relação declarativa carga semanal x programação.
+                var intervaloPrevisto = TryJsonInt(dados, out var intervaloRaw, "IntervaloPrevistoMinutos", "intervaloPrevistoMinutos") && intervaloRaw is >= 0 and <= 1440 ? intervaloRaw : (int?)null;
+                try { result.Add(new Sigov.Domain.Rh.JornadaPontoRegra(row.Id, nome, carga, entrada, saida, tolerancia, dias, duracao, intervaloPrevisto)); }
                 catch (ArgumentException) { /* Jornada incompleta: fica explícita na apuração como JORNADA_AUSENTE */ }
             }
         }
@@ -424,6 +428,104 @@ where tenant_id = @TenantId and id = any(@Ids) and is_deleted = false
             new { TenantId = tenantId, Ids = ids.ToArray(), Motivo = motivo, Delta = delta, Auditoria = auditoria, UsuarioId = usuarioId }, ct)).ConfigureAwait(false);
     }
 
+    // RC-EVO-B §4: ajuste/decisão + invalidação das apurações dependentes em TRANSAÇÃO ÚNICA.
+    // Trava a linha ajustada (FOR UPDATE), revalida sob lock a inexistência de HOMOLOGADA cobrindo
+    // a janela (COMPETENCIA_FECHADA sem gravar nada), invalida as APURADAS e aplica o delta com
+    // auditoria/evento — não há mais janela entre "invalidou" e "gravou o ajuste" para uma
+    // homologação concorrente publicar prévia construída sobre a batida ainda não ajustada.
+    public async Task<RhAjusteAtomicoResumo> AjustarComInvalidacaoAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long servidorId, DateOnly janelaInicio, DateOnly janelaFim, string motivo, IReadOnlyList<string>? guardStatuses, long? usuarioId, CancellationToken ct)
+    {
+        var table = Table(recurso);
+        using var cn = (NpgsqlConnection)_context.CreateConnection();
+        await cn.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await cn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        // 1) Trava a linha ajustada: serializa dois ajustes simultâneos no mesmo registro.
+        var origem = await cn.QueryFirstOrDefaultAsync<RegistroComOrigemRow>(new CommandDefinition(
+            "select id, dados::text as Dados, servidor_id as ServidorId, created_by as CriadoPor, created_at as CriadoEm, coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as Status from " + table + @"
+where tenant_id = @TenantId and id = @Id and is_deleted = false
+for update;",
+            new { TenantId = tenantId, Id = id }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (origem is null)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return new RhAjusteAtomicoResumo(false, Array.Empty<long>(), -1);
+        }
+
+        // 2) Trava sob FOR UPDATE as apurações cobrindo a janela afetada (mesmo predicado da leitura antiga).
+        var cobertas = (await cn.QueryAsync<ApuracaoJanelaRow>(new CommandDefinition(@"
+select id, coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') as status
+from sigov.rh_ponto_apuracao
+where tenant_id = @TenantId and is_deleted = false
+  and (servidor_id = @ServidorId or coalesce(nullif(dados->>'servidorId',''), nullif(dados->>'ServidorId',''),'') = @ServidorIdText)
+  and coalesce(periodo_inicio,
+        (case when coalesce(nullif(dados->>'PeriodoInicio',''), nullif(dados->>'periodoInicio',''),'') ~ '^\d{4}-\d{2}-\d{2}$'
+              then coalesce(nullif(dados->>'PeriodoInicio',''), nullif(dados->>'periodoInicio',''))::date end)) <= @Fim
+  and coalesce(periodo_fim,
+        (case when coalesce(nullif(dados->>'PeriodoFim',''), nullif(dados->>'periodoFim',''),'') ~ '^\d{4}-\d{2}-\d{2}$'
+              then coalesce(nullif(dados->>'PeriodoFim',''), nullif(dados->>'periodoFim',''))::date end)) >= @Inicio
+order by id desc
+for update;",
+            new
+            {
+                TenantId = tenantId,
+                ServidorId = servidorId,
+                ServidorIdText = servidorId.ToString(CultureInfo.InvariantCulture),
+                Inicio = janelaInicio,
+                Fim = janelaFim
+            }, tx, cancellationToken: ct)).ConfigureAwait(false)).ToList();
+
+        var homologadas = cobertas
+            .Where(a => string.Equals(a.Status, "HOMOLOGADA", StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.Id).ToArray();
+        if (homologadas.Length > 0)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return new RhAjusteAtomicoResumo(true, homologadas, 0);
+        }
+
+        // 3) Invalida as APURADAS dependentes (guard de status refeito sob lock).
+        var invalidaveis = cobertas
+            .Where(a => string.Equals(a.Status, "APURADA", StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.Id).Distinct().ToArray();
+        var invalidadas = 0;
+        if (invalidaveis.Length > 0)
+        {
+            var deltaInval = JsonSerializer.Serialize(new { status = "INVALIDADA", invalidadaPorAjuste = true }, JsonOptions);
+            var auditoriaInval = BuildAuditJson("INVALIDAR_POR_AJUSTE", usuarioId, null, new { motivo });
+            invalidadas = await cn.ExecuteAsync(new CommandDefinition(@"
+update sigov.rh_ponto_apuracao
+set status = 'INVALIDADA',
+    motivo = @Motivo,
+    dados = dados || cast(@Delta as jsonb),
+    auditoria = coalesce(auditoria, '{}'::jsonb) || cast(@Auditoria as jsonb),
+    updated_by = @UsuarioId,
+    updated_at = now()
+where tenant_id = @TenantId and id = any(@Ids) and is_deleted = false
+  and coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') = 'APURADA';",
+                new { TenantId = tenantId, Ids = invalidaveis, Motivo = motivo, Delta = deltaInval, Auditoria = auditoriaInval, UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+
+        // 4) Grava o ajuste (delta JSONB + auditoria append-only + evento) na mesma transação.
+        // O guard de status permite à decisão exigir que a linha ainda esteja no status lido
+        // (concorrência de duas decisões: a segunda perde e recebe falha nomeada, nada duplica).
+        var auditoria = BuildAuditJson(operacao, usuarioId, antes, depois);
+        var linhas = await cn.ExecuteAsync(new CommandDefinition(
+            "update " + table + @" set dados = dados || cast(@Delta as jsonb), auditoria = coalesce(auditoria, '{}'::jsonb) || cast(@Auditoria as jsonb), updated_by = @UsuarioId, updated_at = now()
+where tenant_id = @TenantId and id = @Id and is_deleted = false
+  and (@SemGuard or coalesce(nullif(dados->>'status',''), nullif(dados->>'Status',''), status,'') = any(cast(@GuardStatuses as text[])));",
+            new { TenantId = tenantId, Id = id, Delta = deltaJson, Auditoria = auditoria, UsuarioId = usuarioId, SemGuard = guardStatuses is null, GuardStatuses = guardStatuses ?? Array.Empty<string>() }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (linhas == 0)
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            return new RhAjusteAtomicoResumo(false, Array.Empty<long>(), -2); // guard perdido: linha mudou desde a leitura
+        }
+        await RegistrarEventoAsync(cn, tenantId, recurso, operacao, id, ParseJsonb(deltaJson), usuarioId, ct).ConfigureAwait(false);
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new RhAjusteAtomicoResumo(false, Array.Empty<long>(), invalidadas);
+    }
+
     public async Task AtualizarComDeltaAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long? usuarioId, CancellationToken ct)
     {
         var table = Table(recurso);
@@ -481,7 +583,7 @@ order by id;", new { TenantId = tenantId, ApuracaoId = apuracaoId }, ct)).Config
     // o efeito anterior sem gravar de novo (JaProcessada); PENDENTE/FALHA/CANCELADA reaproveita a
     // linha; outro status bloqueia como INTEGRACAO_EM_ANDAMENTO. Sem sucesso parcial: tudo commita
     // ou tudo volta.
-    public async Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId, int competenciaAno, int competenciaMes, CancellationToken ct)
+    public async Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId, int competenciaAno, int competenciaMes, DateOnly dataEmissao, CancellationToken ct)
     {
         using var cn = (NpgsqlConnection)_context.CreateConnection();
         await cn.OpenAsync(ct).ConfigureAwait(false);
@@ -523,7 +625,17 @@ returning id;";
                     totalProventos = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(totalProventos),
                     totalDescontos = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(totalDescontos),
                     usuarioId,
-                    itens = lancamentosEfetivos.Select(lancamento => new { codigo = lancamento.RubricaCodigo, nome = lancamento.RubricaNome, tipo = lancamento.Tipo, valor = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(lancamento.Valor) }).ToList()
+                    // RC-EVO-B §5: emissão congelada na publicação (retry não muda a data do documento)
+                    // e checksum assinado na origem para o consumer detectar payload alterado/corrompido.
+                    dataEmissao = dataEmissao.ToString("yyyy-MM-dd"),
+                    itens = lancamentosEfetivos.Select(lancamento => new { codigo = lancamento.RubricaCodigo, nome = lancamento.RubricaNome, tipo = lancamento.Tipo, valor = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(lancamento.Valor) }).ToList(),
+                    payloadHash = Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.CalcularHash(
+                        idIntegracao, apuracaoId, folhaId, servidorId, versaoRegras, periodoInicio, periodoFim,
+                        competenciaAno, competenciaMes, entidadeId, exercicioId,
+                        Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(totalProventos),
+                        Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(totalDescontos),
+                        usuarioId, dataEmissao,
+                        lancamentosEfetivos.Select(lancamento => new Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.ItemPayload(lancamento.RubricaCodigo, lancamento.RubricaNome, lancamento.Tipo, Sigov.Domain.Rh.FolhaPontoFinanceiraRegras.Money(lancamento.Valor))))
                 }, JsonOptions);
                 return await cn.ExecuteScalarAsync<long?>(new CommandDefinition(sqlFila, new
                 {

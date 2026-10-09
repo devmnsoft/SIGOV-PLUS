@@ -5,6 +5,10 @@ namespace Sigov.Infrastructure.Outbox;
 
 public sealed class OutboxRepository : IOutboxRepository
 {
+    // RC-EVO-B §5: duração do lease de claim (segundos). Mensagem em PROCESSANDO cujo lease venceu
+    // volta a ser elegível — worker morto no meio do processamento não trava mais a fila.
+    private const int ClaimLeaseSeconds = 900;
+
     private readonly DapperContext _context;
 
     public OutboxRepository(DapperContext context) => _context = context;
@@ -18,7 +22,7 @@ public sealed class OutboxRepository : IOutboxRepository
     public async Task<IReadOnlyCollection<OutboxMessageRecord>> FetchPendingAsync(int batchSize, CancellationToken cancellationToken)
     {
         using var connection = _context.CreateConnection();
-        var rows = await connection.QueryAsync<OutboxMessageRecord>(new CommandDefinition(OutboxSqlQueries.FetchPending, new { BatchSize = batchSize }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var rows = await connection.QueryAsync<OutboxMessageRecord>(new CommandDefinition(OutboxSqlQueries.FetchPending, new { BatchSize = batchSize, LeaseSeconds = ClaimLeaseSeconds }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return rows.AsList();
     }
 

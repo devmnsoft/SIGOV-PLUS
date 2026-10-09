@@ -9,7 +9,10 @@ namespace Sigov.Domain.Rh;
 /// cobrirem a decisão sem infraestrutura. Toda falha é nomeada e explícita — ausente nunca
 /// vira valor fictício nem sucesso simulado (regra 13 dos AGENTS.md).
 /// O consumidor só age com regras suficientes (ORCAMENTO_DESPESA_FOLHA_ID + FORNECEDOR_FOLHA_ID);
-/// sem elas o evento falha nomeado e volta a tentar (self-heal) quando o administrador corrige.
+/// sem elas o evento falha nomeado. RC-EVO-B §5: falhas definitivas nomeadas (configuração, payload,
+/// checksum, saldo) viram dead-letter rastreável (FALHOU) em vez de backoff infinito; transitórias
+/// continuam com retry. A data de emissão do documento é congelada no payload na publicação e o
+/// payload circula assinado (payloadHash) para detecção de divergência entre publicar e consumir.
 /// </summary>
 public static class FolhaPontoFinanceiraRegras
 {
@@ -21,8 +24,12 @@ public static class FolhaPontoFinanceiraRegras
     /// <summary>Agregado raiz do evento no outbox.</summary>
     public const string AgregadoTipo = "rh-ponto-integracao-folha";
 
-    /// <summary>Vocabulário de tipo de empenho já usado pela UI Financeiro e pelos dados dev.</summary>
+    /// <summary>Tipo de empenho PADRÃO quando o parâmetro TIPO_EMPENHO_INTEGRACAO_PONTO está ausente
+    /// (vocabulário já usado pela UI Financeiro e pelos dados dev).</summary>
     public const string TipoEmpenho = "ORDINARIO";
+
+    /// <summary>Parâmetro FOLHA: tipo de empenho usado pela integração de ponto (default ORDINARIO).</summary>
+    public const string ParametroTipoEmpenho = "TIPO_EMPENHO_INTEGRACAO_PONTO";
 
     /// <summary>Parâmetro FOLHA: habilita/desabilita a publicação na fila financeira na integração.</summary>
     public const string ParametroHabilitar = "HABILITAR_INTEGRACAO_FINANCEIRA";
@@ -39,6 +46,9 @@ public static class FolhaPontoFinanceiraRegras
     public const string FalhaSemProventos = "SEM_PROVENTOS_PARA_EMPENHO";
     public const string FalhaRegrasInsuficientes = "REGRAS_FINANCEIRAS_INSUFICIENTES";
     public const string FalhaExercicioAusente = "EXERCICIO_AUSENTE";
+    // RC-EVO-B §5: integridade do payload entre publicação e consumo (checksum persistido na origem).
+    public const string FalhaHashAusente = "PAYLOAD_FINANCEIRO_SEM_HASH";
+    public const string FalhaChecksumDivergente = "PAYLOAD_FINANCEIRO_CHECKSUM_DIVERGENTE";
 
     /// <summary>Tipo de lançamento que alimenta o empenho (proventos; descontos ficam apenas nas observações).</summary>
     public const string RubricaProvento = "PROVENTO";
@@ -92,6 +102,31 @@ public static class FolhaPontoFinanceiraRegras
         }
     }
 
+    /// <summary>
+    /// RC-EVO-B §5: tipo de empenho da integração lido do parâmetro FOLHA
+    /// TIPO_EMPENHO_INTEGRACAO_PONTO. Aceita JSON string/texto/aspas; ausente ou ilegível
+    /// → default ORDINARIO (política aprovada; não é valor inventado, é o padrão documentado).
+    /// </summary>
+    public static string InterpretarTipoEmpenho(string? valueJson)
+    {
+        if (string.IsNullOrWhiteSpace(valueJson)) return TipoEmpenho;
+        var texto = valueJson.Trim();
+        if (texto.Length >= 2 && texto[0] == '"' && texto[^1] == '"')
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(texto);
+                if (doc.RootElement.ValueKind == JsonValueKind.String) texto = doc.RootElement.GetString() ?? string.Empty;
+            }
+            catch (JsonException)
+            {
+                texto = texto[1..^1];
+            }
+        }
+        texto = texto.Trim().ToUpperInvariant();
+        return texto.Length == 0 ? TipoEmpenho : texto;
+    }
+
     /// <summary>Verifica as regras suficientes da integração; null = suficiente; senão mensagem nomeada listando as ausências.</summary>
     public static string? ValidarRegras(long orcamentoDespesaId, long fornecedorPessoaId)
     {
@@ -122,6 +157,10 @@ public static class FolhaPontoFinanceiraRegras
         decimal TotalProventos,
         decimal TotalDescontos,
         long? UsuarioId,
+        // RC-EVO-B §5: data de emissão congelada na PUBLICAÇÃO (documento não pode mudar de data
+        // conforme o dia em que o retry for consumido) e checksum do payload assinado na origem.
+        DateOnly DataEmissao,
+        string Hash,
         IReadOnlyList<ItemPayload> Itens);
 
     /// <summary>Parse case-insensitive do payload (producer grava camelCase; aceita legacy PascalCase).
@@ -174,7 +213,60 @@ public static class FolhaPontoFinanceiraRegras
             JsonDecimal(root, "totalProventos", "TotalProventos"),
             JsonDecimal(root, "totalDescontos", "TotalDescontos"),
             TryLong(root, out var usuarioId, "usuarioId", "UsuarioId") ? usuarioId : null,
+            ExigirData(root, nameof(FolhaPontoFinanceiraPayload.DataEmissao), "dataEmissao", "DataEmissao"),
+            JsonTexto(root, "payloadHash", "PayloadHash"),
             itens);
+    }
+
+    // ==== Integridade do payload (RC-EVO-B §5) =======================================
+
+    /// <summary>
+    /// Checksum SHA-256 (hex minúsculo) sobre a forma canônica dos campos assináveis:
+    /// escalares + emissão + itens (codigo/tipo/valor F2, ordenados ordinal). O nome da rubrica
+    /// fica fora (rótulo alterável); valores de dinheiro e identidade entram sempre.
+    /// Producer grava em 'payloadHash' na publicação; consumer recompara antes de agir.
+    /// </summary>
+    public static string CalcularHash(FolhaPontoFinanceiraPayload payload) =>
+        CalcularHash(payload.IntegracaoId, payload.ApuracaoId, payload.FolhaId, payload.ServidorId,
+            payload.VersaoRegras, payload.PeriodoInicio, payload.PeriodoFim, payload.CompetenciaAno,
+            payload.CompetenciaMes, payload.EntidadeId, payload.ExercicioId, payload.TotalProventos,
+            payload.TotalDescontos, payload.UsuarioId, payload.DataEmissao, payload.Itens);
+
+    public static string CalcularHash(
+        long integracaoId, long apuracaoId, long folhaId, long servidorId, string? versaoRegras,
+        DateOnly periodoInicio, DateOnly periodoFim, int competenciaAno, int competenciaMes,
+        long entidadeId, long exercicioId, decimal totalProventos, decimal totalDescontos,
+        long? usuarioId, DateOnly dataEmissao, IEnumerable<ItemPayload>? itens)
+    {
+        static string N(long v) => v.ToString(CultureInfo.InvariantCulture);
+        static string M(decimal v) => Money(v).ToString("F2", CultureInfo.InvariantCulture);
+        var assinaveis = (itens ?? Array.Empty<ItemPayload>())
+            .Select(i => string.Concat(i.Codigo, (char)1, i.Tipo, (char)1, M(i.Valor)))
+            .OrderBy(s => s, StringComparer.Ordinal);
+        var canonico = string.Join('|',
+            N(integracaoId), N(apuracaoId), N(folhaId), N(servidorId), versaoRegras ?? string.Empty,
+            periodoInicio.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            periodoFim.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            N(competenciaAno), N(competenciaMes), N(entidadeId), N(exercicioId),
+            M(totalProventos), M(totalDescontos),
+            usuarioId is long u ? N(u) : string.Empty,
+            dataEmissao.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            string.Join(';', assinaveis));
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonico))).ToLowerInvariant();
+    }
+
+    /// <summary>Falha nomeada se o payload não veio assinado ou se o checksum não bate (nunca processapayload divergente).</summary>
+    public static void VerificarIntegridade(FolhaPontoFinanceiraPayload payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload.Hash))
+        {
+            throw new InvalidOperationException($"{FalhaHashAusente}: o payload publicado não registra o checksum ('payloadHash') da origem; republique a integração para consumir.");
+        }
+        var esperado = CalcularHash(payload);
+        if (!string.Equals(esperado, payload.Hash.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"{FalhaChecksumDivergente}: checksum recalculado no consumo ({esperado}) difere do gravado na publicação ({payload.Hash.Trim()}); payload pode ter sido alterado entre publicar e consumir — nenhum documento foi registrado.");
+        }
     }
 
     // ==== Plano do empenho ==========================================================

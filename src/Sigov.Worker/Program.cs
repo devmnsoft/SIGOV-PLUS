@@ -15,6 +15,9 @@ var builder = Host.CreateDefaultBuilder(args)
     {
         var outboxWorkerEnabled = context.Configuration.GetValue("Workers:Outbox:Enabled", true);
 
+        // RC-EVO-A1: RequestAuthorizationSnapshot (compartilhado via AddInfrastructure) depende de
+        // IHttpContextAccessor; no Worker nao ha HttpContext e o snapshot resolve como Anonymous.
+        services.AddHttpContextAccessor();
         services.AddInfrastructure();
         services.AddScoped<Sigov.Infrastructure.Outbox.IOutboxRepository, Sigov.Infrastructure.Outbox.OutboxRepository>();
         services.AddScoped<IOutboxRetryPolicy, OutboxRetryPolicy>();

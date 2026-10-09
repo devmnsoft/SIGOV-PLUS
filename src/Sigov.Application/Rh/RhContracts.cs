@@ -52,6 +52,10 @@ public sealed record RhApuracaoExistenteDto(long Id, string Status, string? Ante
 // RC-EVO-RH §5: decisão de justificativas/ajustes (origem preservada, transições nomeadas, invalidação de dependentes).
 public sealed record RhRegistroComOrigemDto(long Id, string DadosJson, long? ServidorId, long? CriadoPor, DateTimeOffset CriadoEm, string Status);
 public sealed record RhApuracaoJanelaDto(long Id, string Status);
+
+// RC-EVO-B §4: resumo do ajuste atômico (linha contábil da batida + invalidação na mesma transação).
+// CompetenciaFechada=true => nada foi gravado e HomologadasCobertas lista as apurações que bloqueiam.
+public sealed record RhAjusteAtomicoResumo(bool CompetenciaFechada, IReadOnlyList<long> HomologadasCobertas, int Invalidadas);
 public sealed record RhPontoAjusteResumoDto(long RegistroId, DateTimeOffset AjustadoEm, int ApuracoesInvalidadas, DateOnly JanelaInicio, DateOnly JanelaFim);
 public sealed record RhJustificativaDecisaoDto(long JustificativaId, string Status, long? DecididoPor, int ApuracoesInvalidadas);
 
@@ -106,13 +110,15 @@ public interface IRhRepository
     Task<RhRegistroComOrigemDto?> ObterRegistroComOrigemAsync(long tenantId, string recurso, long id, CancellationToken ct);
     Task<IReadOnlyList<RhApuracaoJanelaDto>> ApuracoesCobertasPorJanelaAsync(long tenantId, long servidorId, DateOnly inicio, DateOnly fim, CancellationToken ct);
     Task<int> InvalidarApuracoesPorAjusteAsync(long tenantId, IReadOnlyCollection<long> ids, string motivo, long? usuarioId, CancellationToken ct);
+    // RC-EVO-B §4: ajuste/decisão + invalidação de apurações dependentes em transação única (lock + COMPETENCIA_FECHADA atômicos).
+    Task<RhAjusteAtomicoResumo> AjustarComInvalidacaoAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long servidorId, DateOnly janelaInicio, DateOnly janelaFim, string motivo, IReadOnlyList<string>? guardStatuses, long? usuarioId, CancellationToken ct);
     Task AtualizarComDeltaAsync(long tenantId, string recurso, long id, string deltaJson, string operacao, object? antes, object? depois, long? usuarioId, CancellationToken ct);
     // RC-EVO-RH §6: homologação/reabertura (update guardado por status + integrações de destino da apuração)
     Task<int> AtualizarStatusApuracaoGuardadoAsync(long tenantId, long id, string statusGuard, string novoStatus, string deltaJson, string operacao, object? antes, object? depois, string? justificativa, long? usuarioId, CancellationToken ct);
     Task<IReadOnlyList<RhRegistroComOrigemDto>> ListarIntegracoesFolhaDaApuracaoAsync(long tenantId, long apuracaoId, CancellationToken ct);
     // RC-EVO-RH §7/§9: integração real da apuração homologada na folha (evento + lançamentos em transação única);
     // quando habilitada, publica também o evento da fila financeira (outbox) na mesma transação.
-    Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId, int competenciaAno, int competenciaMes, CancellationToken ct);
+    Task<RhIntegracaoFolhaTx> IntegrarApuracaoNaFolhaAsync(long tenantId, long apuracaoId, long folhaId, long servidorId, DateOnly periodoInicio, DateOnly periodoFim, string versaoRegras, string resumoJson, string criticasJson, IReadOnlyList<RhLancamentoPontoPayload> lancamentos, long? usuarioId, bool habilitarIntegracaoFinanceira, long entidadeId, long exercicioId, int competenciaAno, int competenciaMes, DateOnly dataEmissao, CancellationToken ct);
     // RC-EVO-RH §9: consulta do estado da relação financeira (fila → consumido → documento → falha) por integração
     Task<RhIntegracaoFinanceiraConsulta> ConsultarIntegracaoFinanceiraAsync(long tenantId, long integracaoId, CancellationToken ct);
     // RC-EVO-RH §8: portal com escopo próprio (vínculo sigov.rh_portal_usuario; filtro pelo próprio servidor)

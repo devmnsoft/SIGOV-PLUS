@@ -223,8 +223,21 @@ public sealed class RhService : IRhService
         if (!await CanAsync(RhPermissoes.IntegrarFinanceiro, ct).ConfigureAwait(false)) return Result<long>.Failure("403");
         var folha = await _repo.ObterAsync(TenantId, "folhas", request.FolhaId, ct).ConfigureAwait(false);
         if (folha is null) return Result<long>.Failure("Folha não encontrada para integração financeira.");
-        var status = folha.Dados.TryGetValue("status", out var statusValue) ? Convert.ToString(statusValue, System.Globalization.CultureInfo.InvariantCulture) : "Aberta";
-        if (status is not ("Aberta" or "Calculada" or "Fechada")) return Result<long>.Failure("Folha em status inválido para integração financeira.");
+        // RC-EVO-B §4: leitura com as duas casings (antes o Pascal caía no default "Aberta" e uma
+        // folha FECHADA/CANCELADA integrava como sucesso simulado) e comparação com o vocabulário
+        // canônico do domínio. A integração financeira aceita ABERTA/CALCULADA/FECHADA por design
+        // (integra-se após o fechamento); CANCELADA e status desconhecido bloqueiam nomeados.
+        var status = JsonTexto(folha.Dados, "status", "Status");
+        var statusNormalizado = (status ?? string.Empty).Trim().ToUpperInvariant();
+        if (statusNormalizado is not ("ABERTA" or "CALCULADA" or "FECHADA"))
+        {
+            var motivo = statusNormalizado switch
+            {
+                "CANCELADA" => $"{FolhaRegras.FalhaFolhaCancelada}: a folha de destino foi cancelada; selecione outra folha.",
+                _ => $"{FolhaRegras.FalhaFolhaStatusInvalido}: a folha está com status '{(statusNormalizado.Length > 0 ? statusNormalizado : "ausente")}'; apenas ABERTA, CALCULADA ou FECHADA recebem integração financeira."
+            };
+            return Result<long>.Failure(motivo);
+        }
         var totalLancamentos = await _repo.TotalLancamentosFolhaAsync(TenantId, request.FolhaId, ct).ConfigureAwait(false);
         if (totalLancamentos <= 0m) return Result<long>.Failure("Folha deve possuir lançamentos válidos para integração financeira.");
         var eventoId = await _repo.PrepararIntegracaoFinanceiraAsync(TenantId, request, _user.UsuarioId, ct).ConfigureAwait(false);
@@ -292,7 +305,24 @@ public sealed class RhService : IRhService
             var feriados = await _repo.ListarFeriadosPeriodoAsync(TenantId, request.PeriodoInicio, request.PeriodoFim, ct).ConfigureAwait(false);
             var ausenciasJustificadas = await _repo.ListarAusenciasJustificadasAsync(TenantId, request.ServidorId, request.PeriodoInicio, request.PeriodoFim, ct).ConfigureAwait(false);
 
-            var resultado = Sigov.Domain.Rh.PontoApuracaoEngine.Calcular(request.ServidorId, request.PeriodoInicio, request.PeriodoFim, zona, batidas, resolverJornada, feriados, ausenciasJustificadas);
+            // RC-EVO-B §3.3: a política de tolerância é regra de negócio e vem do banco
+            // (catalogo PONTO/POLITICA_TOLERANCIA). Ausente/ilegível não é sucesso simulado:
+            // apura com o comportamento histórico (SOBRE_EXCEDENTE) e grava a pendência
+            // nomeada no resultado para cobrança da configuração aprovada.
+            var politicaConfigurada = (await _parametros.ListAsync(TenantId, "PONTO", ct).ConfigureAwait(false))
+                .FirstOrDefault(p => string.Equals(p.Code, "POLITICA_TOLERANCIA", StringComparison.OrdinalIgnoreCase))?.ValueJson;
+            var politicaTolerancia = Sigov.Domain.Rh.PontoApuracaoEngine.InterpretarPoliticaTolerancia(TextoParametro(politicaConfigurada));
+            var politicaPonto = politicaTolerancia ?? Sigov.Domain.Rh.ToleranciaPolitica.SobreExcedente;
+
+            var resultado = Sigov.Domain.Rh.PontoApuracaoEngine.Calcular(request.ServidorId, request.PeriodoInicio, request.PeriodoFim, zona, batidas, resolverJornada, feriados, ausenciasJustificadas, politicaPonto);
+            if (politicaTolerancia is null)
+            {
+                var pendenciaParametro = "PARAMETRO_POLITICA_TOLERANCIA_AUSENTE";
+                var comPendencia = resultado.PendenciasGlobais.Contains(pendenciaParametro)
+                    ? resultado.PendenciasGlobais
+                    : resultado.PendenciasGlobais.Append(pendenciaParametro).ToList();
+                resultado = resultado with { PendenciasGlobais = comPendencia };
+            }
 
             var existente = await _repo.ObterApuracaoExistenteAsync(TenantId, request.ServidorId, request.PeriodoInicio, request.PeriodoFim, ct).ConfigureAwait(false);
             if (existente is not null && string.Equals(existente.Status, "HOMOLOGADA", StringComparison.OrdinalIgnoreCase))
@@ -333,11 +363,19 @@ public sealed class RhService : IRhService
                 totalAtrasoMinutos = resultado.TotalAtrasoMinutos,
                 totalAusenciaMinutos = resultado.TotalAusenciaMinutos,
                 totalHoraExtraMinutos = resultado.TotalHoraExtraMinutos,
+                // RC-EVO-B §3.3: classificação separada — a folha desconta somente a parcela
+                // descontável; o excedente observado sem escala aguarda regra aprovada.
+                totalExcedenteObservadoMinutos = resultado.TotalExcedenteObservadoMinutos,
+                totalAusenciaJustificadaMinutos = resultado.TotalAusenciaJustificadaMinutos,
+                totalAusenciaDescontavelMinutos = resultado.TotalAusenciaDescontavelMinutos,
+                politicaToleranciaAplicada = politicaPonto.ToString(),
                 resumo = new
                 {
                     totalTrabalhadoFormatado = FormatDuracao(resultado.TotalTrabalhado),
                     totalAtrasoFormatado = FormatDuracao(resultado.TotalAtraso),
                     totalAusenciaFormatado = FormatDuracao(resultado.TotalAusencia),
+                    totalAusenciaJustificadaFormatada = FormatDuracao(resultado.TotalAusenciaJustificada),
+                    totalAusenciaDescontavelFormatada = FormatDuracao(resultado.TotalAusenciaDescontavel),
                     totalHoraExtraFormatado = FormatDuracao(resultado.TotalHoraExtra)
                 },
                 memoriaPorDia = resultado.MemoriaPorDia,
@@ -389,9 +427,6 @@ public sealed class RhService : IRhService
             }
 
             var (janelaInicio, janelaFim) = PontoTransicoes.JanelaAjuste(dataHoraAnterior, request.DataHora);
-            var efeito = await ValidarEInvalidarApuracoesAsync(request.ServidorId, janelaInicio, janelaFim, $"ajuste da batida {registroId.ToString(CultureInfo.InvariantCulture)}", ct).ConfigureAwait(false);
-            if (efeito.IsFailure) return Result<RhPontoAjusteResumoDto>.Failure(efeito.Error ?? "Competência fechada.");
-
             var agora = DateTimeOffset.UtcNow;
             var delta = new Dictionary<string, object?>
             {
@@ -405,9 +440,20 @@ public sealed class RhService : IRhService
                 ["ajustadoPor"] = _user.UsuarioId,
                 ["ajustadoEm"] = agora
             };
-            await _repo.AtualizarComDeltaAsync(TenantId, "ponto-registros", registroId, JsonSerializer.Serialize(delta, WebJson), "AJUSTAR_PONTO", dadosAntes, delta, _user.UsuarioId, ct).ConfigureAwait(false);
+            // RC-EVO-B §4: grava o ajuste e invalida as apurações dependentes na MESMA transação
+            // (lock na batida + revalidação da competência sob FOR UPDATE): sem janela para uma
+            // homologação concorrente publicar prévia anterior ao ajuste.
+            var efeito = await _repo.AjustarComInvalidacaoAsync(TenantId, "ponto-registros", registroId,
+                JsonSerializer.Serialize(delta, WebJson), "AJUSTAR_PONTO", dadosAntes, delta,
+                request.ServidorId, janelaInicio, janelaFim,
+                $"ajuste da batida {registroId.ToString(CultureInfo.InvariantCulture)}", null, _user.UsuarioId, ct).ConfigureAwait(false);
+            if (efeito.Invalidadas < 0) return Result<RhPontoAjusteResumoDto>.Failure("O registro de ponto foi removido durante o ajuste; nada foi gravado.");
+            if (efeito.CompetenciaFechada)
+            {
+                return Result<RhPontoAjusteResumoDto>.Failure($"COMPETENCIA_FECHADA: existe apuração HOMOLOGADA ({string.Join(", ", efeito.HomologadasCobertas.Select(i => i.ToString(CultureInfo.InvariantCulture)))}) cobrindo o período afetado; reabra a apuração antes de registrar alterações.");
+            }
             await _audit.RegistrarAsync("rh", "AJUSTAR_PONTO", "sigov.rh_ponto_registro", registroId.ToString(CultureInfo.InvariantCulture), dadosAntes, delta, ct).ConfigureAwait(false);
-            return Result<RhPontoAjusteResumoDto>.Success(new RhPontoAjusteResumoDto(registroId, agora, efeito.Value is int invalidadas ? invalidadas : 0, janelaInicio, janelaFim));
+            return Result<RhPontoAjusteResumoDto>.Success(new RhPontoAjusteResumoDto(registroId, agora, efeito.Invalidadas, janelaInicio, janelaFim));
         }
         catch (InvalidOperationException ex)
         {
@@ -466,9 +512,9 @@ public sealed class RhService : IRhService
                 return Result<RhJustificativaDecisaoDto>.Failure("SERVIDOR_AUSENTE: a justificativa não referencia um servidor reconhecível.");
             }
 
-            var efeito = await ValidarEInvalidarApuracoesAsync(servidorEfetivo, dataReferencia, dataReferencia, $"decisão {alvo} da justificativa {justificativaId.ToString(CultureInfo.InvariantCulture)}", ct).ConfigureAwait(false);
-            if (efeito.IsFailure) return Result<RhJustificativaDecisaoDto>.Failure(efeito.Error ?? "Competência fechada.");
-
+            // RC-EVO-B §4: decisão + invalidação das apurações dependentes na MESMA transação,
+            // com guard sobre o status lido: duas decisões concorrentes não duplicam efeito e a
+            // segunda recebe falha nomeada em vez de operar sobre estado velho.
             var agora = DateTimeOffset.UtcNow;
             var delta = new Dictionary<string, object?>
             {
@@ -476,9 +522,19 @@ public sealed class RhService : IRhService
                 ["transicaoEm"] = agora,
                 ["decididoPor"] = _user.UsuarioId
             };
-            await _repo.AtualizarComDeltaAsync(TenantId, "ponto-justificativas", justificativaId, JsonSerializer.Serialize(delta, WebJson), $"DECIDIR_JUSTIFICATIVA:{alvo}", dadosAntes, delta, _user.UsuarioId, ct).ConfigureAwait(false);
+            var efeito = await _repo.AjustarComInvalidacaoAsync(TenantId, "ponto-justificativas", justificativaId,
+                JsonSerializer.Serialize(delta, WebJson), $"DECIDIR_JUSTIFICATIVA:{alvo}", dadosAntes, delta,
+                servidorEfetivo, dataReferencia, dataReferencia,
+                $"decisão {alvo} da justificativa {justificativaId.ToString(CultureInfo.InvariantCulture)}",
+                new[] { atual.Status }, _user.UsuarioId, ct).ConfigureAwait(false);
+            if (efeito.Invalidadas < 0 && efeito.Invalidadas != -2) return Result<RhJustificativaDecisaoDto>.Failure("A justificativa foi removida durante a decisão; nada foi gravado.");
+            if (efeito.Invalidadas == -2) return Result<RhJustificativaDecisaoDto>.Failure("DECISAO_CONCORRENTE: a justificativa mudou de status durante a decisão; nada foi gravado, recarregue antes de decidir.");
+            if (efeito.CompetenciaFechada)
+            {
+                return Result<RhJustificativaDecisaoDto>.Failure($"COMPETENCIA_FECHADA: existe apuração HOMOLOGADA ({string.Join(", ", efeito.HomologadasCobertas.Select(i => i.ToString(CultureInfo.InvariantCulture)))}) cobrindo o período afetado; reabra a apuração antes de decidir.");
+            }
             await _audit.RegistrarAsync("rh", "DECIDIR_JUSTIFICATIVA", "sigov.rh_ponto_justificativa", justificativaId.ToString(CultureInfo.InvariantCulture), dadosAntes, delta, ct).ConfigureAwait(false);
-            return Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, alvo, _user.UsuarioId, efeito.Value is int invalidadas2 ? invalidadas2 : 0));
+            return Result<RhJustificativaDecisaoDto>.Success(new RhJustificativaDecisaoDto(justificativaId, alvo, _user.UsuarioId, efeito.Invalidadas));
         }
         catch (Exception ex)
         {
@@ -718,7 +774,16 @@ public sealed class RhService : IRhService
                 ["diasFalta"] = diasFalta
             };
 
-            var integracao = await _repo.IntegrarApuracaoNaFolhaAsync(TenantId, apuracaoId, folhaId, servidorId, periodoInicio, periodoFim, versaoRegras, JsonSerializer.Serialize(resumo, WebJson), JsonSerializer.Serialize(criticas, WebJson), lancamentos, _user.UsuarioId, habilitarIntegracaoFinanceira, _tenant.EntidadeId ?? 0, _tenant.ExercicioId ?? 0, anoFolha, mesFolha, ct).ConfigureAwait(false);
+            // RC-EVO-B §5: data de emissão do documento congelada na PUBLICAÇÃO — dia local do fuso de
+            // operação do ponto (mesma referência do motor); o retry de consumo nunca mais a altera.
+            var fusoIntegracao = (await _repo.ObterFusoOperacaoAsync(ct).ConfigureAwait(false) ?? string.Empty).Trim();
+            TimeZoneInfo zonaIntegracao;
+            try { zonaIntegracao = string.IsNullOrEmpty(fusoIntegracao) ? TimeZoneInfo.Utc : TimeZoneInfo.FindSystemTimeZoneById(fusoIntegracao); }
+            catch (TimeZoneNotFoundException) { zonaIntegracao = TimeZoneInfo.Utc; }
+            catch (InvalidTimeZoneException) { zonaIntegracao = TimeZoneInfo.Utc; }
+            var dataEmissao = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zonaIntegracao).DateTime);
+
+            var integracao = await _repo.IntegrarApuracaoNaFolhaAsync(TenantId, apuracaoId, folhaId, servidorId, periodoInicio, periodoFim, versaoRegras, JsonSerializer.Serialize(resumo, WebJson), JsonSerializer.Serialize(criticas, WebJson), lancamentos, _user.UsuarioId, habilitarIntegracaoFinanceira, _tenant.EntidadeId ?? 0, _tenant.ExercicioId ?? 0, anoFolha, mesFolha, dataEmissao, ct).ConfigureAwait(false);
 
             await _audit.RegistrarAsync("rh", "INTEGRAR_FOLHA_PONTO", "sigov.rh_ponto_integracao_folha", integracao.IntegracaoId.ToString(CultureInfo.InvariantCulture), dados, new
             {
@@ -892,22 +957,6 @@ public sealed class RhService : IRhService
         return valor?.ToString();
     }
 
-    // §5 compartilhado: HOMOLOGADA cobrindo a janela bloqueia a alteração (COMPETENCIA_FECHADA);
-    // APURADA cobrindo a janela é invalidada para exigir novo processamento (INVALIDADA).
-    private async Task<Result<int>> ValidarEInvalidarApuracoesAsync(long servidorId, DateOnly inicio, DateOnly fim, string motivo, CancellationToken ct)
-    {
-        var cobertas = await _repo.ApuracoesCobertasPorJanelaAsync(TenantId, servidorId, inicio, fim, ct).ConfigureAwait(false);
-        var homologadas = cobertas.Where(a => string.Equals(a.Status, "HOMOLOGADA", StringComparison.OrdinalIgnoreCase)).Select(a => a.Id).ToArray();
-        if (homologadas.Length > 0)
-        {
-            return Result<int>.Failure($"COMPETENCIA_FECHADA: existe apuração HOMOLOGADA ({string.Join(", ", homologadas.Select(i => i.ToString(CultureInfo.InvariantCulture)))}) cobrindo o período afetado; reabra a apuração antes de registrar alterações.");
-        }
-        var invalidaveis = cobertas.Where(a => string.Equals(a.Status, "APURADA", StringComparison.OrdinalIgnoreCase)).Select(a => a.Id).Distinct().ToArray();
-        if (invalidaveis.Length == 0) return Result<int>.Success(0);
-        var invalidadas = await _repo.InvalidarApuracoesPorAjusteAsync(TenantId, invalidaveis, motivo, _user.UsuarioId, ct).ConfigureAwait(false);
-        return Result<int>.Success(invalidadas);
-    }
-
     private static bool TryJsonText(Dictionary<string, object?> dados, out string value, params string[] keys)
     {
         value = string.Empty;
@@ -937,6 +986,19 @@ public sealed class RhService : IRhService
         var texto = valor.ValueJson.Trim();
         if (texto.Length >= 2 && texto.StartsWith('"') && texto.EndsWith('"')) texto = texto[1..^1].Trim();
         return bool.TryParse(texto, out var resultado) ? resultado : padrao;
+    }
+
+    // RC-EVO-B §3.3: extrai texto puro de valor de parâmetro gravado como JSON (string citada ou nua).
+    private static string? TextoParametro(string? valorJson)
+    {
+        if (string.IsNullOrWhiteSpace(valorJson)) return null;
+        var texto = valorJson.Trim();
+        if (texto.Length >= 2 && texto.StartsWith('"') && texto.EndsWith('"'))
+        {
+            try { return System.Text.Json.JsonSerializer.Deserialize<string>(texto); }
+            catch (System.Text.Json.JsonException) { return null; }
+        }
+        return texto;
     }
 
     private static bool TryJsonDate(Dictionary<string, object?> dados, out DateOnly value, params string[] keys)

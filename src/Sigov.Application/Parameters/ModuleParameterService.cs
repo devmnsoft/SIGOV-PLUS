@@ -2,7 +2,7 @@ namespace Sigov.Application.Parameters;
 
 public sealed class ModuleParameterService : IModuleParameterService
 {
-    private static readonly HashSet<string> Modules = new(StringComparer.OrdinalIgnoreCase) { "EDUCACAO", "RH", "FOLHA", "PORTAL_SERVIDOR", "PORTAL_EDUCACAO" };
+    private static readonly HashSet<string> Modules = new(StringComparer.OrdinalIgnoreCase) { "EDUCACAO", "RH", "FOLHA", "PONTO", "PORTAL_SERVIDOR", "PORTAL_EDUCACAO" };
     private readonly IModuleParameterRepository _repository;
 
     public ModuleParameterService(IModuleParameterRepository repository) => _repository = repository;

@@ -87,7 +87,7 @@ public sealed class RhRulesTests
         resultado.MemoriaPorDia.Should().HaveCount(1);
         resultado.MemoriaPorDia[0].EntradaEfetiva.Should().Be(new TimeOnly(8, 0));
         resultado.MemoriaPorDia[0].SaidaEfetiva.Should().Be(new TimeOnly(17, 0));
-        resultado.VersaoRegras.Should().Be("RH-APURACAO-1");
+        resultado.VersaoRegras.Should().Be("RH-APURACAO-2");
         resultado.FusoHorarioOperacao.Should().Be(ZonaBrasilia.Id);
     }
 
@@ -126,10 +126,12 @@ public sealed class RhRulesTests
     }
 
     [Fact]
-    public void Apuracao_Virada_De_Dia_Nao_Attribui_Quando_O_Dia_Anterior_Ja_Tem_Saida()
+    public void Apuracao_Virada_De_Dia_Pareia_Saida_Com_Turno_Aberto_E_Marca_Batida_Orfa()
     {
         var noturno = new JornadaPontoRegra(2, "Noturno", 44m, new TimeOnly(18, 0), new TimeOnly(6, 0), 0, new[] { 1, 2, 3, 4, 5 });
-        // Quarta tem entrada+saída própria (fechada); a saída de quinta não pode "pular" para quarta.
+        // RC-EVO-B §3.1 (pareamento cronológico): a saída de quinta 06:00 fecha legitimamente o turno
+        // aberto na quarta 18:00; a saída órfã de quarta 06:00 pertence a turno aberto antes do período
+        // de apuração e fica registrada como ENTRADA_AUSENTE no dia dela — nada é atribuído às cegas.
         var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg.AddDays(2), PontoSeg.AddDays(3), ZonaBrasilia, new[]
         {
             Batida(1, PontoSeg.AddDays(2), new TimeOnly(18, 0), PontoTipo.Entrada),
@@ -137,9 +139,10 @@ public sealed class RhRulesTests
             Batida(3, PontoSeg.AddDays(3), new TimeOnly(6, 0), PontoTipo.Saida)
         }, _ => noturno);
 
-        resultado.MemoriaPorDia[0].Pendencias.Should().BeEmpty(); // quarta completa, intocada
-        resultado.MemoriaPorDia[1].Pendencias.Should().Contain("ENTRADA_AUSENTE"); // saída solta permanece na quinta
-        resultado.TotalTrabalhadoMinutos.Should().Be(720); // somente o turno de quarta completo
+        resultado.MemoriaPorDia[0].Pendencias.Should().Contain("ENTRADA_AUSENTE"); // saída órfã de quarta registrada
+        resultado.MemoriaPorDia[1].Pendencias.Should().BeEmpty(); // saída de quinta consumida pelo turno de quarta
+        resultado.MemoriaPorDia[0].TrabalhadoMinutos.Should().Be(720); // tempo atribuído ao dia de abertura do período
+        resultado.TotalTrabalhadoMinutos.Should().Be(720); // somente o turno pareado pela sequência válida
     }
 
     [Fact]
@@ -207,7 +210,7 @@ public sealed class RhRulesTests
     }
 
     [Fact]
-    public void Apuracao_Dia_Sem_Escala_Marca_Pendencia_Nao_Count_Falta_E_Trabalho_Fato_Vira_Extra()
+    public void Apuracao_Dia_Sem_Escala_Marca_Pendencia_Nao_Count_Falta_E_Trabalho_Fato_Vira_Excedente_Observado()
     {
         var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, new[]
         {
@@ -215,11 +218,14 @@ public sealed class RhRulesTests
             Batida(2, PontoSeg, new TimeOnly(9, 0), PontoTipo.Saida)
         }, _ => null); // nenhuma escala cobre o dia
 
-        resultado.PendenciasGlobais.Should().ContainSingle().Which.Should().Be("SEM_ESCALA_NO_DIA");
+        // RC-EVO-B §3.2: dia sem escala registra o fato observado como excedente observado com pendência
+        // nomeada; NÃO vira hora extra remunerável por decisão automática (exige regra aprovada).
+        resultado.PendenciasGlobais.Should().Contain("SEM_ESCALA_NO_DIA").And.Contain("TEMPO_SEM_ESCALA_OBSERVADO");
         resultado.DiasSemEscala.Should().Be(1);
         resultado.DiasFalta.Should().Be(0);
         resultado.TotalTrabalhadoMinutos.Should().Be(60);
-        resultado.TotalHoraExtraMinutos.Should().Be(60);
+        resultado.TotalHoraExtraMinutos.Should().Be(0);
+        resultado.TotalExcedenteObservadoMinutos.Should().Be(60);
     }
 
     [Fact]
@@ -255,9 +261,146 @@ public sealed class RhRulesTests
 
         var emManaus = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg,
             TimeZoneInfo.FindSystemTimeZoneById("America/Manaus"), batidas, _ => JornadaPadrao);
+        // RC-EVO-B §3.1: o período é atribuído ao dia LOCAL de abertura (domingo, fora do período);
+        // a segunda recebeu o fechamento do turno dominical e por isso não é falta plena.
         emManaus.TotalTrabalhadoMinutos.Should().Be(0);
-        emManaus.DiasFalta.Should().Be(1); // a saída migrou com a virada de dia para domingo (fora do período)
-        emManaus.MemoriaPorDia[0].DiaFalta.Should().BeTrue();
+        emManaus.DiasFalta.Should().Be(0);
+        emManaus.MemoriaPorDia[0].DiaFalta.Should().BeFalse();
+        emManaus.MemoriaPorDia[0].TemBatidaNoDia.Should().BeTrue();
+    }
+
+    // ==== RC-EVO-B §3: engine v2 (RH-APURACAO-2) ==================================
+
+    [Fact]
+    public void Apuracao_V2_Dois_Periodos_No_Mesmo_Dia_Somam_Trabalho_Sem_Pendencia()
+    {
+        var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, new[]
+        {
+            Batida(1, PontoSeg, new TimeOnly(8, 0), PontoTipo.Entrada),
+            Batida(2, PontoSeg, new TimeOnly(12, 0), PontoTipo.Saida),
+            Batida(3, PontoSeg, new TimeOnly(13, 0), PontoTipo.Entrada),
+            Batida(4, PontoSeg, new TimeOnly(17, 0), PontoTipo.Saida)
+        }, _ => JornadaPadrao);
+
+        resultado.PendenciasGlobais.Should().BeEmpty();
+        resultado.TotalTrabalhadoMinutos.Should().Be(480);
+        resultado.MemoriaPorDia[0].Periodos.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void Apuracao_V2_Batida_Duplicada_No_Mesmo_Minuto_Colapsa_Sem_Pendencia()
+    {
+        var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, new[]
+        {
+            Batida(1, PontoSeg, new TimeOnly(8, 0), PontoTipo.Entrada),
+            Batida(2, PontoSeg, new TimeOnly(8, 0), PontoTipo.Entrada), // mesmo minuto: relance do terminal
+            Batida(3, PontoSeg, new TimeOnly(17, 0), PontoTipo.Saida)
+        }, _ => JornadaPadrao);
+
+        resultado.PendenciasGlobais.Should().BeEmpty();
+        resultado.TotalTrabalhadoMinutos.Should().Be(540);
+    }
+
+    [Fact]
+    public void Apuracao_V2_Entrada_Consecutiva_Marca_Pendencia_E_Nao_Reabre_Periodo()
+    {
+        var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, new[]
+        {
+            Batida(1, PontoSeg, new TimeOnly(8, 0), PontoTipo.Entrada),
+            Batida(2, PontoSeg, new TimeOnly(8, 30), PontoTipo.Entrada), // não fecha nem reabre nada
+            Batida(3, PontoSeg, new TimeOnly(17, 0), PontoTipo.Saida)
+        }, _ => JornadaPadrao);
+
+        resultado.PendenciasGlobais.Should().Contain("ENTRADA_CONSECUTIVA");
+        resultado.MemoriaPorDia[0].Periodos.Should().HaveCount(1);
+        resultado.MemoriaPorDia[0].EntradaEfetiva.Should().Be(new TimeOnly(8, 0)); // mantém a abertura original
+        resultado.TotalTrabalhadoMinutos.Should().Be(540);
+    }
+
+    [Fact]
+    public void Apuracao_V2_Saida_Além_Da_Janela_Nao_Fecha_Abertura_Antiga_E_Isola_Pendencias()
+    {
+        var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg.AddDays(3), ZonaBrasilia, new[]
+        {
+            Batida(1, PontoSeg, new TimeOnly(8, 0), PontoTipo.Entrada),           // segunda 08:00
+            Batida(2, PontoSeg.AddDays(3), new TimeOnly(9, 30), PontoTipo.Saida)  // quinta 09:30 (>24 h de janela)
+        }, _ => JornadaPadrao);
+
+        resultado.PendenciasGlobais.Should().Contain("SAIDA_AUSENTE");
+        resultado.PendenciasGlobais.Should().Contain("ENTRADA_AUSENTE");
+        resultado.PendenciasGlobais.Should().Contain("FORA_DA_JANELA_DE_PAREAMENTO");
+        resultado.TotalTrabalhadoMinutos.Should().Be(0);
+    }
+
+    [Fact]
+    public void Apuracao_V2_Politica_Atraso_Completo_Desconta_O_Atraso_Inteiro_Apos_Tolerancia()
+    {
+        var batidas = new[]
+        {
+            Batida(1, PontoSeg, new TimeOnly(8, 5), PontoTipo.Entrada),  // dentro da tolerância de 10
+            Batida(2, PontoSeg, new TimeOnly(17, 0), PontoTipo.Saida),
+            Batida(3, PontoSeg.AddDays(1), new TimeOnly(8, 25), PontoTipo.Entrada), // 25 > tolerância
+            Batida(4, PontoSeg.AddDays(1), new TimeOnly(17, 0), PontoTipo.Saida)
+        };
+
+        var sobreExcedente = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg.AddDays(1), ZonaBrasilia, batidas, _ => JornadaPadrao);
+        sobreExcedente.TotalAtrasoMinutos.Should().Be(15);
+
+        var atrasoCompleto = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg.AddDays(1), ZonaBrasilia, batidas, _ => JornadaPadrao,
+            politicaTolerancia: ToleranciaPolitica.AtrasoCompleto);
+        atrasoCompleto.TotalAtrasoMinutos.Should().Be(25); // atraso inteiro, não só o excedente
+        atrasoCompleto.MemoriaPorDia[0].AtrasoMinutos.Should().Be(0); // dentro da tolerância continua 0
+    }
+
+    [Fact]
+    public void Apuracao_V2_Ausencia_Justificada_Fora_Do_Total_Descontavel()
+    {
+        var justificada = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, Array.Empty<BatidaPonto>(), _ => JornadaPadrao,
+            ausenciasJustificadas: new[] { PontoSeg });
+        justificada.TotalAusenciaMinutos.Should().Be(540);          // total genérico segue informativo
+        justificada.TotalAusenciaJustificadaMinutos.Should().Be(540);
+        justificada.TotalAusenciaDescontavelMinutos.Should().Be(0);  // folha não desciona abonado
+
+        var falta = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, Array.Empty<BatidaPonto>(), _ => JornadaPadrao);
+        falta.TotalAusenciaJustificadaMinutos.Should().Be(0);
+        falta.TotalAusenciaDescontavelMinutos.Should().Be(540);
+    }
+
+    [Fact]
+    public void Apuracao_V2_Relacao_Declarada_Carga_X_Programacao_Acima_Gera_Pendencia_Clara()
+    {
+        // Jornada declara intervalo previsto de 60 min: expectativa líquida 480 min x 5 dias = 40 h > carga 30 h.
+        var apertada = new JornadaPontoRegra(3, "Apertada", 30m, new TimeOnly(8, 0), new TimeOnly(17, 0), 0, new[] { 1, 2, 3, 4, 5 }, duracaoPrevistaMinutos: null, intervaloPrevistoMinutos: 60);
+        var divergente = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, Array.Empty<BatidaPonto>(), _ => apertada);
+        divergente.PendenciasGlobais.Should().Contain("PROGRAMACAO_ACIMA_DA_CARGA_SEMANAL");
+
+        // Sem insumo declarado (duração/intervalo) a relação não é julgada: nada é presumido.
+        var semDeclaracao = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, Array.Empty<BatidaPonto>(), _ => JornadaPadrao);
+        semDeclaracao.PendenciasGlobais.Should().NotContain("PROGRAMACAO_ACIMA_DA_CARGA_SEMANAL");
+    }
+
+    [Fact]
+    public void Apuracao_V2_Entrada_Igual_Saida_No_Mesmo_Instante_E_Tempo_Observado_Zero_Nao_24h()
+    {
+        var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, new[]
+        {
+            Batida(1, PontoSeg, new TimeOnly(9, 0), PontoTipo.Entrada),
+            Batida(2, PontoSeg, new TimeOnly(9, 0), PontoTipo.Saida)
+        }, _ => JornadaPadrao);
+
+        resultado.TotalTrabalhadoMinutos.Should().Be(0);
+        resultado.MemoriaPorDia[0].AntecipacaoMinutos.Should().Be(540);
+        resultado.MemoriaPorDia[0].AusenciaDescontavelMinutos.Should().Be(540);
+    }
+
+    [Fact]
+    public void Apuracao_V2_Jornada_Entrada_Igual_Saida_Sem_Duracao_Declarada_Pede_Configuracao()
+    {
+        var vinteQuatro = new JornadaPontoRegra(4, "24h implícita", 40m, new TimeOnly(8, 0), new TimeOnly(8, 0), 0, new[] { 1, 2, 3, 4, 5 });
+        var resultado = PontoApuracaoEngine.Calcular(1, PontoSeg, PontoSeg, ZonaBrasilia, Array.Empty<BatidaPonto>(), _ => vinteQuatro);
+
+        resultado.PendenciasGlobais.Should().Contain("JORNADA_SEM_DURACAO_EXPLICITA");
+        resultado.MemoriaPorDia[0].EsperadoMinutos.Should().Be(1440);
     }
 
     [Fact]
@@ -584,7 +727,7 @@ public sealed class RhRulesTests
     // ==== RC-EVO-RH §9: regras puras da relação Folha de ponto → Financeiro ===========
 
     private static string PayloadJson(string itens) =>
-        """{"integracaoId":77,"apuracaoId":88,"folhaId":9,"servidorId":3,"versaoRegras":"RH-PONTO-v3","periodoInicio":"2026-08-28","periodoFim":"2026-09-27","competenciaAno":2026,"competenciaMes":9,"entidadeId":1,"exercicioId":1,"totalProventos":13.00,"totalDescontos":4.00,"usuarioId":102,"itens":[__ITENS__]}""".Replace("__ITENS__", itens);
+        """{"integracaoId":77,"apuracaoId":88,"folhaId":9,"servidorId":3,"versaoRegras":"RH-PONTO-v3","periodoInicio":"2026-08-28","periodoFim":"2026-09-27","competenciaAno":2026,"competenciaMes":9,"entidadeId":1,"exercicioId":1,"totalProventos":13.00,"totalDescontos":4.00,"usuarioId":102,"dataEmissao":"2026-10-05","itens":[__ITENS__]}""".Replace("__ITENS__", itens);
 
     [Fact]
     public void S9_Parse_Aceita_CamelCase_E_Legado_PascalCase_Sem_Inventar_Valores()
@@ -599,7 +742,7 @@ public sealed class RhRulesTests
         payload.Itens.Should().ContainSingle().Which.Valor.Should().Be(10.00m);
 
         // Legacy PascalCase continua legível (produções anteriores) e ausência de opcional → null explícita.
-        var pascal = """{"IntegracaoId":77,"ApuracaoId":88,"FolhaId":9,"ServidorId":3,"VersaoRegras":"RH-PONTO-v3","PeriodoInicio":"2026-08-28","PeriodoFim":"2026-09-27","CompetenciaAno":2026,"CompetenciaMes":9,"EntidadeId":1,"ExercicioId":1,"TotalProventos":13.00,"TotalDescontos":4.00,"Itens":[{"Codigo":"PONT-INT","Nome":"Intervalo fracionado (ponto)","Tipo":"PROVENTO","Valor":3.00}]}""";
+        var pascal = """{"IntegracaoId":77,"ApuracaoId":88,"FolhaId":9,"ServidorId":3,"VersaoRegras":"RH-PONTO-v3","PeriodoInicio":"2026-08-28","PeriodoFim":"2026-09-27","CompetenciaAno":2026,"CompetenciaMes":9,"EntidadeId":1,"ExercicioId":1,"TotalProventos":13.00,"TotalDescontos":4.00,"DataEmissao":"2026-10-05","Itens":[{"Codigo":"PONT-INT","Nome":"Intervalo fracionado (ponto)","Tipo":"PROVENTO","Valor":3.00}]}""";
         var legado = FolhaPontoFinanceiraRegras.Parse(pascal);
         legado.IntegracaoId.Should().Be(77);
         legado.Itens.Should().ContainSingle().Which.Valor.Should().Be(3.00m);
@@ -713,5 +856,72 @@ public sealed class RhRulesTests
         FolhaPontoFinanceiraRegras.Money(10.345m).Should().Be(10.35m);
         FolhaPontoFinanceiraRegras.Money(-10.345m).Should().Be(-10.35m);
         FolhaPontoFinanceiraRegras.Money(10.344m).Should().Be(10.34m);
+    }
+
+    // ==== RC-EVO-B §5: emissão congelada, payload assinado e tipo parametrizado =======
+
+    [Fact]
+    public void S5_Parse_Exige_DataEmissao_Congelada_Na_Publicacao_Sem_Inventar_Data()
+    {
+        const string item = """{"codigo":"PONT-HOR","nome":"x","tipo":"PROVENTO","valor":10.00}""";
+
+        // RC-EVO-B §5: documento não pode nascer com a data do dia do retry — ausência é falha nomeada.
+        var semEmissao = PayloadJson(item).Replace("\"dataEmissao\":\"2026-10-05\",", "");
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse(semEmissao))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaPayloadInvalido)
+            .And.Contain("DataEmissao");
+
+        var emitido = PayloadJson(item).Replace("\"dataEmissao\":\"2026-10-05\"", "\"dataEmissao\":\"31/12/2026\"");
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.Parse(emitido))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaPayloadInvalido);
+
+        FolhaPontoFinanceiraRegras.Parse(PayloadJson(item)).DataEmissao.Should().Be(new DateOnly(2026, 10, 5));
+    }
+
+    [Fact]
+    public void S5_Hash_Do_Payload_E_Deterministico_E_Verificacao_Pega_Alteracao_De_Valor()
+    {
+        const string item = """{"codigo":"PONT-HOR","nome":"Horas trabalhadas (ponto)","tipo":"PROVENTO","valor":10.00}""";
+
+        // Producer assina sem o campo hash; consumer recompara a partir do parse (ordem de JSON irrelevante).
+        var bruto = FolhaPontoFinanceiraRegras.Parse(PayloadJson(item));
+        var hash = FolhaPontoFinanceiraRegras.CalcularHash(bruto);
+        hash.Should().MatchRegex("^[0-9a-f]{64}$");
+
+        var assinadoJson = PayloadJson(item).Replace("\"itens\":[", $"\"payloadHash\":\"{hash}\",\"itens\":[");
+        var assinado = FolhaPontoFinanceiraRegras.Parse(assinadoJson);
+        FolhaPontoFinanceiraRegras.VerificarIntegridade(assinado); // não lança
+
+        // Reordenação de propriedades não muda o hash (forma canônica, não texto cru).
+        var reordenado = FolhaPontoFinanceiraRegras.Parse(assinadoJson.Replace("\"servidorId\":3,", "").Replace("\"itens\":[", "\"servidorId\":3,\"itens\":["));
+        FolhaPontoFinanceiraRegras.VerificarIntegridade(reordenado);
+
+        // Dinheiro alterado entre publicar e consumir → checksum divergente nomeado.
+        var adulterado = FolhaPontoFinanceiraRegras.Parse(assinadoJson.Replace("\"valor\":10.00", "\"valor\":99.00"));
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.VerificarIntegridade(adulterado))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaChecksumDivergente);
+    }
+
+    [Fact]
+    public void S5_Payload_Sem_Assinatura_Falha_Nomeada_Antes_De_Qualquer_Efeito()
+    {
+        const string item = """{"codigo":"PONT-HOR","nome":"x","tipo":"PROVENTO","valor":10.00}""";
+        var semHash = FolhaPontoFinanceiraRegras.Parse(PayloadJson(item));
+        Assert.Throws<InvalidOperationException>(() => FolhaPontoFinanceiraRegras.VerificarIntegridade(semHash))
+            .Message.Should().Contain(FolhaPontoFinanceiraRegras.FalhaHashAusente);
+    }
+
+    [Fact]
+    public void S5_TipoEmpenho_Vem_Do_Parametro_Com_Padrao_ORDINARIO_Documentado()
+    {
+        FolhaPontoFinanceiraRegras.ParametroTipoEmpenho.Should().Be("TIPO_EMPENHO_INTEGRACAO_PONTO");
+
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho(null).Should().Be("ORDINARIO");
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("").Should().Be("ORDINARIO");
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("  ").Should().Be("ORDINARIO");
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("\"\"").Should().Be("ORDINARIO");
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("global").Should().Be("GLOBAL");
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("\"patrimonial\"").Should().Be("PATRIMONIAL");
+        FolhaPontoFinanceiraRegras.InterpretarTipoEmpenho("\"  estimativo  \"").Should().Be("ESTIMATIVO");
     }
 }
