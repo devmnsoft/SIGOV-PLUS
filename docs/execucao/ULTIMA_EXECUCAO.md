@@ -1,5 +1,15 @@
 # Última execução
 
+Data: 2026-10-09. P0.4 — jornada de autenticação/isolamento ao vivo no PG16 oficial. Estado: **PASS (evidência ao vivo)** → **P0 integralmente verde**.
+
+- Host: worktree `swift-circuit`, HEAD `27ae43ef`; SDK .NET 10; Docker/PostgreSQL 16 disponíveis. Banco descartável `p04_dev` no container oficial `sigov-postgres` (PostgreSQL **16.14**), com seeds dev + fixture idempotente de um 2º tenant `p04-b` (usuários PF `p04pf`/CPF e PJ `p04pj`/CNPJ, mesma senha dev PBKDF2).
+- Nota de ambiente (regra 13/18, não mascarada): a porta `5432` do host era ocupada por um Postgres 18 nativo do Windows (`postgresql-x64-18`), sombreando o mapeamento do Docker; a conexão de `localhost:5432` retornava o banco do Windows. Como não havia elevação para parar o serviço, garantiu-se o **PG16 oficial** via forwarder temporário `alpine/socat` na porta livre `5433` → `sigov-postgres:5432` (rede `sigov-plus_default`); conexão confirmou `16.14 … db=p04_dev`.
+- Itens P0.4 provados ao vivo (fluxo real do Web: form + antiforgery + cookie): (1) login por **e‑mail** → `/MinhaCentral` + sessão em `sigov.identidade_sessao`; (2) login por **CPF** `11144477735` → `p04pf`/t7 (via `pessoa_fisica.cpf`; antes do registro `CandidateCount=0`); (3) login por **CNPJ** `11222333000181` → `p04pj`/t7 (via `entidade.cnpj`); (4) **senha errada** → falha explícita sem sessão; (5) **Minha Central** autenticada no contexto do próprio tenant (sem vazamento entre tenants); (6) **logout** revoga (`motivo_encerramento='LOGOUT'`); (7) **dois tenants** isolados (t6 `sigov-local` vs t7 `p04-b`); (8) **tenant suspenso** bloqueia login e religa (`ativo=false→true`); (9) **revogação por alteração de identidade** (paridade A5: bump em `usuario.updated_at` → `auth_version` obsoleta → cookie rejeitado → redirect p/ login). Rastro completo em `sigov.auditoria_evento`.
+- Limpeza: `p04_dev` dropado (residuo zero), `p04fwd` removido, Web local finalizado; serviço Postgres do Windows intocado.
+- Evidência: `docs/evidencias/rcevo/relatorio_p0_4_jornada_autenticacao_isolamento_pg16.md`; promovido na matriz P0.4 → PASS. Próximo item exato: **Gate B (SaaS)**. GED por último.
+
+---
+
 Data: 2026-10-09. P0.3 — Swagger e auditoria integral de rotas. Estado: **PASS (evidência ao vivo)**.
 
 - Prerrequisitos P0.1/P0.2 verdes (este host, HEAD `6c7b269a`).
