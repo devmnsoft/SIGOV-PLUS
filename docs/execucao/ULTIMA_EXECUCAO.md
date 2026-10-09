@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-10-09. P0.2 — build e testes realmente executados. Estado: **PASS (evidência ao vivo)**.
+
+- Host: worktree `swift-circuit`, HEAD `6c7b269a`; SDK .NET 10.0.400; Docker/PostgreSQL 16 disponíveis.
+- Suítes executadas sem teste em silêncio (nenhum `Skip=`/ignore em `tests`): UnitTests **508/508**, IntegrationTests **158/158**, ApiTests **158/158**. Os 12 contratos estáticos históricos de ApiTests que a matriz antiga marcava como falhando **já não falham** (ApiTests integralmente verde). Todos os 3 test projects participam do `sigov.sln`.
+- Build Release `-warnaserror`: **0w/0e**.
+- Nota de ambiente (regra 13/18, não mascarada): o `packages.lock.json` de `Sigov.Api` grava o alvo `net10.0/linux-x64` embora o projeto não declare `RuntimeIdentifier`; por isso `dotnet restore sigov.sln --locked-mode` reporta **NU1004** em host não-linux (CI linux-x64 bate). Evidência de compilação obtida com restore padrão + `-warnaserror`.
+- Promovido na matriz: `MATRIZ_FLUXOS_VERTICAIS.md` P0.2 → PASS.
+- Próximo item exato: P0.3 auditoria integral de conflitos de rotas (`bash scripts/check-api-route-conflicts.sh`, 630 rotas) e P0.4 jornada de autenticação/isolamento no banco oficial (login CPF/CNPJ/e-mail, Minha Central, logout, revogação, tent suspenso, dois tenants); só então Gate B (SaaS). GED por último.
+
+---
+
 Data: 2026-10-09. RC-EVO-B §6 + fechamento P0.1/Gate A item 6. Estado: **VALIDADO COM EVIDÊNCIA (build/suítes + PostgreSQL 16 ao vivo)**.
 
 - Baseline: worktree `swift-circuit`, HEAD `6c7b269a`, árvore limpa. SDK .NET 10.0.400 (`global.json` 10.0.100 + latestFeature); Docker 29.4.3 e PostgreSQL 16.14 (`postgres:16`, container `sigov-postgres`) disponíveis neste host.
