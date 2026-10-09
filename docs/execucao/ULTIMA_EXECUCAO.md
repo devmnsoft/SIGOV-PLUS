@@ -1,5 +1,17 @@
 # Última execução
 
+Data: 2026-10-09. P0.3 — Swagger e auditoria integral de rotas. Estado: **PASS (evidência ao vivo)**.
+
+- Prerrequisitos P0.1/P0.2 verdes (este host, HEAD `6c7b269a`).
+- Auditoria de conflitos de rotas passou em duas camadas:
+  - Testes **executados** que sobem um host real via `WebApplicationFactory` (`tests/Sigov.ApiTests/ApiContractRegressionTests.cs`, fixture `SigovApiFactory`): `SwaggerJson_Deve_Ser_Valido_Sem_Rotas_Ou_OperationIds_Duplicados` (GET `/swagger/v1/swagger.json` → HTTP 200, `application/json`, `openapi` presente, sem operationIds/rotas duplicadas) e `ApiDescriptions_Nao_Devem_Conter_Metodo_E_Caminho_Duplicados` (ApiExplorer sem método/caminho duplicado). Parte dos ApiTests 158/158 verdes.
+  - Auditoria estática `bash scripts/check-api-route-conflicts.sh` → "Nenhum conflito direto em **637** rotas API".
+- Nota: o container `sigov-api` do stack pré-existente estava em loop de reinício (estado ambiente, não montado por esta execução); a evidência de Swagger runtime vem do teste executado, não do container.
+- Promovido na matriz: `MATRIZ_FLUXOS_VERTICAIS.md` P0.3 → PASS.
+- Próximo item exato: **P0.4** — jornada de autenticação/isolamento no banco oficial (login CPF/CNPJ/e-mail, Minha Central, logout, revogação, tent suspenso e dois tenants); só então Gate B (SaaS). GED por último.
+
+---
+
 Data: 2026-10-09. P0.2 — build e testes realmente executados. Estado: **PASS (evidência ao vivo)**.
 
 - Host: worktree `swift-circuit`, HEAD `6c7b269a`; SDK .NET 10.0.400; Docker/PostgreSQL 16 disponíveis.
