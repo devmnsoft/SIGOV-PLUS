@@ -1,5 +1,16 @@
 # Última execução
 
+Data: 2026-10-10. Gate B (P1) — RC-SAAS-AUT validado ao vivo no PG16 oficial. Estado: **PASS (26/26, evidência ao vivo)**.
+
+- Host: worktree `swift-circuit`; prova de runtime em HEAD `c1fbf922` (base da RC-SAAS-AUT, commit `74f763`); consolidação dual-catalog em `f388b67d`. SDK .NET 10 (10.0.400, honrando `global.json` 10.0.100 / rollForward latestFeature). Banco `p1_dev` no container oficial `sigov-postgres` (PostgreSQL **16.14**); seeds homolog A/B/C/D + fixture idempotente `20261010_gateb_rcsaas_aut_fixtures.sql` (perfis `ADMIN_TENANT` 90–93 + probe `gate.nao.admin`).
+- Nota de ambiente (regra 13/18, não mascarada): host sem `psql` (SQL via `docker cp` + `docker exec ... psql -f`); porta 5432 sombreada por Postgres nativo do Windows → PG16 oficial via forwarder `alpine/socat` (`p1fwd`) na porta livre 5433 → `sigov-postgres:5432`; container `sigov-api` pré-existente em loop de reinício (estado ambiente) contornado executando Web :5099 + API :5100 localmente contra `p1_dev` com `MigrationMode=Disabled`.
+- Driver reproduzível `scripts/gate-b-saas-runtime.ps1` → **26/26 PASS, 0 FAIL**. Ao vivo: (1) cadeia Web→bearer — `GET /Auth/ApiToken` minta token bruto de 64 chars; cookie cru `SIGOV.AUTH` como bearer → 401; anônimo → 401 `authentication_required`; (2) avaliador canônico fail-closed A(ATIVA→200)/B(SUSPENSA→403 `BLOQUEADO_COMERCIAL`)/C(expirada→403 `CONTRATO_EXPIRADO`)/D(limite=1→200), todos com `login.ok=True`; (3) 403 padronizado (`motivo`) paridade Web+API — `/Seguranca/Usuarios`: perfil restrito → 403 `SEM_PERMISSAO` ainda com `/MinhaCentral` 200, admin global → 200; (4) revogação por alteração de identidade paridade A5 — bump em `usuario.updated_at` → Web `/MinhaCentral` 302 + API com token antigo 401, estado restaurado; (5) admin global MNSOFT como autoridade do banco — tripla `saas.plataforma.administrar` (id 1755, ativo=t, módulo saas), 8 holders ativos.
+- Consolidação dual-catalog (`f388b67d`): navegação renomeada `ICommercialModuleCatalogService`; decisão permanece somente em `PersistentModuleCatalogService` (banco autoridade, fail-closed). Build `-warnAsError` 0w/0e; suítes preservadas Unit 508 / Integration 158 / Api 158 (0 ignorados).
+- Estado final: `p1_dev` preservado e utilizável (fixture idempotente; `updated_at` do cenário D restaurado a `'null'`); forwarder/apps mantidos para os gates seguintes; serviço Postgres do Windows intocado. Artefatos bankados em `docs/evidencias/rcevo/gate_b_saas_aut/`.
+- Evidência: `docs/evidencias/rcevo/relatorio_gate_b_saas_aut_runtime_pg16.md`; matriz P1 → PASS, BACKLOG item 6 → VALIDADO. Resíduos (regra 13): acesso cruzado em nível de API (`TenantAccessGuard`) e mutações comerciais/convites/troca de contexto com auditoria ainda só cobertos deterministicamente pelas suítes. Próximo item exato: **Gate C (Indústria OP)**. GED por último.
+
+---
+
 Data: 2026-10-09. P0.4 — jornada de autenticação/isolamento ao vivo no PG16 oficial. Estado: **PASS (evidência ao vivo)** → **P0 integralmente verde**.
 
 - Host: worktree `swift-circuit`, HEAD `27ae43ef`; SDK .NET 10; Docker/PostgreSQL 16 disponíveis. Banco descartável `p04_dev` no container oficial `sigov-postgres` (PostgreSQL **16.14**), com seeds dev + fixture idempotente de um 2º tenant `p04-b` (usuários PF `p04pf`/CPF e PJ `p04pj`/CNPJ, mesma senha dev PBKDF2).

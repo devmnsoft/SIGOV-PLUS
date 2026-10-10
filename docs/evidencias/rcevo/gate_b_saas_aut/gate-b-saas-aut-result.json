@@ -1,0 +1,191 @@
+﻿{
+    "gate":  "Gate B (P1) RC-SAAS-AUT runtime PG16",
+    "rc":  "RC-SAAS-AUT",
+    "generatedAt":  "2026-10-10T10:01:13.7237744Z",
+    "passed":  26,
+    "failed":  0,
+    "checks":  [
+                   {
+                       "phase":  "G0",
+                       "name":  "env.pg16-reachable",
+                       "passed":  true,
+                       "evidence":  "pg reachable; PostgreSQL 16.14 (Debian 16.14-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+                       "checkedAt":  "2026-10-10T10:00:51.4669299Z"
+                   },
+                   {
+                       "phase":  "G0",
+                       "name":  "env.web-up",
+                       "passed":  true,
+                       "evidence":  "GET /Auth/Login -\u003e 200",
+                       "checkedAt":  "2026-10-10T10:00:51.5113334Z"
+                   },
+                   {
+                       "phase":  "G0",
+                       "name":  "env.api-up",
+                       "passed":  true,
+                       "evidence":  "GET /api/saas/tenant/modulos sem bearer -\u003e 401 (401 esperado)",
+                       "checkedAt":  "2026-10-10T10:00:51.5478238Z"
+                   },
+                   {
+                       "phase":  "G0",
+                       "name":  "fixture.applied",
+                       "passed":  true,
+                       "evidence":  "fixture gateb aplicado exit=0",
+                       "checkedAt":  "2026-10-10T10:00:51.9207634Z"
+                   },
+                   {
+                       "phase":  "G0",
+                       "name":  "fixture.cenarios-presentes",
+                       "passed":  true,
+                       "evidence":  "linhas cenario=4",
+                       "checkedAt":  "2026-10-10T10:00:52.1979027Z"
+                   },
+                   {
+                       "phase":  "G0",
+                       "name":  "fixture.B-suspensa",
+                       "passed":  true,
+                       "evidence":  "tenant 910002 -\u003e 910002|t|SUSPENSA|2027-08-31|10|SUSPENSO\r",
+                       "checkedAt":  "2026-10-10T10:00:52.2024032Z"
+                   },
+                   {
+                       "phase":  "G0",
+                       "name":  "fixture.C-expirada",
+                       "passed":  true,
+                       "evidence":  "tenant 910003 data_fim -\u003e 910003|t|ATIVA|2026-09-30|10|HABILITADO\r",
+                       "checkedAt":  "2026-10-10T10:00:52.2034010Z"
+                   },
+                   {
+                       "phase":  "G1",
+                       "name":  "auth.login-web",
+                       "passed":  true,
+                       "evidence":  "hom.a.admin POST /Auth/Login -\u003e 302|http://localhost:5099/MinhaCentral",
+                       "checkedAt":  "2026-10-10T10:00:52.5760802Z"
+                   },
+                   {
+                       "phase":  "G1",
+                       "name":  "auth.minha-central",
+                       "passed":  true,
+                       "evidence":  "GET /MinhaCentral -\u003e 200",
+                       "checkedAt":  "2026-10-10T10:00:53.4415615Z"
+                   },
+                   {
+                       "phase":  "G1",
+                       "name":  "auth.api-token-mint",
+                       "passed":  true,
+                       "evidence":  "GET /Auth/ApiToken len=64 (erro=\u0027Nenhum exercício ativo\u0027 é informativo; o token bruto é válido — verificado em auth.bearer-api-200)",
+                       "checkedAt":  "2026-10-10T10:00:53.9963470Z"
+                   },
+                   {
+                       "phase":  "G1",
+                       "name":  "auth.bearer-api-200",
+                       "passed":  true,
+                       "evidence":  "GET /api/saas/tenant/modulos bearer -\u003e 200; {\"success\":true,\"data\":[{\"codigo\":\"financeiro\",\"nome\":\"Financeiro/SIAFIC\",\"contratado\":true,\"habilitado\":true},{\"codigo\":\"educacao\",\"nome\":\"",
+                       "checkedAt":  "2026-10-10T10:00:54.6036648Z"
+                   },
+                   {
+                       "phase":  "G1",
+                       "name":  "auth.bearer-necessario",
+                       "passed":  true,
+                       "evidence":  "cookie cru SIGOV.AUTH como bearer -\u003e 401 (401 esperado; cookie != token bruto)",
+                       "checkedAt":  "2026-10-10T10:00:54.6635677Z"
+                   },
+                   {
+                       "phase":  "G1",
+                       "name":  "auth.anonimo-401",
+                       "passed":  true,
+                       "evidence":  "sem bearer -\u003e 401 {\"error\":\"authentication_required\",\"message\":\"AutenticaÃ§Ã£o obrigatÃ³ria.\"}",
+                       "checkedAt":  "2026-10-10T10:00:54.7139047Z"
+                   },
+                   {
+                       "phase":  "G2",
+                       "name":  "modulo.A-baseline-200",
+                       "passed":  true,
+                       "evidence":  "A hom.a.admin (ATIVA/válida) GET /api/educacao/escolas -\u003e 200",
+                       "checkedAt":  "2026-10-10T10:00:55.6745064Z"
+                   },
+                   {
+                       "phase":  "G2",
+                       "name":  "modulo.B-bloqueado",
+                       "passed":  true,
+                       "evidence":  "B hom.b.admin (SUSPENSA, login.ok=True) -\u003e 403 motivo=BLOQUEADO_COMERCIAL | {\"success\":false,\"data\":null,\"message\":\"Assinatura comercial do cliente com status SUSPENSA; acesso suspenso.\",\"correlat",
+                       "checkedAt":  "2026-10-10T10:00:58.5110883Z"
+                   },
+                   {
+                       "phase":  "G2",
+                       "name":  "modulo.C-expirado",
+                       "passed":  true,
+                       "evidence":  "C hom.c.admin (expirada, login.ok=True) -\u003e 403 motivo=CONTRATO_EXPIRADO | {\"success\":false,\"data\":null,\"message\":\"VigÃªncia da assinatura comercial expirada.\",\"correlationId\":\"0HNP6LP96R9A5:0000",
+                       "checkedAt":  "2026-10-10T10:01:01.3464878Z"
+                   },
+                   {
+                       "phase":  "G2",
+                       "name":  "modulo.D-limite-nao-bloqueia-modulo",
+                       "passed":  true,
+                       "evidence":  "D hom.d.admin (ATIVA/limite=1, login.ok=True) -\u003e 200 (limite aplica a criação de usuário, não a módulo)",
+                       "checkedAt":  "2026-10-10T10:01:04.6571416Z"
+                   },
+                   {
+                       "phase":  "G3",
+                       "name":  "forbid.api-envelope",
+                       "passed":  true,
+                       "evidence":  "API 403: success=False motivo=BLOQUEADO_COMERCIAL (motivo presente e padronizado)",
+                       "checkedAt":  "2026-10-10T10:01:04.6662801Z"
+                   },
+                   {
+                       "phase":  "G3",
+                       "name":  "forbid.web-403-sem-permissao",
+                       "passed":  true,
+                       "evidence":  "gate.nao.admin (login.ok=True) GET /Seguranca/Usuarios -\u003e 403 motivo=SEM_PERMISSAO ok=False",
+                       "checkedAt":  "2026-10-10T10:01:06.9366045Z"
+                   },
+                   {
+                       "phase":  "G3",
+                       "name":  "forbid.web-admin-200",
+                       "passed":  true,
+                       "evidence":  "hom.a.admin (admin global, login.ok=True) GET /Seguranca/Usuarios -\u003e 200 len=96000",
+                       "checkedAt":  "2026-10-10T10:01:09.3372200Z"
+                   },
+                   {
+                       "phase":  "G4",
+                       "name":  "revoke.before-valid",
+                       "passed":  true,
+                       "evidence":  "antes do bump: api=200 web_MinhaCentral=200",
+                       "checkedAt":  "2026-10-10T10:01:11.0563490Z"
+                   },
+                   {
+                       "phase":  "G4",
+                       "name":  "revoke.web-302",
+                       "passed":  true,
+                       "evidence":  "após bump identity: web /MinhaCentral com mesmo cookie -\u003e 302 (redireciona p/ login)",
+                       "checkedAt":  "2026-10-10T10:01:11.9601240Z"
+                   },
+                   {
+                       "phase":  "G4",
+                       "name":  "revoke.api-401",
+                       "passed":  true,
+                       "evidence":  "após bump identity: api com token antigo -\u003e 401 (401 esperado)",
+                       "checkedAt":  "2026-10-10T10:01:11.9621087Z"
+                   },
+                   {
+                       "phase":  "G4",
+                       "name":  "revoke.restored",
+                       "passed":  true,
+                       "evidence":  "usuario.updated_at restaurado para \u0027null\u0027 (era \u0027null\u0027)",
+                       "checkedAt":  "2026-10-10T10:01:12.6966462Z"
+                   },
+                   {
+                       "phase":  "G5",
+                       "name":  "mns.triplo-no-banco",
+                       "passed":  true,
+                       "evidence":  "permissao saas.plataforma.administrar id=1755 ativo=t modulo=saas",
+                       "checkedAt":  "2026-10-10T10:01:13.4571638Z"
+                   },
+                   {
+                       "phase":  "G5",
+                       "name":  "mns.holders-ativos",
+                       "passed":  true,
+                       "evidence":  "usuários ativos com o triplo (banco, regra 11) = 8",
+                       "checkedAt":  "2026-10-10T10:01:13.7123617Z"
+                   }
+               ]
+}
