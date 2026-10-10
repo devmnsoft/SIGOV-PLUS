@@ -114,6 +114,15 @@ public sealed class EducacaoModuleSmokeTests
         // #7 Auditoria: transicao de status registra origem, destino e motivo sem sobrescrever o historico
         code.Should().Contain("jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo'")
             .And.Contain("select status from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false");
+
+        // #4 Maquina de estados + guarda de versao: transicao validada com recusa nomeada, registro ausente
+        // e tabela ausente viram falhas explicitas, e a escrita e otimista (coalesce(updated_at,created_at))
+        code.Should().Contain("EducacaoStatusMaquina.TransicaoPermitida(de,alvo)")
+            .And.Contain("TransicaoDeStatusInvalidaException")
+            .And.Contain("RegistroNaoEncontradoException")
+            .And.Contain("RecursoNaoDisponivelException")
+            .And.Contain("ConflitoDeVersaoEducacaoException")
+            .And.Contain("coalesce(updated_at,created_at)=@VersaoAtual");
     }
 
     private static string FindRepositoryRoot()
