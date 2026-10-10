@@ -1,6 +1,6 @@
 namespace Sigov.Application.Commercial;
 
-public sealed class ModuleCatalogService : IModuleCatalogService
+public sealed class ModuleCatalogService : ICommercialModuleCatalogService
 {
     private static readonly IReadOnlyList<ModuleCatalogItem> Modules = BuildModules();
     private static readonly IReadOnlyList<ModuleCatalogPackage> Packages = BuildPackages();

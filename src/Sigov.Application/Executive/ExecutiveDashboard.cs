@@ -13,9 +13,9 @@ public interface IExecutiveDashboardService
 
 public sealed class ExecutiveDashboardService : IExecutiveDashboardService
 {
-    private readonly IModuleCatalogService _moduleCatalogService;
+    private readonly ICommercialModuleCatalogService _moduleCatalogService;
 
-    public ExecutiveDashboardService(IModuleCatalogService moduleCatalogService) => _moduleCatalogService = moduleCatalogService;
+    public ExecutiveDashboardService(ICommercialModuleCatalogService moduleCatalogService) => _moduleCatalogService = moduleCatalogService;
 
     public ExecutiveDashboardResponse GetDashboard()
     {

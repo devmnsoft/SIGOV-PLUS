@@ -10,11 +10,11 @@ namespace Sigov.Web.Controllers;
 [Authorize]
 public sealed class ModulosController : Controller
 {
-    private readonly IModuleCatalogService _moduleCatalogService;
+    private readonly ICommercialModuleCatalogService _moduleCatalogService;
     private readonly IModuloAccessService _access;
     private readonly IAuditTrailService _audit;
 
-    public ModulosController(IModuleCatalogService moduleCatalogService, IModuloAccessService access, IAuditTrailService audit)
+    public ModulosController(ICommercialModuleCatalogService moduleCatalogService, IModuloAccessService access, IAuditTrailService audit)
     {
         _moduleCatalogService = moduleCatalogService;
         _access = access;

@@ -118,7 +118,7 @@ builder.Services.AddSingleton<ISigovBrandProvider, SigovBrandProvider>();
 builder.Services.AddSingleton<ITenantBrandingProvider, TenantBrandingProvider>();
 builder.Services.AddSingleton<IIconRegistry, IconRegistry>();
 builder.Services.AddSingleton<IVisualAssetProvider, VisualAssetProvider>();
-builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
+builder.Services.AddSingleton<ICommercialModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();

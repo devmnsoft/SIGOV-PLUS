@@ -9,9 +9,9 @@ namespace Sigov.Api.Controllers;
 [Route("api/ui/module-catalog")]
 public sealed class ModuleCatalogController : ControllerBase
 {
-    private readonly IModuleCatalogService _moduleCatalogService;
+    private readonly ICommercialModuleCatalogService _moduleCatalogService;
 
-    public ModuleCatalogController(IModuleCatalogService moduleCatalogService) => _moduleCatalogService = moduleCatalogService;
+    public ModuleCatalogController(ICommercialModuleCatalogService moduleCatalogService) => _moduleCatalogService = moduleCatalogService;
 
     [HttpGet]
     public ActionResult<ApiResponse<IReadOnlyList<ModuleCatalogItem>>> Get() => Ok(ApiResponse<IReadOnlyList<ModuleCatalogItem>>.Ok(_moduleCatalogService.GetModules()));

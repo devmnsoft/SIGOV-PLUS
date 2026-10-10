@@ -53,7 +53,7 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy(policyName, policy => policy.Requirements.Add(new PersistedPermissionRequirement(permission.Code)));
 });
 builder.Services.Configure<DemoModeOptions>(builder.Configuration.GetSection("Sigov:DemoMode"));
-builder.Services.AddSingleton<IModuleCatalogService, ModuleCatalogService>();
+builder.Services.AddSingleton<ICommercialModuleCatalogService, ModuleCatalogService>();
 builder.Services.AddSingleton<IBusinessRuleCatalog, BusinessRuleCatalog>();
 builder.Services.AddSingleton<IBusinessRuleEvaluator, BusinessRuleEvaluator>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();

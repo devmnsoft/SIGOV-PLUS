@@ -20,11 +20,11 @@ public interface IMenuPermissionService
 public sealed class ModuleAccessService : IModuloAccessService, IMenuPermissionService
 {
     private static readonly string[] SensitiveModules = { "saude", "educacao", "social", "auditoria-lgpd", "rh" };
-    private readonly IModuleCatalogService _catalog;
+    private readonly ICommercialModuleCatalogService _catalog;
     private readonly IRequestAuthorizationSnapshot _snapshot;
     private readonly IUserPermissionService _permissions;
 
-    public ModuleAccessService(IModuleCatalogService catalog, IRequestAuthorizationSnapshot snapshot, IUserPermissionService permissions)
+    public ModuleAccessService(ICommercialModuleCatalogService catalog, IRequestAuthorizationSnapshot snapshot, IUserPermissionService permissions)
     {
         _catalog = catalog;
         _snapshot = snapshot;

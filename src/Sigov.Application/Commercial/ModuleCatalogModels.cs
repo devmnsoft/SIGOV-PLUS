@@ -32,7 +32,10 @@ public sealed record ModuleCatalogItem(
     IReadOnlyList<ModuleKpiItem> Kpis,
     bool HasDemoData);
 
-public interface IModuleCatalogService
+// Catálogo de NAVEGAÇÃO/COMERCIAL (estático por app). NÃO é autoridade de decisão de acesso:
+// as decisões de módulo usam Sigov.Application.Saas.Modules.IModuleCatalogService (persistente,
+// banco como autoridade, fail-closed). Nome próprio para desambiguar o par dual-catalog (RC-SAAS-AUT).
+public interface ICommercialModuleCatalogService
 {
     IReadOnlyList<ModuleCatalogItem> GetModules();
 
