@@ -2,7 +2,7 @@ using Sigov.Application.Common;
 namespace Sigov.Application.Educacao.Avancada;
 public sealed record EducacaoAvancadaContext(long TenantId,long? EntidadeId,long? ExercicioId,long? UsuarioId,string CorrelationId);
 public sealed record EducacaoAvancadaFiltro(long? EscolaId=null,int? AnoLetivo=null,string? Status=null,int Pagina=1,int Tamanho=30);
-public sealed record EducacaoAvancadaRegistroDto(long Id,string? Codigo,string? Nome,string Status,string? Tipo,string? Descricao,decimal? Quantidade,decimal? Valor,DateTimeOffset CreatedAt);
+public sealed record EducacaoAvancadaRegistroDto(long Id,string? Codigo,string? Nome,string Status,string? Tipo,string? Descricao,decimal? Quantidade,decimal? Valor,DateTime CreatedAt);
 public sealed record EducacaoAvancadaOperacaoRequest(long? EscolaId,long? AlunoId,long? ReferenciaId,string? Codigo,string? Nome,string? Tipo,string Status,string? Descricao,string? Justificativa,string? Turno,decimal? Quantidade,decimal? Valor,int? AnoLetivo,IReadOnlyDictionary<string,object?>? Dados);
 public sealed record EducacaoAvancadaDashboardDto(long Total,long Ativos,long Pendentes,long Alertas,IReadOnlyCollection<EducacaoAvancadaRegistroDto> Recentes);
 public sealed record EducacaoTransporteDashboardDto(long RotasAtivas,long AlunosTransportados,long ViagensMes,long Alertas);

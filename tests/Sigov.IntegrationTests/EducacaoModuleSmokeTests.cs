@@ -94,6 +94,28 @@ public sealed class EducacaoModuleSmokeTests
             .Should().Contain("Prévia sem efeitos acadêmicos").And.Contain("6. Resultado").And.Contain("itens marcados");
     }
 
+    [Fact]
+    public void EducacaoAvancada_Correcoes_Comprovadas_Dashboard_Csv_Schema_Auditoria()
+    {
+        var code = File.ReadAllText(Path.Combine(Root, "src/Sigov.Infrastructure/Educacao/Avancada/EducacaoAvancadaRepository.cs"));
+
+        // #1 Dashboard: contagens sobre o conjunto completo autorizado (aggregate FILTER), nao sobre 6 itens recentes
+        code.Should().Contain("count(1) filter (where status in ('ATIVA','ATIVO','PUBLICADO','DISPONIVEL','ABERTO'))")
+            .And.Contain("order by id desc limit 6");
+
+        // #2/#3 CSV: exportacao integral (sem teto de 100), escape/protecao de formula via helper, BOM p/ planilha pt-BR
+        code.Should().Contain("EducacaoCsv.Campo(x.Codigo)")
+            .And.Contain("Encoding.UTF8.GetPreamble().Concat")
+            .And.NotContain("EducacaoAvancadaFiltro(Tamanho:100)");
+
+        // #5 Schema ausente: diagnostico operacional explicito, nao lista vazia silenciosa
+        code.Should().Contain("Indisponivel(p,t,");
+
+        // #7 Auditoria: transicao de status registra origem, destino e motivo sem sobrescrever o historico
+        code.Should().Contain("jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo'")
+            .And.Contain("select status from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false");
+    }
+
     private static string FindRepositoryRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
