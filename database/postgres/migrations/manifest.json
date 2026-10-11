@@ -2973,6 +2973,19 @@
         "20261011130000"
       ],
       "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_cardapio_tenant_escola_inicio')"
+    },
+    {
+      "version": "20261011150000",
+      "description": "RC-EVO Ciclo 1 Sprint 6 (educacao/merenda operação): indice unico parcial ux_merenda_distribuicao_tenant_cardapio_data em sigov.educacao_merenda_distribuicao (uma distribuicao vigente por cardapio x data de atendimento; estados terminais liberam a data); backstop transacional do comando tipado de distribuição de refeição com consumo de estoque; idempotente; multi-esfera",
+      "category": "functional",
+      "file": "20261011150000_evo_c1s6_merenda_distribuicao_consumo_estoque.sql",
+      "checksum": "29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261011140000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_distribuicao_tenant_cardapio_data')"
     }
   ],
   "compatibilityAfterAll": [

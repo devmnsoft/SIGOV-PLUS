@@ -246,4 +246,41 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011140000_evo_c1s5_merenda_cardapio_unicidade_periodo.sql")
             .And.Contain("indexname='ux_merenda_cardapio_tenant_escola_inicio'");
     }
+
+    [Fact]
+    public void MerendaOperacao_Sprint6_DistribuicaoComConsumoEstoque_UnicidadeDia()
+    {
+        // Sprint 6 banco: uma distribuição vigente por cardápio × data de atendimento
+        // (estados terminais liberam o dia), com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011150000_evo_c1s6_merenda_distribuicao_consumo_estoque.sql"));
+        migration.Should().Contain("create unique index if not exists ux_merenda_distribuicao_tenant_cardapio_data")
+            .And.Contain("on sigov.educacao_merenda_distribuicao (tenant_id, referencia_id, competencia)")
+            .And.Contain("status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')")
+            .And.Contain("S6-POSTCOND");
+
+        // Operações tipadas: registro de estoque por produto e distribuição com
+        // cardápio ATIVO no período, itens restritos ao menu, lock do estoque em ordem
+        // determinística, movimentos de saída + baixa de saldo na mesma transação.
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> RegistrarEstoqueAsync(EducacaoAvancadaContext x,EducacaoMerendaRegistrarEstoqueRequest r,CancellationToken ct)")
+            .And.Contain("throw new MerendaProdutoInexistenteException(r.ProdutoId)")
+            .And.Contain("public async Task<long> DistribuirRefeicaoAsync(EducacaoAvancadaContext x,EducacaoMerendaDistribuirRefeicaoRequest r,CancellationToken ct)")
+            .And.Contain("order by id limit 1 for update")
+            .And.Contain("throw new EstoqueInsuficienteException(it.ProdutoId,disponivel,it.Quantidade)")
+            .And.Contain("throw new DistribuicaoDiaExistenteException(r.CardapioId,r.Data)")
+            .And.Contain("insert into sigov.educacao_merenda_movimento");
+
+        // Contratos e rotas públicas (operação de merenda multi-esfera, regra 24).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> RegistrarEstoqueAsync(EducacaoAvancadaContext contexto,EducacaoMerendaRegistrarEstoqueRequest request,CancellationToken ct)")
+            .And.Contain("Task<long> DistribuirRefeicaoAsync(EducacaoAvancadaContext contexto,EducacaoMerendaDistribuirRefeicaoRequest request,CancellationToken ct)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoMerendaController.cs"))
+            .Should().Contain("[HttpPost(\"estoques\")]")
+            .And.Contain("[HttpPost(\"distribuicoes/confirmar\")]");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre o índice.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011150000_evo_c1s6_merenda_distribuicao_consumo_estoque.sql")
+            .And.Contain("indexname='ux_merenda_distribuicao_tenant_cardapio_data'");
+    }
 }

@@ -254,7 +254,8 @@ select exists (
         ('20261008130000', array['faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5']::text[]),
         ('20261011120000', array['f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f']::text[]),
         ('20261011130000', array['4ef25a86cb151deecb8458d90ea68b27976431a5d1230e86e9c234af55cb327f']::text[]),
-        ('20261011140000', array['d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86']::text[])
+        ('20261011140000', array['d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86']::text[]),
+        ('20261011150000', array['29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34426,6 +34427,44 @@ begin
 end $post$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011140000', 'RC-EVO Ciclo 1 Sprint 5 (educacao/merenda base): indice unico parcial ux_merenda_cardapio_tenant_escola_inicio em sigov.educacao_merenda_cardapio (um cardapio vigente por escola x data de inicio; estados terminais liberam o periodo); backstop transacional do comando tipado de cardapio com produtos; idempotente; multi-esfera', 'd4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261011150000_evo_c1s6_merenda_distribuicao_consumo_estoque.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 1 Sprint 6 (educacao/merenda operação): distribuição de refeição
+-- unicidade de data por cardápio + consumo real de estoque.
+-- Uma distribuição VIGENTE (não terminal) por cardápio e data de atendimento
+-- (regra 24: nada municipal hardcoded — a chave é cardápio × data, válida para
+-- qualquer esfera/órgão). Estados terminais (ENCERRADA/ENCERRADO/CANCELADA/
+-- CANCELADO) liberam a data para nova distribuição, como as políticas de
+-- unicidade das Sprints 3 e 5. O comando tipado
+-- (POST /api/educacao/merenda/distribuicoes) checa antes de gravar (falha
+-- nomeada 409); o índice é o backstop transacional.
+-- Idempotente; multi-esfera (regra 24).
+-- ============================================================================
+
+create unique index if not exists ux_merenda_distribuicao_tenant_cardapio_data
+    on sigov.educacao_merenda_distribuicao (tenant_id, referencia_id, competencia)
+    where is_deleted = false
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+-- Post-condição explícita (regra 13): sem o índice, falha nomeada.
+do $post$
+begin
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_distribuicao_tenant_cardapio_data') then
+        raise exception 'S6-POSTCOND: indice ux_merenda_distribuicao_tenant_cardapio_data ausente';
+    end if;
+end $post$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011150000', 'RC-EVO Ciclo 1 Sprint 6 (educacao/merenda operaÃ§Ã£o): indice unico parcial ux_merenda_distribuicao_tenant_cardapio_data em sigov.educacao_merenda_distribuicao (uma distribuicao vigente por cardapio x data de atendimento; estados terminais liberam a data); backstop transacional do comando tipado de distribuiÃ§Ã£o de refeiÃ§Ã£o com consumo de estoque; idempotente; multi-esfera', '29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

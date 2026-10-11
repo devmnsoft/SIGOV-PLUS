@@ -58,14 +58,22 @@ function Invoke-Api {
   param([string]$Bearer,[string]$Method='GET',[string]$Path='',[string]$Base,[string]$Body='')
   $u = if ($Path -match '^http') { $Path } else { "$Base$Path" }
   $of = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_" + [guid]::NewGuid().ToString('N') + ".out")
-  $w = @('-s','-X',$Method,'-H','Content-Type: application/json','-o',$of,'-w','%{http_code}')
+  $w = @('-s','--max-time','45','-X',$Method,'-H','Content-Type: application/json','-o',$of,'-w','%{http_code}')
   if ($Bearer) { $w += @("-H","Authorization: Bearer $Bearer") }
   if ($Body) { $bf = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_body_" + [guid]::NewGuid().ToString('N') + ".json"); [IO.File]::WriteAllText($bf, $Body, (New-Object Text.UTF8Encoding($false))); $w += @('--data',"@$bf") }
   $w += $u
-  $code = (& curl.exe @w).Trim()
+  $ef = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_err_" + [guid]::NewGuid().ToString('N') + ".txt")
+  $raw = & curl.exe @w 2> $ef
+  $cexit = $LASTEXITCODE
+  $code = ("$raw").Trim()
   # ReadAllText (UTF-8): Get-Content sem encoding leria ANSI e quebraria acesos nas falhas nomeadas
   $body = if (Test-Path $of) { [IO.File]::ReadAllText($of) } else { '' }
-  return [pscustomobject]@{ code=[int]$code; body="$body"; outFile="$of" }
+  $errTxt = ''
+  try { if (Test-Path $ef) { $errTxt = ([IO.File]::ReadAllText($ef)).Trim() } } catch {}
+  $codeInt = 0; try { $codeInt = [int]$code } catch {}
+  # DIAG temporario (S6): log curl exit + raw p/ investigar code=0 em /produtos
+  try { Add-Content -Path 'C:\MNSOFT\SIGOV-PLUS\artifacts\c1_tier2_e2e\curl_diag.log' -Value ((Get-Date -Format 'HH:mm:ss.fff') + " exit=" + $cexit + " raw=[" + $raw + "] bytes=" + $body.Length + " err=[" + $errTxt + "] " + $Method + " " + $Path) } catch {}
+  return [pscustomobject]@{ code=$codeInt; body="$body"; outFile="$of"; err="$errTxt" }
 }
 function Get-Psql {
   param([string]$Sql)
@@ -615,6 +623,62 @@ $t92 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/op
 $t93 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ATIVA&justificativa=c1-s5-reabrir" -Base $ApiBase
 Add-Check 'E9' 'cardapio.maquina-ativa-terminal-e-final' (($t91.code -eq 200) -and ($t92.code -eq 200) -and ($t93.code -eq 409) -and ($t93.body -like '*TRANSICAO_INVALIDA*')) ("maquina S2 aplicada ao cardapio: RASCUNHO->ATIVA $($t91.code) ->ENCERRADA $($t92.code) ->ATIVA $($t93.code) (terminal nao reabre; TRANSICAO_INVALIDA nomeada)")
 
+# --- E10 (Sprint 6): merenda operação — registro de estoque + distribuição com consumo real ---
+# POST /api/educacao/merenda/estoques {produtoId,saldoInicial}: cria a linha de estoque
+# espelhando o produto ou ajusta o saldo da linha existente (falha nomeada se o produto
+# não existir/estiver inativo). POST /api/educacao/merenda/distribuicoes/confirmar
+# {cardapioId,data,itens}: cardápio ATIVO dentro do período, itens restritos ao menu,
+# uma distribuição vigente por cardápio × data (índice ux_merenda_distribuicao_tenant_
+# cardapio_data como backstop), lock do estoque em ordem determinística e movimentos
+# SAIDA + baixa de saldo na mesma transação. Falhas nomeadas (regra 13); regra 24.
+$fix10 = Get-Psql @"
+insert into sigov.escola(tenant_id,entidade_id,codigo,nome,tipo_escola,situacao)
+select 910001,1,'c1e26-s6-esc','Fixtures C1 Escola S6',coalesce((select tipo_escola from sigov.escola where is_deleted=false limit 1),'OURO'),coalesce((select situacao from sigov.escola where is_deleted=false limit 1),'ATIVA')
+where not exists(select 1 from sigov.escola where tenant_id=910001 and codigo='c1e26-s6-esc');
+select 'ok';
+"@
+Add-Check 'E10' 'fixture.s6-aplicado' ($fix10.code -eq 0) ("fixture S6 (escola c1e26-s6-esc na entidade do contexto, tenant 910001) exit=$($fix10.code)")
+$s6esc = Get-Psql "select coalesce(id,-1) from sigov.escola where tenant_id=910001 and codigo='c1e26-s6-esc';"
+# Nomes pApi* (nao $pA): variaveis PS sao case-insensitive e $pa (psql) abaixo apagaria a resposta HTTP
+$pApiA = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"C1S6-PROD-A","nome":"Arroz C1S6","tipo":"ALIMENTO","status":"ATIVA"}'
+$pApiB = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"C1S6-PROD-B","nome":"Feijao C1S6","tipo":"ALIMENTO","status":"ATIVA"}'
+$pApiC = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"C1S6-PROD-C","nome":"Leite C1S6","tipo":"ALIMENTO","status":"ATIVA"}'
+$pa = Get-Psql "select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-A' order by id desc limit 1;"
+$pb = Get-Psql "select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-B' order by id desc limit 1;"
+$pc = Get-Psql "select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-C' order by id desc limit 1;"
+Add-Check 'E10' 'produto.criacao-base-s6' (($pApiA.code -eq 200) -and ($pApiB.code -eq 200) -and ($pApiC.code -eq 200) -and ($pa.text -ne '') -and ($pb.text -ne '') -and ($pc.text -ne '')) ("POST /api/educacao/merenda/produtos x3 -> codes $($pApiA.code)/$($pApiB.code)/$($pApiC.code); ids: $($pa.text)/$($pb.text)/$($pc.text); curl-err: $(if($pApiA.err){$pApiA.err}else{'-'})/$(if($pApiB.err){$pApiB.err}else{'-'})/$(if($pApiC.err){$pApiC.err}else{'-'})")
+$estA = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pa.text + ',"saldoInicial":100}')
+$erowA = Get-Psql "select round(coalesce(s.saldo,-1))::text||'|'||coalesce(s.nome,'null') from sigov.educacao_merenda_estoque s where s.tenant_id=910001 and s.produto_id=(select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-A') order by s.id desc limit 1;"
+Add-Check 'E10' 'estoque.registro-inicial' (($estA.code -eq 200) -and ($erowA.text -eq '100|Arroz C1S6')) ("POST /api/educacao/merenda/estoques produto A saldoInicial=100 -> $($estA.code); banco saldo|nome: $($erowA.text)")
+$estB1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pb.text + ',"saldoInicial":10}')
+$estB2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pb.text + ',"saldoInicial":5}')
+$erowB = Get-Psql "select round(coalesce(s.saldo,-1))::text from sigov.educacao_merenda_estoque s where s.tenant_id=910001 and s.produto_id=(select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-B') order by s.id desc limit 1;"
+Add-Check 'E10' 'estoque.ajuste-soma-sobre-linha-existente' (($estB1.code -eq 200) -and ($estB2.code -eq 200) -and ($erowB.text -eq '15')) ("POST estoques produto B 10 e depois +5 -> codes $($estB1.code)/$($estB2.code); banco saldo=15 (ajuste soma sobre a linha existente, nao duplica)")
+$estX = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body '{"produtoId":9999999999,"saldoInicial":1}'
+Add-Check 'E10' 'estoque.produto-inexistente-404-nomeada' (($estX.code -eq 404) -and ($estX.body -like '*MERENDA_PRODUTO_INEXISTENTE*')) ("POST /api/educacao/merenda/estoques produto 9999999999 -> $($estX.code) (404 MERENDA_PRODUTO_INEXISTENTE nomeada)")
+$cardS6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/cardapios/completo' -Base $ApiBase -Body ('{"escolaId":' + $s6esc.text + ',"inicio":"2026-11-02","fim":"2026-11-30","produtos":[' + $pa.text + ',' + $pb.text + ']}')
+$cardS6j = $null; try { $cardS6j = $cardS6.body | ConvertFrom-Json } catch {}
+$cs6 = 0; if ($cardS6j -and $null -ne $cardS6j.data) { $cs6 = [long]$cardS6j.data }
+$actS6 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$cs6/status?status=ATIVA&justificativa=c1-s6-ativa" -Base $ApiBase
+$cstatS6 = Get-Psql "select status from sigov.educacao_merenda_cardapio where tenant_id=910001 and id=$cs6;"
+Add-Check 'E10' 'cardapio.ativo-para-distribuicao' (($cardS6.code -eq 200) -and ($actS6.code -eq 200) -and ($cstatS6.text -eq 'ATIVA')) ("cardapios/completo [A,B] -> $($cardS6.code) id=$cs6; status ATIVA -> $($actS6.code); banco status=$($cstatS6.text)")
+$dist1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-10","itens":[{"produtoId":' + $pa.text + ',"quantidade":50},{"produtoId":' + $pb.text + ',"quantidade":4}]}')
+$drow = Get-Psql "select d.status||'|'||coalesce(d.competencia::text,'null')||'|'||(select count(*) from sigov.educacao_merenda_distribuicao_item i where i.referencia_id=d.id and i.is_deleted=false)||'|'||(select count(*) from sigov.educacao_merenda_movimento m where m.referencia_id=d.id and m.tipo='SAIDA' and m.is_deleted=false)||'|'||round(coalesce((select sum(s.saldo) from sigov.educacao_merenda_estoque s where s.tenant_id=910001 and s.produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo in ('C1S6-PROD-A','C1S6-PROD-B'))),-1))::text from sigov.educacao_merenda_distribuicao d where d.tenant_id=910001 and d.referencia_id=$cs6 and d.competencia=date '2026-11-10' order by d.id desc limit 1;"
+Add-Check 'E10' 'distribuicao.confirmada-com-consumo-real' (($dist1.code -eq 200) -and ($drow.text -eq 'ATIVA|2026-11-10|2|2|61')) ("POST distribuicoes/confirmar (A:50,B:4) -> $($dist1.code); banco status|data|itens|mov-Saida|saldo-total: $($drow.text) (100-50 + 15-4 = 61; tudo na mesma transação)")
+$dist2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-11","itens":[{"produtoId":' + $pa.text + ',"quantidade":999}]}')
+Add-Check 'E10' 'distribuicao.estoque-insuficiente-409-nomeada' (($dist2.code -eq 409) -and ($dist2.body -like '*ESTOQUE_INSUFICIENTE*')) ("itens A:999 com saldo 50 -> $($dist2.code) (409 ESTOQUE_INSUFICIENTE nomeada; transação revertida)")
+$dist3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-10","itens":[{"produtoId":' + $pa.text + ',"quantidade":1}]}')
+Add-Check 'E10' 'distribuicao.dia-ocupado-409-nomeada' (($dist3.code -eq 409) -and ($dist3.body -like '*DISTRIBUICAO_DIA_EXISTENTE*')) ("mesmo cardapio+data já distribuída -> $($dist3.code) (409 DISTRIBUICAO_DIA_EXISTENTE; backstop transacional: indice ux_merenda_distribuicao_tenant_cardapio_data)")
+$dist4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-12-05","itens":[{"produtoId":' + $pa.text + ',"quantidade":1}]}')
+Add-Check 'E10' 'distribuicao.data-fora-do-periodo-409' (($dist4.code -eq 409) -and ($dist4.body -like '*DATA_FORA_DO_PERIODO*')) ("data 2026-12-05 fora do período do cardápio (até 2026-11-30) -> $($dist4.code) (409 DATA_FORA_DO_PERIODO)")
+$dist5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-12","itens":[{"produtoId":' + $pc.text + ',"quantidade":1}]}')
+Add-Check 'E10' 'distribuicao.produto-fora-do-menu-400' (($dist5.code -eq 400) -and ($dist5.body -like '*PRODUTO_FORA_DO_MENU*')) ("item com produto C (nao consta no cardapio) -> $($dist5.code) (400 PRODUTO_FORA_DO_MENU)")
+$cardS6b = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/cardapios/completo' -Base $ApiBase -Body ('{"escolaId":' + $s6esc.text + ',"inicio":"2026-12-01","fim":"2026-12-31","produtos":[' + $pa.text + ',' + $pb.text + ']}')
+$cardS6bj = $null; try { $cardS6bj = $cardS6b.body | ConvertFrom-Json } catch {}
+$cs6b = 0; if ($cardS6bj -and $null -ne $cardS6bj.data) { $cs6b = [long]$cardS6bj.data }
+$dist6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6b + ',"data":"2026-12-15","itens":[{"produtoId":' + $pa.text + ',"quantidade":1}]}')
+Add-Check 'E10' 'distribuicao.cardapio-rascunho-409' (($dist6.code -eq 409) -and ($dist6.body -like '*CARDAPIO_NAO_APROVADO*')) ("cardápio ainda em RASCUNHO -> $($dist6.code) (409 CARDAPIO_NAO_APROVADO; distribuições exigem cardápio ATIVO)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -658,6 +722,14 @@ delete from sigov.educacao_merenda_cardapio_item where referencia_id in (select 
 delete from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s5-%');
 delete from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S5-%';
 delete from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s5-%';
+delete from sigov.educacao_merenda_movimento where referencia_id in (select id from sigov.educacao_merenda_distribuicao where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%'));
+delete from sigov.educacao_merenda_distribuicao_item where referencia_id in (select id from sigov.educacao_merenda_distribuicao where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%'));
+delete from sigov.educacao_merenda_distribuicao where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%');
+delete from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%');
+delete from sigov.educacao_merenda_cardapio_item where referencia_id in (select id from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%'));
+delete from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%');
+delete from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%';
+delete from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%';
 delete from sigov.entidade where cnpj in ('99999999000191','99999999000209','99999999000301') and not exists(select 1 from sigov.escola where entidade_id=sigov.entidade.id);
 select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%')
@@ -673,9 +745,13 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
      + (select count(*) from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s5-%'))
      + (select count(*) from sigov.educacao_merenda_cardapio_item where referencia_id in (select id from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s5-%')))
      + (select count(*) from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S5-%')
+     + (select count(*) from sigov.educacao_merenda_distribuicao where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%'))
+     + (select count(*) from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%'))
+     + (select count(*) from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%'))
+     + (select count(*) from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%')
      + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104')) as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count
