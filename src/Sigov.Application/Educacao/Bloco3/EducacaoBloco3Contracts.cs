@@ -27,7 +27,8 @@ public sealed record EducacaoCriarDiarioAulaRequest(DateOnly DataAula, decimal C
 public sealed record EducacaoDiarioConteudoRequest(long AulaId, string Conteudo, string? Observacoes);
 public sealed record EducacaoDiarioFrequenciaItemRequest(long AlunoId, string Status, string? Justificativa);
 public sealed record EducacaoDiarioFrequenciaRequest(long AulaId, IReadOnlyCollection<EducacaoDiarioFrequenciaItemRequest> Alunos);
-public sealed record EducacaoDiarioAvaliacaoRequest(long? AulaId, string Titulo, decimal ValorMaximo, decimal Peso);
+public sealed record EducacaoDiarioAvaliacaoRequest(long? AulaId, string Titulo, decimal ValorMaximo, decimal Peso, string? ComponenteCurricular = null, IReadOnlyCollection<EducacaoDiarioAvaliacaoItemRequest>? Alunos = null);
+public sealed record EducacaoDiarioAvaliacaoItemRequest(long AlunoId, decimal Nota);
 public sealed record EducacaoDiarioReposicaoRequest(long AulaId, DateOnly DataReposicao, string Justificativa);
 public sealed record EducacaoDiarioFechamentoRequest(string Observacao, string TokenConferencia);
 public sealed record EducacaoDiarioConferenciaDto(long DiarioId, string Status, long AlunosAbrangidos, long Aulas, long LancamentosEsperados, long LancamentosRealizados, long Pendencias, IReadOnlyCollection<EducacaoDiarioPendenciaDetalheDto> Detalhes, string TokenConferencia, DateTimeOffset UltimaAtualizacao, bool PodeFechar);
@@ -38,7 +39,9 @@ public sealed record EducacaoDiarioPendenciaDto(long Id, long DiarioId, string T
 
 public sealed record EducacaoPortalResumoDto(IReadOnlyCollection<EducacaoPortalAlunoDto> Alunos, int ComunicadosNaoLidos, int SolicitacoesAbertas);
 public sealed record EducacaoPortalAlunoDto(long Id, string Nome, string CodigoAluno, string Situacao, string? Escola, string? Turma, int? AnoLetivo);
-public sealed record EducacaoPortalVidaEscolarDto(long AlunoId, long MatriculaId, string Situacao, string Escola, string Turma, int AnoLetivo, int AulasLancadas, int Presencas, int Faltas, decimal? PercentualFrequencia, DateTimeOffset AtualizadoEm);
+public sealed record EducacaoPortalVidaEscolarDto(long AlunoId, long MatriculaId, string Situacao, string Escola, string Turma, int AnoLetivo, int AulasLancadas, int Presencas, int Faltas, decimal? PercentualFrequencia, DateTime AtualizadoEm);
+public sealed record EducacaoPublicarHistoricoEscolarRequest(long MatriculaId, string? Justificativa);
+public sealed record EducacaoPublicarHistoricoEscolarDto(long HistoricoId, int Versao, int Itens);
 public sealed record EducacaoPortalBoletimDto(long AlunoId, string Situacao, int Versao, DateTimeOffset AtualizadoEm, IReadOnlyCollection<EducacaoHistoricoEscolarItemDto> Itens);
 public sealed record EducacaoPortalOcorrenciaDto(long Id, long AlunoId, string Tipo, string Descricao, DateTime DataOcorrencia);
 public sealed record EducacaoPortalSolicitacaoDto(long Id, long AlunoId, string Tipo, string Status, string Descricao, DateTime CreatedAt);
@@ -69,6 +72,7 @@ public interface IEducacaoBloco3Repository
     Task<IReadOnlyCollection<EducacaoPortalAlunoDto>> ListarAlunosAutorizadosAsync(long tenantId, long usuarioId, CancellationToken ct);
     Task<EducacaoPortalVidaEscolarDto?> ObterVidaEscolarAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct);
     Task<EducacaoPortalBoletimDto?> ObterBoletimPortalAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct);
+    Task<EducacaoPublicarHistoricoEscolarDto> PublicarHistoricoEscolarAsync(long tenantId, long entidadeId, long alunoId, long matriculaId, long usuarioId, string correlationId, CancellationToken ct);
     Task<EducacaoPortalCienciaDto> RegistrarCienciaAsync(long tenantId, long usuarioId, long comunicadoId, long alunoId, CancellationToken ct);
     Task RegistrarLeituraAsync(long tenantId, long usuarioId, long comunicadoId, long alunoId, CancellationToken ct);
     Task AlterarVinculoAsync(long tenantId, long vinculoId, string status, string justificativa, long usuarioId, string correlationId, CancellationToken ct);
@@ -99,6 +103,7 @@ public interface IEducacaoPortalService : IEducacaoSecretariaService
     Task<Result<IReadOnlyCollection<EducacaoPortalAlunoDto>>> ListarAlunosAsync(CancellationToken ct);
     Task<Result<EducacaoPortalVidaEscolarDto>> ObterVidaEscolarAsync(long alunoId, CancellationToken ct);
     Task<Result<EducacaoPortalBoletimDto>> ObterBoletimAsync(long alunoId, CancellationToken ct);
+    Task<Result<EducacaoPublicarHistoricoEscolarDto>> PublicarHistoricoEscolarAsync(long alunoId, EducacaoPublicarHistoricoEscolarRequest request, CancellationToken ct);
     Task<Result<EducacaoPortalCienciaDto>> ConfirmarCienciaAsync(long comunicadoId, long alunoId, CancellationToken ct);
     Task<Result> RegistrarLeituraAsync(long comunicadoId, long alunoId, CancellationToken ct);
     Task<Result> AlterarVinculoAsync(long vinculoId, bool ativar, string justificativa, CancellationToken ct);

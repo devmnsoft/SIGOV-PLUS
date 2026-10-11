@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -81,6 +82,85 @@ where v.tenant_id=@TenantId and v.status='ATIVO' and v.is_deleted=false and (@Es
     { using var c=_context.CreateConnection(); return await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.matricula where tenant_id=@TenantId and id=@Id and aluno_id=@AlunoId and status in ('ATIVA','CONCLUIDA') and is_deleted=false)",new{TenantId=tenantId,Id=matriculaId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false); }
     public async Task<bool> UsuarioVinculadoAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct)
     { using var c=_context.CreateConnection(); return await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_portal_vinculo where tenant_id=@TenantId and usuario_id=@UsuarioId and aluno_id=@AlunoId and status='ATIVO' and is_deleted=false)",new{TenantId=tenantId,UsuarioId=usuarioId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false); }
+
+    // Ciclo 1 Sprint 4: publica (re)agregando notas (diario avaliacao -> dados->Alunos) e
+    // frequencia (diario_frequencia) por componente curricular, sobre as turmas do aluno no
+    // ano letivo da matricula-âncora. Histórico versionado (dados->versao); itens substituídos.
+    public async Task<EducacaoPublicarHistoricoEscolarDto> PublicarHistoricoEscolarAsync(long tenantId, long entidadeId, long alunoId, long matriculaId, long usuarioId, string correlationId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection();
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var m = await connection.QueryFirstOrDefaultAsync<(long Id, long EntidadeId, long EscolaId, long AnoLetivoId)>(new CommandDefinition(
+            "select id,entidade_id,escola_id,ano_letivo_id from sigov.matricula where tenant_id=@TenantId and id=@MatriculaId and aluno_id=@AlunoId and status in ('ATIVA','CONFIRMADA','CONCLUIDA') and turma_id is not null and is_deleted=false for update",
+            new { TenantId = tenantId, MatriculaId = matriculaId, AlunoId = alunoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (m.Id == 0) throw new InvalidOperationException("Matrícula não encontrada para o aluno no contexto autorizado (deve ser vigente e vinculada a turma).");
+        if (m.EntidadeId != entidadeId) throw new InvalidOperationException("Matrícula fora do escopo institucional do contexto autenticado.");
+        const string itensSql = @"with t as (
+  select distinct m2.turma_id from sigov.matricula m2
+  where m2.tenant_id=@TenantId and m2.aluno_id=@AlunoId and m2.ano_letivo_id=@AnoLetivoId and m2.turma_id is not null and m2.is_deleted=false),
+av as (
+  select (a.dados->>'ComponenteCurricular') as comp, round(avg((x->>'Nota')::numeric),2) as nota, count(*)::int as qtd
+  from sigov.educacao_diario_avaliacao a
+  cross join lateral jsonb_array_elements(coalesce(a.dados->'Alunos','[]'::jsonb)) x
+  join sigov.educacao_diario_classe d on d.tenant_id=a.tenant_id and d.id=a.diario_id and d.is_deleted=false
+  where a.tenant_id=@TenantId and a.is_deleted=false and (a.dados->>'ComponenteCurricular') is not null
+    and (x->>'AlunoId')::bigint=@AlunoId and d.turma_id in (select turma_id from t)
+  group by 1),
+fr as (
+  select f.componente_curricular as comp, round(100.0*count(*) filter (where f.presente)/nullif(count(*),0),2) as freq, count(*)::int as dias
+  from sigov.diario_frequencia f
+  where f.tenant_id=@TenantId and f.aluno_id=@AlunoId and f.is_deleted=false and f.componente_curricular is not null
+    and f.turma_id in (select turma_id from t)
+  group by 1),
+items as (
+  select coalesce(av.comp, fr.comp) as comp, av.nota, av.qtd, fr.freq, fr.dias
+  from av full outer join fr on fr.comp=av.comp
+)
+select comp,nota,qtd,freq,dias from items order by comp";
+        var itens = (await connection.QueryAsync<(string Comp, decimal? Nota, int? Qtd, decimal? Freq, int? Dias)>(new CommandDefinition(itensSql, new { TenantId = tenantId, AlunoId = alunoId, AnoLetivoId = m.AnoLetivoId }, tx, cancellationToken: ct)).ConfigureAwait(false)).AsList();
+        if (itens.Count == 0) throw new InvalidOperationException("Sem avaliações ou frequência registrada para as turmas da matrícula.");
+        var hid = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+            "select id from sigov.educacao_historico_escolar where tenant_id=@TenantId and matricula_id=@MatriculaId and is_deleted=false order by id desc limit 1 for update",
+            new { TenantId = tenantId, MatriculaId = matriculaId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        int versao;
+        if (hid.HasValue)
+        {
+            versao = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                @"update sigov.educacao_historico_escolar set status='PUBLICADO',ativo=true,
+dados=jsonb_set(coalesce(dados,'{}'::jsonb),'{versao}',to_jsonb(coalesce((dados->>'versao')::int,0)+1)),
+auditoria=jsonb_build_object('usuario_id',@UsuarioId,'acao','PUBLICACAO_HISTORICO'),updated_at=now(),updated_by=@UsuarioId
+where id=@Hid returning (dados->>'versao')::int",
+                new { Hid = hid.Value, UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        else
+        {
+            versao = 1;
+            hid = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                @"insert into sigov.educacao_historico_escolar(tenant_id,entidade_id,escola_id,aluno_id,matricula_id,status,dados,auditoria,correlation_id,created_by)
+values(@TenantId,@EntidadeId,@EscolaId,@AlunoId,@MatriculaId,'PUBLICADO',jsonb_build_object('versao',1),jsonb_build_object('usuario_id',@UsuarioId,'acao','PUBLICACAO_HISTORICO'),@CorrelationId,@UsuarioId) returning id",
+                new { TenantId = tenantId, EntidadeId = m.EntidadeId, EscolaId = m.EscolaId, AlunoId = alunoId, MatriculaId = matriculaId, UsuarioId = usuarioId, CorrelationId = correlationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        await connection.ExecuteAsync(new CommandDefinition("delete from sigov.educacao_historico_escolar_item where tenant_id=@TenantId and historico_id=@Hid", new { TenantId = tenantId, Hid = hid.Value }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var valores = string.Join(",", itens.Select((_, i) => $"(@C{i},@N{i}::numeric,@Q{i}::int,@F{i}::numeric,@D{i}::int)"));
+        var p = new DynamicParameters();
+        p.Add("TenantId", tenantId); p.Add("Hid", hid.Value); p.Add("UsuarioId", usuarioId); p.Add("Versao", versao);
+        for (var i = 0; i < itens.Count; i++)
+        {
+            p.Add($"C{i}", itens[i].Comp, DbType.String);
+            p.Add($"N{i}", (object?)itens[i].Nota ?? DBNull.Value, DbType.Decimal);
+            p.Add($"Q{i}", (object?)itens[i].Qtd ?? DBNull.Value, DbType.Int32);
+            p.Add($"F{i}", (object?)itens[i].Freq ?? DBNull.Value, DbType.Decimal);
+            p.Add($"D{i}", (object?)itens[i].Dias ?? DBNull.Value, DbType.Int32);
+        }
+        await connection.ExecuteAsync(new CommandDefinition(
+            $@"insert into sigov.educacao_historico_escolar_item(tenant_id,historico_id,componente_curricular,nota,frequencia,dados,auditoria,created_by)
+select @TenantId,@Hid,r.comp,r.nota,r.freq,jsonb_build_object('avaliacoes',coalesce(r.qtd,0),'dias_chamada',coalesce(r.dias,0)),jsonb_build_object('usuario_id',@UsuarioId,'versao',@Versao),@UsuarioId
+from (values {valores}) as r(comp,nota,qtd,freq,dias)",
+            p, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new EducacaoPublicarHistoricoEscolarDto(hid.Value, versao, itens.Count);
+    }
 
     private static DynamicParameters Parametros(object value)
     {
@@ -279,7 +359,7 @@ group by a.id,m.id,m.status,e.nome,t.nome,al.ano,m.updated_at,m.created_at";
         await connection.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_secretaria_evento(tenant_id,entidade_id,tipo,agregado,agregado_id,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,'PORTAL_VINCULO_STATUS','educacao_portal_vinculo',@Id,jsonb_build_object('status',@Status,'justificativa',@Justificativa),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId)",new{TenantId=tenantId,EntidadeId=entidadeId.Value,Id=vinculoId,Status=status,Justificativa=justificativa,UsuarioId=usuarioId,CorrelationId=correlationId},tx,cancellationToken:ct)).ConfigureAwait(false); await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
-    private sealed class BoletimHeader { public long Id {get;set;} public string Situacao {get;set;}=""; public int Versao {get;set;} public DateTimeOffset AtualizadoEm {get;set;} }
+    private sealed class BoletimHeader { public long Id {get;set;} public string Situacao {get;set;}=""; public int Versao {get;set;} public DateTime AtualizadoEm {get;set;} }
 
     private static async Task<EducacaoDiarioConferenciaDto?> ConferirAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction? tx, long tenantId, long diarioId, CancellationToken ct)
     {

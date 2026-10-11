@@ -140,6 +140,24 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
         return item is null ? Result<EducacaoPortalBoletimDto>.Failure("Boletim não publicado ou aluno fora do vínculo ativo.") : Result<EducacaoPortalBoletimDto>.Success(item);
     }
 
+    // Ciclo 1 Sprint 4: publica o histórico escolar/boletim do aluno agregando as notas
+    // lançadas nas avaliações do diário (dados->Alunos) e a frequência do diário, por
+    // componente curricular, sobre o ano letivo da matrícula-âncora. Versão incrementada.
+    public async Task<Result<EducacaoPublicarHistoricoEscolarDto>> PublicarHistoricoEscolarAsync(long alunoId, EducacaoPublicarHistoricoEscolarRequest request, CancellationToken ct)
+    {
+        var guard = Guard("portal-boletim");
+        if (guard is not null) return Result<EducacaoPublicarHistoricoEscolarDto>.Failure(guard);
+        if (!Administrativo) return Result<EducacaoPublicarHistoricoEscolarDto>.Failure("Permissão administrativa da Secretaria Escolar é obrigatória.");
+        if (!Pode("educacao.historico_escolar.publicar")) return Result<EducacaoPublicarHistoricoEscolarDto>.Failure("Permissão para publicar histórico escolar é obrigatória.");
+        if (alunoId <= 0 || request is null || request.MatriculaId <= 0) return Result<EducacaoPublicarHistoricoEscolarDto>.Failure("Aluno e matrícula são obrigatórios para publicar o histórico escolar.");
+        try
+        {
+            var dto = await _repository.PublicarHistoricoEscolarAsync(_tenant.TenantId!.Value, _tenant.EntidadeId ?? 1, alunoId, request.MatriculaId, _user.UsuarioId!.Value, _correlation.CorrelationId.ToString(), ct).ConfigureAwait(false);
+            return Result<EducacaoPublicarHistoricoEscolarDto>.Success(dto);
+        }
+        catch (InvalidOperationException ex) { return Result<EducacaoPublicarHistoricoEscolarDto>.Failure(ex.Message); }
+    }
+
     public async Task<Result<EducacaoPortalCienciaDto>> ConfirmarCienciaAsync(long comunicadoId, long alunoId, CancellationToken ct)
     {
         var guard = Guard("portal-comunicado");
@@ -196,6 +214,18 @@ public sealed class EducacaoBloco3Service : IEducacaoSecretariaService, IEducaca
             var permitidos = new HashSet<string>(new[] { "PRESENTE", "FALTA", "JUSTIFICADA", "ABONADA" }, StringComparer.OrdinalIgnoreCase);
             foreach (var item in itens)
                 if (item is null || !permitidos.Contains(LerString(item, "Status") ?? string.Empty)) return "Status de frequência inválido.";
+        }
+        if (recurso == "avaliacao")
+        {
+            if (LerValor(request, "ValorMaximo") is not decimal valorMaximo || valorMaximo <= 0) return "O valor máximo da avaliação deve ser positivo.";
+            if (LerString(request, "ComponenteCurricular") is { } componente && string.IsNullOrWhiteSpace(componente)) return "Componente curricular vazio é inválido.";
+            var notas = LerValor(request, "Alunos") as System.Collections.IEnumerable;
+            if (notas is not null)
+                foreach (var item in notas)
+                {
+                    if (item is null || LerLong(item, "AlunoId") <= 0) return "Cada nota deve indicar um aluno válido.";
+                    if (LerValor(item, "Nota") is not decimal nota || nota < 0 || nota > valorMaximo) return "Nota fora do intervalo do valor máximo da avaliação.";
+                }
         }
         return null;
     }

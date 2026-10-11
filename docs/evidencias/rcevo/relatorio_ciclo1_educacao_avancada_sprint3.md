@@ -1,6 +1,6 @@
 # Relatório Ciclo 1 · Sprint 3 — Educação Avançada (ciclo escolar: unicidade por oferta + correção auditada de frequência)
 
-Data: 2026-10-11 · Commit validado: pendente de preenchimento após commit · Banco: `p1_dev` no container oficial `sigov-postgres` (PostgreSQL 16.14)
+Data: 2026-10-11 · Commit validado: `5a8e770c` (trilha Sprint 2+3 no mesmo commit) · Banco: `p1_dev` no container oficial `sigov-postgres` (PostgreSQL 16.14)
 
 ## Escopo desta sprint
 

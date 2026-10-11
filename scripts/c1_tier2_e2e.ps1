@@ -471,6 +471,104 @@ $jhis = $null; try { $jhis = $his.body | ConvertFrom-Json } catch {}
 $nhis = 0; try { $nhis = @($jhis.data).Count } catch {}
 Add-Check 'E7' 'diario.historico-conservado' (($his.code -eq 200) -and ($nhis -ge 1)) ("GET historico-fechamentos -> $($his.code) entradas=$nhis (fechamento registrado com justificativa e versao)")
 
+# --- E8 (Sprint 4): notas e boletim — publicação de histórico escolar + portais ----
+# Reaproveita o fixture S3 (escola/ano 2026/turma A/aluno X/C1S3-PROF): cria vínculo de portal
+# (hom.a.admin <-> ALX via pessoa fictícia + responsável cadastral), avaliação com nota por
+# aluno e componente curricular (dados->Alunos jsonb) e três chamadas (2 PRESENTE + 1 FALTA).
+# Publica o histórico escolar da matrícula-âncora (mX/turma A) e prova ao vivo: versão 1 ->
+# re-publicação versao 2; boletim e vida-escolar do portal reagregados (MATEMATICA 9.00/66.67%);
+# falhas explícitas (404 matrícula alheia/sem turma; 400 sem lançamentos); permissão no banco.
+$alX = Get-Psql "select id from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S3-ALX';"
+$fix8 = Get-Psql @"
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,$($e7ent.text),'F','Fixtures C1 S4 Responsavel','999999000401','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000401');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,$($e7ent.text),'F','Fixtures C1 S4 Aluno D','999999000104','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000104');
+update sigov.usuario set pessoa_id=(select id from sigov.pessoa where documento='999999000401')
+where id=910301 and pessoa_id is null;
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,$($e7ent.text),p.id,'C1S3-ALD','ATIVO',910301 from sigov.pessoa p where p.documento='999999000104'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S3-ALD');
+insert into sigov.responsavel_aluno(tenant_id,entidade_id,aluno_id,pessoa_id,parentesco,responsavel_legal,financeiro,autorizado_buscar,contato_emergencia,ativo,created_by)
+select 910001,$($e7ent.text),a.id,p.id,'RESPONSAVEL',true,false,false,false,true,910301
+from sigov.aluno a join sigov.pessoa p on p.tenant_id=a.tenant_id and p.documento='999999000401'
+where a.tenant_id=910001 and a.codigo_aluno='C1S3-ALX'
+and not exists(select 1 from sigov.responsavel_aluno r where r.aluno_id=a.id and r.pessoa_id=p.id and not r.is_deleted);
+insert into sigov.matricula(tenant_id,entidade_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,ativo,created_by)
+select 910001,$($e7ent.text),a.id,e.id,l.id,t.id,'C1S3-MAT-D',current_date-1,'ATIVA',true,910301
+from sigov.aluno a
+join sigov.escola e on e.tenant_id=910001 and e.codigo='c1e26-s3-esc'
+join sigov.ano_letivo l on l.tenant_id=e.tenant_id and l.escola_id=e.id and l.ano=2026
+join sigov.turma t on t.tenant_id=910001 and t.codigo='c1e26-s3-turma-a'
+where a.tenant_id=910001 and a.codigo_aluno='C1S3-ALD'
+and not exists(select 1 from sigov.matricula where tenant_id=910001 and numero_matricula='C1S3-MAT-D');
+update sigov.turma set vagas_ocupadas=2 where tenant_id=910001 and codigo='c1e26-s3-turma-a' and vagas_ocupadas=1;
+select 'ok';
+"@
+Add-Check 'E8' 'fixture.s4-aplicado' ($fix8.code -eq 0) ("fixture S4 (pessoa responsável fictícia + vínculo pessoa->hom.a.admin + responsável cadastral ALX + aluno D com matricula C1S3-MAT-D em A, sem lancamentos; marcadores 999999000401/999999000104/C1S3-MAT-D) exit=$($fix8.code)")
+
+$respId = Get-Psql "select id from sigov.responsavel_aluno where tenant_id=910001 and pessoa_id=(select id from sigov.pessoa where documento='999999000401') and aluno_id=$($alX.text);"
+$vinc = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/portal/admin/vinculos' -Base $ApiBase -Body ('{"usuarioVinculadoId":910301,"responsavelId":' + $respId.text + ',"alunoId":' + $alX.text + '}')
+$vrow = Get-Psql "select coalesce(status,'?')||'|'||coalesce(usuario_id::text,'?')||'|'||coalesce(aluno_id::text,'?') from sigov.educacao_portal_vinculo where tenant_id=910001 and usuario_id=910301 and aluno_id=$($alX.text) order by id desc limit 1;"
+Add-Check 'E8' 'vinculo.portal-criado-pela-secretaria' (($vinc.code -eq 200) -and ($vrow.text -eq "ATIVO|910301|$($alX.text)")) ("POST /api/educacao/portal/admin/vinculos (secretaria libera o hom.a.admin para o aluno X via responsável cadastral) -> $($vinc.code); banco: $($vrow.text)")
+
+$dio8 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/diario-classe' -Base $ApiBase -Body ('{"escolaId":' + $esc.text + ',"turmaId":' + $tA.text + ',"disciplinaId":9999999101,"professorId":' + $prof.text + ',"anoLetivoId":' + $ano.text + ',"periodo":"2"}')
+$jdid8 = $null; try { $jdid8 = $dio8.body | ConvertFrom-Json } catch {}
+$did8 = 0; try { $did8 = [long]$jdid8.data } catch {}
+$aul8 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/diario-classe/$did8/aulas" -Base $ApiBase -Body ('{"dataAula":"' + $hoje + '","cargaHoraria":2}')
+$ja8 = $null; try { $ja8 = $aul8.body | ConvertFrom-Json } catch {}
+$auid8 = 0; try { $auid8 = [long]$ja8.data } catch {}
+$aval = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/diario-classe/$did8/avaliacoes" -Base $ApiBase -Body ('{"aulaId":' + $auid8 + ',"titulo":"Prova 1 E2E S4","valorMaximo":10,"peso":1,"componenteCurricular":"MATEMATICA","alunos":[{"alunoId":' + $alX.text + ',"nota":9}]}')
+$arow = Get-Psql "select coalesce((dados->>'ComponenteCurricular'),'?')||'|'||coalesce(jsonb_array_length(coalesce(dados->'Alunos','[]'::jsonb))::text,'?')||'|'||coalesce(((dados->'Alunos'->0)->>'Nota')::text,'?')||'|'||coalesce(((dados->'Alunos'->0)->>'AlunoId')::text,'?') from sigov.educacao_diario_avaliacao where aula_id=$auid8 order by id desc limit 1;"
+Add-Check 'E8' 'avaliacao.notas-por-aluno-no-jsonb' (($dio8.code -eq 200) -and ($aul8.code -eq 200) -and ($aval.code -eq 200) -and ($arow.text -eq "MATEMATICA|1|9|$($alX.text)")) ("diário periodo 2 na turma A (id=$did8) + aula id=$auid8 + POST avaliacoes c/ componenteCurricular MATEMATICA e nota 9 para o aluno X -> $($aval.code); dados jsonb: $($arow.text)")
+
+Get-Psql "delete from sigov.diario_frequencia where tenant_id=910001 and turma_id=$($tA.text) and aluno_id=$($alX.text) and professor_id=$($prof.text);" | Out-Null
+$dF2 = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+$dF3 = (Get-Date).AddDays(2).ToString('yyyy-MM-dd')
+$frq1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tA.text + ',"alunoId":' + $alX.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $hoje + '","componenteCurricular":"MATEMATICA","presente":true,"status":"PRESENTE"}')
+$frq2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tA.text + ',"alunoId":' + $alX.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $dF2 + '","componenteCurricular":"MATEMATICA","presente":true,"status":"PRESENTE"}')
+$frq3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tA.text + ',"alunoId":' + $alX.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $dF3 + '","componenteCurricular":"MATEMATICA","presente":false,"status":"FALTA","justificativa":"c1-s4-falta-e2e"}')
+$frow = Get-Psql "select count(*)||'|'||count(*) filter (where presente) from sigov.diario_frequencia where tenant_id=910001 and turma_id=$($tA.text) and aluno_id=$($alX.text) and professor_id=$($prof.text);"
+Add-Check 'E8' 'frequencia.tres-chamadas-para-agregacao' (($frq1.code -eq 200) -and ($frq2.code -eq 200) -and ($frq3.code -eq 200) -and ($frow.text -eq '3|2')) ("3x POST /api/educacao/frequencias no aluno X (turma A, MATEMATICA): PRESENTE+PRESENTE+FALTA -> codes $($frq1.code)/$($frq2.code)/$($frq3.code); banco total|presentes: $($frow.text)")
+
+$pub1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/portal/admin/historico-escolar/$($alX.text)/publicar" -Base $ApiBase -Body ('{"matriculaId":' + $mX.text + ',"justificativa":"c1-s4-publicacao-e2e"}')
+$jpub1 = $null; try { $jpub1 = $pub1.body | ConvertFrom-Json } catch {}
+$hrow = Get-Psql "select coalesce(h.status,'?')||'|'||coalesce((h.dados->>'versao')::text,'?')||'|'||(select count(*) from sigov.educacao_historico_escolar_item i where i.historico_id=h.id) from sigov.educacao_historico_escolar h where h.tenant_id=910001 and h.matricula_id=$($mX.text) order by h.id desc limit 1;"
+$irow = Get-Psql "select coalesce(i.componente_curricular,'?')||'|'||coalesce(i.nota::text,'?')||'|'||coalesce(i.frequencia::text,'?') from sigov.educacao_historico_escolar_item i join sigov.educacao_historico_escolar h on h.id=i.historico_id where h.tenant_id=910001 and h.matricula_id=$($mX.text) order by i.componente_curricular limit 1;"
+$okpub1 = ($pub1.code -eq 200) -and ($jpub1.data.versao -eq 1) -and ($jpub1.data.itens -ge 1) -and ($hrow.text -eq 'PUBLICADO|1|1') -and ($irow.text -eq 'MATEMATICA|9.00|66.67')
+Add-Check 'E8' 'publicar.primeira-versao-agregada' $okpub1 ("POST /api/educacao/portal/admin/historico-escolar/{X}/publicar (matricula mX) -> $($pub1.code) versao=$($jpub1.data.versao) itens=$($jpub1.data.itens); historico banco: $($hrow.text); item: $($irow.text) (nota media 9.00 e frequencia 2/3=66.67%)")
+
+$bol = Invoke-Api -Bearer $tk.token -Method GET -Path "/api/educacao/portal/alunos/$($alX.text)/boletim" -Base $ApiBase
+$jbol = $null; try { $jbol = $bol.body | ConvertFrom-Json } catch {}
+$itB = @($jbol.data.itens) | Where-Object { $_.componenteCurricular -eq 'MATEMATICA' } | Select-Object -First 1
+$okbol = ($bol.code -eq 200) -and ($jbol.data.situacao -eq 'PUBLICADO') -and ([int]$jbol.data.versao -eq 1) -and ($null -ne $itB) -and ([double]$itB.nota -eq 9.0) -and ([double]$itB.frequencia -eq 66.67)
+Add-Check 'E8' 'boletim.portal-publicado-notas-frequencia' $okbol ("GET /api/educacao/portal/alunos/{X}/boletim -> $($bol.code) situacao=$($jbol.data.situacao) versao=$($jbol.data.versao) item MATEMATICA nota=$($itB.nota) frequencia=$($itB.frequencia) (portal consome o histórico publicado, sem regra inventada)")
+
+$vid = Invoke-Api -Bearer $tk.token -Method GET -Path "/api/educacao/portal/alunos/$($alX.text)/vida-escolar" -Base $ApiBase
+$jvid = $null; try { $jvid = $vid.body | ConvertFrom-Json } catch {}
+$okvid = ($vid.code -eq 200) -and ([int]$jvid.data.aulasLancadas -eq 3) -and ([int]$jvid.data.presencas -eq 2) -and ([int]$jvid.data.faltas -eq 1) -and ([double]$jvid.data.percentualFrequencia -eq 66.67)
+Add-Check 'E8' 'vida-escolar.reagregada-com-chamadas' $okvid ("GET vida-escolar -> $($vid.code) aulasLancadas=$($jvid.data.aulasLancadas) presencas=$($jvid.data.presencas) faltas=$($jvid.data.faltas) percentual=$($jvid.data.percentualFrequencia)% (agregação real sobre as chamadas lançadas)")
+
+$pub2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/portal/admin/historico-escolar/$($alX.text)/publicar" -Base $ApiBase -Body ('{"matriculaId":' + $mX.text + ',"justificativa":"c1-s4-republicacao-e2e"}')
+$jpub2 = $null; try { $jpub2 = $pub2.body | ConvertFrom-Json } catch {}
+$bol2 = Invoke-Api -Bearer $tk.token -Method GET -Path "/api/educacao/portal/alunos/$($alX.text)/boletim" -Base $ApiBase
+$jbol2 = $null; try { $jbol2 = $bol2.body | ConvertFrom-Json } catch {}
+$okpub2 = ($pub2.code -eq 200) -and ([int]$jpub2.data.versao -eq 2) -and ([int]$jbol2.data.versao -eq 2)
+Add-Check 'E8' 'publicar.republicacao-incrementa-versao' $okpub2 ("re-publicação -> $($pub2.code) versao=$($jpub2.data.versao); boletim reflete versao=$($jbol2.data.versao) (mesmo histórico versionado, itens substituídos)")
+
+$pub404 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/portal/admin/historico-escolar/$($alX.text)/publicar" -Base $ApiBase -Body '{"matriculaId":9999999999}'
+Add-Check 'E8' 'publicar.matricula-alheia-404-nomeada' (($pub404.code -eq 404) -and ($pub404.body -like '*não encontrad*')) ("publicar com matriculaId=9999999999 -> $($pub404.code) (falha nomeada não encontrada, nao 500; regra 13)")
+
+$alD = Get-Psql "select id from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S3-ALD';"
+$mD = Get-Psql "select id from sigov.matricula where tenant_id=910001 and numero_matricula='C1S3-MAT-D';"
+$pub400 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/portal/admin/historico-escolar/$($alD.text)/publicar" -Base $ApiBase -Body ('{"matriculaId":' + $mD.text + '}')
+Add-Check 'E8' 'publicar.sem-lancamentos-400-explicita' (($pub400.code -eq 400) -and ($pub400.body -like '*Sem avaliações ou frequência*')) ("publicar p/ aluno D (enturmado em A, zero lancamentos) -> $($pub400.code) (falha explicita nomeada: sem sucesso simulado vazio; regra 13)")
+
+$prow = Get-Psql "select coalesce((select id::text from sigov.permissao where chave='educacao.historico_escolar.publicar' and ativo and not is_deleted),'ausente')||'|'||count(*) filter (where pp.tenant_id=910001)||'|'||count(*) from sigov.perfil_permissao pp join sigov.permissao p on p.id=pp.permissao_id where p.chave='educacao.historico_escolar.publicar' and pp.ativo and not pp.is_deleted and pp.efeito='PERMITIR';"
+Add-Check 'E8' 'permissao.banco-autoridade-concessao' ($prow.text -match '^\d+\|1\|\d+$') ("permissão educacao.historico_escolar.publicar: id no catálogo | concessão PERMITIR tenant 910001 | total concessões: $($prow.text) (banco como fonte de autoridade da autorização; regra 11)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -491,6 +589,11 @@ delete from sigov.educacao_diario_fechamento where diario_id in (select diario_i
 delete from sigov.educacao_diario_aula where id in (select aula_id from c1t2_alvo where aula_id is not null);
 delete from sigov.educacao_diario_classe where id in (select diario_id from c1t2_alvo);
 drop table if exists c1t2_alvo;
+delete from sigov.educacao_historico_escolar_item where historico_id in (select id from sigov.educacao_historico_escolar where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'));
+delete from sigov.educacao_historico_escolar where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%');
+delete from sigov.educacao_portal_vinculo where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%');
+delete from sigov.responsavel_aluno where pessoa_id=(select id from sigov.pessoa where documento='999999000401');
+update sigov.usuario set pessoa_id=null where id=910301 and pessoa_id=(select id from sigov.pessoa where documento='999999000401');
 delete from sigov.diario_frequencia where turma_id in (select id from sigov.turma where tenant_id=910001 and codigo like 'c1e26-s3-%');
 delete from sigov.professor_turma where turma_id in (select id from sigov.turma where tenant_id=910001 and codigo like 'c1e26-s3-%');
 delete from sigov.matricula where tenant_id=910001 and numero_matricula like 'C1S3-%';
@@ -500,7 +603,7 @@ delete from sigov.curso where tenant_id=910001 and codigo='C1S3-CURSO';
 delete from sigov.ano_letivo where tenant_id=910001 and escola_id=(select id from sigov.escola where tenant_id=910001 and codigo='c1e26-s3-esc');
 delete from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%';
 delete from sigov.professor where tenant_id=910001 and codigo_professor='C1S3-PROF';
-delete from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201');
+delete from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104');
 delete from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%';
 delete from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%';
 delete from sigov.escola where tenant_id=910001 and codigo like 'c1e26-esc-%';
@@ -514,9 +617,12 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
      + (select count(*) from sigov.turma where tenant_id=910001 and codigo like 'c1e26-s3-%')
      + (select count(*) from sigov.curso where tenant_id=910001 and codigo='C1S3-CURSO')
      + (select count(*) from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%')
-     + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201')) as restantes;
+     + (select count(*) from sigov.educacao_historico_escolar where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'))
+     + (select count(*) from sigov.educacao_portal_vinculo where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'))
+     + (select count(*) from sigov.responsavel_aluno where pessoa_id=(select id from sigov.pessoa where documento='999999000401'))
+     + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104')) as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count

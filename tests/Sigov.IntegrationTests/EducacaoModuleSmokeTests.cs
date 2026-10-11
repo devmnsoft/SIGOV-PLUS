@@ -173,4 +173,45 @@ public sealed class EducacaoModuleSmokeTests
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "sigov.sln"))) dir = dir.Parent;
         return dir?.FullName ?? throw new InvalidOperationException("Raiz do repositório não encontrada.");
     }
+
+    [Fact]
+    public void EducacaoNotasBoletim_Sprint4_PublicacaoHistoricoEscolar_Versionada()
+    {
+        // Sprint 4 banco: permissão granular educacao.historico_escolar.publicar com concessão aos
+        // perfis administrativos (padrão RC50.29; banco é autoridade, regra 11) e pós-condição explícita.
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011130000_evo_c1s4_educacao_historico_escolar_publicar.sql"));
+        migration.Should().Contain("'educacao.historico_escolar.publicar'")
+            .And.Contain("on conflict (chave) do update set ativo=true,is_deleted=false")
+            .And.Contain("ADMINISTRADOR_TENANT")
+            .And.Contain("S4-POSTCOND");
+
+        // Publicação agrega notas das avaliações do diário (dados->Alunos por componente curricular)
+        // e frequência do diário, com união por componente e histórico versionado (dados->versao).
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Bloco3", "EducacaoBloco3Repository.cs"));
+        repo.Should().Contain("jsonb_array_elements(coalesce(a.dados->'Alunos','[]'::jsonb))")
+            .And.Contain("(x->>'AlunoId')::bigint=@AlunoId")
+            .And.Contain("full outer join fr on fr.comp=av.comp")
+            .And.Contain("jsonb_set(coalesce(dados,'{}'::jsonb),'{versao}'")
+            .And.Contain("Sem avaliações ou frequência registrada para as turmas da matrícula.")
+            .And.Contain("Matrícula fora do escopo institucional do contexto autenticado.");
+
+        // Guarda de autorização canônica + rota pública de publicação (admin da secretaria).
+        var service = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Educacao", "Bloco3", "EducacaoBloco3Service.cs"));
+        service.Should().Contain("Pode(\"educacao.historico_escolar.publicar\")")
+            .And.Contain("Permissão para publicar histórico escolar é obrigatória.");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoBloco3Controllers.cs"))
+            .Should().Contain("admin/historico-escolar/{alunoId:long}/publicar");
+
+        // Avaliação passa a carregar componente curricular e notas por aluno (dados jsonb versionado).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Bloco3/EducacaoBloco3Contracts.cs"))
+            .Should().Contain("string? ComponenteCurricular = null")
+            .And.Contain("IReadOnlyCollection<EducacaoDiarioAvaliacaoItemRequest>? Alunos = null")
+            .And.Contain("public sealed record EducacaoDiarioAvaliacaoItemRequest(long AlunoId, decimal Nota)")
+            .And.Contain("Task<Result<EducacaoPublicarHistoricoEscolarDto>> PublicarHistoricoEscolarAsync(long alunoId, EducacaoPublicarHistoricoEscolarRequest request, CancellationToken ct)");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre permissão + concessão.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011130000_evo_c1s4_educacao_historico_escolar_publicar.sql")
+            .And.Contain("p.chave='educacao.historico_escolar.publicar' and pp.ativo and not pp.is_deleted and pp.efeito='PERMITIR'");
+    }
 }

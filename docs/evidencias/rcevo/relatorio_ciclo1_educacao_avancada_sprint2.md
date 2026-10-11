@@ -1,6 +1,6 @@
 # Relatório Ciclo 1 · Sprint 2 — Educação Avançada (#4 máquina de estados + #6 escopo institucional)
 
-Data: 2026-10-10/11 · Commit validado: pendente de preenchimento após commit · Banco: `p1_dev` no container oficial `sigov-postgres` (PostgreSQL 16.14)
+Data: 2026-10-10/11 · Commit validado: `5a8e770c` (trilha Sprint 2+3 no mesmo commit) · Banco: `p1_dev` no container oficial `sigov-postgres` (PostgreSQL 16.14)
 
 ## Escopo desta sprint
 
