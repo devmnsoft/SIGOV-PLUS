@@ -47,7 +47,7 @@ Sem novos estados na máquina de estados (S2): rota/ponto/vínculo entram `ATIVA
   (`S8-POSTCOND|t`); manifest + 6 consolidados sincronizados (regras 6–8).
 - Suítes (execução limpa após build): Unit **521/521** · Integration **165/165** · Api **158/158**
   (0 ignorados; total 844; o delta de +1 na Integration é o fato estático novo da Sprint 8).
-- Tier-2 E2E HTTP ao vivo (`scripts/c1_tier2_e2e.ps1`): **⟨FILL: N/109⟩ PASS** (ts=⟨FILL: ts⟩),
+- Tier-2 E2E HTTP ao vivo (`scripts/c1_tier2_e2e.ps1`): **109/109 PASS** (ts=2026-10-11T20:24:04Z),
   fixtures fictícios `C1S8-%`/`c1e26-s8-esc` (tenant 910001) aplicados e removidos ao final
   (resíduo zero); os 89 checks das Sprints 1–7 (E0–E11) revalidados na mesma rodada.
 
@@ -57,27 +57,27 @@ Cenários executados sobre `p1_dev` via HTTP real (Web :5099 → ApiToken → be
 
 | # | Cenário | Resultado |
 |---|---|---|
-| E12.0 | Fixture S8 (escola `c1e26-s8-esc` + pessoas/alunos fictícios `C1S8-ALA`/`C1S8-ALB`, tenant 910001) | ⟨FILL: exit=0⟩ |
-| E12.1 | **Rota lançada** com escola + turno MANHA | ⟨FILL: 200; banco ATIVA\|escola\|MANHA\|ESCOLAR⟩ |
+| E12.0 | Fixture S8 (escola `c1e26-s8-esc` + pessoas/alunos fictícios `C1S8-ALA`/`C1S8-ALB`, tenant 910001) | exit=0 |
+| E12.1 | **Rota lançada** com escola + turno MANHA | 200; banco status\|escola\|turno\|tipo = ATIVA\|133\|MANHA\|ESCOLAR |
 | E12.2 | Rota sem escolaId nem regiao | **400 `ROTA_ESCOLA_OU_REGIAO_INVALIDA`** |
 | E12.3 | Rota com escolaId **e** regiao juntos | **400 `ROTA_ESCOLA_OU_REGIAO_INVALIDA`** |
-| E12.4 | **Rota regional sem escola** (multi-esfera, regra 24) | ⟨FILL: 200; banco escola=-1, regiao em dados⟩ |
+| E12.4 | **Rota regional sem escola** (multi-esfera, regra 24) | 200; banco escola=-1, regiao=REGIONAL-ALFA (jsonb `dados`), ATIVA |
 | E12.5 | Escola inexistente (9999999999) | **404 `ESCOLA_INEXISTENTE`** |
-| E12.6 | **Ponto lançado** na ordem 1 | ⟨FILL: 200; banco 1\|rota\|ATIVA\|MANHA (turno herdado)⟩ |
+| E12.6 | **Ponto lançado** na ordem 1 | 200; banco numero\|rota\|status\|turno = 1\|1\|ATIVA\|MANHA (turno herdado da rota) |
 | E12.7 | Segundo ponto na mesma ordem | **409 `PONTO_ORDENACAO_EXISTENTE`** |
-| E12.8 | Insert SQL bruto duplicando a ordem | ⟨FILL: exit=3 citando ux_transporte_ponto_tenant_rota_ordem⟩ (backstop transacional) |
+| E12.8 | Insert SQL bruto duplicando a ordem | exit=3 citando `ux_transporte_ponto_tenant_rota_ordem` (backstop transacional) |
 | E12.9 | Ordem 0 | **400 `PONTO_ORDEM_INVALIDA`** |
 | E12.10 | Ponto em rota inexistente | **404 `TRANSPORTE_ROTA_INEXISTENTE`** |
-| E12.11 | **Vínculo aluno → rota** (turno herdado) | ⟨FILL: 200; banco aluno\|rota\|MANHA\|-1\|ATIVA⟩ |
+| E12.11 | **Vínculo aluno → rota** (turno herdado) | 200; banco aluno\|rota\|turno\|referencia\|status = 83\|1\|MANHA\|-1\|ATIVA |
 | E12.12 | Vínculo duplicado (mesmo aluno/rota/turno) | **409 `ALUNO_JA_VINCULADO_A_ROTA`** |
-| E12.13 | Insert SQL bruto duplicando o vínculo | ⟨FILL: exit=3 citando ux_educacao_transporte_aluno_rota_turno⟩ (backstop rc50.48) |
+| E12.13 | Insert SQL bruto duplicando o vínculo | exit=3 citando `ux_educacao_transporte_aluno_rota_turno` (backstop rc50.48) |
 | E12.14 | Vínculo com turno divergente da rota | **400 `TURNO_VINCULO_DIVERGENTE`** |
 | E12.15 | Aluno inexistente (9999999999) | **404 `TRANSPORTE_ALUNO_INEXISTENTE`** |
 | E12.16 | Vínculo com ponto de outra rota | **409 `PONTO_ROTA_DIVERGENTE`** |
-| E12.17 | Vínculo com ponto da própria rota | ⟨FILL: 200; referencia_id = id do ponto⟩ |
-| E12.18 | **Dashboard dedicado** | ⟨FILL: 200; rotasAtivas/pontosAtivos/alunosVinculados/escolasAtendidas⟩ |
-| E12.19 | Rota `CANCELADA` via máquina de estados + novo ponto nela | ⟨FILL: 200/409 `TRANSPORTE_ROTA_NAO_VIGENTE`⟩ (terminal bloqueia operação) |
-| CX | Limpeza do fixture (ampliada com vínculos, pontos, rotas C1S8-%, alunos, pessoas e escola S8) | ⟨FILL: restantes=0⟩ |
+| E12.17 | Vínculo com ponto da própria rota | 200; banco aluno\|referencia(ponto)\|status = 84\|1\|ATIVA (`referencia_id` guarda o ponto) |
+| E12.18 | **Dashboard dedicado** | 200; rotasAtivas/pontosAtivos/alunosVinculados/escolasAtendidas = **2/2/2/1** (dados reais do tenant) |
+| E12.19 | Rota `CANCELADA` via máquina de estados + novo ponto nela | 200/409 `TRANSPORTE_ROTA_NAO_VIGENTE` (terminal bloqueia operação) |
+| CX | Limpeza do fixture (ampliada com vínculos, pontos, rotas C1S8-%, alunos, pessoas e escola S8) | restantes=0 |
 
 (Blocos E0–E11 das Sprints 1–7 revalidados na mesma rodada: dashboard conjunto (contrato S7),
 CSV integral, diagnóstico de schema ausente, auditoria append-only, máquina de estados + guarda de
@@ -87,7 +87,12 @@ base, merenda, biblioteca circulação — todos PASS.)
 
 ## Defeitos descobertos na prova ao vivo e corrigidos (sem máscara)
 
-⟨FILL: lista dos defeitos encontrados nas corridas ao vivo e como foram corrigidos⟩
+Nenhum defeito de código foi descoberto nas corridas ao vivo: o bloco E12 (20 checks) passou
+integralmente na primeira corrida oficial válida, e os 89 checks das Sprints 1–7 revalidaram na
+mesma rodada (109/109). Duas corridas anteriores foram descartadas por falha de ambiente
+(`env.web-up`/`env.api-up` = 000 — apps caídos por esgotamento de RAM do host), registradas sem
+máscara na seção Resíduos. O único defeito desta sprint (CS0101 por shapes legados duplicados no
+scaffolding órfão) foi detectado e corrigido no build, antes da prova ao vivo.
 
 ## Resíduos declarados (regra 13)
 
@@ -103,5 +108,10 @@ base, merenda, biblioteca circulação — todos PASS.)
 - `validate-script-completop` falha em seed pré-existente `admin@sigov.local` (já em HEAD; não
   introduzido nesta sprint) — declarado, não mascarado.
 - `rc50_25` permanece arquivo órfã do manifest (intocada, regra 8).
-- RAM local cronicamente baixa (~1 GB livre) durante as corridas — ambiente de dev local, sem impacto
-  no artifact; apps reiniciados com kill dirigido imediatamente antes da run validada.
+- RAM local esgotada durante as verificações (16 GB totais, **0 MB físicos livres** em 2026-10-11):
+  os dois apps morreram em duas corridas descartadas — ambas registraram `env.web-up`/`env.api-up`
+  = 000 logo no início (falha de ambiente, não de código; logs preservados em
+  `s8_e2e_run1.log`/`s8_e2e_live.log`, fora do repositório). Root cause identificado (exaustão de
+  memória do host + launchers `restart_*.ps1` que bloqueiam em primeiro plano com `dotnet exec`);
+  correção operacional: apps mantidos em shells dedicados + corrida oficial atrás de sonda de
+  readiness. Sem impacto no artifact.
