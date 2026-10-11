@@ -255,7 +255,8 @@ select exists (
         ('20261011120000', array['f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f']::text[]),
         ('20261011130000', array['4ef25a86cb151deecb8458d90ea68b27976431a5d1230e86e9c234af55cb327f']::text[]),
         ('20261011140000', array['d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86']::text[]),
-        ('20261011150000', array['29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff']::text[])
+        ('20261011150000', array['29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff']::text[]),
+        ('20261011160000', array['77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34465,6 +34466,57 @@ begin
 end $post$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011150000', 'RC-EVO Ciclo 1 Sprint 6 (educacao/merenda operaÃ§Ã£o): indice unico parcial ux_merenda_distribuicao_tenant_cardapio_data em sigov.educacao_merenda_distribuicao (uma distribuicao vigente por cardapio x data de atendimento; estados terminais liberam a data); backstop transacional do comando tipado de distribuiÃ§Ã£o de refeiÃ§Ã£o com consumo de estoque; idempotente; multi-esfera', '29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261011160000_evo_c1s7_biblioteca_circulacao.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 1 Sprint 7 (educacao/biblioteca circulacao): emprestimo,
+-- devolucao e reserva com unicidade de vigencia por exemplar.
+-- Um emprestimo VIGENTE (nao terminal) por exemplar (tenant) e uma reserva
+-- vigente por exemplar (fila de tamanho 1 — simplificacao declarada) (regra 24:
+-- nada municipal hardcoded — a chave e tenant x exemplar, valida para qualquer
+-- esfera/orgao). Estados terminais (ENCERRADA/ENCERRADO/CANCELADA/CANCELADO)
+-- liberam o exemplar para novo emprestimo/reserva, como nas politicas de
+-- unicidade das Sprints 3, 5 e 6. Os comandos tipados
+-- (POST /api/educacao/biblioteca/emprestimos/lancar,
+-- POST /api/educacao/biblioteca/emprestimos/{id}/devolver e
+-- POST /api/educacao/biblioteca/reservas/lancar) checam antes de gravar
+-- (falhas nomeadas 409); os indices sao o backstop transacional.
+-- Idempotente; multi-esfera (regra 24).
+-- ============================================================================
+
+create unique index if not exists ux_biblioteca_emprestimo_tenant_exemplar_vigencia
+    on sigov.educacao_biblioteca_emprestimo (tenant_id, coalesce(exemplar_id, (0)::bigint))
+    where is_deleted = false
+      and ativo = true
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+create unique index if not exists ux_biblioteca_reserva_tenant_exemplar_vigencia
+    on sigov.educacao_biblioteca_reserva (tenant_id, coalesce(exemplar_id, (0)::bigint))
+    where is_deleted = false
+      and ativo = true
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+-- Pos-condicao explicita (regra 13): sem os indices, falha nomeada.
+do $post$
+begin
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_emprestimo_tenant_exemplar_vigencia') then
+        raise exception 'S7-POSTCOND: indice ux_biblioteca_emprestimo_tenant_exemplar_vigencia ausente';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_reserva_tenant_exemplar_vigencia') then
+        raise exception 'S7-POSTCOND: indice ux_biblioteca_reserva_tenant_exemplar_vigencia ausente';
+    end if;
+end $post$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011160000', 'RC-EVO Ciclo 1 Sprint 7 (educacao/biblioteca circulacao): indices unicos parciais ux_biblioteca_emprestimo_tenant_exemplar_vigencia e ux_biblioteca_reserva_tenant_exemplar_vigencia em sigov.educacao_biblioteca_emprestimo/reserva (um emprestimo vigente e uma reserva vigente por exemplar x tenant; estados terminais liberam); backstop transacional dos comandos tipados de emprestimo, devolucao e reserva; idempotente; multi-esfera', '77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

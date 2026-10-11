@@ -283,4 +283,42 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011150000_evo_c1s6_merenda_distribuicao_consumo_estoque.sql")
             .And.Contain("indexname='ux_merenda_distribuicao_tenant_cardapio_data'");
     }
+
+    [Fact]
+    public void BibliotecaCirculacao_Sprint7_EmprestimoDevolucaoReserva_UnicidadeVigenciaExemplar()
+    {
+        // Sprint 7 banco: um emprestimo vigente e uma reserva vigente por exemplar × tenant
+        // (estados terminais liberam), com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011160000_evo_c1s7_biblioteca_circulacao.sql"));
+        migration.Should().Contain("create unique index if not exists ux_biblioteca_emprestimo_tenant_exemplar_vigencia")
+            .And.Contain("create unique index if not exists ux_biblioteca_reserva_tenant_exemplar_vigencia")
+            .And.Contain("status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')")
+            .And.Contain("S7-POSTCOND");
+
+        // Operações tipadas: empréstimo com tomador único (aluno/servidor do tenant),
+        // prazo >= data de lançamento, devolução encerra o empréstimo e registra a
+        // devolução na mesma transação; reserva com fila de tamanho 1 por exemplar.
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> CriarEmprestimoAsync(EducacaoAvancadaContext x,EducacaoBibliotecaCriarEmprestimoRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> DevolverEmprestimoAsync(EducacaoAvancadaContext x,long emprestimoId,EducacaoBibliotecaDevolverRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> CriarReservaAsync(EducacaoAvancadaContext x,EducacaoBibliotecaCriarReservaRequest r,CancellationToken ct)")
+            .And.Contain("throw new ExemplarIndisponivelException(r.ExemplarId)")
+            .And.Contain("throw new EmprestimoJaDevolvidoException(emprestimoId")
+            .And.Contain("insert into sigov.educacao_biblioteca_devolucao");
+
+        // Contratos e rotas públicas (circulação de biblioteca multi-esfera, regra 24).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> CriarEmprestimoAsync(EducacaoAvancadaContext contexto,EducacaoBibliotecaCriarEmprestimoRequest request,CancellationToken ct)")
+            .And.Contain("Task<long> DevolverEmprestimoAsync(EducacaoAvancadaContext contexto,long emprestimoId,EducacaoBibliotecaDevolverRequest request,CancellationToken ct)")
+            .And.Contain("Task<long> CriarReservaAsync(EducacaoAvancadaContext contexto,EducacaoBibliotecaCriarReservaRequest request,CancellationToken ct)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoBibliotecaController.cs"))
+            .Should().Contain("[HttpPost(\"emprestimos/lancar\")]")
+            .And.Contain("[HttpPost(\"emprestimos/{id:long}/devolver\")]")
+            .And.Contain("[HttpPost(\"reservas/lancar\")]");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre os índices.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011160000_evo_c1s7_biblioteca_circulacao.sql")
+            .And.Contain("indexname='ux_biblioteca_emprestimo_tenant_exemplar_vigencia'");
+    }
 }

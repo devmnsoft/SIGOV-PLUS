@@ -132,6 +132,54 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (BibliotecaExemplarInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (BibliotecaEmprestimoInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (BibliotecaAlunoInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (BibliotecaServidorInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EmprestimoTomadorInvalidoException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (PrazoEmprestimoInvalidoException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ExemplarForaDoEscopoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ContextoInstitucionalDivergenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ExemplarNaoDisponivelException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ExemplarIndisponivelException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EmprestimoJaDevolvidoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ReservaVigenteExisteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));

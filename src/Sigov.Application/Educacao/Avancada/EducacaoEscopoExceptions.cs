@@ -67,3 +67,51 @@ public sealed class DistribuicaoDiaExistenteException(long CardapioId, DateOnly 
 /// <summary>Saldo de estoque insuficiente para a quantidade distribuída (HTTP 409, código ESTOQUE_INSUFICIENTE).</summary>
 public sealed class EstoqueInsuficienteException(long ProdutoId, decimal Disponivel, decimal Solicitado)
     : Exception($"ESTOQUE_INSUFICIENTE: saldo disponível {Disponivel:0.####} é menor que a quantidade {Solicitado:0.####} solicitada para o produto {ProdutoId}; faça um lançamento de entrada antes de distribuir.");
+
+// Sprint 7 (biblioteca circulação): emprestimo, devolução e reserva com
+// unicidade de vigência por exemplar. Falhas nomeadas explícitas (regra 13);
+// nada municipal hardcoded (regra 24).
+
+/// <summary>Exemplar inexistente/inativo para o tenant atual na circulação (HTTP 404, código BIBLIOTECA_EXEMPLAR_INEXISTENTE).</summary>
+public sealed class BibliotecaExemplarInexistenteException(long ExemplarId)
+    : Exception($"BIBLIOTECA_EXEMPLAR_INEXISTENTE: exemplar {ExemplarId} não encontrado ou inativo em sigov.educacao_biblioteca_exemplar para o tenant atual; cadastre o exemplar antes de operar a circulação.");
+
+/// <summary>Emprestimo inexistente/inativo para o tenant atual na devolução (HTTP 404, código BIBLIOTECA_EMPRESTIMO_INEXISTENTE).</summary>
+public sealed class BibliotecaEmprestimoInexistenteException(long EmprestimoId)
+    : Exception($"BIBLIOTECA_EMPRESTIMO_INEXISTENTE: empréstimo {EmprestimoId} não encontrado em sigov.educacao_biblioteca_emprestimo para o tenant atual.");
+
+/// <summary>Aluno tomador inexistente/inativo para o tenant atual no empréstimo (HTTP 404, código BIBLIOTECA_ALUNO_INEXISTENTE).</summary>
+public sealed class BibliotecaAlunoInexistenteException(long AlunoId)
+    : Exception($"BIBLIOTECA_ALUNO_INEXISTENTE: aluno {AlunoId} não encontrado ou inativo em sigov.aluno para o tenant atual; cadastre/ative o aluno antes do empréstimo.");
+
+/// <summary>Tomador do empréstimo ausente ou ambíguo (HTTP 400, código EMPRESTIMO_TOMADOR_INVALIDO).</summary>
+public sealed class EmprestimoTomadorInvalidoException(long? AlunoId, long? ServidorId)
+    : Exception($"EMPRESTIMO_TOMADOR_INVALIDO: informe exatamente um tomador para o empréstimo (alunoId={AlunoId?.ToString() ?? "nulo"}; servidorId={ServidorId?.ToString() ?? "nulo"}).");
+
+/// <summary>Servidor tomador inexistente/inativo para o tenant atual no empréstimo (HTTP 404, código BIBLIOTECA_SERVIDOR_INEXISTENTE).</summary>
+public sealed class BibliotecaServidorInexistenteException(long ServidorId)
+    : Exception($"BIBLIOTECA_SERVIDOR_INEXISTENTE: servidor {ServidorId} não encontrado ou inativo em sigov.servidor para o tenant atual; cadastre/ative o servidor antes do empréstimo.");
+
+/// <summary>Prazo de devolução anterior à data de lançamento (HTTP 400, código PRAZO_EMPRESTIMO_INVALIDO).</summary>
+public sealed class PrazoEmprestimoInvalidoException(DateOnly Prazo, DateOnly DataLancamento)
+    : Exception($"PRAZO_EMPRESTIMO_INVALIDO: prazo de devolução {Prazo:yyyy-MM-dd} anterior à data de lançamento {DataLancamento:yyyy-MM-dd}; informe um prazo a partir de hoje.");
+
+/// <summary>Exemplar de outra entidade do contexto institucional (HTTP 409, código EXEMPLAR_FORA_DO_ESCOPO).</summary>
+public sealed class ExemplarForaDoEscopoException(long ExemplarId, long ExemplarEntidadeId, long ContextoEntidadeId)
+    : Exception($"EXEMPLAR_FORA_DO_ESCOPO: exemplar {ExemplarId} pertence à entidade {ExemplarEntidadeId} e o comando está no contexto da entidade {ContextoEntidadeId}; troque de contexto institucional antes de operar a circulação.");
+
+/// <summary>Exemplar fora do status circulável na operação (HTTP 409, código EXEMPLAR_NAO_DISPONIVEL).</summary>
+public sealed class ExemplarNaoDisponivelException(long ExemplarId, string StatusAtual)
+    : Exception($"EXEMPLAR_NAO_DISPONIVEL: o exemplar {ExemplarId} está com status {StatusAtual}; a circulação exige exemplar ATIVO/DISPONÍVEL (ajuste o status antes de operar).");
+
+/// <summary>Já existe empréstimo vigente para o exemplar (HTTP 409, código EXEMPLAR_INDISPONIVEL; backstop ux_biblioteca_emprestimo_tenant_exemplar_vigencia).</summary>
+public sealed class ExemplarIndisponivelException(long ExemplarId)
+    : Exception($"EXEMPLAR_INDISPONIVEL: já existe empréstimo vigente em sigov.educacao_biblioteca_emprestimo para o exemplar {ExemplarId}; registre a devolução antes de emprestar novamente.");
+
+/// <summary>Emprestimo já encerrado/devolvido na devolução (HTTP 409, código EMPRESTIMO_JA_DEVOLVIDO).</summary>
+public sealed class EmprestimoJaDevolvidoException(long EmprestimoId, string StatusAtual)
+    : Exception($"EMPRESTIMO_JA_DEVOLVIDO: o empréstimo {EmprestimoId} está com status {StatusAtual}; apenas empréstimos ATIVOS podem ser devolvidos.");
+
+/// <summary>Já existe reserva vigente para o exemplar — fila de tamanho 1 (HTTP 409, código RESERVA_VIGENTE_EXISTENTE; backstop ux_biblioteca_reserva_tenant_exemplar_vigencia).</summary>
+public sealed class ReservaVigenteExisteException(long ExemplarId)
+    : Exception($"RESERVA_VIGENTE_EXISTENTE: já existe reserva vigente em sigov.educacao_biblioteca_reserva para o exemplar {ExemplarId} (fila de tamanho 1); cancele-a antes de registrar nova reserva.");

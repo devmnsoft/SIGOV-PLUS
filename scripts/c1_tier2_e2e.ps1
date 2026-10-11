@@ -129,12 +129,15 @@ Add-Check 'E0' 'fixture.aplicado' ($LASTEXITCODE -eq 0) ("fixture c1 tier2 (120 
 $d = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/biblioteca/dashboard' -Base $ApiBase
 $j = $null
 try { $j = $d.body | ConvertFrom-Json } catch {}
-$okCounts = ($d.code -eq 200 -and $j.success -eq $true -and
-            $j.data.total -eq 120 -and $j.data.ativos -eq 60 -and
-            $j.data.pendentes -eq 20 -and $j.data.alertas -eq 20)
-$recentes = 0
-try { $recentes = @($j.data.recentes).Count } catch {}
-Add-Check 'E1' 'dashboard.conjunto-completo' ($okCounts -and $recentes -eq 6) ("GET /api/educacao/biblioteca/dashboard -> $($d.code) total=$($j.data.total) ativos=$($j.data.ativos) pendentes=$($j.data.pendentes) alertas=$($j.data.alertas) recentes=$recentes (fixo antigo veria 0/0/0 sobre os 6 mais recentes)")
+# S7: endpoint migrado do dashboard genérico para o DTO dedicado EducacaoBibliotecaDashboardDto.
+# Sobre o fixture de 120 acervos ativos (c1e26-%) e ainda sem exemplares/emprestimos:
+# titulos=120, disponiveis/emprestimosAtivos/atrasos=0; campos legados (total/ativos/pendentes/alertas/recentes) ausentes.
+$okDto = ($d.code -eq 200 -and $j.success -eq $true -and
+          $null -ne $j.data.titulos -and $null -ne $j.data.disponiveis -and $null -ne $j.data.emprestimosAtivos -and $null -ne $j.data.atrasos -and
+          [long]$j.data.titulos -eq 120 -and [long]$j.data.disponiveis -eq 0 -and
+          [long]$j.data.emprestimosAtivos -eq 0 -and [long]$j.data.atrasos -eq 0 -and
+          $null -eq $j.data.total -and $null -eq $j.data.recentes)
+Add-Check 'E1' 'dashboard.conjunto-completo' $okDto ("GET /api/educacao/biblioteca/dashboard -> $($d.code) titulos=$($j.data.titulos) disponiveis=$($j.data.disponiveis) emprestimosAtivos=$($j.data.emprestimosAtivos) atrasos=$($j.data.atrasos) (S7: DTO dedicado sobre os 120 acervos do fixture; contrato legado total/ativos/pendentes/alertas/recentes ausente)")
 
 # --- E2: export CSV integral + BOM + escape + protecao de formula -------------
 $csvFile = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_export_" + [guid]::NewGuid().ToString('N') + ".csv")
@@ -679,6 +682,78 @@ $cs6b = 0; if ($cardS6bj -and $null -ne $cardS6bj.data) { $cs6b = [long]$cardS6b
 $dist6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6b + ',"data":"2026-12-15","itens":[{"produtoId":' + $pa.text + ',"quantidade":1}]}')
 Add-Check 'E10' 'distribuicao.cardapio-rascunho-409' (($dist6.code -eq 409) -and ($dist6.body -like '*CARDAPIO_NAO_APROVADO*')) ("cardápio ainda em RASCUNHO -> $($dist6.code) (409 CARDAPIO_NAO_APROVADO; distribuições exigem cardápio ATIVO)")
 
+# --- E11 (Sprint 7): biblioteca circulacao — emprestimo/devolucao/reserva por exemplar ---
+# POST /api/educacao/biblioteca/emprestimos/lancar {exemplarId,alunoId,servidorId,prazo}:
+# exemplar existe/ativo/no escopo (404/409), tomador exatamente um de aluno/servidor
+# (400 se nenhum ou ambos), prazo >= data de lancamento (400); um emprestimo vigente
+# por exemplar (409 nomeada + indice ux_biblioteca_emprestimo_tenant_exemplar_vigencia
+# como backstop). POST /api/educacao/biblioteca/emprestimos/{id}/devolver {observacao}:
+# so ATIVOS podem ser devolvidos (senao 409 nomeada); encerra o emprestimo e registra
+# a devolucao na mesma transacao. POST /api/educacao/biblioteca/reservas/lancar: uma
+# reserva vigente por exemplar (fila de tamanho 1). GET /api/educacao/biblioteca/dashboard:
+# metricas dedicadas (titulos/exemplares disponiveis/emprestimos ativos/atrasos).
+# Falhas nomeadas (regra 13); multi-esfera (regra 24).
+$e11fix = Get-Psql @"
+insert into sigov.escola(tenant_id,entidade_id,codigo,nome,tipo_escola,situacao)
+select 910001,1,'c1e26-s7-esc','Fixtures C1 Escola S7',coalesce((select tipo_escola from sigov.escola where is_deleted=false limit 1),'OURO'),coalesce((select situacao from sigov.escola where is_deleted=false limit 1),'ATIVA')
+where not exists(select 1 from sigov.escola where tenant_id=910001 and codigo='c1e26-s7-esc');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,1,'F','Fixtures C1 S7 Aluno','999999000301','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000301');
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,1,p.id,'C1S7-ALA','ATIVO',910301 from sigov.pessoa p where p.documento='999999000301'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S7-ALA');
+select 'ok';
+"@
+Add-Check 'E11' 'fixture.s7-aplicado' ($e11fix.code -eq 0) ("fixture S7 (escola c1e26-s7-esc + pessoa/aluno ficticio C1S7-ALA, tenant 910001) exit=$($e11fix.code)")
+$e11al = Get-Psql "select coalesce(id,-1) from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S7-ALA';"
+$e11acv = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/acervo' -Base $ApiBase -Body '{"codigo":"C1S7-ACV","nome":"Livro C1S7 Fisica","tipo":"NAO_FICCIONADO","status":"ATIVA"}'
+$e11exA = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/exemplares' -Base $ApiBase -Body '{"codigo":"C1S7-EXA","nome":"Exemplar C1S7 A","status":"DISPONIVEL"}'
+$e11exB = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/exemplares' -Base $ApiBase -Body '{"codigo":"C1S7-EXB","nome":"Exemplar C1S7 B","status":"DISPONIVEL"}'
+$e11idA = Get-Psql "select coalesce(id,-1) from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo='C1S7-EXA' order by id desc limit 1;"
+$e11idB = Get-Psql "select coalesce(id,-1) from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo='C1S7-EXB' order by id desc limit 1;"
+Add-Check 'E11' 'cadastro.acervo-e-exemplares-via-api' (($e11acv.code -eq 200) -and ($e11exA.code -eq 200) -and ($e11exB.code -eq 200) -and ([long]$e11idA.text -gt 0) -and ([long]$e11idB.text -gt 0)) ("POST acervo $($e11acv.code) + exemplares DISPONIVEL x2 $($e11exA.code)/$($e11exB.code); ids: $($e11idA.text)/$($e11idB.text)")
+$e11hoje = (Get-Date).ToString('yyyy-MM-dd')
+$e11prazo = (Get-Date).AddDays(14).ToString('yyyy-MM-dd')
+$e11prazoPasse = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+$e11l1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idA.text + ',"alunoId":' + $e11al.text + ',"prazo":"' + $e11prazo + '"}')
+$e11db1 = Get-Psql ("select status||'|'||to_char(competencia,'YYYY-MM-DD')||'|'||to_char(data_fim,'YYYY-MM-DD')||'|'||coalesce(aluno_id,-1) from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id=" + $e11idA.text + " order by id desc limit 1;")
+Add-Check 'E11' 'emprestimo.lancado-com-tomador-aluno' (($e11l1.code -eq 200) -and ($e11db1.text -like ("ATIVA|" + $e11hoje + "|" + $e11prazo + "|" + $e11al.text))) ("POST emprestimos/lancar (exemplar A + aluno + prazo +14d) -> $($e11l1.code); banco status|competencia|data_fim|aluno: $($e11db1.text)")
+$e11l2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idA.text + ',"alunoId":' + $e11al.text + ',"prazo":"' + $e11prazo + '"}')
+Add-Check 'E11' 'emprestimo.duplicado-409-nomeada' (($e11l2.code -eq 409) -and ($e11l2.body -like '*EXEMPLAR_INDISPONIVEL*')) ("segundo emprestimo do mesmo exemplar vigente -> $($e11l2.code) (409 EXEMPLAR_INDISPONIVEL nomeada; checagem previa)")
+$e11raw = Get-Psql ("insert into sigov.educacao_biblioteca_emprestimo(tenant_id,entidade_id,exemplar_id,tipo,status,dados,auditoria,correlation_id,ativo) select 910001,1," + $e11idA.text + ",'FISICO','ATIVA','{}'::jsonb,'[]'::jsonb,gen_random_uuid(),true;")
+Add-Check 'E11' 'emprestimo.indice-backstop-unicidade' (($e11raw.code -eq 3) -and ($e11raw.text -like '*ux_biblioteca_emprestimo_tenant_exemplar_vigencia*')) ("insert SQL de 2o emprestimo ATIVO do mesmo exemplar -> exit=$($e11raw.code) (indice unico parcial como backstop transacional; o comando tipado falha antes com 409 nomeada)")
+$e11l3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"alunoId":' + $e11al.text + ',"prazo":"' + $e11prazoPasse + '"}')
+Add-Check 'E11' 'emprestimo.prazo-anterior-400-nomeada' (($e11l3.code -eq 400) -and ($e11l3.body -like '*PRAZO_EMPRESTIMO_INVALIDO*')) ("prazo ontem ($($e11prazoPasse)) -> $($e11l3.code) (400 PRAZO_EMPRESTIMO_INVALIDO nomeada; nada gravado)")
+$e11l4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"prazo":"' + $e11prazo + '"}')
+Add-Check 'E11' 'emprestimo.sem-tomador-400-nomeada' (($e11l4.code -eq 400) -and ($e11l4.body -like '*EMPRESTIMO_TOMADOR_INVALIDO*')) ("sem alunoId/servidorId -> $($e11l4.code) (400 EMPRESTIMO_TOMADOR_INVALIDO nomeada; exatamente um tomador)")
+$e11l5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":9999999999,"alunoId":' + $e11al.text + ',"prazo":"' + $e11prazo + '"}')
+Add-Check 'E11' 'emprestimo.exemplar-inexistente-404-nomeada' (($e11l5.code -eq 404) -and ($e11l5.body -like '*BIBLIOTECA_EXEMPLAR_INEXISTENTE*')) ("exemplar 9999999999 -> $($e11l5.code) (404 BIBLIOTECA_EXEMPLAR_INEXISTENTE nomeada)")
+$e11emb1 = Get-Psql ("select id from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id=" + $e11idA.text + " order by id desc limit 1;")
+$e11d1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/emprestimos/$($e11emb1.text)/devolver" -Base $ApiBase -Body '{"observacao":"devolvido c1s7"}'
+$e11db2 = Get-Psql "select (select status from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=910001 and m.exemplar_id=$($e11idA.text) order by m.id desc limit 1)||'|'||(select count(1) from sigov.educacao_biblioteca_devolucao d where d.tenant_id=910001 and d.referencia_id=$(if($e11emb1.text){$e11emb1.text}else{0}))||'|'||(select d.dados->>'em_dia' from sigov.educacao_biblioteca_devolucao d where d.tenant_id=910001 and d.referencia_id=$(if($e11emb1.text){$e11emb1.text}else{0}) limit 1);"
+Add-Check 'E11' 'devolucao.registrada-transacional' (($e11d1.code -eq 200) -and ($e11db2.text -eq 'ENCERRADA|1|true')) ("POST emprestimos/{id}/devolver -> $($e11d1.code); banco emprestimo|devolucoes|em_dia: $($e11db2.text) (mesma transacao; exemplar liberado)")
+$e11d2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/emprestimos/$($e11emb1.text)/devolver" -Base $ApiBase -Body '{}'
+Add-Check 'E11' 'devolucao.repetida-409-nomeada' (($e11d2.code -eq 409) -and ($e11d2.body -like '*EMPRESTIMO_JA_DEVOLVIDO*')) ("devolver de novo o mesmo emprestimo -> $($e11d2.code) (409 EMPRESTIMO_JA_DEVOLVIDO nomeada)")
+$e11d3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/9999999999/devolver' -Base $ApiBase -Body '{}'
+Add-Check 'E11' 'devolucao.inexistente-404-nomeada' (($e11d3.code -eq 404) -and ($e11d3.body -like '*BIBLIOTECA_EMPRESTIMO_INEXISTENTE*')) ("emprestimo 9999999999 -> $($e11d3.code) (404 BIBLIOTECA_EMPRESTIMO_INEXISTENTE nomeada)")
+$e11l6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idA.text + ',"alunoId":' + $e11al.text + ',"prazo":"' + $e11prazo + '"}')
+Add-Check 'E11' 'circulo.nova-vigencia-apos-devolucao' (($e11l6.code -eq 200)) ("novo emprestimo do exemplar apos devolucao -> $($e11l6.code) (estado terminal liberou a vigencia para nova circulacao)")
+$e11r1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/reservas/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"alunoId":' + $e11al.text + '}')
+$e11rid = Get-Psql ("select id from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id=" + $e11idB.text + " order by id desc limit 1;")
+$e11r2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/reservas/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"alunoId":' + $e11al.text + '}')
+Add-Check 'E11' 'reserva.lancada-e-duplicada-409-nomeada' (($e11r1.code -eq 200) -and ($e11r2.code -eq 409) -and ($e11r2.body -like '*RESERVA_VIGENTE_EXISTENTE*') -and ($e11rid.text -ne '')) ("reserva exemplar B -> $($e11r1.code) (id=$($e11rid.text)); 2a reserva -> $($e11r2.code) (409 RESERVA_VIGENTE_EXISTENTE nomeada; fila de tamanho 1; backstop ux_biblioteca_reserva_tenant_exemplar_vigencia)")
+# fixture de atraso: empurra o prazo do emprestimo ativo para ontem (ajuste declarado de fixture p/ evidenciar a metrica)
+$e11up = Get-Psql ("update sigov.educacao_biblioteca_emprestimo set data_fim=current_date-1 where tenant_id=910001 and exemplar_id=" + $e11idA.text + " and ativo and is_deleted=false and status='ATIVA';")
+$e11dash = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/biblioteca/dashboard' -Base $ApiBase
+$e11dj = $null; try { $e11dj = ($e11dash.body | ConvertFrom-Json) } catch {}
+$e11dT = 0; $e11dDisp = 0; $e11dAt = 0; $e11dAtr = 0
+if ($e11dj -and $null -ne $e11dj.data) { $e11dT = [long]$e11dj.data.titulos; $e11dDisp = [long]$e11dj.data.disponiveis; $e11dAt = [long]$e11dj.data.emprestimosAtivos; $e11dAtr = [long]$e11dj.data.atrasos }
+Add-Check 'E11' 'dashboard.metricas-dedicadas' (($e11dash.code -eq 200) -and ($e11dT -ge 1) -and ($e11dDisp -ge 1) -and ($e11dAt -ge 1) -and ($e11dAtr -ge 1)) ("GET biblioteca/dashboard -> $($e11dash.code); metricas titulos/disponiveis/ativos/atrasos: $e11dT/$e11dDisp/$e11dAt/$e11dAtr (DTO dedicado EducacaoBibliotecaDashboardDto; atraso provado com fixture data_fim=ontem)")
+$e11rc = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_reserva/$($e11rid.text)/status?status=CANCELADA&justificativa=c1-s7-cancela-reserva" -Base $ApiBase
+$e11r3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/reservas/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"alunoId":' + $e11al.text + '}')
+Add-Check 'E11' 'reserva.cancelada-reabre-fila' (($e11rc.code -eq 200) -and ($e11r3.code -eq 200)) ("reserva CANCELADA via maquina de estados -> $($e11rc.code); nova reserva no exemplar -> $($e11r3.code) (terminal libera a fila)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -730,15 +805,23 @@ delete from sigov.educacao_merenda_cardapio_item where referencia_id in (select 
 delete from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%');
 delete from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%';
 delete from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%';
+delete from sigov.educacao_biblioteca_devolucao where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
+delete from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
+delete from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
+delete from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%';
+delete from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'C1S7-%';
+delete from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S7-ALA';
+delete from sigov.pessoa where documento='999999000301';
+delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s7-esc';
 delete from sigov.entidade where cnpj in ('99999999000191','99999999000209','99999999000301') and not exists(select 1 from sigov.escola where entidade_id=sigov.entidade.id);
 select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%')
-     + (select count(*) from sigov.escola where tenant_id=910001 and (codigo like 'c1e26-esc-%' or codigo='c1e26-s3-esc'))
+     + (select count(*) from sigov.escola where tenant_id=910001 and (codigo like 'c1e26-esc-%' or codigo='c1e26-s3-esc' or codigo='c1e26-s7-esc'))
      + (select count(*) from sigov.entidade where cnpj in ('99999999000191','99999999000209','99999999000301'))
      + (select count(*) from sigov.matricula where tenant_id=910001 and numero_matricula like 'C1S3-%')
      + (select count(*) from sigov.turma where tenant_id=910001 and codigo like 'c1e26-s3-%')
      + (select count(*) from sigov.curso where tenant_id=910001 and codigo='C1S3-CURSO')
-     + (select count(*) from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%')
+     + (select count(*) from sigov.aluno where tenant_id=910001 and (codigo_aluno like 'C1S3-%' or codigo_aluno='C1S7-ALA'))
      + (select count(*) from sigov.educacao_historico_escolar where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'))
      + (select count(*) from sigov.educacao_portal_vinculo where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'))
      + (select count(*) from sigov.responsavel_aluno where pessoa_id=(select id from sigov.pessoa where documento='999999000401'))
@@ -749,9 +832,14 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
      + (select count(*) from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%'))
      + (select count(*) from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%'))
      + (select count(*) from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%')
-     + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104')) as restantes;
+     + (select count(*) from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%')
+     + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'C1S7-%')
+     + (select count(*) from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%'))
+     + (select count(*) from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%'))
+     + (select count(*) from sigov.educacao_biblioteca_devolucao where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%'))
+     + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104','999999000301')) as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count

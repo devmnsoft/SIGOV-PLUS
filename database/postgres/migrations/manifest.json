@@ -2986,6 +2986,19 @@
         "20261011140000"
       ],
       "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_distribuicao_tenant_cardapio_data')"
+    },
+    {
+      "version": "20261011160000",
+      "description": "RC-EVO Ciclo 1 Sprint 7 (educacao/biblioteca circulacao): indices unicos parciais ux_biblioteca_emprestimo_tenant_exemplar_vigencia e ux_biblioteca_reserva_tenant_exemplar_vigencia em sigov.educacao_biblioteca_emprestimo/reserva (um emprestimo vigente e uma reserva vigente por exemplar x tenant; estados terminais liberam); backstop transacional dos comandos tipados de emprestimo, devolucao e reserva; idempotente; multi-esfera",
+      "category": "functional",
+      "file": "20261011160000_evo_c1s7_biblioteca_circulacao.sql",
+      "checksum": "77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261011150000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_emprestimo_tenant_exemplar_vigencia') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_reserva_tenant_exemplar_vigencia')"
     }
   ],
   "compatibilityAfterAll": [
