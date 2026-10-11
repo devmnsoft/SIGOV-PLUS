@@ -112,6 +112,46 @@ public sealed class ExemplarIndisponivelException(long ExemplarId)
 public sealed class EmprestimoJaDevolvidoException(long EmprestimoId, string StatusAtual)
     : Exception($"EMPRESTIMO_JA_DEVOLVIDO: o empréstimo {EmprestimoId} está com status {StatusAtual}; apenas empréstimos ATIVOS podem ser devolvidos.");
 
-/// <summary>Já existe reserva vigente para o exemplar — fila de tamanho 1 (HTTP 409, código RESERVA_VIGENTE_EXISTENTE; backstop ux_biblioteca_reserva_tenant_exemplar_vigencia).</summary>
+/// <summary>Já existe reserva vigente para o exemplar - fila de tamanho 1 (HTTP 409, código RESERVA_VIGENTE_EXISTENTE; backstop ux_biblioteca_reserva_tenant_exemplar_vigencia).</summary>
 public sealed class ReservaVigenteExisteException(long ExemplarId)
     : Exception($"RESERVA_VIGENTE_EXISTENTE: já existe reserva vigente em sigov.educacao_biblioteca_reserva para o exemplar {ExemplarId} (fila de tamanho 1); cancele-a antes de registrar nova reserva.");
+
+/// <summary>Rota de transporte inexistente/inativa no tenant (HTTP 404, código TRANSPORTE_ROTA_INEXISTENTE).</summary>
+public sealed class TransporteRotaInexistenteException(long RotaId)
+    : Exception($"TRANSPORTE_ROTA_INEXISTENTE: a rota {RotaId} não existe em sigov.educacao_transporte_rota para este tenant (ou foi inativada/excluída).");
+
+/// <summary>Rota não está em status ativo para operação (HTTP 409, código TRANSPORTE_ROTA_NAO_VIGENTE).</summary>
+public sealed class TransporteRotaNaoVigenteException(long RotaId, string StatusAtual)
+    : Exception($"TRANSPORTE_ROTA_NAO_VIGENTE: a rota {RotaId} está com status {StatusAtual}; pontos e vínculos de aluno exigem rota ATIVA.");
+
+/// <summary>Comando de rota sem escola nem região, ou com ambas (HTTP 400, código ROTA_ESCOLA_OU_REGIAO_INVALIDA).</summary>
+public sealed class TransporteRotaEscolaOuRegiaoInvalidoException()
+    : Exception("ROTA_ESCOLA_OU_REGIAO_INVALIDA: o lançamento de rota exige exatamente uma de escolaId ou região — para atendimento multi-esfera (regra 24), rotas de órgão/região usam regiao e rotas de unidade escolar usam escolaId.");
+
+/// <summary>Ordem de ponto fora do intervalo válido (HTTP 400, código PONTO_ORDEM_INVALIDA).</summary>
+public sealed class TransportePontoOrdemInvalidaException(int Ordem)
+    : Exception($"PONTO_ORDEM_INVALIDA: a ordem {Ordem} é inválida; ordens de ponto devem ser inteiros positivos, começando em 1.");
+
+/// <summary>Ordem de ponto já ocupada na rota (HTTP 409, código PONTO_ORDENACAO_EXISTENTE; backstop ux_transporte_ponto_tenant_rota_ordem).</summary>
+public sealed class TransportePontoOrdemExistenteException(long RotaId, int Ordem)
+    : Exception($"PONTO_ORDENACAO_EXISTENTE: já existe ponto vigente na ordem {Ordem} da rota {RotaId}; use outra ordem ou cancele o ponto existente.");
+
+/// <summary>Ponto de rota inexistente/inativo no tenant (HTTP 404, código TRANSPORTE_PONTO_INEXISTENTE).</summary>
+public sealed class TransportePontoInexistenteException(long PontoId)
+    : Exception($"TRANSPORTE_PONTO_INEXISTENTE: o ponto {PontoId} não existe em sigov.educacao_transporte_rota_ponto para este tenant (ou foi inativado/excluído).");
+
+/// <summary>Ponto informado pertence a outra rota (HTTP 409, código PONTO_ROTA_DIVERGENTE).</summary>
+public sealed class TransportePontoRotaDivergenteException(long PontoId, long RotaDoPonto, long RotaInformada)
+    : Exception($"PONTO_ROTA_DIVERGENTE: o ponto {PontoId} pertence à rota {RotaDoPonto}; o vínculo foi informado para a rota {RotaInformada}.");
+
+/// <summary>Aluno inexistente/inativo no tenant para vínculo de transporte (HTTP 404, código TRANSPORTE_ALUNO_INEXISTENTE).</summary>
+public sealed class TransporteAlunoInexistenteException(long AlunoId)
+    : Exception($"TRANSPORTE_ALUNO_INEXISTENTE: o aluno {AlunoId} não existe em sigov.aluno para este tenant (ou está inativo); cadastre/ative o aluno antes de vinculá-lo à rota.");
+
+/// <summary>Turno do vínculo divergente do turno da rota (HTTP 400, código TURNO_VINCULO_DIVERGENTE).</summary>
+public sealed class TransporteTurnoVinculoDivergenteException(string TurnoVinculo, string TurnoRota)
+    : Exception($"TURNO_VINCULO_DIVERGENTE: o turno do vínculo ({TurnoVinculo}) difere do turno da rota ({TurnoRota}); omita o turno no vínculo para herdá-lo da rota.");
+
+/// <summary>Aluno já possui vínculo vigente com a rota no mesmo turno (HTTP 409, código ALUNO_JA_VINCULADO_A_ROTA; backstop ux_educacao_transporte_aluno_rota_turno).</summary>
+public sealed class TransporteAlunoJaVinculadoARotaException(long AlunoId, long RotaId, string Turno)
+    : Exception($"ALUNO_JA_VINCULADO_A_ROTA: o aluno {AlunoId} já possui vínculo vigente com a rota {RotaId} no turno {Turno}; cancele o vínculo antes de recriá-lo.");

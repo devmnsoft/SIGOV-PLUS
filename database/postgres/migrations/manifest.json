@@ -2999,6 +2999,19 @@
         "20261011150000"
       ],
       "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_emprestimo_tenant_exemplar_vigencia') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_reserva_tenant_exemplar_vigencia')"
+    },
+    {
+        "version": "20261011170000",
+        "description": "RC-EVO Ciclo 1 Sprint 8 (educacao/transporte_escolar): indice unico parcial ux_transporte_ponto_tenant_rota_ordem em sigov.educacao_transporte_rota_ponto (uma ordem vigente por ponto x rota x tenant; estados terminais liberam) + pos-condicao verificando tambem ux_educacao_transporte_aluno_rota_turno (rc50_48, backstop do vinculo de aluno); backstop transacional dos comandos tipados de rota/ponto/aluno; idempotente; multi-esfera",
+        "category": "functional",
+        "file": "20261011170000_evo_c1s8_transporte_ponto_ordem.sql",
+        "checksum": "b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2",
+        "applyAutomatically": true,
+        "includeInBaseline": true,
+        "dependencies": [
+            "20261011160000"
+        ],
+        "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_transporte_ponto_tenant_rota_ordem') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_educacao_transporte_aluno_rota_turno')"
     }
   ],
   "compatibilityAfterAll": [
