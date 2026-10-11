@@ -3012,6 +3012,19 @@
             "20261011160000"
         ],
         "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_transporte_ponto_tenant_rota_ordem') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_educacao_transporte_aluno_rota_turno')"
+    },
+    {
+        "version": "20261011180000",
+        "description": "RC-EVO Ciclo 1 Sprint 9 (educacao/fundeb_custos_indicadores): indices unicos parciais ux_fundeb_parametro_tenant_codigo e ux_custo_centro_tenant_codigo (um codigo vigente por tenant) + ux_fundeb_receita_tenant_competencia_fonte (uma receita vigente por competencia/fonte/tenant; estados terminais liberam); pos-condicao explicita S9-POSTCOND; backstops transacionais dos comandos tipados de parametro/receita/aplicacao/centro de custo; idempotente; multi-esfera",
+        "category": "functional",
+        "file": "20261011180000_evo_c1s9_fundeb_custos_unicidade.sql",
+        "checksum": "b39513596b1bae11740a56c829e3d3db2ae5f4d2fdb280dd7e397487ac0b8011",
+        "applyAutomatically": true,
+        "includeInBaseline": true,
+        "dependencies": [
+            "20261011170000"
+        ],
+        "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_fundeb_parametro_tenant_codigo') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_fundeb_receita_tenant_competencia_fonte') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_custo_centro_tenant_codigo')"
     }
   ],
   "compatibilityAfterAll": [

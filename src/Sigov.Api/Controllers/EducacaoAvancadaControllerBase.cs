@@ -220,6 +220,26 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (FundebParametroCodigoExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (FundebReceitaDuplicadaException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (CustoCentroInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (CustoCentroNaoVigenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (CustoCentroCodigoExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));

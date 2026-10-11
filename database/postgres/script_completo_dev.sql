@@ -257,7 +257,8 @@ select exists (
         ('20261011140000', array['d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86']::text[]),
         ('20261011150000', array['29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff']::text[]),
         ('20261011160000', array['77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3']::text[]),
-        ('20261011170000', array['b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2']::text[])
+        ('20261011170000', array['b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2']::text[]),
+        ('20261011180000', array['b39513596b1bae11740a56c829e3d3db2ae5f4d2fdb280dd7e397487ac0b8011']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34564,6 +34565,67 @@ begin
 end $post$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011170000', 'RC-EVO Ciclo 1 Sprint 8 (educacao/transporte_escolar): indice unico parcial ux_transporte_ponto_tenant_rota_ordem em sigov.educacao_transporte_rota_ponto (uma ordem vigente por ponto x rota x tenant; estados terminais liberam) + pos-condicao verificando tambem ux_educacao_transporte_aluno_rota_turno (rc50_48, backstop do vinculo de aluno); backstop transacional dos comandos tipados de rota/ponto/aluno; idempotente; multi-esfera', 'b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261011180000_evo_c1s9_fundeb_custos_unicidade.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: b39513596b1bae11740a56c829e3d3db2ae5f4d2fdb280dd7e397487ac0b8011
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 1 Sprint 9 (educacao/fundeb_custos_indicadores): unicao de
+-- codigo vigente por tenant para parametros FDEB (ex.: taxa minima de
+-- aplicacao) e centros de custo, e uma receita FDEB vigente por
+-- competencia/fonte por tenant — backstops transacionais dos comandos
+-- tipados de parametro/receita/aplicacao/centro de custo. Regra 24: nada
+-- municipal hardcoded — as chaves sao por tenant, validas para qualquer
+-- esfera/orgao; a taxa minima de aplicacao (LDB art. 70 e equivalentes de
+-- cada esfera) vem de parametro do banco, nunca hardcoded. Estados terminais
+-- (ENCERRADA/ENCERRADO/CANCELADA/CANCELADO) liberam a unicidade, como nas
+-- politicas das Sprints 3-8. Idempotente; multi-esfera (regra 24).
+-- ============================================================================
+
+create unique index if not exists ux_fundeb_parametro_tenant_codigo
+    on sigov.educacao_fundeb_parametro (tenant_id, coalesce(codigo, ''::varchar))
+    where is_deleted = false
+      and ativo = true
+      and codigo is not null
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+create unique index if not exists ux_fundeb_receita_tenant_competencia_fonte
+    on sigov.educacao_fundeb_receita (tenant_id, coalesce(competencia, '2999-12-31'::date), coalesce(tipo, ''::varchar))
+    where is_deleted = false
+      and ativo = true
+      and competencia is not null
+      and tipo is not null
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+create unique index if not exists ux_custo_centro_tenant_codigo
+    on sigov.educacao_custo_centro (tenant_id, coalesce(codigo, ''::varchar))
+    where is_deleted = false
+      and ativo = true
+      and codigo is not null
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+-- Pos-condicao explicita (regra 13): sem os indices, falha nomeada.
+do $post$
+begin
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_fundeb_parametro_tenant_codigo') then
+        raise exception 'S9-POSTCOND: indice ux_fundeb_parametro_tenant_codigo ausente';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_fundeb_receita_tenant_competencia_fonte') then
+        raise exception 'S9-POSTCOND: indice ux_fundeb_receita_tenant_competencia_fonte ausente';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_custo_centro_tenant_codigo') then
+        raise exception 'S9-POSTCOND: indice ux_custo_centro_tenant_codigo ausente';
+    end if;
+end $post$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011180000', 'RC-EVO Ciclo 1 Sprint 9 (educacao/fundeb_custos_indicadores): indices unicos parciais ux_fundeb_parametro_tenant_codigo e ux_custo_centro_tenant_codigo (um codigo vigente por tenant) + ux_fundeb_receita_tenant_competencia_fonte (uma receita vigente por competencia/fonte/tenant; estados terminais liberam); pos-condicao explicita S9-POSTCOND; backstops transacionais dos comandos tipados de parametro/receita/aplicacao/centro de custo; idempotente; multi-esfera', 'b39513596b1bae11740a56c829e3d3db2ae5f4d2fdb280dd7e397487ac0b8011', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

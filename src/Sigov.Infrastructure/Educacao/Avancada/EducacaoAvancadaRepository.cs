@@ -304,6 +304,103 @@ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,Sal
    var d=await c.QueryFirstAsync<EducacaoTransporteDashboardDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
    return d;
  }
+  private sealed class EducacaoCentroCustoLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
+  private sealed class EducacaoIndicadoresMetricasLinha{public decimal Receitas{get;set;} public decimal Aplicacoes{get;set;} public decimal Custos{get;set;} public long Matriculas{get;set;} public long Inconsistencias{get;set;} public decimal? TaxaMinima{get;set;}}
+  async Task<EducacaoCentroCustoLinha> CarregarCentroCustoNoEscopoAsync(EducacaoAvancadaContext x,long centroId,CancellationToken ct,NpgsqlConnection c){
+    var r=await c.QueryFirstOrDefaultAsync<EducacaoCentroCustoLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_custo_centro where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=centroId},cancellationToken:ct)).ConfigureAwait(false);
+    if(r is null)throw new CustoCentroInexistenteException(centroId);
+    if(r.EntidadeId>=0&&x.EntidadeId.HasValue&&r.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_custo_centro",centroId,r.EntidadeId.Value,x.EntidadeId.Value);
+    return r;
+  }
+  public async Task<long> LancarParametroAsync(EducacaoAvancadaContext x,EducacaoFundebLancarParametroRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_parametro",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_parametro");
+    if(r is null)throw new ArgumentException("Parâmetro FDEB é obrigatório.");
+    if(string.IsNullOrWhiteSpace(r.Codigo))throw new ArgumentException("Parâmetro FDEB exige código.");
+    if(r.Valor<0)throw new ArgumentException("Valor do parâmetro FDEB não pode ser negativo.");
+    var codigo=r.Codigo.Trim().ToUpperInvariant();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_fundeb_parametro where tenant_id=@TenantId and upper(coalesce(codigo,''))=@Codigo and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,Codigo=codigo},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new FundebParametroCodigoExistenteException(codigo);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_parametro(tenant_id,entidade_id,codigo,nome,tipo,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Codigo,@Codigo,'FDEB_PARAMETRO',@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_PARAMETRO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Codigo=codigo,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new FundebParametroCodigoExistenteException(codigo);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<long> LancarReceitaAsync(EducacaoAvancadaContext x,EducacaoFundebLancarReceitaRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_receita",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_receita");
+    if(r is null)throw new ArgumentException("Receita FDEB é obrigatória.");
+    if(r.Competencia<=new DateOnly(2000,1,1))throw new ArgumentException("Receita FDEB exige competência válida (data).");
+    if(string.IsNullOrWhiteSpace(r.Fonte))throw new ArgumentException("Receita FDEB exige fonte (origem do recurso, ex.: FPE, FNDE, receita própria).");
+    if(r.Valor<=0)throw new ArgumentException("Valor da receita FDEB deve ser positivo.");
+    var fonte=r.Fonte.Trim().ToUpperInvariant();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_fundeb_receita where tenant_id=@TenantId and competencia=@Competencia and upper(coalesce(tipo,''))=@Fonte and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,Competencia=r.Competencia,Fonte=fonte},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new FundebReceitaDuplicadaException(r.Competencia.ToString("yyyy-MM-dd"),fonte);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_receita(tenant_id,entidade_id,competencia,tipo,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Competencia,@Fonte,@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_RECEITA','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Competencia=r.Competencia,Fonte=fonte,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new FundebReceitaDuplicadaException(r.Competencia.ToString("yyyy-MM-dd"),fonte);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<long> LancarAplicacaoAsync(EducacaoAvancadaContext x,EducacaoFundebLancarAplicacaoRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_aplicacao",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_aplicacao");
+    if(!await _inspector.TableExistsAsync("sigov","educacao_custo_centro",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_custo_centro");
+    if(r is null)throw new ArgumentException("Aplicação FDEB é obrigatória.");
+    if(r.CentroCustoId<=0)throw new ArgumentException("Aplicação FDEB exige centro de custo.");
+    if(r.Valor<=0)throw new ArgumentException("Valor da aplicação FDEB deve ser positivo.");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var centro=await CarregarCentroCustoNoEscopoAsync(x,r.CentroCustoId,ct,c).ConfigureAwait(false);
+    if(centro.Status is not ("ATIVA" or "ATIVO"))throw new CustoCentroNaoVigenteException(r.CentroCustoId,centro.Status ?? "INDEFINIDO");
+    return await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_aplicacao(tenant_id,entidade_id,centro_custo_id,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@CentroCustoId,@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_APLICACAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,CentroCustoId=r.CentroCustoId,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+  }
+  public async Task<long> LancarCentroCustoAsync(EducacaoAvancadaContext x,EducacaoCustoLancarCentroRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_custo_centro",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_custo_centro");
+    if(r is null)throw new ArgumentException("Centro de custo é obrigatório.");
+    if(string.IsNullOrWhiteSpace(r.Codigo))throw new ArgumentException("Centro de custo exige código.");
+    if(string.IsNullOrWhiteSpace(r.Nome))throw new ArgumentException("Centro de custo exige nome.");
+    var codigo=r.Codigo.Trim().ToUpperInvariant();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_custo_centro where tenant_id=@TenantId and upper(coalesce(codigo,''))=@Codigo and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,Codigo=codigo},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new CustoCentroCodigoExistenteException(codigo);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_custo_centro(tenant_id,entidade_id,codigo,nome,tipo,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Codigo,@Nome,'CUSTO_EDUCACAO','ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_CENTRO_CUSTO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Codigo=codigo,Nome=r.Nome.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new CustoCentroCodigoExistenteException(codigo);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<EducacaoIndicadoresDashboardDto> IndicadoresDashboardAsync(long tenantId,CancellationToken ct){
+    foreach(var t in new[]{"educacao_fundeb_receita","educacao_fundeb_aplicacao","educacao_custo_lancamento","educacao_educacenso_inconsistencia","matricula"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+    using var c=_context.CreateConnection();
+    var sql="select (select coalesce(sum(valor),0) from sigov.educacao_fundeb_receita where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as Receitas,(select coalesce(sum(valor),0) from sigov.educacao_fundeb_aplicacao where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as Aplicacoes,(select coalesce(sum(valor),0) from sigov.educacao_custo_lancamento where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as Custos,(select count(1) from sigov.matricula where tenant_id=@TenantId and ativo and not is_deleted and status in ('ATIVA','CONFIRMADA')) as Matriculas,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as Inconsistencias,(select valor from sigov.educacao_fundeb_parametro where tenant_id=@TenantId and ativo and not is_deleted and upper(coalesce(codigo,''))='TAXA_MINIMA_APLICACAO' limit 1) as TaxaMinima";
+    var m=await c.QueryFirstAsync<EducacaoIndicadoresMetricasLinha>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
+    var taxa=m.Receitas>0?Math.Round(m.Aplicacoes/m.Receitas,4):0m;
+    var conformidade=m.TaxaMinima is >0&&m.Receitas>0&&taxa>=m.TaxaMinima.Value;
+    return new EducacaoIndicadoresDashboardDto(m.Receitas,m.Aplicacoes,taxa,m.TaxaMinima,conformidade,m.Matriculas>0?Math.Round(m.Custos/m.Matriculas,2):0m,m.Inconsistencias);
+  }
  public async Task<bool> AlterarStatusAsync(EducacaoAvancadaContext x,string recurso,long id,string status,string? justificativa,CancellationToken ct,DateTime? versaoAtual=null){recurso=Recurso(recurso);if(string.IsNullOrWhiteSpace(status))throw new ArgumentException("Status é obrigatório.");var alvo=status.Trim().ToUpperInvariant();if ((alvo is "CANCELADA" or "CANCELADO") && string.IsNullOrWhiteSpace(justificativa))throw new ArgumentException("Cancelamento exige justificativa.");if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso);using var c=_context.CreateConnection();var de=await c.QueryFirstOrDefaultAsync<(string? Status,long LinhaEntidade)>(new CommandDefinition($"select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false",new{x.TenantId,Id=id},cancellationToken:ct));if(de.Status is null)throw new RegistroNaoEncontradoException(recurso,id);if(de.LinhaEntidade>=0 && x.EntidadeId.HasValue && x.EntidadeId.Value!=de.LinhaEntidade)throw new ContextoInstitucionalDivergenteException(recurso,id,de.LinhaEntidade,x.EntidadeId.Value);var linhaDe=de.Status;if(!EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo))throw new TransicaoDeStatusInvalidaException(linhaDe,alvo);var n=await c.ExecuteAsync(new CommandDefinition($"update sigov.{recurso} set status=@Status,justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria when 'object' then case when auditoria='{{}}'::jsonb then '[]'::jsonb else jsonb_build_array(auditoria) end else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo',coalesce(@Justificativa,justificativa),'em',now())) where tenant_id=@TenantId and id=@Id and is_deleted=false and (@VersaoAtual::timestamptz is null or coalesce(updated_at,created_at)=@VersaoAtual)",new{x.TenantId,Id=id,Status=alvo,De=linhaDe,Justificativa=justificativa,x.UsuarioId,CorrelationId=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid(),VersaoAtual=versaoAtual},cancellationToken:ct));if(n==0)throw new ConflitoDeVersaoEducacaoException(recurso,id);return true;}
  public async Task<EducacaoAvancadaDashboardDto> DashboardAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return new EducacaoAvancadaDashboardDto(0,0,0,0,Array.Empty<EducacaoAvancadaRegistroDto>());using var c=_context.CreateConnection();var sql=$"select count(1) as total,count(1) filter (where status in ('ATIVA','ATIVO','PUBLICADO','DISPONIVEL','ABERTO')) as ativos,count(1) filter (where status in ('RASCUNHO','PROGRAMADA','SOLICITADA')) as pendentes,count(1) filter (where status in ('ATRASADO','SUSPENSA','COM_INCONSISTENCIA')) as alertas from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false;select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id desc limit 6;";using var m=await c.QueryMultipleAsync(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct));var tot=await m.ReadFirstAsync<EducacaoTotais>();var recentes=(await m.ReadAsync<EducacaoAvancadaRegistroDto>()).ToList();return new(tot.Total,tot.Ativos,tot.Pendentes,tot.Alertas,recentes);}
  public async Task<byte[]> ExportarCsvAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes("id;codigo;nome;tipo;status;valor\n")).ToArray();using var c=_context.CreateConnection();var sql=$"select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id";var r=(await c.QueryAsync<EducacaoAvancadaRegistroDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct))).ToList();var b=new StringBuilder("id;codigo;nome;tipo;status;valor\n");foreach(var x in r){b.Append(x.Id).Append(';').Append(EducacaoCsv.Campo(x.Codigo)).Append(';').Append(EducacaoCsv.Campo(x.Nome)).Append(';').Append(EducacaoCsv.Campo(x.Tipo)).Append(';').Append(EducacaoCsv.Campo(x.Status)).Append(';').Append(x.Valor?.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');}return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(b.ToString())).ToArray();}

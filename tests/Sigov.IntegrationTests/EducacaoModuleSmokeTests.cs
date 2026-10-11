@@ -360,4 +360,41 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011170000_evo_c1s8_transporte_ponto_ordem.sql")
             .And.Contain("indexname='ux_transporte_ponto_tenant_rota_ordem'");
     }
+
+    [Fact]
+    public void FundebCustos_Sprint9_ParametroReceitaAplicacao_UnicidadeEDashboard()
+    {
+        // Sprint 9 banco: um parâmetro e um centro por código vigente por tenant + uma
+        // receita por competência/fonte vigente por tenant, com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011180000_evo_c1s9_fundeb_custos_unicidade.sql"));
+        migration.Should().Contain("create unique index if not exists ux_fundeb_parametro_tenant_codigo")
+            .And.Contain("create unique index if not exists ux_fundeb_receita_tenant_competencia_fonte")
+            .And.Contain("create unique index if not exists ux_custo_centro_tenant_codigo")
+            .And.Contain("S9-POSTCOND");
+
+        // Operações tipadas: parâmetro/receita/aplicação/centro de custo e dashboard dedicado
+        // com taxa mínima de aplicação vinda do banco (multi-esfera, regra 24).
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> LancarParametroAsync(EducacaoAvancadaContext x,EducacaoFundebLancarParametroRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarReceitaAsync(EducacaoAvancadaContext x,EducacaoFundebLancarReceitaRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarAplicacaoAsync(EducacaoAvancadaContext x,EducacaoFundebLancarAplicacaoRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarCentroCustoAsync(EducacaoAvancadaContext x,EducacaoCustoLancarCentroRequest r,CancellationToken ct)")
+            .And.Contain("throw new FundebReceitaDuplicadaException(r.Competencia.ToString(\"yyyy-MM-dd\"),fonte)")
+            .And.Contain("insert into sigov.educacao_fundeb_receita");
+
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> LancarReceitaAsync(EducacaoAvancadaContext contexto,EducacaoFundebLancarReceitaRequest request,CancellationToken ct)")
+            .And.Contain("Task<EducacaoIndicadoresDashboardDto> IndicadoresDashboardAsync(long tenantId,CancellationToken ct)")
+            .And.Contain("record EducacaoIndicadoresDashboardDto(decimal ReceitasFundeb,decimal AplicacoesFundeb,decimal TaxaAplicacao,decimal? TaxaMinima,bool EmConformidade,decimal CustoPorAluno,long Inconsistencias)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoIndicadoresController.cs"))
+            .Should().Contain("[HttpPost(\"fundeb/receitas/lancar\")]")
+            .And.Contain("[HttpPost(\"fundeb/aplicacoes/lancar\")]")
+            .And.Contain("[HttpPost(\"custos/centros/lancar\")]")
+            .And.Contain("EducacaoIndicadoresDashboardDto");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre os índices.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011180000_evo_c1s9_fundeb_custos_unicidade.sql")
+            .And.Contain("indexname='ux_fundeb_receita_tenant_competencia_fonte'");
+    }
 }

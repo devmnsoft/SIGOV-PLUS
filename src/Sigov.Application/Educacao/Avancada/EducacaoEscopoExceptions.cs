@@ -155,3 +155,23 @@ public sealed class TransporteTurnoVinculoDivergenteException(string TurnoVincul
 /// <summary>Aluno já possui vínculo vigente com a rota no mesmo turno (HTTP 409, código ALUNO_JA_VINCULADO_A_ROTA; backstop ux_educacao_transporte_aluno_rota_turno).</summary>
 public sealed class TransporteAlunoJaVinculadoARotaException(long AlunoId, long RotaId, string Turno)
     : Exception($"ALUNO_JA_VINCULADO_A_ROTA: o aluno {AlunoId} já possui vínculo vigente com a rota {RotaId} no turno {Turno}; cancele o vínculo antes de recriá-lo.");
+
+/// <summary>Parâmetro FDEB vigente já existente com o mesmo código no tenant (HTTP 409, código FUNDEB_PARAMETRO_CODIGO_EXISTENTE; backstop ux_fundeb_parametro_tenant_codigo).</summary>
+public sealed class FundebParametroCodigoExistenteException(string Codigo)
+    : Exception($"FUNDEB_PARAMETRO_CODIGO_EXISTENTE: já existe parâmetro FDEB vigente com o código {Codigo} neste tenant; cancele o parâmetro existente antes de lançá-lo novamente.");
+
+/// <summary>Receita FDEB já lançada para a competência/fonte no tenant (HTTP 409, código FUNDEB_RECEITA_DUPLICADA; backstop ux_fundeb_receita_tenant_competencia_fonte).</summary>
+public sealed class FundebReceitaDuplicadaException(string Competencia, string Fonte)
+    : Exception($"FUNDEB_RECEITA_DUPLICADA: já existe receita FDEB vigente na competência {Competencia} com a fonte {Fonte}; use outra competência/fonte ou cancele a receita existente.");
+
+/// <summary>Centro de custo inexistente/inativo no tenant (HTTP 404, código CUSTO_CENTRO_INEXISTENTE).</summary>
+public sealed class CustoCentroInexistenteException(long CentroCustoId)
+    : Exception($"CUSTO_CENTRO_INEXISTENTE: o centro de custo {CentroCustoId} não existe em sigov.educacao_custo_centro para este tenant (ou está inativo); cadastre/ative o centro antes de lançar a aplicação.");
+
+/// <summary>Centro de custo não vigente para aplicação (HTTP 409, código CUSTO_CENTRO_NAO_VIGENTE).</summary>
+public sealed class CustoCentroNaoVigenteException(long CentroCustoId, string Status)
+    : Exception($"CUSTO_CENTRO_NAO_VIGENTE: o centro de custo {CentroCustoId} está com status {Status}; apenas centros ATIVOS aceitam aplicação.");
+
+/// <summary>Código de centro de custo já ocupado por centro vigente no tenant (HTTP 409, código CUSTO_CENTRO_CODIGO_EXISTENTE; backstop ux_custo_centro_tenant_codigo).</summary>
+public sealed class CustoCentroCodigoExistenteException(string Codigo)
+    : Exception($"CUSTO_CENTRO_CODIGO_EXISTENTE: já existe centro de custo vigente com o código {Codigo} neste tenant; use outro código ou cancele o centro existente.");

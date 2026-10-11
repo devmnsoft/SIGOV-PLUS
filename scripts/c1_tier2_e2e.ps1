@@ -847,6 +847,89 @@ $e12rc = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transpor
 $e12p6 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r2.text)/pontos/lancar" -Base $ApiBase -Body '{"nome":"Ponto apos cancelamento","ordem":2}'
 Add-Check 'E12' 'maquina.rota-cancelada-bloqueia-operacoes' (($e12rc.code -eq 200) -and ($e12p6.code -eq 409) -and ($e12p6.body -like '*TRANSPORTE_ROTA_NAO_VIGENTE*')) ("rota CANCELADA via maquina de estados S2 -> $($e12rc.code); novo ponto na rota cancelada -> $($e12p6.code) (409 TRANSPORTE_ROTA_NAO_VIGENTE nomeada)")
 
+# ===========================================================================
+# E13 — Sprint 9: educacao/fundeb_custos_indicadores (FDEB + centro de custo)
+# ---------------------------------------------------------------------------
+# POST /api/educacao/fundeb/parametros/lancar {codigo,valor}: um codigo vigente
+# por tenant (409 nomeada + indice ux_fundeb_parametro_tenant_codigo backstop);
+# a taxa minima de aplicacao (multi-esfera, regra 24) vem do banco, nunca
+# hardcoded. POST /api/educacao/fundeb/receitas/lancar {competencia,fonte,valor}:
+# uma receita vigente por competencia/fonte/tenant (409 nomeada + indice
+# ux_fundeb_receita_tenant_competencia_fonte backstop). POST
+# /api/educacao/fundeb/aplicacoes/lancar {centroCustoId,valor}: centro de custo
+# ATIVO exigido (404/409 nomeadas). POST /api/educacao/custos/centros/lancar
+# {codigo,nome}: um codigo vigente por tenant (409 nomeada + indice
+# ux_custo_centro_tenant_codigo backstop). GET /api/educacao/indicadores/
+# dashboard: DTO dedicado EducacaoIndicadoresDashboardDto com conformidade
+# (taxa de aplicacao x taxa minima lida do parametro do banco). Maquina de
+# estados S2: receita CANCELADA sai da soma e libera a unicidade; centro
+# CANCELADO bloqueia novas aplicacoes. Falhas nomeadas (regra 13); multi-esfera
+# (regra 24).
+# ===========================================================================
+$e13fix = Get-Psql @"
+delete from sigov.educacao_fundeb_aplicacao where tenant_id=910001;
+delete from sigov.educacao_fundeb_receita where tenant_id=910001;
+delete from sigov.educacao_fundeb_parametro where tenant_id=910001;
+delete from sigov.educacao_custo_lancamento where tenant_id=910001;
+delete from sigov.educacao_custo_centro where tenant_id=910001;
+select 'ok';
+"@
+Add-Check 'E13' 'fixture.s9-reset' ($e13fix.code -eq 0) ("reset das tabelas fundeb/custo do tenant 910001 (vazias antes do C1; garante estado limpo para re-execucao) exit=$($e13fix.code)")
+$e13p1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/parametros/lancar' -Base $ApiBase -Body '{"codigo":"taxa_minima_aplicacao","valor":0.5}'
+$e13db1 = Get-Psql "select codigo||'|'||valor::text||'|'||status from sigov.educacao_fundeb_parametro where tenant_id=910001 and upper(codigo)='TAXA_MINIMA_APLICACAO' order by id desc limit 1;"
+Add-Check 'E13' 'parametro.lancado-taxa-minima-multi-esfera' (($e13p1.code -eq 200) -and ($e13db1.text -eq 'TAXA_MINIMA_APLICACAO|0.50|ATIVA')) ("POST fundeb/parametros/lancar (codigo minusculo normalizado p/ maiusculo) -> $($e13p1.code); banco codigo|valor|status: $($e13db1.text) (taxa minima da esfera vem do banco, nunca hardcoded - regra 24)")
+$e13p2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/parametros/lancar' -Base $ApiBase -Body '{"codigo":"TAXA_MINIMA_APLICACAO","valor":0.7}'
+Add-Check 'E13' 'parametro.duplicado-codigo-409-nomeada' (($e13p2.code -eq 409) -and ($e13p2.body -like '*FUNDEB_PARAMETRO_CODIGO_EXISTENTE*')) ("segundo parametro com o mesmo codigo (case-insensitive) -> $($e13p2.code) (409 FUNDEB_PARAMETRO_CODIGO_EXISTENTE nomeada; checagem previa)")
+$e13bsp = Get-Psql "insert into sigov.educacao_fundeb_parametro(tenant_id,codigo,nome,tipo,valor,status) select 910001,'C1S9-PBS','Backstop C1S9','FDEB_PARAMETRO',1,'ATIVA' union all select 910001,'C1S9-PBS','Backstop C1S9','FDEB_PARAMETRO',1,'ATIVA';"
+Add-Check 'E13' 'parametro.indice-backstop-codigo' (($e13bsp.code -eq 3) -and ($e13bsp.text -like '*ux_fundeb_parametro_tenant_codigo*')) ("insert SQL bruto duplicando o codigo C1S9-PBS -> exit=$($e13bsp.code) citando ux_fundeb_parametro_tenant_codigo (indice unico parcial como backstop transacional)")
+$e13r1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body '{"competencia":"2026-01-15","fonte":"fpe","valor":10000}'
+$e13rid = Get-Psql "select coalesce(id,-1) from sigov.educacao_fundeb_receita where tenant_id=910001 and tipo='FPE' order by id desc limit 1;"
+$e13db2 = Get-Psql ("select to_char(competencia,'YYYY-MM-DD')||'|'||tipo||'|'||valor::text||'|'||status from sigov.educacao_fundeb_receita where tenant_id=910001 and id=" + $e13rid.text + ";")
+Add-Check 'E13' 'receita.lancada-fpe-competencia' (($e13r1.code -eq 200) -and ($e13db2.text -eq '2026-01-15|FPE|10000.00|ATIVA')) ("POST fundeb/receitas/lancar (competencia 2026-01-15 + fonte fpe normalizada) -> $($e13r1.code); banco competencia|tipo|valor|status: $($e13db2.text)")
+$e13r2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body '{"competencia":"2026-01-15","fonte":"FPE","valor":9999}'
+Add-Check 'E13' 'receita.duplicada-competencia-fonte-409-nomeada' (($e13r2.code -eq 409) -and ($e13r2.body -like '*FUNDEB_RECEITA_DUPLICADA*')) ("mesma competencia/fonte (case-insensitive) -> $($e13r2.code) (409 FUNDEB_RECEITA_DUPLICADA nomeada; uma receita vigente por competencia/fonte/tenant)")
+$e13bsr = Get-Psql "insert into sigov.educacao_fundeb_receita(tenant_id,entidade_id,competencia,tipo,valor,status) select 910001,1,date '2026-02-10','FNDE',100,'ATIVA' union all select 910001,1,date '2026-02-10','FNDE',100,'ATIVA';"
+Add-Check 'E13' 'receita.indice-backstop-competencia-fonte' (($e13bsr.code -eq 3) -and ($e13bsr.text -like '*ux_fundeb_receita_tenant_competencia_fonte*')) ("insert SQL bruto duplicando competencia/fonte -> exit=$($e13bsr.code) citando ux_fundeb_receita_tenant_competencia_fonte (backstop transacional)")
+$e13r3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body '{"competencia":"2026-01-15","fonte":"","valor":100}'
+Add-Check 'E13' 'receita.sem-fonte-400' (($e13r3.code -eq 400) -and ($e13r3.body -like '*exige fonte*')) ("fonte vazia -> $($e13r3.code) (400 validacao explicita; fonte identifica a origem do recurso: FPE/FNDE/receita propria...)")
+$e13r4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body '{"competencia":"0001-01-01","fonte":"FPE","valor":100}'
+Add-Check 'E13' 'receita.competencia-invalida-400' (($e13r4.code -eq 400) -and ($e13r4.body -like '*Receita FDEB exige*')) ("competencia 0001-01-01 -> $($e13r4.code) (400 validacao explicita de data)")
+$e13c1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/centros/lancar' -Base $ApiBase -Body '{"codigo":"c1s9-cc1","nome":"Centro C1S9 Manutencao e Desenvolvimento"}'
+$e13cc1 = Get-Psql "select coalesce(id,-1) from sigov.educacao_custo_centro where tenant_id=910001 and upper(codigo)='C1S9-CC1' order by id desc limit 1;"
+$e13db3 = Get-Psql ("select codigo||'|'||status||'|'||tipo from sigov.educacao_custo_centro where tenant_id=910001 and id=" + $e13cc1.text + " limit 1;")
+Add-Check 'E13' 'centro.lancado-ativo-com-codigo' (($e13c1.code -eq 200) -and ($e13db3.text -eq 'C1S9-CC1|ATIVA|CUSTO_EDUCACAO')) ("POST custos/centros/lancar (codigo minusculo normalizado) -> $($e13c1.code); banco codigo|status|tipo: $($e13db3.text)")
+$e13c2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/centros/lancar' -Base $ApiBase -Body '{"codigo":"C1S9-CC1","nome":"Centro C1S9 bis"}'
+Add-Check 'E13' 'centro.duplicado-codigo-409-nomeada' (($e13c2.code -eq 409) -and ($e13c2.body -like '*CUSTO_CENTRO_CODIGO_EXISTENTE*')) ("segundo centro com o mesmo codigo (case-insensitive) -> $($e13c2.code) (409 CUSTO_CENTRO_CODIGO_EXISTENTE nomeada; checagem previa)")
+$e13bsc = Get-Psql "insert into sigov.educacao_custo_centro(tenant_id,codigo,nome,tipo,status) select 910001,'C1S9-CBS','Backstop C1S9','CUSTO_EDUCACAO','ATIVA' union all select 910001,'C1S9-CBS','Backstop C1S9','CUSTO_EDUCACAO','ATIVA';"
+Add-Check 'E13' 'centro.indice-backstop-codigo' (($e13bsc.code -eq 3) -and ($e13bsc.text -like '*ux_custo_centro_tenant_codigo*')) ("insert SQL bruto duplicando o codigo C1S9-CBS -> exit=$($e13bsc.code) citando ux_custo_centro_tenant_codigo (backstop transacional)")
+$e13frIns = Get-Psql "insert into sigov.educacao_custo_centro(tenant_id,codigo,nome,tipo,status) values(910001,'C1S9-RASC','Centro C1S9 Rascunho','CUSTO_EDUCACAO','RASCUNHO');"
+$e13ccR = Get-Psql "select coalesce(id,-1) from sigov.educacao_custo_centro where tenant_id=910001 and upper(codigo)='C1S9-RASC';"
+$e13a1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e13ccR.text + ',"valor":500}')
+Add-Check 'E13' 'aplicacao.centro-rascunho-409-nomeada' (($e13frIns.code -eq 0) -and ($e13a1.code -eq 409) -and ($e13a1.body -like '*CUSTO_CENTRO_NAO_VIGENTE*')) ("aplicacao em centro RASCUNHO (fixture SQL) -> $($e13a1.code) (409 CUSTO_CENTRO_NAO_VIGENTE nomeada; apenas centros ativos aceitam aplicacao)")
+$e13a2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body '{"centroCustoId":9999999999,"valor":500}'
+Add-Check 'E13' 'aplicacao.centro-inexistente-404-nomeada' (($e13a2.code -eq 404) -and ($e13a2.body -like '*CUSTO_CENTRO_INEXISTENTE*')) ("centro 9999999999 -> $($e13a2.code) (404 CUSTO_CENTRO_INEXISTENTE nomeada)")
+$e13a3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e13cc1.text + ',"valor":6000}')
+$e13db4 = Get-Psql "select coalesce(centro_custo_id,-1)||'|'||valor::text||'|'||status from sigov.educacao_fundeb_aplicacao where tenant_id=910001 order by id desc limit 1;"
+Add-Check 'E13' 'aplicacao.lancada-centro-ativo' (($e13a3.code -eq 200) -and ($e13db4.text -like ($e13cc1.text + '|6000.00|ATIVA'))) ("POST fundeb/aplicacoes/lancar (centro ativo, valor 6000) -> $($e13a3.code); banco centro_custo_id|valor|status: $($e13db4.text)")
+$e13a4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e13cc1.text + ',"valor":0}')
+Add-Check 'E13' 'aplicacao.valor-invalido-400' (($e13a4.code -eq 400) -and ($e13a4.body -like '*positivo*')) ("valor 0 -> $($e13a4.code) (400 validacao explicita: valor deve ser positivo)")
+$e13dash1 = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/indicadores/dashboard' -Base $ApiBase
+$e13dj1 = $null; try { $e13dj1 = ($e13dash1.body | ConvertFrom-Json) } catch {}
+$e13d1Rec = 0; $e13d1Apl = 0; $e13d1Taxa = 0; $e13d1Min = $null; $e13d1Ok = $false; $e13d1Cpa = 0; $e13d1Inc = 0
+if ($e13dj1 -and $null -ne $e13dj1.data) { $e13d1Rec = [decimal]$e13dj1.data.receitasFundeb; $e13d1Apl = [decimal]$e13dj1.data.aplicacoesFundeb; $e13d1Taxa = [decimal]$e13dj1.data.taxaAplicacao; if ($null -ne $e13dj1.data.taxaMinima) { $e13d1Min = [decimal]$e13dj1.data.taxaMinima }; $e13d1Ok = [bool]$e13dj1.data.emConformidade; $e13d1Cpa = [decimal]$e13dj1.data.custoPorAluno; $e13d1Inc = [long]$e13dj1.data.inconsistencias }
+Add-Check 'E13' 'dashboard.conformidade-fundeb-acima-do-minimo' (($e13dash1.code -eq 200) -and ($e13d1Rec -eq 10000) -and ($e13d1Apl -eq 6000) -and ($e13d1Taxa -eq 0.6) -and ($null -ne $e13d1Min) -and ($e13d1Min -eq 0.5) -and $e13d1Ok -and ($e13d1Cpa -eq 0)) ("GET indicadores/dashboard -> $($e13dash1.code); receitasFundeb/aplicacoesFundeb/taxaAplicacao/taxaMinima/emConformidade/custoPorAluno/inconsistencias: $e13d1Rec/$e13d1Apl/$e13d1Taxa/$e13d1Min/$e13d1Ok/$e13d1Cpa/$e13d1Inc (DTO dedicado EducacaoIndicadoresDashboardDto; taxa minima lida do parametro do banco - regra 24)")
+$e13rc = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/operacoes/educacao_fundeb_receita/" + $e13rid.text + "/status?status=CANCELADA&justificativa=c1-s9-receita-fpe-cancelada") -Base $ApiBase
+$e13dash2 = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/indicadores/dashboard' -Base $ApiBase
+$e13dj2 = $null; try { $e13dj2 = ($e13dash2.body | ConvertFrom-Json) } catch {}
+$e13d2Rec = 0; $e13d2Apl = 0; $e13d2Taxa = 0; $e13d2Ok = $true
+if ($e13dj2 -and $null -ne $e13dj2.data) { $e13d2Rec = [decimal]$e13dj2.data.receitasFundeb; $e13d2Apl = [decimal]$e13dj2.data.aplicacoesFundeb; $e13d2Taxa = [decimal]$e13dj2.data.taxaAplicacao; $e13d2Ok = [bool]$e13dj2.data.emConformidade }
+Add-Check 'E13' 'maquina.receita-cancelada-sai-da-soma' (($e13rc.code -eq 200) -and ($e13dash2.code -eq 200) -and ($e13d2Rec -eq 0) -and ($e13d2Apl -eq 6000) -and ($e13d2Taxa -eq 0) -and (-not $e13d2Ok)) ("receita CANCELADA via maquina de estados S2 -> $($e13rc.code); dashboard receitas/aplicacoes/taxa/emConformidade: $e13d2Rec/$e13d2Apl/$e13d2Taxa/$e13d2Ok (estado terminal sai da soma vigente; sem receita vigente a conformidade fica falsa)")
+$e13rl = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body '{"competencia":"2026-01-15","fonte":"FPE","valor":10000}'
+Add-Check 'E13' 'unicidade.receita-cancelada-libera-o-indice' ($e13rl.code -eq 200) ("novo lancamento com a mesma competencia/fonte apos o cancelamento -> $($e13rl.code) (estado terminal liberou a unicidade parcial do indice)")
+$e13ccc = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/operacoes/educacao_custo_centro/" + $e13cc1.text + "/status?status=CANCELADA&justificativa=c1-s9-centro-manutencao-cancelado") -Base $ApiBase
+$e13a5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e13cc1.text + ',"valor":700}')
+Add-Check 'E13' 'maquina.centro-cancelado-bloqueia-aplicacao' (($e13ccc.code -eq 200) -and ($e13a5.code -eq 409) -and ($e13a5.body -like '*CUSTO_CENTRO_NAO_VIGENTE*')) ("centro CANCELADO via maquina de estados S2 -> $($e13ccc.code); nova aplicacao no centro cancelado -> $($e13a5.code) (409 CUSTO_CENTRO_NAO_VIGENTE nomeada)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -913,6 +996,11 @@ delete from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%';
 delete from sigov.pessoa where documento in ('999999000402','999999000403');
 delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s8-esc';
 delete from sigov.entidade where cnpj in ('99999999000191','99999999000209','99999999000301') and not exists(select 1 from sigov.escola where entidade_id=sigov.entidade.id);
+delete from sigov.educacao_fundeb_aplicacao where tenant_id=910001;
+delete from sigov.educacao_fundeb_receita where tenant_id=910001;
+delete from sigov.educacao_fundeb_parametro where tenant_id=910001;
+delete from sigov.educacao_custo_lancamento where tenant_id=910001;
+delete from sigov.educacao_custo_centro where tenant_id=910001;
 select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.escola where tenant_id=910001 and (codigo like 'c1e26-esc-%' or codigo='c1e26-s3-esc' or codigo='c1e26-s7-esc' or codigo='c1e26-s8-esc'))
@@ -939,9 +1027,14 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
      + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104','999999000301','999999000402','999999000403'))
       + (select count(*) from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%')
       + (select count(*) from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and rota_id in (select id from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%'))
-      + (select count(*) from sigov.educacao_transporte_aluno where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%')) as restantes;
+      + (select count(*) from sigov.educacao_transporte_aluno where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%'))
+      + (select count(*) from sigov.educacao_fundeb_parametro where tenant_id=910001)
+      + (select count(*) from sigov.educacao_fundeb_receita where tenant_id=910001)
+      + (select count(*) from sigov.educacao_fundeb_aplicacao where tenant_id=910001)
+      + (select count(*) from sigov.educacao_custo_centro where tenant_id=910001)
+      + (select count(*) from sigov.educacao_custo_lancamento where tenant_id=910001) as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos (tenant) + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count
