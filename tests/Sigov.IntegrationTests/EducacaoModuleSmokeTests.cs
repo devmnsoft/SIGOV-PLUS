@@ -321,4 +321,43 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011160000_evo_c1s7_biblioteca_circulacao.sql")
             .And.Contain("indexname='ux_biblioteca_emprestimo_tenant_exemplar_vigencia'");
     }
+
+    [Fact]
+    public void TransporteEscolar_Sprint8_RotaPontoAluno_UnicidadeOrdemEVinculo()
+    {
+        // Sprint 8 banco: uma ordem vigente por ponto × rota × tenant + reuso do índice
+        // rc50_48 (aluno × rota × turno) como backstop do vínculo, com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011170000_evo_c1s8_transporte_ponto_ordem.sql"));
+        migration.Should().Contain("create unique index if not exists ux_transporte_ponto_tenant_rota_ordem")
+            .And.Contain("status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')")
+            .And.Contain("S8-POSTCOND")
+            .And.Contain("ux_educacao_transporte_aluno_rota_turno");
+
+        // Operações tipadas: rota com exatamente uma de escola/região (multi-esfera, regra 24),
+        // ponto com ordem única por rota vigente e vínculo de aluno com turno herdado da rota.
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> LancarRotaAsync(EducacaoAvancadaContext x,EducacaoTransporteLancarRotaRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarPontoAsync(EducacaoAvancadaContext x,long rotaId,EducacaoTransporteLancarPontoRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> VincularAlunoAsync(EducacaoAvancadaContext x,long rotaId,EducacaoTransporteVincularAlunoRequest r,CancellationToken ct)")
+            .And.Contain("throw new TransportePontoOrdemExistenteException(rotaId,r.Ordem)")
+            .And.Contain("throw new TransporteAlunoJaVinculadoARotaException(r.AlunoId,rotaId")
+            .And.Contain("insert into sigov.educacao_transporte_rota_ponto");
+
+        // Contratos e rotas públicas (transporte escolar multi-esfera, regra 24).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> LancarRotaAsync(EducacaoAvancadaContext contexto,EducacaoTransporteLancarRotaRequest request,CancellationToken ct)")
+            .And.Contain("Task<long> LancarPontoAsync(EducacaoAvancadaContext contexto,long rotaId,EducacaoTransporteLancarPontoRequest request,CancellationToken ct)")
+            .And.Contain("Task<long> VincularAlunoAsync(EducacaoAvancadaContext contexto,long rotaId,EducacaoTransporteVincularAlunoRequest request,CancellationToken ct)")
+            .And.Contain("record EducacaoTransporteDashboardDto(long RotasAtivas,long PontosAtivos,long AlunosVinculados,long EscolasAtendidas)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoTransporteEscolarController.cs"))
+            .Should().Contain("[HttpPost(\"rotas/lancar\")]")
+            .And.Contain("[HttpPost(\"rotas/{id:long}/pontos/lancar\")]")
+            .And.Contain("[HttpPost(\"rotas/{id:long}/alunos/vincular\")]")
+            .And.Contain("EducacaoTransporteDashboardDto");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre os índices.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011170000_evo_c1s8_transporte_ponto_ordem.sql")
+            .And.Contain("indexname='ux_transporte_ponto_tenant_rota_ordem'");
+    }
 }

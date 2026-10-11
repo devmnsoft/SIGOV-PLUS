@@ -180,6 +180,46 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (TransporteRotaInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransportePontoInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransporteAlunoInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransporteRotaNaoVigenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransportePontoOrdemExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransportePontoRotaDivergenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransporteAlunoJaVinculadoARotaException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransporteRotaEscolaOuRegiaoInvalidoException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransportePontoOrdemInvalidaException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (TransporteTurnoVinculoDivergenteException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));

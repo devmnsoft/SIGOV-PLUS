@@ -754,6 +754,99 @@ $e11rc = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/bibliote
 $e11r3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/reservas/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"alunoId":' + $e11al.text + '}')
 Add-Check 'E11' 'reserva.cancelada-reabre-fila' (($e11rc.code -eq 200) -and ($e11r3.code -eq 200)) ("reserva CANCELADA via maquina de estados -> $($e11rc.code); nova reserva no exemplar -> $($e11r3.code) (terminal libera a fila)")
 
+# ===========================================================================
+# E12 — Sprint 8: educacao/transporte escolar (rota/ponto/aluno)
+# ---------------------------------------------------------------------------
+# POST /api/educacao/transporte/rotas/lancar {nome,turno,escolaId?,regiao?,codigo}:
+# exatamente uma de escolaId ou regiao (400 nomeada; multi-esfera regra 24),
+# escola no escopo institucional (404/409 reutilizados), rota criada ATIVA
+# (simplificacao declarada). POST /api/educacao/transporte/rotas/{id}/pontos/lancar
+# {nome,ordem}: ordem > 0 (400) e unica por rota x tenant vigente (409 nomeada +
+# indice ux_transporte_ponto_tenant_rota_ordem como backstop). POST
+# /api/educacao/transporte/rotas/{id}/alunos/vincular {alunoId,pontoId?,turno?}:
+# aluno valido em sigov.aluno (404 nomeada), turno herdado da rota (divergente =
+# 400), ponto deve pertencer a rota (404/409), um vinculo vigente por
+# aluno x rota x turno (409 nomeada + indice ux_educacao_transporte_aluno_rota_turno
+# do rc50_48 como backstop). GET /api/educacao/transporte/dashboard: DTO dedicado
+# EducacaoTransporteDashboardDto (rotasAtivas/pontosAtivos/alunosVinculados/
+# escolasAtendidas). Maquina de estados S2: rota ATIVA -> CANCELADA bloqueia
+# novas operacoes (409 nomeada). Falhas nomeadas (regra 13); multi-esfera (regra 24).
+# ===========================================================================
+$e12fix = Get-Psql @"
+insert into sigov.escola(tenant_id,entidade_id,codigo,nome,tipo_escola,situacao)
+select 910001,1,'c1e26-s8-esc','Fixtures C1 Escola S8',coalesce((select tipo_escola from sigov.escola where is_deleted=false limit 1),'OURO'),coalesce((select situacao from sigov.escola where is_deleted=false limit 1),'ATIVA')
+where not exists(select 1 from sigov.escola where tenant_id=910001 and codigo='c1e26-s8-esc');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,1,'F','Fixtures C1 S8 Aluno A','999999000402','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000402');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,1,'F','Fixtures C1 S8 Aluno B','999999000403','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000403');
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,1,p.id,'C1S8-ALA','ATIVO',910301 from sigov.pessoa p where p.documento='999999000402'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S8-ALA');
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,1,p.id,'C1S8-ALB','ATIVO',910301 from sigov.pessoa p where p.documento='999999000403'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S8-ALB');
+select 'ok';
+"@
+Add-Check 'E12' 'fixture.s8-aplicado' ($e12fix.code -eq 0) ("fixture S8 (escola c1e26-s8-esc + pessoas/alunos ficticios C1S8-ALA/C1S8-ALB, tenant 910001) exit=$($e12fix.code)")
+$e12esc = Get-Psql "select coalesce(id,-1) from sigov.escola where tenant_id=910001 and codigo='c1e26-s8-esc';"
+$e12alA = Get-Psql "select coalesce(id,-1) from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S8-ALA';"
+$e12alB = Get-Psql "select coalesce(id,-1) from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S8-ALB';"
+$e12l1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/rotas/lancar' -Base $ApiBase -Body ('{"nome":"Rota C1S8 Bairro Central","turno":"MANHA","escolaId":' + $e12esc.text + ',"codigo":"C1S8-ROTA"}')
+$e12r1 = Get-Psql "select coalesce(id,-1) from sigov.educacao_transporte_rota where tenant_id=910001 and codigo='C1S8-ROTA' order by id desc limit 1;"
+$e12db1 = Get-Psql ("select status||'|'||coalesce(escola_id,-1)||'|'||turno||'|'||tipo from sigov.educacao_transporte_rota where tenant_id=910001 and id=" + $e12r1.text + " limit 1;")
+Add-Check 'E12' 'rota.lancada-com-escola-e-turno' (($e12l1.code -eq 200) -and ($e12db1.text -like ("ATIVA|" + $e12esc.text + "|MANHA|ESCOLAR"))) ("POST transporte/rotas/lancar (escola + turno MANHA) -> $($e12l1.code); banco status|escola|turno|tipo: $($e12db1.text)")
+$e12l2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/rotas/lancar' -Base $ApiBase -Body '{"nome":"Rota sem vinculo","turno":"MANHA"}'
+Add-Check 'E12' 'rota.sem-escola-nem-regiao-400' (($e12l2.code -eq 400) -and ($e12l2.body -like '*ROTA_ESCOLA_OU_REGIAO_INVALIDA*')) ("sem escolaId e sem regiao -> $($e12l2.code) (400 ROTA_ESCOLA_OU_REGIAO_INVALIDA nomeada; exatamente uma das duas)")
+$e12l3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/rotas/lancar' -Base $ApiBase -Body ('{"nome":"Rota dupla","turno":"MANHA","escolaId":' + $e12esc.text + ',"regiao":"REGIONAL-ALFA"}')
+Add-Check 'E12' 'rota.com-escola-e-regiao-400' (($e12l3.code -eq 400) -and ($e12l3.body -like '*ROTA_ESCOLA_OU_REGIAO_INVALIDA*')) ("escolaId e regiao juntos -> $($e12l3.code) (400 ROTA_ESCOLA_OU_REGIAO_INVALIDA nomeada)")
+$e12l4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/rotas/lancar' -Base $ApiBase -Body '{"nome":"Rota C1S8 Regional Alfa","turno":"TARDE","regiao":"REGIONAL-ALFA","codigo":"C1S8-REG"}'
+$e12r2 = Get-Psql "select coalesce(id,-1) from sigov.educacao_transporte_rota where tenant_id=910001 and codigo='C1S8-REG' order by id desc limit 1;"
+$e12db2 = Get-Psql ("select coalesce(escola_id,-1)||'|'||coalesce(dados->>'regiao','(null)')||'|'||status from sigov.educacao_transporte_rota where tenant_id=910001 and id=" + $e12r2.text + " limit 1;")
+Add-Check 'E12' 'rota.regional-sem-escola-200-multi-esfera' (($e12l4.code -eq 200) -and ($e12db2.text -eq "-1|REGIONAL-ALFA|ATIVA")) ("rota por regiao sem escola -> $($e12l4.code); banco escola|regiao|status: $($e12db2.text) (regra 24: orgao/superintendencia/regiao atendidos sem unidade escolar)")
+$e12l5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/rotas/lancar' -Base $ApiBase -Body '{"nome":"Rota fantasma","turno":"MANHA","escolaId":9999999999}'
+Add-Check 'E12' 'rota.escola-inexistente-404' (($e12l5.code -eq 404) -and ($e12l5.body -like '*ESCOLA_INEXISTENTE*')) ("escola 9999999999 -> $($e12l5.code) (404 ESCOLA_INEXISTENTE nomeada; validacao de escopo institucional reutilizada)")
+$e12p1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/pontos/lancar" -Base $ApiBase -Body '{"nome":"Parada A - Unidade escolar","ordem":1,"descricao":"Embarque na unidade"}'
+$e12pid1 = Get-Psql ("select id from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and rota_id=" + $e12r1.text + " order by id desc limit 1;")
+$e12db3 = Get-Psql ("select coalesce(numero,0)||'|'||coalesce(rota_id,-1)||'|'||status||'|'||coalesce(turno,'(null)') from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and id=" + $e12pid1.text + " limit 1;")
+Add-Check 'E12' 'ponto.lancado-com-ordem' (($e12p1.code -eq 200) -and ($e12db3.text -like ("1|" + $e12r1.text + "|ATIVA|MANHA"))) ("POST rotas/{id}/pontos/lancar (ordem 1) -> $($e12p1.code); banco numero|rota|status|turno: $($e12db3.text) (turno herdado da rota)")
+$e12p2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/pontos/lancar" -Base $ApiBase -Body '{"nome":"Parada A bis","ordem":1}'
+Add-Check 'E12' 'ponto.ordem-duplicada-409-nomeada' (($e12p2.code -eq 409) -and ($e12p2.body -like '*PONTO_ORDENACAO_EXISTENTE*')) ("segundo ponto na ordem 1 da mesma rota -> $($e12p2.code) (409 PONTO_ORDENACAO_EXISTENTE nomeada; checagem previa)")
+$e12bsp = Get-Psql ("insert into sigov.educacao_transporte_rota_ponto(tenant_id,entidade_id,rota_id,nome,numero,turno,status) select 910001,1," + $e12r1.text + ",'C1S8-BS',2,'MANHA','ATIVA' union all select 910001,1," + $e12r1.text + ",'C1S8-BS',2,'MANHA','ATIVA';")
+Add-Check 'E12' 'ponto.indice-backstop-unicidade' (($e12bsp.code -eq 3) -and ($e12bsp.text -like '*ux_transporte_ponto_tenant_rota_ordem*')) ("insert SQL bruto de 2 pontos na ordem 2 da mesma rota -> exit=$($e12bsp.code) citando ux_transporte_ponto_tenant_rota_ordem (indice unico parcial como backstop transacional)")
+$e12p3 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/pontos/lancar" -Base $ApiBase -Body '{"nome":"Ordem zero","ordem":0}'
+Add-Check 'E12' 'ponto.ordem-invalida-400' (($e12p3.code -eq 400) -and ($e12p3.body -like '*PONTO_ORDEM_INVALIDA*')) ("ordem 0 -> $($e12p3.code) (400 PONTO_ORDEM_INVALIDA nomeada; ordens sao inteiros positivos)")
+$e12p4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/rotas/9999999999/pontos/lancar' -Base $ApiBase -Body '{"nome":"Fantasma","ordem":1}'
+Add-Check 'E12' 'ponto.rota-inexistente-404' (($e12p4.code -eq 404) -and ($e12p4.body -like '*TRANSPORTE_ROTA_INEXISTENTE*')) ("rota 9999999999 -> $($e12p4.code) (404 TRANSPORTE_ROTA_INEXISTENTE nomeada)")
+$e12v1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/alunos/vincular" -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + '}')
+$e12db4 = Get-Psql ("select coalesce(aluno_id,-1)||'|'||coalesce(rota_id,-1)||'|'||turno||'|'||coalesce(referencia_id,-1)||'|'||status from sigov.educacao_transporte_aluno where tenant_id=910001 and rota_id=" + $e12r1.text + " order by id desc limit 1;")
+Add-Check 'E12' 'vinculo.aluno-a-rota-ativa' (($e12v1.code -eq 200) -and ($e12db4.text -like ($e12alA.text + "|" + $e12r1.text + "|MANHA|-1|ATIVA"))) ("POST rotas/{id}/alunos/vincular (aluno A; turno herdado da rota) -> $($e12v1.code); banco aluno|rota|turno|referencia|status: $($e12db4.text)")
+$e12v2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/alunos/vincular" -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + '}')
+Add-Check 'E12' 'vinculo.duplicado-409-nomeada' (($e12v2.code -eq 409) -and ($e12v2.body -like '*ALUNO_JA_VINCULADO_A_ROTA*')) ("vincular o mesmo aluno na mesma rota/turno -> $($e12v2.code) (409 ALUNO_JA_VINCULADO_A_ROTA nomeada; checagem previa)")
+$e12bsa = Get-Psql ("insert into sigov.educacao_transporte_aluno(tenant_id,entidade_id,aluno_id,rota_id,turno,status) select 910001,1," + $e12alA.text + "," + $e12r1.text + ",'MANHA','ATIVA';")
+Add-Check 'E12' 'vinculo.indice-backstop-aluno-rota-turno' (($e12bsa.code -eq 3) -and ($e12bsa.text -like '*ux_educacao_transporte_aluno_rota_turno*')) ("insert SQL bruto duplicando o vinculo vigente -> exit=$($e12bsa.code) citando ux_educacao_transporte_aluno_rota_turno (indice rc50_48 como backstop transacional)")
+$e12v3 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/alunos/vincular" -Base $ApiBase -Body ('{"alunoId":' + $e12alB.text + ',"turno":"NOITE"}')
+Add-Check 'E12' 'vinculo.turno-divergente-400' (($e12v3.code -eq 400) -and ($e12v3.body -like '*TURNO_VINCULO_DIVERGENTE*')) ("aluno B com turno NOITE na rota MANHA -> $($e12v3.code) (400 TURNO_VINCULO_DIVERGENTE nomeada)")
+$e12v4 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/alunos/vincular" -Base $ApiBase -Body '{"alunoId":9999999999}'
+Add-Check 'E12' 'vinculo.aluno-inexistente-404' (($e12v4.code -eq 404) -and ($e12v4.body -like '*TRANSPORTE_ALUNO_INEXISTENTE*')) ("aluno 9999999999 -> $($e12v4.code) (404 TRANSPORTE_ALUNO_INEXISTENTE nomeada)")
+$e12p5 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r2.text)/pontos/lancar" -Base $ApiBase -Body '{"nome":"Parada Regional","ordem":1}'
+$e12pid2 = Get-Psql ("select id from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and rota_id=" + $e12r2.text + " order by id desc limit 1;")
+$e12v5 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/alunos/vincular" -Base $ApiBase -Body ('{"alunoId":' + $e12alB.text + ',"pontoId":' + $e12pid2.text + '}')
+Add-Check 'E12' 'vinculo.ponto-de-outra-rota-409' (($e12p5.code -eq 200) -and ($e12v5.code -eq 409) -and ($e12v5.body -like '*PONTO_ROTA_DIVERGENTE*')) ("ponto lancado na rota regional e usado no vinculo da rota escolar -> $($e12v5.code) (409 PONTO_ROTA_DIVERGENTE nomeada)")
+$e12v6 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r1.text)/alunos/vincular" -Base $ApiBase -Body ('{"alunoId":' + $e12alB.text + ',"pontoId":' + $e12pid1.text + '}')
+$e12db5 = Get-Psql ("select coalesce(aluno_id,-1)||'|'||coalesce(referencia_id,-1)||'|'||status from sigov.educacao_transporte_aluno where tenant_id=910001 and rota_id=" + $e12r1.text + " order by id desc limit 1;")
+Add-Check 'E12' 'vinculo.com-ponto-da-propria-rota-200' (($e12v6.code -eq 200) -and ($e12db5.text -like ($e12alB.text + "|" + $e12pid1.text + "|ATIVA"))) ("aluno B na rota com o ponto da propria rota -> $($e12v6.code); banco aluno|referencia(ponto)|status: $($e12db5.text) (referencia_id guarda o ponto)")
+$e12dash = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/transporte/dashboard' -Base $ApiBase
+$e12dj = $null; try { $e12dj = ($e12dash.body | ConvertFrom-Json) } catch {}
+$e12dR = 0; $e12dP = 0; $e12dV = 0; $e12dE = 0
+if ($e12dj -and $null -ne $e12dj.data) { $e12dR = [long]$e12dj.data.rotasAtivas; $e12dP = [long]$e12dj.data.pontosAtivos; $e12dV = [long]$e12dj.data.alunosVinculados; $e12dE = [long]$e12dj.data.escolasAtendidas }
+Add-Check 'E12' 'dashboard.metricas-dedicadas' (($e12dash.code -eq 200) -and ($e12dR -ge 2) -and ($e12dP -ge 2) -and ($e12dV -ge 2) -and ($e12dE -ge 1)) ("GET transporte/dashboard -> $($e12dash.code); rotasAtivas/pontosAtivos/alunosVinculados/escolasAtendidas: $e12dR/$e12dP/$e12dV/$e12dE (DTO dedicado EducacaoTransporteDashboardDto sobre dados reais do tenant)")
+$e12rc = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/operacoes/educacao_transporte_rota/$($e12r2.text)/status?status=CANCELADA&justificativa=c1-s8-cancela-rota-regional" -Base $ApiBase
+$e12p6 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/transporte/rotas/$($e12r2.text)/pontos/lancar" -Base $ApiBase -Body '{"nome":"Ponto apos cancelamento","ordem":2}'
+Add-Check 'E12' 'maquina.rota-cancelada-bloqueia-operacoes' (($e12rc.code -eq 200) -and ($e12p6.code -eq 409) -and ($e12p6.body -like '*TRANSPORTE_ROTA_NAO_VIGENTE*')) ("rota CANCELADA via maquina de estados S2 -> $($e12rc.code); novo ponto na rota cancelada -> $($e12p6.code) (409 TRANSPORTE_ROTA_NAO_VIGENTE nomeada)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -813,15 +906,21 @@ delete from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo l
 delete from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S7-ALA';
 delete from sigov.pessoa where documento='999999000301';
 delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s7-esc';
+delete from sigov.educacao_transporte_aluno where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%');
+delete from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and rota_id in (select id from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%');
+delete from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%';
+delete from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%';
+delete from sigov.pessoa where documento in ('999999000402','999999000403');
+delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s8-esc';
 delete from sigov.entidade where cnpj in ('99999999000191','99999999000209','99999999000301') and not exists(select 1 from sigov.escola where entidade_id=sigov.entidade.id);
 select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%')
-     + (select count(*) from sigov.escola where tenant_id=910001 and (codigo like 'c1e26-esc-%' or codigo='c1e26-s3-esc' or codigo='c1e26-s7-esc'))
+     + (select count(*) from sigov.escola where tenant_id=910001 and (codigo like 'c1e26-esc-%' or codigo='c1e26-s3-esc' or codigo='c1e26-s7-esc' or codigo='c1e26-s8-esc'))
      + (select count(*) from sigov.entidade where cnpj in ('99999999000191','99999999000209','99999999000301'))
      + (select count(*) from sigov.matricula where tenant_id=910001 and numero_matricula like 'C1S3-%')
      + (select count(*) from sigov.turma where tenant_id=910001 and codigo like 'c1e26-s3-%')
      + (select count(*) from sigov.curso where tenant_id=910001 and codigo='C1S3-CURSO')
-     + (select count(*) from sigov.aluno where tenant_id=910001 and (codigo_aluno like 'C1S3-%' or codigo_aluno='C1S7-ALA'))
+     + (select count(*) from sigov.aluno where tenant_id=910001 and (codigo_aluno like 'C1S3-%' or codigo_aluno='C1S7-ALA' or codigo_aluno like 'C1S8-%'))
      + (select count(*) from sigov.educacao_historico_escolar where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'))
      + (select count(*) from sigov.educacao_portal_vinculo where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S3-%'))
      + (select count(*) from sigov.responsavel_aluno where pessoa_id=(select id from sigov.pessoa where documento='999999000401'))
@@ -837,9 +936,12 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
      + (select count(*) from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%'))
      + (select count(*) from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%'))
      + (select count(*) from sigov.educacao_biblioteca_devolucao where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%'))
-     + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104','999999000301')) as restantes;
+     + (select count(*) from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104','999999000301','999999000402','999999000403'))
+      + (select count(*) from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%')
+      + (select count(*) from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and rota_id in (select id from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%'))
+      + (select count(*) from sigov.educacao_transporte_aluno where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%')) as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count

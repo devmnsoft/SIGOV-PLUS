@@ -5,14 +5,14 @@ public sealed record EducacaoAvancadaFiltro(long? EscolaId=null,int? AnoLetivo=n
 public sealed record EducacaoAvancadaRegistroDto(long Id,string? Codigo,string? Nome,string Status,string? Tipo,string? Descricao,decimal? Quantidade,decimal? Valor,DateTime CreatedAt,DateTime? UpdatedAt=null);
 public sealed record EducacaoAvancadaOperacaoRequest(long? EscolaId,long? AlunoId,long? ReferenciaId,string? Codigo,string? Nome,string? Tipo,string Status,string? Descricao,string? Justificativa,string? Turno,decimal? Quantidade,decimal? Valor,int? AnoLetivo,IReadOnlyDictionary<string,object?>? Dados);
 public sealed record EducacaoAvancadaDashboardDto(long Total,long Ativos,long Pendentes,long Alertas,IReadOnlyCollection<EducacaoAvancadaRegistroDto> Recentes);
-public sealed record EducacaoTransporteDashboardDto(long RotasAtivas,long AlunosTransportados,long ViagensMes,long Alertas);
+public sealed record EducacaoTransporteDashboardDto(long RotasAtivas,long PontosAtivos,long AlunosVinculados,long EscolasAtendidas);
 public sealed record EducacaoTransporteRotaDto(long Id,string Nome,string Turno,string Status,long? EscolaId);
 public sealed record EducacaoTransporteCriarRotaRequest(string Nome,string Turno,string Status,long? EscolaId,string? Regiao);
 public sealed record EducacaoTransporteRotaPontoDto(long Id,long RotaId,int Ordem,string Descricao);
 public sealed record EducacaoTransporteVeiculoDto(long Id,string Codigo,string Status);
 public sealed record EducacaoTransporteMotoristaDto(long Id,string Nome,string Status);
 public sealed record EducacaoTransporteAlunoDto(long Id,long AlunoId,long RotaId,string Turno,string Status);
-public sealed record EducacaoTransporteVincularAlunoRequest(long AlunoId,string Turno);
+public sealed record EducacaoTransporteVincularAlunoRequest(long AlunoId,long? PontoId,string? Turno);
 public sealed record EducacaoTransporteViagemDto(long Id,long RotaId,string Turno,string Status);
 public sealed record EducacaoTransporteCriarViagemRequest(long RotaId,long VeiculoId,long MotoristaId,DateOnly Data,string Turno);
 public sealed record EducacaoTransporteFrequenciaDto(long Id,long AlunoId,bool Presente);
@@ -42,10 +42,8 @@ public sealed record EducacaoBibliotecaCriarEmprestimoRequest(long ExemplarId,lo
 public sealed record EducacaoBibliotecaDevolverRequest(string? Observacao);
 public sealed record EducacaoBibliotecaCriarReservaRequest(long ExemplarId,long? AlunoId,long? ServidorId);
 public sealed record EducacaoBibliotecaReservaDto(long Id,long ExemplarId,string Status);
-public sealed record EducacaoTransporteDashboardDto(long RotasAtivas,long PontosAtivos,long AlunosVinculados,long EscolasAtendidas);
 public sealed record EducacaoTransporteLancarRotaRequest(string Nome,string Turno,long? EscolaId,string? Regiao,string? Codigo);
 public sealed record EducacaoTransporteLancarPontoRequest(string Nome,int Ordem,string? Descricao);
-public sealed record EducacaoTransporteVincularAlunoRequest(long AlunoId,long? PontoId,string? Turno);
 public sealed record EducacaoBibliotecaOcorrenciaDto(long Id,string Motivo);
 public sealed record EducacaoBibliotecaDigitalReferenciaDto(long Id,long AcervoId,long? GedDocumentoId);
 public sealed record EducacaoIndicadoresDashboardDto(decimal ReceitasFundeb,decimal AplicacoesFundeb,decimal CustoPorAluno,long Inconsistencias);

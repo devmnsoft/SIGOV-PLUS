@@ -256,7 +256,8 @@ select exists (
         ('20261011130000', array['4ef25a86cb151deecb8458d90ea68b27976431a5d1230e86e9c234af55cb327f']::text[]),
         ('20261011140000', array['d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86']::text[]),
         ('20261011150000', array['29b2c670e4d34b9eabcbedc8f6bda4aada4af6406ba6382a4bc2ed8c7afff2ff']::text[]),
-        ('20261011160000', array['77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3']::text[])
+        ('20261011160000', array['77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3']::text[]),
+        ('20261011170000', array['b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34517,6 +34518,52 @@ begin
 end $post$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011160000', 'RC-EVO Ciclo 1 Sprint 7 (educacao/biblioteca circulacao): indices unicos parciais ux_biblioteca_emprestimo_tenant_exemplar_vigencia e ux_biblioteca_reserva_tenant_exemplar_vigencia em sigov.educacao_biblioteca_emprestimo/reserva (um emprestimo vigente e uma reserva vigente por exemplar x tenant; estados terminais liberam); backstop transacional dos comandos tipados de emprestimo, devolucao e reserva; idempotente; multi-esfera', '77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261011170000_evo_c1s8_transporte_ponto_ordem.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 1 Sprint 8 (educacao/transporte_escolar): ordem unica por rota
+-- para os pontos de embarque/desembarque (somente vigentes) e reaproveitamento
+-- da unicidade aluno x rota x turno (rc50_48) como backstop transacional dos
+-- comandos tipados de rota/ponto/aluno. Regra 24: nada municipal hardcoded —
+-- a chave e tenant x rota, valida para qualquer esfera/orgao. Estados terminais
+-- (ENCERRADA/ENCERRADO/CANCELADA/CANCELADO) liberam a ordem, como nas politicas
+-- de unicidade das Sprints 3, 5, 6 e 7. Os comandos tipados
+-- (POST /api/educacao/transporte/rotas/lancar,
+-- POST /api/educacao/transporte/rotas/{id}/pontos/lancar e
+-- POST /api/educacao/transporte/rotas/{id}/alunos/vincular) checam antes de
+-- gravar (falhas nomeadas 409); os indices sao o backstop transacional.
+-- Idempotente; multi-esfera (regra 24).
+-- ============================================================================
+
+create unique index if not exists ux_transporte_ponto_tenant_rota_ordem
+    on sigov.educacao_transporte_rota_ponto (tenant_id, coalesce(rota_id, (0)::bigint), coalesce(numero, (0)::bigint))
+    where is_deleted = false
+      and ativo = true
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+-- Pos-condicao explicita (regra 13): sem os indices, falha nomeada. O segundo
+-- indice pertence ao rc50_48 (unicao aluno x rota x turno) e e verificado aqui
+-- porque e o backstop do comando de vinculacao de aluno.
+do $post$
+begin
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_transporte_ponto_tenant_rota_ordem') then
+        raise exception 'S8-POSTCOND: indice ux_transporte_ponto_tenant_rota_ordem ausente';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_educacao_transporte_aluno_rota_turno') then
+        raise exception 'S8-POSTCOND: indice ux_educacao_transporte_aluno_rota_turno ausente';
+    end if;
+end $post$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011170000', 'RC-EVO Ciclo 1 Sprint 8 (educacao/transporte_escolar): indice unico parcial ux_transporte_ponto_tenant_rota_ordem em sigov.educacao_transporte_rota_ponto (uma ordem vigente por ponto x rota x tenant; estados terminais liberam) + pos-condicao verificando tambem ux_educacao_transporte_aluno_rota_turno (rc50_48, backstop do vinculo de aluno); backstop transacional dos comandos tipados de rota/ponto/aluno; idempotente; multi-esfera', 'b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

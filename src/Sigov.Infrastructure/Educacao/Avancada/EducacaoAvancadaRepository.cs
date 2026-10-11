@@ -215,6 +215,95 @@ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,Sal
    var d=await c.QueryFirstAsync<EducacaoBibliotecaDashboardDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
    return d;
  }
+ private sealed class EducacaoRotaLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public long? EscolaId{get;set;} public string? Turno{get;set;} public string? Status{get;set;}}
+ private sealed class EducacaoPontoLinha{public long Id{get;set;} public long? RotaId{get;set;}}
+ async Task<EducacaoRotaLinha> CarregarRotaNoEscopoAsync(EducacaoAvancadaContext x,long rotaId,CancellationToken ct,NpgsqlConnection c){
+   var r=await c.QueryFirstOrDefaultAsync<EducacaoRotaLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,turno as Turno,status as Status from sigov.educacao_transporte_rota where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=rotaId},cancellationToken:ct)).ConfigureAwait(false);
+   if(r is null)throw new TransporteRotaInexistenteException(rotaId);
+   if(r.EntidadeId>=0&&x.EntidadeId.HasValue&&r.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_transporte_rota",rotaId,r.EntidadeId.Value,x.EntidadeId.Value);
+   return r;
+ }
+ public async Task<long> LancarRotaAsync(EducacaoAvancadaContext x,EducacaoTransporteLancarRotaRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_transporte_rota",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_transporte_rota");
+   if(r is null)throw new ArgumentException("Rota é obrigatória.");
+   if(string.IsNullOrWhiteSpace(r.Nome))throw new ArgumentException("Rota exige nome.");
+   if(string.IsNullOrWhiteSpace(r.Turno))throw new ArgumentException("Rota exige turno.");
+   var temEscola=r.EscolaId is >0;var temRegiao=!string.IsNullOrWhiteSpace(r.Regiao);
+   if(temEscola==temRegiao)throw new TransporteRotaEscolaOuRegiaoInvalidoException();
+   if(temEscola)await ValidarEscopoInstitucionalAsync(x.TenantId,x.EntidadeId,r.EscolaId,null,ct).ConfigureAwait(false);
+   var turno=r.Turno.Trim().ToUpperInvariant();
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=_context.CreateConnection();
+   return await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_transporte_rota(tenant_id,entidade_id,escola_id,codigo,nome,tipo,turno,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@Codigo,@Nome,'ESCOLAR',@Turno,'ATIVA',(case when @Regiao is null then '{}'::jsonb else jsonb_build_object('regiao',@Regiao) end),jsonb_build_array(jsonb_build_object('acao','LANCAR_ROTA','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=r.EscolaId,Codigo=string.IsNullOrWhiteSpace(r.Codigo)?(string?)null:r.Codigo.Trim(),Nome=r.Nome.Trim(),Turno=turno,Regiao=r.Regiao?.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+ }
+ public async Task<long> LancarPontoAsync(EducacaoAvancadaContext x,long rotaId,EducacaoTransporteLancarPontoRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_transporte_rota_ponto",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_transporte_rota_ponto");
+   if(r is null)throw new ArgumentException("Ponto é obrigatório.");
+   if(string.IsNullOrWhiteSpace(r.Nome))throw new ArgumentException("Ponto exige nome.");
+   if(r.Ordem<=0)throw new TransportePontoOrdemInvalidaException(r.Ordem);
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var rota=await CarregarRotaNoEscopoAsync(x,rotaId,ct,c).ConfigureAwait(false);
+   if(rota.Status is not ("ATIVA" or "ATIVO"))throw new TransporteRotaNaoVigenteException(rotaId,rota.Status ?? "INDEFINIDO");
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var ocupado=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_transporte_rota_ponto where tenant_id=@TenantId and coalesce(rota_id,(0)::bigint)=coalesce(@RotaId,(0)::bigint) and coalesce(numero,(0)::bigint)=coalesce(@Ordem,(0)::bigint) and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,RotaId=rotaId,Ordem=r.Ordem},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(ocupado)throw new TransportePontoOrdemExistenteException(rotaId,r.Ordem);
+   long pid;
+   try{
+     pid=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_transporte_rota_ponto(tenant_id,entidade_id,escola_id,rota_id,nome,numero,turno,status,descricao,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@RotaId,@Nome,@Ordem,@Turno,'ATIVA',@Descricao,jsonb_build_array(jsonb_build_object('acao','LANCAR_PONTO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=rota.EntidadeId,EscolaId=rota.EscolaId,RotaId=rotaId,Nome=r.Nome.Trim(),Ordem=r.Ordem,Turno=rota.Turno,Descricao=string.IsNullOrWhiteSpace(r.Descricao)?(string?)null:r.Descricao.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   }catch(NpgsqlException npe){
+     if(npe.SqlState=="23505")throw new TransportePontoOrdemExistenteException(rotaId,r.Ordem);
+     throw;
+   }
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return pid;
+ }
+ public async Task<long> VincularAlunoAsync(EducacaoAvancadaContext x,long rotaId,EducacaoTransporteVincularAlunoRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_transporte_aluno",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_transporte_aluno");
+   if(r is null)throw new ArgumentException("Vínculo de aluno é obrigatório.");
+   if(r.AlunoId<=0)throw new ArgumentException("Vínculo exige aluno.");
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var rota=await CarregarRotaNoEscopoAsync(x,rotaId,ct,c).ConfigureAwait(false);
+   if(rota.Status is not ("ATIVA" or "ATIVO"))throw new TransporteRotaNaoVigenteException(rotaId,rota.Status ?? "INDEFINIDO");
+   var turno=rota.Turno;
+   if(!string.IsNullOrWhiteSpace(r.Turno)){
+     var tReq=r.Turno.Trim().ToUpperInvariant();
+     if(turno is null||tReq!=turno.Trim().ToUpperInvariant())throw new TransporteTurnoVinculoDivergenteException(r.Turno.Trim(),turno ?? "(sem turno)");
+     turno=tReq;
+   }
+   var a=await c.ExecuteScalarAsync<long?>(new CommandDefinition("select coalesce(entidade_id,-1) from sigov.aluno where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=r.AlunoId},cancellationToken:ct)).ConfigureAwait(false);
+   if(a is null)throw new TransporteAlunoInexistenteException(r.AlunoId);
+   if(a.Value>=0&&x.EntidadeId.HasValue&&a.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("aluno",r.AlunoId,a.Value,x.EntidadeId.Value);
+   long? pontoId=null;
+   if(r.PontoId is >0){
+     var p=await c.QueryFirstOrDefaultAsync<EducacaoPontoLinha>(new CommandDefinition("select id as Id,rota_id as RotaId from sigov.educacao_transporte_rota_ponto where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=r.PontoId.Value},cancellationToken:ct)).ConfigureAwait(false);
+     if(p is null)throw new TransportePontoInexistenteException(r.PontoId.Value);
+     if(p.RotaId is null||p.RotaId.Value!=rotaId)throw new TransportePontoRotaDivergenteException(r.PontoId.Value,p.RotaId??0,rotaId);
+     pontoId=r.PontoId.Value;
+   }
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var vinculado=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_transporte_aluno where tenant_id=@TenantId and coalesce(rota_id,(0)::bigint)=coalesce(@RotaId,(0)::bigint) and coalesce(aluno_id,(0)::bigint)=coalesce(@AlunoId,(0)::bigint) and turno=coalesce(@Turno,'') and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,RotaId=rotaId,AlunoId=r.AlunoId,Turno=turno},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(vinculado)throw new TransporteAlunoJaVinculadoARotaException(r.AlunoId,rotaId,turno ?? "(sem turno)");
+   long vid;
+   try{
+     vid=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_transporte_aluno(tenant_id,entidade_id,escola_id,aluno_id,rota_id,referencia_id,turno,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@AlunoId,@RotaId,@PontoId,@Turno,'ATIVA',jsonb_build_array(jsonb_build_object('acao','VINCULAR_ALUNO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=rota.EntidadeId,EscolaId=rota.EscolaId,AlunoId=r.AlunoId,RotaId=rotaId,PontoId=pontoId,Turno=turno,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   }catch(NpgsqlException npe){
+     if(npe.SqlState=="23505")throw new TransporteAlunoJaVinculadoARotaException(r.AlunoId,rotaId,turno ?? "(sem turno)");
+     throw;
+   }
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return vid;
+ }
+ public async Task<EducacaoTransporteDashboardDto> TransporteDashboardAsync(long tenantId,CancellationToken ct){
+   foreach(var t in new[]{"educacao_transporte_rota","educacao_transporte_rota_ponto","educacao_transporte_aluno"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   using var c=_context.CreateConnection();
+   var sql="select (select count(1) from sigov.educacao_transporte_rota r where r.tenant_id=@TenantId and r.ativo and not r.is_deleted and r.status in ('ATIVA','ATIVO')) as RotasAtivas,(select count(1) from sigov.educacao_transporte_rota_ponto p where p.tenant_id=@TenantId and p.ativo and not p.is_deleted and p.status in ('ATIVA','ATIVO')) as PontosAtivos,(select count(1) from sigov.educacao_transporte_aluno a where a.tenant_id=@TenantId and a.ativo and not a.is_deleted and a.status in ('ATIVA','ATIVO')) as AlunosVinculados,(select count(distinct r.escola_id) from sigov.educacao_transporte_rota r where r.tenant_id=@TenantId and r.ativo and not r.is_deleted and r.status in ('ATIVA','ATIVO') and r.escola_id is not null) as EscolasAtendidas";
+   var d=await c.QueryFirstAsync<EducacaoTransporteDashboardDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
+   return d;
+ }
  public async Task<bool> AlterarStatusAsync(EducacaoAvancadaContext x,string recurso,long id,string status,string? justificativa,CancellationToken ct,DateTime? versaoAtual=null){recurso=Recurso(recurso);if(string.IsNullOrWhiteSpace(status))throw new ArgumentException("Status é obrigatório.");var alvo=status.Trim().ToUpperInvariant();if ((alvo is "CANCELADA" or "CANCELADO") && string.IsNullOrWhiteSpace(justificativa))throw new ArgumentException("Cancelamento exige justificativa.");if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso);using var c=_context.CreateConnection();var de=await c.QueryFirstOrDefaultAsync<(string? Status,long LinhaEntidade)>(new CommandDefinition($"select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false",new{x.TenantId,Id=id},cancellationToken:ct));if(de.Status is null)throw new RegistroNaoEncontradoException(recurso,id);if(de.LinhaEntidade>=0 && x.EntidadeId.HasValue && x.EntidadeId.Value!=de.LinhaEntidade)throw new ContextoInstitucionalDivergenteException(recurso,id,de.LinhaEntidade,x.EntidadeId.Value);var linhaDe=de.Status;if(!EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo))throw new TransicaoDeStatusInvalidaException(linhaDe,alvo);var n=await c.ExecuteAsync(new CommandDefinition($"update sigov.{recurso} set status=@Status,justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria when 'object' then case when auditoria='{{}}'::jsonb then '[]'::jsonb else jsonb_build_array(auditoria) end else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo',coalesce(@Justificativa,justificativa),'em',now())) where tenant_id=@TenantId and id=@Id and is_deleted=false and (@VersaoAtual::timestamptz is null or coalesce(updated_at,created_at)=@VersaoAtual)",new{x.TenantId,Id=id,Status=alvo,De=linhaDe,Justificativa=justificativa,x.UsuarioId,CorrelationId=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid(),VersaoAtual=versaoAtual},cancellationToken:ct));if(n==0)throw new ConflitoDeVersaoEducacaoException(recurso,id);return true;}
  public async Task<EducacaoAvancadaDashboardDto> DashboardAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return new EducacaoAvancadaDashboardDto(0,0,0,0,Array.Empty<EducacaoAvancadaRegistroDto>());using var c=_context.CreateConnection();var sql=$"select count(1) as total,count(1) filter (where status in ('ATIVA','ATIVO','PUBLICADO','DISPONIVEL','ABERTO')) as ativos,count(1) filter (where status in ('RASCUNHO','PROGRAMADA','SOLICITADA')) as pendentes,count(1) filter (where status in ('ATRASADO','SUSPENSA','COM_INCONSISTENCIA')) as alertas from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false;select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id desc limit 6;";using var m=await c.QueryMultipleAsync(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct));var tot=await m.ReadFirstAsync<EducacaoTotais>();var recentes=(await m.ReadAsync<EducacaoAvancadaRegistroDto>()).ToList();return new(tot.Total,tot.Ativos,tot.Pendentes,tot.Alertas,recentes);}
  public async Task<byte[]> ExportarCsvAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes("id;codigo;nome;tipo;status;valor\n")).ToArray();using var c=_context.CreateConnection();var sql=$"select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id";var r=(await c.QueryAsync<EducacaoAvancadaRegistroDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct))).ToList();var b=new StringBuilder("id;codigo;nome;tipo;status;valor\n");foreach(var x in r){b.Append(x.Id).Append(';').Append(EducacaoCsv.Campo(x.Codigo)).Append(';').Append(EducacaoCsv.Campo(x.Nome)).Append(';').Append(EducacaoCsv.Campo(x.Tipo)).Append(';').Append(EducacaoCsv.Campo(x.Status)).Append(';').Append(x.Valor?.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');}return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(b.ToString())).ToArray();}
