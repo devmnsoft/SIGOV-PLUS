@@ -97,7 +97,7 @@ public sealed class MatriculasController : EducacaoApiControllerBase
     [HttpPost("{id:long}/confirmar")] public async Task<ActionResult<ApiResponse<object>>> Confirmar(long id, [FromBody] EducacaoConfirmarMatriculaRequest request, CancellationToken ct) => FromResult(await _service.ConfirmarAsync(id, request, ct).ConfigureAwait(false));
     [HttpPost("{id:long}/cancelar")] public async Task<ActionResult<ApiResponse<object>>> Cancelar(long id, [FromBody] CancelarMatriculaRequest request, CancellationToken ct) => FromResult(await _service.CancelarAsync(id, request, ct).ConfigureAwait(false));
     [HttpPost("{id:long}/enturmar")] public async Task<ActionResult<ApiResponse<object>>> Enturmar(long id, [FromBody] EnturmarMatriculaRequest request, CancellationToken ct) => FromResult(await _service.EnturmarAsync(id, request, ct).ConfigureAwait(false));
-    [HttpPost("{id:long}/transferir")] public async Task<ActionResult<ApiResponse<object>>> Transferir(long id, [FromBody] TransferirMatriculaRequest request, CancellationToken ct) => FromResult(await _service.TransferirAsync(id, request, ct).ConfigureAwait(false));
+    [HttpPost("{id:long}/transferir")] public async Task<ActionResult<ApiResponse<long>>> Transferir(long id, [FromBody] TransferirMatriculaRequest request, CancellationToken ct) => FromResult(await _service.TransferirAsync(id, request, ct).ConfigureAwait(false));
 }
 
 [Route("api/educacao/rematriculas")]
@@ -121,7 +121,7 @@ public sealed class ProfessoresController : EducacaoApiControllerBase
 }
 
 [Route("api/educacao/frequencias")]
-public sealed class FrequenciasController : EducacaoApiControllerBase { private readonly IFrequenciaService _service; public FrequenciasController(IFrequenciaService service)=>_service=service; [HttpGet] public async Task<ActionResult<ApiResponse<PagedResult<FrequenciaResponse>>>> Listar([FromQuery] FrequenciaFiltro filtro,CancellationToken ct)=>FromResult(await _service.ListarAsync(filtro,ct).ConfigureAwait(false)); [HttpPost] public async Task<ActionResult<ApiResponse<long>>> Criar([FromBody] FrequenciaCreateRequest request,CancellationToken ct)=>FromResult(await _service.CriarAsync(request,ct).ConfigureAwait(false)); }
+public sealed class FrequenciasController : EducacaoApiControllerBase { private readonly IFrequenciaService _service; public FrequenciasController(IFrequenciaService service)=>_service=service; [HttpGet] public async Task<ActionResult<ApiResponse<PagedResult<FrequenciaResponse>>>> Listar([FromQuery] FrequenciaFiltro filtro,CancellationToken ct)=>FromResult(await _service.ListarAsync(filtro,ct).ConfigureAwait(false)); [HttpPost] public async Task<ActionResult<ApiResponse<long>>> Criar([FromBody] FrequenciaCreateRequest request,CancellationToken ct)=>FromResult(await _service.CriarAsync(request,ct).ConfigureAwait(false)); [HttpPost("{id:long}/correcao")] public async Task<ActionResult<ApiResponse<long>>> Corrigir(long id,[FromBody] FrequenciaCorrecaoRequest request,CancellationToken ct)=>FromResult(await _service.CorrigirAsync(id,request,ct).ConfigureAwait(false)); }
 
 [Route("api/educacao/frequencias/lancamento-diario")]
 public sealed class FrequenciaDiariaController : EducacaoApiControllerBase

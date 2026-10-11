@@ -32,7 +32,7 @@ public sealed record EducacaoDiarioReposicaoRequest(long AulaId, DateOnly DataRe
 public sealed record EducacaoDiarioFechamentoRequest(string Observacao, string TokenConferencia);
 public sealed record EducacaoDiarioConferenciaDto(long DiarioId, string Status, long AlunosAbrangidos, long Aulas, long LancamentosEsperados, long LancamentosRealizados, long Pendencias, IReadOnlyCollection<EducacaoDiarioPendenciaDetalheDto> Detalhes, string TokenConferencia, DateTimeOffset UltimaAtualizacao, bool PodeFechar);
 public sealed record EducacaoDiarioPendenciaDetalheDto(string Tipo, string Registro, string Problema, string Acao, string? UrlCorrecao);
-public sealed record EducacaoDiarioFechamentoDto(long Id, long DiarioId, int Versao, string Status, string Justificativa, DateTimeOffset CreatedAt, long CreatedBy, long? RetificaFechamentoId);
+public sealed record EducacaoDiarioFechamentoDto(long Id, long DiarioId, int Versao, string Status, string Justificativa, DateTime CreatedAt, long CreatedBy, long? RetificaFechamentoId);
 public sealed record EducacaoDiarioReaberturaRequest(string Justificativa);
 public sealed record EducacaoDiarioPendenciaDto(long Id, long DiarioId, string Tipo, string Descricao, string Status);
 

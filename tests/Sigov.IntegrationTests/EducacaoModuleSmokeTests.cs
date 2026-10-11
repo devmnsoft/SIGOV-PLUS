@@ -113,16 +113,58 @@ public sealed class EducacaoModuleSmokeTests
 
         // #7 Auditoria: transicao de status registra origem, destino e motivo sem sobrescrever o historico
         code.Should().Contain("jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo'")
-            .And.Contain("select status from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false");
+            .And.Contain("select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false");
 
         // #4 Maquina de estados + guarda de versao: transicao validada com recusa nomeada, registro ausente
         // e tabela ausente viram falhas explicitas, e a escrita e otimista (coalesce(updated_at,created_at))
-        code.Should().Contain("EducacaoStatusMaquina.TransicaoPermitida(de,alvo)")
+        code.Should().Contain("EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo)")
             .And.Contain("TransicaoDeStatusInvalidaException")
             .And.Contain("RegistroNaoEncontradoException")
             .And.Contain("RecursoNaoDisponivelException")
             .And.Contain("ConflitoDeVersaoEducacaoException")
             .And.Contain("coalesce(updated_at,created_at)=@VersaoAtual");
+
+        // #6 Escopo institucional: escola e ano letivo validados contra tenant/entidade do contexto antes do insert;
+        // comando sobre registro de outra entidade falha com CONTEXTO_INSTITUCIONAL_DIVERGENTE antes de gravar
+        code.Should().Contain("await ValidarEscopoInstitucionalAsync(x.TenantId,x.EntidadeId,r.EscolaId,r.AnoLetivo,ct)")
+            .And.Contain("select entidade_id from sigov.escola where id=@Id and tenant_id=@TenantId and is_deleted=false")
+            .And.Contain("select exists(select 1 from sigov.ano_letivo where tenant_id=@TenantId and ano=@AnoLetivo")
+            .And.Contain("EscolaInexistenteException")
+            .And.Contain("EscolaForaDoEscopoException")
+            .And.Contain("AnoLetivoInexistenteException")
+            .And.Contain("ContextoInstitucionalDivergenteException");
+    }
+
+    [Fact]
+    public void EducacaoCicloEscolar_Sprint3_UnicidadeOferta_E_CorrecaoAuditadaDeFrequencia()
+    {
+        // Sprint 3 banco: indice unico parcial aluno x turma (oferta) por migration corretiva idempotente,
+        // com falha explicita se houver duplicados vigentes preexistentes (regra 13); coluna situacao
+        // restaurada no contrato de frequencia e indice estreito legado (sem componente) removido.
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011120000_evo_c1s3_educacao_matricula_unicidade_oferta.sql"));
+        migration.Should().Contain("create unique index if not exists ux_matricula_tenant_aluno_turma_vigencia")
+            .And.Contain("status in ('ATIVA', 'CONFIRMADA')")
+            .And.Contain("raise exception")
+            .And.Contain("add column if not exists situacao varchar(20) not null default 'PRESENTE'")
+            .And.Contain("drop index if exists sigov.ux_diario_frequencia_turma_aluno_data");
+
+        // Sprint 3 correção auditada: trava a linha (for update), bloqueia quando o diário de classe da
+        // turma está FECHADO, grava situação/presença/justificativa e registra FrequenciaCorrigida c/ de+para.
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "EducacaoRepository.cs"));
+        repo.Should().Contain("where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and not is_deleted for update")
+            .And.Contain("d.status='FECHADO'")
+            .And.Contain("update sigov.diario_frequencia set situacao=@Status, presente=@Presente, justificativa=@Justificativa")
+            .And.Contain("\"FrequenciaCorrigida\"");
+
+        // Permissão canônica (banco é autoridade, regra 11): frequencia/justificar; rota pública de correção.
+        var service = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Educacao", "EducacaoServices.cs"));
+        service.Should().Contain("GuardAsync(\"frequencia\", \"justificar\"");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoControllers.cs")).Should().Contain("{id:long}/correcao");
+
+        // Regra 7: migration registrada no manifest com pós-condição nos artefatos sincronizados.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011120000_evo_c1s3_educacao_matricula_unicidade_oferta.sql")
+            .And.Contain("ux_matricula_tenant_aluno_turma_vigencia");
     }
 
     private static string FindRepositoryRoot()

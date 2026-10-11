@@ -394,6 +394,36 @@ returning id";
         return novaMatriculaId.Value;
     }
 
+    public async Task<long> CorrigirFrequenciaAsync(long tenantId, long entidadeId, long frequenciaId, string status, string? justificativa, long usuarioId, CancellationToken ct)
+    {
+        using var connection = (NpgsqlConnection)_context.CreateConnection();
+        await connection.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var atual = await connection.QuerySingleOrDefaultAsync<(string Situacao, long TurmaId)>(new CommandDefinition(
+                "select situacao as Situacao, turma_id as TurmaId from sigov.diario_frequencia where id=@Id and tenant_id=@TenantId and entidade_id=@EntidadeId and not is_deleted for update",
+                new { Id = frequenciaId, TenantId = tenantId, EntidadeId = entidadeId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (atual.Situacao is null) throw new InvalidOperationException("Frequência não encontrada no contexto autorizado.");
+            var diarioFechado = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                "select exists(select 1 from sigov.educacao_diario_classe d where d.tenant_id=@TenantId and d.entidade_id=@EntidadeId and d.turma_id=@TurmaId and d.status='FECHADO' and not d.is_deleted)",
+                new { TenantId = tenantId, EntidadeId = entidadeId, TurmaId = atual.TurmaId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (diarioFechado) throw new InvalidOperationException("Correção bloqueada: o diário de classe da turma está FECHADO; reabra o diário com justificativa antes de corrigir frequências.");
+            var changed = await connection.ExecuteAsync(new CommandDefinition(
+                "update sigov.diario_frequencia set situacao=@Status, presente=@Presente, justificativa=@Justificativa, updated_at=now(), updated_by=@UsuarioId where id=@Id and not is_deleted",
+                new { Id = frequenciaId, Status = status, Presente = status is "PRESENTE" or "ABONADA", Justificativa = justificativa, UsuarioId = usuarioId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (changed != 1) throw new InvalidOperationException("Correção de frequência rejeitada: registro não pôde ser atualizado no contexto autorizado.");
+            await RegistrarEventoAsync(connection, tx, tenantId, entidadeId, "FrequenciaCorrigida", "diario_frequencia", frequenciaId, new { de = atual.Situacao, para = status, justificativa }, usuarioId, ct).ConfigureAwait(false);
+            await tx.CommitAsync(ct).ConfigureAwait(false);
+            return frequenciaId;
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct).ConfigureAwait(false);
+            throw;
+        }
+    }
+
     private static bool TransicaoPermitida(string origem, string destino) => (origem, destino) switch
     {
         ("RASCUNHO", "EM_ANALISE") or ("RASCUNHO", "CANCELADA") or ("COMPLEMENTACAO_PENDENTE", "EM_ANALISE") or

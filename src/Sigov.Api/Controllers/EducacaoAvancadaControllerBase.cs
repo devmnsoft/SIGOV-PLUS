@@ -52,6 +52,10 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (ContextoInstitucionalDivergenteException ex)
+        {
+            return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (RegistroNaoEncontradoException ex)
         {
             return NotFound(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
@@ -59,6 +63,34 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         catch (RecursoNaoDisponivelException ex)
         {
             return NotFound(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
+        }
+    }
+
+    /// <summary>
+    /// Mapeia falhas nomeadas da criação para respostas HTTP explícitas (Ciclo 1 #6): 404 ESCOLA_INEXISTENTE,
+    /// 409 ESCOLA_FORA_DO_ESCOPO e 422 ANO_LETIVO_INEXISTENTE, além das rejeições de validação (400).
+    /// </summary>
+    protected async Task<ActionResult<ApiResponse<long>>> ExecutarCriarAsync(Func<Task<long>> operacao)
+    {
+        try
+        {
+            return OkResponse(await operacao());
+        }
+        catch (EscolaInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EscolaForaDoEscopoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (AnoLetivoInexistenteException ex)
+        {
+            return StatusCode(422, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
     }
 }

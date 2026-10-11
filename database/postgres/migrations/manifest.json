@@ -2934,6 +2934,19 @@
         "20261006110000"
       ],
       "postConditionSql": "select not exists(select 1 from sigov.entidade p join sigov.tenant tp on tp.id = p.tenant_id and tp.slug = 'plataforma-mnsoft' where p.cnpj = '00000000000000' and exists(select 1 from sigov.entidade o where o.cnpj = p.cnpj and o.tenant_id <> p.tenant_id))"
+    },
+    {
+      "version": "20261011120000",
+      "description": "RC-EVO Ciclo 1 Sprint 3 (educacao/ciclo escolar): indice unico parcial ux_matricula_tenant_aluno_turma_vigencia em sigov.matricula (uma matricula vigente por aluno x oferta); coluna situacao + check canônico em sigov.diario_frequencia (correcao do orfafo rc50_25, contrato C# de frequencia) com backfill de presente; remocao do indice estreito legado ux_diario_frequencia_turma_aluno_data (sem componente, contradizia o indice canônico); duplicados preexistentes falham explicitamente; idempotente; multi-esfera",
+      "category": "functional",
+      "file": "20261011120000_evo_c1s3_educacao_matricula_unicidade_oferta.sql",
+      "checksum": "f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f",
+      "applyAutomatically": true,
+      "includeInBaseline": true,
+      "dependencies": [
+        "20261008130000"
+      ],
+      "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_matricula_tenant_aluno_turma_vigencia') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='diario_frequencia' and column_name='situacao') and not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_diario_frequencia_turma_aluno_data')"
     }
   ],
   "compatibilityAfterAll": [

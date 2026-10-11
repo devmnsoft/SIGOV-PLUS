@@ -251,7 +251,8 @@ select exists (
         ('20261007120000', array['d9774e985ce427971d6374726018f7d128d3849664bb8d7377ce715b311065e4']::text[]),
         ('20261007130000', array['b98f2b5cbcbc2cc272efdc072498ee3e8cbefcbd086456e388bdf9fcd126e998']::text[]),
         ('20261008120000', array['a72d0ca1481e6566b81735267f873d22b92c0b8788b630651ee97d74f3cbad9a']::text[]),
-        ('20261008130000', array['faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5']::text[])
+        ('20261008130000', array['faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5']::text[]),
+        ('20261011120000', array['f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34238,6 +34239,101 @@ end
 $evo_b_cnpj$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261008130000', 'RC-EVO-B: libera o cnpj placeholder 00000000000000 da entidade da plataforma (tenant plataforma-mnsoft passa a 00000000000090, ficticio) para desbloquear ux_entidade_cnpj no seed dev 999 em instalacao limpa do script_completo_dev', 'faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261011120000_evo_c1s3_educacao_matricula_unicidade_oferta.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f
+-- ==================================================
+-- ============================================================
+-- RC-EVO Ciclo 1 Sprint 3 (ciclo escolar): integridade de matricula
+-- por oferta e contrato de frequencia com situacao explicita.
+--
+-- (a) UNICIDADE DE MATRICULA VIGENTE POR ALUNO x TURMA (OFERTA)
+--     sigov.matricula (021_educacao_base.sql) garantia apenas a
+--     unicidade de numero_matricula; nada impedia duas matrulas
+--     vigentes ('ATIVA'/'CONFIRMADA') do mesmo aluno na mesma turma,
+--     isto e, duas ocupacoes da mesma oferta sem auditoria. O
+--     enturmamento/conversao reserva vaga por update-first, mas o
+--     invariante final precisa estar garantido no banco, nao apenas
+--     no caminho C#. Indice parcial: turma_id NULL nao conflita
+--     (matrulas ainda nao enturmadas nunca se bloqueiam); o conflito
+--     aparece no enturmamento/conversao que tenta duplicar a oferta.
+--
+-- (b) COLUNA SITUACAO EM sigov.diario_frequencia (CORRETIVA)
+--     O arquivo de migration 20260813160000_rc50_25_educacao_fluxo_diario.sql
+--     esta orfafo do manifest.json (inventario P0.1-A: arquivos nao
+--     registrados nunca rodam no runner) e sua coluna 'situacao' nao
+--     existe nas instalacoes limpas; o contrato C# (FrequenciaCreateRequest.Status,
+--     insert e listagem de diario_frequencia) referencia essa coluna
+--     e falharia em runtime (regra 13: falha explicita, sem sucesso
+--     simulado). Correcao por migration nova (regra 8: nao alterar
+--     publicada): adiciona a coluna idempotente, faz backfill a
+--     partir de 'presente' e impoe o check canônico das quatro
+--     situacoes (PRESENTE/FALTA/JUSTIFICADA/ABONADA).
+--
+-- (c) REMOCAO DO INDICE ESTREITO LEGADO ux_diario_frequencia_turma_aluno_data
+--     criado por 20260819120000 (rc50_60) sobre (tenant,entidade,turma,
+--     aluno,data) SEM componente_curricular: ele proibia registrar mais
+--     de um componente por dia no mesmo aluno/turma, contradizendo o
+--     indice canônico com componente (ux_frequencia_turma_aluno_data_componente
+--     do 021 e o contrato que exige componente). Remocao idempotente;
+--     o indice com componente segue garantindo a unicidade real.
+--
+-- Regras: 6/7/8 (migration nova idempotente, consolidados sincronizados
+-- por migration, nao por edicao de publicada); 13 (grupos duplicados
+-- preexistentes em matricula FALHAM EXPLICITAMENTE em vez de mascarar);
+-- 24 (multi-esfera: chaves sempre com tenant_id + entidade_id, sem
+-- comportamento municipal hardcoded).
+-- ============================================================
+
+do $evo_c1s3$
+declare
+    v_duplas bigint;
+begin
+    select count(*) into v_duplas
+      from (select 1
+              from sigov.matricula m
+             where m.is_deleted = false
+               and m.status in ('ATIVA', 'CONFIRMADA')
+             group by m.tenant_id, m.entidade_id, m.aluno_id, m.turma_id
+            having count(*) > 1) d;
+
+    if v_duplas > 0 then
+        raise exception
+            'Unicidade de matricula por oferta: % grupo(s) (tenant, entidade, aluno, turma) com mais de uma matricula vigente preexistem; resolver os duplicados antes de aplicar o indice.',
+            v_duplas;
+    end if;
+end
+$evo_c1s3$;
+
+create unique index if not exists ux_matricula_tenant_aluno_turma_vigencia
+    on sigov.matricula (tenant_id, entidade_id, aluno_id, turma_id)
+   where is_deleted = false and status in ('ATIVA', 'CONFIRMADA');
+
+alter table sigov.diario_frequencia
+    add column if not exists situacao varchar(20) not null default 'PRESENTE';
+
+update sigov.diario_frequencia
+   set situacao = case when presente then 'PRESENTE' else 'FALTA' end
+ where situacao is null
+    or situacao not in ('PRESENTE', 'FALTA', 'JUSTIFICADA', 'ABONADA');
+
+alter table sigov.diario_frequencia
+    drop constraint if exists ck_diario_frequencia_situacao;
+
+alter table sigov.diario_frequencia
+    add constraint ck_diario_frequencia_situacao
+        check (situacao in ('PRESENTE', 'FALTA', 'JUSTIFICADA', 'ABONADA'));
+
+drop index if exists sigov.ux_diario_frequencia_turma_aluno_data;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011120000', 'RC-EVO Ciclo 1 Sprint 3 (educacao/ciclo escolar): indice unico parcial ux_matricula_tenant_aluno_turma_vigencia em sigov.matricula (uma matricula vigente por aluno x oferta); coluna situacao + check canÃ´nico em sigov.diario_frequencia (correcao do orfafo rc50_25, contrato C# de frequencia) com backfill de presente; remocao do indice estreito legado ux_diario_frequencia_turma_aluno_data (sem componente, contradizia o indice canÃ´nico); duplicados preexistentes falham explicitamente; idempotente; multi-esfera', 'f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

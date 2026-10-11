@@ -197,19 +197,19 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
         try { await _repo.EnturmarAsync(TenantId, EntidadeId, id, request, UsuarioId.Value, ct).ConfigureAwait(false); return Result.Success(); }
         catch (InvalidOperationException ex) { return Fail(ex.Message); }
     }
-    async Task<Result> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct)
+    async Task<Result<long>> IMatriculaService.TransferirAsync(long id, TransferirMatriculaRequest request, CancellationToken ct)
     {
         if (request.NovaTurmaId <= 0 || string.IsNullOrWhiteSpace(request.Motivo))
-            return Fail("Transferência exige nova turma e justificativa.");
+            return Fail<long>("Transferência exige nova turma e justificativa.");
 
         var guard = await GuardAsync("matricula", "transferir", ct).ConfigureAwait(false);
-        if (guard.IsFailure || !UsuarioId.HasValue) return guard;
+        if (guard.IsFailure || !UsuarioId.HasValue) return Fail<long>(guard.Error ?? "Operação bloqueada.");
         try
         {
-            await _repo.TransferirAsync(TenantId, EntidadeId, id, request with { Motivo = request.Motivo.Trim() }, UsuarioId.Value, ct).ConfigureAwait(false);
-            return Result.Success();
+            var novaMatriculaId = await _repo.TransferirAsync(TenantId, EntidadeId, id, request with { Motivo = request.Motivo.Trim() }, UsuarioId.Value, ct).ConfigureAwait(false);
+            return Result<long>.Success(novaMatriculaId);
         }
-        catch (InvalidOperationException ex) { return Fail(ex.Message); }
+        catch (InvalidOperationException ex) { return Fail<long>(ex.Message); }
     }
 
     async Task<Result<RematriculaSimulacaoResponse>> IRematriculaService.SimularAsync(RematriculaFiltro filtro, CancellationToken ct)
@@ -258,7 +258,61 @@ public sealed class EducacaoService : IEscolaService, IAnoLetivoService, ICursoS
                     ? Task.FromResult(Fail<long>("Presença e situação informadas são incompatíveis."))
                 : request.Status == "JUSTIFICADA" && string.IsNullOrWhiteSpace(request.Justificativa)
                     ? Task.FromResult(Fail<long>("Falta justificada exige justificativa."))
-                    : CriarAsync("diario_frequencia", "criar", request, ct);
+                    : CriarFrequenciaAsync(request, ct);
+
+    private async Task<Result<long>> CriarFrequenciaAsync(FrequenciaCreateRequest request, CancellationToken ct)
+    {
+        // Permissão canônica do catálogo (regra 11): "frequencia/criar". O recurso
+        // "diario_frequencia/criar" não existe na autoridade (sigov.permissao),
+        // o que deixava a criação de frequência sempre negada (403).
+        var guard = await GuardAsync("frequencia", "criar", ct).ConfigureAwait(false);
+        if (guard.IsFailure) return Fail<long>(guard.Error ?? "Operação bloqueada.");
+        try
+        {
+            var id = await _repo.CriarAsync(TenantId, EntidadeId, ExercicioId, "diario_frequencia", request, UsuarioId, ct).ConfigureAwait(false);
+            await _audit.RegistrarAsync("educacao", "CRIAR", "sigov.diario_frequencia", id.ToString(System.Globalization.CultureInfo.InvariantCulture), null, AuditPayload(request), ct).ConfigureAwait(false);
+            return Result<long>.Success(id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Regra de criação de frequência rejeitada no tenant {TenantId}.", TenantId);
+            return Fail<long>(ex.Message);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Erro ao criar frequência no tenant {TenantId}.", TenantId);
+            return Fail<long>("Falha ao executar operação de Educação.");
+        }
+    }
+
+    async Task<Result<long>> IFrequenciaService.CorrigirAsync(long id, FrequenciaCorrecaoRequest request, CancellationToken ct)
+    {
+        if (id <= 0) return Fail<long>("Registro de frequência inválido.");
+        if (request.Status is not ("PRESENTE" or "FALTA" or "JUSTIFICADA" or "ABONADA")) return Fail<long>("Situação de frequência inválida.");
+        if (request.Status == "JUSTIFICADA" && string.IsNullOrWhiteSpace(request.Justificativa)) return Fail<long>("Falta justificada exige justificativa.");
+        return await ExecutarCorrecaoFrequenciaAsync(id, request, ct).ConfigureAwait(false);
+    }
+
+    private async Task<Result<long>> ExecutarCorrecaoFrequenciaAsync(long id, FrequenciaCorrecaoRequest request, CancellationToken ct)
+    {
+        var guard = await GuardAsync("frequencia", "justificar", ct).ConfigureAwait(false);
+        if (guard.IsFailure) return Fail<long>(guard.Error ?? "Operação bloqueada.");
+        try
+        {
+            var corrigidoId = await _repo.CorrigirFrequenciaAsync(TenantId, EntidadeId, id, request.Status, request.Justificativa, UsuarioId!.Value, ct).ConfigureAwait(false);
+            return Result<long>.Success(corrigidoId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Correção de frequência rejeitada no tenant {TenantId}.", TenantId);
+            return Fail<long>(ex.Message);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Erro ao corrigir frequência no tenant {TenantId}.", TenantId);
+            return Fail<long>("Falha ao executar operação de Educação.");
+        }
+    }
 
     Task<Result<PagedResult<AvaliacaoResponse>>> IAvaliacaoService.ListarAsync(TurmaFiltro filtro, CancellationToken ct) => ListarAsync<AvaliacaoResponse>("avaliacao", "avaliacao", filtro, ct);
     Task<Result<long>> IAvaliacaoService.CriarAsync(AvaliacaoCreateRequest request, CancellationToken ct) =>

@@ -82,7 +82,21 @@ where v.tenant_id=@TenantId and v.status='ATIVO' and v.is_deleted=false and (@Es
     public async Task<bool> UsuarioVinculadoAsync(long tenantId, long usuarioId, long alunoId, CancellationToken ct)
     { using var c=_context.CreateConnection(); return await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_portal_vinculo where tenant_id=@TenantId and usuario_id=@UsuarioId and aluno_id=@AlunoId and status='ATIVO' and is_deleted=false)",new{TenantId=tenantId,UsuarioId=usuarioId,AlunoId=alunoId},cancellationToken:ct)).ConfigureAwait(false); }
 
-    private static DynamicParameters Parametros(object value) { var p=new DynamicParameters(); foreach(var prop in value.GetType().GetProperties()) p.Add(prop.Name,prop.GetValue(value)); return p; }
+    private static DynamicParameters Parametros(object value)
+    {
+        var p = new DynamicParameters();
+        foreach (var prop in value.GetType().GetProperties())
+        {
+            var v = prop.GetValue(value);
+            // Coleções de POCO (ex.: Alunos em EducacaoDiarioFrequenciaRequest) não são serializáveis
+            // pelo jsonb writer do Npgsql como parâmetro direto; o SQL não consome essas propriedades
+            // diretamente (usam cast(@Dados as jsonb)), então pré-serializa para texto inofensivo.
+            if (v is System.Collections.IEnumerable and not string and not System.Collections.IDictionary and not byte[])
+                p.Add(prop.Name, JsonSerializer.Serialize(v));
+            else p.Add(prop.Name, v);
+        }
+        return p;
+    }
     private static string Insercao(string r) => r switch
     {
         "documento" => "insert into sigov.educacao_documento_escolar(tenant_id,entidade_id,exercicio_id,aluno_id,matricula_id,tipo,status,titulo,html_emitido,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ExercicioId,@AlunoId,@MatriculaId,'DECLARACAO_MATRICULA','EMITIDO',@Titulo,'<!doctype html><html><body><h1>'||@Titulo||'</h1></body></html>',cast(@Dados as jsonb),jsonb_build_object('usuario_id',@UsuarioId),@CorrelationId,@UsuarioId) returning id",
