@@ -20,3 +20,15 @@ public sealed class AnoLetivoInexistenteException(int AnoLetivo)
 /// <summary>Registro de outra entidade do contexto institucional (HTTP 409, código CONTEXTO_INSTITUCIONAL_DIVERGENTE).</summary>
 public sealed class ContextoInstitucionalDivergenteException(string Recurso, long Id, long LinhaEntidadeId, long ContextoEntidadeId)
     : Exception($"CONTEXTO_INSTITUCIONAL_DIVERGENTE: registro sigov.{Recurso}/{Id} pertence à entidade {LinhaEntidadeId} e o comando está no contexto da entidade {ContextoEntidadeId}; troque de contexto institucional antes de operar.");
+
+/// <summary>Produto inexistente/inativo para o tenant atual na criação de cardápio (HTTP 404, código CARDAPIO_PRODUTO_INEXISTENTE).</summary>
+public sealed class CardapioProdutoInexistenteException(long ProdutoId)
+    : Exception($"CARDAPIO_PRODUTO_INEXISTENTE: produto {ProdutoId} não encontrado ou inativo em sigov.educacao_merenda_produto para o tenant atual; cadastre o produto antes de montar o cardápio.");
+
+/// <summary>Produto repetido na criação de cardápio (HTTP 409, código CARDAPIO_PRODUTO_DUPLICADO).</summary>
+public sealed class CardapioProdutoDuplicadoException(long ProdutoId)
+    : Exception($"CARDAPIO_PRODUTO_DUPLICADO: produto {ProdutoId} informado mais de uma vez no cardápio; cada produto deve aparecer uma única vez.");
+
+/// <summary>Cardápio vigente já existe para a escola e data de início (HTTP 409, código CARDAPIO_PERIODO_EXISTENTE).</summary>
+public sealed class CardapioPeriodoExistenteException(long EscolaId, DateOnly DataInicio)
+    : Exception($"CARDAPIO_PERIODO_EXISTENTE: já existe cardápio vigente em sigov.educacao_merenda_cardapio para a escola {EscolaId} com início em {DataInicio:yyyy-MM-dd}; encerre ou cancele o atual antes de criar outro para o mesmo período.");

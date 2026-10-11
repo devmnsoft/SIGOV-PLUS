@@ -214,4 +214,36 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011130000_evo_c1s4_educacao_historico_escolar_publicar.sql")
             .And.Contain("p.chave='educacao.historico_escolar.publicar' and pp.ativo and not pp.is_deleted and pp.efeito='PERMITIR'");
     }
+
+    [Fact]
+    public void MerendaBase_Sprint5_CardapioComProdutos_UnicidadePeriodo()
+    {
+        // Sprint 5 banco: unicidade de período vigente de cardápio por escola × data de início
+        // (estados terminais liberam o período), com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011140000_evo_c1s5_merenda_cardapio_unicidade_periodo.sql"));
+        migration.Should().Contain("create unique index if not exists ux_merenda_cardapio_tenant_escola_inicio")
+            .And.Contain("on sigov.educacao_merenda_cardapio (tenant_id, escola_id, data_inicio)")
+            .And.Contain("status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')")
+            .And.Contain("S5-POSTCOND");
+
+        // Comando tipado: escopo institucional da escola + produtos válidos do tenant + checagem
+        // de período antes do insert + itens transacionais referenciando o cardápio (regra 13).
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> CriarCardapioComItensAsync(EducacaoAvancadaContext x,EducacaoMerendaCriarCardapioRequest r,CancellationToken ct)")
+            .And.Contain("throw new CardapioProdutoDuplicadoException(p)")
+            .And.Contain("throw new CardapioProdutoInexistenteException(p)")
+            .And.Contain("throw new CardapioPeriodoExistenteException(r.EscolaId,r.Inicio)")
+            .And.Contain("educacao_merenda_cardapio_item(tenant_id,entidade_id,escola_id,referencia_id,produto_id");
+
+        // Contrato e rota públicos (cadastro base de merenda multi-esfera, regra 24).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> CriarCardapioComItensAsync(EducacaoAvancadaContext contexto,EducacaoMerendaCriarCardapioRequest request,CancellationToken ct)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoMerendaController.cs"))
+            .Should().Contain("[HttpPost(\"cardapios/completo\")]");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre o índice.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011140000_evo_c1s5_merenda_cardapio_unicidade_periodo.sql")
+            .And.Contain("indexname='ux_merenda_cardapio_tenant_escola_inicio'");
+    }
 }

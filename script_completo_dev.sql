@@ -253,7 +253,8 @@ select exists (
         ('20261008120000', array['a72d0ca1481e6566b81735267f873d22b92c0b8788b630651ee97d74f3cbad9a']::text[]),
         ('20261008130000', array['faabcda5f3361c8eaa14aa3d565e4f375ef5c53ca185a63c2eae394a7b8f38a5']::text[]),
         ('20261011120000', array['f98828958ee6710f78d73ea539dbdfbf27e6410017911f66d935572f0c41a41f']::text[]),
-        ('20261011130000', array['4ef25a86cb151deecb8458d90ea68b27976431a5d1230e86e9c234af55cb327f']::text[])
+        ('20261011130000', array['4ef25a86cb151deecb8458d90ea68b27976431a5d1230e86e9c234af55cb327f']::text[]),
+        ('20261011140000', array['d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34389,6 +34390,42 @@ begin
 end $post$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011130000', 'RC-EVO Ciclo 1 Sprint 4 (educacao/notas e boletim): permissao granular educacao.historico_escolar.publicar (modulo educacao, recurso historico_escolar, acao publicar) com concessao PERMITIR aos perfis administrativos (mesmo padrao RC50.29) por tenant; idempotente; multi-esfera', '4ef25a86cb151deecb8458d90ea68b27976431a5d1230e86e9c234af55cb327f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261011140000_evo_c1s5_merenda_cardapio_unicidade_periodo.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: d4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 1 Sprint 5 (educacao/merenda base): cardápio de merenda
+-- unicidade de período vigente por escola × data de início.
+-- Um cardápio VIGENTE (não terminal) por escola e data de início, independentemente
+-- da esfera (regra 24): estados terminais (ENCERRADA/ENCERRADO/CANCELADA/CANCELADO)
+-- liberam o período para novo cardápio, como a política de unicidade de matrícula da
+-- Sprint 3. O comando tipado (POST /api/educacao/merenda/cardapios/completo) checa
+-- antes de gravar (falha nomeada 409); o índice é o backstop transacional.
+-- Idempotente; multi-esfera (regra 24).
+-- ============================================================================
+
+create unique index if not exists ux_merenda_cardapio_tenant_escola_inicio
+    on sigov.educacao_merenda_cardapio (tenant_id, escola_id, data_inicio)
+    where is_deleted = false
+      and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+-- Post-condição explícita (regra 13): sem o índice, falha nomeada.
+do $post$
+begin
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_cardapio_tenant_escola_inicio') then
+        raise exception 'S5-POSTCOND: indice ux_merenda_cardapio_tenant_escola_inicio ausente';
+    end if;
+end $post$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011140000', 'RC-EVO Ciclo 1 Sprint 5 (educacao/merenda base): indice unico parcial ux_merenda_cardapio_tenant_escola_inicio em sigov.educacao_merenda_cardapio (um cardapio vigente por escola x data de inicio; estados terminais liberam o periodo); backstop transacional do comando tipado de cardapio com produtos; idempotente; multi-esfera', 'd4536f3f798ea6446726ce4da90d3719293a511157a6e5e3a366775bc8ad7d86', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

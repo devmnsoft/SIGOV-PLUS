@@ -88,6 +88,18 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return StatusCode(422, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (CardapioProdutoInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (CardapioProdutoDuplicadoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (CardapioPeriodoExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
