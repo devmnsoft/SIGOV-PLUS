@@ -108,12 +108,13 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("Encoding.UTF8.GetPreamble().Concat")
             .And.NotContain("EducacaoAvancadaFiltro(Tamanho:100)");
 
-        // #5 Schema ausente: diagnostico operacional explicito, nao lista vazia silenciosa
-        code.Should().Contain("Indisponivel(p,t,");
+        // #5 Schema ausente (C2S2 BR-2.6): 404 RECURSO_INDISPONIVEL uniforme em listar/criar/status/dashboard (era 200 + diagnóstico)
+        code.Should().Contain("Math.Clamp(f.Tamanho,1,100);if(!await _inspector.TableExistsAsync(\"sigov\",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso)")
+            .And.NotContain("Indisponivel(p,t,");
 
         // #7 Auditoria: transicao de status registra origem, destino e motivo sem sobrescrever o historico
         code.Should().Contain("jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo'")
-            .And.Contain("select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false");
+            .And.Contain("select status,coalesce(entidade_id,-1) as LinhaEntidade,updated_at as LinhaUpdatedAt from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false");
 
         // #4 Maquina de estados + guarda de versao: transicao validada com recusa nomeada, registro ausente
         // e tabela ausente viram falhas explicitas, e a escrita e otimista (coalesce(updated_at,created_at))
@@ -133,6 +134,52 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("EscolaForaDoEscopoException")
             .And.Contain("AnoLetivoInexistenteException")
             .And.Contain("ContextoInstitucionalDivergenteException");
+    }
+
+    [Fact]
+    public void EducacaoAvancada_Ciclo2Sprint2_MaquinaComEfeitos_Bypass_Tempo_E_Schema_Uniformes()
+    {
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        var maquina = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Educacao", "Avancada", "EducacaoStatusMaquina.cs"));
+        var baseController = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Controllers", "EducacaoAvancadaControllerBase.cs"));
+        var filtro = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Api", "Filters", "EducacaoFalhasNomeadasFiltro.cs"));
+        var clock = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Common", "DateTimeProvider.cs"));
+
+        // BR-2.1/BR-2.4: origem desconhecida vira LEGADO_NAO_REGULARIZADO ('_ => true' eliminado);
+        // efeitos fora do registro sao declarados em matriz e a guarda executavel chama a matriz
+        maquina.Should().Contain("LEGADO_NAO_REGULARIZADO")
+            .And.NotContain("_ => true");
+        repo.Should().Contain("EducacaoEfeitosTransicao.ExigeCompensacaoAntesDeGravar(recurso,alvo)")
+            .And.Contain("RegularizacaoLegadaExigeJustificativaException(linhaDe)");
+
+        // BR-2.2: mapa de recursos com invariante tipada (criacao generica => 409 COMANDO_TIPADO_OBRIGATORIO)
+        // e porta legado de estoque restrita; recurso livre segue genérico
+        repo.Should().Contain("RecursosComComandoTipado")
+            .And.Contain("\"educacao_merenda_movimento\"]=\"POST /api/educacao/merenda/estoques/lancar\"")
+            .And.Contain("\"educacao_merenda_distribuicao\"]=\"POST /api/educacao/merenda/distribuicoes/confirmar\"")
+            .And.Contain("\"educacao_biblioteca_emprestimo\"]=\"POST /api/educacao/biblioteca/emprestimos/lancar\"")
+            .And.Contain("\"educacao_biblioteca_reserva\"]=\"POST /api/educacao/biblioteca/reservas/lancar\"")
+            .And.Contain("\"educacao_indicador_valor\"]=\"POST /api/educacao/indicadores/valores/lancar\"")
+            .And.Contain("\"educacao_fundeb_aplicacao\"]=\"POST /api/educacao/fundeb/aplicacoes/lancar\"")
+            .And.Contain("PortaLegadaEstoqueAberta")
+            .And.Contain("ComandoTipadoObrigatorioException");
+        baseController.Should().Contain("catch (ComandoTipadoObrigatorioException ex)")
+            .And.Contain("catch (RegularizacaoLegadaExigeJustificativaException ex)");
+
+        // BR-2.3: registro já atualizado exige updatedAt — omitido/obsoleto vira CONFLITO_VERSAO antes do UPDATE
+        repo.Should().Contain("if(de.LinhaUpdatedAt is not null && versaoAtual is null)throw new ConflitoDeVersaoEducacaoException(recurso,id)")
+            .And.Contain("coalesce(updated_at,created_at)=@VersaoAtual");
+
+        // BR-2.5: relógio único via DI (configurável); repositório avançado sem DateTime.Today próprio
+        repo.Should().Contain("_clock.DataAtual")
+            .And.NotContain("DateTime.Today");
+        clock.Should().Contain("SIGOV_CLOCK_DATAFIXA")
+            .And.Contain("public DateOnly DataAtual => _dataFixa ?? DateOnly.FromDateTime(DateTime.Today);");
+
+        // BR-2.6: filtro de falhas nomeadas herdado na família de controllers — 404 idêntico em qualquer caminho
+        baseController.Should().Contain("[TypeFilter(typeof(EducacaoFalhasNomeadasFiltro))]");
+        filtro.Should().Contain("RecursoNaoDisponivelException")
+            .And.Contain("StatusCode = StatusCodes.Status404NotFound");
     }
 
     [Fact]

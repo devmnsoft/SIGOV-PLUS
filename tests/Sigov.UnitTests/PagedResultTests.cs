@@ -138,10 +138,28 @@ public sealed class PagedResultTests
     }
 
     [Fact]
-    public void Maquina_Origem_Desconhecida_Preserva_Comportamento_Legado()
+    public void Maquina_Origem_Legada_NaoRegularizada_Somente_Regulariza_Para_Familia_Canonica()
     {
         EducacaoStatusMaquina.Grupo("SINCRONIZADO").Should().BeNull();
-        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "AGUARDANDO_SINCRONIZACAO").Should().BeTrue();
+        EducacaoStatusMaquina.GrupoEfetivo("SINCRONIZADO").Should().Be(EducacaoStatusMaquina.LegadoNaoRegularizado);
+        // Ciclo 2 Sprint 2 (BR-2.1): '_ => true' eliminado — origem desconhecida vira LEGADO_NAO_REGULARIZADO
+        // e só regulariza para família canônica (sem salto direto a terminal, sem destino não canônico)
+        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "AGUARDANDO_SINCRONIZACAO").Should().BeFalse();
+        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "ENCERRADA").Should().BeFalse();
+        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "ATIVA").Should().BeTrue();
+        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "RASCUNHO").Should().BeTrue();
+        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "ATRASADO").Should().BeTrue();
+        EducacaoStatusMaquina.TransicaoPermitida("SINCRONIZADO", "SINCRONIZADO").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Efeitos_Transicao_Distribuicao_Terminal_Exige_Compensacao_Antes_De_Gravar()
+    {
+        EducacaoEfeitosTransicao.Matriz.Count.Should().BeGreaterOrEqualTo(5);
+        EducacaoEfeitosTransicao.ExigeCompensacaoAntesDeGravar("educacao_merenda_distribuicao", "CANCELADA").Should().BeTrue();
+        EducacaoEfeitosTransicao.ExigeCompensacaoAntesDeGravar("educacao_merenda_distribuicao", "ENCERRADO").Should().BeTrue();
+        EducacaoEfeitosTransicao.ExigeCompensacaoAntesDeGravar("educacao_merenda_distribuicao", "ATIVA").Should().BeFalse();
+        EducacaoEfeitosTransicao.ExigeCompensacaoAntesDeGravar("educacao_merenda_requisicao", "CANCELADA").Should().BeFalse();
     }
 
     [Fact]

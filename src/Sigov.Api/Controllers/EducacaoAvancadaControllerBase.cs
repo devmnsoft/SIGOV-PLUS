@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Sigov.Api.Contracts;
+using Sigov.Api.Filters;
 using Sigov.Application.Abstractions;
 using Sigov.Application.Educacao.Avancada;
 
 namespace Sigov.Api.Controllers;
 
 [Authorize]
+[TypeFilter(typeof(EducacaoFalhasNomeadasFiltro))]
 public abstract class EducacaoAvancadaControllerBase : ControllerBase
 {
     protected readonly ICurrentTenant Tenant;
@@ -45,6 +48,10 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
             return OkResponse(await operacao());
         }
         catch (TransicaoDeStatusInvalidaException ex)
+        {
+            return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (RegularizacaoLegadaExigeJustificativaException ex)
         {
             return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
         }
@@ -319,6 +326,10 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         catch (RecursoNaoDisponivelException ex)
         {
             return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ComandoTipadoObrigatorioException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
         catch (ArgumentException ex)
         {

@@ -163,18 +163,20 @@ Add-Check 'E3' 'probe.tabela-vazia-prerename' ($r0.code -eq 0 -and $r0.text -eq 
 (Get-Psql "alter table sigov.$tbl rename to c1t2_probe_omitida;") | Out-Null
 $r1 = Invoke-Api -Bearer $tk.token -Method GET -Path "/api/educacao/merenda/requisicoes?pagina=1&tamanho=20" -Base $ApiBase
 $j1 = $null; try { $j1 = $r1.body | ConvertFrom-Json } catch {}
-$diag = [string]$j1.data.diagnostic
-$ok3 = ($r1.code -eq 200 -and $j1.success -eq $true -and
-       (@($j1.data.items).Count -eq 0) -and $diag.Length -gt 10 -and $diag -like '*schema ausente*')
-Add-Check 'E3' 'listar.diagnostic-schema-ausente' $ok3 ("GET /api/educacao/merenda/requisicoes com tabela renomeada -> $($r1.code) items=" + @($j1.data.items).Count + " diagnostic=" + $diag.Substring(0,[Math]::Min(90,$diag.Length)))
+$ok3 = ($r1.code -eq 404) -and ($r1.body -like '*RECURSO_INDISPONIVEL*') -and ($r1.body -like '*schema ausente*')
+Add-Check 'E3' 'listar.diagnostic-schema-ausente-404-uniforme' $ok3 ("GET /api/educacao/merenda/requisicoes com tabela renomeada -> $($r1.code) (C2S2 BR-2.6: era 200+diagnostico, agora 404 RECURSO_INDISPONIVEL nomeada); corpo=" + $r1.body.Substring(0,[Math]::Min(120,$r1.body.Length)))
 Get-Psql "alter table sigov.c1t2_probe_omitida rename to $tbl;" | Out-Null
 $r3 = Get-Psql "select count(*) from sigov.$tbl;"
 Add-Check 'E3' 'probe.tabela-restaurada' ($r3.code -eq 0 -and $r3.text -eq '0') ("rename de volta ok; sigov.$tbl rows depois = $($r3.text)")
 
 # --- E4: alterar status => auditoria de/para/motivo append-only ----------------
 $seedId = Get-Psql "select id from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%' order by id limit 1;"
-$s1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_acervo/$($seedId.text)/status?status=ATIVA&justificativa=c1-t2-ativacao" -Base $ApiBase
-$s2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_acervo/$($seedId.text)/status?status=CANCELADA&justificativa=c1-t2-cancelamento-e2e" -Base $ApiBase
+$up1 = Get-Psql "select coalesce(updated_at,'null')::text from sigov.educacao_biblioteca_acervo where tenant_id=910001 and id=$($seedId.text);"
+$uq1 = if ($up1.text -ne 'null') {'&updatedAt=' + [Uri]::EscapeDataString($up1.text)} else {''}
+$s1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_acervo/$($seedId.text)/status?status=ATIVA&justificativa=c1-t2-ativacao$uq1" -Base $ApiBase
+$up2 = Get-Psql "select coalesce(updated_at,'null')::text from sigov.educacao_biblioteca_acervo where tenant_id=910001 and id=$($seedId.text);"
+$uq2 = if ($up2.text -ne 'null') {'&updatedAt=' + [Uri]::EscapeDataString($up2.text)} else {''}
+$s2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_acervo/$($seedId.text)/status?status=CANCELADA&justificativa=c1-t2-cancelamento-e2e$uq2" -Base $ApiBase
 $row = Get-Psql @"
 select status, justificativa, updated_by, auditoria::text from sigov.educacao_biblioteca_acervo
 where tenant_id=910001 and id=$($seedId.text);
@@ -629,13 +631,15 @@ $outS = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/c
 Add-Check 'E9' 'cardapio.escola-fora-do-escopo-409' (($outS.code -eq 409) -and ($outS.body -like '*ESCOLA_FORA_DO_ESCOPO*')) ("POST cardapios/completo com escola de outra entidade -> $($outS.code) (409 ESCOLA_FORA_DO_ESCOPO; escopo institucional antes do cadastro; regras 11/24)")
 $mact = 0; if ($card9j -and $null -ne $card9j.data) { $mact = [long]$card9j.data }
 $t91 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ATIVA&justificativa=c1-s5-ativa" -Base $ApiBase
-$t92 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ENCERRADA&justificativa=c1-s5-encerra" -Base $ApiBase
+$t92u = Get-Psql "select coalesce(updated_at,'null')::text from sigov.educacao_merenda_cardapio where tenant_id=910001 and id=$mact;"
+$t92q = if ($t92u.text -ne 'null') {'&updatedAt=' + [Uri]::EscapeDataString($t92u.text)} else {''}
+$t92 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ENCERRADA&justificativa=c1-s5-encerra$t92q" -Base $ApiBase
 $t93 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ATIVA&justificativa=c1-s5-reabrir" -Base $ApiBase
 Add-Check 'E9' 'cardapio.maquina-ativa-terminal-e-final' (($t91.code -eq 200) -and ($t92.code -eq 200) -and ($t93.code -eq 409) -and ($t93.body -like '*TRANSICAO_INVALIDA*')) ("maquina S2 aplicada ao cardapio: RASCUNHO->ATIVA $($t91.code) ->ENCERRADA $($t92.code) ->ATIVA $($t93.code) (terminal nao reabre; TRANSICAO_INVALIDA nomeada)")
 
 # --- E10 (Sprint 6): merenda operação — registro de estoque + distribuição com consumo real ---
-# POST /api/educacao/merenda/estoques {produtoId,saldoInicial}: cria a linha de estoque
-# espelhando o produto ou ajusta o saldo da linha existente (falha nomeada se o produto
+# POST /api/educacao/merenda/estoques/lancar {produtoId,operacao,quantidade,motivo?,chaveIdempotencia?}: ABERTURA cria a
+# unica linha de estoque; AJUSTE/ENTRADA somam ao saldo (falha nomeada se o produto
 # não existir/estiver inativo). POST /api/educacao/merenda/distribuicoes/confirmar
 # {cardapioId,data,itens}: cardápio ATIVO dentro do período, itens restritos ao menu,
 # uma distribuição vigente por cardápio × data (índice ux_merenda_distribuicao_tenant_
@@ -657,15 +661,15 @@ $pa = Get-Psql "select id from sigov.educacao_merenda_produto where tenant_id=91
 $pb = Get-Psql "select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-B' order by id desc limit 1;"
 $pc = Get-Psql "select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-C' order by id desc limit 1;"
 Add-Check 'E10' 'produto.criacao-base-s6' (($pApiA.code -eq 200) -and ($pApiB.code -eq 200) -and ($pApiC.code -eq 200) -and ($pa.text -ne '') -and ($pb.text -ne '') -and ($pc.text -ne '')) ("POST /api/educacao/merenda/produtos x3 -> codes $($pApiA.code)/$($pApiB.code)/$($pApiC.code); ids: $($pa.text)/$($pb.text)/$($pc.text); curl-err: $(if($pApiA.err){$pApiA.err}else{'-'})/$(if($pApiB.err){$pApiB.err}else{'-'})/$(if($pApiC.err){$pApiC.err}else{'-'})")
-$estA = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pa.text + ',"saldoInicial":100}')
+$estA = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pa.text + ',"operacao":"ABERTURA","quantidade":100}')
 $erowA = Get-Psql "select round(coalesce(s.saldo,-1))::text||'|'||coalesce(s.nome,'null') from sigov.educacao_merenda_estoque s where s.tenant_id=910001 and s.produto_id=(select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-A') order by s.id desc limit 1;"
-Add-Check 'E10' 'estoque.registro-inicial' (($estA.code -eq 200) -and ($erowA.text -eq '100|Arroz C1S6')) ("POST /api/educacao/merenda/estoques produto A saldoInicial=100 -> $($estA.code); banco saldo|nome: $($erowA.text)")
-$estB1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pb.text + ',"saldoInicial":10}')
-$estB2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pb.text + ',"saldoInicial":5}')
+Add-Check 'E10' 'estoque.abertura-tipada-inicial' (($estA.code -eq 200) -and ($erowA.text -eq '100|Arroz C1S6')) ("POST /api/educacao/merenda/estoques/lancar ABERTURA 100 produto A -> $($estA.code); banco saldo|nome: $($erowA.text) (C2S2 BR-2.2: porta tipada)")
+$estB1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pb.text + ',"operacao":"ABERTURA","quantidade":10}')
+$estB2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pb.text + ',"operacao":"AJUSTE","quantidade":5,"motivo":"c2s2-ajuste-soma"}')
 $erowB = Get-Psql "select round(coalesce(s.saldo,-1))::text from sigov.educacao_merenda_estoque s where s.tenant_id=910001 and s.produto_id=(select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='C1S6-PROD-B') order by s.id desc limit 1;"
-Add-Check 'E10' 'estoque.ajuste-soma-sobre-linha-existente' (($estB1.code -eq 200) -and ($estB2.code -eq 200) -and ($erowB.text -eq '15')) ("POST estoques produto B 10 e depois +5 -> codes $($estB1.code)/$($estB2.code); banco saldo=15 (ajuste soma sobre a linha existente, nao duplica)")
-$estX = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body '{"produtoId":9999999999,"saldoInicial":1}'
-Add-Check 'E10' 'estoque.produto-inexistente-404-nomeada' (($estX.code -eq 404) -and ($estX.body -like '*MERENDA_PRODUTO_INEXISTENTE*')) ("POST /api/educacao/merenda/estoques produto 9999999999 -> $($estX.code) (404 MERENDA_PRODUTO_INEXISTENTE nomeada)")
+Add-Check 'E10' 'estoque.ajuste-soma-sobre-linha-existente' (($estB1.code -eq 200) -and ($estB2.code -eq 200) -and ($erowB.text -eq '15')) ("ABERTURA 10 + AJUSTE +5 (motivo c2s2-ajuste-soma) -> codes $($estB1.code)/$($estB2.code); banco saldo=15 (AJUSTE soma sobre a linha existente, nao duplica)")
+$estX = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body '{"produtoId":9999999999,"operacao":"ABERTURA","quantidade":1}'
+Add-Check 'E10' 'estoque.produto-inexistente-404-nomeada' (($estX.code -eq 404) -and ($estX.body -like '*MERENDA_PRODUTO_INEXISTENTE*')) ("POST /estoques/lancar ABERTURA produto 9999999999 -> $($estX.code) (404 MERENDA_PRODUTO_INEXISTENTE nomeada)")
 $cardS6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/cardapios/completo' -Base $ApiBase -Body ('{"escolaId":' + $s6esc.text + ',"inicio":"2026-11-02","fim":"2026-11-30","produtos":[' + $pa.text + ',' + $pb.text + ']}')
 $cardS6j = $null; try { $cardS6j = $cardS6.body | ConvertFrom-Json } catch {}
 $cs6 = 0; if ($cardS6j -and $null -ne $cardS6j.data) { $cs6 = [long]$cardS6j.data }
@@ -1067,11 +1071,14 @@ $e15ajn = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda
 Add-Check 'E15' 'ajuste.saldo-negativo-rejeitado' (($e15ajn.code -eq 409) -and ($e15ajn.body -like '*SALDO_NEGATIVO_REJEITADO*')) ("AJUSTE -99 -> $($e15ajn.code) $($e15ajn.body)")
 $e15na = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pes.text + ',"operacao":"ENTRADA","quantidade":1}')
 Add-Check 'E15' 'entrada.sem-linha-aberta' (($e15na.code -eq 404) -and ($e15na.body -like '*ESTOQUE_NAO_ABERTO*')) ("ENTRADA sem ABERTURA previa -> $($e15na.code) $($e15na.body)")
-$raceE15 = 1..8 | ForEach-Object { Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $prc.text + ',"saldoInicial":1}') }
+# C2S2 BR-2.2: porta legado /estoques restrita (409 COMANDO_TIPADO_OBRIGATORIO) — a race migra para a porta tipada:
+# 8 ABERTURAS paralelas com chaves distintas => exatamente 1 abertura vitoriosa (demais 409 ESTOQUE_ABERTURA_EXISTENTE)
+$raceE15 = 1..8 | ForEach-Object { Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $prc.text + ',"operacao":"ABERTURA","quantidade":1,"chaveIdempotencia":"C2S2-RACE-' + $_ + '"}') }
 $raceOkE15 = @($raceE15 | Where-Object { $_.code -eq 200 }).Count
 $raceDb = Get-Psql "select count(*)::int||'|'||coalesce(sum(saldo),0)::int from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($prc.text) and is_deleted=false;"
 $raceLinE15 = ($raceDb.text -split '\|')[0]; $raceSalE15 = ($raceDb.text -split '\|')[1]
-Add-Check 'E15' 'registro-legado.race-paralela-uma-linha-soma-certa' (($raceOkE15 -ge 1) -and ($raceLinE15 -eq '1') -and ($raceSalE15 -eq $raceOkE15)) ("8 registros paralelos: OK=$raceOkE15 linhas=$raceLinE15 saldo=$raceSalE15 (colisao converteu para acrescimo, nunca linha duplicada)")
+$raceNokE15 = @($raceE15 | Where-Object { $_.code -eq 409 }).Count
+Add-Check 'E15' 'abertura.race-paralela-abertura-unica' (($raceOkE15 -eq 1) -and ($raceNokE15 -eq 7) -and ($raceLinE15 -eq '1') -and ($raceSalE15 -eq '1')) ("8 ABERTURAS paralelas na porta tipada: OK=$raceOkE15 409s=$raceNokE15 linhas=$raceLinE15 saldo=$raceSalE15 (abertura unica; perdedores 409 ESTOQUE_ABERTURA_EXISTENTE, nunca linha duplicada)")
 $salPa0 = Get-Psql "select round(coalesce(saldo,-1),4)::text from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($pa.text) and is_deleted=false order by id desc limit 1;"
 $e15d1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-13","itens":[{"produtoId":' + $pa.text + ',"quantidade":3}],"chaveIdempotencia":"C2S1-E15-KD1"}')
 $did1 = 0; $jD1 = $null; try { $jD1 = $e15d1.body | ConvertFrom-Json } catch {}; if ($jD1 -and $null -ne $jD1.data) { $did1 = [long]$jD1.data }
@@ -1111,6 +1118,71 @@ Add-Check 'E15' 'estorno.base-inexistente' (($e15emi.code -eq 404) -and ($e15emi
 $recE15 = Get-Psql "select coalesce(e.s,-1)::text||'|'||coalesce(m.s,-1)::text from (select sum(saldo) as s from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($pbn.text) and is_deleted=false) e, (select sum(quantidade) as s from sigov.educacao_merenda_movimento where tenant_id=910001 and produto_id=$($pbn.text) and is_deleted=false) m;"
 $recSalE15 = ($recE15.text -split '\|')[0]; $recSomE15 = ($recE15.text -split '\|')[1]
 Add-Check 'E15' 'conciliacao.movimento-x-saldo-fechados' ($recSalE15 -eq $recSomE15) ("saldo=$recSalE15 = soma dos movimentos=$recSomE15 (lancamentos tipados: movimento+saldo na mesma transacao; conciliacao fechada apos estorno unico)")
+
+# -----------------------------------------------------------------------------
+# E16 (Ciclo 2 Sprint 2): maquina de estados com efeitos declarados (BR-2.1/2.4),
+# fim dos bypasses genericos - comando tipado unico (BR-2.2), versao otimista
+# obrigatoria apos a primeira atualizacao (BR-2.3), relogio operacional unico
+# (BR-2.5) e diagnostico uniforme de schema ausente nos quatro caminhos (BR-2.6).
+# -----------------------------------------------------------------------------
+# ---- BR-2.2: criacao generica restrita => 409 COMANDO_TIPADO_OBRIGATORIO com a rota tipada na mensagem
+$b16mv = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/movimentos' -Base $ApiBase -Body '{"status":"ATIVA","quantidade":5}'
+Add-Check 'E16' 'bypass.movimento-comando-tipado-409' (($b16mv.code -eq 409) -and ($b16mv.body -like '*COMANDO_TIPADO_OBRIGATORIO*') -and ($b16mv.body -like '*estoques/lancar*')) ("POST generico /merenda/movimentos -> $($b16mv.code) (rota tipada na mensagem)")
+$b16dt = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes' -Base $ApiBase -Body '{"status":"RASCUNHO"}'
+Add-Check 'E16' 'bypass.distribuicao-comando-tipado-409' (($b16dt.code -eq 409) -and ($b16dt.body -like '*COMANDO_TIPADO_OBRIGATORIO*') -and ($b16dt.body -like '*distribuicoes/confirmar*')) ("POST generico /merenda/distribuicoes -> $($b16dt.code)")
+$b16st = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $pa.text + ',"saldoInicial":1}')
+Add-Check 'E16' 'bypass.estoque-legado-restrito-409' (($b16st.code -eq 409) -and ($b16st.body -like '*COMANDO_TIPADO_OBRIGATORIO*') -and ($b16st.body -like '*estoques/lancar*')) ("POST legado /merenda/estoques -> $($b16st.code) (porta legado restrita)")
+$b16em = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos' -Base $ApiBase -Body '{"status":"DISPONIVEL"}'
+Add-Check 'E16' 'bypass.emprestimo-comando-tipado-409' (($b16em.code -eq 409) -and ($b16em.body -like '*COMANDO_TIPADO_OBRIGATORIO*') -and ($b16em.body -like '*emprestimos/lancar*')) ("POST generico /biblioteca/emprestimos -> $($b16em.code)")
+$b16rs = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/reservas' -Base $ApiBase -Body '{"status":"ATIVA"}'
+Add-Check 'E16' 'bypass.reserva-comando-tipado-409' (($b16rs.code -eq 409) -and ($b16rs.body -like '*COMANDO_TIPADO_OBRIGATORIO*') -and ($b16rs.body -like '*reservas/lancar*')) ("POST generico /biblioteca/reservas -> $($b16rs.code)")
+$b16ap = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes' -Base $ApiBase -Body '{"status":"ATIVA","valor":1}'
+Add-Check 'E16' 'bypass.fundeb-aplicacao-comando-tipado-409' (($b16ap.code -eq 409) -and ($b16ap.body -like '*COMANDO_TIPADO_OBRIGATORIO*') -and ($b16ap.body -like '*aplicacoes/lancar*')) ("POST generico /fundeb/aplicacoes -> $($b16ap.code)")
+$b16pr = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"C2S2-LIVRE","nome":"Produto C2S2 Livre","tipo":"ALIMENTO","status":"ATIVA"}'
+Add-Check 'E16' 'livre.produto-segue-generico-200' (($b16pr.code -eq 200)) ("POST generico /merenda/produtos -> $($b16pr.code) (recurso livre segue o caminho generico)")
+# ---- BR-2.1: origem desconhecida => LEGADO_NAO_REGULARIZADO (visivel, tratavel, nao silenciosa)
+$lg1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/requisicoes' -Base $ApiBase -Body '{"codigo":"c2s2-leg1","nome":"Requisicao Legada 1","status":"LEGADO_HISTORICO"}'
+$lg1id = Get-Psql "select id from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo='c2s2-leg1' order by id desc limit 1;"
+$lg1ok = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_requisicao/$($lg1id.text)/status?status=ATIVA&justificativa=c2s2-regularizacao-legada" -Base $ApiBase
+$lg1db = Get-Psql "select status from sigov.educacao_merenda_requisicao where tenant_id=910001 and id=$($lg1id.text);"
+Add-Check 'E16' 'legado.regularizacao-para-canonico-200' (($lg1.code -eq 200) -and ($lg1ok.code -eq 200) -and ($lg1db.text -eq 'ATIVA')) ("origem LEGADO_HISTORICO + justificativa -> ATIVA $($lg1ok.code); banco=$($lg1db.text) (estado LEGADO_NAO_REGULARIZADO tratavel)")
+$lg2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/requisicoes' -Base $ApiBase -Body '{"codigo":"c2s2-leg2","nome":"Requisicao Legada 2","status":"LEGADO_HISTORICO"}'
+$lg2id = Get-Psql "select id from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo='c2s2-leg2' order by id desc limit 1;"
+$lg2nao = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_requisicao/$($lg2id.text)/status?status=ATIVA" -Base $ApiBase
+Add-Check 'E16' 'legado.sem-justificativa-409' (($lg2nao.code -eq 409) -and ($lg2nao.body -like '*REGULARIZACAO_LEGADA_EXIGE_JUSTIFICATIVA*')) ("origem legada sem justificativa -> $($lg2nao.code) (transicao nao silenciosa)")
+$lg3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/requisicoes' -Base $ApiBase -Body '{"codigo":"c2s2-leg3","nome":"Requisicao Legada 3","status":"LEGADO_OUTRO"}'
+$lg3id = Get-Psql "select id from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo='c2s2-leg3' order by id desc limit 1;"
+$lg3z = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_requisicao/$($lg3id.text)/status?status=ZULU_DESCONHECIDO&justificativa=x" -Base $ApiBase
+Add-Check 'E16' 'legado.destino-nao-canonical-409' (($lg3z.code -eq 409) -and ($lg3z.body -like '*TRANSICAO_INVALIDA*')) ("origem legada -> destino nao canonical ZULU -> $($lg3z.code) ('_ => true' eliminado)")
+$lg3t = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_requisicao/$($lg3id.text)/status?status=ENCERRADA&justificativa=x" -Base $ApiBase
+Add-Check 'E16' 'legado.salto-direto-terminal-409' (($lg3t.code -eq 409) -and ($lg3t.body -like '*TRANSICAO_INVALIDA*')) ("origem legada -> ENCERRADA direto -> $($lg3t.code) (sem salto direto a terminal)")
+# ---- BR-2.3: registro ja atualizado exige updatedAt (CONFLITO_VERSAO quando omitido ou obsoleto)
+$v1nao = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_requisicao/$($lg1id.text)/status?status=SUSPENSA" -Base $ApiBase
+Add-Check 'E16' 'versao.exigida-apos-primeira-atualizacao-409' (($v1nao.code -eq 409) -and ($v1nao.body -like '*CONFLITO_VERSAO*')) ("segunda transicao sem updatedAt -> $($v1nao.code) (registro ja atualizado exige versao)")
+$lg1u = Get-Psql "select coalesce(updated_at,created_at)::text from sigov.educacao_merenda_requisicao where tenant_id=910001 and id=$($lg1id.text);"
+$v1sim = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/merenda/operacoes/educacao_merenda_requisicao/$($lg1id.text)/status?status=SUSPENSA&updatedAt=" + [Uri]::EscapeDataString($lg1u.text)) -Base $ApiBase
+Add-Check 'E16' 'versao.correta-aceita-200' (($v1sim.code -eq 200)) ("mesma transicao com updatedAt correto -> $($v1sim.code)")
+# ---- BR-2.6: schema ausente => 404 RECURSO_INDISPONIVEL identico em listar/criar/status/dashboard
+$uPre = Get-Psql "select count(*)::int from sigov.educacao_merenda_produto where tenant_id=910001;"
+Get-Psql "alter table sigov.educacao_merenda_produto rename to c1t2_probe_s2;" | Out-Null
+$uList = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/merenda/produtos?pagina=1&tamanho=20' -Base $ApiBase
+$uCria = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"C2S2-PROBE","nome":"Probe Schema","tipo":"ALIMENTO","status":"ATIVA"}'
+$uStat = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_produto/1/status?status=ATIVA&justificativa=probe-schema" -Base $ApiBase
+$uDash = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/merenda/dashboard' -Base $ApiBase
+$m16 = @{}
+foreach ($pv in @(@('List',$uList),@('Cria',$uCria),@('Stat',$uStat),@('Dash',$uDash))) { try { $jj = $pv[1].body | ConvertFrom-Json; $m16[$pv[0]] = [string]$jj.message } catch { $m16[$pv[0]] = 'PARSE_ERR' } }
+$sameMsg = ($m16['List'] -ne 'PARSE_ERR') -and ($m16['List'] -eq $m16['Cria']) -and ($m16['List'] -eq $m16['Stat']) -and ($m16['List'] -eq $m16['Dash'])
+$c404 = 0
+foreach ($pv2 in @($uList,$uCria,$uStat,$uDash)) { if ($pv2.code -eq 404) { $c404++ } }
+Add-Check 'E16' 'schema.uniforme-quatro-caminhos-identicos' (($c404 -eq 4) -and $sameMsg -and ($m16['List'] -like '*RECURSO_INDISPONIVEL*') -and ($m16['List'] -like '*schema ausente*')) ("listar=$($uList.code) criar=$($uCria.code) status=$($uStat.code) dashboard=$($uDash.code); mensagem padrao identica nos 4 caminhos (BR-2.6)")
+Get-Psql "alter table sigov.c1t2_probe_s2 rename to educacao_merenda_produto;" | Out-Null
+$uPos = Get-Psql "select count(*)::int from sigov.educacao_merenda_produto where tenant_id=910001;"
+Add-Check 'E16' 'probe.tabela-restaurada-intacta' (($uPos.text -eq $uPre.text)) ("restore ok; linhas antes=$($uPre.text) depois=$($uPos.text)")
+# ---- BR-2.5: relogio operacional unico (data local do host governa elegibilidade e persistencia)
+$e16prazo = (Get-Date).Date.AddDays(14).ToString('yyyy-MM-dd')
+$e16clk = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/biblioteca/emprestimos/lancar' -Base $ApiBase -Body ('{"exemplarId":' + $e11idB.text + ',"alunoId":' + $e11al.text + ',"prazo":"' + $e16prazo + '"}')
+$e16dbk = Get-Psql "select to_char(data_inicio,'YYYY-MM-DD')||'|'||to_char(competencia,'YYYY-MM-DD') from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id=$($e11idB.text) order by id desc limit 1;"
+Add-Check 'E16' 'tempo.fonte-operacional-host-unico' (($e16clk.code -eq 200) -and ($e16dbk.text -eq ($e11hoje + '|' + $e11hoje))) ("emprestimo exemplar B prazo=" + $e16prazo + " -> $($e16clk.code); data_inicio|competencia=$($e16dbk.text) vs host local=$e11hoje (fonte unica C#; SQL UTC nao governa)")
 
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
@@ -1169,6 +1241,8 @@ with c2s1p as (select id from sigov.educacao_merenda_produto where tenant_id=910
 delete from sigov.educacao_merenda_estoque where produto_id in (select id from c2s1p);
 with c2s1p as (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')
 delete from sigov.educacao_merenda_produto where id in (select id from c2s1p);
+delete from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c2s2-%';
+delete from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C2S2-%';
 delete from sigov.educacao_biblioteca_devolucao where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
 delete from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
 delete from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
@@ -1234,9 +1308,11 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
        + (select count(*) from sigov.educacao_educacenso_inconsistencia where tenant_id=910001)
        + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc')
         + (select count(*) from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')
-        + (select count(*) from sigov.educacao_merenda_estoque where produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')) as restantes;
+        + (select count(*) from sigov.educacao_merenda_estoque where produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%'))
+         + (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c2s2-%')
+         + (select count(*) from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C2S2-%') as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count
