@@ -171,10 +171,10 @@ Add-Check 'E3' 'probe.tabela-restaurada' ($r3.code -eq 0 -and $r3.text -eq '0') 
 
 # --- E4: alterar status => auditoria de/para/motivo append-only ----------------
 $seedId = Get-Psql "select id from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%' order by id limit 1;"
-$up1 = Get-Psql "select coalesce(updated_at,'null')::text from sigov.educacao_biblioteca_acervo where tenant_id=910001 and id=$($seedId.text);"
+$up1 = Get-Psql "select coalesce(updated_at::text,'null') from sigov.educacao_biblioteca_acervo where tenant_id=910001 and id=$($seedId.text);"
 $uq1 = if ($up1.text -ne 'null') {'&updatedAt=' + [Uri]::EscapeDataString($up1.text)} else {''}
 $s1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_acervo/$($seedId.text)/status?status=ATIVA&justificativa=c1-t2-ativacao$uq1" -Base $ApiBase
-$up2 = Get-Psql "select coalesce(updated_at,'null')::text from sigov.educacao_biblioteca_acervo where tenant_id=910001 and id=$($seedId.text);"
+$up2 = Get-Psql "select coalesce(updated_at::text,'null') from sigov.educacao_biblioteca_acervo where tenant_id=910001 and id=$($seedId.text);"
 $uq2 = if ($up2.text -ne 'null') {'&updatedAt=' + [Uri]::EscapeDataString($up2.text)} else {''}
 $s2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/biblioteca/operacoes/educacao_biblioteca_acervo/$($seedId.text)/status?status=CANCELADA&justificativa=c1-t2-cancelamento-e2e$uq2" -Base $ApiBase
 $row = Get-Psql @"
@@ -631,7 +631,7 @@ $outS = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/c
 Add-Check 'E9' 'cardapio.escola-fora-do-escopo-409' (($outS.code -eq 409) -and ($outS.body -like '*ESCOLA_FORA_DO_ESCOPO*')) ("POST cardapios/completo com escola de outra entidade -> $($outS.code) (409 ESCOLA_FORA_DO_ESCOPO; escopo institucional antes do cadastro; regras 11/24)")
 $mact = 0; if ($card9j -and $null -ne $card9j.data) { $mact = [long]$card9j.data }
 $t91 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ATIVA&justificativa=c1-s5-ativa" -Base $ApiBase
-$t92u = Get-Psql "select coalesce(updated_at,'null')::text from sigov.educacao_merenda_cardapio where tenant_id=910001 and id=$mact;"
+$t92u = Get-Psql "select coalesce(updated_at::text,'null') from sigov.educacao_merenda_cardapio where tenant_id=910001 and id=$mact;"
 $t92q = if ($t92u.text -ne 'null') {'&updatedAt=' + [Uri]::EscapeDataString($t92u.text)} else {''}
 $t92 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ENCERRADA&justificativa=c1-s5-encerra$t92q" -Base $ApiBase
 $t93 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_cardapio/$mact/status?status=ATIVA&justificativa=c1-s5-reabrir" -Base $ApiBase
