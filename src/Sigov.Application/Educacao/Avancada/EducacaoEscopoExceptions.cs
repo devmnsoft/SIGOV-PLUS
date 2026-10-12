@@ -207,3 +207,47 @@ public sealed class LoteEducacensoInexistenteException(long LoteId)
 /// <summary>Lote Educacenso não vigente para registro de inconsistência (HTTP 409, código LOTE_EDUCACENSO_NAO_VIGENTE).</summary>
 public sealed class LoteEducacensoNaoVigenteException(long LoteId, string Status)
     : Exception($"LOTE_EDUCACENSO_NAO_VIGENTE: o lote Educacenso {LoteId} está com status {Status}; apenas lotes ATIVOS aceitam registro de inconsistência.");
+
+// Ciclo 2 Sprint 1 (merenda integridade transacional): comandos tipados de estoque/estorno e
+// revalidação de distribuição na mesma transação. Falhas nomeadas explícitas (regra 13);
+// nada municipal hardcoded (regra 24).
+
+/// <summary>Operação de lançamento de estoque fora do domínio ABERTURA/ENTRADA/AJUSTE (HTTP 400, código ESTOQUE_OPERACAO_INVALIDA).</summary>
+public sealed class EstoqueOperacaoInvalidaException(string Operacao)
+    : Exception($"ESTOQUE_OPERACAO_INVALIDA: a operação '{Operacao}' é inválida; use ABERTURA, ENTRADA ou AJUSTE.");
+
+/// <summary>Produto sem linha de estoque aberta para ENTRADA/AJUSTE/ESTORNO (HTTP 404, código ESTOQUE_NAO_ABERTO).</summary>
+public sealed class EstoqueNaoAbertoException(long ProdutoId)
+    : Exception($"ESTOQUE_NAO_ABERTO: o produto {ProdutoId} não possui linha de estoque aberta em sigov.educacao_merenda_estoque para este tenant; registre uma ABERTURA antes de operar entradas, ajustes ou estornos.");
+
+/// <summary>Já existe linha de estoque vigente para o produto no lançamento ABERTURA (HTTP 409, código ESTOQUE_ABERTURA_EXISTENTE; backstop ux_merenda_estoque_tenant_produto).</summary>
+public sealed class EstoqueAberturaExisteException(long ProdutoId)
+    : Exception($"ESTOQUE_ABERTURA_EXISTENTE: o produto {ProdutoId} já possui linha de estoque vigente; use ENTRADA ou AJUSTE para alterar o saldo.");
+
+/// <summary>Saldo resultante negativo em ajuste/estorno (HTTP 409, código SALDO_NEGATIVO_REJEITADO).</summary>
+public sealed class SaldoNegativoRejeitadoException(long ProdutoId, decimal NovoSaldo)
+    : Exception($"SALDO_NEGATIVO_REJEITADO: a operação deixaria o saldo do produto {ProdutoId} em {NovoSaldo:0.####}; ajuste o lançamento ou registre entrada antes.");
+
+/// <summary>Chave de idempotência já usada para conteúdo diferente (HTTP 409, código CHAVE_IDEMPOTENCIA_CONFLITO; backstop ux_merenda_movimento_tenant_chave).</summary>
+public sealed class ChaveIdempotenciaConflitoException(string Chave)
+    : Exception($"CHAVE_IDEMPOTENCIA_CONFLITO: a chave de idempotência '{Chave}' já foi usada para outra operação; reenvie o mesmo conteúdo ou use uma nova chave.");
+
+/// <summary>Estorno sem justificativa (HTTP 400, código ESTORNO_MOTIVO_OBRIGATORIO).</summary>
+public sealed class EstornoMotivoObrigatorioException()
+    : Exception("ESTORNO_MOTIVO_OBRIGATORIO: todo estorno exige justificativa descrevendo o motivo da compensação.");
+
+/// <summary>Movimento base inexistente/inativo para estorno (HTTP 404, código ESTORNO_BASE_INEXISTENTE).</summary>
+public sealed class EstornoBaseInexistenteException(long MovimentoId)
+    : Exception($"ESTORNO_BASE_INEXISTENTE: o movimento {MovimentoId} não existe em sigov.educacao_merenda_movimento para este tenant.");
+
+/// <summary>Tipo de movimento base não estornável (HTTP 409, código ESTORNO_BASE_INVALIDA).</summary>
+public sealed class EstornoBaseInvalidaException(long MovimentoId, string Tipo)
+    : Exception($"ESTORNO_BASE_INVALIDA: o movimento {MovimentoId} tem tipo '{Tipo}'; somente movimentos ENTRADA, SAIDA e AJUSTE podem ser estornados (estorno de estorno é proibido).");
+
+/// <summary>Distribuição com consumo de estoque bloqueada contra cancelamento genérico (HTTP 409, código DISTRIBUICAO_ESTORNO_OBRIGATORIO).</summary>
+public sealed class DistribuicaoEstornoObrigatorioException(long DistribuicaoId)
+    : Exception($"DISTRIBUICAO_ESTORNO_OBRIGATORIO: a distribuição {DistribuicaoId} já consumiu estoque; cancele-a pelo comando tipado de estorno (POST /api/educacao/merenda/distribuicoes/{DistribuicaoId}/estornar) para registrar a compensação do saldo.");
+
+/// <summary>Distribuição sem condição de estorno (estado final sem efeitos nem compensação) (HTTP 409, código DISTRIBUICAO_ESTORNO_INDISPONIVEL).</summary>
+public sealed class DistribuicaoEstornoIndisponivelException(long DistribuicaoId, string StatusAtual)
+    : Exception($"DISTRIBUICAO_ESTORNO_INDISPONIVEL: a distribuição {DistribuicaoId} está com status {StatusAtual} sem consumo registrado para compensar; apenas distribuições ativas ou com efeitos pendentes podem ser estornadas.");

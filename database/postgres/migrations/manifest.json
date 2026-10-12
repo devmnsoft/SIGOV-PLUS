@@ -3038,6 +3038,19 @@
             "20261011180000"
         ],
         "postConditionSql": "select exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_indicador_tenant_codigo') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_indicador_valor_tenant_ref_ano') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_projecao_matricula_tenant_escola_ano') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_educacenso_lote_tenant_ano')"
+    },
+    {
+        "version": "20261012110000",
+        "description": "RC-EVO Ciclo 2 Sprint 1 (merenda integridade transacional): coluna chave_idempotencia em sigov.educacao_merenda_movimento + indice unico parcial ux_merenda_movimento_tenant_chave (reenvio = efeito unico), indice parcial ux_merenda_movimento_tenant_estorno_ref (um estorno por movimento-base x produto; compensacao unica), dedupe idempotente de linhas legadas de estoque (mantem min(id), soma saldos) + indice unico parcial ux_merenda_estoque_tenant_produto (criacao concorrente nunca duplica linha); pos-condicao explicita C2S1-POSTCOND; idempotente; multi-esfera",
+        "category": "functional",
+        "file": "20261012110000_evo_c2s1_merenda_estoque_idempotencia.sql",
+        "checksum": "f57772efa15c370fa693143ef242c1d7ba1df54068b5d2c1060c2668c98b5f8f",
+        "applyAutomatically": true,
+        "includeInBaseline": true,
+        "dependencies": [
+            "20261011190000"
+        ],
+        "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_merenda_movimento' and column_name='chave_idempotencia') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_movimento_tenant_chave') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_movimento_tenant_estorno_ref') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_estoque_tenant_produto')"
     }
   ],
   "compatibilityAfterAll": [

@@ -436,4 +436,42 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011190000_evo_c1s10_indicadores_educacenso_unicidade.sql")
             .And.Contain("indexname='ux_projecao_matricula_tenant_escola_ano'");
     }
+
+    [Fact]
+    public void MerendaEstoque_Ciclo2Sprint1_LancamentoEstornoIdempotencia_EIntegridadeTransacional()
+    {
+        // Ciclo 2 Sprint 1 banco: coluna de idempotência + índices de unicidade de estorno e de
+        // linha de estoque por tenant x produto, com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261012110000_evo_c2s1_merenda_estoque_idempotencia.sql"));
+        migration.Should().Contain("add column if not exists chave_idempotencia text")
+            .And.Contain("create unique index if not exists ux_merenda_movimento_tenant_chave")
+            .And.Contain("create unique index if not exists ux_merenda_movimento_tenant_estorno_ref")
+            .And.Contain("create unique index if not exists ux_merenda_estoque_tenant_produto")
+            .And.Contain("C2S1-POSTCOND");
+
+        // Comandos tipados: lançamento ABERTURA/ENTRADA/AJUSTE com movimento+saldo na mesma
+        // transação, estorno de movimento e de distribuição com compensação única, revalidação
+        // da distribuição dentro da transação e cancelamento genérico bloqueado com efeitos.
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> LancarEstoqueAsync(EducacaoAvancadaContext x,EducacaoMerendaEstoqueLancarRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> EstornarMovimentoAsync(EducacaoAvancadaContext x,long movimentoId,EducacaoMerendaEstornoRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> EstornarDistribuicaoAsync(EducacaoAvancadaContext x,long distribuicaoId,EducacaoMerendaEstornoRequest r,CancellationToken ct)")
+            .And.Contain("throw new DistribuicaoEstornoObrigatorioException(id)")
+            .And.Contain("SqlState is \"23505\"")
+            .And.Contain("for update");
+
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("record EducacaoMerendaEstoqueLancarRequest(long ProdutoId,string Operacao,decimal Quantidade")
+            .And.Contain("record EducacaoMerendaEstornoRequest(string Motivo)")
+            .And.Contain("Task<long> LancarEstoqueAsync(EducacaoAvancadaContext contexto,EducacaoMerendaEstoqueLancarRequest request,CancellationToken ct)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoMerendaController.cs"))
+            .Should().Contain("[HttpPost(\"estoques/lancar\")]")
+            .And.Contain("[HttpPost(\"distribuicoes/{id:long}/estornar\")]")
+            .And.Contain("[HttpPost(\"movimentos/{id:long}/estornar\")]");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre os artefatos.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261012110000_evo_c2s1_merenda_estoque_idempotencia.sql")
+            .And.Contain("indexname='ux_merenda_estoque_tenant_produto'");
+    }
 }

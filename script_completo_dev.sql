@@ -259,7 +259,8 @@ select exists (
         ('20261011160000', array['77a65efa55c1cc68128232df83590e14bcfc98ee5103323cc93a2748a10387f3']::text[]),
         ('20261011170000', array['b1c9c5f0d62d45dc00037b9ff310a397bf4db286b2dab6db51d550983496eda2']::text[]),
         ('20261011180000', array['b39513596b1bae11740a56c829e3d3db2ae5f4d2fdb280dd7e397487ac0b8011']::text[]),
-        ('20261011190000', array['0be3cea7b41b02c35dfafb457c03417843c31b7e3b1ff1b990bdf9d4592dd940']::text[])
+        ('20261011190000', array['0be3cea7b41b02c35dfafb457c03417843c31b7e3b1ff1b990bdf9d4592dd940']::text[]),
+        ('20261012110000', array['f57772efa15c370fa693143ef242c1d7ba1df54068b5d2c1060c2668c98b5f8f']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34699,6 +34700,92 @@ begin
 end $post$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261011190000', 'RC-EVO Ciclo 1 Sprint 10 (educacao/indicadores + educacenso + projecao): indices unicos parciais ux_indicador_tenant_codigo (um indicador vigente por codigo/tenant), ux_indicador_valor_tenant_ref_ano (um valor vigente por indicador x ano x tenant), ux_projecao_matricula_tenant_escola_ano (uma projecao vigente por escola x ano x tenant) e ux_educacenso_lote_tenant_ano (um lote Educacenso vigente por ano x tenant; estados terminais liberam); pos-condicao explicita S10-POSTCOND; backstops transacionais dos comandos tipados de indicador/valor/projecao/lote/inconsistencia; idempotente; multi-esfera', '0be3cea7b41b02c35dfafb457c03417843c31b7e3b1ff1b990bdf9d4592dd940', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261012110000_evo_c2s1_merenda_estoque_idempotencia.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: f57772efa15c370fa693143ef242c1d7ba1df54068b5d2c1060c2668c98b5f8f
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 2 Sprint 1 (merenda integridade transacional): coluna de
+-- idempotencia + backstops de unicidade do estoque/estorno.
+--   (a) educacao_merenda_movimento.chave_idempotencia + indice unico parcial
+--       por tenant — reenvio do mesmo comando tem efeito unico (BR-1.6/1.7).
+--   (b) um estorno por movimento-base x produto (tipo='ESTORNO') — compensacao
+--       unica (BR-1.7/1.8).
+--   (c) dedupe idempotente de linhas legadas de estoque (mantem min(id), soma
+--       os saldos) + indice unico parcial tenant x produto — criaçao
+--       concorrente nunca duplica a linha (BR-1.3).
+-- Idempotente; multi-esfera (regra 24): chaves por tenant, validas para qualquer
+-- esfera/orgao. Pos-condicao explicita (regra 13).
+-- ============================================================================
+
+alter table sigov.educacao_merenda_movimento add column if not exists chave_idempotencia text;
+
+create unique index if not exists ux_merenda_movimento_tenant_chave
+    on sigov.educacao_merenda_movimento (tenant_id, chave_idempotencia)
+    where chave_idempotencia is not null
+      and is_deleted = false;
+
+create unique index if not exists ux_merenda_movimento_tenant_estorno_ref
+    on sigov.educacao_merenda_movimento (tenant_id, referencia_id, produto_id)
+    where tipo = 'ESTORNO'
+      and referencia_id is not null
+      and produto_id is not null
+      and is_deleted = false;
+
+with rankes as (
+    select e.id,
+           row_number() over (partition by e.tenant_id, e.produto_id order by e.id) as rn,
+           sum(coalesce(e.saldo, 0)) over (partition by e.tenant_id, e.produto_id) as soma
+    from sigov.educacao_merenda_estoque e
+    where e.is_deleted = false
+)
+update sigov.educacao_merenda_estoque set saldo = d.soma, updated_at = now()
+from rankes d
+where sigov.educacao_merenda_estoque.id = d.id
+  and d.rn = 1
+  and coalesce(d.soma, 0) <> coalesce(sigov.educacao_merenda_estoque.saldo, 0);
+
+with rankes as (
+    select e.id,
+           row_number() over (partition by e.tenant_id, e.produto_id order by e.id) as rn
+    from sigov.educacao_merenda_estoque e
+    where e.is_deleted = false
+)
+update sigov.educacao_merenda_estoque set is_deleted = true, updated_at = now()
+from rankes d
+where sigov.educacao_merenda_estoque.id = d.id
+  and d.rn > 1;
+
+create unique index if not exists ux_merenda_estoque_tenant_produto
+    on sigov.educacao_merenda_estoque (tenant_id, produto_id)
+    where produto_id is not null
+      and is_deleted = false;
+
+-- Pos-condicao explicita (regra 13): sem os artefatos, falha nomeada.
+do $post$
+begin
+    if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_merenda_movimento' and column_name='chave_idempotencia') then
+        raise exception 'C2S1-POSTCOND: coluna chave_idempotencia ausente em sigov.educacao_merenda_movimento';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_movimento_tenant_chave') then
+        raise exception 'C2S1-POSTCOND: indice ux_merenda_movimento_tenant_chave ausente';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_movimento_tenant_estorno_ref') then
+        raise exception 'C2S1-POSTCOND: indice ux_merenda_movimento_tenant_estorno_ref ausente';
+    end if;
+    if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_estoque_tenant_produto') then
+        raise exception 'C2S1-POSTCOND: indice ux_merenda_estoque_tenant_produto ausente';
+    end if;
+end $post$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261012110000', 'RC-EVO Ciclo 2 Sprint 1 (merenda integridade transacional): coluna chave_idempotencia em sigov.educacao_merenda_movimento + indice unico parcial ux_merenda_movimento_tenant_chave (reenvio = efeito unico), indice parcial ux_merenda_movimento_tenant_estorno_ref (um estorno por movimento-base x produto; compensacao unica), dedupe idempotente de linhas legadas de estoque (mantem min(id), soma saldos) + indice unico parcial ux_merenda_estoque_tenant_produto (criacao concorrente nunca duplica linha); pos-condicao explicita C2S1-POSTCOND; idempotente; multi-esfera', 'f57772efa15c370fa693143ef242c1d7ba1df54068b5d2c1060c2668c98b5f8f', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

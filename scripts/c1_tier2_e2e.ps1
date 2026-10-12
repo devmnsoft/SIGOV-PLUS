@@ -1030,6 +1030,88 @@ $e14rc = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/operaco
 $e14rl = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/lotes/lancar' -Base $ApiBase -Body '{"ano":2026}'
 Add-Check 'E14' 'maquina.lote-cancelada-libera-o-ano' (($e14rc.code -eq 200) -and ($e14rl.code -eq 200)) ("lote 2026 CANCELADA via maquina de estados S2 -> $($e14rc.code); novo lote 2026 apos o cancelamento -> $($e14rl.code) (estado terminal liberou a unicidade parcial do indice)")
 
+# -----------------------------------------------------------------------------
+# E15 (Sprint 1 · Ciclo 2 · Merenda integridade transacional): lancamentos
+# tipados ABERTURA/ENTRADA/AJUSTE (movimento+saldo na mesma transacao, uma linha
+# de saldo por tenant x produto), chave de idempotencia (reenvio = efeito unico,
+# conteudo divergente = CONFLITO), estorno de movimento/distribuicao com
+# compensacao unica, cancelamento generico bloqueado quando ha efeitos, race
+# legado -> uma linha, conciliacao movimento x saldo no encerramento.
+# -----------------------------------------------------------------------------
+function Get-E15Data([object]$Resp){ $j = $null; try { $j = $Resp.body | ConvertFrom-Json } catch {}; if ($j -and $null -ne $j.data) { return $j.data }; return 0 }
+$e15p1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"c2s1-nolinha","nome":"Fixture C2S1 SemLinha","tipo":"ALIMENTO","status":"ATIVA"}'
+$e15p2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"c2s1-semestoque","nome":"Fixture C2S1 SemEstoque","tipo":"ALIMENTO","status":"ATIVA"}'
+$e15p3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/produtos' -Base $ApiBase -Body '{"codigo":"c2s1-race","nome":"Fixture C2S1 Race","tipo":"ALIMENTO","status":"ATIVA"}'
+$pbn = Get-Psql "select coalesce(max(id),-1)::text from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='c2s1-nolinha';"
+$pes = Get-Psql "select coalesce(max(id),-1)::text from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='c2s1-semestoque';"
+$prc = Get-Psql "select coalesce(max(id),-1)::text from sigov.educacao_merenda_produto where tenant_id=910001 and codigo='c2s1-race';"
+Add-Check 'E15' 'produto.fixture-criado' (($e15p1.code -eq 200) -and ($e15p2.code -eq 200) -and ($e15p3.code -eq 200) -and ($pbn.text -ne '-1')) ("POST produtos x3 c2s1-* -> $($e15p1.code)/$($e15p2.code)/$($e15p3.code); ids $($pbn.text)/$($pes.text)/$($prc.text)")
+$e15ab = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"ABERTURA","quantidade":5}')
+Add-Check 'E15' 'lancamento.abertura' ($e15ab.code -eq 200) ("lancamento ABERTURA 5 -> $($e15ab.code) $($e15ab.body)")
+$e15ab2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"ABERTURA","quantidade":5}')
+Add-Check 'E15' 'lancamento.abertura-duplicada-rejeitada' (($e15ab2.code -eq 409) -and ($e15ab2.body -like '*ESTOQUE_ABERTURA_EXISTENTE*')) ("segunda ABERTURA -> $($e15ab2.code) $($e15ab2.body)")
+$e15en = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"ENTRADA","quantidade":10,"chaveIdempotencia":"C2S1-E15-K2"}')
+$idEn = Get-E15Data $e15en
+Add-Check 'E15' 'lancamento.entrada-com-chave' (($e15en.code -eq 200) -and ($idEn -ne 0)) ("ENTRADA 10 chave K2 -> $($e15en.code) mov=$idEn")
+$e15enr = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"ENTRADA","quantidade":10,"chaveIdempotencia":"C2S1-E15-K2"}')
+$idEnr = Get-E15Data $e15enr
+Add-Check 'E15' 'lancamento.reenvio-mesma-chave-efeito-unico' (($e15enr.code -eq 200) -and ($idEn -ne 0) -and ($idEnr -eq $idEn)) ("reenvio mesma chave/conteudo -> $($e15enr.code) id=$idEnr (esperado igual a $idEn; sem novo lancamento)")
+$e15ecx = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"ENTRADA","quantidade":20,"chaveIdempotencia":"C2S1-E15-K2"}')
+Add-Check 'E15' 'lancamento.chave-conteudo-diferente-conflicto' (($e15ecx.code -eq 409) -and ($e15ecx.body -like '*CHAVE_IDEMPOTENCIA_CONFLITO*')) ("mesma chave conteudo diferente -> $($e15ecx.code) $($e15ecx.body)")
+$e15aj0 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"AJUSTE","quantidade":-3}')
+Add-Check 'E15' 'ajuste.sem-motivo-rejeitado' (($e15aj0.code -eq 400) -and ($e15aj0.body -like '*ESTORNO_MOTIVO_OBRIGATORIO*')) ("AJUSTE sem motivo -> $($e15aj0.code) $($e15aj0.body)")
+$e15aj = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"AJUSTE","quantidade":-3,"motivo":"Ajuste de inventario fixture C2S1"}')
+$idAj = Get-E15Data $e15aj
+Add-Check 'E15' 'ajuste.com-motivo' (($e15aj.code -eq 200) -and ($idAj -ne 0)) ("AJUSTE -3 com motivo -> $($e15aj.code) mov=$idAj")
+$e15ajn = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pbn.text + ',"operacao":"AJUSTE","quantidade":-99,"motivo":"Sobreponto de teste C2S1"}')
+Add-Check 'E15' 'ajuste.saldo-negativo-rejeitado' (($e15ajn.code -eq 409) -and ($e15ajn.body -like '*SALDO_NEGATIVO_REJEITADO*')) ("AJUSTE -99 -> $($e15ajn.code) $($e15ajn.body)")
+$e15na = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques/lancar' -Base $ApiBase -Body ('{"produtoId":' + $pes.text + ',"operacao":"ENTRADA","quantidade":1}')
+Add-Check 'E15' 'entrada.sem-linha-aberta' (($e15na.code -eq 404) -and ($e15na.body -like '*ESTOQUE_NAO_ABERTO*')) ("ENTRADA sem ABERTURA previa -> $($e15na.code) $($e15na.body)")
+$raceE15 = 1..8 | ForEach-Object { Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/estoques' -Base $ApiBase -Body ('{"produtoId":' + $prc.text + ',"saldoInicial":1}') }
+$raceOkE15 = @($raceE15 | Where-Object { $_.code -eq 200 }).Count
+$raceDb = Get-Psql "select count(*)::int||'|'||coalesce(sum(saldo),0)::int from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($prc.text) and is_deleted=false;"
+$raceLinE15 = ($raceDb.text -split '\|')[0]; $raceSalE15 = ($raceDb.text -split '\|')[1]
+Add-Check 'E15' 'registro-legado.race-paralela-uma-linha-soma-certa' (($raceOkE15 -ge 1) -and ($raceLinE15 -eq '1') -and ($raceSalE15 -eq $raceOkE15)) ("8 registros paralelos: OK=$raceOkE15 linhas=$raceLinE15 saldo=$raceSalE15 (colisao converteu para acrescimo, nunca linha duplicada)")
+$salPa0 = Get-Psql "select round(coalesce(saldo,-1),4)::text from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($pa.text) and is_deleted=false order by id desc limit 1;"
+$e15d1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-13","itens":[{"produtoId":' + $pa.text + ',"quantidade":3}],"chaveIdempotencia":"C2S1-E15-KD1"}')
+$did1 = 0; $jD1 = $null; try { $jD1 = $e15d1.body | ConvertFrom-Json } catch {}; if ($jD1 -and $null -ne $jD1.data) { $did1 = [long]$jD1.data }
+Add-Check 'E15' 'distribuicao.com-chave' ($e15d1.code -eq 200) ("distribuicao A:3 em 2026-11-13 chave KD1 -> $($e15d1.code) dist=$did1 (saldo antes: $($salPa0.text))")
+$e15d1r = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-13","itens":[{"produtoId":' + $pa.text + ',"quantidade":3}],"chaveIdempotencia":"C2S1-E15-KD1"}')
+$did1r = 0; $jD1r = $null; try { $jD1r = $e15d1r.body | ConvertFrom-Json } catch {}; if ($jD1r -and $null -ne $jD1r.data) { $did1r = [long]$jD1r.data }
+$baixaD1 = Get-Psql "select count(*)::int from sigov.educacao_merenda_movimento where tenant_id=910001 and referencia_id=$did1 and tipo='SAIDA' and is_deleted=false;"
+Add-Check 'E15' 'distribuicao.reenvio-mesma-chave-efeito-unico' (($e15d1r.code -eq 200) -and ($did1r -eq $did1) -and ($baixaD1.text -eq '1')) ("reenvio mesma chave/conteudo -> $($e15d1r.code) id=$did1r (esperado $did1); baixas_SAIDA=$($baixaD1.text) (sem dupla baixa)")
+$e15est1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/distribuicoes/$did1/estornar" -Base $ApiBase -Body '{"motivo":"Estorno fixture C2S1 (devoluicao da merenda)"}'
+$salPa1 = Get-Psql "select round(coalesce(saldo,-1),4)::text from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($pa.text) and is_deleted=false order by id desc limit 1;"
+$stD1 = Get-Psql "select status from sigov.educacao_merenda_distribuicao where tenant_id=910001 and id=$did1;"
+$estCnt1 = Get-Psql "select count(*)::int from sigov.educacao_merenda_movimento where tenant_id=910001 and referencia_id=$did1 and tipo='ESTORNO' and is_deleted=false;"
+Add-Check 'E15' 'estorno.distribuicao-restaura-saldo-e-cancela' (($e15est1.code -eq 200) -and ($salPa1.text -eq $salPa0.text) -and ($stD1.text -ceq 'CANCELADA') -and ($estCnt1.text -eq '1')) ("estorno distribuicao -> $($e15est1.code); saldo restaurado=$($salPa1.text) (esperado $($salPa0.text)); status=$($stD1.text); estornos=$($estCnt1.text) (esperado 1; documento/itens preservados)")
+$e15est1r = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/distribuicoes/$did1/estornar" -Base $ApiBase -Body '{"motivo":"Estorno fixture C2S1 (devoluicao da merenda)"}'
+$salPa2 = Get-Psql "select round(coalesce(saldo,-1),4)::text from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($pa.text) and is_deleted=false order by id desc limit 1;"
+$estCnt1b = Get-Psql "select count(*)::int from sigov.educacao_merenda_movimento where tenant_id=910001 and referencia_id=$did1 and tipo='ESTORNO' and is_deleted=false;"
+Add-Check 'E15' 'estorno.distribuicao-repetido-efeito-unico' (($e15est1r.code -eq 200) -and ($estCnt1b.text -eq '1') -and ($salPa2.text -eq $salPa0.text)) ("estorno repetido -> $($e15est1r.code); estornos=$($estCnt1b.text) saldo=$($salPa2.text) (compensacao unica, sem reestouro)")
+$e15d2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/distribuicoes/confirmar' -Base $ApiBase -Body ('{"cardapioId":' + $cs6 + ',"data":"2026-11-14","itens":[{"produtoId":' + $pa.text + ',"quantidade":1}]}')
+$did2 = 0; $jD2 = $null; try { $jD2 = $e15d2.body | ConvertFrom-Json } catch {}; if ($jD2 -and $null -ne $jD2.data) { $did2 = [long]$jD2.data }
+Add-Check 'E15' 'distribuicao.sem-chave' ($e15d2.code -eq 200) ("distribuicao A:1 em 2026-11-14 sem chave -> $($e15d2.code) dist=$did2")
+$e15canc = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/operacoes/educacao_merenda_distribuicao/$did2/status?status=CANCELADA&justificativa=c2s1-cancelamento-generico" -Base $ApiBase
+Add-Check 'E15' 'cancelamento-generico.com-efeito-bloqueado' (($e15canc.code -eq 409) -and ($e15canc.body -like '*DISTRIBUICAO_ESTORNO_OBRIGATORIO*')) ("cancelamento generico CANCELADA com baixa de estoque -> $($e15canc.code) $($e15canc.body)")
+$e15est2 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/distribuicoes/$did2/estornar" -Base $ApiBase -Body '{"motivo":"Estorno fixture C2S1 (dia seguinte)"}'
+$idEst2 = Get-E15Data $e15est2
+Add-Check 'E15' 'estorno.distribuicao.apos-bloqueio-generico' (($e15est2.code -eq 200) -and ($idEst2 -ne 0)) ("estorno tipado apos bloqueio do generico -> $($e15est2.code) id=$idEst2")
+$movAbE15 = Get-Psql "select min(id)::text from sigov.educacao_merenda_movimento where tenant_id=910001 and produto_id=$($pbn.text) and tipo='ENTRADA' and is_deleted=false;"
+$e15em = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/movimentos/$($movAbE15.text)/estornar" -Base $ApiBase -Body '{"motivo":"Estorno fixture C2S1 (abertura)"}'
+$estMovId = 0; $jEm = $null; try { $jEm = $e15em.body | ConvertFrom-Json } catch {}; if ($jEm -and $null -ne $jEm.data) { $estMovId = [long]$jEm.data }
+Add-Check 'E15' 'estorno.movimento-compensacao' ($e15em.code -eq 200) ("estorno do movimento de abertura -> $($e15em.code) estorno=$estMovId")
+$e15emr = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/movimentos/$($movAbE15.text)/estornar" -Base $ApiBase -Body '{"motivo":"Estorno fixture C2S1 (abertura)"}'
+$estMovIdR = 0; $jEmr = $null; try { $jEmr = $e15emr.body | ConvertFrom-Json } catch {}; if ($jEmr -and $null -ne $jEmr.data) { $estMovIdR = [long]$jEmr.data }
+Add-Check 'E15' 'estorno.movimento-repetido-mesmo-id' (($e15emr.code -eq 200) -and ($estMovId -ne 0) -and ($estMovIdR -eq $estMovId)) ("estorno repetido -> $($e15emr.code) id=$estMovIdR (esperado $estMovId; compensacao unica)")
+$e15eme = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/merenda/movimentos/$estMovId/estornar" -Base $ApiBase -Body '{"motivo":"Estorno de estorno C2S1"}'
+Add-Check 'E15' 'estorno.de-estorno-bloqueado' (($e15eme.code -eq 409) -and ($e15eme.body -like '*ESTORNO_BASE_INVALIDA*')) ("estorno do estorno -> $($e15eme.code) $($e15eme.body)")
+$e15emi = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/movimentos/99999999/estornar' -Base $ApiBase -Body '{"motivo":"Base inexistente C2S1"}'
+Add-Check 'E15' 'estorno.base-inexistente' (($e15emi.code -eq 404) -and ($e15emi.body -like '*ESTORNO_BASE_INEXISTENTE*')) ("estorno de movimento inexistente -> $($e15emi.code) $($e15emi.body)")
+$recE15 = Get-Psql "select coalesce(e.s,-1)::text||'|'||coalesce(m.s,-1)::text from (select sum(saldo) as s from sigov.educacao_merenda_estoque where tenant_id=910001 and produto_id=$($pbn.text) and is_deleted=false) e, (select sum(quantidade) as s from sigov.educacao_merenda_movimento where tenant_id=910001 and produto_id=$($pbn.text) and is_deleted=false) m;"
+$recSalE15 = ($recE15.text -split '\|')[0]; $recSomE15 = ($recE15.text -split '\|')[1]
+Add-Check 'E15' 'conciliacao.movimento-x-saldo-fechados' ($recSalE15 -eq $recSomE15) ("saldo=$recSalE15 = soma dos movimentos=$recSomE15 (lancamentos tipados: movimento+saldo na mesma transacao; conciliacao fechada apos estorno unico)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -1081,6 +1163,12 @@ delete from sigov.educacao_merenda_cardapio_item where referencia_id in (select 
 delete from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%');
 delete from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C1S6-%';
 delete from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s6-%';
+with c2s1p as (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')
+delete from sigov.educacao_merenda_movimento where produto_id in (select id from c2s1p);
+with c2s1p as (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')
+delete from sigov.educacao_merenda_estoque where produto_id in (select id from c2s1p);
+with c2s1p as (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')
+delete from sigov.educacao_merenda_produto where id in (select id from c2s1p);
 delete from sigov.educacao_biblioteca_devolucao where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
 delete from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
 delete from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
@@ -1144,7 +1232,9 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
        + (select count(*) from sigov.educacao_projecao_matricula where tenant_id=910001)
        + (select count(*) from sigov.educacao_educacenso_lote where tenant_id=910001)
        + (select count(*) from sigov.educacao_educacenso_inconsistencia where tenant_id=910001)
-       + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc') as restantes;
+       + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc')
+        + (select count(*) from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')
+        + (select count(*) from sigov.educacao_merenda_estoque where produto_id in (select id from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'c2s1-%')) as restantes;
 "@
 Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 

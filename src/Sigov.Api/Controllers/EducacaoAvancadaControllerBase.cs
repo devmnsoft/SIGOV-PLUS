@@ -52,6 +52,10 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (DistribuicaoEstornoObrigatorioException ex)
+        {
+            return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ContextoInstitucionalDivergenteException ex)
         {
             return Conflict(ApiResponse<bool>.Fail(ex.Message, GetCorrelationId()));
@@ -271,6 +275,50 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         catch (LoteEducacensoNaoVigenteException ex)
         {
             return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EstoqueOperacaoInvalidaException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EstoqueNaoAbertoException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EstoqueAberturaExisteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (SaldoNegativoRejeitadoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ChaveIdempotenciaConflitoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EstornoMotivoObrigatorioException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EstornoBaseInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EstornoBaseInvalidaException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (DistribuicaoEstornoIndisponivelException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (RegistroNaoEncontradoException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (RecursoNaoDisponivelException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
         catch (ArgumentException ex)
         {

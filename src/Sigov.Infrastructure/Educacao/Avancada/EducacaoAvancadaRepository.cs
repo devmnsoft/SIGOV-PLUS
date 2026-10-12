@@ -46,71 +46,269 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
    await tx.CommitAsync(ct).ConfigureAwait(false);
    return cid;
  }
- // Sprint 6 (merenda operação): registro de estoque por produto — upsert do saldo
- // (sem linha cria; com linha adiciona o ajuste). Produto deve existir e estar ativo.
- // Falha nomeada (regra 13); multi-esfera (regra 24).
+ // Ciclo 2 Sprint 1 (merenda integridade transacional): registro legado de estoque preserva a
+ // semântica de soma (sem linha cria; com linha acrescenta) agora transacional — linha de
+ // saldo e movimento na MESMA transação, lock da linha baixada (for update), n==1 em toda
+ // gravação e retry único quando a criação concorrente colide no backstop
+ // ux_merenda_estoque_tenant_produto (23505 → refaz como acréscimo sobre a linha criada).
+ // Produto inexistente/inativo falha nomeado (regra 13). Multi-esfera (regra 24).
  public async Task<long> RegistrarEstoqueAsync(EducacaoAvancadaContext x,EducacaoMerendaRegistrarEstoqueRequest r,CancellationToken ct){
    if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_estoque",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_estoque");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_movimento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_movimento");
    if(r is null)throw new ArgumentException("Registro de estoque é obrigatório.");
    if(r.ProdutoId<=0)throw new ArgumentException("Registro de estoque exige produto.");
-   var ok=await _context.CreateConnection().ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_produto where tenant_id=@TenantId and id=@Id and ativo and not is_deleted)",new{TenantId=x.TenantId,Id=r.ProdutoId},cancellationToken:ct)).ConfigureAwait(false);
-   if(!ok)throw new MerendaProdutoInexistenteException(r.ProdutoId);
    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
-   var existente=await _context.CreateConnection().ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(min(id),0) from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@Id and is_deleted=false",new{TenantId=x.TenantId,Id=r.ProdutoId},cancellationToken:ct)).ConfigureAwait(false);
-   if(existente>0)return await _context.CreateConnection().ExecuteScalarAsync<long>(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)+@Delta,updated_at=now() where id=@Id returning id",new{Delta=r.SaldoInicial,Id=existente},cancellationToken:ct)).ConfigureAwait(false);
-   return await _context.CreateConnection().ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.educacao_merenda_estoque(tenant_id,entidade_id,produto_id,nome,unidade,saldo,saldo_minimo,status,dados,auditoria,correlation_id,created_by)
-select @TenantId,@EntidadeId,p.id,p.nome,p.unidade,@SaldoInicial,0,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','REGISTRAR_ESTOQUE','em',now())),@CorrelationId,@UsuarioId
-from sigov.educacao_merenda_produto p where p.tenant_id=@TenantId and p.id=@Id and p.ativo and not p.is_deleted
-returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,SaldoInicial=r.SaldoInicial,CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+   for(var tentativa=0;tentativa<2;tentativa++){
+     using var c=(NpgsqlConnection)_context.CreateConnection();
+     await c.OpenAsync(ct).ConfigureAwait(false);
+     await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+     try{
+       var ok=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_produto where tenant_id=@TenantId and id=@Id and ativo and not is_deleted)",new{TenantId=x.TenantId,Id=r.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+       if(!ok)throw new MerendaProdutoInexistenteException(r.ProdutoId);
+       var est=await c.QueryFirstOrDefaultAsync<(long Id,decimal Saldo)>(new CommandDefinition("select id as Id,coalesce(saldo,0) as Saldo from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@Id and is_deleted=false order by id limit 1 for update",new{TenantId=x.TenantId,Id=r.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+       long resultado;
+       if(est.Id>0){
+         var n=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)+@Delta,updated_at=now(),updated_by=@UsuarioId where id=@Id",new{Delta=r.SaldoInicial,UsuarioId=x.UsuarioId,Id=est.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+         if(n!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",est.Id);
+         var nm=await GravarMovimentoEstoqueAsync(c,tx,x,r.ProdutoId,r.SaldoInicial>=0?"ENTRADA":"AJUSTE",r.SaldoInicial,corr,ct).ConfigureAwait(false);
+         if(nm!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_movimento",r.ProdutoId);
+         resultado=est.Id;
+       }else{
+         resultado=await c.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.educacao_merenda_estoque(tenant_id,entidade_id,produto_id,nome,unidade,saldo,saldo_minimo,status,dados,auditoria,correlation_id,created_by)
+ select @TenantId,@EntidadeId,p.id,p.nome,p.unidade,@SaldoInicial,coalesce(p.saldo_minimo,0),'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','REGISTRAR_ESTOQUE','em',now())),@CorrelationId,@UsuarioId
+ from sigov.educacao_merenda_produto p where p.tenant_id=@TenantId and p.id=@Id and p.ativo and not p.is_deleted
+ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,SaldoInicial=r.SaldoInicial,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+         if(resultado<=0)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",r.ProdutoId);
+         var nm=await GravarMovimentoEstoqueAsync(c,tx,x,r.ProdutoId,"ENTRADA",r.SaldoInicial,corr,ct).ConfigureAwait(false);
+         if(nm!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_movimento",r.ProdutoId);
+       }
+       await tx.CommitAsync(ct).ConfigureAwait(false);
+       return resultado;
+     }catch(NpgsqlException pg) when(pg.SqlState is "23505"){
+       await tx.RollbackAsync(ct).ConfigureAwait(false);
+       if(tentativa==0)continue; // abertura concorrente ganhou a corrida — refaz somando sobre a linha criada
+       throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",r.ProdutoId);
+     }
+   }
+   throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",r.ProdutoId);
  }
- // Sprint 6 (merenda operação): distribuição de refeição — cardápio ATIVO dentro do
- // período, itens restritos ao menu, estoque suficiente (lock por produto em ordem
- // determinística para evitar deadlock), distribuição + itens + movimentos de saída
- // + baixa de saldo numérica na mesma transação. Backstop no índice
- // ux_merenda_distribuicao_tenant_cardapio_data. Falhas nomeadas (regra 13).
+ static Task<int> GravarMovimentoEstoqueAsync(NpgsqlConnection c,NpgsqlTransaction tx,EducacaoAvancadaContext x,long produtoId,string tipo,decimal qtd,Guid corr,CancellationToken ct)=>c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_merenda_movimento(tenant_id,entidade_id,produto_id,tipo,quantidade,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@ProdutoId,@Tipo,@Qtd,current_date,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','REGISTRAR_ESTOQUE','em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,ProdutoId=produtoId,Tipo=tipo,Qtd=qtd,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct));
+ // Ciclo 2 Sprint 1 (merenda integridade): lançamento tipado ABERTURA/ENTRADA/AJUSTE —
+ // movimento e saldo gravados na MESMA transação com lock da linha; ABERTURA só sem linha
+ // vigente (backstop ux_merenda_estoque_tenant_produto); AJUSTE exige justificativa e saldo
+ // nunca fica negativo; ChaveIdempotencia torna o reenvio efeito único (retorna o id do
+ // movimento original) e conteúdo divergente responde CHAVE_IDEMPOTENCIA_CONFLITO (regra 13).
+ public async Task<long> LancarEstoqueAsync(EducacaoAvancadaContext x,EducacaoMerendaEstoqueLancarRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_estoque",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_estoque");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_movimento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_movimento");
+   if(r is null)throw new ArgumentException("Lançamento de estoque é obrigatório.");
+   if(r.ProdutoId<=0)throw new ArgumentException("Lançamento de estoque exige produto.");
+   var op=r.Operacao?.Trim().ToUpperInvariant();
+   if(op is not ("ABERTURA" or "ENTRADA" or "AJUSTE"))throw new EstoqueOperacaoInvalidaException(r.Operacao ?? "VAZIA");
+   if(op!="AJUSTE"&&r.Quantidade<=0)throw new ArgumentException("Quantidade deve ser maior que zero para ABERTURA e ENTRADA.");
+   if(op=="AJUSTE"&&r.Quantidade==0)throw new ArgumentException("Ajuste exige quantidade diferente de zero.");
+   if(op=="AJUSTE"&&string.IsNullOrWhiteSpace(r.Motivo))throw new EstornoMotivoObrigatorioException();
+   var chave=string.IsNullOrWhiteSpace(r.ChaveIdempotencia)?null:r.ChaveIdempotencia.Trim();
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var ok=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_produto where tenant_id=@TenantId and id=@Id and ativo and not is_deleted)",new{TenantId=x.TenantId,Id=r.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(!ok)throw new MerendaProdutoInexistenteException(r.ProdutoId);
+   var tipoMov=op=="ABERTURA"?"ENTRADA":op;
+   if(chave is not null){
+     var anterior=await c.QueryFirstOrDefaultAsync<(long Id,long Produto,string Tipo,decimal Qtd)>(new CommandDefinition("select m.id as Id,m.produto_id as Produto,m.tipo as Tipo,coalesce(m.quantidade,0) as Qtd from sigov.educacao_merenda_movimento m where m.tenant_id=@TenantId and m.chave_idempotencia=@Chave and m.is_deleted=false order by m.id limit 1",new{TenantId=x.TenantId,Chave=chave},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(anterior.Id>0){
+       if(anterior.Produto!=r.ProdutoId||anterior.Tipo!=tipoMov||anterior.Qtd!=r.Quantidade)throw new ChaveIdempotenciaConflitoException(chave);
+       return anterior.Id; // reenvio → efeito único
+     }
+   }
+   var est=await c.QueryFirstOrDefaultAsync<(long Id,decimal Saldo)>(new CommandDefinition("select id as Id,coalesce(saldo,0) as Saldo from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@Id and is_deleted=false order by id limit 1 for update",new{TenantId=x.TenantId,Id=r.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   long estoqueId;
+   if(op=="ABERTURA"){
+     if(est.Id>0)throw new EstoqueAberturaExisteException(r.ProdutoId);
+     try{
+       estoqueId=await c.ExecuteScalarAsync<long>(new CommandDefinition(@"insert into sigov.educacao_merenda_estoque(tenant_id,entidade_id,produto_id,nome,unidade,saldo,saldo_minimo,status,dados,auditoria,correlation_id,created_by)
+ select @TenantId,@EntidadeId,p.id,p.nome,p.unidade,@Qtd,coalesce(p.saldo_minimo,0),'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','ESTOQUE_ABERTURA','em',now())),@CorrelationId,@UsuarioId
+ from sigov.educacao_merenda_produto p where p.tenant_id=@TenantId and p.id=@Id and p.ativo and not p.is_deleted
+ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,Qtd=r.Quantidade,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+       if(estoqueId<=0)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",r.ProdutoId);
+     }catch(NpgsqlException pg) when(pg.SqlState is "23505"){
+       throw new EstoqueAberturaExisteException(r.ProdutoId); // abertura concorrente — unicidade garantida pelo índice
+     }
+   }else{
+     if(est.Id==0)throw new EstoqueNaoAbertoException(r.ProdutoId);
+     var novoSaldo=est.Saldo+r.Quantidade;
+     if(novoSaldo<0m)throw new SaldoNegativoRejeitadoException(r.ProdutoId,novoSaldo);
+     var n=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)+@Delta,updated_at=now(),updated_by=@UsuarioId where id=@Id",new{Delta=r.Quantidade,UsuarioId=x.UsuarioId,Id=est.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(n!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",est.Id);
+     estoqueId=est.Id;
+   }
+   var dados=JsonSerializer.Serialize(new Dictionary<string,object?>{{"operacao",op},{"lote",r.Lote},{"validade",r.Validade?.ToString("yyyy-MM-dd")},{"origem",r.Origem},{"motivo",op=="AJUSTE"?r.Motivo?.Trim():null}});
+   var movId=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_merenda_movimento(tenant_id,entidade_id,referencia_id,produto_id,tipo,quantidade,competencia,status,dados,auditoria,correlation_id,created_by,chave_idempotencia) values(@TenantId,@EntidadeId,@EstoqueId,@ProdutoId,@Tipo,@Qtd,current_date,'ATIVA',@Dados::jsonb,jsonb_build_array(jsonb_build_object('acao','LANCAR_ESTOQUE','operacao',@Op,'em',now())),@CorrelationId,@UsuarioId,@Chave) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EstoqueId=estoqueId,ProdutoId=r.ProdutoId,Tipo=tipoMov,Qtd=r.Quantidade,Dados=dados,Op=op,CorrelationId=corr,UsuarioId=x.UsuarioId,Chave=chave},tx,cancellationToken:ct)).ConfigureAwait(false);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return movId;
+ }
+ // Ciclo 2 Sprint 1 (merenda integridade): distribuição de refeição com revalidação DENTRO da
+ // transação — cardápio travado com for update (status/período/escopo), dia livre com
+ // reenvio idempotente por chaveIdempotencia (mesma chave + mesmo conteúdo retorna o id
+ // original sem nova baixa; conteúdo divergente → CHAVE_IDEMPOTENCIA_CONFLITO; dia ocupado →
+ // DISTRIBUICAO_DIA_EXISTENTE), lock e baixa na MESMA linha de saldo (única por tenant ×
+ // produto) com n==1 verificado em itens e movimentos. Backstop no índice
+ // ux_merenda_distribuicao_tenant_cardapio_data. Falhas nomeadas (regra 13); multi-esfera (regra 24).
  public async Task<long> DistribuirRefeicaoAsync(EducacaoAvancadaContext x,EducacaoMerendaDistribuirRefeicaoRequest r,CancellationToken ct){
    if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_distribuicao",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_distribuicao");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_distribuicao_item",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_distribuicao_item");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_estoque",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_estoque");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_movimento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_movimento");
    if(r is null)throw new ArgumentException("Distribuição é obrigatória.");
    if(r.CardapioId<=0)throw new ArgumentException("Distribuição exige cardápio.");
    if(r.Itens is null||r.Itens.Count==0)throw new ArgumentException("Distribuição exige ao menos um item.");
    var itens=new List<EducacaoMerendaDistribuirItemRequest>();
    var vistos=new HashSet<long>();
    foreach(var it in r.Itens){if(it is null||it.ProdutoId<=0)throw new ArgumentException("Item inválido na distribuição.");if(it.Quantidade<=0)throw new ArgumentException("Quantidade do item deve ser maior que zero.");if(!vistos.Add(it.ProdutoId))throw new ArgumentException("Produto repetido na distribuição.");itens.Add(it);}
+   var chave=string.IsNullOrWhiteSpace(r.ChaveIdempotencia)?null:r.ChaveIdempotencia.Trim();
+   var corr=Guid.TryParse(x.CorrelationId,out var g2)?g2:Guid.NewGuid();
    using var c=(NpgsqlConnection)_context.CreateConnection();
    await c.OpenAsync(ct).ConfigureAwait(false);
-   var card=await c.QueryFirstOrDefaultAsync<EducacaoCardapioLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,status as Status,data_inicio as Inicio,data_fim as Fim from sigov.educacao_merenda_cardapio where tenant_id=@TenantId and id=@Id and is_deleted=false",new{TenantId=x.TenantId,Id=r.CardapioId},cancellationToken:ct)).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var card=await c.QueryFirstOrDefaultAsync<EducacaoCardapioLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,status as Status,data_inicio as Inicio,data_fim as Fim from sigov.educacao_merenda_cardapio where tenant_id=@TenantId and id=@Id and is_deleted=false for update",new{TenantId=x.TenantId,Id=r.CardapioId},tx,cancellationToken:ct)).ConfigureAwait(false);
    if(card is null||card.Id==0)throw new DistribuicaoCardapioInexistenteException(r.CardapioId);
    if(x.EntidadeId.HasValue&&card.EntidadeId.HasValue&&card.EntidadeId.Value!=x.EntidadeId.Value)throw new CardapioForaDoEscopoException(r.CardapioId,card.EntidadeId.Value,x.EntidadeId.Value);
    if(card.Status is not ("ATIVA" or "ATIVO"))throw new CardapioNaoAprovadoException(r.CardapioId,card.Status ?? "INDEFINIDO");
    var ini=card.Inicio;var fim=card.Fim;
    if(ini==null||fim==null)throw new DataForaDoPeriodoException(r.CardapioId,r.Data,r.Data,r.Data);
    if(r.Data<ini||r.Data>fim)throw new DataForaDoPeriodoException(r.CardapioId,r.Data,ini.Value,fim.Value);
-   var noMenu=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(distinct u.p) from unnest(@Ids) as u(p) where exists(select 1 from sigov.educacao_merenda_cardapio_item i where i.referencia_id=@CardapioId and i.produto_id=u.p and i.is_deleted=false)",new{Ids=itens.Select(i=>i.ProdutoId).ToArray(),CardapioId=r.CardapioId},cancellationToken:ct)).ConfigureAwait(false);
+   var noMenu=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(distinct u.p) from unnest(@Ids) as u(p) where exists(select 1 from sigov.educacao_merenda_cardapio_item i where i.referencia_id=@CardapioId and i.produto_id=u.p and i.is_deleted=false)",new{Ids=itens.Select(i=>i.ProdutoId).ToArray(),CardapioId=r.CardapioId},tx,cancellationToken:ct)).ConfigureAwait(false);
    if(noMenu!=itens.Count){
      long fora=0;
      foreach(var it in itens){
-       var m=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_cardapio_item i where i.referencia_id=@CardapioId and i.produto_id=@P and i.is_deleted=false)",new{CardapioId=r.CardapioId,P=it.ProdutoId},cancellationToken:ct)).ConfigureAwait(false);
+       var m=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_cardapio_item i where i.referencia_id=@CardapioId and i.produto_id=@P and i.is_deleted=false)",new{CardapioId=r.CardapioId,P=it.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
        if(!m){fora=it.ProdutoId;break;}
      }
      throw new ProdutoForaDoMenuException(fora,r.CardapioId);
    }
-   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
-   var diaOcupado=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_distribuicao where tenant_id=@TenantId and referencia_id=@CardapioId and competencia=@Data and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,CardapioId=r.CardapioId,Data=r.Data},tx,cancellationToken:ct)).ConfigureAwait(false);
-   if(diaOcupado)throw new DistribuicaoDiaExistenteException(r.CardapioId,r.Data);
-   var corr=Guid.TryParse(x.CorrelationId,out var g2)?g2:Guid.NewGuid();
+   if(chave is not null){
+     var porChave=await c.QueryFirstOrDefaultAsync<(long Id,long Cardapio,DateOnly Data,string Status)>(new CommandDefinition("select d.id as Id,d.referencia_id as Cardapio,d.competencia as Data,d.status as Status from sigov.educacao_merenda_distribuicao d where d.tenant_id=@TenantId and d.dados->>'chaveIdempotencia'=@Chave and d.is_deleted=false order by d.id desc limit 1",new{TenantId=x.TenantId,Chave=chave},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(porChave.Id>0&&porChave.Status is not ("CANCELADA" or "CANCELADO" or "ENCERRADA" or "ENCERRADO")){
+       if(porChave.Cardapio==r.CardapioId&&porChave.Data==r.Data&&await MesmosItensDistribuicaoAsync(c,tx,porChave.Id,itens,ct).ConfigureAwait(false))return porChave.Id;
+       throw new ChaveIdempotenciaConflitoException(chave);
+     }
+   }
+   var ocupante=await c.QueryFirstOrDefaultAsync<(long Id,string Chave)>(new CommandDefinition("select d.id as Id,coalesce(d.dados->>'chaveIdempotencia','') as Chave from sigov.educacao_merenda_distribuicao d where d.tenant_id=@TenantId and d.referencia_id=@CardapioId and d.competencia=@Data and d.is_deleted=false and d.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') for update",new{TenantId=x.TenantId,CardapioId=r.CardapioId,Data=r.Data},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(ocupante.Id>0){
+     if(chave is not null&&string.Equals(ocupante.Chave,chave,StringComparison.Ordinal)&&await MesmosItensDistribuicaoAsync(c,tx,ocupante.Id,itens,ct).ConfigureAwait(false))return ocupante.Id;
+     throw new DistribuicaoDiaExistenteException(r.CardapioId,r.Data);
+   }
+   var travados=new Dictionary<long,(long Id,decimal Saldo)>();
    foreach(var it in itens.OrderBy(i=>i.ProdutoId)){
-     var est=await c.QueryFirstOrDefaultAsync<(long Id,decimal Saldo)>(new CommandDefinition("select id,coalesce(saldo,0) from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@P and is_deleted=false order by id limit 1 for update",new{TenantId=x.TenantId,P=it.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     var est=await c.QueryFirstOrDefaultAsync<(long Id,decimal Saldo)>(new CommandDefinition("select id as Id,coalesce(saldo,0) as Saldo from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@P and is_deleted=false order by id limit 1 for update",new{TenantId=x.TenantId,P=it.ProdutoId},tx,cancellationToken:ct)).ConfigureAwait(false);
      var disponivel=est.Id>0?est.Saldo:0m;
      if(disponivel<it.Quantidade)throw new EstoqueInsuficienteException(it.ProdutoId,disponivel,it.Quantidade);
+     if(est.Id>0)travados[it.ProdutoId]=est;
    }
-   var did=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_merenda_distribuicao(tenant_id,entidade_id,escola_id,referencia_id,competencia,tipo,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@CardapioId,@Data,'REFEICAO','ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','DISTRIBUIR_REFEICAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=card.EscolaId,CardapioId=r.CardapioId,Data=r.Data,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   long did;
+   try{
+     did=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_merenda_distribuicao(tenant_id,entidade_id,escola_id,referencia_id,competencia,tipo,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@CardapioId,@Data,'REFEICAO','ATIVA',@Dados::jsonb,jsonb_build_array(jsonb_build_object('acao','DISTRIBUIR_REFEICAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=card.EscolaId,CardapioId=r.CardapioId,Data=r.Data,Dados=JsonSerializer.Serialize(chave is null?new Dictionary<string,object?>():new Dictionary<string,object?>{{"chaveIdempotencia",chave}}),CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   }catch(NpgsqlException pg) when(pg.SqlState is "23505"){
+     throw new DistribuicaoDiaExistenteException(r.CardapioId,r.Data); // inserção concorrente ganhou o dia
+   }
    foreach(var it in itens){
-     await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_merenda_distribuicao_item(tenant_id,entidade_id,escola_id,referencia_id,produto_id,nome,unidade,quantidade,competencia,status,dados,auditoria,correlation_id,created_by) select @TenantId,@EntidadeId,@EscolaId,@DistribuidaoId,p.id,p.nome,p.unidade,@Qtd,@Data,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','DISTRIBUIR_REFEICAO','em',now())),@CorrelationId,@UsuarioId from sigov.educacao_merenda_produto p where p.tenant_id=@TenantId and p.id=@Id and p.ativo and not p.is_deleted",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=card.EscolaId,DistribuidaoId=did,Id=it.ProdutoId,Qtd=it.Quantidade,Data=r.Data,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
-     await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_merenda_movimento(tenant_id,entidade_id,referencia_id,produto_id,tipo,quantidade,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@DistribuidaoId,@Id,'SAIDA',-@Qtd,@Data,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','BAIXA_DISTRIBUICAO','em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,DistribuidaoId=did,Id=it.ProdutoId,Qtd=it.Quantidade,Data=r.Data,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
-     await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)-@Qtd,updated_at=now() where tenant_id=@TenantId and produto_id=@Id and is_deleted=false",new{TenantId=x.TenantId,Id=it.ProdutoId,Qtd=it.Quantidade},tx,cancellationToken:ct)).ConfigureAwait(false);
+     var nItem=await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_merenda_distribuicao_item(tenant_id,entidade_id,escola_id,referencia_id,produto_id,nome,unidade,quantidade,competencia,status,dados,auditoria,correlation_id,created_by) select @TenantId,@EntidadeId,@EscolaId,@DistribuidaoId,p.id,p.nome,p.unidade,@Qtd,@Data,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','DISTRIBUIR_REFEICAO','em',now())),@CorrelationId,@UsuarioId from sigov.educacao_merenda_produto p where p.tenant_id=@TenantId and p.id=@Id and p.ativo and not p.is_deleted",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=card.EscolaId,DistribuidaoId=did,Id=it.ProdutoId,Qtd=it.Quantidade,Data=r.Data,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(nItem!=1)throw new MerendaProdutoInexistenteException(it.ProdutoId);
+     var nMov=await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_merenda_movimento(tenant_id,entidade_id,referencia_id,produto_id,tipo,quantidade,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@DistribuidaoId,@Id,'SAIDA',-@Qtd,@Data,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','BAIXA_DISTRIBUICAO','em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,DistribuidaoId=did,Id=it.ProdutoId,Qtd=it.Quantidade,Data=r.Data,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(nMov!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_movimento",did);
+     if(travados.TryGetValue(it.ProdutoId,out var travado)){
+       var nBaixa=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)-@Qtd,updated_at=now() where id=@Id",new{Qtd=it.Quantidade,Id=travado.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+       if(nBaixa!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",travado.Id);
+     }
    }
    await tx.CommitAsync(ct).ConfigureAwait(false);
    return did;
+ }
+ static async Task<bool> MesmosItensDistribuicaoAsync(NpgsqlConnection c,NpgsqlTransaction tx,long distribuicaoId,IReadOnlyCollection<EducacaoMerendaDistribuirItemRequest> itens,CancellationToken ct){
+   var atuais=(await c.QueryAsync<(long P,decimal Q)>(new CommandDefinition("select produto_id as P,coalesce(quantidade,0) as Q from sigov.educacao_merenda_distribuicao_item where referencia_id=@Id and is_deleted=false order by produto_id",new{Id=distribuicaoId},tx,cancellationToken:ct)).ConfigureAwait(false)).ToList();
+   if(atuais.Count!=itens.Count)return false;
+   foreach(var it in itens.OrderBy(i=>i.ProdutoId)){
+     if(!atuais.Contains((it.ProdutoId,it.Quantidade)))return false;
+   }
+   return true;
+ }
+ // Ciclo 2 Sprint 1 (merenda integridade): estorno de movimento de estoque — compensação única
+ // por base (backstop ux_merenda_movimento_tenant_estorno_ref), justificativa obrigatória, saldo
+ // nunca negativo; reenvio retorna o id do estorno já registrado (efeito único). Movimento de
+ // saída de distribuição já compensado pelo estorno da distribuição não pode ser estornado
+ // individualmente (compensação dupla). Falhas nomeadas (regra 13); multi-esfera (regra 24).
+ public async Task<long> EstornarMovimentoAsync(EducacaoAvancadaContext x,long movimentoId,EducacaoMerendaEstornoRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_movimento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_movimento");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_estoque",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_estoque");
+   if(r is null||string.IsNullOrWhiteSpace(r.Motivo))throw new EstornoMotivoObrigatorioException();
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var baseMov=await c.QueryFirstOrDefaultAsync<(long Id,long Entidade,long Produto,long Referencia,string Tipo,decimal Qtd)>(new CommandDefinition("select m.id as Id,coalesce(m.entidade_id,-1) as Entidade,m.produto_id as Produto,coalesce(m.referencia_id,0) as Referencia,m.tipo as Tipo,coalesce(m.quantidade,0) as Qtd from sigov.educacao_merenda_movimento m where m.tenant_id=@TenantId and m.id=@Id and m.is_deleted=false",new{TenantId=x.TenantId,Id=movimentoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(baseMov.Id==0)throw new EstornoBaseInexistenteException(movimentoId);
+   if(baseMov.Tipo is not ("ENTRADA" or "SAIDA" or "AJUSTE"))throw new EstornoBaseInvalidaException(movimentoId,baseMov.Tipo ?? "VAZIO");
+   if(baseMov.Entidade>=0&&x.EntidadeId.HasValue&&baseMov.Entidade!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_merenda_movimento",movimentoId,baseMov.Entidade,x.EntidadeId.Value);
+   if(baseMov.Referencia>0&&baseMov.Tipo=="SAIDA"){
+     var compensadaPelaDistribuicao=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_movimento e where e.tenant_id=@TenantId and e.referencia_id=@Ref and e.produto_id=@Produto and e.tipo='ESTORNO' and e.is_deleted=false)",new{TenantId=x.TenantId,Ref=baseMov.Referencia,Produto=baseMov.Produto},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(compensadaPelaDistribuicao)throw new EstornoBaseInvalidaException(movimentoId,"SAIDA_JA_COMPENSADA_POR_ESTORNO_DE_DISTRIBUICAO");
+   }
+   var existente=await c.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(min(id),0) from sigov.educacao_merenda_movimento where tenant_id=@TenantId and referencia_id=@BaseId and produto_id=@Produto and tipo='ESTORNO' and is_deleted=false",new{TenantId=x.TenantId,BaseId=movimentoId,Produto=baseMov.Produto},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(existente>0)return existente; // reenvio → efeito único
+   var est=await c.QueryFirstOrDefaultAsync<(long Id,decimal Saldo)>(new CommandDefinition("select id as Id,coalesce(saldo,0) as Saldo from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@Id and is_deleted=false order by id limit 1 for update",new{TenantId=x.TenantId,Id=baseMov.Produto},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(est.Id==0)throw new EstoqueNaoAbertoException(baseMov.Produto);
+   var delta=-baseMov.Qtd;
+   var novoSaldo=est.Saldo+delta;
+   if(novoSaldo<0m)throw new SaldoNegativoRejeitadoException(baseMov.Produto,novoSaldo);
+   var n=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)+@Delta,updated_at=now(),updated_by=@UsuarioId where id=@Id",new{Delta=delta,UsuarioId=x.UsuarioId,Id=est.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(n!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",est.Id);
+   var estornoId=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_merenda_movimento(tenant_id,entidade_id,referencia_id,produto_id,tipo,quantidade,competencia,justificativa,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@BaseId,@Produto,'ESTORNO',@Qtd,current_date,@Motivo,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','ESTORNAR_MOVIMENTO','base',@BaseId,'motivo',@Motivo,'em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,BaseId=movimentoId,Produto=baseMov.Produto,Qtd=delta,Motivo=r.Motivo.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return estornoId;
+ }
+ // Ciclo 2 Sprint 1 (merenda integridade): estorno de distribuição — restaura o saldo de cada
+ // item consumido (lock da linha + n==1), grava um movimento ESTORNO por item com justificativa
+ // e marca a distribuição CANCELADA preservando documento, itens e auditoria (append-only);
+ // reenvio tem efeito único (retorna o id da distribuição); itens já compensados via estorno de
+ // movimento não são compensados de novo. Falhas nomeadas (regra 13); multi-esfera (regra 24).
+ public async Task<long> EstornarDistribuicaoAsync(EducacaoAvancadaContext x,long distribuicaoId,EducacaoMerendaEstornoRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_distribuicao",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_distribuicao");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_movimento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_movimento");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_merenda_estoque",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_merenda_estoque");
+   if(r is null||string.IsNullOrWhiteSpace(r.Motivo))throw new EstornoMotivoObrigatorioException();
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var dist=await c.QueryFirstOrDefaultAsync<(long Id,long Entidade,string Status)>(new CommandDefinition("select d.id as Id,coalesce(d.entidade_id,-1) as Entidade,d.status as Status from sigov.educacao_merenda_distribuicao d where d.tenant_id=@TenantId and d.id=@Id and d.is_deleted=false for update",new{TenantId=x.TenantId,Id=distribuicaoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(dist.Id==0)throw new RegistroNaoEncontradoException("educacao_merenda_distribuicao",distribuicaoId);
+   if(dist.Entidade>=0&&x.EntidadeId.HasValue&&dist.Entidade!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_merenda_distribuicao",distribuicaoId,dist.Entidade,x.EntidadeId.Value);
+   var compensacoesVinculadas=await c.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(count(1),0) from sigov.educacao_merenda_movimento where tenant_id=@TenantId and referencia_id=@Id and tipo='ESTORNO' and is_deleted=false",new{TenantId=x.TenantId,Id=distribuicaoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(compensacoesVinculadas>0)return distribuicaoId; // reenvio → efeito único
+   var bases=(await c.QueryAsync<(long Produto,long MovId,decimal Qtd)>(new CommandDefinition("select m.produto_id as Produto,m.id as MovId,coalesce(m.quantidade,0) as Qtd from sigov.educacao_merenda_movimento m where m.tenant_id=@TenantId and m.referencia_id=@Id and m.tipo='SAIDA' and m.is_deleted=false order by m.produto_id",new{TenantId=x.TenantId,Id=distribuicaoId},tx,cancellationToken:ct)).ConfigureAwait(false)).ToList();
+   var efeitosCompensados=0;
+   foreach(var b in bases){
+     var jaCompensado=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_movimento e where e.tenant_id=@TenantId and e.referencia_id=@MovId and e.tipo='ESTORNO' and e.is_deleted=false)",new{TenantId=x.TenantId,MovId=b.MovId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(jaCompensado)continue;
+     var est=await c.QueryFirstOrDefaultAsync<(long Id,decimal Saldo)>(new CommandDefinition("select id as Id,coalesce(saldo,0) as Saldo from sigov.educacao_merenda_estoque where tenant_id=@TenantId and produto_id=@Id and is_deleted=false order by id limit 1 for update",new{TenantId=x.TenantId,Id=b.Produto},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(est.Id==0)throw new EstoqueNaoAbertoException(b.Produto);
+     var delta=-b.Qtd;
+     var novoSaldo=est.Saldo+delta;
+     if(novoSaldo<0m)throw new SaldoNegativoRejeitadoException(b.Produto,novoSaldo);
+     var n=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_estoque set saldo=coalesce(saldo,0)+@Delta,updated_at=now(),updated_by=@UsuarioId where id=@Id",new{Delta=delta,UsuarioId=x.UsuarioId,Id=est.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(n!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_estoque",est.Id);
+     var nm=await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_merenda_movimento(tenant_id,entidade_id,referencia_id,produto_id,tipo,quantidade,competencia,justificativa,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@DistribuidaoId,@Produto,'ESTORNO',@Qtd,current_date,@Motivo,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','ESTORNAR_DISTRIBUICAO','base_movimento',@MovId,'motivo',@Motivo,'em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,DistribuidaoId=distribuicaoId,Produto=b.Produto,Qtd=delta,Motivo=r.Motivo.Trim(),MovId=b.MovId,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(nm!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_movimento",distribuicaoId);
+     efeitosCompensados++;
+   }
+   var ativa=dist.Status is ("ATIVA" or "ATIVO");
+   if(!ativa&&efeitosCompensados==0&&bases.Count==0)throw new DistribuicaoEstornoIndisponivelException(distribuicaoId,dist.Status ?? "INDEFINIDO");
+   var nu=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_merenda_distribuicao set status='CANCELADA',justificativa=@Justificativa,updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria when 'object' then case when auditoria='{}'::jsonb then '[]'::jsonb else jsonb_build_array(auditoria) end else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','ESTORNAR_DISTRIBUICAO','motivo',@Justificativa,'em',now())) where tenant_id=@TenantId and id=@Id and is_deleted=false",new{Justificativa=r.Motivo.Trim(),UsuarioId=x.UsuarioId,CorrelationId=corr,TenantId=x.TenantId,Id=distribuicaoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(nu!=1)throw new ConflitoDeVersaoEducacaoException("educacao_merenda_distribuicao",distribuicaoId);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return distribuicaoId;
  }
 // Sprint 7 (biblioteca circulação): empréstimo, devolução e reserva com
 // unicidade de vigência por exemplar (backstop nos índices parciais da
@@ -521,7 +719,7 @@ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,Sal
     var m=await c.QueryFirstAsync<EducacaoEducacensoMetricasLinha>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
     return new EducacaoEducacensoDashboardDto(m.LotesAtivos,m.InconsistenciasAbertas,m.GravidadeAlta,m.Eventos);
   }
- public async Task<bool> AlterarStatusAsync(EducacaoAvancadaContext x,string recurso,long id,string status,string? justificativa,CancellationToken ct,DateTime? versaoAtual=null){recurso=Recurso(recurso);if(string.IsNullOrWhiteSpace(status))throw new ArgumentException("Status é obrigatório.");var alvo=status.Trim().ToUpperInvariant();if ((alvo is "CANCELADA" or "CANCELADO") && string.IsNullOrWhiteSpace(justificativa))throw new ArgumentException("Cancelamento exige justificativa.");if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso);using var c=_context.CreateConnection();var de=await c.QueryFirstOrDefaultAsync<(string? Status,long LinhaEntidade)>(new CommandDefinition($"select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false",new{x.TenantId,Id=id},cancellationToken:ct));if(de.Status is null)throw new RegistroNaoEncontradoException(recurso,id);if(de.LinhaEntidade>=0 && x.EntidadeId.HasValue && x.EntidadeId.Value!=de.LinhaEntidade)throw new ContextoInstitucionalDivergenteException(recurso,id,de.LinhaEntidade,x.EntidadeId.Value);var linhaDe=de.Status;if(!EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo))throw new TransicaoDeStatusInvalidaException(linhaDe,alvo);var n=await c.ExecuteAsync(new CommandDefinition($"update sigov.{recurso} set status=@Status,justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria when 'object' then case when auditoria='{{}}'::jsonb then '[]'::jsonb else jsonb_build_array(auditoria) end else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo',coalesce(@Justificativa,justificativa),'em',now())) where tenant_id=@TenantId and id=@Id and is_deleted=false and (@VersaoAtual::timestamptz is null or coalesce(updated_at,created_at)=@VersaoAtual)",new{x.TenantId,Id=id,Status=alvo,De=linhaDe,Justificativa=justificativa,x.UsuarioId,CorrelationId=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid(),VersaoAtual=versaoAtual},cancellationToken:ct));if(n==0)throw new ConflitoDeVersaoEducacaoException(recurso,id);return true;}
+ public async Task<bool> AlterarStatusAsync(EducacaoAvancadaContext x,string recurso,long id,string status,string? justificativa,CancellationToken ct,DateTime? versaoAtual=null){recurso=Recurso(recurso);if(string.IsNullOrWhiteSpace(status))throw new ArgumentException("Status é obrigatório.");var alvo=status.Trim().ToUpperInvariant();if ((alvo is "CANCELADA" or "CANCELADO") && string.IsNullOrWhiteSpace(justificativa))throw new ArgumentException("Cancelamento exige justificativa.");if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso);using var c=_context.CreateConnection();var de=await c.QueryFirstOrDefaultAsync<(string? Status,long LinhaEntidade)>(new CommandDefinition($"select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false",new{x.TenantId,Id=id},cancellationToken:ct));if(de.Status is null)throw new RegistroNaoEncontradoException(recurso,id);if(de.LinhaEntidade>=0 && x.EntidadeId.HasValue && x.EntidadeId.Value!=de.LinhaEntidade)throw new ContextoInstitucionalDivergenteException(recurso,id,de.LinhaEntidade,x.EntidadeId.Value);var linhaDe=de.Status;if(!EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo))throw new TransicaoDeStatusInvalidaException(linhaDe,alvo);if(recurso=="educacao_merenda_distribuicao"&&alvo is ("CANCELADA" or "CANCELADO" or "ENCERRADA" or "ENCERRADO")){var comEfeito=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_merenda_movimento where tenant_id=@TenantId and referencia_id=@Id and is_deleted=false)",new{TenantId=x.TenantId,Id=id},cancellationToken:ct)).ConfigureAwait(false);if(comEfeito)throw new DistribuicaoEstornoObrigatorioException(id);}var n=await c.ExecuteAsync(new CommandDefinition($"update sigov.{recurso} set status=@Status,justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria when 'object' then case when auditoria='{{}}'::jsonb then '[]'::jsonb else jsonb_build_array(auditoria) end else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo',coalesce(@Justificativa,justificativa),'em',now())) where tenant_id=@TenantId and id=@Id and is_deleted=false and (@VersaoAtual::timestamptz is null or coalesce(updated_at,created_at)=@VersaoAtual)",new{x.TenantId,Id=id,Status=alvo,De=linhaDe,Justificativa=justificativa,x.UsuarioId,CorrelationId=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid(),VersaoAtual=versaoAtual},cancellationToken:ct));if(n==0)throw new ConflitoDeVersaoEducacaoException(recurso,id);return true;}
  public async Task<EducacaoAvancadaDashboardDto> DashboardAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return new EducacaoAvancadaDashboardDto(0,0,0,0,Array.Empty<EducacaoAvancadaRegistroDto>());using var c=_context.CreateConnection();var sql=$"select count(1) as total,count(1) filter (where status in ('ATIVA','ATIVO','PUBLICADO','DISPONIVEL','ABERTO')) as ativos,count(1) filter (where status in ('RASCUNHO','PROGRAMADA','SOLICITADA')) as pendentes,count(1) filter (where status in ('ATRASADO','SUSPENSA','COM_INCONSISTENCIA')) as alertas from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false;select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id desc limit 6;";using var m=await c.QueryMultipleAsync(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct));var tot=await m.ReadFirstAsync<EducacaoTotais>();var recentes=(await m.ReadAsync<EducacaoAvancadaRegistroDto>()).ToList();return new(tot.Total,tot.Ativos,tot.Pendentes,tot.Alertas,recentes);}
  public async Task<byte[]> ExportarCsvAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes("id;codigo;nome;tipo;status;valor\n")).ToArray();using var c=_context.CreateConnection();var sql=$"select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id";var r=(await c.QueryAsync<EducacaoAvancadaRegistroDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct))).ToList();var b=new StringBuilder("id;codigo;nome;tipo;status;valor\n");foreach(var x in r){b.Append(x.Id).Append(';').Append(EducacaoCsv.Campo(x.Codigo)).Append(';').Append(EducacaoCsv.Campo(x.Nome)).Append(';').Append(EducacaoCsv.Campo(x.Tipo)).Append(';').Append(EducacaoCsv.Campo(x.Status)).Append(';').Append(x.Valor?.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');}return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(b.ToString())).ToArray();}
  async Task ValidarEscopoInstitucionalAsync(long tenantId,long? entidadeId,long? escolaId,int? anoLetivo,CancellationToken ct){
