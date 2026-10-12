@@ -12,12 +12,13 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
 {
   private sealed record EducacaoTotais(long Total,long Ativos,long Pendentes,long Alertas);
   private sealed class EducacaoCardapioLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public long? EscolaId{get;set;} public string? Status{get;set;} public DateOnly? Inicio{get;set;} public DateOnly? Fim{get;set;}}
- static readonly HashSet<string> Recursos=new(StringComparer.Ordinal){"educacao_transporte_rota","educacao_transporte_rota_ponto","educacao_transporte_veiculo","educacao_transporte_motorista","educacao_transporte_aluno","educacao_transporte_viagem","educacao_transporte_frequencia","educacao_transporte_ocorrencia","educacao_transporte_custo","educacao_merenda_produto","educacao_merenda_fornecedor","educacao_merenda_estoque","educacao_merenda_movimento","educacao_merenda_cardapio","educacao_merenda_distribuicao","educacao_merenda_requisicao","educacao_merenda_consumo","educacao_biblioteca_acervo","educacao_biblioteca_exemplar","educacao_biblioteca_emprestimo","educacao_biblioteca_reserva","educacao_biblioteca_ocorrencia","educacao_biblioteca_digital_referencia","educacao_fundeb_parametro","educacao_fundeb_receita","educacao_fundeb_aplicacao","educacao_custo_centro","educacao_custo_lancamento","educacao_custo_rateio","educacao_indicador","educacao_indicador_valor","educacao_projecao_matricula","educacao_educacenso_lote","educacao_educacenso_inconsistencia","educacao_avaliacao_magisterio","educacao_avaliacao_resultado"};
+ static readonly HashSet<string> Recursos=new(StringComparer.Ordinal){"educacao_transporte_rota","educacao_transporte_rota_ponto","educacao_transporte_veiculo","educacao_transporte_motorista","educacao_transporte_aluno","educacao_transporte_viagem","educacao_transporte_frequencia","educacao_transporte_ocorrencia","educacao_transporte_custo","educacao_merenda_produto","educacao_merenda_fornecedor","educacao_merenda_estoque","educacao_merenda_movimento","educacao_merenda_cardapio","educacao_merenda_distribuicao","educacao_merenda_requisicao","educacao_merenda_consumo","educacao_biblioteca_acervo","educacao_biblioteca_exemplar","educacao_biblioteca_emprestimo","educacao_biblioteca_reserva","educacao_biblioteca_ocorrencia","educacao_biblioteca_inventario","educacao_biblioteca_inventario_item","educacao_biblioteca_digital_referencia","educacao_fundeb_parametro","educacao_fundeb_receita","educacao_fundeb_aplicacao","educacao_custo_centro","educacao_custo_lancamento","educacao_custo_rateio","educacao_indicador","educacao_indicador_valor","educacao_projecao_matricula","educacao_educacenso_lote","educacao_educacenso_inconsistencia","educacao_avaliacao_magisterio","educacao_avaliacao_resultado"};
  readonly DapperContext _context; readonly IDatabaseObjectInspector _inspector; readonly IDateTimeProvider _clock;
   // Ciclo 2 Sprint 2 (BR-2.2): recursos com invariante tipada declarada — a criação genérica é
   // restrita e o comando tipado vira a ÚNICA porta de mutação (CQRS-lite). Recursos realmente
   // livres (fornecedor, centro de custo, requisição, consumo...) seguem genéricos. Residual
-  // declarado: ocorrência/viagem/custo (transporte e biblioteca) ganham comando tipado em S3/S4.
+  // declarado: viagem/custo (transporte) permanecem genericos nesta RC; ocorrencia/inventario da
+  // biblioteca ganharam comando tipado no Ciclo 2 S3 (BR-3.4/BR-3.5).
   // educacao_merenda_estoque não entra no mapa porque sua porta de criação é o método legado
   // RegistrarEstoqueAsync (PortaLegadaEstoqueAberta abaixo), não a CriarAsync genérica.
   static readonly Dictionary<string,string> RecursosComComandoTipado=new(StringComparer.Ordinal){
@@ -27,6 +28,9 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
     ["educacao_biblioteca_reserva"]="POST /api/educacao/biblioteca/reservas/lancar",
     ["educacao_indicador_valor"]="POST /api/educacao/indicadores/valores/lancar",
     ["educacao_fundeb_aplicacao"]="POST /api/educacao/fundeb/aplicacoes/lancar",
+    ["educacao_biblioteca_ocorrencia"]="POST /api/educacao/biblioteca/exemplares/{id}/ocorrencia",
+    ["educacao_biblioteca_inventario"]="POST /api/educacao/biblioteca/inventarios/lancar",
+    ["educacao_biblioteca_inventario_item"]="POST /api/educacao/biblioteca/inventarios/{id}/itens/contar",
   };
   /// <summary>BR-2.2: porta legado de estoque (POST /estoques) restrita — a porta tipada é /estoques/lancar.
   /// Propriedade de runtime (não constante) para preservar o corpo legado documentado sem código inalcançável.</summary>
@@ -341,7 +345,7 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
 // migration 20261011160000). Tomador = exatamente um de aluno/servidor do
 // tenant (regra 24: válido para qualquer esfera/órgão). Falhas nomeadas (regra 13).
  private sealed class EducacaoExemplarLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public long? EscolaId{get;set;} public string? Status{get;set;}}
- private sealed class EducacaoEmprestimoLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public long? EscolaId{get;set;} public long? ExemplarId{get;set;} public long? AlunoId{get;set;} public long? ServidorId{get;set;} public string? Status{get;set;} public DateOnly? DataFim{get;set;}}
+ private sealed class EducacaoEmprestimoLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public long? EscolaId{get;set;} public long? ExemplarId{get;set;} public long? AlunoId{get;set;} public long? ServidorId{get;set;} public string? Status{get;set;} public DateOnly? DataFim{get;set;} public DateOnly? PrazoOriginal{get;set;} public int Renovacoes{get;set;}}
  static void ValidarTomador(long? AlunoId,long? ServidorId){
    var temAluno=AlunoId.HasValue&&AlunoId.Value>0;
    var temServidor=ServidorId.HasValue&&ServidorId.Value>0;
@@ -351,6 +355,7 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
    var ex=await c.QueryFirstOrDefaultAsync<EducacaoExemplarLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,status as Status from sigov.educacao_biblioteca_exemplar where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=exemplarId},cancellationToken:ct)).ConfigureAwait(false);
    if(ex is null||ex.Id==0)throw new BibliotecaExemplarInexistenteException(exemplarId);
    if(x.EntidadeId.HasValue&&ex.EntidadeId.HasValue&&ex.EntidadeId.Value!=x.EntidadeId.Value)throw new ExemplarForaDoEscopoException(exemplarId,ex.EntidadeId.Value,x.EntidadeId.Value);
+   if(ex.Status=="BLOQUEADO")throw new ExemplarBloqueadoException(exemplarId); // BR-3.4: bloqueio impede emprestimo/reserva
    if(ex.Status is not ("DISPONIVEL" or "ATIVO"))throw new ExemplarNaoDisponivelException(exemplarId,ex.Status ?? "INDEFINIDO");
    return ex;
  }
@@ -380,9 +385,12 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
    var vigente=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_biblioteca_emprestimo where tenant_id=@TenantId and exemplar_id=@ExemplarId and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,ExemplarId=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
    if(vigente)throw new ExemplarIndisponivelException(r.ExemplarId);
+   var maxTomador=await LireParametroEducaoAsync(c,tx,x.TenantId,"EMPRESTIMO_MAX_VIGENTES_TOMADOR",ct).ConfigureAwait(false); // BR-3.1: maximo de emprestimos vigentes por tomador
+   var vigentesTomador=await c.ExecuteScalarAsync<long>(new CommandDefinition("select count(1) from sigov.educacao_biblioteca_emprestimo where tenant_id=@TenantId and coalesce(aluno_id,-1)=coalesce(@AlunoId,-1) and coalesce(servidor_id,-1)=coalesce(@ServidorId,-1) and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')",new{TenantId=x.TenantId,AlunoId=r.AlunoId,ServidorId=r.ServidorId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(vigentesTomador>=maxTomador)throw new EmprestimoTomadorLimiteExcedidoException(r.AlunoId,r.ServidorId,maxTomador);
    long did;
    try{
-     did=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_biblioteca_emprestimo(tenant_id,entidade_id,escola_id,exemplar_id,aluno_id,servidor_id,tipo,competencia,data_inicio,data_fim,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@ExemplarId,@AlunoId,@ServidorId,'FISICO',@Hoje,@Hoje,@Prazo,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','LACAR_EMPRESTIMO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=ex.EscolaId,ExemplarId=r.ExemplarId,AlunoId=r.AlunoId,ServidorId=r.ServidorId,Hoje=hoje,Prazo=r.Prazo,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     did=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_biblioteca_emprestimo(tenant_id,entidade_id,escola_id,exemplar_id,aluno_id,servidor_id,tipo,competencia,data_inicio,data_fim,prazo_original,renovacoes,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@ExemplarId,@AlunoId,@ServidorId,'FISICO',@Hoje,@Hoje,@Prazo,@Prazo,0,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','LACAR_EMPRESTIMO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=ex.EscolaId,ExemplarId=r.ExemplarId,AlunoId=r.AlunoId,ServidorId=r.ServidorId,Hoje=hoje,Prazo=r.Prazo,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
    }catch(NpgsqlException npe){
      if(npe.SqlState=="23505")throw new ExemplarIndisponivelException(r.ExemplarId);
      throw;
@@ -392,21 +400,50 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
  }
  public async Task<long> DevolverEmprestimoAsync(EducacaoAvancadaContext x,long emprestimoId,EducacaoBibliotecaDevolverRequest r,CancellationToken ct){
    if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_devolucao",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_devolucao");
-   if(emprestimoId<=0)throw new ArgumentException("Devolução exige empréstimo.");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_emprestimo",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_emprestimo");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_reserva",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_reserva");
+   if(emprestimoId<=0)throw new ArgumentException("Devolucao exige emprestimo.");
    var hoje=_clock.DataAtual;
+   var efetiva=r?.DataDevolucao ?? hoje;
+   if(efetiva>hoje)throw new DataDevolucaoInvalidaException(efetiva,hoje); // BR-3.2: data efetiva nao pode ser futura
    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
    using var c=(NpgsqlConnection)_context.CreateConnection();
    await c.OpenAsync(ct).ConfigureAwait(false);
    var em=await c.QueryFirstOrDefaultAsync<EducacaoEmprestimoLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,exemplar_id as ExemplarId,aluno_id as AlunoId,servidor_id as ServidorId,status as Status,data_fim as DataFim from sigov.educacao_biblioteca_emprestimo where tenant_id=@TenantId and id=@Id and is_deleted=false",new{TenantId=x.TenantId,Id=emprestimoId},cancellationToken:ct)).ConfigureAwait(false);
    if(em is null||em.Id==0)throw new BibliotecaEmprestimoInexistenteException(emprestimoId);
    if(x.EntidadeId.HasValue&&em.EntidadeId.HasValue&&em.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_biblioteca_emprestimo",emprestimoId,em.EntidadeId.Value,x.EntidadeId.Value);
-   if(em.Status is not ("ATIVA" or "ATIVO"))throw new EmprestimoJaDevolvidoException(emprestimoId,em.Status ?? "INDEFINIDO");
+   if(em.Status is not ("ATIVA" or "ATIVO")){
+     var eventoOrig=await c.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(min(id),-1) from sigov.educacao_biblioteca_devolucao where tenant_id=@TenantId and referencia_id=@Id and tipo='DEVOLUCAO' and is_deleted=false",new{TenantId=x.TenantId,Id=emprestimoId},cancellationToken:ct)).ConfigureAwait(false);
+     if(eventoOrig>0)return eventoOrig;
+     var oc=await c.QueryFirstOrDefaultAsync<(long Ref,long Oid)>(new CommandDefinition("select coalesce(id,0) as Ref,coalesce(id,0) as Oid from sigov.educacao_biblioteca_ocorrencia where tenant_id=@TenantId and referencia_id=@Id and tipo in ('PERDA','DANO','EXTRAVIO') and status='ATIVA' and is_deleted=false order by id limit 1",new{TenantId=x.TenantId,Id=emprestimoId},cancellationToken:ct)).ConfigureAwait(false);
+     if(oc.Oid>0)throw new EmprestimoEncerradoPorOcorrenciaException(emprestimoId,oc.Oid);
+     throw new EmprestimoJaDevolvidoException(emprestimoId,em.Status ?? "INDEFINIDO");
+   }
    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
    var obs=(r?.Observacao ?? "").Trim();
    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_emprestimo set status='ENCERRADA',justificativa=coalesce(nullif(@Obs,''),'DEVOLUIDO'),updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','DEVOLVER_EMPRESTIMO','em',now(),'observacao',@Obs)) where tenant_id=@TenantId and id=@Id",new{Obs=obs,UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=emprestimoId},tx,cancellationToken:ct)).ConfigureAwait(false);
-   await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_biblioteca_devolucao(tenant_id,entidade_id,escola_id,exemplar_id,aluno_id,servidor_id,referencia_id,tipo,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@ExemplarId,@AlunoId,@ServidorId,@EmprestimoId,'DEVOLUCAO',@Hoje,'ATIVA',jsonb_build_object('em_dia',(coalesce(@DataFim,@Hoje))>=@Hoje,'atraso_dias',greatest(0,@Hoje-(coalesce(@DataFim,@Hoje)))),jsonb_build_array(jsonb_build_object('acao','REGISTRAR_DEVOLUCAO','em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=em.EscolaId,ExemplarId=em.ExemplarId,AlunoId=em.AlunoId,ServidorId=em.ServidorId,EmprestimoId=emprestimoId,Hoje=hoje,DataFim=em.DataFim,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   long devolucaoId;
+   try{
+     devolucaoId=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_biblioteca_devolucao(tenant_id,entidade_id,escola_id,exemplar_id,aluno_id,servidor_id,referencia_id,tipo,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@ExemplarId,@AlunoId,@ServidorId,@EmprestimoId,'DEVOLUCAO',@Efetiva,'ATIVA',jsonb_build_object('em_dia',(coalesce(@DataFim,@Efetiva))>=@Efetiva,'atraso_dias',greatest(0,@Efetiva-(coalesce(@DataFim,@Efetiva)))),jsonb_build_array(jsonb_build_object('acao','REGISTRAR_DEVOLUCAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=em.EscolaId,ExemplarId=em.ExemplarId,AlunoId=em.AlunoId,ServidorId=em.ServidorId,EmprestimoId=emprestimoId,Efetiva=efetiva,DataFim=em.DataFim,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     var res=await c.QueryFirstOrDefaultAsync<(long Id,long? AlunoId,long? ServidorId,long? EscolaId)>(new CommandDefinition("select id as Id,aluno_id as AlunoId,servidor_id as ServidorId,escola_id as EscolaId from sigov.educacao_biblioteca_reserva where tenant_id=@TenantId and exemplar_id=@ExemplarId and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','CONSUMIDA') order by id limit 1 for update",new{TenantId=x.TenantId,ExemplarId=em.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(res.Id>0){
+       var maxT=await LireParametroEducaoAsync(c,tx,x.TenantId,"EMPRESTIMO_MAX_VIGENTES_TOMADOR",ct).ConfigureAwait(false);
+       var vigT=await c.ExecuteScalarAsync<long>(new CommandDefinition("select count(1) from sigov.educacao_biblioteca_emprestimo where tenant_id=@TenantId and coalesce(aluno_id,-1)=coalesce(@AlunoId,-1) and coalesce(servidor_id,-1)=coalesce(@ServidorId,-1) and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')",new{TenantId=x.TenantId,AlunoId=res.AlunoId,ServidorId=res.ServidorId},tx,cancellationToken:ct)).ConfigureAwait(false);
+       if(vigT<maxT){
+         var prazoPadrao=await LireParametroEducaoAsync(c,tx,x.TenantId,"EMPRESTIMO_PRAZO_PADRAO_DIAS",ct).ConfigureAwait(false);
+         var novaFim=hoje.AddDays(prazoPadrao);
+         await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_biblioteca_emprestimo(tenant_id,entidade_id,escola_id,exemplar_id,aluno_id,servidor_id,tipo,competencia,data_inicio,data_fim,prazo_original,renovacoes,referencia_id,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@ExemplarId,@AlunoId,@ServidorId,'FISICO',@Hoje,@Hoje,@NovaFim,@NovaFim,0,@ReservaId,'ATIVA',jsonb_build_object('origem','RESERVA','reservaId',@ReservaId),jsonb_build_array(jsonb_build_object('acao','TRANSFERIR_RESERVA_EMPRESTIMO','em',now(),'reservaId',@ReservaId)),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=res.EscolaId,ExemplarId=em.ExemplarId,AlunoId=res.AlunoId,ServidorId=res.ServidorId,Hoje=hoje,NovaFim=novaFim,ReservaId=res.Id,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+         await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_reserva set status='CONSUMIDA',justificativa='CONSUMIDA_POR_DEVOLUCAO',updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','CONSUMIR_RESERVA','em',now())) where tenant_id=@TenantId and id=@Id",new{UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=res.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+       }else{
+         await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_reserva set auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','TRANSFERENCIA_PULADA_TOMADOR_MAX_ATINGIDO','em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=res.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+       }
+     }
+   }catch(NpgsqlException npe){
+     if(npe.SqlState=="23505"){var ex2=await c.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(min(id),-1) from sigov.educacao_biblioteca_devolucao where tenant_id=@TenantId and referencia_id=@Id and tipo='DEVOLUCAO' and is_deleted=false",new{TenantId=x.TenantId,Id=emprestimoId},tx,cancellationToken:ct)).ConfigureAwait(false); if(ex2>0){await tx.CommitAsync(ct).ConfigureAwait(false); return ex2;} throw new EmprestimoJaDevolvidoException(emprestimoId,"CONCORRENCIA");}
+     throw;
+   }
    await tx.CommitAsync(ct).ConfigureAwait(false);
-   return emprestimoId;
+   return devolucaoId;
  }
  public async Task<long> CriarReservaAsync(EducacaoAvancadaContext x,EducacaoBibliotecaCriarReservaRequest r,CancellationToken ct){
    if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_reserva",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_reserva");
@@ -433,11 +470,210 @@ public sealed class EducacaoAvancadaRepository:IEducacaoTransporteEscolarReposit
    return rid;
  }
  public async Task<EducacaoBibliotecaDashboardDto> BibliotecaDashboardAsync(long tenantId,CancellationToken ct){
-   foreach(var t in new[]{"educacao_biblioteca_acervo","educacao_biblioteca_exemplar","educacao_biblioteca_emprestimo"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   foreach(var t in new[]{"educacao_biblioteca_acervo","educacao_biblioteca_exemplar","educacao_biblioteca_emprestimo","educacao_biblioteca_reserva"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
    using var c=_context.CreateConnection();
-   var sql="select (select count(1) from sigov.educacao_biblioteca_acervo a where a.tenant_id=@TenantId and a.ativo and not a.is_deleted) as Titulos,(select count(1) from sigov.educacao_biblioteca_exemplar e where e.tenant_id=@TenantId and e.ativo and not e.is_deleted and not exists(select 1 from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=e.tenant_id and m.exemplar_id=e.id and m.ativo and not m.is_deleted and m.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))) as Disponiveis,(select count(1) from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=@TenantId and m.ativo and not m.is_deleted and m.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as EmprestimosAtivos,(select count(1) from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=@TenantId and m.ativo and not m.is_deleted and m.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and m.data_fim < current_date) as Atrasos";
+   var sql="select (select count(1) from sigov.educacao_biblioteca_acervo a where a.tenant_id=@TenantId and a.ativo and not a.is_deleted) as Titulos,(select count(1) from sigov.educacao_biblioteca_exemplar e where e.tenant_id=@TenantId and e.ativo and not e.is_deleted and e.status in ('DISPONIVEL','ATIVO') and not exists(select 1 from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=e.tenant_id and m.exemplar_id=e.id and m.ativo and not m.is_deleted and m.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) and not exists(select 1 from sigov.educacao_biblioteca_reserva rv where rv.tenant_id=e.tenant_id and rv.exemplar_id=e.id and rv.ativo and not rv.is_deleted and rv.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','CONSUMIDA'))) as Disponiveis,(select count(1) from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=@TenantId and m.ativo and not m.is_deleted and m.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as EmprestimosAtivos,(select count(1) from sigov.educacao_biblioteca_emprestimo m where m.tenant_id=@TenantId and m.ativo and not m.is_deleted and m.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and m.data_fim < current_date) as Atrasos,(select count(1) from sigov.educacao_biblioteca_reserva rv where rv.tenant_id=@TenantId and rv.ativo and not rv.is_deleted and rv.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','CONSUMIDA')) as ReservasPendentes,(select count(1) from sigov.educacao_biblioteca_exemplar e where e.tenant_id=@TenantId and e.ativo and not e.is_deleted and e.status='BLOQUEADO') as Bloqueados";
    var d=await c.QueryFirstAsync<EducacaoBibliotecaDashboardDto>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
    return d;
+ }
+ // Ciclo 2 Sprint 3 (biblioteca circulacao completa, BR-3.1 a BR-3.8): parametros por tenant,
+ // renovacao limitada a partir do prazo original, ocorrencia com compensacao unica, desbloqueio
+ // justificavel, inventario fisico com divergencia justificada e timeline append-only. Relogio unico (_clock).
+ async Task<int> LireParametroEducaoAsync(NpgsqlConnection c,NpgsqlTransaction tx,long tenantId,string codigo,CancellationToken ct){
+   var v=await c.ExecuteScalarAsync<int?>(new CommandDefinition("select coalesce((select val.valor::text::integer from sigov.parametro_modulo_valor val where val.tenant_id=@TenantId and val.parametro_id=c.parametro_id and not val.is_deleted limit 1),c.valor_padrao::text::integer) from (select id as parametro_id,valor_padrao from sigov.parametro_modulo where modulo='EDUCACAO' and codigo=@Codigo and ativo and not is_deleted limit 1) c",new{TenantId=tenantId,Codigo=codigo},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(v is null||v.Value<=0)throw new RecursoNaoDisponivelException("parametro_modulo.EDUCACAO."+codigo);
+   return v.Value;
+ }
+ async Task<EducacaoExemplarLinha> CarregarExemplarExisteNoEscopoAsync(EducacaoAvancadaContext x,long exemplarId,CancellationToken ct,NpgsqlConnection c){
+   var ex=await c.QueryFirstOrDefaultAsync<EducacaoExemplarLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,status as Status from sigov.educacao_biblioteca_exemplar where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=exemplarId},cancellationToken:ct)).ConfigureAwait(false);
+   if(ex is null||ex.Id==0)throw new BibliotecaExemplarInexistenteException(exemplarId);
+   if(x.EntidadeId.HasValue&&ex.EntidadeId.HasValue&&ex.EntidadeId.Value!=x.EntidadeId.Value)throw new ExemplarForaDoEscopoException(exemplarId,ex.EntidadeId.Value,x.EntidadeId.Value);
+   return ex;
+ }
+ public async Task<long> RenovarEmprestimoAsync(EducacaoAvancadaContext x,long emprestimoId,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_emprestimo",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_emprestimo");
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var em=await c.QueryFirstOrDefaultAsync<EducacaoEmprestimoLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,escola_id as EscolaId,exemplar_id as ExemplarId,aluno_id as AlunoId,servidor_id as ServidorId,status as Status,data_fim as DataFim,prazo_original as PrazoOriginal,coalesce(renovacoes,0) as Renovacoes from sigov.educacao_biblioteca_emprestimo where tenant_id=@TenantId and id=@Id and is_deleted=false",new{TenantId=x.TenantId,Id=emprestimoId},cancellationToken:ct)).ConfigureAwait(false);
+   if(em is null||em.Id==0)throw new BibliotecaEmprestimoInexistenteException(emprestimoId);
+   if(x.EntidadeId.HasValue&&em.EntidadeId.HasValue&&em.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_biblioteca_emprestimo",emprestimoId,em.EntidadeId.Value,x.EntidadeId.Value);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   if(em.Status is not ("ATIVA" or "ATIVO"))throw new RenovacaoEmprestimoNaoVigenteException(emprestimoId,em.Status ?? "INDEFINIDO");
+   var reservaVig=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_biblioteca_reserva where tenant_id=@TenantId and exemplar_id=@ExemplarId and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','CONSUMIDA'))",new{TenantId=x.TenantId,ExemplarId=em.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(reservaVig)throw new RenovacaoReservaVigenteException(em.ExemplarId ?? 0);
+   var maxR=await LireParametroEducaoAsync(c,tx,x.TenantId,"RENOVACAO_MAX_POR_EMPRESTIMO",ct).ConfigureAwait(false);
+   if(em.Renovacoes>=maxR)throw new RenovacaoLimiteExcedidoException(emprestimoId,em.Renovacoes,maxR);
+   var dias=await LireParametroEducaoAsync(c,tx,x.TenantId,"RENOVACAO_DIAS_ESTENDIMENTO",ct).ConfigureAwait(false);
+   var basePrazo=em.PrazoOriginal ?? em.DataFim ?? _clock.DataAtual;
+   var novoFim=basePrazo.AddDays((em.Renovacoes+1)*dias);
+   var deFim=em.DataFim ?? _clock.DataAtual;
+   var n=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_emprestimo set data_fim=@NovoFim,renovacoes=coalesce(renovacoes,0)+1,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','RENOVAR_EMPRESTIMO','de',to_char(@DeFim,'YYYY-MM-DD'),'para',to_char(@NovoFim,'YYYY-MM-DD'))) where tenant_id=@TenantId and id=@Id",new{NovoFim=novoFim,DeFim=deFim,UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=emprestimoId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(n!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_emprestimo",emprestimoId);
+   await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_biblioteca_evento(tenant_id,entidade_id,referencia_id,exemplar_id,tipo,nome,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@RefId,@ExemplarId,'RENOVACAO','Renovacao de emprestimo',@Hoje,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','RENOVAR_EVENTO','em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,RefId=emprestimoId,ExemplarId=em.ExemplarId,Hoje=_clock.DataAtual,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return emprestimoId;
+ }
+ public async Task<long> LancarOcorrenciaAsync(EducacaoAvancadaContext x,EducacaoBibliotecaOcorrenciaLancarRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_ocorrencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_ocorrencia");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_exemplar",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_exemplar");
+   if(r is null)throw new ArgumentException("Ocorrencia e obrigatoria.");
+   var tipo=(r.Tipo ?? "").Trim().ToUpperInvariant();
+   if(tipo is not ("PERDA" or "DANO" or "EXTRAVIO" or "BLOQUEIO"))throw new OcorrenciaTipoInvalidoException(r.Tipo ?? "");
+   if(string.IsNullOrWhiteSpace(r.Motivo))throw new OcorrenciaMotivoObrigatorioException();
+   var hoje=_clock.DataAtual;
+   var data=r.Data ?? hoje;
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var ex=await CarregarExemplarExisteNoEscopoAsync(x,r.ExemplarId,ct,c).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   long emprestimoVigente=0;
+   if(tipo is ("PERDA" or "DANO" or "EXTRAVIO")){
+     emprestimoVigente=await c.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce((select id from sigov.educacao_biblioteca_emprestimo where tenant_id=@TenantId and exemplar_id=@ExemplarId and ativo and is_deleted=false and status in ('ATIVA','ATIVO') order by id limit 1 for update),-1)",new{TenantId=x.TenantId,ExemplarId=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(emprestimoVigente<0)emprestimoVigente=0;
+   }
+   long? refEmp=emprestimoVigente>0?emprestimoVigente:null;
+   long oid;
+   oid=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_biblioteca_ocorrencia(tenant_id,entidade_id,escola_id,referencia_id,exemplar_id,tipo,descricao,valor,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@EmprestimoId,@ExemplarId,@Tipo,@Motivo,@Valor,@Data,'ATIVA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','LANCAR_OCORRENCIA','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=ex.EscolaId,EmprestimoId=refEmp,ExemplarId=r.ExemplarId,Tipo=tipo,Motivo=r.Motivo.Trim(),Valor=r.ValorEstimado,Data=data,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(emprestimoVigente>0){
+     var nm=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_emprestimo set status='ENCERRADA',justificativa='OCORRENCIA:'||@Oid,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','ENCERRAR_POR_OCORRENCIA','ocorrenciaId',@Oid)) where tenant_id=@TenantId and id=@Id",new{Oid=oid,UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=emprestimoVigente},tx,cancellationToken:ct)).ConfigureAwait(false);
+     if(nm!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_emprestimo",emprestimoVigente);
+   }
+   var alvoStatus=tipo=="PERDA"?"PERDIDO":(tipo=="DANO"?"DANIFICADO":(tipo=="EXTRAVIO"?"EXTRAVIADO":"BLOQUEADO"));
+   var ne=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_exemplar set status=@Alvo,justificativa=@Motivo,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','OCORRENCIA_EXEMPLAR','tipoOcorrencia',@Tipo,'ocorrenciaId',@Oid)) where tenant_id=@TenantId and id=@Id",new{Alvo=alvoStatus,Motivo=r.Motivo.Trim(),UsuarioId=x.UsuarioId,Tipo=tipo,Oid=oid,TenantId=x.TenantId,Id=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(ne!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_exemplar",r.ExemplarId);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return oid;
+ }
+ public async Task<long> EstornarOcorrenciaAsync(EducacaoAvancadaContext x,long ocorrenciaId,EducacaoBibliotecaEstornoOcorrenciaRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_ocorrencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_ocorrencia");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_exemplar",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_exemplar");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_emprestimo",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_emprestimo");
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_devolucao",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_devolucao");
+   if(r is null||string.IsNullOrWhiteSpace(r.Motivo))throw new OcorrenciaEstornoMotivoObrigatorioException();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var oc=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,long RefId,long? ExemplarId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,coalesce(referencia_id,0) as RefId,exemplar_id as ExemplarId,coalesce(status,'') as Status from sigov.educacao_biblioteca_ocorrencia where tenant_id=@TenantId and id=@Id and is_deleted=false",new{TenantId=x.TenantId,Id=ocorrenciaId},cancellationToken:ct)).ConfigureAwait(false);
+   if(oc.Id==0)throw new BibliotecaOcorrenciaInexistenteException(ocorrenciaId);
+   if(x.EntidadeId.HasValue&&oc.EntidadeId.HasValue&&oc.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_biblioteca_ocorrencia",ocorrenciaId,oc.EntidadeId.Value,x.EntidadeId.Value);
+   if(oc.Status!="ATIVA")return ocorrenciaId;
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var nc=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_ocorrencia set status='CANCELADA',justificativa=@Motivo,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','ESTORNAR_OCORRENCIA','motivo',@Motivo)) where tenant_id=@TenantId and id=@Id and status='ATIVA'",new{Motivo=r.Motivo.Trim(),UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=ocorrenciaId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(nc!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_ocorrencia",ocorrenciaId);
+   if(oc.ExemplarId.HasValue){
+     await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_exemplar set status='DISPONIVEL',justificativa=@Motivo,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','RESTAURAR_EXEMPLAR','ocorrenciaId',@Oid)) where tenant_id=@TenantId and id=@ExemplarId and status in ('PERDIDO','DANIFICADO','EXTRAVIADO','BLOQUEADO')",new{Motivo=r.Motivo.Trim(),UsuarioId=x.UsuarioId,Oid=ocorrenciaId,TenantId=x.TenantId,ExemplarId=oc.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   }
+   if(oc.RefId>0){
+     await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_emprestimo set status='ATIVA',updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','REABRIR_POR_ESTORNO_OCORRENCIA','ocorrenciaId',@Oid)) where tenant_id=@TenantId and id=@RefId and status='ENCERRADA' and not exists(select 1 from sigov.educacao_biblioteca_devolucao d where d.tenant_id=@TenantId and d.referencia_id=@RefId and d.tipo='DEVOLUCAO' and d.is_deleted=false)",new{UsuarioId=x.UsuarioId,Oid=ocorrenciaId,TenantId=x.TenantId,RefId=oc.RefId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   }
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return ocorrenciaId;
+ }
+ public async Task<long> DesbloquearExemplarAsync(EducacaoAvancadaContext x,long exemplarId,EducacaoBibliotecaDesbloquearRequest r,CancellationToken ct){
+   if(!await _inspector.TableExistsAsync("sigov","educacao_biblioteca_exemplar",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_biblioteca_exemplar");
+   if(r is null||string.IsNullOrWhiteSpace(r.Justificativa))throw new DesbloqueioJustificativaObrigatorioException();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var ex=await CarregarExemplarExisteNoEscopoAsync(x,exemplarId,ct,c).ConfigureAwait(false);
+   if(ex.Status!="BLOQUEADO")throw new ExemplarNaoBloqueadoException(exemplarId,ex.Status ?? "INDEFINIDO");
+   var n=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_exemplar set status='DISPONIVEL',justificativa=@Just,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','DESBLOQUEAR_EXEMPLAR','motivo',@Just)) where tenant_id=@TenantId and id=@Id",new{Just=r.Justificativa.Trim(),UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=exemplarId},cancellationToken:ct)).ConfigureAwait(false);
+   if(n!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_exemplar",exemplarId);
+   return exemplarId;
+ }
+ public async Task<long> CriarInventarioAsync(EducacaoAvancadaContext x,EducacaoBibliotecaInventarioLancarRequest r,CancellationToken ct){
+   foreach(var t in new[]{"educacao_biblioteca_inventario","educacao_biblioteca_inventario_item","educacao_biblioteca_exemplar"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   var hoje=_clock.DataAtual;
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   var escolaId=r?.EscolaId;
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   long invId;
+   invId=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_biblioteca_inventario(tenant_id,entidade_id,escola_id,codigo,nome,tipo,competencia,status,dados,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@Codigo,@Nome,'INVENTARIO_FISICO',@Hoje,'ABERTO','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','CRIAR_INVENTARIO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=escolaId,Codigo="INV-"+hoje.ToString("yyyyMMdd"),Nome="Inventario fisico "+hoje.ToString("yyyy-MM-dd"),Hoje=hoje,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_biblioteca_inventario_item(tenant_id,entidade_id,escola_id,referencia_id,exemplar_id,posicao_status,status,dados,auditoria,correlation_id,created_by) select @TenantId,@EntidadeId,e.escola_id,@InvId,e.id,coalesce(e.status,''),'ABERTA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','SNAPSHOT_INVENTARIO','em',now())),@CorrelationId,@UsuarioId from sigov.educacao_biblioteca_exemplar e where e.tenant_id=@TenantId and e.ativo and not e.is_deleted and (@EscolaId is null or e.escola_id=@EscolaId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,InvId=invId,EscolaId=escolaId,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return invId;
+ }
+ public async Task<long> ContarInventarioItemAsync(EducacaoAvancadaContext x,long inventarioId,EducacaoBibliotecaInventarioContarRequest r,CancellationToken ct){
+   foreach(var t in new[]{"educacao_biblioteca_inventario","educacao_biblioteca_inventario_item","educacao_biblioteca_exemplar"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   if(r is null||r.ExemplarId<=0)throw new ArgumentException("Contagem exige exemplar.");
+   if(r.Quantidade<0)throw new InventarioQuantidadeInvalidaException(r.Quantidade);
+   var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var ex=await CarregarExemplarExisteNoEscopoAsync(x,r.ExemplarId,ct,c).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var inv=await c.QueryFirstOrDefaultAsync<(long Id,string Status)>(new CommandDefinition("select id as Id,coalesce(status,'') as Status from sigov.educacao_biblioteca_inventario where tenant_id=@TenantId and id=@Id and is_deleted=false for update",new{TenantId=x.TenantId,Id=inventarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(inv.Id==0)throw new BibliotecaInventarioInexistenteException(inventarioId);
+   if(inv.Status!="ABERTO")throw new InventarioJaFechadoException(inventarioId,inv.Status);
+   await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_biblioteca_inventario_item(tenant_id,entidade_id,escola_id,referencia_id,exemplar_id,posicao_status,status_contado,quantidade,status,dados,auditoria,correlation_id,created_by) select @TenantId,@EntidadeId,@EscolaId,@InvId,@ExemplarId,(select e.status from sigov.educacao_biblioteca_exemplar e where e.tenant_id=@TenantId and e.id=@ExemplarId),@StatusContado,@Qtd,'ABERTA','{}'::jsonb,jsonb_build_array(jsonb_build_object('acao','CONTAR_ITEM','em',now())),@CorrelationId,@UsuarioId where not exists(select 1 from sigov.educacao_biblioteca_inventario_item i2 where i2.tenant_id=@TenantId and i2.referencia_id=@InvId and i2.exemplar_id=@ExemplarId and not i2.is_deleted)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=ex.EscolaId,InvId=inventarioId,ExemplarId=r.ExemplarId,StatusContado=(string?)r.StatusContado,Qtd=r.Quantidade,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   long itemId;
+   itemId=await c.ExecuteScalarAsync<long>(new CommandDefinition("update sigov.educacao_biblioteca_inventario_item set quantidade=@Qtd,status_contado=@StatusContado,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','CONTAR_ITEM','em',now())) where tenant_id=@TenantId and referencia_id=@InvId and exemplar_id=@ExemplarId and is_deleted=false returning id",new{Qtd=r.Quantidade,StatusContado=(string?)r.StatusContado,UsuarioId=x.UsuarioId,TenantId=x.TenantId,InvId=inventarioId,ExemplarId=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return itemId;
+ }
+ public async Task<long> JustificarInventarioItemAsync(EducacaoAvancadaContext x,long inventarioId,EducacaoBibliotecaInventarioJustificarRequest r,CancellationToken ct){
+   foreach(var t in new[]{"educacao_biblioteca_inventario","educacao_biblioteca_inventario_item"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   if(r is null||r.ExemplarId<=0)throw new ArgumentException("Justificativa exige exemplar.");
+   var desfecho=(r.Desfecho ?? "").Trim().ToUpperInvariant();
+   if(desfecho is not ("AJUSTE" or "DISPENSA"))throw new InventarioDesfechoInvalidoException(r.Desfecho ?? "");
+   if(string.IsNullOrWhiteSpace(r.Justificativa))throw new InventarioJustificativaObrigatorioException();
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var inv=await c.QueryFirstOrDefaultAsync<(long Id,string Status)>(new CommandDefinition("select id as Id,coalesce(status,'') as Status from sigov.educacao_biblioteca_inventario where tenant_id=@TenantId and id=@Id and is_deleted=false for update",new{TenantId=x.TenantId,Id=inventarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(inv.Id==0)throw new BibliotecaInventarioInexistenteException(inventarioId);
+   if(inv.Status!="ABERTO")throw new InventarioJaFechadoException(inventarioId,inv.Status);
+   var item=await c.QueryFirstOrDefaultAsync<(long Id,decimal? Qtd,string? PosStatus,string? StContado,string Desfecho)>(new CommandDefinition("select id as Id,quantidade as Qtd,posicao_status as PosStatus,status_contado as StContado,coalesce(desfecho,'') as Desfecho from sigov.educacao_biblioteca_inventario_item where tenant_id=@TenantId and referencia_id=@InvId and exemplar_id=@ExemplarId and is_deleted=false for update",new{TenantId=x.TenantId,InvId=inventarioId,ExemplarId=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(item.Id==0)throw new BibliotecaInventarioItemInexistenteException(inventarioId,r.ExemplarId);
+   var divergente=item.Desfecho=="" && item.Qtd.HasValue && ((item.Qtd.Value==0m && item.PosStatus!=null) || (item.Qtd.Value>1m) || (item.Qtd.Value>0m && item.PosStatus==null) || (!string.IsNullOrEmpty(item.StContado) && !string.IsNullOrEmpty(item.PosStatus) && !string.Equals(item.StContado.Trim().ToUpperInvariant(),item.PosStatus.Trim().ToUpperInvariant(),StringComparison.Ordinal)));
+   if(!divergente)throw new InventarioItemSemDivergenciaException(inventarioId,r.ExemplarId);
+   var nj=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_inventario_item set desfecho=@Desfecho,justificativa=@Just,status='FECHADA',updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','JUSTIFICAR_DIVERGENCIA','desfecho',@Desfecho)) where tenant_id=@TenantId and id=@Id",new{Desfecho=desfecho,Just=r.Justificativa.Trim(),UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=item.Id},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(nj!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_inventario_item",item.Id);
+   if(desfecho=="AJUSTE"){
+     if(item.Qtd.HasValue && item.Qtd.Value==0m && item.PosStatus!=null){
+       await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_exemplar set status='PERDIDO',justificativa=@Just,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','AJUSTE_INVENTARIO','inventarioId',@InvId)) where tenant_id=@TenantId and id=@ExemplarId and status in ('DISPONIVEL','ATIVO')",new{Just=r.Justificativa.Trim(),UsuarioId=x.UsuarioId,InvId=inventarioId,TenantId=x.TenantId,ExemplarId=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     }else if(item.Qtd.HasValue && item.Qtd.Value==1m && !string.IsNullOrEmpty(item.StContado) && item.StContado.Trim().ToUpperInvariant()=="DANIFICADO"){
+       await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_exemplar set status='DANIFICADO',justificativa=@Just,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','AJUSTE_INVENTARIO','inventarioId',@InvId)) where tenant_id=@TenantId and id=@ExemplarId and status in ('DISPONIVEL','ATIVO')",new{Just=r.Justificativa.Trim(),UsuarioId=x.UsuarioId,InvId=inventarioId,TenantId=x.TenantId,ExemplarId=r.ExemplarId},tx,cancellationToken:ct)).ConfigureAwait(false);
+     }
+   }
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return item.Id;
+ }
+ public async Task<long> FecharInventarioAsync(EducacaoAvancadaContext x,long inventarioId,string? justificativa,CancellationToken ct){
+   foreach(var t in new[]{"educacao_biblioteca_inventario","educacao_biblioteca_inventario_item"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+   var inv=await c.QueryFirstOrDefaultAsync<(long Id,string Status)>(new CommandDefinition("select id as Id,coalesce(status,'') as Status from sigov.educacao_biblioteca_inventario where tenant_id=@TenantId and id=@Id and is_deleted=false for update",new{TenantId=x.TenantId,Id=inventarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(inv.Id==0)throw new BibliotecaInventarioInexistenteException(inventarioId);
+   if(inv.Status!="ABERTO")throw new InventarioJaFechadoException(inventarioId,inv.Status);
+   var abertas=await c.ExecuteScalarAsync<long>(new CommandDefinition("select count(1) from sigov.educacao_biblioteca_inventario_item i where i.tenant_id=@TenantId and i.referencia_id=@InvId and i.is_deleted=false and i.desfecho is null and i.quantidade is not null and ((i.quantidade=0 and i.posicao_status is not null) or (i.quantidade>1) or (i.quantidade>0 and i.posicao_status is null) or (i.status_contado is not null and i.posicao_status is not null and upper(i.status_contado)<>upper(i.posicao_status)))",new{TenantId=x.TenantId,InvId=inventarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(abertas>0)throw new InventarioDivergenciasAbertasException(inventarioId,abertas);
+   var nf=await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_biblioteca_inventario set status='FECHADO',justificativa=@Jus,updated_at=now(),updated_by=@UsuarioId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','FECHAR_INVENTARIO')) where tenant_id=@TenantId and id=@Id and status='ABERTO'",new{Jus=string.IsNullOrWhiteSpace(justificativa)?(string?)null:justificativa.Trim(),UsuarioId=x.UsuarioId,TenantId=x.TenantId,Id=inventarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+   if(nf!=1)throw new ConflitoDeVersaoEducacaoException("educacao_biblioteca_inventario",inventarioId);
+   await tx.CommitAsync(ct).ConfigureAwait(false);
+   return inventarioId;
+ }
+ public async Task<List<EducacaoBibliotecaHistoricoItemDto>> HistoricoExemplarAsync(EducacaoAvancadaContext x,long exemplarId,CancellationToken ct){
+   foreach(var t in new[]{"educacao_biblioteca_exemplar","educacao_biblioteca_emprestimo","educacao_biblioteca_devolucao","educacao_biblioteca_reserva","educacao_biblioteca_ocorrencia","educacao_biblioteca_evento"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var existe=await c.ExecuteScalarAsync<long>(new CommandDefinition("select coalesce(min(id),-1) from sigov.educacao_biblioteca_exemplar where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=exemplarId},cancellationToken:ct)).ConfigureAwait(false);
+   if(existe<0)throw new BibliotecaExemplarInexistenteException(exemplarId);
+   var sql="select em.created_at as Em,'EMPRESTIMO' as Tipo,'emprestimo '||em.id||' ('||coalesce(em.status,'')||')' as Descricao,em.id as ReferenciaId from sigov.educacao_biblioteca_emprestimo em where em.tenant_id=@TenantId and em.exemplar_id=@Id and not em.is_deleted union all select dv.created_at,'DEVOLUCAO','devolucao '||dv.id||' (atraso '||coalesce(dv.dados->>'atraso_dias','0')||' dia(s))',dv.id from sigov.educacao_biblioteca_devolucao dv where dv.tenant_id=@TenantId and dv.exemplar_id=@Id and not dv.is_deleted union all select rs.created_at,'RESERVA','reserva '||rs.id||' ('||coalesce(rs.status,'')||')',rs.id from sigov.educacao_biblioteca_reserva rs where rs.tenant_id=@TenantId and rs.exemplar_id=@Id and not rs.is_deleted union all select oc.created_at,'OCORRENCIA',coalesce(oc.tipo,'')||' ('||coalesce(oc.status,'')||') '||coalesce(oc.descricao,''),oc.id from sigov.educacao_biblioteca_ocorrencia oc where oc.tenant_id=@TenantId and oc.exemplar_id=@Id and not oc.is_deleted union all select ev.created_at,'EVENTO',coalesce(ev.nome,ev.tipo),ev.id from sigov.educacao_biblioteca_evento ev where ev.tenant_id=@TenantId and ev.exemplar_id=@Id and not ev.is_deleted order by 1 desc limit 200";
+   var rows=await c.QueryAsync<EducacaoBibliotecaHistoricoItemDto>(new CommandDefinition(sql,new{TenantId=x.TenantId,Id=exemplarId},cancellationToken:ct)).ConfigureAwait(false);
+   return new List<EducacaoBibliotecaHistoricoItemDto>(rows);
+ }
+ public async Task<List<EducacaoBibliotecaHistoricoItemDto>> HistoricoTomadorAsync(EducacaoAvancadaContext x,long? alunoId,long? servidorId,CancellationToken ct){
+   foreach(var t in new[]{"educacao_biblioteca_emprestimo","educacao_biblioteca_devolucao","educacao_biblioteca_reserva"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+   ValidarTomador(alunoId,servidorId);
+   using var c=(NpgsqlConnection)_context.CreateConnection();
+   await c.OpenAsync(ct).ConfigureAwait(false);
+   var sql="select em.created_at as Em,'EMPRESTIMO' as Tipo,'emprestimo '||em.id||' ('||coalesce(em.status,'')||')' as Descricao,em.id as ReferenciaId from sigov.educacao_biblioteca_emprestimo em where em.tenant_id=@TenantId and (@AlunoId is null or em.aluno_id=@AlunoId) and (@ServidorId is null or em.servidor_id=@ServidorId) and not em.is_deleted union all select dv.created_at,'DEVOLUCAO','devolucao '||dv.id||' (atraso '||coalesce(dv.dados->>'atraso_dias','0')||' dia(s))',dv.id from sigov.educacao_biblioteca_devolucao dv where dv.tenant_id=@TenantId and (@AlunoId is null or dv.aluno_id=@AlunoId) and (@ServidorId is null or dv.servidor_id=@ServidorId) and not dv.is_deleted union all select rs.created_at,'RESERVA','reserva '||rs.id||' ('||coalesce(rs.status,'')||')',rs.id from sigov.educacao_biblioteca_reserva rs where rs.tenant_id=@TenantId and (@AlunoId is null or rs.aluno_id=@AlunoId) and (@ServidorId is null or rs.servidor_id=@ServidorId) and not rs.is_deleted order by 1 desc limit 200";
+   var rows=await c.QueryAsync<EducacaoBibliotecaHistoricoItemDto>(new CommandDefinition(sql,new{TenantId=x.TenantId,AlunoId=alunoId,ServidorId=servidorId},cancellationToken:ct)).ConfigureAwait(false);
+   return new List<EducacaoBibliotecaHistoricoItemDto>(rows);
  }
  private sealed class EducacaoRotaLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public long? EscolaId{get;set;} public string? Turno{get;set;} public string? Status{get;set;}}
  private sealed class EducacaoPontoLinha{public long Id{get;set;} public long? RotaId{get;set;}}

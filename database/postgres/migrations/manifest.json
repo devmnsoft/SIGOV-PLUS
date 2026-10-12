@@ -3051,6 +3051,19 @@
             "20261011190000"
         ],
         "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_merenda_movimento' and column_name='chave_idempotencia') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_movimento_tenant_chave') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_movimento_tenant_estorno_ref') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_merenda_estoque_tenant_produto')"
+    },
+    {
+        "version": "20261012150000",
+        "description": "RC-EVO Ciclo 2 Sprint 3 (biblioteca circulacao completa): colunas prazo_original/renovacoes em sigov.educacao_biblioteca_emprestimo (BR-3.3, backfill para data_fim) e origem em sigov.educacao_biblioteca_acervo (BR-3.8 FNLI), inventario fisico sigov.educacao_biblioteca_inventario/_item com contagem idempotente por exemplar x inventario (indice unico parcial ux_biblioteca_inventario_item_tenant_inv_exemplar; BR-3.5), backstop unico de devolucao por emprestimo (ux_biblioteca_devolucao_tenant_emprestimo; BR-3.2) com dedupe legado preservando min(id), CONSUMIDA como estado terminal da reserva (recriacao idempotente de ux_biblioteca_reserva_tenant_exemplar_vigencia) e 4 parametros de circulacao no catalogo do modulo EDUCACAO (EMPRESTIMO_MAX_VIGENTES_TOMADOR=2, EMPRESTIMO_PRAZO_PADRAO_DIAS=14, RENOVACAO_MAX_POR_EMPRESTIMO=1, RENOVACAO_DIAS_ESTENDIMENTO=14; tenant sobrescreve via salvar_parametro_modulo; regra 11); pos-condicao explicita C2S3-POSTCOND; idempotente; multi-esfera",
+        "category": "functional",
+        "file": "20261012150000_evo_c2s3_biblioteca_circulacao_completa.sql",
+        "checksum": "6b726981945a4d790f5b469b7369bf4b37aed705dc932fb8e160d8d2f956e9cf",
+        "applyAutomatically": true,
+        "includeInBaseline": true,
+        "dependencies": [
+            "20261012110000"
+        ],
+        "postConditionSql": "select exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_biblioteca_inventario' and column_name='status') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_biblioteca_inventario_item' and column_name='posicao_status') and exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_biblioteca_emprestimo' and column_name='prazo_original') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_inventario_item_tenant_inv_exemplar') and exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_biblioteca_devolucao_tenant_emprestimo') and (select count(1) from sigov.parametro_modulo where modulo='EDUCACAO' and codigo in ('EMPRESTIMO_MAX_VIGENTES_TOMADOR','EMPRESTIMO_PRAZO_PADRAO_DIAS','RENOVACAO_MAX_POR_EMPRESTIMO','RENOVACAO_DIAS_ESTENDIMENTO') and ativo and not is_deleted)=4"
     }
   ],
   "compatibilityAfterAll": [

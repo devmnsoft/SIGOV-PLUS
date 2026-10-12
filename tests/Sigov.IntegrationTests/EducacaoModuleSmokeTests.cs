@@ -178,8 +178,7 @@ public sealed class EducacaoModuleSmokeTests
 
         // BR-2.6: filtro de falhas nomeadas herdado na família de controllers — 404 idêntico em qualquer caminho
         baseController.Should().Contain("[TypeFilter(typeof(EducacaoFalhasNomeadasFiltro))]");
-        filtro.Should().Contain("RecursoNaoDisponivelException")
-            .And.Contain("StatusCode = StatusCodes.Status404NotFound");
+        filtro.Should().Contain("RecursoNaoDisponivelException => StatusCodes.Status404NotFound");
     }
 
     [Fact]
@@ -520,5 +519,103 @@ public sealed class EducacaoModuleSmokeTests
         var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
         manifest.Should().Contain("20261012110000_evo_c2s1_merenda_estoque_idempotencia.sql")
             .And.Contain("indexname='ux_merenda_estoque_tenant_produto'");
+    }
+
+    [Fact]
+    public void BibliotecaCirculacao_Ciclo2Sprint3_ParametroPorTenant_Renovacao_Ocorrencia_Inventario_E_Historico()
+    {
+        // Ciclo 2 Sprint 3 banco: prazo original + renovacoes no emprestimo, origem no acervo (BR-3.8),
+        // inventario fisico com snapshot e desfecho por item, dedupe de devolucao por emprestimo,
+        // indice de reserva que libera CONSUMIDA e parametros por tenant no catalogo EDUCACAO (regra 11),
+        // com pos-condicao explicita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261012150000_evo_c2s3_biblioteca_circulacao_completa.sql"));
+        migration.Should().Contain("add column if not exists prazo_original date")
+            .And.Contain("add column if not exists renovacoes integer not null default 0")
+            .And.Contain("add column if not exists origem varchar(40)")
+            .And.Contain("create table if not exists sigov.educacao_biblioteca_inventario")
+            .And.Contain("create table if not exists sigov.educacao_biblioteca_inventario_item")
+            .And.Contain("ux_biblioteca_inventario_item_tenant_inv_exemplar")
+            .And.Contain("ux_biblioteca_devolucao_tenant_emprestimo")
+            .And.Contain("array['ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','CONSUMIDA']")
+            .And.Contain("('EDUCACAO','EMPRESTIMO_MAX_VIGENTES_TOMADOR'")
+            .And.Contain("('EDUCACAO','RENOVACAO_MAX_POR_EMPRESTIMO'")
+            .And.Contain("('EDUCACAO','RENOVACAO_DIAS_ESTENDIMENTO'")
+            .And.Contain("C2S3-POSTCOND");
+
+        // Operacoes tipadas sobre parametros por tenant: maximo de emprestimos vigentes por tomador (BR-3.1),
+        // renovacao limitada e baseada no prazo original (BR-3.3), devolucao idempotente pela data efetiva
+        // com transferencia automatica da reserva para novo emprestimo na mesma transacao (BR-3.2).
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("LireParametroEducaoAsync(c,tx,x.TenantId,\"EMPRESTIMO_MAX_VIGENTES_TOMADOR\",ct)")
+            .And.Contain("coalesce(aluno_id,-1)=coalesce(@AlunoId,-1) and coalesce(servidor_id,-1)=coalesce(@ServidorId,-1)")
+            .And.Contain("throw new EmprestimoTomadorLimiteExcedidoException(r.AlunoId,r.ServidorId,maxTomador)")
+            .And.Contain("data_inicio,data_fim,prazo_original,renovacoes,status,dados")
+            .And.Contain("select coalesce(min(id),-1) from sigov.educacao_biblioteca_devolucao where tenant_id=@TenantId and referencia_id=@Id and tipo='DEVOLUCAO'")
+            .And.Contain("if(efetiva>hoje)throw new DataDevolucaoInvalidaException(efetiva,hoje)")
+            .And.Contain("'TRANSFERIR_RESERVA_EMPRESTIMO'")
+            .And.Contain("'CONSUMIR_RESERVA'")
+            .And.Contain("LireParametroEducaoAsync(c,tx,x.TenantId,\"RENOVACAO_DIAS_ESTENDIMENTO\",ct)")
+            .And.Contain("basePrazo.AddDays((em.Renovacoes+1)*dias)")
+            .And.Contain("throw new RenovacaoLimiteExcedidoException(emprestimoId,em.Renovacoes,maxR)");
+
+        // Ocorrencias tipadas com compensacao unica (BR-3.4): PERDA/DANO/EXTRAVIO encerra o emprestimo
+        // vigente, BLOQUEIA trava o exemplar; estorno restaura exemplar/reabre emprestimo so se encerrado
+        // pela ocorrencia; desbloqueio exige justificativa. Bloqueio impede emprestimo/reserva.
+        repo.Should().Contain("if(tipo is not (\"PERDA\" or \"DANO\" or \"EXTRAVIO\" or \"BLOQUEIO\"))throw new OcorrenciaTipoInvalidoException(r.Tipo ?? \"\")")
+            .And.Contain("ESTORNAR_OCORRENCIA")
+            .And.Contain("REABRIR_POR_ESTORNO_OCORRENCIA")
+            .And.Contain("if(ex.Status!=\"BLOQUEADO\")throw new ExemplarNaoBloqueadoException(exemplarId,ex.Status ?? \"INDEFINIDO\")")
+            .And.Contain("if(ex.Status==\"BLOQUEADO\")throw new ExemplarBloqueadoException(exemplarId)")
+            .And.NotContain("DateTime.Today");
+
+        // Inventario fisico (BR-3.5): snapshot com posicao, contagem idempotente sem conflito de indice,
+        // divergencia justificada (AJUSTE/DISPENSA) com efeito do AJUSTE no exemplar e fechamento
+        // bloqueado enquanto existir divergencia aberta.
+        repo.Should().Contain("SNAPSHOT_INVENTARIO")
+            .And.Contain("where not exists(select 1 from sigov.educacao_biblioteca_inventario_item i2 where i2.tenant_id=@TenantId and i2.referencia_id=@InvId")
+            .And.Contain("JUSTIFICAR_DIVERGENCIA")
+            .And.Contain("AJUSTE_INVENTARIO")
+            .And.Contain("FECHAR_INVENTARIO");
+
+        // Historico append-only (BR-3.7): leitura unificada das tipadas (emprestimo/devolucao/reserva/
+        // ocorrencia/evento) ordenada pelo mais recente, teto de 200 eventos.
+        repo.Should().Contain("union all select dv.created_at,'DEVOLUCAO'")
+            .And.Contain("union all select ev.created_at,'EVENTO'")
+            .And.Contain("order by 1 desc limit 200");
+
+        // Maquina de estados: CONSUMIDA e terminal da reserva (libera a vaga de reserva vigente).
+        var maquina = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Application", "Educacao", "Avancada", "EducacaoStatusMaquina.cs"));
+        maquina.Should().Contain("CONSUMIDA");
+
+        // Contratos e rotas publicas (circulacao multi-esfera, regra 24).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> RenovarEmprestimoAsync(EducacaoAvancadaContext contexto,long emprestimoId,CancellationToken ct)")
+            .And.Contain("Task<long> LancarOcorrenciaAsync(EducacaoAvancadaContext contexto,EducacaoBibliotecaOcorrenciaLancarRequest request,CancellationToken ct)")
+            .And.Contain("Task<long> FecharInventarioAsync(EducacaoAvancadaContext contexto,long inventarioId,string? justificativa,CancellationToken ct)")
+            .And.Contain("Task<List<EducacaoBibliotecaHistoricoItemDto>> HistoricoExemplarAsync(EducacaoAvancadaContext contexto,long exemplarId,CancellationToken ct)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoBibliotecaController.cs"))
+            .Should().Contain("[HttpPost(\"emprestimos/{id:long}/renovar\")]")
+            .And.Contain("[HttpPost(\"exemplares/{id:long}/ocorrencia\")]")
+            .And.Contain("[HttpPost(\"ocorrencias/{id:long}/estornar\")]")
+            .And.Contain("[HttpPost(\"exemplares/{id:long}/desbloquear\")]")
+            .And.Contain("[HttpPost(\"inventarios/lancar\")]")
+            .And.Contain("[HttpPost(\"inventarios/{id:long}/itens/contar\")]")
+            .And.Contain("[HttpPost(\"inventarios/{id:long}/itens/justificar\")]")
+            .And.Contain("[HttpPost(\"inventarios/{id:long}/fechar\")]")
+            .And.Contain("[HttpGet(\"historico/exemplar/{id:long}\")]")
+            .And.Contain("[HttpGet(\"historico/tomador\")]");
+
+        // Falhas nomeadas mapeadas explicitamente no caminho dos comandos e no filtro de leituras (regra 13).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoAvancadaControllerBase.cs"))
+            .Should().Contain("catch (InventarioDivergenciasAbertasException ex)")
+            .And.Contain("catch (DataDevolucaoInvalidaException ex)")
+            .And.Contain("catch (ExemplarBloqueadoException ex)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Filters/EducacaoFalhasNomeadasFiltro.cs"))
+            .Should().Contain("InventarioDivergenciasAbertasException => StatusCodes.Status409Conflict")
+            .And.Contain("BibliotecaInventarioItemInexistenteException => StatusCodes.Status404NotFound");
+
+        // Regra 7: migration registrada no manifest.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261012150000_evo_c2s3_biblioteca_circulacao_completa.sql");
     }
 }

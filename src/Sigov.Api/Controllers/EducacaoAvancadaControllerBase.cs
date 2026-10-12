@@ -331,6 +331,94 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (DataDevolucaoInvalidaException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (OcorrenciaTipoInvalidoException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (OcorrenciaMotivoObrigatorioException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (OcorrenciaEstornoMotivoObrigatorioException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (InventarioDesfechoInvalidoException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (InventarioJustificativaObrigatorioException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (DesbloqueioJustificativaObrigatorioException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (InventarioQuantidadeInvalidaException ex)
+        {
+            return StatusCode(400, ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (BibliotecaOcorrenciaInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (BibliotecaInventarioInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (BibliotecaInventarioItemInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ExemplarBloqueadoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EmprestimoTomadorLimiteExcedidoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (EmprestimoEncerradoPorOcorrenciaException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (RenovacaoEmprestimoNaoVigenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (RenovacaoReservaVigenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (RenovacaoLimiteExcedidoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ExemplarNaoBloqueadoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (InventarioJaFechadoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (InventarioDivergenciasAbertasException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (InventarioItemSemDivergenciaException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ConflitoDeVersaoEducacaoException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));

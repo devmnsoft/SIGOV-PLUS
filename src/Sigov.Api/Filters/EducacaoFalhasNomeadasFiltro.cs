@@ -16,13 +16,42 @@ public sealed class EducacaoFalhasNomeadasFiltro : IExceptionFilter
 {
     public void OnException(ExceptionContext context)
     {
-        if (context.Exception is RecursoNaoDisponivelException ex)
+        // Ciclo 2 Sprint 3: alem do RECURSO_INDISPONIVEL (BR-2.6), diagnostica as falhas nomeadas de
+        // circulacao completa da biblioteca (BR-3.2 a BR-3.5) em leituras sem try/catch explicito.
+        var excecao = context.Exception;
+        int? status = excecao switch
         {
-            context.ExceptionHandled = true;
-            context.Result = new ObjectResult(ApiResponse<object>.Fail(ex.Message, context.HttpContext?.TraceIdentifier ?? string.Empty))
-            {
-                StatusCode = StatusCodes.Status404NotFound,
-            };
-        }
+            RecursoNaoDisponivelException => StatusCodes.Status404NotFound,
+            BibliotecaExemplarInexistenteException => StatusCodes.Status404NotFound,
+            BibliotecaOcorrenciaInexistenteException => StatusCodes.Status404NotFound,
+            BibliotecaInventarioInexistenteException => StatusCodes.Status404NotFound,
+            BibliotecaInventarioItemInexistenteException => StatusCodes.Status404NotFound,
+            EmprestimoTomadorInvalidoException => StatusCodes.Status400BadRequest,
+            DataDevolucaoInvalidaException => StatusCodes.Status400BadRequest,
+            OcorrenciaTipoInvalidoException => StatusCodes.Status400BadRequest,
+            OcorrenciaMotivoObrigatorioException => StatusCodes.Status400BadRequest,
+            OcorrenciaEstornoMotivoObrigatorioException => StatusCodes.Status400BadRequest,
+            InventarioDesfechoInvalidoException => StatusCodes.Status400BadRequest,
+            InventarioJustificativaObrigatorioException => StatusCodes.Status400BadRequest,
+            InventarioQuantidadeInvalidaException => StatusCodes.Status400BadRequest,
+            DesbloqueioJustificativaObrigatorioException => StatusCodes.Status400BadRequest,
+            ExemplarBloqueadoException => StatusCodes.Status409Conflict,
+            EmprestimoTomadorLimiteExcedidoException => StatusCodes.Status409Conflict,
+            EmprestimoEncerradoPorOcorrenciaException => StatusCodes.Status409Conflict,
+            RenovacaoEmprestimoNaoVigenteException => StatusCodes.Status409Conflict,
+            RenovacaoReservaVigenteException => StatusCodes.Status409Conflict,
+            RenovacaoLimiteExcedidoException => StatusCodes.Status409Conflict,
+            ExemplarNaoBloqueadoException => StatusCodes.Status409Conflict,
+            InventarioJaFechadoException => StatusCodes.Status409Conflict,
+            InventarioDivergenciasAbertasException => StatusCodes.Status409Conflict,
+            InventarioItemSemDivergenciaException => StatusCodes.Status409Conflict,
+            _ => null,
+        };
+        if (status is null) return;
+        context.ExceptionHandled = true;
+        context.Result = new ObjectResult(ApiResponse<object>.Fail(excecao.Message, context.HttpContext?.TraceIdentifier ?? string.Empty))
+        {
+            StatusCode = status.Value,
+        };
     }
 }

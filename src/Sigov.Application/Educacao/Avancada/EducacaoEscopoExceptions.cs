@@ -116,6 +116,94 @@ public sealed class EmprestimoJaDevolvidoException(long EmprestimoId, string Sta
 public sealed class ReservaVigenteExisteException(long ExemplarId)
     : Exception($"RESERVA_VIGENTE_EXISTENTE: já existe reserva vigente em sigov.educacao_biblioteca_reserva para o exemplar {ExemplarId} (fila de tamanho 1); cancele-a antes de registrar nova reserva.");
 
+// Sprint 3 (biblioteca circulação completa, BR-3.1 a BR-3.8): limite por tomador, devolução
+// idempotente com data efetiva, renovação limitada a partir do prazo original, ocorrência com
+// compensação única, desbloqueio justificável e inventário físico com divergência justificada.
+
+/// <summary>Exemplar bloqueado por ocorrência na operação (HTTP 409, código EXEMPLAR_BLOQUEADO; BR-3.4).</summary>
+public sealed class ExemplarBloqueadoException(long ExemplarId)
+    : Exception($"EXEMPLAR_BLOQUEADO: o exemplar {ExemplarId} está BLOQUEADO por ocorrência vigente em sigov.educacao_biblioteca_ocorrencia; registre o desbloqueio com justificativa (POST /api/educacao/biblioteca/exemplares/{ExemplarId}/desbloquear) antes de emprestar ou reservar.");
+
+/// <summary>Limite de empréstimos vigentes do tomador atingido (HTTP 409, código TOMADOR_EMPRESTIMOS_MAX_ATINGIDO; BR-3.1).</summary>
+public sealed class EmprestimoTomadorLimiteExcedidoException(long? AlunoId, long? ServidorId, int Maximo)
+    : Exception($"TOMADOR_EMPRESTIMOS_MAX_ATINGIDO: o tomador (alunoId={AlunoId?.ToString() ?? "nulo"}; servidorId={ServidorId?.ToString() ?? "nulo"}) já tem {Maximo} empréstimos vigentes, o máximo permitido pelo parâmetro do tenant EMPRESTIMO_MAX_VIGENTES_TOMADOR; registre uma devolução antes de emprestar novamente.");
+
+/// <summary>Data efetiva de devolução posterior à data operacional (HTTP 400, código DATA_DEVOLUCAO_INVALIDA; BR-3.2).</summary>
+public sealed class DataDevolucaoInvalidaException(DateOnly DataDevolucao, DateOnly DataOperacional)
+    : Exception($"DATA_DEVOLUCAO_INVALIDA: a data efetiva de devolução {DataDevolucao:yyyy-MM-dd} é posterior à data operacional {DataOperacional:yyyy-MM-dd}; informe a data em que a devolução realmente ocorreu.");
+
+/// <summary>Emprestimo encerrado por ocorrência na devolução (HTTP 409, código EMPRESTIMO_ENCERRADO_POR_OCORRENCIA; BR-3.4).</summary>
+public sealed class EmprestimoEncerradoPorOcorrenciaException(long EmprestimoId, long OcorrenciaId)
+    : Exception($"EMPRESTIMO_ENCERRADO_POR_OCORRENCIA: o empréstimo {EmprestimoId} foi encerrado pela ocorrência {OcorrenciaId}; se a ocorrência foi equivocada, estorne-a antes (POST /api/educacao/biblioteca/ocorrencias/{OcorrenciaId}/estornar).");
+
+/// <summary>Renovação sobre empréstimo não vigente (HTTP 409, código RENOVAR_EMPRESTIMO_NAO_VIGENTE; BR-3.3).</summary>
+public sealed class RenovacaoEmprestimoNaoVigenteException(long EmprestimoId, string StatusAtual)
+    : Exception($"RENOVAR_EMPRESTIMO_NAO_VIGENTE: o empréstimo {EmprestimoId} está com status {StatusAtual}; apenas empréstimos ATIVOS podem ser renovados.");
+
+/// <summary>Renovação com reserva pendente no exemplar (HTTP 409, código RENOVAR_RESERVA_VIGENTE; BR-3.3).</summary>
+public sealed class RenovacaoReservaVigenteException(long ExemplarId)
+    : Exception($"RENOVAR_RESERVA_VIGENTE: o exemplar {ExemplarId} possui reserva pendente; a renovação só ocorre sem reserva no exemplar (cancele a reserva ou aguarde a devolução).");
+
+/// <summary>Limite de renovações do empréstimo esgotado (HTTP 409, código RENOVAR_LIMITE_EXCEDIDO; BR-3.3).</summary>
+public sealed class RenovacaoLimiteExcedidoException(long EmprestimoId, int Renovacoes, int Maximo)
+    : Exception($"RENOVAR_LIMITE_EXCEDIDO: o empréstimo {EmprestimoId} já tem {Renovacoes} renovações, o máximo permitido pelo parâmetro do tenant RENOVACAO_MAX_POR_EMPRESTIMO ({Maximo}).");
+
+/// <summary>Tipo de ocorrência fora do conjunto canônico (HTTP 400, código OCORRENCIA_TIPO_INVALIDO; BR-3.4).</summary>
+public sealed class OcorrenciaTipoInvalidoException(string Tipo)
+    : Exception($"OCORRENCIA_TIPO_INVALIDO: tipo '{Tipo}' inválido; os tipos canônicos de ocorrência de biblioteca são PERDA, DANO, EXTRAVIO e BLOQUEIO.");
+
+/// <summary>Ocorrência sem motivo (HTTP 400, código OCORRENCIA_MOTIVO_OBRIGATORIO; BR-3.4).</summary>
+public sealed class OcorrenciaMotivoObrigatorioException()
+    : Exception("OCORRENCIA_MOTIVO_OBRIGATORIO: toda ocorrência exige motivo descrevendo o fato registrado (perda, dano, extravio ou bloqueio).");
+
+/// <summary>Ocorrência inexistente/inativa para o tenant atual (HTTP 404, código BIBLIOTECA_OCORRENCIA_INEXISTENTE).</summary>
+public sealed class BibliotecaOcorrenciaInexistenteException(long OcorrenciaId)
+    : Exception($"BIBLIOTECA_OCORRENCIA_INEXISTENTE: ocorrência {OcorrenciaId} não encontrada em sigov.educacao_biblioteca_ocorrencia para o tenant atual.");
+
+/// <summary>Estorno de ocorrência sem motivo (HTTP 400, código ESTORNO_OCORRENCIA_MOTIVO_OBRIGATORIO; BR-3.4).</summary>
+public sealed class OcorrenciaEstornoMotivoObrigatorioException()
+    : Exception("ESTORNO_OCORRENCIA_MOTIVO_OBRIGATORIO: todo estorno de ocorrência exige justificativa descrevendo o motivo da reversão.");
+
+/// <summary>Inventário inexistente/inativo para o tenant atual (HTTP 404, código BIBLIOTECA_INVENTARIO_INEXISTENTE; BR-3.5).</summary>
+public sealed class BibliotecaInventarioInexistenteException(long InventarioId)
+    : Exception($"BIBLIOTECA_INVENTARIO_INEXISTENTE: inventário {InventarioId} não encontrado em sigov.educacao_biblioteca_inventario para o tenant atual.");
+
+/// <summary>Item de inventário inexistente no snapshot (HTTP 404, código BIBLIOTECA_INVENTARIO_ITEM_INEXISTENTE; BR-3.5).</summary>
+public sealed class BibliotecaInventarioItemInexistenteException(long InventarioId, long ExemplarId)
+    : Exception($"BIBLIOTECA_INVENTARIO_ITEM_INEXISTENTE: o exemplar {ExemplarId} não possui item no inventário {InventarioId}; lance a contagem primeiro (POST /api/educacao/biblioteca/inventarios/{InventarioId}/itens/contar).");
+
+/// <summary>Inventário já fechado na operação (HTTP 409, código INVENTARIO_JA_FECHADO; BR-3.5).</summary>
+public sealed class InventarioJaFechadoException(long InventarioId, string StatusAtual)
+    : Exception($"INVENTARIO_JA_FECHADO: o inventário {InventarioId} está com status {StatusAtual}; apenas inventários ABERTOS aceitam contagem, justificativa ou fechamento.");
+
+/// <summary>Inventário com divergências ainda abertas no fechamento (HTTP 409, código INVENTARIO_DIVERGENCIAS_EM_ABERTO; BR-3.5).</summary>
+public sealed class InventarioDivergenciasAbertasException(long InventarioId, long Abertas)
+    : Exception($"INVENTARIO_DIVERGENCIAS_EM_ABERTO: o inventário {InventarioId} tem {Abertas} divergência(s) sem desfecho; justifique cada uma (AJUSTE ou DISPENSA com justificativa) antes de fechar.");
+
+/// <summary>Desfecho de divergência fora do conjunto canônico (HTTP 400, código INVENTARIO_DESFECHO_INVALIDO; BR-3.5).</summary>
+public sealed class InventarioDesfechoInvalidoException(string Desfecho)
+    : Exception($"INVENTARIO_DESFECHO_INVALIDO: desfecho '{Desfecho}' inválido; os desfechos canônicos da divergência são AJUSTE e DISPENSA.");
+
+/// <summary>Justificativa de divergência ausente (HTTP 400, código INVENTARIO_JUSTIFICATIVA_OBRIGATORIA; BR-3.5).</summary>
+public sealed class InventarioJustificativaObrigatorioException()
+    : Exception("INVENTARIO_JUSTIFICATIVA_OBRIGATORIA: AJUSTE e DISPENSA de divergência exigem justificativa descrevendo a decisão.");
+
+/// <summary>Justificativa de item sem divergência ou já justificado (HTTP 409, código INVENTARIO_ITEM_SEM_DIVERGENCIA; BR-3.5).</summary>
+public sealed class InventarioItemSemDivergenciaException(long InventarioId, long ExemplarId)
+    : Exception($"INVENTARIO_ITEM_SEM_DIVERGENCIA: o item do exemplar {ExemplarId} no inventário {InventarioId} não apresenta divergência pendente (contagem ausente, contagem igual à posição do sistema ou desfecho já registrado).");
+
+/// <summary>Exemplar não bloqueado no desbloqueio (HTTP 409, código EXEMPLAR_NAO_BLOQUEADO; BR-3.4).</summary>
+public sealed class ExemplarNaoBloqueadoException(long ExemplarId, string StatusAtual)
+    : Exception($"EXEMPLAR_NAO_BLOQUEADO: o exemplar {ExemplarId} está com status {StatusAtual}; o desbloqueio só se aplica a exemplares BLOQUEADOS.");
+
+/// <summary>Desbloqueio sem justificativa (HTTP 400, código DESBLOQUEIO_JUSTIFICATIVA_OBRIGATORIA; BR-3.4).</summary>
+public sealed class DesbloqueioJustificativaObrigatorioException()
+    : Exception("DESBLOQUEIO_JUSTIFICATIVA_OBRIGATORIA: o desbloqueio de exemplar exige justificativa descrevendo o motivo da liberação.");
+
+/// <summary>Quantidade de contagem física inválida (HTTP 400, código INVENTARIO_QUANTIDADE_INVALIDA; BR-3.5).</summary>
+public sealed class InventarioQuantidadeInvalidaException(int Quantidade)
+    : Exception($"INVENTARIO_QUANTIDADE_INVALIDA: quantidade {Quantidade} inválida; a contagem física é um inteiro não negativo (0 = exemplar ausente na contagem; 1 = exemplar presente).");
+
 /// <summary>Rota de transporte inexistente/inativa no tenant (HTTP 404, código TRANSPORTE_ROTA_INEXISTENTE).</summary>
 public sealed class TransporteRotaInexistenteException(long RotaId)
     : Exception($"TRANSPORTE_ROTA_INEXISTENTE: a rota {RotaId} não existe em sigov.educacao_transporte_rota para este tenant (ou foi inativada/excluída).");

@@ -10,7 +10,7 @@ namespace Sigov.Application.Educacao.Avancada;
 ///   PENDENTE : RASCUNHO, PROGRAMADA, SOLICITADA
 ///   ATIVO    : ATIVA, ATIVO, PUBLICADO, DISPONIVEL, ABERTO
 ///   ALERTA   : ATRASADO, SUSPENSA, COM_INCONSISTENCIA
-///   TERMINAL : ENCERRADA, ENCERRADO, CANCELADA, CANCELADO
+///   TERMINAL : ENCERRADA, ENCERRADO, CANCELADA, CANCELADO, CONSUMIDA
 ///
 /// Regras:
 ///   * transição para o MESMO status é sempre permitida (no-op idempotente, auditado);
@@ -31,7 +31,7 @@ public static class EducacaoStatusMaquina
     public static readonly IReadOnlySet<string> Pendentes = new HashSet<string>(StringComparer.Ordinal) { "RASCUNHO", "PROGRAMADA", "SOLICITADA" };
     public static readonly IReadOnlySet<string> Ativos = new HashSet<string>(StringComparer.Ordinal) { "ATIVA", "ATIVO", "PUBLICADO", "DISPONIVEL", "ABERTO" };
     public static readonly IReadOnlySet<string> Alertas = new HashSet<string>(StringComparer.Ordinal) { "ATRASADO", "SUSPENSA", "COM_INCONSISTENCIA" };
-    public static readonly IReadOnlySet<string> Terminais = new HashSet<string>(StringComparer.Ordinal) { "ENCERRADA", "ENCERRADO", "CANCELADA", "CANCELADO" };
+    public static readonly IReadOnlySet<string> Terminais = new HashSet<string>(StringComparer.Ordinal) { "ENCERRADA", "ENCERRADO", "CANCELADA", "CANCELADO", "CONSUMIDA" }; // CONSUMIDA (reserva consumida na devolução; BR-3.2)
 
     /// <summary>Estado virtual dos registros cujo status está fora das famílias canônicas (BR-2.1).</summary>
     public const string LegadoNaoRegularizado = "LEGADO_NAO_REGULARIZADO";
@@ -85,6 +85,7 @@ public static class EducacaoEfeitosTransicao
         new("educacao_merenda_distribuicao", "CANCELADA/CANCELADO/ENCERRADA/ENCERRADO", "baixa de estoque já efetivada em movimentos SAIDA (linhas em educacao_merenda_movimento/estoque)", "POST /api/educacao/merenda/distribuicoes/{id}/estornar"),
         new("educacao_biblioteca_emprestimo", "ENCERRADA/ENCERRADO/CANCELADA/CANCELADO", "exemplar liberado (índice parcial de vigência) + registro de devolução (linha em educacao_biblioteca_devolucao)", "POST /api/educacao/biblioteca/emprestimos/{id}/devolver"),
         new("educacao_biblioteca_reserva", "CANCELADA/CANCELADO", "fila do exemplar liberada (índice parcial de vigência)", "— (efeito de índice, sem linha externa)"),
+        new("educacao_biblioteca_reserva", "CONSUMIDA", "empréstimo criado para o tomador reservante (linha em educacao_biblioteca_emprestimo) + fila do exemplar liberada (índice parcial de vigência)", "— (comando tipado de devolução; BR-3.2)"),
         new("educacao_fundeb_receita", "CANCELADA/CANCELADO", "libera unicidade de competência/fonte (índice parcial)", "— (efeito de índice, sem linha externa)"),
         new("educacao_custo_centro", "CANCELADA/CANCELADO", "centro deixa de ser base para novas aplicações (checagem no comando tipado)", "— (regra no comando)"),
     };
