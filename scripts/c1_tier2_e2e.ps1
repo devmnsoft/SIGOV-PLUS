@@ -289,7 +289,10 @@ select 'ok';
 #   7.6 correcao auditada (JUSTIFICADA; auditoria FrequenciaCorrigida com de/para)
 #   7.7 fechar o diário de classe da turma B -> correção bloqueada FECHADO -> reabrir com
 #       justificativa -> correção volta a operar (regra 13: falha explícita, sem sucesso simulado)
-$hoje = (Get-Date).ToString('yyyy-MM-dd')
+# data de referencia vem do current_date do BANCO (fonte autoritativa das janelas de elegibilidade);
+# o relogio local do host (UTC-3) diverge da data UTC do servidor na janela 21h-24h BRT
+# (fix S10: corrida oficial cruzou essa fronteira entre as corridas 1 e 2)
+$hoje = (Get-Psql 'select (current_date)::text;').text
 $cr7 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/merenda/requisicoes' -Base $ApiBase -Body '{"codigo":"c1e26-s3-ctx","nome":"Requisicao Probe S3 Contexto","tipo":"REQUISICAO","status":"RASCUNHO"}'
 $e7ent = Get-Psql "select coalesce(entidade_id,-1) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo='c1e26-s3-ctx' order by id desc limit 1;"
 Add-Check 'E7' 'fixture.contexto-resolvido' ([long]$e7ent.text -gt 0) ("probe c1e26-s3-ctx -> entidade efetiva=$($e7ent.text) (contexto vem do comando autenticado; multi-esfera, sem municipio hardcoded)")
@@ -406,6 +409,7 @@ function New-Race([string]$MatriculaId,[string]$TurmaId,[string]$DataEntrada){
   $req.Content = New-Object System.Net.Http.StringContent((Get-Content -LiteralPath $bf -Raw),[Text.Encoding]::UTF8,'application/json')
   return @{ client=$client; task=$client.SendAsync($req) }
 }
+$hoje = (Get-Psql 'select (current_date)::text;').text  # refresh: garante DataEntrada >= data_matricula do fixture mesmo se a fronteira UTC cruzar entre fixture e race
 $ra = New-Race $mA.text $tA.text $hoje
 $rb = New-Race $mB.text $tA.text $hoje
 $respA = $ra.task.GetAwaiter().GetResult(); $respB = $rb.task.GetAwaiter().GetResult()
@@ -439,10 +443,13 @@ $trX = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/matriculas
 Add-Check 'E7' 'transferencia.mesma-turma-rejeitada' (($trX.code -eq 400) -and ($trX.body -like '*Transferência rejeitada*')) ("POST transferir mX já na turma $($tA.text) para a mesma turma -> $($trX.code) (rejeição nomeada, nao 500)")
 
 # 7.5 criacao de frequencia (aluno vencedor, agora na turma B)
+# refresh pos-transferencia: a matricula transferida recebe data_matricula=current_date do SERVIDOR;
+# a data da aula precisa ser >= ela -> mesmo relogio (banco) elimina a divergencia de fuso
+$hoje = (Get-Psql 'select (current_date)::text;').text
 $frq = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tB.text + ',"alunoId":' + $alaW.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $hoje + '","componenteCurricular":"MATEMATICA","presente":true,"status":"PRESENTE"}')
 $jf = $null; try { $jf = $frq.body | ConvertFrom-Json } catch {}
 $fid = 0; try { $fid = [long]$jf.data } catch {}
-Add-Check 'E7' 'frequencia.criacao-permissao-canonica' (($frq.code -eq 200) -and ($fid -gt 0)) ("POST /api/educacao/frequencias (turma B, aluno vencedor, MATEMATICA) -> $($frq.code) id=$fid (guard corrigido para a permissao existente frequencia/criar; antes o recurso 'diario_frequencia/criar' inexistente no catalogo negava sempre)")
+Add-Check 'E7' 'frequencia.criacao-permissao-canonica' (($frq.code -eq 200) -and ($fid -gt 0)) ("POST /api/educacao/frequencias (turma B, aluno vencedor, MATEMATICA, dataAula do banco) -> $($frq.code) id=$fid (guard corrigido para a permissao existente frequencia/criar; antes o recurso 'diario_frequencia/criar' inexistente no catalogo negava sempre; corpo: $($frq.body.Substring(0,[Math]::Min(160,$frq.body.Length)))")
 
 # 7.6 correcao auditada (antes do fechamento)
 $cr1 = Invoke-Api -Bearer $tk.token -Method POST -Path "/api/educacao/frequencias/$fid/correcao" -Base $ApiBase -Body '{"status":"JUSTIFICADA","justificativa":"c1-s3-correcao-e2e"}'
@@ -536,8 +543,8 @@ $arow = Get-Psql "select coalesce((dados->>'ComponenteCurricular'),'?')||'|'||co
 Add-Check 'E8' 'avaliacao.notas-por-aluno-no-jsonb' (($dio8.code -eq 200) -and ($aul8.code -eq 200) -and ($aval.code -eq 200) -and ($arow.text -eq "MATEMATICA|1|9|$($alX.text)")) ("diário periodo 2 na turma A (id=$did8) + aula id=$auid8 + POST avaliacoes c/ componenteCurricular MATEMATICA e nota 9 para o aluno X -> $($aval.code); dados jsonb: $($arow.text)")
 
 Get-Psql "delete from sigov.diario_frequencia where tenant_id=910001 and turma_id=$($tA.text) and aluno_id=$($alX.text) and professor_id=$($prof.text);" | Out-Null
-$dF2 = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
-$dF3 = (Get-Date).AddDays(2).ToString('yyyy-MM-dd')
+$dF2 = (Get-Psql 'select (current_date + 1)::text;').text  # datas relativas ao relogio do BANCO (mesmo padrao de $hoje): garante datas distintas na janela de fuso
+$dF3 = (Get-Psql 'select (current_date + 2)::text;').text
 $frq1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tA.text + ',"alunoId":' + $alX.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $hoje + '","componenteCurricular":"MATEMATICA","presente":true,"status":"PRESENTE"}')
 $frq2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tA.text + ',"alunoId":' + $alX.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $dF2 + '","componenteCurricular":"MATEMATICA","presente":true,"status":"PRESENTE"}')
 $frq3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/frequencias' -Base $ApiBase -Body ('{"turmaId":' + $tA.text + ',"alunoId":' + $alX.text + ',"professorId":' + $prof.text + ',"dataAula":"' + $dF3 + '","componenteCurricular":"MATEMATICA","presente":false,"status":"FALTA","justificativa":"c1-s4-falta-e2e"}')
@@ -713,6 +720,9 @@ $e11exB = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/bibliot
 $e11idA = Get-Psql "select coalesce(id,-1) from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo='C1S7-EXA' order by id desc limit 1;"
 $e11idB = Get-Psql "select coalesce(id,-1) from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo='C1S7-EXB' order by id desc limit 1;"
 Add-Check 'E11' 'cadastro.acervo-e-exemplares-via-api' (($e11acv.code -eq 200) -and ($e11exA.code -eq 200) -and ($e11exB.code -eq 200) -and ([long]$e11idA.text -gt 0) -and ([long]$e11idB.text -gt 0)) ("POST acervo $($e11acv.code) + exemplares DISPONIVEL x2 $($e11exA.code)/$($e11exB.code); ids: $($e11idA.text)/$($e11idB.text)")
+# S7 fica no relogio LOCAL do host de proposito: a camada de biblioteca valida o prazo contra
+# DateTime.Today do processo (local), nao contra current_date do banco — alinhar ao banco causou
+# skew dentro da janela 21h-24h BRT (corrida 4: 'prazo anterior' aceito + competencia divergente)
 $e11hoje = (Get-Date).ToString('yyyy-MM-dd')
 $e11prazo = (Get-Date).AddDays(14).ToString('yyyy-MM-dd')
 $e11prazoPasse = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
@@ -930,6 +940,96 @@ $e13ccc = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/operac
 $e13a5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e13cc1.text + ',"valor":700}')
 Add-Check 'E13' 'maquina.centro-cancelado-bloqueia-aplicacao' (($e13ccc.code -eq 200) -and ($e13a5.code -eq 409) -and ($e13a5.body -like '*CUSTO_CENTRO_NAO_VIGENTE*')) ("centro CANCELADO via maquina de estados S2 -> $($e13ccc.code); nova aplicacao no centro cancelado -> $($e13a5.code) (409 CUSTO_CENTRO_NAO_VIGENTE nomeada)")
 
+# ===========================================================================
+# E14 — Sprint 10: educacao/indicadores + educacenso + projecao de matricula
+# ---------------------------------------------------------------------------
+# POST /api/educacao/indicadores/catalogo/lancar {codigo,nome,tipo?,descricao?}:
+# um indicador vigente por codigo/tenant (409 nomeada + indice
+# ux_indicador_tenant_codigo backstop; codigo normalizado p/ maiusculo). POST
+# /api/educacao/indicadores/valores/lancar {indicadorId,ano,valor}: indicador
+# ATIVO exigido (404/409 nomeadas; ano em [2000,2100]); um valor vigente por
+# indicador x ano x tenant (409 nomeada + indice ux_indicador_valor_tenant_
+# ref_ano backstop; referencia_id guarda o indicador, ano_letivo o ano). POST
+# /api/educacao/projecoes-matricula/lancar {escolaId,ano,quantidade}: escopo
+# institucional reutilizado (S2); uma projecao vigente por escola x ano x
+# tenant (409 + backstop ux_projecao_matricula_tenant_escola_ano). POST
+# /api/educacao/educacenso/lotes/lancar {ano}: um lote vigente por ano x
+# tenant (409 + backstop ux_educacenso_lote_tenant_ano). POST
+# /api/educacao/educacenso/inconsistencias/lancar {loteId,gravidade,origem,
+# recomendacao?}: lote ATIVO exigido (404/409 nomeadas); gravidade restrita a
+# BAIXA/MEDIA/ALTA (400); tipo=gravidade e nome=origem (mapeamento declarado),
+# criada ABERTA. GET /api/educacao/educacenso/dashboard: DTO dedicado
+# EducacaoEducacensoDashboardDto (lotesAtivos/inconsistenciasAbertas/
+# gravidadeAlta/eventos). Maquina S2: lote CANCELADA libera o ano para novo
+# lote. Falhas nomeadas (regra 13); multi-esfera (regra 24).
+# ===========================================================================
+$e14fix = Get-Psql @"
+delete from sigov.educacao_educacenso_inconsistencia where tenant_id=910001;
+delete from sigov.educacao_educacenso_lote where tenant_id=910001;
+delete from sigov.educacao_indicador_valor where tenant_id=910001;
+delete from sigov.educacao_projecao_matricula where tenant_id=910001;
+delete from sigov.educacao_indicador where tenant_id=910001;
+insert into sigov.escola(tenant_id,entidade_id,codigo,nome,tipo_escola,situacao)
+select 910001,1,'c1e26-s10-esc','Fixtures C1 Escola S10',coalesce((select tipo_escola from sigov.escola where is_deleted=false limit 1),'OURO'),coalesce((select situacao from sigov.escola where is_deleted=false limit 1),'ATIVA')
+where not exists(select 1 from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc');
+select 'ok';
+"@
+Add-Check 'E14' 'fixture.s10-reset' ($e14fix.code -eq 0) ("reset das tabelas indicadores/educacenso do tenant 910001 (vazias antes do C1; garante estado limpo para re-execucao) + escola c1e26-s10-esc idempotente exit=$($e14fix.code)")
+$e14esc = Get-Psql "select coalesce(id,-1) from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc';"
+$e14i1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/catalogo/lancar' -Base $ApiBase -Body '{"codigo":"matr_por_escola","nome":"Matriculas por escola","tipo":"planejamento"}'
+$e14ind = Get-Psql "select coalesce(id,-1) from sigov.educacao_indicador where tenant_id=910001 and upper(codigo)='MATR_POR_ESCOLA' order by id desc limit 1;"
+$e14db1 = Get-Psql ("select codigo||'|'||status||'|'||tipo from sigov.educacao_indicador where tenant_id=910001 and id=" + $e14ind.text + " limit 1;")
+Add-Check 'E14' 'indicador.lancado-codigo-normalizado' (($e14i1.code -eq 200) -and ($e14db1.text -ceq 'MATR_POR_ESCOLA|ATIVA|PLANEJAMENTO')) ("POST indicadores/catalogo/lancar (codigo e tipo minusculos normalizados p/ maiusculos; assertao case-sensitive) -> $($e14i1.code); banco codigo|status|tipo: $($e14db1.text)")
+$e14i2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/catalogo/lancar' -Base $ApiBase -Body '{"codigo":"MATR_POR_ESCOLA","nome":"Matriculas por escola bis","tipo":"PLANEJAMENTO"}'
+Add-Check 'E14' 'indicador.duplicado-codigo-409-nomeada' (($e14i2.code -eq 409) -and ($e14i2.body -like '*INDICADOR_CODIGO_EXISTENTE*')) ("segundo indicador com o mesmo codigo (case-insensitive) -> $($e14i2.code) (409 INDICADOR_CODIGO_EXISTENTE nomeada)")
+$e14bsi = Get-Psql "insert into sigov.educacao_indicador(tenant_id,codigo,nome,tipo,status) select 910001,'C1S10-IBS','Backstop C1S10','PLANEJAMENTO','ATIVA' union all select 910001,'C1S10-IBS','Backstop C1S10','PLANEJAMENTO','ATIVA';"
+Add-Check 'E14' 'indicador.indice-backstop-codigo' (($e14bsi.code -eq 3) -and ($e14bsi.text -like '*ux_indicador_tenant_codigo*')) ("insert SQL bruto duplicando o codigo C1S10-IBS -> exit=$($e14bsi.code) citando ux_indicador_tenant_codigo (backstop transacional)")
+$e14v1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/valores/lancar' -Base $ApiBase -Body ('{"indicadorId":' + $e14ind.text + ',"ano":2026,"valor":150}')
+$e14db2 = Get-Psql "select coalesce(referencia_id,-1)||'|'||coalesce(ano_letivo,-1)||'|'||tipo||'|'||valor::text||'|'||status from sigov.educacao_indicador_valor where tenant_id=910001 order by id desc limit 1;"
+Add-Check 'E14' 'valor.lancado-indicador-ano' (($e14v1.code -eq 200) -and ($e14db2.text -like ($e14ind.text + '|2026|INDICADOR_VALOR|150.00|ATIVA'))) ("POST indicadores/valores/lancar (indicador ATIVO, ano 2026) -> $($e14v1.code); banco referencia(indicador)|ano|tipo|valor|status: $($e14db2.text)")
+$e14v2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/valores/lancar' -Base $ApiBase -Body ('{"indicadorId":' + $e14ind.text + ',"ano":2026,"valor":999}')
+Add-Check 'E14' 'valor.duplicado-indicador-ano-409-nomeada' (($e14v2.code -eq 409) -and ($e14v2.body -like '*VALOR_INDICADOR_EXISTENTE*')) ("segundo valor do mesmo indicador no mesmo ano -> $($e14v2.code) (409 VALOR_INDICADOR_EXISTENTE nomeada; um valor vigente por indicador x ano x tenant)")
+$e14bsv = Get-Psql ("insert into sigov.educacao_indicador_valor(tenant_id,referencia_id,ano_letivo,tipo,valor,status) select 910001," + $e14ind.text + ",2027,'INDICADOR_VALOR',1,'ATIVA' union all select 910001," + $e14ind.text + ",2027,'INDICADOR_VALOR',1,'ATIVA';")
+Add-Check 'E14' 'valor.indice-backstop-ref-ano' (($e14bsv.code -eq 3) -and ($e14bsv.text -like '*ux_indicador_valor_tenant_ref_ano*')) ("insert SQL bruto duplicando indicador x ano 2027 -> exit=$($e14bsv.code) citando ux_indicador_valor_tenant_ref_ano (backstop transacional)")
+$e14indRIns = Get-Psql "insert into sigov.educacao_indicador(tenant_id,codigo,nome,tipo,status) values(910001,'C1S10-RASC','Indicador Rascunho','PLANEJAMENTO','RASCUNHO');"
+$e14indR = Get-Psql "select coalesce(id,-1) from sigov.educacao_indicador where tenant_id=910001 and upper(codigo)='C1S10-RASC';"
+$e14v3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/valores/lancar' -Base $ApiBase -Body ('{"indicadorId":' + $e14indR.text + ',"ano":2026,"valor":10}')
+Add-Check 'E14' 'valor.indicador-rascunho-409-nomeada' (($e14indRIns.code -eq 0) -and ($e14v3.code -eq 409) -and ($e14v3.body -like '*INDICADOR_NAO_VIGENTE*')) ("valor em indicador RASCUNHO (fixture SQL) -> $($e14v3.code) (409 INDICADOR_NAO_VIGENTE nomeada; apenas indicadores ativos aceitam valor)")
+$e14v4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/valores/lancar' -Base $ApiBase -Body '{"indicadorId":9999999999,"ano":2026,"valor":10}'
+Add-Check 'E14' 'valor.indicador-inexistente-404-nomeada' (($e14v4.code -eq 404) -and ($e14v4.body -like '*INDICADOR_INEXISTENTE*')) ("indicador 9999999999 -> $($e14v4.code) (404 INDICADOR_INEXISTENTE nomeada)")
+$e14v5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/indicadores/valores/lancar' -Base $ApiBase -Body ('{"indicadorId":' + $e14ind.text + ',"ano":1999,"valor":10}')
+Add-Check 'E14' 'valor.ano-invalido-400' (($e14v5.code -eq 400) -and ($e14v5.body -like '*entre 2000 e 2100*')) ("ano 1999 -> $($e14v5.code) (400 validacao explicita de janela de ano)")
+$e14pr1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/projecoes-matricula/lancar' -Base $ApiBase -Body ('{"escolaId":' + $e14esc.text + ',"ano":2026,"quantidade":30}')
+$e14db3 = Get-Psql "select coalesce(escola_id,-1)||'|'||coalesce(ano_letivo,-1)||'|'||round(quantidade,0)::text||'|'||status from sigov.educacao_projecao_matricula where tenant_id=910001 order by id desc limit 1;"
+Add-Check 'E14' 'projecao.lancada-escola-ano' (($e14pr1.code -eq 200) -and ($e14db3.text -like ($e14esc.text + '|2026|30|ATIVA'))) ("POST projecoes-matricula/lancar (escola no escopo institucional, ano 2026, 30 vagas) -> $($e14pr1.code); banco escola|ano|quantidade|status: $($e14db3.text) (planejamento de oferta valido para qualquer esfera - regra 24)")
+$e14pr2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/projecoes-matricula/lancar' -Base $ApiBase -Body ('{"escolaId":' + $e14esc.text + ',"ano":2026,"quantidade":45}')
+Add-Check 'E14' 'projecao.duplicada-escola-ano-409-nomeada' (($e14pr2.code -eq 409) -and ($e14pr2.body -like '*PROJECAO_MATRICULA_EXISTENTE*')) ("segunda projecao da mesma escola no mesmo ano -> $($e14pr2.code) (409 PROJECAO_MATRICULA_EXISTENTE nomeada)")
+$e14bspr = Get-Psql ("insert into sigov.educacao_projecao_matricula(tenant_id,escola_id,ano_letivo,tipo,quantidade,status) select 910001," + $e14esc.text + ",2029,'PROJECAO_MATRICULA',1,'ATIVA' union all select 910001," + $e14esc.text + ",2029,'PROJECAO_MATRICULA',1,'ATIVA';")
+Add-Check 'E14' 'projecao.indice-backstop-escola-ano' (($e14bspr.code -eq 3) -and ($e14bspr.text -like '*ux_projecao_matricula_tenant_escola_ano*')) ("insert SQL bruto duplicando escola x ano 2029 -> exit=$($e14bspr.code) citando ux_projecao_matricula_tenant_escola_ano (backstop transacional)")
+$e14lt1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/lotes/lancar' -Base $ApiBase -Body '{"ano":2026}'
+$e14lote = Get-Psql "select coalesce(id,-1) from sigov.educacao_educacenso_lote where tenant_id=910001 and ano_letivo=2026 order by id desc limit 1;"
+$e14db4 = Get-Psql ("select coalesce(ano_letivo,-1)||'|'||tipo||'|'||status from sigov.educacao_educacenso_lote where tenant_id=910001 and id=" + $e14lote.text + ";")
+Add-Check 'E14' 'lote.lancado-ano-2026' (($e14lt1.code -eq 200) -and ($e14db4.text -eq '2026|EDUCACENSO|ATIVA')) ("POST educacenso/lotes/lancar (ano 2026) -> $($e14lt1.code); banco ano|tipo|status: $($e14db4.text)")
+$e14lt2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/lotes/lancar' -Base $ApiBase -Body '{"ano":2026}'
+Add-Check 'E14' 'lote.duplicado-ano-409-nomeada' (($e14lt2.code -eq 409) -and ($e14lt2.body -like '*LOTE_EDUCACENSO_ANO_EXISTENTE*')) ("segundo lote do mesmo ano -> $($e14lt2.code) (409 LOTE_EDUCACENSO_ANO_EXISTENTE nomeada; um lote vigente por ano x tenant)")
+$e14bslt = Get-Psql "insert into sigov.educacao_educacenso_lote(tenant_id,ano_letivo,tipo,status) select 910001,2030,'EDUCACENSO','ATIVA' union all select 910001,2030,'EDUCACENSO','ATIVA';"
+Add-Check 'E14' 'lote.indice-backstop-ano' (($e14bslt.code -eq 3) -and ($e14bslt.text -like '*ux_educacenso_lote_tenant_ano*')) ("insert SQL bruto duplicando o ano 2030 -> exit=$($e14bslt.code) citando ux_educacenso_lote_tenant_ano (backstop transacional)")
+$e14in1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/inconsistencias/lancar' -Base $ApiBase -Body ('{"loteId":' + $e14lote.text + ',"gravidade":"alta","origem":"matricula","recomendacao":"corrigir registro no censo"}')
+$e14db5 = Get-Psql "select coalesce(referencia_id,-1)||'|'||tipo||'|'||nome||'|'||status from sigov.educacao_educacenso_inconsistencia where tenant_id=910001 order by id desc limit 1;"
+Add-Check 'E14' 'inconsistencia.lancada-lote-vigente' (($e14in1.code -eq 200) -and ($e14db5.text -like ($e14lote.text + '|ALTA|MATRICULA|ABERTA'))) ("POST educacenso/inconsistencias/lancar (gravidade e origem minusculas normalizadas) -> $($e14in1.code); banco referencia(lote)|tipo(gravidade)|nome(origem)|status: $($e14db5.text)")
+$e14in2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/inconsistencias/lancar' -Base $ApiBase -Body '{"loteId":9999999999,"gravidade":"ALTA","origem":"X"}'
+Add-Check 'E14' 'inconsistencia.lote-inexistente-404-nomeada' (($e14in2.code -eq 404) -and ($e14in2.body -like '*LOTE_EDUCACENSO_INEXISTENTE*')) ("lote 9999999999 -> $($e14in2.code) (404 LOTE_EDUCACENSO_INEXISTENTE nomeada)")
+$e14in3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/inconsistencias/lancar' -Base $ApiBase -Body ('{"loteId":' + $e14lote.text + ',"gravidade":"CRITICA","origem":"X"}')
+Add-Check 'E14' 'inconsistencia.gravidade-invalida-400' (($e14in3.code -eq 400) -and ($e14in3.body -like '*MEDIA*')) ("gravidade CRITICA fora do conjunto BAIXA/MEDIA/ALTA -> $($e14in3.code) (400 validacao explicita)")
+$e14dash = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/educacenso/dashboard' -Base $ApiBase
+$e14dj = $null; try { $e14dj = ($e14dash.body | ConvertFrom-Json) } catch {}
+$e14dLotes = 0; $e14dAbertas = 0; $e14dAlta = 0; $e14dEventos = 0
+if ($e14dj -and $null -ne $e14dj.data) { $e14dLotes = [long]$e14dj.data.lotesAtivos; $e14dAbertas = [long]$e14dj.data.inconsistenciasAbertas; $e14dAlta = [long]$e14dj.data.gravidadeAlta; $e14dEventos = [long]$e14dj.data.eventos }
+Add-Check 'E14' 'censo-dashboard.metricas-dedicadas' (($e14dash.code -eq 200) -and ($e14dLotes -eq 1) -and ($e14dAbertas -eq 1) -and ($e14dAlta -eq 1) -and ($e14dEventos -ge 0)) ("GET educacenso/dashboard -> $($e14dash.code); lotesAtivos/inconsistenciasAbertas/gravidadeAlta/eventos: $e14dLotes/$e14dAbertas/$e14dAlta/$e14dEventos (DTO dedicado EducacaoEducacensoDashboardDto sobre dados reais do tenant)")
+$e14rc = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/operacoes/educacao_educacenso_lote/" + $e14lote.text + "/status?status=CANCELADA&justificativa=c1-s10-lote-2026-cancelado") -Base $ApiBase
+$e14rl = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/lotes/lancar' -Base $ApiBase -Body '{"ano":2026}'
+Add-Check 'E14' 'maquina.lote-cancelada-libera-o-ano' (($e14rc.code -eq 200) -and ($e14rl.code -eq 200)) ("lote 2026 CANCELADA via maquina de estados S2 -> $($e14rc.code); novo lote 2026 apos o cancelamento -> $($e14rl.code) (estado terminal liberou a unicidade parcial do indice)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -1001,6 +1101,12 @@ delete from sigov.educacao_fundeb_receita where tenant_id=910001;
 delete from sigov.educacao_fundeb_parametro where tenant_id=910001;
 delete from sigov.educacao_custo_lancamento where tenant_id=910001;
 delete from sigov.educacao_custo_centro where tenant_id=910001;
+delete from sigov.educacao_educacenso_inconsistencia where tenant_id=910001;
+delete from sigov.educacao_educacenso_lote where tenant_id=910001;
+delete from sigov.educacao_indicador_valor where tenant_id=910001;
+delete from sigov.educacao_projecao_matricula where tenant_id=910001;
+delete from sigov.educacao_indicador where tenant_id=910001;
+delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc';
 select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%')
      + (select count(*) from sigov.escola where tenant_id=910001 and (codigo like 'c1e26-esc-%' or codigo='c1e26-s3-esc' or codigo='c1e26-s7-esc' or codigo='c1e26-s8-esc'))
@@ -1032,9 +1138,15 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
       + (select count(*) from sigov.educacao_fundeb_receita where tenant_id=910001)
       + (select count(*) from sigov.educacao_fundeb_aplicacao where tenant_id=910001)
       + (select count(*) from sigov.educacao_custo_centro where tenant_id=910001)
-      + (select count(*) from sigov.educacao_custo_lancamento where tenant_id=910001) as restantes;
+      + (select count(*) from sigov.educacao_custo_lancamento where tenant_id=910001)
+       + (select count(*) from sigov.educacao_indicador where tenant_id=910001)
+       + (select count(*) from sigov.educacao_indicador_valor where tenant_id=910001)
+       + (select count(*) from sigov.educacao_projecao_matricula where tenant_id=910001)
+       + (select count(*) from sigov.educacao_educacenso_lote where tenant_id=910001)
+       + (select count(*) from sigov.educacao_educacenso_inconsistencia where tenant_id=910001)
+       + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-s10-esc') as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos (tenant) + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count

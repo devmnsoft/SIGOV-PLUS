@@ -306,6 +306,9 @@ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,Sal
  }
   private sealed class EducacaoCentroCustoLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
   private sealed class EducacaoIndicadoresMetricasLinha{public decimal Receitas{get;set;} public decimal Aplicacoes{get;set;} public decimal Custos{get;set;} public long Matriculas{get;set;} public long Inconsistencias{get;set;} public decimal? TaxaMinima{get;set;}}
+  private sealed class EducacaoIndicadorLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
+  private sealed class EducacaoEducacensoLoteLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
+  private sealed class EducacaoEducacensoMetricasLinha{public long LotesAtivos{get;set;} public long InconsistenciasAbertas{get;set;} public long GravidadeAlta{get;set;} public long Eventos{get;set;}}
   async Task<EducacaoCentroCustoLinha> CarregarCentroCustoNoEscopoAsync(EducacaoAvancadaContext x,long centroId,CancellationToken ct,NpgsqlConnection c){
     var r=await c.QueryFirstOrDefaultAsync<EducacaoCentroCustoLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_custo_centro where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=centroId},cancellationToken:ct)).ConfigureAwait(false);
     if(r is null)throw new CustoCentroInexistenteException(centroId);
@@ -400,6 +403,123 @@ returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Id=r.ProdutoId,Sal
     var taxa=m.Receitas>0?Math.Round(m.Aplicacoes/m.Receitas,4):0m;
     var conformidade=m.TaxaMinima is >0&&m.Receitas>0&&taxa>=m.TaxaMinima.Value;
     return new EducacaoIndicadoresDashboardDto(m.Receitas,m.Aplicacoes,taxa,m.TaxaMinima,conformidade,m.Matriculas>0?Math.Round(m.Custos/m.Matriculas,2):0m,m.Inconsistencias);
+  }
+  public async Task<long> LancarIndicadorAsync(EducacaoAvancadaContext x,EducacaoIndicadorLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_indicador",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_indicador");
+    if(r is null)throw new ArgumentException("Indicador é obrigatório.");
+    if(string.IsNullOrWhiteSpace(r.Codigo))throw new ArgumentException("Indicador exige código.");
+    if(string.IsNullOrWhiteSpace(r.Nome))throw new ArgumentException("Indicador exige nome.");
+    var codigo=r.Codigo.Trim().ToUpperInvariant();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_indicador where tenant_id=@TenantId and upper(coalesce(codigo,''))=@Codigo and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,Codigo=codigo},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new IndicadorCodigoExistenteException(codigo);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_indicador(tenant_id,entidade_id,codigo,nome,tipo,descricao,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Codigo,@Nome,coalesce(@Tipo,'INDICADOR'),@Descricao,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_INDICADOR','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Codigo=codigo,Nome=r.Nome.Trim(),Tipo=string.IsNullOrWhiteSpace(r.Tipo)?null:r.Tipo.Trim().ToUpperInvariant(),Descricao=r.Descricao?.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new IndicadorCodigoExistenteException(codigo);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<long> LancarIndicadorValorAsync(EducacaoAvancadaContext x,EducacaoIndicadorValorLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_indicador",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_indicador");
+    if(!await _inspector.TableExistsAsync("sigov","educacao_indicador_valor",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_indicador_valor");
+    if(r is null)throw new ArgumentException("Valor de indicador é obrigatório.");
+    if(r.IndicadorId<=0)throw new ArgumentException("Valor de indicador exige indicador.");
+    if(r.Ano is <2000 or >2100)throw new ArgumentException("Ano do valor de indicador deve estar entre 2000 e 2100.");
+    if(r.Valor<=0)throw new ArgumentException("Valor do indicador deve ser positivo.");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var ind=await c.QueryFirstOrDefaultAsync<EducacaoIndicadorLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_indicador where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=r.IndicadorId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(ind is null)throw new IndicadorInexistenteException(r.IndicadorId);
+    if(ind.EntidadeId>=0&&x.EntidadeId.HasValue&&ind.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_indicador",r.IndicadorId,ind.EntidadeId.Value,x.EntidadeId.Value);
+    if(ind.Status is not ("ATIVA" or "ATIVO"))throw new IndicadorNaoVigenteException(r.IndicadorId,ind.Status ?? "INDEFINIDO");
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_indicador_valor where tenant_id=@TenantId and referencia_id=@IndicadorId and ano_letivo=@Ano and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,IndicadorId=r.IndicadorId,Ano=r.Ano},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new ValorIndicadorExistenteException(r.IndicadorId,r.Ano);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_indicador_valor(tenant_id,entidade_id,referencia_id,ano_letivo,tipo,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@IndicadorId,@Ano,'INDICADOR_VALOR',@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_INDICADOR_VALOR','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,IndicadorId=r.IndicadorId,Ano=r.Ano,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new ValorIndicadorExistenteException(r.IndicadorId,r.Ano);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<long> LancarProjecaoMatriculaAsync(EducacaoAvancadaContext x,EducacaoProjecaoMatriculaLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_projecao_matricula",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_projecao_matricula");
+    if(r is null)throw new ArgumentException("Projeção de matrícula é obrigatória.");
+    if(r.EscolaId<=0)throw new ArgumentException("Projeção de matrícula exige escola.");
+    if(r.Ano is <2000 or >2100)throw new ArgumentException("Ano da projeção de matrícula deve estar entre 2000 e 2100.");
+    if(r.Quantidade<=0)throw new ArgumentException("Quantidade da projeção de matrícula deve ser positiva.");
+    await ValidarEscopoInstitucionalAsync(x.TenantId,x.EntidadeId,r.EscolaId,null,ct).ConfigureAwait(false);
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_projecao_matricula where tenant_id=@TenantId and escola_id=@EscolaId and ano_letivo=@Ano and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,EscolaId=r.EscolaId,Ano=r.Ano},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new ProjecaoMatriculaExistenteException(r.EscolaId,r.Ano);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_projecao_matricula(tenant_id,entidade_id,escola_id,ano_letivo,quantidade,tipo,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@EscolaId,@Ano,@Quantidade,'PROJECAO_MATRICULA','ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_PROJECAO_MATRICULA','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,EscolaId=r.EscolaId,Ano=r.Ano,Quantidade=r.Quantidade,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new ProjecaoMatriculaExistenteException(r.EscolaId,r.Ano);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<long> LancarEducacensoLoteAsync(EducacaoAvancadaContext x,EducacaoEducacensoLoteLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_educacenso_lote",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_educacenso_lote");
+    if(r is null)throw new ArgumentException("Lote Educacenso é obrigatório.");
+    if(r.Ano is <2000 or >2100)throw new ArgumentException("Ano do lote Educacenso deve estar entre 2000 e 2100.");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_educacenso_lote where tenant_id=@TenantId and ano_letivo=@Ano and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,Ano=r.Ano},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new LoteEducacensoAnoExistenteException(r.Ano);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_educacenso_lote(tenant_id,entidade_id,ano_letivo,tipo,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Ano,'EDUCACENSO','ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_LOTE_EDUCACENSO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Ano=r.Ano,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new LoteEducacensoAnoExistenteException(r.Ano);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  public async Task<long> LancarEducacensoInconsistenciaAsync(EducacaoAvancadaContext x,EducacaoEducacensoInconsistenciaLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_educacenso_inconsistencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_educacenso_inconsistencia");
+    if(!await _inspector.TableExistsAsync("sigov","educacao_educacenso_lote",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_educacenso_lote");
+    if(r is null)throw new ArgumentException("Inconsistência Educacenso é obrigatória.");
+    if(r.LoteId<=0)throw new ArgumentException("Inconsistência Educacenso exige lote.");
+    if(string.IsNullOrWhiteSpace(r.Gravidade))throw new ArgumentException("Inconsistência Educacenso exige gravidade.");
+    var gravidade=r.Gravidade.Trim().ToUpperInvariant();
+    if(gravidade is not ("BAIXA" or "MEDIA" or "ALTA"))throw new ArgumentException("Gravidade da inconsistência Educacenso deve ser BAIXA, MEDIA ou ALTA.");
+    if(string.IsNullOrWhiteSpace(r.Origem))throw new ArgumentException("Inconsistência Educacenso exige origem (registro/fluxo de onde ela partiu).");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var lote=await c.QueryFirstOrDefaultAsync<EducacaoEducacensoLoteLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_educacenso_lote where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=r.LoteId},cancellationToken:ct)).ConfigureAwait(false);
+    if(lote is null)throw new LoteEducacensoInexistenteException(r.LoteId);
+    if(lote.EntidadeId>=0&&x.EntidadeId.HasValue&&lote.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_educacenso_lote",r.LoteId,lote.EntidadeId.Value,x.EntidadeId.Value);
+    if(lote.Status is not ("ATIVA" or "ATIVO"))throw new LoteEducacensoNaoVigenteException(r.LoteId,lote.Status ?? "INDEFINIDO");
+    return await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_educacenso_inconsistencia(tenant_id,entidade_id,referencia_id,tipo,nome,descricao,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@LoteId,@Gravidade,@Origem,@Recomendacao,'ABERTA',jsonb_build_array(jsonb_build_object('acao','LANCAR_INCONSISTENCIA_EDUCACENSO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,LoteId=r.LoteId,Gravidade=gravidade,Origem=r.Origem.Trim().ToUpperInvariant(),Recomendacao=r.Recomendacao?.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+  }
+  public async Task<EducacaoEducacensoDashboardDto> EducacensoDashboardAsync(long tenantId,CancellationToken ct){
+    foreach(var t in new[]{"educacao_educacenso_lote","educacao_educacenso_inconsistencia","educacao_educacenso_evento"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+    using var c=_context.CreateConnection();
+    var sql="select (select count(1) from sigov.educacao_educacenso_lote where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as LotesAtivos,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as InconsistenciasAbertas,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and upper(coalesce(tipo,''))='ALTA' and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as GravidadeAlta,(select count(1) from sigov.educacao_educacenso_evento where tenant_id=@TenantId and not is_deleted) as Eventos";
+    var m=await c.QueryFirstAsync<EducacaoEducacensoMetricasLinha>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
+    return new EducacaoEducacensoDashboardDto(m.LotesAtivos,m.InconsistenciasAbertas,m.GravidadeAlta,m.Eventos);
   }
  public async Task<bool> AlterarStatusAsync(EducacaoAvancadaContext x,string recurso,long id,string status,string? justificativa,CancellationToken ct,DateTime? versaoAtual=null){recurso=Recurso(recurso);if(string.IsNullOrWhiteSpace(status))throw new ArgumentException("Status é obrigatório.");var alvo=status.Trim().ToUpperInvariant();if ((alvo is "CANCELADA" or "CANCELADO") && string.IsNullOrWhiteSpace(justificativa))throw new ArgumentException("Cancelamento exige justificativa.");if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso);using var c=_context.CreateConnection();var de=await c.QueryFirstOrDefaultAsync<(string? Status,long LinhaEntidade)>(new CommandDefinition($"select status,coalesce(entidade_id,-1) as LinhaEntidade from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false",new{x.TenantId,Id=id},cancellationToken:ct));if(de.Status is null)throw new RegistroNaoEncontradoException(recurso,id);if(de.LinhaEntidade>=0 && x.EntidadeId.HasValue && x.EntidadeId.Value!=de.LinhaEntidade)throw new ContextoInstitucionalDivergenteException(recurso,id,de.LinhaEntidade,x.EntidadeId.Value);var linhaDe=de.Status;if(!EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo))throw new TransicaoDeStatusInvalidaException(linhaDe,alvo);var n=await c.ExecuteAsync(new CommandDefinition($"update sigov.{recurso} set status=@Status,justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria when 'object' then case when auditoria='{{}}'::jsonb then '[]'::jsonb else jsonb_build_array(auditoria) end else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','STATUS','de',@De,'para',@Status,'motivo',coalesce(@Justificativa,justificativa),'em',now())) where tenant_id=@TenantId and id=@Id and is_deleted=false and (@VersaoAtual::timestamptz is null or coalesce(updated_at,created_at)=@VersaoAtual)",new{x.TenantId,Id=id,Status=alvo,De=linhaDe,Justificativa=justificativa,x.UsuarioId,CorrelationId=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid(),VersaoAtual=versaoAtual},cancellationToken:ct));if(n==0)throw new ConflitoDeVersaoEducacaoException(recurso,id);return true;}
  public async Task<EducacaoAvancadaDashboardDto> DashboardAsync(long tenantId,string recurso,CancellationToken ct){recurso=Recurso(recurso);if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))return new EducacaoAvancadaDashboardDto(0,0,0,0,Array.Empty<EducacaoAvancadaRegistroDto>());using var c=_context.CreateConnection();var sql=$"select count(1) as total,count(1) filter (where status in ('ATIVA','ATIVO','PUBLICADO','DISPONIVEL','ABERTO')) as ativos,count(1) filter (where status in ('RASCUNHO','PROGRAMADA','SOLICITADA')) as pendentes,count(1) filter (where status in ('ATRASADO','SUSPENSA','COM_INCONSISTENCIA')) as alertas from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false;select id as Id,codigo as Codigo,nome as Nome,status as Status,tipo as Tipo,descricao as Descricao,quantidade as Quantidade,valor as Valor,created_at as \"CreatedAt\",coalesce(updated_at,created_at) as \"UpdatedAt\" from sigov.{recurso} where tenant_id=@TenantId and is_deleted=false order by id desc limit 6;";using var m=await c.QueryMultipleAsync(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct));var tot=await m.ReadFirstAsync<EducacaoTotais>();var recentes=(await m.ReadAsync<EducacaoAvancadaRegistroDto>()).ToList();return new(tot.Total,tot.Ativos,tot.Pendentes,tot.Alertas,recentes);}

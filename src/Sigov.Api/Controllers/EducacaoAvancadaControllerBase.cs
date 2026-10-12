@@ -240,6 +240,38 @@ public abstract class EducacaoAvancadaControllerBase : ControllerBase
         {
             return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
         }
+        catch (IndicadorCodigoExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (IndicadorInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (IndicadorNaoVigenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ValorIndicadorExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (ProjecaoMatriculaExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (LoteEducacensoAnoExistenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (LoteEducacensoInexistenteException ex)
+        {
+            return NotFound(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
+        catch (LoteEducacensoNaoVigenteException ex)
+        {
+            return Conflict(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(ApiResponse<long>.Fail(ex.Message, GetCorrelationId()));

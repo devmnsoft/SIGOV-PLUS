@@ -175,3 +175,35 @@ public sealed class CustoCentroNaoVigenteException(long CentroCustoId, string St
 /// <summary>Código de centro de custo já ocupado por centro vigente no tenant (HTTP 409, código CUSTO_CENTRO_CODIGO_EXISTENTE; backstop ux_custo_centro_tenant_codigo).</summary>
 public sealed class CustoCentroCodigoExistenteException(string Codigo)
     : Exception($"CUSTO_CENTRO_CODIGO_EXISTENTE: já existe centro de custo vigente com o código {Codigo} neste tenant; use outro código ou cancele o centro existente.");
+
+/// <summary>Indicador vigente já existe com o mesmo código no tenant (HTTP 409, código INDICADOR_CODIGO_EXISTENTE; backstop ux_indicador_tenant_codigo).</summary>
+public sealed class IndicadorCodigoExistenteException(string Codigo)
+    : Exception($"INDICADOR_CODIGO_EXISTENTE: já existe indicador vigente com o código {Codigo} neste tenant; use outro código ou cancele o indicador existente.");
+
+/// <summary>Indicador inexistente/inativo no tenant (HTTP 404, código INDICADOR_INEXISTENTE).</summary>
+public sealed class IndicadorInexistenteException(long IndicadorId)
+    : Exception($"INDICADOR_INEXISTENTE: o indicador {IndicadorId} não existe em sigov.educacao_indicador para este tenant (ou está inativo); cadastre/ative o indicador antes de lançar valores.");
+
+/// <summary>Indicador não vigente para lançamento de valor (HTTP 409, código INDICADOR_NAO_VIGENTE).</summary>
+public sealed class IndicadorNaoVigenteException(long IndicadorId, string Status)
+    : Exception($"INDICADOR_NAO_VIGENTE: o indicador {IndicadorId} está com status {Status}; apenas indicadores ATIVOS aceitam lançamento de valor.");
+
+/// <summary>Valor já lançado para o indicador/ano no tenant (HTTP 409, código VALOR_INDICADOR_EXISTENTE; backstop ux_indicador_valor_tenant_ref_ano).</summary>
+public sealed class ValorIndicadorExistenteException(long IndicadorId, int Ano)
+    : Exception($"VALOR_INDICADOR_EXISTENTE: já existe valor vigente do indicador {IndicadorId} para o ano {Ano} neste tenant; use outro ano ou cancele o valor existente.");
+
+/// <summary>Projeção de matrícula já lançada para a escola/ano no tenant (HTTP 409, código PROJECAO_MATRICULA_EXISTENTE; backstop ux_projecao_matricula_tenant_escola_ano).</summary>
+public sealed class ProjecaoMatriculaExistenteException(long EscolaId, int Ano)
+    : Exception($"PROJECAO_MATRICULA_EXISTENTE: já existe projeção vigente da escola {EscolaId} para o ano {Ano} neste tenant; use outro ano ou cancele a projeção existente.");
+
+/// <summary>Lote Educacenso vigente já existe para o ano no tenant (HTTP 409, código LOTE_EDUCACENSO_ANO_EXISTENTE; backstop ux_educacenso_lote_tenant_ano).</summary>
+public sealed class LoteEducacensoAnoExistenteException(int Ano)
+    : Exception($"LOTE_EDUCACENSO_ANO_EXISTENTE: já existe lote Educacenso vigente para o ano {Ano} neste tenant; use outro ano ou cancele o lote existente.");
+
+/// <summary>Lote Educacenso inexistente/inativo no tenant (HTTP 404, código LOTE_EDUCACENSO_INEXISTENTE).</summary>
+public sealed class LoteEducacensoInexistenteException(long LoteId)
+    : Exception($"LOTE_EDUCACENSO_INEXISTENTE: o lote Educacenso {LoteId} não existe em sigov.educacao_educacenso_lote para este tenant (ou está inativo); lance o lote antes de registrar inconsistências.");
+
+/// <summary>Lote Educacenso não vigente para registro de inconsistência (HTTP 409, código LOTE_EDUCACENSO_NAO_VIGENTE).</summary>
+public sealed class LoteEducacensoNaoVigenteException(long LoteId, string Status)
+    : Exception($"LOTE_EDUCACENSO_NAO_VIGENTE: o lote Educacenso {LoteId} está com status {Status}; apenas lotes ATIVOS aceitam registro de inconsistência.");

@@ -397,4 +397,43 @@ public sealed class EducacaoModuleSmokeTests
         manifest.Should().Contain("20261011180000_evo_c1s9_fundeb_custos_unicidade.sql")
             .And.Contain("indexname='ux_fundeb_receita_tenant_competencia_fonte'");
     }
+
+    [Fact]
+    public void IndicadoresEducacenso_Sprint10_CatalogoValorProjecaoLote_UnicidadeEDashboard()
+    {
+        // Sprint 10 banco: um indicador por código vigente, um valor por indicador x ano,
+        // uma projeção por escola x ano e um lote Educacenso por ano — todos por tenant,
+        // com pós-condição explícita (regra 13).
+        var migration = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261011190000_evo_c1s10_indicadores_educacenso_unicidade.sql"));
+        migration.Should().Contain("create unique index if not exists ux_indicador_tenant_codigo")
+            .And.Contain("create unique index if not exists ux_indicador_valor_tenant_ref_ano")
+            .And.Contain("create unique index if not exists ux_projecao_matricula_tenant_escola_ano")
+            .And.Contain("create unique index if not exists ux_educacenso_lote_tenant_ano")
+            .And.Contain("S10-POSTCOND");
+
+        // Operações tipadas: indicador/valor/projeção/lote/inconsistência e dashboard censo.
+        var repo = File.ReadAllText(Path.Combine(Root, "src", "Sigov.Infrastructure", "Educacao", "Avancada", "EducacaoAvancadaRepository.cs"));
+        repo.Should().Contain("public async Task<long> LancarIndicadorAsync(EducacaoAvancadaContext x,EducacaoIndicadorLancarRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarIndicadorValorAsync(EducacaoAvancadaContext x,EducacaoIndicadorValorLancarRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarProjecaoMatriculaAsync(EducacaoAvancadaContext x,EducacaoProjecaoMatriculaLancarRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarEducacensoLoteAsync(EducacaoAvancadaContext x,EducacaoEducacensoLoteLancarRequest r,CancellationToken ct)")
+            .And.Contain("public async Task<long> LancarEducacensoInconsistenciaAsync(EducacaoAvancadaContext x,EducacaoEducacensoInconsistenciaLancarRequest r,CancellationToken ct)")
+            .And.Contain("throw new LoteEducacensoNaoVigenteException(r.LoteId,lote.Status ?? \"INDEFINIDO\")")
+            .And.Contain("insert into sigov.educacao_educacenso_inconsistencia");
+
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Application/Educacao/Avancada/EducacaoAvancadaContracts.cs"))
+            .Should().Contain("Task<long> LancarIndicadorValorAsync(EducacaoAvancadaContext contexto,EducacaoIndicadorValorLancarRequest request,CancellationToken ct)")
+            .And.Contain("Task<EducacaoEducacensoDashboardDto> EducacensoDashboardAsync(long tenantId,CancellationToken ct)")
+            .And.Contain("record EducacaoEducacensoDashboardDto(long LotesAtivos,long InconsistenciasAbertas,long GravidadeAlta,long Eventos)");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoIndicadoresController.cs"))
+            .Should().Contain("[HttpPost(\"indicadores/valores/lancar\")]")
+            .And.Contain("[HttpPost(\"educacenso/inconsistencias/lancar\")]")
+            .And.Contain("[HttpGet(\"educacenso/dashboard\")]")
+            .And.Contain("EducacaoEducacensoDashboardDto");
+
+        // Regra 7: migration registrada no manifest com pós-condição sobre os índices.
+        var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
+        manifest.Should().Contain("20261011190000_evo_c1s10_indicadores_educacenso_unicidade.sql")
+            .And.Contain("indexname='ux_projecao_matricula_tenant_escola_ano'");
+    }
 }
