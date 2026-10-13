@@ -339,3 +339,149 @@ public sealed class DistribuicaoEstornoObrigatorioException(long DistribuicaoId)
 /// <summary>Distribuição sem condição de estorno (estado final sem efeitos nem compensação) (HTTP 409, código DISTRIBUICAO_ESTORNO_INDISPONIVEL).</summary>
 public sealed class DistribuicaoEstornoIndisponivelException(long DistribuicaoId, string StatusAtual)
     : Exception($"DISTRIBUICAO_ESTORNO_INDISPONIVEL: a distribuição {DistribuicaoId} está com status {StatusAtual} sem consumo registrado para compensar; apenas distribuições ativas ou com efeitos pendentes podem ser estornadas.");
+
+// Ciclo 2 Sprint 4 (transporte escolar: da rota à viagem, BR-4.1 a BR-4.8): veiculo apto por
+// situacao documental/inspecao, motorista por habilitacao+categoria compativel, viagem sem
+// sobreposicao (backstops parciais por veiculo x data e motorista x data), presenca com
+// fechamento e estorno unitario, ocorrencia com gravidade/desfecho e carona de horas, custo
+// realizado sem edicao manual. Falhas nomeadas explicitas (regra 13); nada municipal hardcoded (regra 24).
+
+/// <summary>Veículo inexistente/inativo para o tenant atual (HTTP 404, código VEICULO_INEXISTENTE; BR-4.1).</summary>
+public sealed class TransporteVeiculoInexistenteException(long VeiculoId)
+    : Exception($"VEICULO_INEXISTENTE: o veículo {VeiculoId} não existe em sigov.educacao_transporte_veiculo para este tenant (ou está inativo); cadastre/ative o veículo antes de alocá-lo em viagem.");
+
+/// <summary>Placa já cadastrada como veículo vigente no tenant (HTTP 409, código VEICULO_PLACA_EXISTENTE; backstop ux_transporte_veiculo_tenant_placa; BR-4.1).</summary>
+public sealed class TransporteVeiculoPlacaExistenteException(string Placa)
+    : Exception($"VEICULO_PLACA_EXISTENTE: já existe veículo vigente com a placa {Placa} neste tenant; use outra placa ou ative o veículo existente.");
+
+/// <summary>Situação documental fora do conjunto canônico no cadastro (HTTP 400, código VEICULO_SITUACAO_INVALIDA; BR-4.1).</summary>
+public sealed class TransporteVeiculoSituacaoInvalidaException(string Situacao)
+    : Exception($"VEICULO_SITUACAO_INVALIDA: situação documental '{Situacao}' inválida; as situações canônicas são REGULAR, VENCIDA e BAIXA.");
+
+/// <summary>Capacidade inválida no cadastro do veículo (HTTP 400, código VEICULO_CAPACIDADE_INVALIDA; BR-4.1).</summary>
+public sealed class TransporteVeiculoCapacidadeInvalidaException(int Capacidade)
+    : Exception($"VEICULO_CAPACIDADE_INVALIDA: capacidade {Capacidade} inválida; a capacidade de assentos é um inteiro positivo.");
+
+/// <summary>Veículo em situação documental vencida/baixa impede alocação em viagem (HTTP 409, código VEICULO_INAPTO; BR-4.1).</summary>
+public sealed class TransporteVeiculoInaptoException(long VeiculoId, string SituacaoDocumental)
+    : Exception($"VEICULO_INAPTO: o veículo {VeiculoId} está com situação documental {SituacaoDocumental}; apenas veículos REGULARES podem ser alocados em viagem (regularize a documentação antes).");
+
+/// <summary>Inspeção/revisão do veículo vencida e modo BLOQUEIO ativo (HTTP 409, código VEICULO_INSPECCAO_VENCIDA; BR-4.1, parâmetro TRANSPORTE_INSPECCAO_MODO).</summary>
+public sealed class TransporteVeiculoInspecaoVencidaException(long VeiculoId, DateOnly Validade)
+    : Exception($"VEICULO_INSPECCAO_VENCIDA: a inspeção/revisão do veículo {VeiculoId} venceu em {Validade:yyyy-MM-dd} e o parâmetro do tenant TRANSPORTE_INSPECCAO_MODO está em BLOQUEIO; regularize a inspeção ou aguarde a liberação (em modo ALERTA a viagem prossegue com alerta).");
+
+/// <summary>Motorista inexistente/inativo para o tenant atual (HTTP 404, código MOTORISTA_INEXISTENTE; BR-4.2).</summary>
+public sealed class TransporteMotoristaInexistenteException(long MotoristaId)
+    : Exception($"MOTORISTA_INEXISTENTE: o motorista {MotoristaId} não existe em sigov.educacao_transporte_motorista para este tenant (ou está inativo); cadastre/ative o motorista antes de alocá-lo em viagem.");
+
+/// <summary>Habilitação do motorista vencida na data da viagem (HTTP 409, código MOTORISTA_HABILITACAO_VENCIDA; BR-4.2).</summary>
+public sealed class TransporteMotoristaHabilitacaoVencidaException(long MotoristaId, DateOnly Validade, DateOnly DataViagem)
+    : Exception($"MOTORISTA_HABILITACAO_VENCIDA: a habilitação do motorista {MotoristaId} venceu em {Validade:yyyy-MM-dd}, anterior à data da viagem {DataViagem:yyyy-MM-dd}; renove a licença antes de alocar o motorista.");
+
+/// <summary>Categoria de habilitação incompatível com a classe do veículo (HTTP 409, código MOTORISTA_CATEGORIA_INCOMPATIVEL; BR-4.2, tabela transporte_categoria_compatibilidade).</summary>
+public sealed class TransporteMotoristaCategoriaIncompativelException(string Categoria, string Classe)
+    : Exception($"MOTORISTA_CATEGORIA_INCOMPATIVEL: a categoria {Categoria} da habilitação não está habilitada para operar veículos da classe {Classe} segundo o catálogo sigov.transporte_categoria_compatibilidade (configurável; regra 11).");
+
+/// <summary>Viagem sem monitor quando exigido pela esfera do tenant (HTTP 409, código VIAGEM_MONITOR_OBRIGATORIO; BR-4.3, parâmetro TRANSPORTE_MONITOR_OBRIGATORIO).</summary>
+public sealed class TransporteViagemMonitorObrigatorioException()
+    : Exception("VIAGEM_MONITOR_OBRIGATORIO: o parâmetro do tenant TRANSPORTE_MONITOR_OBRIGATORIO está ativo para esta esfera/jurisdicação; toda viagem exige ao menos um monitor (informe monitorIds no lançamento).");
+
+/// <summary>Vinculados ativos da rota excedem a capacidade do veículo (HTTP 409, código VIAGEM_CAPACIDADE_EXCEDIDA; BR-4.3).</summary>
+public sealed class TransporteViagemCapacidadeExcedidaException(int Capacidade, int Vinculados)
+    : Exception($"VIAGEM_CAPACIDADE_EXCEDIDA: a rota possui {Vinculados} aluno(s) vinculado(s) ativo(s), acima da capacidade de {Capacidade} assentos do veículo; reduza os vínculos da rota ou use um veículo maior.");
+
+/// <summary>Já existe viagem vigente do mesmo veículo na mesma data (HTTP 409, código VIAGEM_VEICULO_SOBREPOSICAO; backstop ux_transporte_viagem_tenant_veiculo_data; BR-4.3).</summary>
+public sealed class TransporteViagemVeiculoSobreposicaoException(long VeiculoId, DateOnly Data)
+    : Exception($"VIAGEM_VEICULO_SOBREPOSICAO: já existe viagem vigente (PROGRAMADA/EM_ANDAMENTO) do veículo {VeiculoId} na data {Data:yyyy-MM-dd}; conclua, cancele ou substitua a viagem existente antes de programar outra.");
+
+/// <summary>Já existe viagem vigente do mesmo motorista na mesma data (HTTP 409, código VIAGEM_MOTORISTA_SOBREPOSICAO; backstop ux_transporte_viagem_tenant_motorista_data; BR-4.3).</summary>
+public sealed class TransporteViagemMotoristaSobreposicaoException(long MotoristaId, DateOnly Data)
+    : Exception($"VIAGEM_MOTORISTA_SOBREPOSICAO: já existe viagem vigente (PROGRAMADA/EM_ANDAMENTO) do motorista {MotoristaId} na data {Data:yyyy-MM-dd}; conclua, cancele ou substitua a viagem existente antes de programar outra.");
+
+/// <summary>Ocorrência grave (ALTA) do veículo dentro da janela de carona ainda desfechada/recente (HTTP 409, código VIAGEM_OCORRENCIA_GRAVE_CARONA; BR-4.5, parâmetro TRANSPORTE_OCORRENCIA_GRAVE_CARONA_HORAS).</summary>
+public sealed class TransporteViagemOcorrenciaGraveCaronaException(long VeiculoId, long OcorrenciaId, int Horas)
+    : Exception($"VIAGEM_OCORRENCIA_GRAVE_CARONA: o veículo {VeiculoId} teve ocorrência grave (ALTA) {OcorrenciaId} e ainda está dentro da janela de carona de {Horas}h após o desfecho (relatório); desfeche a ocorrência e aguarde a janela paramétrica (TRANSPORTE_OCORRENCIA_GRAVE_CARONA_HORAS) expirar.");
+
+/// <summary>Viagem inexistente/inativa para o tenant atual (HTTP 404, código TRANSPORTE_VIAGEM_INEXISTENTE).</summary>
+public sealed class TransporteViagemInexistenteException(long ViagemId)
+    : Exception($"TRANSPORTE_VIAGEM_INEXISTENTE: a viagem {ViagemId} não existe em sigov.educacao_transporte_viagem para este tenant (ou foi excluída).");
+
+/// <summary>Ciclo da viagem fora de ordem na operação (HTTP 409, código VIAGEM_ESTADO_INVALIDO; BR-4.7).</summary>
+public sealed class TransporteViagemEstadoInvalidoException(long ViagemId, string Operacao, string StatusAtual)
+    : Exception($"VIAGEM_ESTADO_INVALIDO: a operação '{Operacao}' exige outra posição do ciclo da viagem {ViagemId} (status atual {StatusAtual}); o ciclo canônico é PROGRAMADA -> EM_ANDAMENTO (início com hora) -> CONCLUIDA (fim com hora e km), com CANCELADA/SUBSTITUIDA terminais.");
+
+/// <summary>Cancelamento após início sem ocorrência vinculada (HTTP 409, código VIAGEM_CANCELAMENTO_EXIGE_OCORRENCIA; BR-4.7).</summary>
+public sealed class TransporteViagemCancelamentoExigeOcorrenciaException(long ViagemId, string StatusAtual)
+    : Exception($"VIAGEM_CANCELAMENTO_EXIGE_OCORRENCIA: a viagem {ViagemId} já saiu de PROGRAMADA (status {StatusAtual}); o cancelamento agora exige uma ocorrência vinculada (informe ocorrenciaId, lançada nesta viagem com justificativa).");
+
+/// <summary>Substituição sem informar novo veículo nem motorista (HTTP 400, código VIAGEM_SUBSTITUICAO_SEM_RECURSO; BR-4.7).</summary>
+public sealed class TransporteViagemSubstituicaoSemRecursoException()
+    : Exception("VIAGEM_SUBSTITUICAO_SEM_RECURSO: informe pelo menos um dos novos recursos (veiculoId ou motoristaId) e a justificativa da substituição; o recurso não informado permanece o original.");
+
+/// <summary>Registro de presença inexistente/inativo no tenant (HTTP 404, código TRANSPORTE_PRESENCIA_INEXISTENTE; BR-4.4).</summary>
+public sealed class TransportePresencaInexistenteException(long PresencaId)
+    : Exception($"TRANSPORTE_PRESENCIA_INEXISTENTE: o registro de presença {PresencaId} não existe em sigov.educacao_transporte_frequencia (tipo PRESENCA_TRANSPORTE) para este tenant.");
+
+/// <summary>Aluno sem vínculo ativo na rota da viagem no lançamento de presença (HTTP 409, código PRESENCIA_ALUNO_FORA_DA_ROTA; BR-4.4).</summary>
+public sealed class TransportePresencaAlunoForaDaRotaException(long AlunoId, long RotaId)
+    : Exception($"PRESENCA_ALUNO_FORA_DA_ROTA: o aluno {AlunoId} não possui vínculo ativo com a rota {RotaId} da viagem; lances presença apenas de alunos vinculados à rota (vínculo é o domínio de origem da presença do transporte).");
+
+/// <summary>Status de presença fora do conjunto canônico (HTTP 400, código PRESENCIA_STATUS_INVALIDO; BR-4.4).</summary>
+public sealed class TransportePresencaStatusInvalidoException(string Status)
+    : Exception($"PRESENCIA_STATUS_INVALIDO: status '{Status}' inválido; os estados canônicos do dia são PRESENTE, FALTANTE e DESLIGADO.");
+
+/// <summary>Presença fechada: novo lançamento só do registro estornado (HTTP 409, código PRESENCAS_FECHADAS_ESTORNO_OBRIGATORIO; BR-4.4).</summary>
+public sealed class TransportePresencasFechadasEstornoObrigatorioException(long ViagemId, long AlunoId)
+    : Exception($"PRESENCAS_FECHADAS_ESTORNO_OBRIGATORIO: as presenças da viagem {ViagemId} estão fechadas; para relançar o aluno {AlunoId}, estorne antes o registro existente com justificativa (estorno desbloqueia um registro por vez).");
+
+/// <summary>Estorno de presença sem justificativa (HTTP 400, código PRESENCIA_ESTORNO_JUSTIFICATIVA_OBRIGATORIA; BR-4.4).</summary>
+public sealed class TransportePresencaEstornoJustificativaObrigatorioException()
+    : Exception("PRESENCIA_ESTORNO_JUSTIFICATIVA_OBRIGATORIA: todo estorno de presença de transporte exige justificativa descrevendo o motivo da desbloqueação do registro.");
+
+/// <summary>Fechamento de presença incompleto — vinculados sem registro (HTTP 409, código PRESENCAS_INCOMPLETAS; BR-4.4).</summary>
+public sealed class TransportePresencasIncompletasException(long ViagemId, int Vinculados, int Registrados)
+    : Exception($"PRESENCAS_INCOMPLETAS: a viagem {ViagemId} tem {Vinculados} aluno(s) vinculado(s) na rota e apenas {Registrados} presença(s) registrada(s); lance a presença de todos os vinculados antes de fechar.");
+
+/// <summary>Presença já fechada na viagem (HTTP 409, código PRESENCAS_JA_FECHADAS; BR-4.4).</summary>
+public sealed class TransportePresencasJaFechadasException(long ViagemId)
+    : Exception($"PRESENCAS_JA_FECHADAS: as presenças da viagem {ViagemId} já estão fechadas; estorne o registro específico com justificativa para alterá-lo (um registro por vez).");
+
+/// <summary>Tipo de ocorrência de viagem fora do conjunto canônico (HTTP 400, código OCORRENCIA_TRANSPORTE_TIPO_INVALIDO; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaTipoInvalidoException(string Tipo)
+    : Exception($"OCORRENCIA_TRANSPORTE_TIPO_INVALIDO: tipo '{Tipo}' inválido; os tipos canônicos de ocorrência de viagem são ACIDENTE, QUEBRA, CLIMA e ROTINEIRA_OUTRA.");
+
+/// <summary>Gravidade de ocorrência de viagem fora do conjunto canônico (HTTP 400, código OCORRENCIA_TRANSPORTE_GRAVIDADE_INVALIDA; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaGravidadeInvalidaException(string Gravidade)
+    : Exception($"OCORRENCIA_TRANSPORTE_GRAVIDADE_INVALIDA: gravidade '{Gravidade}' inválida; as gravidades canônicas são BAIXA, MEDIA e ALTA (ALTA muda a situação da viagem para OCORRENCIA_GRAVE e exige desfecho).");
+
+/// <summary>Ocorrência de viagem sem descrição (HTTP 400, código OCORRENCIA_TRANSPORTE_DESCRICAO_OBRIGATORIA; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaDescricaoObrigatorioException()
+    : Exception("OCORRENCIA_TRANSPORTE_DESCRICAO_OBRIGATORIA: toda ocorrência de viagem exige descrição do fato (acidente, quebra, clima ou outro).");
+
+/// <summary>Ocorrência de viagem inexistente/inativa no tenant (HTTP 404, código TRANSPORTE_OCORRENCIA_INEXISTENTE; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaInexistenteException(long OcorrenciaId)
+    : Exception($"TRANSPORTE_OCORRENCIA_INEXISTENTE: a ocorrência {OcorrenciaId} não existe em sigov.educacao_transporte_ocorrencia para este tenant.");
+
+/// <summary>Desfecho de ocorrência grave sem relatório (HTTP 400, código OCORRENCIA_DESFECHO_RELATORIO_OBRIGATORIO; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaDesfechoRelatorioObrigatorioException()
+    : Exception("OCORRENCIA_DESFECHO_RELATORIO_OBRIGATORIO: o desfecho da ocorrência exige o relatório do fato (resumo técnico/administrativo) que autoriza a liberação do veículo para novas viagens.");
+
+/// <summary>Ocorrência já desfechada (HTTP 409, código OCORRENCIA_JA_DESFECHADA; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaJaDesfechadaException(long OcorrenciaId)
+    : Exception($"OCORRENCIA_JA_DESFECHADA: a ocorrência {OcorrenciaId} já possui desfecho (relatório) registrado; o desfecho é único por ocorrência.");
+
+/// <summary>Segunda ocorrência ALTA vigente na mesma viagem (HTTP 409, código OCORRENCIA_ALTA_VIGENTE; backstop ux_transporte_ocorrencia_tenant_viagem_grave; BR-4.5).</summary>
+public sealed class TransporteOcorrenciaAltaVigenteException(long OcorrenciaId)
+    : Exception($"OCORRENCIA_ALTA_VIGENTE: a viagem já possui uma ocorrência ALTA sem desfecho (ocorrência {OcorrenciaId}); desfeche-a com relatório antes de lançar outra ALTA.");
+
+/// <summary>Valor de custo realizado inválido (HTTP 400, código CUSTO_REALIZADO_VALOR_INVALIDO; BR-4.6).</summary>
+public sealed class TransporteCustoRealizadoValorInvalidoException(decimal Valor)
+    : Exception($"CUSTO_REALIZADO_VALOR_INVALIDO: valor {Valor:0.####} inválido; o custo efetivo realizado deve ser positivo.");
+
+/// <summary>Cancelamento sem justificativa (HTTP 400, código VIAGEM_CANCELAMENTO_JUSTIFICATIVA_OBRIGATORIA; BR-4.7).</summary>
+public sealed class TransporteViagemCancelamentoJustificativaObrigatorioException()
+    : Exception("VIAGEM_CANCELAMENTO_JUSTIFICATIVA_OBRIGATORIO: todo cancelamento de viagem exige justificativa descrevendo o motivo (libera veículo/motorista da data e entra na cronologia append-only).");
+
+/// <summary>Custo realizado já registrado para a viagem (HTTP 409, código CUSTO_REALIZADO_EXISTENTE; backstop ux_transporte_custo_tenant_viagem_realizado; BR-4.6).</summary>
+public sealed class TransporteCustoRealizadoExistenteException(long ViagemId)
+    : Exception($"CUSTO_REALIZADO_EXISTENTE: a viagem {ViagemId} já possui custo REALIZADO registrado; o custo efetivo é imutável (sem edição manual) e o conjunto ESTIMADO permanece intocado para comparação no relatório.");

@@ -1305,6 +1305,228 @@ $e16clk = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/bibliot
 $e16dbk = Get-Psql "select to_char(data_inicio,'YYYY-MM-DD')||'|'||to_char(competencia,'YYYY-MM-DD') from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id=$($e11idB.text) order by id desc limit 1;"
 Add-Check 'E16' 'tempo.fonte-operacional-host-unico' (($e16clk.code -eq 200) -and ($e16dbk.text -eq ($e11hoje + '|' + $e11hoje))) ("emprestimo exemplar B prazo=" + $e16prazo + " -> $($e16clk.code); data_inicio|competencia=$($e16dbk.text) vs host local=$e11hoje (fonte unica C#; SQL UTC nao governa)")
 
+# ===========================================================================
+# E18 — Ciclo 2 Sprint 4: transporte escolar da rota a viagem (BR-4.1 a BR-4.8)
+# ---------------------------------------------------------------------------
+# POST veiculos/lancar {placa,capacidade,classe[,situacaoDocumental,
+# inspecaoValidade]}: placa unica no tenant (409 VEICULO_PLACA_EXISTENTE + indice
+# parcial backstop); situacao canonica REGULAR/VENCIDA/BAIXA (400 nomeada;
+# VENCIDA/BAIXA tornam o veiculo inapto p/ viagem); sem data de inspecao, a
+# validade nasce em N meses parametrizaveis pelo tenant (BR-4.1). POST
+# motoristas/lancar {nome,habilitacaoCategoria,habilitacaoValidade}: vencida na
+# data da viagem (MOTORISTA_HABILITACAO_VENCIDA) e categoria compativel com a
+# classe do veiculo via catalogo configuravel
+# sigov.transporte_categoria_compatibilidade (BR-4.2). POST viagens/lancar
+# {rotaId,data,veiculoId,motoristaId[,monitorIds,km/custo]}: backstops parciais
+# de sobreposicao veiculo x data e motorista x data nas viagens vigentes;
+# capacidade x vinculados ativos da rota; monitor obrigatorio quando o
+# parametro do tenant exige (override no banco testado); carona parametrica de
+# ocorrencia grave do veiculo apos desfecho (BR-4.3/BR-4.5); estimativa de custo
+# gravada no planejamento (BR-4.6). Ciclo PROGRAMADA -> EM_ANDAMENTO (inicio c/
+# hora) -> CONCLUIDA (fim c/ hora e km); cancelamento pre-inicio gratuito com
+# justificativa, pos-inicio exige ocorrencia vinculada; substituicao gera nova
+# versao (antiga SUBSTITUIDA, presencas/custos seguem) (BR-4.7). Presenca por
+# viagem por aluno vinculado a rota: idempotente no mesmo status, correcao com a
+# viagem aberta, fechamento impede novo lancamento, estorno unitario com
+# justificativa desbloqueia um registro por vez (BR-4.4). Ocorrencia de viagem:
+# tipos/gravidades validados, ALTA torna a viagem OCORRENCIA_GRAVE (unica
+# vigente sem desfecho), desfecho unico idempotente com relatorio obrigatorio
+# restaura o status anterior (BR-4.5). Custo realizado unico por viagem,
+# imutavel, nao altera o estimado (BR-4.6). GET viagens/{id}/relatorio: presenca
+# + ocorrencias + custos estimado x realizado com desvio absoluto e percentual
+# (BR-4.8). Falhas nomeadas (regra 13); multi-esfera (regra 24).
+# ===========================================================================
+function Get-E18Data { param([string]$Body) try { return [long](($Body | ConvertFrom-Json).data) } catch { return -1 } }
+$e18fix = Get-Psql @"
+delete from sigov.educacao_transporte_frequencia where tenant_id=910001 and tipo='PRESENCA_TRANSPORTE';
+delete from sigov.educacao_transporte_ocorrencia where tenant_id=910001;
+delete from sigov.educacao_transporte_custo where tenant_id=910001;
+delete from sigov.educacao_transporte_viagem where tenant_id=910001;
+delete from sigov.educacao_transporte_veiculo where tenant_id=910001 and placa like 'C2S4-%';
+delete from sigov.educacao_transporte_motorista where tenant_id=910001 and nome like 'C2S4-%';
+delete from sigov.parametro_modulo_valor where tenant_id=910001 and parametro_id=(select id from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='TRANSPORTE_MONITOR_OBRIGATORIO' limit 1);
+select 'ok';
+"@
+Add-Check 'E18' 'fixture.s4-reset' ($e18fix.code -eq 0) ("reset das linhas C2S4 de transporte do tenant 910001 (viagens/presencas/ocorrencias/custos/veiculos/motoristas/override-monitor) exit=$($e18fix.code)")
+$e18d0 = (Get-Date).Date.ToString('yyyy-MM-dd'); $e18d1 = (Get-Date).Date.AddDays(1).ToString('yyyy-MM-dd'); $e18d2 = (Get-Date).Date.AddDays(2).ToString('yyyy-MM-dd'); $e18d3 = (Get-Date).Date.AddDays(3).ToString('yyyy-MM-dd'); $e18d4 = (Get-Date).Date.AddDays(4).ToString('yyyy-MM-dd'); $e18d5 = (Get-Date).Date.AddDays(5).ToString('yyyy-MM-dd'); $e18d6 = (Get-Date).Date.AddDays(6).ToString('yyyy-MM-dd'); $e18d7 = (Get-Date).Date.AddDays(7).ToString('yyyy-MM-dd'); $e18d8 = (Get-Date).Date.AddDays(8).ToString('yyyy-MM-dd'); $e18d9 = (Get-Date).Date.AddDays(9).ToString('yyyy-MM-dd'); $e18d10 = (Get-Date).Date.AddDays(10).ToString('yyyy-MM-dd'); $e18d11 = (Get-Date).Date.AddDays(11).ToString('yyyy-MM-dd')
+# ---- BR-4.1: veiculo regular; sem data de inspecao, validade = N meses do parametro do banco
+$e18v1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI01","capacidade":20,"classe":"ONIBUS"}'
+$e18idV1 = Get-E18Data $e18v1.body
+$e18inspEsp = (Get-Date).Date.AddMonths(6).ToString('yyyy-MM-dd')
+$e18dbV1 = Get-Psql ("select coalesce(placa,'(nil)')||'|'||coalesce(situacao_documental,'(nil)')||'|'||coalesce(to_char(inspecao_validade,'YYYY-MM-DD'),'(nil)') from sigov.educacao_transporte_veiculo where tenant_id=910001 and id=" + $e18idV1 + " limit 1;")
+Add-Check 'E18' 'veiculo.lancado-regular-inspecao-parametrica' (($e18v1.code -eq 200) -and ($e18dbV1.text -eq ('C2S4-VEI01|REGULAR|' + $e18inspEsp))) ("POST veiculos/lancar (placa/capacidade/classe, sem data de inspecao) -> $($e18v1.code); banco placa|situacao|inspecao: $($e18dbV1.text) (BR-4.1: sem validade informada nasce vencendo em 6 meses pelo parametro TRANSPORTE_INSPECCAO_VALIDADE_MESES do banco, nunca hardcoded)")
+$e18v1dup = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI01","capacidade":20,"classe":"ONIBUS"}'
+Add-Check 'E18' 'veiculo.placa-duplicada-409-nomeada' (($e18v1dup.code -eq 409) -and ($e18v1dup.body -like '*VEICULO_PLACA_EXISTENTE*')) ("segundo veiculo com a mesma placa -> $($e18v1dup.code) (409 VEICULO_PLACA_EXISTENTE nomeada; checagem previa + indice parcial ux como backstop transacional)")
+$e18vSit = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI99","capacidade":10,"classe":"ONIBUS","situacaoDocumental":"OUTRA"}'
+Add-Check 'E18' 'veiculo.situacao-documental-invalida-400' (($e18vSit.code -eq 400) -and ($e18vSit.body -like '*VEICULO_SITUACAO_INVALIDA*')) ("situacao 'OUTRA' -> $($e18vSit.code) (400 VEICULO_SITUACAO_INVALIDA nomeada; conjunto canonico REGULAR/VENCIDA/BAIXA)")
+$e18vCap = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI98","capacidade":0,"classe":"ONIBUS"}'
+Add-Check 'E18' 'veiculo.capacidade-invalida-400' (($e18vCap.code -eq 400) -and ($e18vCap.body -like '*VEICULO_CAPACIDADE_INVALIDA*')) ("capacidade 0 -> $($e18vCap.code) (400 VEICULO_CAPACIDADE_INVALIDA nomeada; capacidade e inteiro positivo)")
+# fixture de recursos auxiliares (todos ficticios, prefixo C2S4)
+$e18v2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI02","capacidade":20,"classe":"ONIBUS"}'
+$e18v3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI03","capacidade":1,"classe":"ONIBUS"}'
+$e18v4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body ('{"placa":"C2S4-VEI04","capacidade":20,"classe":"ONIBUS","inspecaoValidade":"' + (Get-Date).Date.AddDays(-1).ToString('yyyy-MM-dd') + '"}')
+$e18v5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI05","capacidade":20,"classe":"ONIBUS","situacaoDocumental":"BAIXA"}'
+$e18v6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/veiculos/lancar' -Base $ApiBase -Body '{"placa":"C2S4-VEI06","capacidade":20,"classe":"MICRO_ONIBUS"}'
+$e18m1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/motoristas/lancar' -Base $ApiBase -Body ('{"nome":"C2S4-MOT01 Ficticio A","habilitacaoCategoria":"E","habilitacaoValidade":"' + (Get-Date).Date.AddDays(365).ToString('yyyy-MM-dd') + '"}')
+$e18m2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/motoristas/lancar' -Base $ApiBase -Body ('{"nome":"C2S4-MOT02 Ficticio B","habilitacaoCategoria":"E","habilitacaoValidade":"' + (Get-Date).Date.AddDays(365).ToString('yyyy-MM-dd') + '"}')
+$e18m3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/motoristas/lancar' -Base $ApiBase -Body ('{"nome":"C2S4-MOT03 Ficticio C","habilitacaoCategoria":"E","habilitacaoValidade":"' + (Get-Date).Date.AddDays(-1).ToString('yyyy-MM-dd') + '"}')
+$e18m4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/motoristas/lancar' -Base $ApiBase -Body ('{"nome":"C2S4-MOT04 Ficticio D","habilitacaoCategoria":"C","habilitacaoValidade":"' + (Get-Date).Date.AddDays(365).ToString('yyyy-MM-dd') + '"}')
+$e18m5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/motoristas/lancar' -Base $ApiBase -Body ('{"nome":"C2S4-MOT05 Ficticio E","habilitacaoCategoria":"D","habilitacaoValidade":"' + (Get-Date).Date.AddDays(365).ToString('yyyy-MM-dd') + '"}')
+$e18okFix = @($e18v2,$e18v3,$e18v4,$e18v5,$e18v6,$e18m1,$e18m2,$e18m3,$e18m4,$e18m5) | Where-Object { $_.code -eq 200 } | Measure-Object
+$e18idV2 = Get-E18Data $e18v2.body; $e18idV3 = Get-E18Data $e18v3.body; $e18idV4 = Get-E18Data $e18v4.body; $e18idV5 = Get-E18Data $e18v5.body; $e18idV6 = Get-E18Data $e18v6.body
+$e18idM1 = Get-E18Data $e18m1.body; $e18idM2 = Get-E18Data $e18m2.body; $e18idM3 = Get-E18Data $e18m3.body; $e18idM4 = Get-E18Data $e18m4.body; $e18idM5 = Get-E18Data $e18m5.body
+Add-Check 'E18' 'fixture.recursos-aplicados' ($e18okFix.Count -eq 10) ("recursos auxiliares ficticios: V2 (ONIBUS reserva), V3 (capacidade 1), V4 (inspecao vencida ontem), V5 (situacao BAIXA), V6 (MICRO_ONIBUS); M1/M2 (categoria E valida), M3 (E vencida), M4 (C), M5 (D) -> todos 200 (compatibilidade E x ONIBUS e D x MICRO_ONIBUS vem da tabela configuravel sigov.transporte_categoria_compatibilidade, regra 11)")
+# ---- BR-4.3: viagem lancada PROGRAMADA com estimativa gravada (BR-4.6)
+$e18t1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d0 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM1 + ',"kmEstimado":50,"tarifaKm":2.5,"combustivelEstimado":200,"pedagioPrevisto":50}')
+$e18t1id = Get-E18Data $e18t1.body
+$e18dbT1 = Get-Psql ("select coalesce(v.status,'(nil)')||'|'||case when exists(select 1 from sigov.educacao_transporte_custo ct where ct.tenant_id=910001 and ct.referencia_id=v.id and ct.tipo='ESTIMADO' and ct.ativo and not ct.is_deleted and abs(ct.valor-375.0)<0.001) then '375ok' else '375diff' end from sigov.educacao_transporte_viagem v where v.tenant_id=910001 and v.id=" + $e18t1id + " limit 1;")
+Add-Check 'E18' 'viagem.lancada-programada-com-estimativa' (($e18t1.code -eq 200) -and ($e18dbT1.text -eq 'PROGRAMADA|375ok')) ("POST viagens/lancar (rota E12 + data + veiculo + motorista + km/tarifa/combustivel/pedagio) -> $($e18t1.code); banco status|custoEstimado: $($e18dbT1.text) (BR-4.3 nasce PROGRAMADA; BR-4.6 estimativa 50x2.5+200+50=375 gravada no planejamento, imutavel)")
+$e18sv = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d0 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM2 + '}')
+Add-Check 'E18' 'viagem.sobreposicao-veiculo-409' (($e18sv.code -eq 409) -and ($e18sv.body -like '*VIAGEM_VEICULO_SOBREPOSICAO*')) ("mesmo veiculo na mesma data com outro motorista livre -> $($e18sv.code) (409 VIAGEM_VEICULO_SOBREPOSICAO nomeada; backstop parcial ux sobre vigentes PROGRAMADA/EM_ANDAMENTO)")
+$e18sm = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d0 + '","veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM1 + '}')
+Add-Check 'E18' 'viagem.sobreposicao-motorista-409' (($e18sm.code -eq 409) -and ($e18sm.body -like '*VIAGEM_MOTORISTA_SOBREPOSICAO*')) ("mesmo motorista na mesma data com outro veiculo livre -> $($e18sm.code) (409 VIAGEM_MOTORISTA_SOBREPOSICAO nomeada; backstop parcial ux separado do do veiculo)")
+$e18sc = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d1 + '","veiculoId":' + $e18idV3 + ',"motoristaId":' + $e18idM2 + '}')
+Add-Check 'E18' 'viagem.capacidade-excedida-409' (($e18sc.code -eq 409) -and ($e18sc.body -like '*VIAGEM_CAPACIDADE_EXCEDIDA*')) ("veiculo capacidade 1 contra 2 alunos vinculados ativos da rota -> $($e18sc.code) (409 VIAGEM_CAPACIDADE_EXCEDIDA nomeada; capacidade x vinculados validada no lancamento)")
+$e18si = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d2 + '","veiculoId":' + $e18idV4 + ',"motoristaId":' + $e18idM1 + '}')
+Add-Check 'E18' 'viagem.inspecao-vencida-bloqueio-409' (($e18si.code -eq 409) -and ($e18si.body -like '*VEICULO_INSPECCAO_VENCIDA*')) ("veiculo com inspecao vencida ontem e modo BLOQUEIO do tenant -> $($e18si.code) (409 VEICULO_INSPECCAO_VENCIDA nomeada; BR-4.1 modo ALERTA|BLOQUEIO parametrizavel)")
+$e18sa = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d2 + '","veiculoId":' + $e18idV5 + ',"motoristaId":' + $e18idM2 + '}')
+Add-Check 'E18' 'viagem.veiculo-inapto-situacao-baixa-409' (($e18sa.code -eq 409) -and ($e18sa.body -like '*VEICULO_INAPTO*')) ("veiculo com situacao documental BAIXA -> $($e18sa.code) (409 VEICULO_INAPTO nomeada; apenas REGULARES podem ser alocados, BR-4.1)")
+$e18sh = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d1 + '","veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM3 + '}')
+Add-Check 'E18' 'viagem.habilitacao-vencida-na-data-da-viagem-409' (($e18sh.code -eq 409) -and ($e18sh.body -like '*MOTORISTA_HABILITACAO_VENCIDA*')) ("motorista com habilitacao vencida antes da data da viagem -> $($e18sh.code) (409 MOTORISTA_HABILITACAO_VENCIDA nomeada; validade comparada contra a data da viagem, BR-4.2)")
+$e18scat = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d3 + '","veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM4 + '}')
+Add-Check 'E18' 'viagem.categoria-incompativel-com-classe-409' (($e18scat.code -eq 409) -and ($e18scat.body -like '*MOTORISTA_CATEGORIA_INCOMPATIVEL*')) ("categoria C em veiculo classe ONIBUS -> $($e18scat.code) (409 MOTORISTA_CATEGORIA_INCOMPATIVEL nomeada; consulta ao catalogo configuravel sigov.transporte_categoria_compatibilidade, regra 11)")
+$e18s404v = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d4 + '","veiculoId":9999999999,"motoristaId":' + $e18idM1 + '}')
+Add-Check 'E18' 'viagem.veiculo-inexistente-404' (($e18s404v.code -eq 404) -and ($e18s404v.body -like '*VEICULO_INEXISTENTE*')) ("veiculo 9999999999 -> $($e18s404v.code) (404 VEICULO_INEXISTENTE nomeada)")
+$e18s404m = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d4 + '","veiculoId":' + $e18idV6 + ',"motoristaId":9999999999}')
+Add-Check 'E18' 'viagem.motorista-inexistente-404' (($e18s404m.code -eq 404) -and ($e18s404m.body -like '*MOTORISTA_INEXISTENTE*')) ("motorista 9999999999 -> $($e18s404m.code) (404 MOTORISTA_INEXISTENTE nomeada)")
+# ---- BR-4.3: monitor obrigatorio quando o parametro do tenant exige (banco = autoridade, regra 11)
+$e18monIns = Get-Psql @'
+insert into sigov.parametro_modulo_valor(tenant_id,parametro_id,valor,correlation_id,created_by,is_deleted)
+select 910001,id,'"TRUE"'::jsonb,'c2s4-monitor-override-e2e',910301,false
+from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='TRANSPORTE_MONITOR_OBRIGATORIO' limit 1;
+'@
+$e18mon1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d4 + '","veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM1 + '}')
+Add-Check 'E18' 'viagem.monitor-obrigatorio-parametro-do-banco-409' (([int]$e18monIns.code -eq 0) -and ($e18mon1.code -eq 409) -and ($e18mon1.body -like '*VIAGEM_MONITOR_OBRIGATORIO*')) ("override do tenant TRANSPORTE_MONITOR_OBRIGATORIO=TRUE direto no banco -> viagem sem monitores -> $($e18mon1.code) (409 VIAGEM_MONITOR_OBRIGATORIO nomeada; exigencia parametrizada por tenant, nada hardcoded)")
+$e18mon2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d4 + '","veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM1 + ',"monitorIds":[1]}')
+$e18monDel = Get-Psql 'delete from sigov.parametro_modulo_valor where tenant_id=910001 and parametro_id=(select id from sigov.parametro_modulo where modulo=''EDUCACAO'' and codigo=''TRANSPORTE_MONITOR_OBRIGATORIO'' limit 1);'
+Add-Check 'E18' 'viagem.monitor-presente-libera-lancamento-200' (($e18mon2.code -eq 200) -and ([int]$e18monDel.code -eq 0)) ("mesma viagem com monitorIds -> $($e18mon2.code) (200; override removido do banco apos o teste)")
+# ---- BR-4.7: ciclo PROGRAMADA -> EM_ANDAMENTO (hora) -> CONCLUIDA (hora + km)
+$e18in1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/iniciar") -Base $ApiBase -Body ('{"horaInicio":"' + $e18d0 + 'T08:00:00"}')
+$e18dbIn = Get-Psql ("select status||'|'||coalesce(to_char(timezone('UTC',hora_inicio),'HH24:MI'),'(nil)') from sigov.educacao_transporte_viagem where tenant_id=910001 and id=" + $e18t1id + " limit 1;")
+Add-Check 'E18' 'ciclo.iniciar-em-andamento-com-hora' (($e18in1.code -eq 200) -and ($e18dbIn.text -eq 'EM_ANDAMENTO|08:00')) ("POST viagens/{id}/iniciar (hora 08:00) -> $($e18in1.code); banco status|hora_inicio(UTC): $($e18dbIn.text) (BR-4.7 inicio sempre registra a hora)")
+$e18co1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/concluir") -Base $ApiBase -Body ('{"horaFim":"' + $e18d0 + 'T10:00:00","kmPercorridos":55}')
+$e18dbCo = Get-Psql ("select status||'|'||coalesce(to_char(timezone('UTC',hora_fim),'HH24:MI'),'(nil)')||'|'||case when km_percorridos=55 then 'kmok' else 'kmdiff:'||coalesce(km_percorridos::text,'(nil)') end from sigov.educacao_transporte_viagem where tenant_id=910001 and id=" + $e18t1id + " limit 1;")
+Add-Check 'E18' 'ciclo.concluir-hora-fim-e-km' (($e18co1.code -eq 200) -and ($e18dbCo.text -eq 'CONCLUIDA|10:00|kmok')) ("POST viagens/{id}/concluir (hora 10:00 + 55 km) -> $($e18co1.code); banco status|hora_fim(UTC)|km_percorridos: $($e18dbCo.text)")
+$e18in2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/iniciar") -Base $ApiBase -Body ('{"horaInicio":"' + $e18d0 + 'T08:30:00"}')
+Add-Check 'E18' 'ciclo.iniciar-de-novo-estado-invalido-409' (($e18in2.code -eq 409) -and ($e18in2.body -like '*VIAGEM_ESTADO_INVALIDO*')) ("iniciar viagem ja CONCLUIDA -> $($e18in2.code) (409 VIAGEM_ESTADO_INVALIDO nomeada; o ciclo nao volta atraves)")
+$e18caX = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/cancelar") -Base $ApiBase -Body '{"justificativa":"cancelar concluida"}'
+Add-Check 'E18' 'ciclo.cancelar-concluida-estado-invalido-409' (($e18caX.code -eq 409) -and ($e18caX.body -like '*VIAGEM_ESTADO_INVALIDO*')) ("cancelar viagem ja CONCLUIDA -> $($e18caX.code) (409 VIAGEM_ESTADO_INVALIDO nomeada; estados terminais nao sao cancelaveis)")
+# ---- BR-4.7: cancelamento pre-inicio gratuito c/ justificativa; pos-inicio exige ocorrencia
+$e18t3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d5 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM1 + '}')
+$e18t3id = Get-E18Data $e18t3.body
+$e18cj0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t3id + "/cancelar") -Base $ApiBase -Body '{"justificativa":""}'
+Add-Check 'E18' 'cancelamento.sem-justificativa-400' (($e18t3.code -eq 200) -and ($e18cj0.code -eq 400) -and ($e18cj0.body -like '*VIAGEM_CANCELAMENTO_JUSTIFICATIVA*')) ("cancelar_PROGRAMADA sem justificativa -> $($e18cj0.code) (400 nomeada; todo cancelamento entra na cronologia com motivo)")
+$e18cj1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t3id + "/cancelar") -Base $ApiBase -Body '{"justificativa":"roteiro reprogramado pela demanda"}'
+$e18dbCj = Get-Psql ("select status||'|'||coalesce(justificativa,'(nil)') from sigov.educacao_transporte_viagem where tenant_id=910001 and id=" + $e18t3id + " limit 1;")
+Add-Check 'E18' 'cancelamento.pre-inicio-gratuito-200' (($e18cj1.code -eq 200) -and ($e18dbCj.text -eq 'CANCELADA|roteiro reprogramado pela demanda')) ("cancelar_PROGRAMADA com justificativa -> $($e18cj1.code); banco status|justificativa: $($e18dbCj.text) (libera veiculo/motorista da data para novas programacoes)")
+$e18t4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d5 + '","veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM2 + '}')
+$e18t4id = Get-E18Data $e18t4.body
+$e18in4 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t4id + "/iniciar") -Base $ApiBase -Body ('{"horaInicio":"' + $e18d5 + 'T08:00:00"}')
+$e18cj2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t4id + "/cancelar") -Base $ApiBase -Body '{"justificativa":"chuva forte"}'
+Add-Check 'E18' 'cancelamento.pos-inicio-exige-ocorrencia-409' (($e18t4.code -eq 200) -and ($e18in4.code -eq 200) -and ($e18cj2.code -eq 409) -and ($e18cj2.body -like '*VIAGEM_CANCELAMENTO_EXIGE_OCORRENCIA*')) ("viajar iniciada (EM_ANDAMENTO) e cancelada apenas com justificativa -> $($e18cj2.code) (409 VIAGEM_CANCELAMENTO_EXIGE_OCORRENCIA nomeada; pos-inicio exige ocorrenciaId vinculada)")
+# ---- BR-4.7: substituicao gera nova versao (antiga SUBSTITUIDA; presencas/custos seguem)
+$e18t6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d7 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM1 + ',"kmEstimado":40,"tarifaKm":2}')
+$e18t6id = Get-E18Data $e18t6.body
+$e18sub0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t6id + "/substituir") -Base $ApiBase -Body '{"veiculoId":null,"motoristaId":null,"justificativa":"sem recurso novo"}'
+Add-Check 'E18' 'substituicao.sem-recurso-novo-400' (($e18t6.code -eq 200) -and ($e18sub0.code -eq 400) -and ($e18sub0.body -like '*VIAGEM_SUBSTITUICAO_SEM_RECURSO*')) ("substituir sem veiculoId nem motoristaId -> $($e18sub0.code) (400 VIAGEM_SUBSTITUICAO_SEM_RECURSO nomeada; ao menos um recurso novo e a justificativa sao exigidos)")
+$e18t5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d6 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM2 + ',"kmEstimado":40,"tarifaKm":2}')
+$e18t5id = Get-E18Data $e18t5.body
+$e18pA1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t5id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"PRESENTE"}')
+$e18pB1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t5id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alB.text + ',"status":"FALTANTE"}')
+$e18sub1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t5id + "/substituir") -Base $ApiBase -Body ('{"veiculoId":' + $e18idV2 + ',"motoristaId":' + $e18idM1 + ',"justificativa":"troca de veiculo por revisao"}')
+$e18t5bid = Get-E18Data $e18sub1.body
+$e18dbSub = Get-Psql ("select coalesce(o.status,'(nil)')||'|'||coalesce(n.status,'(nil)')||'|'||coalesce(n.versao,(0)::bigint)||'|'||coalesce(n.veiculo_id,-1)||'|'||coalesce(n.motorista_id,-1) from sigov.educacao_transporte_viagem o join sigov.educacao_transporte_viagem n on n.id=" + $e18t5bid + " where o.tenant_id=910001 and o.id=" + $e18t5id + ";")
+Add-Check 'E18' 'substituicao.nova-versao-programada-recursos-trocados' (($e18pA1.code -eq 200) -and ($e18pB1.code -eq 200) -and ($e18sub1.code -eq 200) -and ($e18dbSub.text -eq ('SUBSTITUIDA|PROGRAMADA|2|' + $e18idV2 + '|' + $e18idM1))) ("substituir (novos veiculo+motorista aptos, exclusos dos backstops via id<>self) -> $($e18sub1.code); banco antiga|nova(status)|versao|veiculo|motorista: $($e18dbSub.text) (BR-4.7: nova versao PROGRAMADA mantendo data/hora, original SUBSTITUIDA)")
+$e18dbSub2 = Get-Psql ("select (select count(1) from sigov.educacao_transporte_frequencia where tenant_id=910001 and referencia_id=" + $e18t5bid + " and tipo='PRESENCA_TRANSPORTE' and ativo and not is_deleted)||'|'||(select count(1) from sigov.educacao_transporte_custo where tenant_id=910001 and referencia_id=" + $e18t5bid + " and ativo and not is_deleted)||'|'||(select count(1) from sigov.educacao_transporte_custo where tenant_id=910001 and referencia_id=" + $e18t5id + " and ativo and not is_deleted);")
+Add-Check 'E18' 'substituicao.presencas-e-custos-seguidos-para-nova-versao' (($e18dbSub2.text -like ('2|1|0*'))) ("apos substituicao: presencas referenciando a nova versao|custos na nova|custos restantes na original: $($e18dbSub2.text) (linha SUBSTITUIDA fica como cronologia; os dados operacionais migram)")
+# ---- BR-4.4: presenca individual, fechamento e estorno unitario
+$e18t7 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d8 + '","veiculoId":' + $e18idV6 + ',"motoristaId":' + $e18idM5 + '}')
+$e18t7id = Get-E18Data $e18t7.body
+$e18pA = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"PRESENTE"}')
+$e18pAid = Get-E18Data $e18pA.body
+$e18pA2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"PRESENTE"}')
+$e18pA2id = Get-E18Data $e18pA2.body
+$e18dbPA = Get-Psql ("select count(1) from sigov.educacao_transporte_frequencia where tenant_id=910001 and referencia_id=" + $e18t7id + " and aluno_id=" + $e12alA.text + " and tipo='PRESENCA_TRANSPORTE' and ativo and not is_deleted;")
+Add-Check 'E18' 'presenca.idempotente-mesmo-status-mesmo-id' (($e18t7.code -eq 200) -and ($e18pA.code -eq 200) -and ($e18pA2.code -eq 200) -and ($e18pAid -eq $e18pA2id) -and ($e18dbPA.text -eq '1')) ("lancar PRESENTE e relancar o mesmo status -> ambos 200 com o MESMO id e 1 unica linha no banco (idempotencia de registro)")
+$e18pB = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alB.text + ',"status":"FALTANTE"}')
+$e18pBad = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"FOO"}')
+Add-Check 'E18' 'presenca.faltante-ok-status-invalido-400' (($e18pB.code -eq 200) -and ($e18pBad.code -eq 400) -and ($e18pBad.body -like '*PRESENCIA_STATUS_INVALIDO*')) ("FALTANTE do segundo aluno -> 200; status 'FOO' -> $($e18pBad.code) (400 PRESENCIA_STATUS_INVALIDO nomeada; canonico PRESENTE/FALTANTE/DESLIGADO)")
+$e18pGhost = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body '{"alunoId":9999999999,"status":"PRESENTE"}'
+Add-Check 'E18' 'presenca.aluno-inexistente-404' (($e18pGhost.code -eq 404) -and ($e18pGhost.body -like '*TRANSPORTE_ALUNO_INEXISTENTE*')) ("aluno 9999999999 -> $($e18pGhost.code) (404 TRANSPORTE_ALUNO_INEXISTENTE nomeada)")
+$e18al7 = Get-Psql "select coalesce((select a.id from sigov.aluno a where a.tenant_id=910001 and a.codigo_aluno like 'C1S3-%' and a.ativo and not a.is_deleted and a.entidade_id=(select entidade_id from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S8-ALA' limit 1) and not exists(select 1 from sigov.educacao_transporte_aluno ta where ta.tenant_id=910001 and ta.aluno_id=a.id and ta.ativo and not ta.is_deleted) order by a.id limit 1),-1);"
+$e18pOut = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e18al7.text + ',"status":"PRESENTE"}')
+Add-Check 'E18' 'presenca.aluno-sem-vinculo-na-rota-409' (($e18pOut.code -eq 409) -and ($e18pOut.body -like '*PRESENCA_ALUNO_FORA_DA_ROTA*')) ("aluno valido do tenant (fixture C1S3) sem vinculo ativo em rota de transporte -> $($e18pOut.code) (409 PRESENCA_ALUNO_FORA_DA_ROTA nomeada; o dominio de origem da presenca e o vinculo a rota)")
+$e18fech1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/fechar") -Base $ApiBase
+$e18dbFech = Get-Psql ("select coalesce(presenca_fechada,false) from sigov.educacao_transporte_viagem where tenant_id=910001 and id=" + $e18t7id + " limit 1;")
+Add-Check 'E18' 'presencas.fechar-integro-200' (($e18fech1.code -eq 200) -and ($e18dbFech.text -eq 't')) ("fechar com todos os 2 vinculados registrados -> $($e18fech1.code); banco presenca_fechada: $($e18dbFech.text) (BR-4.4 fechamento impede novos lancamentos)")
+$e18pFech = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"DESLIGADO"}')
+Add-Check 'E18' 'presencas.lancamento-pos-fechamento-exige-estorno-409' (($e18pFech.code -eq 409) -and ($e18pFech.body -like '*PRESENCAS_FECHADAS_ESTORNO_OBRIGATORIO*')) ("novo lancamento na viagem fechada -> $($e18pFech.code) (409 PRESENCAS_FECHADAS_ESTORNO_OBRIGATORIO nomeada)")
+$e18est0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/" + $e18pAid + "/estornar") -Base $ApiBase -Body '{"justificativa":""}'
+Add-Check 'E18' 'presencas.estorno-sem-justificativa-400' (($e18est0.code -eq 400) -and ($e18est0.body -like '*PRESENCIA_ESTORNO_JUSTIFICATIVA_OBRIGATORIA*')) ("estorno sem justificativa -> $($e18est0.code) (400 nomeada; compensacao sempre justificada)")
+$e18est1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/" + $e18pAid + "/estornar") -Base $ApiBase -Body '{"justificativa":"erro de lancamento pelo monitor"}'
+$e18pRe = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"PRESENTE"}')
+$e18pReid = Get-E18Data $e18pRe.body
+$e18dbEst = Get-Psql ("select coalesce(status,'(nil)')||'|'||coalesce(nullif(justificativa,''),'(nil)') from sigov.educacao_transporte_frequencia where tenant_id=910001 and id=" + $e18pAid + " limit 1;")
+Add-Check 'E18' 'presencas.estorno-unitario-desbloqueia-relancamento' (($e18est1.code -eq 200) -and ($e18pRe.code -eq 200) -and ($e18pReid -eq $e18pAid) -and ($e18dbEst.text -eq 'PRESENTE|erro de lancamento pelo monitor')) ("estorno com justificativa -> 200 e relancamento reabre o MESMO registro (id $e18pAid); banco status|justificativa: $($e18dbEst.text) (estorno desbloqueia um registro por vez)")
+$e18fech2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t7id + "/presencas/fechar") -Base $ApiBase
+Add-Check 'E18' 'presencas.ja-fechadas-409' (($e18fech2.code -eq 409) -and ($e18fech2.body -like '*PRESENCAS_JA_FECHADAS*')) ("segundo fechamento -> $($e18fech2.code) (409 PRESENCAS_JA_FECHADAS nomeada; fechamento e unico)")
+$e18t8 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d9 + '","veiculoId":' + $e18idV6 + ',"motoristaId":' + $e18idM5 + '}')
+$e18t8id = Get-E18Data $e18t8.body
+$e18pA8 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t8id + "/presencas/lancar") -Base $ApiBase -Body ('{"alunoId":' + $e12alA.text + ',"status":"PRESENTE"}')
+$e18fech3 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t8id + "/presencas/fechar") -Base $ApiBase
+Add-Check 'E18' 'presencas.fechar-com-vinculado-sem-registro-409' (($e18t8.code -eq 200) -and ($e18pA8.code -eq 200) -and ($e18fech3.code -eq 409) -and ($e18fech3.body -like '*PRESENCAS_INCOMPLETAS*')) ("fechar com apenas 1 dos 2 vinculados registrado -> $($e18fech3.code) (409 PRESENCAS_INCOMPLETAS nomeada; o fechamento exige cobertura integral da rota)")
+# ---- BR-4.5: ocorrencias com gravidade, ALTA => OCORRENCIA_GRAVE, desfecho e carona
+$e18t9 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d10 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM1 + '}')
+$e18t9id = Get-E18Data $e18t9.body
+$e18oc1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/lancar") -Base $ApiBase -Body '{"tipo":"QUEBRA","gravidade":"BAIXA","descricao":"avario de pneu traseiro em rodovia"}'
+Add-Check 'E18' 'ocorrencia.baixa-lancada-200' (($e18t9.code -eq 200) -and ($e18oc1.code -eq 200)) ("ocorrencia QUEBRA/BAIXA com descricao -> $($e18oc1.code) (BAIXA/MEDIA nao alteram a situacao da viagem)")
+$e18oc2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/lancar") -Base $ApiBase -Body '{"tipo":"ACIDENTE","gravidade":"ALTA","descricao":"colisao leve em curva, danos materiais"}'
+$e18oc2id = Get-E18Data $e18oc2.body
+$e18dbOc = Get-Psql ("select status from sigov.educacao_transporte_viagem where tenant_id=910001 and id=" + $e18t9id + " limit 1;")
+Add-Check 'E18' 'ocorrencia.alta-grava-ocorrencia-grave-na-viagem' (($e18oc2.code -eq 200) -and ($e18dbOc.text -eq 'OCORRENCIA_GRAVE')) ("ocorrencia ACIDENTE/ALTA -> $($e18oc2.code); banco status da viagem: $($e18dbOc.text) (BR-4.5 ALTA muda a situacao da viagem e guarda o status anterior para o desfecho)")
+$e18oc3 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/lancar") -Base $ApiBase -Body '{"tipo":"ACIDENTE","gravidade":"ALTA","descricao":"segunda ocorrencia alta"}'
+Add-Check 'E18' 'ocorrencia.alta-duplicada-sem-desfecho-409' (($e18oc3.code -eq 409) -and ($e18oc3.body -like '*OCORRENCIA_ALTA_VIGENTE*')) ("segunda ALTA com a primeira ainda sem desfecho -> $($e18oc3.code) (409 OCORRENCIA_ALTA_VIGENTE nomeada; backstop ux da ALTA vigente por viagem)")
+$e18ocTipo = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/lancar") -Base $ApiBase -Body '{"tipo":"OUTRO","gravidade":"BAIXA","descricao":"tipo invalido"}'
+Add-Check 'E18' 'ocorrencia.tipo-invalido-400' (($e18ocTipo.code -eq 400) -and ($e18ocTipo.body -like '*OCORRENCIA_TRANSPORTE_TIPO_INVALIDO*')) ("tipo 'OUTRO' -> $($e18ocTipo.code) (400 nomeada; canonico ACIDENTE/QUEBRA/CLIMA/ROTINEIRA_OUTRA)")
+$e18ocGrav = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/lancar") -Base $ApiBase -Body '{"tipo":"QUEBRA","gravidade":"SUPER","descricao":"gravidade invalida"}'
+Add-Check 'E18' 'ocorrencia.gravidade-invalida-400' (($e18ocGrav.code -eq 400) -and ($e18ocGrav.body -like '*OCORRENCIA_TRANSPORTE_GRAVIDADE_INVALIDA*')) ("gravidade 'SUPER' -> $($e18ocGrav.code) (400 nomeada; canonico BAIXA/MEDIA/ALTA)")
+$e18ocDesc = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/lancar") -Base $ApiBase -Body '{"tipo":"QUEBRA","gravidade":"BAIXA"}'
+Add-Check 'E18' 'ocorrencia.sem-descricao-400' (($e18ocDesc.code -eq 400) -and ($e18ocDesc.body -like '*OCORRENCIA_TRANSPORTE_DESCRICAO_OBRIGATORIA*')) ("sem descricao -> $($e18ocDesc.code) (400 nomeada; descricao do fato e obrigatoria)")
+$e18desf0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/" + $e18oc2id + "/desfechar") -Base $ApiBase -Body '{"relatorio":""}'
+Add-Check 'E18' 'desfecho.sem-relatorio-400' (($e18desf0.code -eq 400) -and ($e18desf0.body -like '*OCORRENCIA_DESFECHO_RELATORIO_OBRIGATORIO*')) ("desfechar ALTA sem relatorio -> $($e18desf0.code) (400 nomeada; o relatorio autoriza a liberacao do veiculo)")
+$e18desf1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/" + $e18oc2id + "/desfechar") -Base $ApiBase -Body '{"relatorio":"relatorio tecnico: danos materiais leves, sem feridos, veiculo liberado apos reparo"}'
+$e18dbDesf = Get-Psql ("select v.status||'|'||case when o.desfecho_em is null then '(nil)' else 'ok' end||'|'||coalesce(o.desfecho_relatorio,'(nil)' )||'|'||coalesce(o.dados->>'status_anterior','(nil)') from sigov.educacao_transporte_viagem v join sigov.educacao_transporte_ocorrencia o on o.id=" + $e18oc2id + " where v.tenant_id=910001 and v.id=" + $e18t9id + " limit 1;")
+Add-Check 'E18' 'desfecho.com-relatorio-restaura-status-anterior' (($e18desf1.code -eq 200) -and ($e18dbDesf.text -eq 'PROGRAMADA|ok|relatorio tecnico: danos materiais leves, sem feridos, veiculo liberado apos reparo|PROGRAMADA')) ("desfecho com relatorio -> $($e18desf1.code); banco statusViagem|desfechoEm|relatorio|statusAnterior: $($e18dbDesf.text) (desfecho restaura o status anterior guardado na ocorrencia)")
+$e18desf2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t9id + "/ocorrencias/" + $e18oc2id + "/desfechar") -Base $ApiBase -Body '{"relatorio":"repeticao do desfecho"}'
+Add-Check 'E18' 'desfecho.repetido-e-idempotente-200' (($e18desf2.code -eq 200) -and ([long](($e18desf2.body | ConvertFrom-Json).data) -eq $e18oc2id)) ("segundo desfecho da mesma ocorrencia -> $($e18desf2.code) com o mesmo id (desfecho unico: repeticao e idempotente, nao erro)")
+$e18car = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/transporte/viagens/lancar' -Base $ApiBase -Body ('{"rotaId":' + $e12r1.text + ',"data":"' + $e18d11 + '","veiculoId":' + $e18idV1 + ',"motoristaId":' + $e18idM2 + '}')
+Add-Check 'E18' 'carona.veiculo-com-grave-recente-bloqueia-nova-viagem-409' (($e18car.code -eq 409) -and ($e18car.body -like '*VIAGEM_OCORRENCIA_GRAVE_CARONA*')) ("nova viagem do mesmo veiculo dentro da janela parametrica de 24h apos o desfecho da ALTA -> $($e18car.code) (409 VIAGEM_OCORRENCIA_GRAVE_CARONA nomeada; janela TRANSPORTE_OCORRENCIA_GRAVE_CARONA_HORAS do banco)")
+# ---- BR-4.6: custo realizado unico, imutavel, nao altera o estimado
+$e18cr1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/custos/realizar") -Base $ApiBase -Body '{"valor":400,"documento":"NF-C2S4-0001"}'
+$e18dbCr = Get-Psql ("select case when exists(select 1 from sigov.educacao_transporte_custo where tenant_id=910001 and referencia_id=" + $e18t1id + " and tipo='REALIZADO' and ativo and not is_deleted and abs(valor-400.0)<0.001) then 'ok' else 'diff' end||'|'||case when exists(select 1 from sigov.educacao_transporte_custo where tenant_id=910001 and referencia_id=" + $e18t1id + " and tipo='ESTIMADO' and ativo and not is_deleted and abs(valor-375.0)<0.001) then 'ok' else 'diff' end||'|'||coalesce((select descricao from sigov.educacao_transporte_custo where tenant_id=910001 and referencia_id=" + $e18t1id + " and tipo='REALIZADO' limit 1),'(nil)') from (select 1 as x) base;")
+Add-Check 'E18' 'custo.realizado-registrado-com-estimado-intacto' (($e18cr1.code -eq 200) -and ($e18dbCr.text -eq 'ok|ok|NF-C2S4-0001')) ("comando proprio custos/realizar (400, NF-C2S4-0001) na viagem CONCLUIDA -> $($e18cr1.code); banco realizado|estimado|documento: $($e18dbCr.text) (BR-4.6: realizado e imutavel; estimado do planejamento permanece intacto)")
+$e18cr2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/custos/realizar") -Base $ApiBase -Body '{"valor":410,"documento":"NF-C2S4-0002"}'
+Add-Check 'E18' 'custo.realizado-duplicado-409' (($e18cr2.code -eq 409) -and ($e18cr2.body -like '*CUSTO_REALIZADO_EXISTENTE*')) ("segundo custo realizado na mesma viagem -> $($e18cr2.code) (409 CUSTO_REALIZADO_EXISTENTE nomeada; sem edicao manual do realizado)")
+$e18cr0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/custos/realizar") -Base $ApiBase -Body '{"valor":0,"documento":"NF-C2S4-0000"}'
+Add-Check 'E18' 'custo.realizado-valor-invalido-400' (($e18cr0.code -eq 400) -and ($e18cr0.body -like '*CUSTO_REALIZADO_VALOR_INVALIDO*')) ("valor 0 -> $($e18cr0.code) (400 nomeada; o custo efetivo deve ser positivo)")
+# ---- BR-4.8: relatorio de viagem (presenca + ocorrencias + custos c/ desvio)
+$e18rel = Invoke-Api -Bearer $tk.token -Method GET -Path ("/api/educacao/transporte/viagens/" + $e18t1id + "/relatorio") -Base $ApiBase
+$relj = $null; try { $relj = ($e18rel.body | ConvertFrom-Json) } catch {}
+$e18relOk = ($e18rel.code -eq 200) -and $null -ne $relj -and ($relj.data.status -eq 'CONCLUIDA') -and ([long]$relj.data.versao -eq 1) -and ([long]$relj.data.alunosVinculados -eq 2) -and ([long]$relj.data.custoEstimado -eq 375) -and ([long]$relj.data.custoRealizado -eq 400) -and ([long]$relj.data.desvioCustoAbsoluto -eq 25) -and ($relj.data.desvioCustoPct -eq 6.67) -and (@($relj.data.alunos).Count -eq 2) -and (@($relj.data.ocorrencias).Count -eq 0) -and ($relj.data.origem -like '*sigov.educacao_transporte_viagem*')
+Add-Check 'E18' 'relatorio.viagem-completa-com-desvio-de-custo' $e18relOk ("GET viagens/{id}/relatorio -> $($e18rel.code); status CONCLUIDA versao 1, 2 alunos vinculados, custoEstimado 375 x custoRealizado 400 -> desvioAbsoluto 25 / desvioPct 6.67%, ocorrencias 0; origem verificavel declarada no DTO (BR-4.8)")
+$e18rel404 = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/transporte/viagens/9999999999/relatorio' -Base $ApiBase
+Add-Check 'E18' 'relatorio.viagem-inexistente-404' (($e18rel404.code -eq 404) -and ($e18rel404.body -like '*TRANSPORTE_VIAGEM_INEXISTENTE*')) ("relatorio da viagem 9999999999 -> $($e18rel404.code) (404 TRANSPORTE_VIAGEM_INEXISTENTE nomeada)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -1377,6 +1599,13 @@ delete from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo l
 delete from sigov.aluno where tenant_id=910001 and codigo_aluno='C1S7-ALA';
 delete from sigov.pessoa where documento='999999000301';
 delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s7-esc';
+delete from sigov.educacao_transporte_frequencia where tenant_id=910001 and tipo='PRESENCA_TRANSPORTE';
+delete from sigov.educacao_transporte_ocorrencia where tenant_id=910001;
+delete from sigov.educacao_transporte_custo where tenant_id=910001;
+delete from sigov.educacao_transporte_viagem where tenant_id=910001;
+delete from sigov.educacao_transporte_veiculo where tenant_id=910001 and placa like 'C2S4-%';
+delete from sigov.educacao_transporte_motorista where tenant_id=910001 and nome like 'C2S4-%';
+delete from sigov.parametro_modulo_valor where tenant_id=910001 and parametro_id=(select id from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='TRANSPORTE_MONITOR_OBRIGATORIO' limit 1);
 delete from sigov.educacao_transporte_aluno where tenant_id=910001 and aluno_id in (select id from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C1S8-%');
 delete from sigov.educacao_transporte_rota_ponto where tenant_id=910001 and rota_id in (select id from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%');
 delete from sigov.educacao_transporte_rota where tenant_id=910001 and codigo like 'C1S8-%';
@@ -1441,9 +1670,16 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
           + (select count(*) from sigov.educacao_biblioteca_ocorrencia where tenant_id=910001)
           + (select count(*) from sigov.educacao_biblioteca_evento where tenant_id=910001)
           + (select count(*) from sigov.educacao_biblioteca_inventario where tenant_id=910001)
-          + (select count(*) from sigov.educacao_biblioteca_inventario_item where referencia_id in (select id from sigov.educacao_biblioteca_inventario where tenant_id=910001)) as restantes;
+          + (select count(*) from sigov.educacao_biblioteca_inventario_item where referencia_id in (select id from sigov.educacao_biblioteca_inventario where tenant_id=910001))
+            + (select count(*) from sigov.educacao_transporte_veiculo where tenant_id=910001 and placa like 'C2S4-%')
+            + (select count(*) from sigov.educacao_transporte_motorista where tenant_id=910001 and nome like 'C2S4-%')
+            + (select count(*) from sigov.educacao_transporte_viagem where tenant_id=910001)
+            + (select count(*) from sigov.educacao_transporte_custo where tenant_id=910001)
+            + (select count(*) from sigov.educacao_transporte_ocorrencia where tenant_id=910001)
+            + (select count(*) from sigov.educacao_transporte_frequencia where tenant_id=910001 and tipo='PRESENCA_TRANSPORTE')
+            + (select count(*) from sigov.parametro_modulo_valor where tenant_id=910001 and parametro_id=(select id from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='TRANSPORTE_MONITOR_OBRIGATORIO' limit 1)) as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count

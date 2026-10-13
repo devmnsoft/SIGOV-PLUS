@@ -42,7 +42,8 @@ public sealed class SaasComercialTests
         // RC-EVO Ciclo 1 Sprint 10: +1 entry (20261011190000_evo_c1s10_indicadores_educacenso_unicidade) → 228 entradas + texto inicial.
         // RC-EVO Ciclo 2 Sprint 1: +1 entry (20261012110000_evo_c2s1_merenda_estoque_idempotencia) → 229 entradas + texto inicial.
         // RC-EVO Ciclo 2 Sprint 3: +1 entry (20261012150000_evo_c2s3_biblioteca_circulacao_completa) → 230 entradas + texto inicial.
-        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(231);
+        // RC-EVO Ciclo 2 Sprint 4: +1 entry (20261012160000_evo_c2s4_transporte_viagens_completa) → 231 entradas + texto inicial.
+        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(232);
     }
 
     [Fact] public void Migration_comercial_familia_B_idempotente_e_politica_de_downgrade_parametrizada()

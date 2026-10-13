@@ -617,5 +617,49 @@ public sealed class EducacaoModuleSmokeTests
         // Regra 7: migration registrada no manifest.
         var manifest = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "manifest.json"));
         manifest.Should().Contain("20261012150000_evo_c2s3_biblioteca_circulacao_completa.sql");
+
+        // Ciclo 2 Sprint 4 banco (transporte da rota a viagem, BR-4.1 a BR-4.8): colunas dedicadas de
+        // veiculo/motorista/viagem, backstops parciais de sobreposicao (veiculo x data / motorista x data),
+        // presenca unica por viagem x aluno nao estornado, ocorrencia ALTA unica vigente por viagem,
+        // custo REALIZADO unico por viagem, catalogo configuravel de compatibilidade e 4 parametros.
+        var migrationS4 = File.ReadAllText(Path.Combine(Root, "database", "postgres", "migrations", "20261012160000_evo_c2s4_transporte_viagens_completa.sql"));
+        migrationS4.Should()
+            .Contain("add column if not exists placa varchar(20)")
+            .And.Contain("add column if not exists situacao_documental varchar(40) not null default 'REGULAR'")
+            .And.Contain("add column if not exists habilitacao_validade date")
+            .And.Contain("create unique index if not exists ux_transporte_viagem_tenant_veiculo_data")
+            .And.Contain("status in ('PROGRAMADA','EM_ANDAMENTO')")
+            .And.Contain("create unique index if not exists ux_transporte_presenca_tenant_viagem_aluno")
+            .And.Contain("create unique index if not exists ux_transporte_ocorrencia_tenant_viagem_grave")
+            .And.Contain("create unique index if not exists ux_transporte_custo_tenant_viagem_realizado")
+            .And.Contain("create table if not exists sigov.transporte_categoria_compatibilidade")
+            .And.Contain("'TRANSPORTE_INSPECCAO_MODO'")
+            .And.Contain("'TRANSPORTE_OCORRENCIA_GRAVE_CARONA_HORAS'")
+            .And.Contain("C2S4-POSTCOND");
+        manifest.Should().Contain("20261012160000_evo_c2s4_transporte_viagens_completa.sql");
+
+        // Comandos tipados expostos no controller de transporte (BR-4.3 a BR-4.7) e falhas nomeadas no filtro (regra 13).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoTransporteEscolarController.cs"))
+            .Should().Contain("[HttpPost(\"veiculos/lancar\")]")
+            .And.Contain("[HttpPost(\"motoristas/lancar\")]")
+            .And.Contain("[HttpPost(\"viagens/lancar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/iniciar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/concluir\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/cancelar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/substituir\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/presencas/lancar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/presencas/fechar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/presencas/{presencaId:long}/estornar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/ocorrencias/lancar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/ocorrencias/{ocorrenciaId:long}/desfechar\")]")
+            .And.Contain("[HttpPost(\"viagens/{id:long}/custos/realizar\")]")
+            .And.Contain("[HttpGet(\"viagens/{id:long}/relatorio\")]");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Filters/EducacaoFalhasNomeadasFiltro.cs"))
+            .Should().Contain("TransporteVeiculoInaptoException => StatusCodes.Status409Conflict")
+            .And.Contain("TransporteMotoristaHabilitacaoVencidaException => StatusCodes.Status409Conflict")
+            .And.Contain("TransporteViagemVeiculoSobreposicaoException => StatusCodes.Status409Conflict")
+            .And.Contain("TransportePresencasFechadasEstornoObrigatorioException => StatusCodes.Status409Conflict")
+            .And.Contain("TransporteCustoRealizadoExistenteException => StatusCodes.Status409Conflict")
+            .And.Contain("TransporteViagemInexistenteException => StatusCodes.Status404NotFound");
     }
 }
