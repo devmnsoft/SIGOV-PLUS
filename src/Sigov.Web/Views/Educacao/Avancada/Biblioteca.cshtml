@@ -1,0 +1,47 @@
+@using System.Text.Json
+@using Sigov.Web.Models
+@{
+    ViewData["Title"] = $"Educação · {ViewData["Modulo"]} · {ViewData["Pagina"]}";
+    ViewData["EduArea"] = "biblioteca";
+    ViewData["EduHelp"] = "Biblioteca multi-esfera (escolas municipais, estaduais e institutos federais): acervo, exemplares, empréstimos e reservas com origem verificável. Ações desta tela: devolver/renovar empréstimo com observação auditada e exportação CSV na página Relatórios. Detalhe de linha: expanda para ver todos os campos.";
+    var cfg = new
+    {
+        area = "biblioteca",
+        apiBase = "api/educacao/biblioteca",
+        dashboard = new { endpoint = "/dashboard", kpis = new[] { new { label = "Títulos", path = "titulos" }, new { label = "Disponíveis", path = "disponiveis" }, new { label = "Empréstimos ativos", path = "emprestimosAtivos" }, new { label = "Atrasos", path = "atrasos" } } },
+        columns = new[] { new { key = "codigo", label = "Código" }, new { key = "nome", label = "Nome" }, new { key = "tipo", label = "Tipo" }, new { key = "status", label = "Status" }, new { key = "quantidade", label = "Qtd" }, new { key = "valor", label = "Valor" }, new { key = "updatedAt", label = "Atualizado em" } },
+        pages = new Dictionary<string, object>
+        {
+            ["Dashboard"] = new { list = new { endpoint = "/dashboard", path = "recentes", label = "Registros recentes" } },
+            ["Acervo"] = new { list = new { endpoint = "/acervo" } },
+            ["AcervoDetalhe"] = new { list = new { endpoint = "/acervo", label = "Acervo — detalhe via expansão de linha" } },
+            ["Exemplares"] = new { list = new { endpoint = "/exemplares" } },
+            ["Emprestimos"] = new
+            {
+                list = new { endpoint = "/emprestimos" },
+                actions = new[]
+                {
+                    new { label = "Devolver", kind = "post", path = "/emprestimos/{id}/devolver", motivo = (object)"optional", body = EduArea.Body(("observacao", "__observacao__")), confirm = new EduActionConfirm("Devolver empréstimo", "A devolução encerra o empréstimo vigente e atualiza o estado do exemplar. A observação fica auditada.", "primary"), matchStatus = new string[0], exceptStatus = new[] { "DEVOLVIDO" }, success = "Empréstimo {id} devolvido" },
+                    new { label = "Renovar", kind = "post", path = "/emprestimos/{id}/renovar", motivo = (object)false, body = EduArea.Body(), confirm = new EduActionConfirm("Renovar empréstimo", "A renovação estende o prazo do empréstimo vigente. A operação fica auditada.", "primary"), matchStatus = new string[0], exceptStatus = new[] { "DEVOLVIDO" }, success = "Empréstimo {id} renovado" }
+                }
+            },
+            ["Reservas"] = new { list = new { endpoint = "/reservas" } },
+            ["Atrasos"] = new
+            {
+                list = new { endpoint = "/atrasos", label = "Empréstimos em atraso" },
+                actions = new[]
+                {
+                    new { label = "Devolver", kind = "post", path = "/emprestimos/{id}/devolver", motivo = (object)"optional", body = EduArea.Body(("observacao", "__observacao__")), confirm = new EduActionConfirm("Devolver empréstimo em atraso", "A devolução encerra o empréstimo em atraso e atualiza o estado do exemplar. A observação fica auditada.", "primary"), matchStatus = new string[0], exceptStatus = new[] { "DEVOLVIDO" }, success = "Empréstimo {id} devolvido" }
+                }
+            },
+            ["Digital"] = new { list = new { endpoint = "/digital", label = "Referências digitais" } },
+            ["Relatorios"] = new { list = new { endpoint = "/relatorios/resumo", path = "recentes", label = "Resumo operacional" }, csv = "/relatorios/exportar-csv" }
+        }
+    };
+    ViewData["EduConfig"] = JsonSerializer.Serialize(cfg);
+}
+@await Html.PartialAsync("~/Views/Educacao/Avancada/_AreaShell.cshtml")
+@section Scripts {
+    <script src="~/js/modules/educacao-area.js" asp-append-version="true"></script>
+    <script nonce="@Context.Items["CspNonce"]">window.EduAreaConfig=@Html.Raw(ViewData["EduConfig"] as string);window.EduArea.init();</script>
+}

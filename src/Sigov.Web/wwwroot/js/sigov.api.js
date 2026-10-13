@@ -12,9 +12,15 @@ window.sigovApi = (() => {
     if (tokenPromise) return tokenPromise;
     tokenPromise = (async () => {
       try {
-        const resp = await fetch(window.location.origin + '/Auth/ApiToken', {
-          headers: { 'Accept': 'application/json' },
-          credentials: 'same-origin'
+        // Timeout nomeado: um /Auth/ApiToken pendurado não pode travar todos os módulos da página em silêncio.
+        // Em timeout, retorna null (chamador segue sem bearer -> falha 401 nomeada na tela) e a próxima
+        // chamada reinicia a tentativa porque tokenPromise é limpa no finally.
+        const resp = await new Promise((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error('SIGOV_APITOKEN_TIMEOUT: /Auth/ApiToken não respondeu em 8s.')), 8000);
+          fetch(window.location.origin + '/Auth/ApiToken', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          }).then(r => { clearTimeout(t); resolve(r); }, e => { clearTimeout(t); reject(e); });
         });
         if (!resp.ok) return null;
         const data = await resp.json().catch(() => ({}));
@@ -26,7 +32,8 @@ window.sigovApi = (() => {
         }
         if (data && data.erro) window.Sigov_API_ERRO_EXERCICIO = data.erro;
         return null;
-      } catch {
+      } catch (e) {
+        console.warn('Sigov: getAuthToken sem token — ' + (e && e.message ? e.message : 'falha desconhecida') + '; chamadas seguem sem bearer.');
         return null;
       } finally {
         tokenPromise = null;

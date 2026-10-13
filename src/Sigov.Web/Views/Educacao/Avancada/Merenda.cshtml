@@ -1,0 +1,47 @@
+@using System.Text.Json
+@using Sigov.Web.Models
+@{
+    ViewData["Title"] = $"Educação · {ViewData["Modulo"]} · {ViewData["Pagina"]}";
+    ViewData["EduArea"] = "merenda";
+    ViewData["EduHelp"] = "Merenda escolar multi-esfera (prefeituras, governos estaduais e órgãos federais): produtos, estoque, cardápios e distribuição com origem verificável. Ações desta tela: estorno de movimento/distribuição com justificativa obrigatória e exportação CSV na página Relatórios.";
+    var cfg = new
+    {
+        area = "merenda",
+        apiBase = "api/educacao/merenda",
+        dashboard = new { endpoint = "/dashboard", kpis = new[] { new { label = "Itens", path = "total" }, new { label = "Ativos", path = "ativos" }, new { label = "Pendentes", path = "pendentes" }, new { label = "Alertas", path = "alertas" } } },
+        columns = new[] { new { key = "codigo", label = "Código" }, new { key = "nome", label = "Nome" }, new { key = "tipo", label = "Tipo" }, new { key = "status", label = "Status" }, new { key = "quantidade", label = "Qtd" }, new { key = "valor", label = "Valor" }, new { key = "updatedAt", label = "Atualizado em" } },
+        pages = new Dictionary<string, object>
+        {
+            ["Dashboard"] = new { list = new { endpoint = "/dashboard", path = "recentes", label = "Registros recentes" } },
+            ["Produtos"] = new { list = new { endpoint = "/produtos" } },
+            ["Fornecedores"] = new { list = new { endpoint = "/fornecedores" } },
+            ["Estoque"] = new { list = new { endpoint = "/estoque" } },
+            ["Movimentos"] = new
+            {
+                list = new { endpoint = "/movimentos" },
+                actions = new[]
+                {
+                    new { label = "Estornar", kind = "post", path = "/movimentos/{id}/estornar", motivo = (object)true, body = EduArea.Body(("motivo", "__motivo__")), confirm = new EduActionConfirm("Estornar movimento", "O estorno é uma operação destrutiva: o movimento sai da soma e o efeito fica auditado. Informe a justificativa.", "danger"), matchStatus = new string[0], exceptStatus = new[] { "ESTORNADO" }, success = "Movimento {id} estornado" }
+                }
+            },
+            ["Cardapios"] = new { list = new { endpoint = "/cardapios" } },
+            ["Distribuicoes"] = new
+            {
+                list = new { endpoint = "/distribuicoes" },
+                actions = new[]
+                {
+                    new { label = "Estornar", kind = "post", path = "/distribuicoes/{id}/estornar", motivo = (object)true, body = EduArea.Body(("motivo", "__motivo__")), confirm = new EduActionConfirm("Estornar distribuição", "O estorno é uma operação destrutiva: a distribuição volta a não computada e o efeito fica auditado. Informe a justificativa.", "danger"), matchStatus = new string[0], exceptStatus = new[] { "ESTORNADO" }, success = "Distribuição {id} estornada" }
+                }
+            },
+            ["Requisicoes"] = new { list = new { endpoint = "/requisicoes" } },
+            ["Consumo"] = new { list = new { endpoint = "/consumo" } },
+            ["Relatorios"] = new { list = new { endpoint = "/relatorios/resumo", path = "recentes", label = "Resumo operacional" }, csv = "/relatorios/exportar-csv" }
+        }
+    };
+    ViewData["EduConfig"] = JsonSerializer.Serialize(cfg);
+}
+@await Html.PartialAsync("~/Views/Educacao/Avancada/_AreaShell.cshtml")
+@section Scripts {
+    <script src="~/js/modules/educacao-area.js" asp-append-version="true"></script>
+    <script nonce="@Context.Items["CspNonce"]">window.EduAreaConfig=@Html.Raw(ViewData["EduConfig"] as string);window.EduArea.init();</script>
+}

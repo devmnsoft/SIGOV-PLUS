@@ -1,0 +1,87 @@
+@using System.Text.Json
+@using Sigov.Web.Models
+@{
+    ViewData["Title"] = $"Educação · {ViewData["Modulo"]} · {ViewData["Pagina"]}";
+    ViewData["EduArea"] = "indicadores";
+    ViewData["EduHelp"] = "Indicadores e gestão financeira multi-esfera (LC 114/2021 — FUNDEB): receitas e aplicações, conformidade vs. mínimo do banco, rateio de custos com estorno comandado, projeção de matrícula, Educacenso com decisão documentada e avaliação do magistério. Ações desta tela: fechar/reabrir competência FUNDEB, estornar rateio, decidir inconsistência Educacenso, encerrar lote, registrar sincronização e fechar/reabrir avaliação — todas auditadas.";
+    var cfg = new
+    {
+        area = "indicadores",
+        apiBase = "api/educacao",
+        dashboard = new { endpoint = "/indicadores/dashboard", kpis = new[] { new { label = "Aplicações FUNDEB", path = "aplicacoesFundeb" }, new { label = "Taxa aplicação %", path = "taxaAplicacao" }, new { label = "Custo/aluno", path = "custoPorAluno" }, new { label = "Inconsistências", path = "inconsistencias" } } },
+        columns = new[] { new { key = "codigo", label = "Código" }, new { key = "nome", label = "Nome" }, new { key = "tipo", label = "Tipo" }, new { key = "status", label = "Status" }, new { key = "quantidade", label = "Qtd" }, new { key = "valor", label = "Valor" }, new { key = "updatedAt", label = "Atualizado em" } },
+        pages = new Dictionary<string, object>
+        {
+            ["Dashboard"] = new { list = new { endpoint = "/indicadores/dashboard", path = "recentes", label = "Registros recentes" } },
+            ["Fundeb"] = new
+            {
+                list = new { endpoint = "/fundeb/receitas", label = "Receitas FUNDEB" },
+                pageActions = new[]
+                {
+                    new { label = "Fechar competência de hoje", kind = "post", path = "/fundeb/competencias/fechar", motivo = (object)"optional", body = EduArea.Body(("competencia", "__hoje__"), ("justificativa", "__motivo__")), confirm = new EduActionConfirm("Fechar competência FUNDEB", "Competência fechada bloqueia novos lançamentos de receita/aplicação/rateio na data. A operação é idempotente e fica auditada.", "primary"), matchStatus = new string[0], exceptStatus = new string[0], success = "Competência FUNDEB de hoje fechada (id {id})" },
+                    new { label = "Reabrir competência de hoje", kind = "post", path = "/fundeb/competencias/reabrir", motivo = (object)true, body = EduArea.Body(("competencia", "__hoje__"), ("justificativa", "__motivo__")), confirm = new EduActionConfirm("Reabrir competência FUNDEB", "A reabertura só parte de competência FECHADA e exige justificativa. A operação fica auditada.", "primary"), matchStatus = new string[0], exceptStatus = new string[0], success = "Competência FUNDEB de hoje reaberta (id {id})" }
+                },
+                panel = new
+                {
+                    title = "Conformidade FUNDEB — LC 114/2021 (aplicações em remuneração do magistério)",
+                    endpoint = "/fundeb/conformidade",
+                    fields = new[] { EduArea.PanelField("Percentual aplicado (%)", "percentual"), EduArea.PanelField("Mínimo exigido (%)", "minimoPct"), EduArea.PanelField("Em conformidade", "emConformidade"), EduArea.PanelField("Nota do recorte", "nota", "sem aplicacoes") }
+                }
+            },
+            ["Custos"] = new { list = new { endpoint = "/custos/lancamentos", label = "Lançamentos de custo" } },
+            ["Rateios"] = new
+            {
+                list = new { endpoint = "/custos/rateios", label = "Rateios de custo" },
+                actions = new[]
+                {
+                    new { label = "Estornar", kind = "post", path = "/custos/rateios/{id}/estornar", motivo = (object)true, body = EduArea.Body(("justificativa", "__motivo__")), confirm = new EduActionConfirm("Estornar rateio", "O estorno cancela os lançamentos derivados (auditoria ESTORNO_RATEIO) e libera a posição de unicidade. Justificativa obrigatória.", "danger"), matchStatus = new string[0], exceptStatus = new[] { "ESTORNADO", "CANCELADO" }, success = "Rateio {id} estornado" }
+                }
+            },
+            ["ProjecoesMatricula"] = new { list = new { endpoint = "/projecoes-matricula" } },
+            ["Educacenso"] = new
+            {
+                list = new { endpoint = "/educacenso/lotes", label = "Lotes Educacenso" },
+                pageActions = new[]
+                {
+                    new { label = "Registrar sincronização Educacenso", kind = "post", path = "/educacenso/eventos/sincronizar", motivo = (object)false, body = EduArea.Body(("detalhe", "Sincronização manual registrada pela tela de indicadores")), confirm = new EduActionConfirm("Registrar sincronização Educacenso", "Um evento de sincronização será registrado e o painel exibirá a última sincronização. A operação fica auditada.", "primary"), matchStatus = new string[0], exceptStatus = new string[0], success = "Sincronização Educacenso registrada (evento id {id})" }
+                },
+                actions = new[]
+                {
+                    new { label = "Encerrar lote", kind = "post", path = "/educacenso/lotes/{id}/encerrar", motivo = (object)"optional", body = EduArea.Body(("justificativa", "__motivo__")), confirm = new EduActionConfirm("Encerrar lote Educacenso", "O lote só encerra com inconsistências ABERTAS zeradas; ALTA aberta tem bloqueio próprio nomeado. A operação é terminal e grava evento.", "primary"), matchStatus = new string[0], exceptStatus = new[] { "ENCERRADA" }, success = "Lote Educacenso {id} encerrado" }
+                },
+                panel = new
+                {
+                    title = "Educacenso — maturidade de indicadores (BR-5.6)",
+                    endpoint = "/educacenso/dashboard",
+                    fields = new[] { EduArea.PanelField("Lotes ativos", "lotesAtivos"), EduArea.PanelField("Inconsistências abertas", "inconsistenciasAbertas"), EduArea.PanelField("Gravidade ALTA", "gravidadeAlta"), EduArea.PanelField("Eventos registrados", "eventos"), EduArea.PanelField("Última sincronização", "ultimaSincronizacao") }
+                }
+            },
+            ["EducacensoInconsistencias"] = new
+            {
+                list = new { endpoint = "/educacenso/inconsistencias", label = "Inconsistências Educacenso" },
+                actions = new[]
+                {
+                    new { label = "Decidir: CORRIGIDA", kind = "post", path = "/educacenso/inconsistencias/{id}/decidir", motivo = (object)false, body = EduArea.Body(("desfecho", "CORRIGIDA")), confirm = new EduActionConfirm("Decidir inconsistência como CORRIGIDA", "A decisão é única e documentada por inconsistência. Re-decisão retorna falha nomeada.", "primary"), matchStatus = new[] { "ABERTA" }, exceptStatus = new string[0], success = "Inconsistência {id} decidida como CORRIGIDA" },
+                    new { label = "Decidir: ACEITE_COM_MOTIVO", kind = "post", path = "/educacenso/inconsistencias/{id}/decidir", motivo = (object)true, body = EduArea.Body(("desfecho", "ACEITE_COM_MOTIVO"), ("motivo", "__motivo__")), confirm = new EduActionConfirm("Aceitar inconsistência com motivo", "O aceite com motivo exige o motivo documentado obrigatório. A decisão é única por inconsistência.", "primary"), matchStatus = new[] { "ABERTA" }, exceptStatus = new string[0], success = "Inconsistência {id} aceita com motivo" }
+                }
+            },
+            ["AvaliacaoMagisterio"] = new
+            {
+                list = new { endpoint = "/avaliacao-magisterio", label = "Avaliações do magistério" },
+                actions = new[]
+                {
+                    new { label = "Fechar", kind = "post", path = "/avaliacao-magisterio/{id}/fechar", motivo = (object)"optional", body = EduArea.Body(("justificativa", "__motivo__")), confirm = new EduActionConfirm("Fechar avaliação", "O fechamento publica o consolidado imutável (média, avaliados e participação) e trava novos resultados. Operar novamente é idempotente.", "primary"), matchStatus = new[] { "ABERTA" }, exceptStatus = new string[0], success = "Avaliação {id} fechada — consolidado imutável publicado" },
+                    new { label = "Reabrir", kind = "post", path = "/avaliacao-magisterio/{id}/reabrir", motivo = (object)true, body = EduArea.Body(("justificativa", "__motivo__")), confirm = new EduActionConfirm("Reabrir avaliação", "A reabertura só parte de FECHADA, exige justificativa e permite retificação antes de novo fechamento.", "primary"), matchStatus = new[] { "FECHADA" }, exceptStatus = new string[0], success = "Avaliação {id} reaberta com justificativa" }
+                }
+            },
+            ["SerieHistorica"] = new { list = new { endpoint = "/indicadores/serie-historica", label = "Série histórica de valores" } },
+            ["Relatorios"] = new { list = new { endpoint = "/indicadores", label = "Catálogo de indicadores" } }
+        }
+    };
+    ViewData["EduConfig"] = JsonSerializer.Serialize(cfg);
+}
+@await Html.PartialAsync("~/Views/Educacao/Avancada/_AreaShell.cshtml")
+@section Scripts {
+    <script src="~/js/modules/educacao-area.js" asp-append-version="true"></script>
+    <script nonce="@Context.Items["CspNonce"]">window.EduAreaConfig=@Html.Raw(ViewData["EduConfig"] as string);window.EduArea.init();</script>
+}

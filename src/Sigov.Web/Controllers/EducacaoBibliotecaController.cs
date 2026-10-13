@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;using Sigov.Web.Services;
 namespace Sigov.Web.Controllers;
 [Authorize,Route("Educacao/Biblioteca")] public sealed class EducacaoBibliotecaController:Controller{
 [HttpGet("Dashboard")] public IActionResult Dashboard() => Pagina("Dashboard");
@@ -10,4 +10,6 @@ namespace Sigov.Web.Controllers;
 [HttpGet("Atrasos")] public IActionResult Atrasos() => Pagina("Atrasos");
 [HttpGet("Digital")] public IActionResult Digital() => Pagina("Digital");
 [HttpGet("Relatorios")] public IActionResult Relatorios() => Pagina("Relatorios");
-private IActionResult Pagina(string pagina){ViewData["Modulo"]="Biblioteca";ViewData["Pagina"]=pagina;return View("~/Views/Educacao/Avancada.cshtml");}}
+// Ciclo 2 Sprint 6 (BR-6.1/BR-6.6): area renderiza sua view ligada aos endpoints tipados e o
+// acesso e governado pelo modulo 'educacao' do banco (regra 11); sem acesso = estado nomeado.
+private IActionResult Pagina(string pagina){ViewData["Modulo"]="Biblioteca";ViewData["Pagina"]=pagina;if(!HttpContext.RequestServices.GetRequiredService<IMenuPermissionService>().CanSeeModule(User,"educacao"))return View("~/Views/Educacao/Avancada/SemAcesso.cshtml");return View("~/Views/Educacao/Avancada/Biblioteca.cshtml");}}

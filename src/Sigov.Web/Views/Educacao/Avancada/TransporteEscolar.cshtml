@@ -1,0 +1,43 @@
+@using System.Text.Json
+@using Sigov.Web.Models
+@{
+    ViewData["Title"] = $"Educação · {ViewData["Modulo"]} · {ViewData["Pagina"]}";
+    ViewData["EduArea"] = "transporte";
+    ViewData["EduHelp"] = "Transporte escolar multi-esfera (municípios, estados e União): rotas, veículos, motoristas, alunos e viagens operadas com origem verificável. Ações desta tela: iniciar/concluir viagem, cancelar com justificativa obrigatória e relatório real da viagem no detalhe da linha.";
+    var cfg = new
+    {
+        area = "transporte",
+        apiBase = "api/educacao/transporte",
+        dashboard = new { endpoint = "/dashboard", kpis = new[] { new { label = "Rotas ativas", path = "rotasAtivas" }, new { label = "Pontos ativos", path = "pontosAtivos" }, new { label = "Alunos vinculados", path = "alunosVinculados" }, new { label = "Escolas atendidas", path = "escolasAtendidas" } } },
+        columns = new[] { new { key = "codigo", label = "Código" }, new { key = "nome", label = "Nome" }, new { key = "tipo", label = "Tipo" }, new { key = "status", label = "Status" }, new { key = "quantidade", label = "Qtd" }, new { key = "valor", label = "Valor" }, new { key = "updatedAt", label = "Atualizado em" } },
+        pages = new Dictionary<string, object>
+        {
+            ["Dashboard"] = new { list = new { endpoint = "/dashboard", path = "recentes", label = "Registros recentes" } },
+            ["Rotas"] = new { list = new { endpoint = "/rotas" } },
+            ["RotaDetalhe"] = new { list = new { endpoint = "/rotas", label = "Rotas — detalhe via expansão de linha" } },
+            ["Veiculos"] = new { list = new { endpoint = "/veiculos" } },
+            ["Motoristas"] = new { list = new { endpoint = "/motoristas" } },
+            ["Alunos"] = new { list = new { endpoint = "/alunos" } },
+            ["Viagens"] = new
+            {
+                list = new { endpoint = "/viagens" },
+                actions = new[]
+                {
+                    new { label = "Iniciar", kind = "post", path = "/viagens/{id}/iniciar", motivo = (object)false, body = EduArea.Body(("horaInicio", null)), confirm = new EduActionConfirm("Iniciar viagem", "A viagem sai de PROGRAMADA para EM_ANDAMENTO e o efeito fica auditado.", "primary"), matchStatus = new[] { "PROGRAMADA" }, exceptStatus = new string[0], success = "Viagem {id} iniciada" },
+                    new { label = "Concluir", kind = "post", path = "/viagens/{id}/concluir", motivo = (object)false, body = EduArea.Body(("horaFim", null), ("kmPercorridos", null)), confirm = new EduActionConfirm("Concluir viagem", "A viagem EM_ANDAMENTO vai para CONCLUIDA e o efeito fica auditado.", "primary"), matchStatus = new[] { "EM_ANDAMENTO" }, exceptStatus = new string[0], success = "Viagem {id} concluída" },
+                    new { label = "Cancelar", kind = "post", path = "/viagens/{id}/cancelar", motivo = (object)true, body = EduArea.Body(("justificativa", "__motivo__")), confirm = new EduActionConfirm("Cancelar viagem", "O cancelamento é uma operação destrutiva para a programação do veículo/motorista. Informe a justificativa obrigatória.", "danger"), matchStatus = new[] { "PROGRAMADA", "EM_ANDAMENTO" }, exceptStatus = new string[0], success = "Viagem {id} cancelada" },
+                    new { label = "Relatório", kind = "get", path = "/viagens/{id}/relatorio", motivo = (object)false, body = EduArea.Body(), confirm = new EduActionConfirm("Carregar relatório da viagem", "O relatório real (com custo realizado vs. estimado) será exibido no detalhe da linha.", "primary"), matchStatus = new string[0], exceptStatus = new[] { "CANCELADA" }, success = "Relatório da viagem {id} carregado" }
+                }
+            },
+            ["Ocorrencias"] = new { list = new { endpoint = "/ocorrencias" } },
+            ["Custos"] = new { list = new { endpoint = "/custos" } },
+            ["Relatorios"] = new { list = new { endpoint = "/relatorios/resumo", path = "recentes", label = "Resumo operacional" }, csv = "/relatorios/exportar-csv" }
+        }
+    };
+    ViewData["EduConfig"] = JsonSerializer.Serialize(cfg);
+}
+@await Html.PartialAsync("~/Views/Educacao/Avancada/_AreaShell.cshtml")
+@section Scripts {
+    <script src="~/js/modules/educacao-area.js" asp-append-version="true"></script>
+    <script nonce="@Context.Items["CspNonce"]">window.EduAreaConfig=@Html.Raw(ViewData["EduConfig"] as string);window.EduArea.init();</script>
+}

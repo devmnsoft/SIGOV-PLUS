@@ -1799,6 +1799,43 @@ $e19pr1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/projeco
 $e19pr2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/projecoes-matricula/lancar' -Base $ApiBase -Body ('{"escolaId":' + $e19esc.text + ',"ano":2026,"quantidade":130}')
 Add-Check 'E19' 'projecao.matricula-unica-escola-ano-200' (($e19pr1.code -eq 200) -and ($e19pr2.code -eq 409) -and ($e19pr2.body -like '*PROJECAO_MATRICULA_EXISTENTE*')) ("projeção 120 matriculas 2026 -> 200; segunda projeção mesma escola x ano -> 409 (1 vigente por escola x ano; alimenta custo/aluno projetado na S20; BR-5.7)")
 
+# E20 — Ciclo 2 Sprint 6: jornadas pelas telas reais (BR-6.1 a BR-6.6). A fachada estatica
+# Avancada.cshtml foi substituida por views por area ligadas aos endpoints tipados: cada rota de
+# area renderiza o shell de area com data-edu-area/data-edu-page, o api base da area embutido na
+# config do motor, sem toast falso "Painel atualizado" e sem a marca da fachada estatica.
+function Get-WebPage { param([string]$Jar,[string]$Url)
+  $of = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_" + [guid]::NewGuid().ToString('N') + ".html")
+  $ef = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_err_" + [guid]::NewGuid().ToString('N') + ".txt")
+  $raw = & curl.exe -s --max-time 45 -b $Jar -L -o $of -w "%{http_code}" $Url 2> $ef
+  $codeInt = 0; try { $codeInt = [int]("$raw".Trim()) } catch {}
+  $body = if (Test-Path $of) { [IO.File]::ReadAllText($of) } else { '' }
+  return [pscustomobject]@{ code=$codeInt; body="$body" }
+}
+foreach ($e20a in @(
+  @('merenda','/Educacao/Merenda/Dashboard','api/educacao/merenda'),
+  @('biblioteca','/Educacao/Biblioteca/Dashboard','api/educacao/biblioteca'),
+  @('transporte','/Educacao/TransporteEscolar/Dashboard','api/educacao/transporte'),
+  @('indicadores','/Educacao/Indicadores/Dashboard','"api/educacao",')
+)) {
+  $e20p = Get-WebPage $lg.jar ("$WebBase" + $e20a[1])
+  Add-Check 'E20' ("telasreais.$($e20a[0]).dash-200") ($e20p.code -eq 200) ("GET $($e20a[1]) com sessao web -> $($e20p.code) (200; area renderiza com dados reais da API, nao shell estatico)")
+  Add-Check 'E20' ("telasreais.$($e20a[0]).marker-area-e-pagina") (($e20p.body -like ('*data-edu-area="' + $e20a[0] + '"*')) -and ($e20p.body -like '*data-edu-page="Dashboard"*')) ("marca da area + pagina presentes no HTML (view por area ligada aos endpoints tipados, BR-6.1)")
+  Add-Check 'E20' ("telasreais.$($e20a[0]).config-api-base") ($e20p.body -like ("*" + $e20a[2] + "*")) ("config do motor contem o api base tipado da area ($($e20a[2]); KPIs/tabela/acoes consomem esses endpoints)")
+  Add-Check 'E20' ("telasreais.$($e20a[0]).sem-toast-falso") (-not ($e20p.body -like '*data-sigov-toast="Painel atualizado"*')) ("nenhum toast falso 'Painel atualizado' no HTML (BR-6.2: toda acao chama API real e so entao notifica)")
+  Add-Check 'E20' ("telasreais.$($e20a[0]).sem-fachada-estatica") (-not ($e20p.body -like '*education-premium-header*')) ("marca da fachada estatica Avancada.cshtml ausente (substituida pela view da area)")
+}
+$e20deep = @(
+  @('movimentos','/Educacao/Merenda/Movimentos','Movimentos'),
+  @('emprestimos','/Educacao/Biblioteca/Emprestimos','Emprestimos'),
+  @('viagens','/Educacao/TransporteEscolar/Viagens','Viagens'),
+  @('fundeb','/Educacao/Indicadores/Fundeb','Fundeb')
+)
+foreach ($e20d in $e20deep) {
+  $e20q = Get-WebPage $lg.jar ("$WebBase" + $e20d[1])
+  Add-Check 'E20' ("telasreais.rota-profunda.$($e20d[0])") (($e20q.code -eq 200) -and ($e20q.body -like ('*data-edu-page="' + $e20d[2] + '"*'))) ("GET $($e20d[1]) -> $($e20q.code) com data-edu-page=$($e20d[2]) (jornada menu -> pagina -> lista -> acao sobre a mesma view da area)")
+  Add-Check 'E20' ("telasreais.rota-profunda.$($e20d[0]).componientes") (($e20q.body -like '*id="eduKpis"*') -and ($e20q.body -like '*sigov-filter-bar*') -and ($e20q.body -like '*_loading*' -or $e20q.body -like '*sigov-loading*')) ("compartilhados presentes no HTML (KPIs com origem + _FilterBar + _Loading/_EmptyState, BR-6.3)")
+}
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -1836,6 +1873,8 @@ delete from sigov.professor where tenant_id=910001 and codigo_professor='C1S3-PR
 delete from sigov.pessoa where documento in ('999999000101','999999000102','999999000103','999999000201','999999000401','999999000104');
 delete from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c1e26-%';
 delete from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'c1e26-%';
+delete from sigov.educacao_biblioteca_exemplar where acervo_id in (select id from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'C1S6-JORNADA-%');
+delete from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'C1S6-JORNADA-%';
 delete from sigov.escola where tenant_id=910001 and codigo like 'c1e26-esc-%';
 delete from sigov.escola where tenant_id=910001 and codigo='c1e26-s3-esc';
 delete from sigov.educacao_merenda_cardapio_item where referencia_id in (select id from sigov.educacao_merenda_cardapio where tenant_id=910001 and escola_id in (select id from sigov.escola where tenant_id=910001 and codigo like 'c1e26-s5-%'));
@@ -1858,6 +1897,11 @@ with c2s1p as (select id from sigov.educacao_merenda_produto where tenant_id=910
 delete from sigov.educacao_merenda_produto where id in (select id from c2s1p);
 delete from sigov.educacao_merenda_requisicao where tenant_id=910001 and codigo like 'c2s2-%';
 delete from sigov.educacao_merenda_produto where tenant_id=910001 and codigo like 'C2S2-%';
+-- Resquicios de jornadas/homologacao: movimentos e estoques cujos produtos ja foram limpos
+-- por codigo (C1S5/C1S6/C2S2/c1e26). O catch-all "not exists" impede que virem
+-- orfaos e acumulem entre execucoes (regra 9: cleanup idempotente).
+delete from sigov.educacao_merenda_movimento where tenant_id=910001 and not exists(select 1 from sigov.educacao_merenda_produto p where p.id=sigov.educacao_merenda_movimento.produto_id);
+delete from sigov.educacao_merenda_estoque where tenant_id=910001 and not exists(select 1 from sigov.educacao_merenda_produto p where p.id=sigov.educacao_merenda_estoque.produto_id);
 delete from sigov.educacao_biblioteca_devolucao where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
 delete from sigov.educacao_biblioteca_emprestimo where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
 delete from sigov.educacao_biblioteca_reserva where tenant_id=910001 and exemplar_id in (select id from sigov.educacao_biblioteca_exemplar where tenant_id=910001 and codigo like 'C1S7-%');
@@ -1975,9 +2019,12 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
              + (select count(*) from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C2S5-%')
              + (select count(*) from sigov.pessoa where documento in ('999999000601','999999000602','999999000603'))
              + (select count(*) from sigov.servidor where tenant_id=910001 and dados->>'matricula' like 'C2S5-%')
+              + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'C1S6-JORNADA-%')
+              + (select count(*) from sigov.educacao_merenda_movimento where tenant_id=910001 and not exists(select 1 from sigov.educacao_merenda_produto p where p.id=sigov.educacao_merenda_movimento.produto_id))
+              + (select count(*) from sigov.educacao_merenda_estoque where tenant_id=910001 and not exists(select 1 from sigov.educacao_merenda_produto p where p.id=sigov.educacao_merenda_estoque.produto_id))
              + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc') as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + C2S5 fundeb-competencia/rateios/avaliacoes/educacenso-eventos/matriculas/turma/curso/alunos/servidores/escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + C2S5 fundeb-competencia/rateios/avaliacoes/educacenso-eventos/matriculas/turma/curso/alunos/servidores/escola + S6 jornada acervo C1S6-JORNADA + merenda movimentos/estoques orfaos de produto limpo + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count

@@ -1,0 +1,45 @@
+@using Sigov.Web.Models.Ui
+@inject Microsoft.Extensions.Configuration.IConfiguration Cfg
+@{
+    var eduArea = ViewData["EduArea"] as string ?? "mod";
+    var eduPagina = ViewData["Pagina"] as string ?? "Dashboard";
+    var eduModulo = ViewData["Modulo"] as string ?? "Educação";
+    var eduHelp = ViewData["EduHelp"] as string ?? "";
+    var eduApiBase = Cfg["Sigov:Api:BaseUrl"] ?? "";
+    var path = Context.Request.Path.ToString();
+    var filterBar = new FilterBarViewModel(path, new[] { new FilterFieldViewModel("status", "Status (servidor)", "text", "ex.: ATIVO") }, "Filtrar", path);
+}
+<section class="edu-area" data-edu-area="@eduArea" data-edu-page="@eduPagina" data-edu-api-base="@eduApiBase">
+    <header class="edu-area__header">
+        <div>
+            <h1>@eduModulo</h1>
+            <p class="edu-area__subtitle">@eduPagina · dados reais da API de educação — cada KPI e tabela exibe a origem.</p>
+        </div>
+        <div class="edu-area__actions">
+            <button type="button" id="eduCsvBtn" class="sigov-btn sigov-btn--ghost" hidden>Exportar CSV</button>
+            <button type="button" id="eduRefresh" class="sigov-btn sigov-btn--primary">Atualizar</button>
+        </div>
+    </header>
+    @await Html.PartialAsync("_ModuleHelpBox", eduHelp)
+    <div id="eduError" role="alert"></div>
+    <div id="eduPanel" class="edu-conformidade" hidden></div>
+    <div id="eduKpis" class="education-kpi-grid edu-area__kpis" aria-label="Indicadores do módulo"></div>
+    @await Html.PartialAsync("_FilterBar", filterBar)
+    <div class="edu-area__toolbar">
+        <label class="edu-busca"><span class="visually-hidden">Busca nos registros carregados</span><input type="search" id="eduBusca" placeholder="Busca nos registros da página carregada"></label>
+        <span id="eduPageInfo" aria-live="polite"></span>
+    </div>
+    <div class="edu-table-wrap" id="eduListWrap">
+        @await Html.PartialAsync("_Loading")
+        <div id="eduTableSlot"></div>
+        <div id="eduEmptySlot" hidden></div>
+    </div>
+    <div class="edu-area__pager">
+        <button type="button" id="eduPrev" class="sigov-btn sigov-btn--ghost" disabled>Anterior</button>
+        <button type="button" id="eduNext" class="sigov-btn sigov-btn--ghost" disabled>Próxima</button>
+    </div>
+    <p class="edu-area__footnote">KPI com valor zero é exibido como 0 com a origem (zero ≠ indisponível). Ações destrutivas pedem confirmação com justificativa e ficam auditadas. Falhas nomeadas da API aparecem exatamente como retornadas.</p>
+    <template id="eduEmptyTpl">
+        @await Html.PartialAsync("_EmptyState")
+    </template>
+</section>

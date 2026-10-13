@@ -74,7 +74,9 @@
     ok.className = `sigov-btn ${opts.variant === 'danger' ? 'sigov-btn--danger' : 'sigov-btn--primary'}`;
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     const done = (value) => { modalEl.removeEventListener('hidden.bs.modal', onHidden); ok.removeEventListener('click', onOk); resolve(value); };
-    const onOk = () => { modal.hide(); done(true); };
+    // O bundle local de Bootstrap dispara hidden.bs.modal de forma síncrona dentro de hide();
+    // resolver ANTES de fechar evita que onHidden vença a corrida e resolva false.
+    const onOk = () => { done(true); modal.hide(); };
     const onHidden = () => done(false);
     ok.addEventListener('click', onOk, { once: true }); modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true }); modal.show();
   }) };

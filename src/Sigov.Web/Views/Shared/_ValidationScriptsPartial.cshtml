@@ -1,0 +1,8 @@
+@*
+    _ValidationScriptsPartial.cshtml — compatibilidade com views que referenciam o partial do template ASP.NET Core.
+    Os scripts jquery.validate.min.js e jquery.validate.unobtrusive.min.js sao carregados UMA VEZ, globalmente,
+    pelo _Layout.cshtml (todas as views usam o layout padrao; nao ha @layout alternativo neste projeto).
+    Incluir as tags <script> aqui de novo causaria dupla inicializacao do unobtrusive (duplicacao de mensagens
+    de validacao). Mantido como parcial vazio documentado; se um layout alternativo passar a existir sem esses
+    scripts, este parcial precisa incluir as tags correspondentes.
+*@

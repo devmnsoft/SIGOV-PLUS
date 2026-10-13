@@ -42,6 +42,12 @@ public sealed class EducacaoModuleSmokeTests
             .And.Contain("m.data_matricula<=a.data_avaliacao")
             .And.Contain("ExecuteScalarAsync<long?>")
             .And.Contain("Frequência rejeitada: aluno sem matrícula elegível");
+        // Regressão S6: cast Postgres com :: no SELECT dispara o detector de tokens legados do Dapper
+        // (o primeiro colon de :: fica isolado apos ']' ), desliga o filtro de parâmetros e a reflexão sobre
+        // o Dictionary falha no membro Comparer (NotSupportedException) no QueryMultiple de /api/educacao/alunos.
+        // O GridReader tambem exige correspondencia exata coluna x construtor: sem coluna extra no select de aluno.
+        code.Should().NotContain("array[]::json[]")
+            .And.Contain("\"aluno\" => \"id, pessoa_id as PessoaId, codigo_aluno as CodigoAluno, nis, cartao_sus as CartaoSus, necessidade_especial as NecessidadeEspecial, situacao\",");
     }
 
     [Fact]
@@ -713,5 +719,89 @@ public sealed class EducacaoModuleSmokeTests
             .Should().Contain("ESTORNO_RATEIO:")
             .And.Contain("'RATEIO_DERIVADO'")
             .And.Contain("jsonb_build_object('consolidado'");
+    }
+
+    [Fact]
+    public void TelasReais_Ciclo2Sprint6_FachadaEstaticaSubstituida_KpisComOrigem_AcoesTipadas_E_AcessoNomeado()
+    {
+        // Ciclo 2 Sprint 6 (BR-6.1 a BR-6.6): as quatro áreas da Educação Avançada deixam de
+        // renderizar a fachada estatica Avancada.cshtml; cada controller renderiza sua view de
+        // area ligada aos endpoints tipados, o acesso e governado pelo modulo 'educacao' do
+        // banco (regra 11) com estado nomeado 'sem acesso', KPIs com origem (metrica+endpoint+
+        // timestamp), acoes reais com confirmacao/justificativa e componentes compartilhados.
+
+        foreach (var (file, areaView) in new[]
+        {
+            ("src/Sigov.Web/Controllers/EducacaoMerendaController.cs", "~/Views/Educacao/Avancada/Merenda.cshtml"),
+            ("src/Sigov.Web/Controllers/EducacaoBibliotecaController.cs", "~/Views/Educacao/Avancada/Biblioteca.cshtml"),
+            ("src/Sigov.Web/Controllers/EducacaoTransporteEscolarController.cs", "~/Views/Educacao/Avancada/TransporteEscolar.cshtml"),
+            ("src/Sigov.Web/Controllers/EducacaoIndicadoresController.cs", "~/Views/Educacao/Avancada/Indicadores.cshtml")
+        })
+        {
+            File.ReadAllText(Path.Combine(Root, file))
+                .Should()
+                .Contain("CanSeeModule(User,\"educacao\")")
+                .And.Contain(areaView)
+                .And.Contain("~/Views/Educacao/Avancada/SemAcesso.cshtml")
+                .And.NotContain("~/Views/Educacao/Avancada.cshtml");
+        }
+
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/Avancada/_AreaShell.cshtml"))
+            .Should()
+            .Contain("data-edu-area=\"@eduArea\"")
+            .And.Contain("data-edu-page=\"@eduPagina\"")
+            .And.Contain("_FilterBar")
+            .And.Contain("_Loading")
+            .And.Contain("_EmptyState")
+            .And.Contain("_ModuleHelpBox")
+            .And.Contain("zero ≠ indisponível");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/Views/Educacao/Avancada/SemAcesso.cshtml"))
+            .Should().Contain("_AccessDeniedState");
+
+        foreach (var (view, apiBase) in new[]
+        {
+            ("src/Sigov.Web/Views/Educacao/Avancada/Merenda.cshtml", "api/educacao/merenda"),
+            ("src/Sigov.Web/Views/Educacao/Avancada/Biblioteca.cshtml", "api/educacao/biblioteca"),
+            ("src/Sigov.Web/Views/Educacao/Avancada/TransporteEscolar.cshtml", "api/educacao/transporte"),
+            ("src/Sigov.Web/Views/Educacao/Avancada/Indicadores.cshtml", "\"api/educacao\",")
+        })
+        {
+            File.ReadAllText(Path.Combine(Root, view))
+                .Should()
+                .Contain(apiBase)
+                .And.Contain("_AreaShell")
+                .And.Contain("~/js/modules/educacao-area.js")
+                .And.Contain("window.EduArea.init();")
+                .And.NotContain("Painel atualizado");
+        }
+
+        // Motor das telas reais: API via bearer do Auth/ApiToken, origem em cada KPI, falhas
+        // nomeadas exibidas como retornadas, confirmacao com justificativa (BR-6.2/6.4).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/wwwroot/js/modules/educacao-area.js"))
+            .Should()
+            .Contain("getAuthToken")
+            .And.Contain("kpi-src")
+            .And.Contain("EDU_AREA_PAGINA_SEM_ENDPOINT")
+            .And.Contain("SigovConfirm.show")
+            .And.Contain("SigovToast")
+            .And.Contain("edu-confirm-motivo");
+
+        // CSS compartilhado do design system: responsivo 360/768/1440 + foco visivel por teclado (BR-6.3).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Web/wwwroot/css/sigov-components.css"))
+            .Should()
+            .Contain("@media(max-width:360px)")
+            .And.Contain("@media(min-width:768px) and (max-width:1439px)")
+            .And.Contain("@media(min-width:1440px)")
+            .And.Contain(":focus-visible");
+
+        // Listagens tipadas novas que as telas consomem (mesmo padrao generico ListarAsync).
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoIndicadoresController.cs"))
+            .Should()
+            .Contain("[HttpGet(\"custos/rateios\")]")
+            .And.Contain("[HttpGet(\"educacenso/inconsistencias\")]");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoBibliotecaController.cs"))
+            .Should().Contain("[HttpGet(\"digital\")]");
+        File.ReadAllText(Path.Combine(Root, "src/Sigov.Api/Controllers/EducacaoTransporteEscolarController.cs"))
+            .Should().Contain("[HttpGet(\"alunos\")]");
     }
 }

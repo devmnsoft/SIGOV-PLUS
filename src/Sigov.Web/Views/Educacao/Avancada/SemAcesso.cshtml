@@ -1,0 +1,8 @@
+@{
+    ViewData["Title"] = $"Educação · {(ViewData["Modulo"] as string) ?? ""} · sem acesso";
+    ViewData["StateTitle"] = "Acesso não autorizado";
+    ViewData["StateMessage"] = "Seu perfil não possui acesso ao módulo Educação para esta operação. A decisão vem do catálogo de módulos, contratos e permissões no banco (fonte de autoridade — regra 11). Consulte Minha Central para revisar seu acesso.";
+}
+<section class="edu-area" data-edu-area="sem-acesso" data-edu-page="SemAcesso">
+    @await Html.PartialAsync("_AccessDeniedState")
+</section>

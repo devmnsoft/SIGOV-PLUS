@@ -492,7 +492,11 @@ returning id";
         "curso" => "id, codigo, nome, etapa_ensino as EtapaEnsino, modalidade",
         "serie_ano" => "id, curso_id as CursoId, codigo, nome, ordem",
         "turma" => "id, escola_id as EscolaId, ano_letivo_id as AnoLetivoId, codigo, nome, turno, capacidade, vagas_ocupadas as VagasOcupadas, status",
-        "aluno" => "id, pessoa_id as PessoaId, codigo_aluno as CodigoAluno, nis, cartao_sus as CartaoSus, necessidade_especial as NecessidadeEspecial, situacao, array[]::json[] as Responsaveis",
+                // Sem coluna de "responsaveis" aqui: AlunoResumoResponse mapeia exatamente estas colunas (o GridReader do
+        // Dapper exige correspondencia exata coluna x construtor). Um cast Postgres com :: neste SELECT tambem
+        // ativaria o detector de tokens legados do Dapper (colon isolado), desligando o filtro de parametros e
+        // fazendo a reflexao sobre o Dictionary falhar no membro Comparer (NotSupportedException) - defeito S6.
+        "aluno" => "id, pessoa_id as PessoaId, codigo_aluno as CodigoAluno, nis, cartao_sus as CartaoSus, necessidade_especial as NecessidadeEspecial, situacao",
         "matricula" => "id, aluno_id as AlunoId, escola_id as EscolaId, ano_letivo_id as AnoLetivoId, turma_id as TurmaId, numero_matricula as NumeroMatricula, data_matricula as DataMatricula, status",
         "professor" => "id, pessoa_id as PessoaId, codigo_professor as CodigoProfessor, formacao, situacao",
         "diario_frequencia" => "id, turma_id as TurmaId, aluno_id as AlunoId, data_aula as DataAula, componente_curricular as ComponenteCurricular, presente, situacao as Status",
