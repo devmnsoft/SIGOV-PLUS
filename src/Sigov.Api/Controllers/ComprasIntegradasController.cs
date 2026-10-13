@@ -38,6 +38,25 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
     [HttpPost("contratos/{id:long}/prorrogar")] public Task<IActionResult> Prorrogar(long id, [FromBody] ContratoProrrogarBody b, CancellationToken c) => Run(P.ContratoProrrogar, async () => { await s.ContratoProrrogarAsync(X(), id, b.NovoFim, b.Justificativa, c); return new { id }; }, c);
     [HttpPost("contratos/{id:long}/rescindir")] public Task<IActionResult> Rescindir(long id, [FromBody] ContratoRescindirBody b, CancellationToken c) => Run(P.ContratoRescindir, async () => { await s.ContratoRescindirAsync(X(), id, b.Tipo, b.Justificativa, b.NotificacaoRef, c); return new { id }; }, c);
 
+    // Sprint 9 (BR-7.5 a BR-7.7): fornecimento -> recebimento -> fatura -> destinacao -> obrigacao.
+    // Recebimento consome a chave aprovar/rejeitar conforme a parte presente (ambas no misto);
+    // destinacao consome as chaves reutilizadas do catalogo (almoxarifado/patrimonio, modulo proprio).
+    [HttpGet("fornecimentos/{id:long}")] public Task<IActionResult> Fornecimento(long id, CancellationToken c) => Run(P.FornecimentoVer, () => s.FornecimentoAsync(X(), id, c), c);
+    [HttpPost("fornecimentos")] public Task<IActionResult> CriarFornecimento([FromBody] FornecimentoCriarRequest r, CancellationToken c) => Run(P.FornecimentoCriar, async () => new { id = await s.FornecimentoCriarAsync(X(), r, c) }, c);
+    [HttpPost("fornecimentos/{id:long}/recebimentos")] public Task<IActionResult> Recebimento(long id, [FromBody] RecebimentoIntegradoRegistrarRequest r, CancellationToken c)
+        => RunMulti(r.QuantidadeAprovada > 0 && r.QuantidadeRejeitada > 0 ? new[] { P.RecebAprovar, P.RecebRejeitar } : r.QuantidadeRejeitada > 0 ? new[] { P.RecebRejeitar } : new[] { P.RecebAprovar }, () => s.RecebimentoIntegradoRegistrarAsync(X(), id, r, c), c);
+    [HttpPost("recebimentos/{id:long}/desfecho")] public Task<IActionResult> Desfecho(long id, [FromBody] RecebimentoDesfechoRequest r, CancellationToken c) => Run(P.RecebRejeitar, () => s.RecebimentoDesfechoAsync(X(), id, r, c), c);
+    [HttpPost("fornecimentos/{id:long}/fatura")] public Task<IActionResult> Fatura(long id, [FromBody] FaturaVincularRequest r, CancellationToken c) => Run(P.FaturaVincular, () => s.FaturaVincularAsync(X(), id, r, c), c);
+    [HttpPost("destinacoes")] public async Task<IActionResult> Destinar([FromBody] DestinacaoIntegradaRequest r, CancellationToken c)
+    {
+        var patrimonial = (r.AlvoTipo ?? "").Trim().ToUpperInvariant() == "PATRIMONIO";
+        if (!await AllowedMod(patrimonial ? "patrimonio" : "almoxarifado", patrimonial ? P.PatrimonioBemCriar : P.AlmoxRecebConfirmar, c)) return Forbid();
+        return await Exec<DestinacaoIntegradaDto>(() => s.DestinacaoRegistrarAsync(X(), r, c));
+    }
+    [HttpPost("obrigacoes/gerar")] public Task<IActionResult> GerarObrigacao([FromBody] ObrigacaoGerarRequest r, CancellationToken c) => Run(P.ObrigacaoLiquidar, () => s.ObrigacaoGerarAsync(X(), r, c), c);
+    [HttpPost("obrigacoes/{id:long}/liquidar")] public Task<IActionResult> LiquidarObrigacao(long id, CancellationToken c) => Run(P.ObrigacaoLiquidar, () => s.ObrigacaoLiquidarAsync(X(), id, c), c);
+    [HttpPost("obrigacoes/{id:long}/estornar")] public Task<IActionResult> EstornarObrigacao(long id, [FromBody] ObrigacaoEstornarBody b, CancellationToken c) => Run(P.ObrigacaoLiquidar, () => s.ObrigacaoEstornarAsync(X(), id, b.Justificativa, c), c);
+
     // chaves da seed C2S7 (banco = autoridade, regra 11)
     static class P
     {
@@ -55,12 +74,38 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
             ContratoCriar = "compras.contrato.criar",
             ContratoProrrogar = "compras.contrato.prorrogar",
             ContratoRescindir = "compras.contrato.rescindir",
-            ContratoExecucaoFiscalizar = "compras.contrato.execucao.fiscalizar";
+            ContratoExecucaoFiscalizar = "compras.contrato.execucao.fiscalizar",
+            // Sprint 9 (BR-7.5 a BR-7.7)
+            FornecimentoCriar = "compras.fornecimento.criar",
+            FornecimentoVer = "compras.fornecimento.visualizar",
+            RecebAprovar = "compras.recebimento.aprovar",
+            RecebRejeitar = "compras.recebimento.rejeitar",
+            FaturaVincular = "compras.fatura.vincular",
+            ObrigacaoLiquidar = "compras.obrigacao.liquidar",
+            AlmoxRecebConfirmar = "almoxarifado.recebimento.confirmar",
+            PatrimonioBemCriar = "patrimonio.bem.criar";
     }
 
     async Task<IActionResult> Run<T>(string p, Func<Task<T>> f, CancellationToken c)
     {
         if (!await Allowed(p, c)) return Forbid();
+        return await Exec<T>(f);
+    }
+
+    async Task<IActionResult> RunMulti<T>(string[] ps, Func<Task<T>> f, CancellationToken c)
+    {
+        foreach (var p in ps) if (!await Allowed(p, c)) return Forbid();
+        return await Exec<T>(f);
+    }
+
+    async Task<bool> AllowedMod(string mod, string p, CancellationToken c)
+    {
+        var i = p.LastIndexOf('.');
+        return (await auth.EvaluateAsync(new(U(), mod, p[..i], p[(i + 1)..], T(), E(), tenant.ExercicioId, null, null, Trace(), "API_C2S9"), c)).Permitido;
+    }
+
+    async Task<IActionResult> Exec<T>(Func<Task<T>> f)
+    {
         try { return Ok(ApiResponse<T>.Ok(await f())); }
         catch (KeyNotFoundException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
         catch (ArgumentException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
@@ -74,6 +119,12 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
         catch (ModalidadeForaDoCatalogoException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
         catch (DispensaBaseLegalInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
         catch (ComprasIntegradasRecursoNaoDisponivelException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (FornecimentoInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContratoItemInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (RecebimentoIntegradoInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (ObrigacaoInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (DestinoLocalInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (DestinoMaterialInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaItemInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaUrgenciaSemJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (DispensaBaseLegalObrigatoriaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
@@ -82,6 +133,12 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
         catch (AdjudicacaoDiretaSemFornecedorException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (AdjudicacaoSemItensLicitadosException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (RescisaoSemAtoJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (RecebimentoRejeicaoSemMotivoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (RejecaoDesfechoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (FaturaNaturezaInvalidaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (FaturaFornecedorDiscrepanteException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (FaturaValorDivergenteException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (DestinoTipoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaEstadoInvalidoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaUrgenciaSemDuplaAprovacaoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaAposAprovacaoImutavelException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
@@ -132,4 +189,5 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
     public sealed record PropostaRejeitarBody(string Motivo);
     public sealed record ContratoProrrogarBody(DateOnly NovoFim, string Justificativa);
     public sealed record ContratoRescindirBody(string Tipo, string Justificativa, string? NotificacaoRef);
+    public sealed record ObrigacaoEstornarBody(string Justificativa);
 }

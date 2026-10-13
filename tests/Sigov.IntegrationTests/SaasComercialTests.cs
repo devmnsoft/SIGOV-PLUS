@@ -46,7 +46,8 @@ public sealed class SaasComercialTests
         // RC-EVO Ciclo 2 Sprint 5: +1 entry (20261013120000_evo_c2s5_fundeb_rateio_magisterio_educacenso) → 232 entradas + texto inicial.
         // RC-EVO Ciclo 2 Sprint 7: +1 entry (20261013130000_evo_c2s7_frente_administrativa_permissoes) → 233 entradas + texto inicial.
         // RC-EVO Ciclo 2 Sprint 8: +1 entry (20261013140000_evo_c2s8_compras_integradas_1_2) → 234 entradas + texto inicial.
-        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(235);
+        // RC-EVO Ciclo 2 Sprint 9: +1 entry (20261013150000_evo_c2s9_compras_integradas_2_2) → 235 entradas + texto inicial.
+        manifest.Split("\"version\": \"", StringSplitOptions.None).Length.Should().Be(236);
     }
 
     [Fact] public void Migration_comercial_familia_B_idempotente_e_politica_de_downgrade_parametrizada()

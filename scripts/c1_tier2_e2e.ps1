@@ -2163,6 +2163,308 @@ select
 "@
 Add-Check 'S8' 'fixture.removido-auto-limpeza' (($s8cl.code -eq 0) -and ($s8cl.text -eq '0')) ("cascade delete S8 (recebimento+items, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, habilitacoes, lances, licitacao_items, licitacoes, processos+items, demandas+items, fornecedores, centros de custo, sessoes/auditorias do usuario (identidade_sessao/auditoria_evento/autorizacao_decisao/sessao_contexto/contexto_operacional/trilha/historico_login/mfa), grants sentinel cf58c2ab, usuario c2s8.admin+grupo, entidade C2S8-ENT) tenant 910001 -> restantes=" + $s8cl.text)
 
+# ============================================================================
+# BLOCO S9 - Compras integradas (2/2): fornecimento -> recebimento -> fatura
+# -> destinacao em estoque/patrimonio -> obrigacao financeira unica
+# (BR-7.5/BR-7.6/BR-7.7 do contrato docs/CONTRATOS-FRENTE-ADMINISTRATIVA-C2S7-MULTIESFERA.md)
+# Invariantes validadas ao vivo: recebido <= fornecido; rejeicao com motivo + prazo de
+# substituicao parametrico (RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS=5, lido do banco)
+# e desfecho obrigatorio antes do fechamento; fatura unica por fornecimento com
+# conferencia (CNPJ x contratado, valor x pedido); cada destino = movimento
+# referenciado unico idempotente por referencia (estoque: local inexistente/inativo
+# bloqueia; patrimonio: ficha gerada no ato); 1 fornecimento CONCLUIDO = 1 obrigacao
+# idempotente por referencia (valor = aprovado x unitario); sem NF-e vinculada nao
+# liquida; estorno por compensacao sem delete fisico; execucao contratual (endpoint S8)
+# continua consistente com o espelho legado dos recebimentos integrados.
+# Multi-esfera (regras 21-24): entidade fixture com esfera 'federal' (complemento do
+# estadual da S8) e usuario c2s9.admin com a MESMA cadeia usuario_grupo/grupo/perfil;
+# grants sentinel cf58c2ab cobrindo as chaves canonicas C2S7 da frente + as reutilizadas
+# almoxarifado.recebimento.confirmar / patrimonio.bem.criar (banco = autoridade, regra 11).
+# Marcadores C2S9-%; o bloco se auto-limpa ao final (regra 9).
+# ============================================================================
+$s9fix = Get-Psql @"
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S9 Entidade Homologacao','00.000.000/0001-92','C2S9-ENT','federal','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910001 and codigo_externo='C2S9-ENT');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S9 Administrador','c2s9.admin','c2s9.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S9-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s9.admin');
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,910401,910001,true,now(),910301
+from sigov.usuario u
+where u.tenant_id=910001 and u.login='c2s9.admin'
+and not exists(select 1 from sigov.usuario_grupo g where g.usuario_id=u.id and g.grupo_acesso_id=910401 and g.ativo);
+-- Grant das 24 chaves (15 canonicas S7 + 7 da frente S9 + 2 reutilizadas almoxarifado/patrimonio),
+-- marcadas com correlation_id sentinel para limpeza cirurgica; DO NOTHING preserva vinculos preexistentes.
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000001'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.id=(select gp.perfil_acesso_id from sigov.grupo_perfil gp where gp.grupo_acesso_id=910401 limit 1)
+  and p.ativo and not p.is_deleted
+  and ((p.modulo='compras' and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir','compras.licitacao.abrir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar','compras.julgamento.executar','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar','compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar'))
+    or (p.chave='almoxarifado.recebimento.confirmar' and p.modulo='almoxarifado')
+    or (p.chave='patrimonio.bem.criar' and p.modulo='patrimonio'))
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+do `$`$
+begin
+  if (select count(1) from sigov.permissao p where p.ativo and not p.is_deleted
+      and ((p.modulo='compras' and p.chave in ('compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar'))
+        or (p.chave in ('almoxarifado.recebimento.confirmar','patrimonio.bem.criar')))) <> 9 then
+    raise exception 'C2S9-FIXTURE: catalogo de permissoes incompleto (esperado 9 chaves ativas da frente no banco)';
+  end if;
+end
+`$`$;
+insert into sigov.financeiro_centro_custo(tenant_id,codigo,nome,descricao,ativo,created_at,updated_at)
+select 910001,'C2S9-CC1','CC C2S9 Ativo','centro de custo ficticio ativo (homologacao)',true,now(),now()
+where not exists(select 1 from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S9-CC1');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910001,e.id,'Forneadora C2S9 Delta','JURIDICA','99.999.000/0004-04','ATIVO',null,now(),now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S9-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910001 and f.documento='99.999.000/0004-04');
+insert into sigov.almoxarifado_local(tenant_id,entidade_id,codigo,nome,ativo,created_at,updated_at)
+select 910001,e.id,'C2S9-LOC1','Local C2S9 Ativo',true,now(),now()
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S9-ENT'
+and not exists(select 1 from sigov.almoxarifado_local l where l.tenant_id=910001 and l.codigo='C2S9-LOC1');
+insert into sigov.almoxarifado_local(tenant_id,entidade_id,codigo,nome,ativo,created_at,updated_at)
+select 910001,e.id,'C2S9-LOC2','Local C2S9 Inativo',false,now(),now()
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S9-ENT'
+and not exists(select 1 from sigov.almoxarifado_local l where l.tenant_id=910001 and l.codigo='C2S9-LOC2');
+insert into sigov.almoxarifado_material(tenant_id,entidade_id,codigo,descricao,tipo_material,unidade_medida,estoque_minimo,controla_lote,controla_validade,ativo,created_at,updated_at)
+select 910001,e.id,'C2S9-MAT','Material C2S9 homologacao','CONSUMO','un',0,false,false,true,now(),now()
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S9-ENT'
+and not exists(select 1 from sigov.almoxarifado_material m where m.tenant_id=910001 and m.codigo='C2S9-MAT');
+select coalesce((select id::text from sigov.entidade where tenant_id=910001 and codigo_externo='C2S9-ENT'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s9.admin'),'0') || '|'
+     || coalesce((select id::text from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S9-CC1'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910001 and documento='99.999.000/0004-04'),'0') || '|'
+     || coalesce((select id::text from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S9-MAT'),'0') || '|'
+     || coalesce((select id::text from sigov.almoxarifado_local where tenant_id=910001 and codigo='C2S9-LOC1'),'0') || '|'
+     || coalesce((select id::text from sigov.almoxarifado_local where tenant_id=910001 and codigo='C2S9-LOC2'),'0');
+"@
+$s9p = if ($s9fix.code -eq 0 -and ($s9fix.text -ne '')) { @($s9fix.text.Trim() -split '\|') } else { @('0','0','0','0','0','0','0') }
+$s9ent=[long]$s9p[0]; $s9uid=[long]$s9p[1]; $s9cc1=[long]$s9p[2]; $s9f9=[long]$s9p[3]; $s9mat=[long]$s9p[4]; $s9loc1=[long]$s9p[5]; $s9loc2=[long]$s9p[6]
+Add-Check 'S9' 'fixture.aplicado-entidade-federal-usuario-catalogo-completo' (($s9fix.code -eq 0) -and ($s9ent -gt 0) -and ($s9uid -gt 0) -and ($s9f9 -gt 0) -and ($s9mat -gt 0) -and ($s9loc1 -gt 0) -and ($s9loc2 -gt 0)) ("fixture S9 (entidade esfera FEDERAL c2s9 + usuario c2s9.admin com a mesma cadeia de perfil 910401 do admin + CC ativo + fornecedor 99.999.000/0004-04 + locais ativo/inativo + material C2S9-MAT; postcond do fixture exige as 9 chaves ativas da frente no banco — falha explicita, regras 11/13) exit=$($s9fix.code); ent=$s9ent uid=$s9uid cc=$s9cc1 forn=$s9f9 mat=$s9mat loc1=$s9loc1 loc2=$s9loc2")
+$lgS9 = New-SigovLogin -User 'c2s9.admin' -Pass $Password -Base $WebBase
+$tkS9 = if ($lgS9.ok) { Get-ApiToken -Jar $lgS9.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+Add-Check 'S9' 'auth.login-dedicado-token-mint' (($lgS9.ok -eq $true) -and ($tkS9.token.Length -eq 64)) ("c2s9.admin POST /Auth/Login -> $($lgS9.post); ApiToken len=$($tkS9.token.Length) (usuario da entidade FEDERAL c2s9 — regra 22: cobertura multi-esfera complementando o estadual da S8; autorizacao toda resolvida pelo banco, regra 11)")
+
+# --- cadeia direta DISPENSA -> contrato (monta a base vigente da etapa 2/2) --------
+$s9d1b = ('{"objeto":"C2S9-Aquisicao patrimonial","justificativa":"necessidade operacional homologacao c2s9","itens":[{"descricao":"Equipamento C2S9","quantidade":18,"unidade":"un","tipoObjeto":"BEM","precoEstimado":100,"centroCustoId":' + $s9cc1 + '}],"urgencia":false}')
+$s9d1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s9d1b
+$s9d1j = $null; try { $s9d1j = ($s9d1.body | ConvertFrom-Json) } catch {}
+$s9d1id = 0; if ($s9d1j -and $null -ne $s9d1j.data) { $s9d1id = [long]$s9d1j.data.id }
+$s9d1db = Get-Psql ("select status||'|'||to_char(valor_estimado,'FM999990.00')||'|'||urgencia||'|'||prioridade from sigov.compras_demanda where id=" + $s9d1id + ";")
+$null = Get-Psql ("update sigov.compras_demanda set created_by=910301 where id=" + $s9d1id + ";")
+$s9ap1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s9d1id + '/aprovar') -Base $ApiBase
+$s9apdb = Get-Psql ("select count(*)||'|'||min(status)||'|'||case when min(numero) like 'PI-%' then 'PI' else 'NAO' end from sigov.compras_processo where tenant_id=910001 and demanda_id=" + $s9d1id + ";")
+Add-Check 'S9' 'chain.demanda-aprovada-processo-unico' (($s9d1.code -eq 200) -and ($s9d1id -gt 0) -and ($s9d1db.text -eq 'SOLICITADA|1800.00|false|NORMAL') -and ($s9ap1.code -eq 200) -and ($s9apdb.text -eq ('1|ABERTO|PI'))) ("demanda 18 un x 100.00 (BEM) -> $($s9d1.code) id=$s9d1id banco SOLICITADA|1800.00; aprovar nao urgente -> $($s9ap1.code) banco processos count|status|numero: $($s9apdb.text) (mesmo fluxo BR-8.1/8.2 da S8 criando a base da etapa 2/2)")
+$s9dp1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s9d1id + ',"modalidadeCodigo":"DISPENSA"}')
+$s9dp2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s9d1id + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_ZZZ"}')
+$s9dp3 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s9d1id + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_I"}')
+$s9dp3j = $null; try { $s9dp3j = ($s9dp3.body | ConvertFrom-Json) } catch {}
+$s9proc = 0; $s9lic = 0
+if ($s9dp3j -and $null -ne $s9dp3j.data) { $s9proc = [long]$s9dp3j.data.processoId; $s9lic = [long]$s9dp3j.data.licitacaoId }
+$s9li = Get-Psql ("insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910001," + $s9ent + "," + $s9lic + ",1,'Equipamento especial C2S9',18,'un',100.00,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s9lic + "); select count(*) from sigov.compras_licitacao_item where licitacao_id=" + $s9lic + ";")
+$s9da1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s9lic + '/adjudicar') -Base $ApiBase -Body '{}'
+$s9da2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s9lic + '/adjudicar') -Base $ApiBase -Body ('{"fornecedorId":' + $s9f9 + ',"observacao":"contratacao direta c2s9"}')
+$s9da2j = $null; try { $s9da2j = ($s9da2.body | ConvertFrom-Json) } catch {}
+$s9dadb = Get-Psql ("select to_char(a.valor_total,'FM999990.00')||'|'||(select status from sigov.compras_licitacao where id=" + $s9lic + ")||'|'||(select p.fornecedor_id::text from sigov.compras_proposta p where p.id=a.proposta_vencedora_id) from sigov.compras_adjudicacao a where tenant_id=910001 and licitacao_id=" + $s9lic + ";")
+$null = Get-Psql ("update sigov.compras_adjudicacao set responsavel_id=910402 where tenant_id=910001 and licitacao_id=" + $s9lic + ";")
+$s9ho = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s9lic + '/homologar') -Base $ApiBase
+$s9hoj = $null; try { $s9hoj = ($s9ho.body | ConvertFrom-Json) } catch {}
+$s9hoid = 0; if ($s9hoj -and $null -ne $s9hoj.data) { $s9hoid = [long]$s9hoj.data.id }
+$s9ct = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body ('{"homologacaoId":' + $s9hoid + ',"dataEficacia":"2026-11-10","dataFim":"2027-11-09","assinaturaModo":"FISICA","gestor":"Gestor C2S9","fiscal":"Fiscal C2S9"}')
+$s9ctj = $null; try { $s9ctj = ($s9ct.body | ConvertFrom-Json) } catch {}
+$s9ctid = 0; if ($s9ctj -and $null -ne $s9ctj.data) { $s9ctid = [long]$s9ctj.data.contratoId }
+$s9ctdb = Get-Psql ("select status||'|'||to_char(valor_contratado,'FM999990.00')||'|'||assinatura_modo||'|'||fornecedor_id::text from sigov.compras_contrato c where c.tenant_id=910001 and c.homologacao_id=" + $s9hoid + " limit 1;")
+$s9cti = 0; $s9ctir = Get-Psql ("select id from sigov.compras_contrato_item where contrato_id=" + $s9ctid + " limit 1;"); if ($s9ctir.code -eq 0) { $s9cti = [long]$s9ctir.text }
+Add-Check 'S9' 'chain.dispensa-contrato-vigente-para-fornecimento' (($s9dp1.code -eq 400) -and ($s9dp1.body -like '*DISPENSA_BASE_LEGAL_OBRIGATORIA*') -and ($s9dp2.code -eq 404) -and ($s9dp2.body -like '*DISPENSA_BASE_LEGAL_INEXISTENTE*') -and ($s9dp3.code -eq 200) -and ($s9li.text -eq '1') -and ($s9da1.code -eq 400) -and ($s9da1.body -like '*ADJUDICACAO_DIRETA_SEM_FORNECEDOR*') -and ($s9da2.code -eq 200) -and ([decimal]$s9da2j.data.valorTotal -eq 1800) -and ($s9dadb.text -like ("1800.00|ADJUDICADA|" + $s9f9)) -and ($s9ho.code -eq 200) -and ($s9ct.code -eq 200) -and ([decimal]$s9ctj.data.valorContratado -eq 1800) -and ($s9ctdb.text -like ("VIGENTE|1800.00|FISICA|" + $s9f9)) -and ($s9cti -gt 0)) ("DISPENSA sem base legal -> $($s9dp1.code) (400 nomeada), inventada -> $($s9dp2.code) (404 nomeada), ART_75_I -> $($s9dp3.code); adjudicar direta sem fornecedor -> $($s9da1.code) (400 nomeada), com f9 -> $($s9da2.code) valor 1800.00; homologar -> $($s9ho.code); contrato FISICA -> $($s9ct.code) id=$s9ctid banco: $($s9ctdb.text); contrato_item id=$s9cti (cadeia BR-8.6 pronta para a etapa 2/2)")
+
+# --- BR-7.5a: fornecimento contra item de contrato vigente --------------------------
+$s9fn1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":12,"chaveIdempotencia":"K-C2S9-F1"}')
+$s9fn1j = $null; try { $s9fn1j = ($s9fn1.body | ConvertFrom-Json) } catch {}
+$s9f1 = 0; if ($s9fn1j -and $null -ne $s9fn1j.data) { $s9f1 = [long]$s9fn1j.data.id }
+$s9fn1db = Get-Psql ("select status||'|'||to_char(quantidade,'FM9990.000')||'|'||to_char(valor_unitario,'FM99990.00')||'|'||to_char(valor_total,'FM99990.00')||'|'||fornecedor_id::text||'|'||coalesce(chave_idempotencia,'NULL') from sigov.compras_fornecimento where id=" + $s9f1 + ";")
+$s9fg = Invoke-Api -Bearer $tkS9.token -Method GET -Path ('/api/compras/integradas/fornecimentos/' + $s9f1) -Base $ApiBase
+$s9fgj = $null; try { $s9fgj = ($s9fg.body | ConvertFrom-Json) } catch {}
+Add-Check 'S9' 'fornecimento.criado-valor-e-fornecedor-derivados-get-visualizar' (($s9fn1.code -eq 200) -and ($s9f1 -gt 0) -and ($s9fn1db.text -like ("FORNECIDO|12.000|100.00|1200.00|" + $s9f9 + "|K-C2S9-F1")) -and ($s9fg.code -eq 200) -and ([decimal]$s9fgj.data.valorTotal -eq 1200)) ("POST /fornecimentos (12 un do item do contrato) -> $($s9fn1.code) id=$s9f1; banco status|qtd|unit|total|fornecedor|chave: $($s9fn1db.text) (BR-7.5: valor DERIVADO do unitario do item 12x100=1200.00 e fornecedor DERIVADO do contrato — nunca editaveis livres); GET /fornecimentos/{id} -> $($s9fg.code) valorTotal=$($s9fgj.data.valorTotal) (chave compras.fornecimento.visualizar)")
+$s9fnA = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":7}')
+$s9fn2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":4,"chaveIdempotencia":"K-C2S9-F2"}')
+$s9fn2j = $null; try { $s9fn2j = ($s9fn2.body | ConvertFrom-Json) } catch {}
+$s9f2 = 0; if ($s9fn2j -and $null -ne $s9fn2j.data) { $s9f2 = [long]$s9fn2j.data.id }
+$s9fnB = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":3}')
+$s9fn3 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":2,"chaveIdempotencia":"K-C2S9-F3"}')
+$s9fn3j = $null; try { $s9fn3j = ($s9fn3.body | ConvertFrom-Json) } catch {}
+$s9f3 = 0; if ($s9fn3j -and $null -ne $s9fn3j.data) { $s9f3 = [long]$s9fn3j.data.id }
+$s9fnC = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":1}')
+Add-Check 'S9' 'fornecimento.disponivel-do-item-conferido-na-criacao' (($s9fnA.code -eq 409) -and ($s9fnA.body -like '*FONTECIMENTO_EXCEDE_ITEM_CONTRATO*') -and ($s9fn2.code -eq 200) -and ($s9f2 -gt 0) -and ($s9fnB.code -eq 409) -and ($s9fnB.body -like '*FONTECIMENTO_EXCEDE_ITEM_CONTRATO*') -and ($s9fn3.code -eq 200) -and ($s9f3 -gt 0) -and ($s9fnC.code -eq 409) -and ($s9fnC.body -like '*FONTECIMENTO_EXCEDE_ITEM_CONTRATO*')) ("item max 18: fornecimento 7 (disponivel 6) -> $($s9fnA.code) (409 FONTECIMENTO_EXCEDE_ITEM_CONTRATO nomeada); 4 -> $($s9fn2.code) id=$s9f2; 3 (disponivel 2) -> $($s9fnB.code) 409 nomeada; 2 -> $($s9fn3.code) id=$s9f3; 1 (disponivel 0) -> $($s9fnC.code) 409 nomeada (BR-7.5: quantidade/valor disponiveis conferidos na criacao, sem ajuste silencioso)")
+$s9fnD = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":12,"chaveIdempotencia":"K-C2S9-F1"}')
+$s9fnDj = $null; try { $s9fnDj = ($s9fnD.body | ConvertFrom-Json) } catch {}
+$s9fnDid = 0; if ($s9fnDj -and $null -ne $s9fnDj.data) { $s9fnDid = [long]$s9fnDj.data.id }
+$s9fnE = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body ('{"contratoId":' + $s9ctid + ',"contratoItemId":' + $s9cti + ',"quantidade":11,"chaveIdempotencia":"K-C2S9-F1"}')
+Add-Check 'S9' 'fornecimento.idempotencia-por-chave-conflito-nomeado' (($s9fnD.code -eq 200) -and ($s9fnDid -eq $s9f1) -and ($s9fnE.code -eq 409) -and ($s9fnE.body -like '*FORNECIMENTO_CHAVE_IDEMPOTENCIA_CONFLITO*')) ("reprocesso com a MESMA chave K-C2S9-F1 e mesmo conteudo (12) -> $($s9fnD.code) retornando o fornecimento existente id=$s9fnDid (sem duplicar); mesma chave com conteudo divergente (11) -> $($s9fnE.code) (409 FORNECIMENTO_CHAVE_IDEMPOTENCIA_CONFLITO nomeada)")
+
+# --- BR-7.5b: recebimento parcial, rejeicao com motivo/prazo e desfecho -------------
+$s9rc0 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":0,"quantidadeRejeitada":1,"dataRecebimento":"2026-11-10"}'
+$s9rcX = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f2 + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":5,"quantidadeRejeitada":0,"dataRecebimento":"2026-11-11"}'
+$s9rc1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":6,"quantidadeRejeitada":2,"dataRecebimento":"2026-11-12","motivoRejeicao":"qualidade abaixo do padrao c2s9"}'
+$s9rc1j = $null; try { $s9rc1j = ($s9rc1.body | ConvertFrom-Json) } catch {}
+$s9r1 = 0; if ($s9rc1j -and $null -ne $s9rc1j.data) { $s9r1 = [long]$s9rc1j.data.id }
+$s9rc1db = Get-Psql ("select r.status||'|'||to_char(r.quantidade_aprovada,'FM9990.000')||'|'||to_char(r.quantidade_rejeitada,'FM9990.000')||'|'||to_char(r.data_prazo_substituicao,'YYYY-MM-DD')||'|'||l.status||'|'||to_char(i.quantidade,'FM9990.000')||'|'||i.tipo_material||'|'||to_char(i.valor_unitario,'FM99990.00') from sigov.compras_fornecimento_recebimento r join sigov.compras_recebimento l on l.id=r.legacy_recebimento_id join sigov.compras_recebimento_item i on i.recebimento_id=l.id where r.id=" + $s9r1 + ";")
+Add-Check 'S9' 'recebimento.parcial-motivo-prazo-parametrico-espelho-legado' (($s9rc0.code -eq 400) -and ($s9rc0.body -like '*RECEBIMENTO_REJEICAO_SEM_MOTIVO*') -and ($s9rcX.code -eq 409) -and ($s9rcX.body -like '*RECEBIMENTO_ACIMA_FORNECIDO*') -and ($s9rc1.code -eq 200) -and ($s9rc1db.text -eq 'PARCIAL|6.000|2.000|2026-11-19|PARCIAL|6.000|CONSUMO|100.00')) ("recebimento com rejeicao SEM motivo -> $($s9rc0.code) (400 RECEBIMENTO_REJEICAO_SEM_MOTIVO nomeada); aprovado 5 > fornecido 4 (f2) -> $($s9rcX.code) (409 RECEBIMENTO_ACIMA_FORNECIDO nomeada); f1 aprov 6 + rej 2 (motivo) -> $($s9rc1.code) id=$s9r1; banco rec|espelho-legado: status|aprov|reje|prazo-substituicao|status-legado|qtd-item-legado|tipo|unitario = $($s9rc1db.text) (BR-7.5: prazo = 2026-11-12 + RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS=5 dias uteis do banco = 2026-11-19; espelho em compras_recebimento/_item mantem a execucao contratual S8 consistente)")
+$s9rc2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":4,"quantidadeRejeitada":0,"dataRecebimento":"2026-11-13"}'
+$s9rc2db = Get-Psql ("select status from sigov.compras_fornecimento where id=" + $s9f1 + ";")
+$s9ob0 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s9f1 + ',"referenciaIdempotencia":"OB-C2S9-F1"}')
+Add-Check 'S9' 'recebimento.total-recebido-mas-sem-desfecho-nao-fecha' (($s9rc2.code -eq 200) -and ($s9rc2db.text -eq 'PARCIALMENTE_RECEBIDO') -and ($s9ob0.code -eq 409) -and ($s9ob0.body -like '*OBRIGACAO_FORNECIMENTO_INCOMPLETO*')) ("2a parcela aprov 4 -> $($s9rc2.code) (recebido total 12 = fornecido 12); banco status do fornecimento: $($s9rc2db.text) — continua ABERTO porque a rejeicao de 2 un ainda nao tem desfecho (BR-7.5: rejeicao sem desfecho nao fecha o fornecimento); gerar obrigacao antecipada -> $($s9ob0.code) (409 OBRIGACAO_FORNECIMENTO_INCOMPLETO nomeada: so nasce de fornecimento CONCLUIDO)")
+$s9df1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/recebimentos/' + $s9r1 + '/desfecho') -Base $ApiBase -Body '{"desfecho":"SUBSTITUIDO","justificativa":"fornecedor subira o lote ate o prazo parametrico"}'
+$s9dfdb = Get-Psql ("select f.status||'|'||coalesce(r.desfecho,'NULL') from sigov.compras_fornecimento f, sigov.compras_fornecimento_recebimento r where f.id=" + $s9f1 + " and r.id=" + $s9r1 + ";")
+$s9df2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/recebimentos/' + $s9r1 + '/desfecho') -Base $ApiBase -Body '{"desfecho":"ACATADO","justificativa":"tentativa de 2o desfecho"}'
+Add-Check 'S9' 'desfecho.registrado-fornecimento-concluido-unico' (($s9df1.code -eq 200) -and ($s9dfdb.text -eq 'CONCLUIDO|SUBSTITUIDO') -and ($s9df2.code -eq 409) -and ($s9df2.body -like '*REJEICAO_DESFECO_JA_REGISTRADO*')) ("desfecho SUBSTITUIDO na rejeicao (motivo + justificativa) -> $($s9df1.code); banco fornecimento|desfecho: $($s9dfdb.text) (BR-7.5: com tudo recebido E todas as rejeicoes com desfecho -> CONCLUIDO); 2o desfecho -> $($s9df2.code) (409 REJEICAO_DESFECO_JA_REGISTRADO nomeada: desfecho e unico)")
+$s9rc3 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f2 + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":4,"quantidadeRejeitada":0,"dataRecebimento":"2026-11-13"}'
+$s9rc3db = Get-Psql ("select status from sigov.compras_fornecimento where id=" + $s9f2 + ";")
+$s9rc4 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f3 + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":2,"quantidadeRejeitada":0,"dataRecebimento":"2026-11-14"}'
+$s9rc4db = Get-Psql ("select status from sigov.compras_fornecimento where id=" + $s9f3 + ";")
+Add-Check 'S9' 'recebimento.total-sem-rejeicao-conclui-automaticamente' (($s9rc3.code -eq 200) -and ($s9rc3db.text -eq 'CONCLUIDO') -and ($s9rc4.code -eq 200) -and ($s9rc4db.text -eq 'CONCLUIDO')) ("f2 recebido integralmente sem rejeicao -> $($s9rc3.code) banco status: $($s9rc3db.text); f3 igualmente -> $($s9rc4.code) banco status: $($s9rc4db.text) (BR-7.5: recebido=fornecido sem pendencias fecha automaticamente)")
+
+# --- BR-7.5c: fatura/NF-e vinculada com conferencia ----------------------------------
+$s9fa1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S9-001","natureza":"NFE","cnpjFornecedor":"11.111.111/0001-11","valor":1200,"dataEmissao":"2026-11-15"}'
+$s9fa2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S9-001","natureza":"NFE","cnpjFornecedor":"99.999.000/0004-04","valor":1199,"dataEmissao":"2026-11-15"}'
+$s9fa0 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S9-001","natureza":"XML","cnpjFornecedor":"99.999.000/0004-04","valor":1200,"dataEmissao":"2026-11-15"}'
+$s9fa3 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S9-001","natureza":"NFE","serie":"1","cnpjFornecedor":"99.999.000/0004-04","valor":1200,"dataEmissao":"2026-11-15"}'
+$s9fa3j = $null; try { $s9fa3j = ($s9fa3.body | ConvertFrom-Json) } catch {}
+$s9faid = 0; if ($s9fa3j -and $null -ne $s9fa3j.data) { $s9faid = [long]$s9fa3j.data.id }
+$s9fa4 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S9-001","natureza":"NFE","serie":"1","cnpjFornecedor":"99.999.000/0004-04","valor":1200,"dataEmissao":"2026-11-15"}'
+$s9fa4j = $null; try { $s9fa4j = ($s9fa4.body | ConvertFrom-Json) } catch {}
+$s9fa4id = 0; if ($s9fa4j -and $null -ne $s9fa4j.data) { $s9fa4id = [long]$s9fa4j.data.id }
+$s9fa5 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s9f1 + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S9-002","natureza":"NFE","serie":"1","cnpjFornecedor":"99.999.000/0004-04","valor":1200,"dataEmissao":"2026-11-16"}'
+Add-Check 'S9' 'fatura.conferencia-cnpj-valor-e-idempotencia-unica' (($s9fa1.code -eq 400) -and ($s9fa1.body -like '*FATURA_FORNECEDOR_DISCREPANTE*') -and ($s9fa2.code -eq 400) -and ($s9fa2.body -like '*FATURA_VALOR_DIVERGENTE_DO_PEDIDO*') -and ($s9fa0.code -eq 400) -and ($s9fa0.body -like '*FATURA_NATUREZA_INVALIDA*') -and ($s9fa3.code -eq 200) -and ($s9faid -gt 0) -and ($s9fa4.code -eq 200) -and ($s9fa4id -eq $s9faid) -and ($s9fa5.code -eq 409) -and ($s9fa5.body -like '*FATURA_JA_VINCULADA_CONFLITO*')) ("CNPJ divergente do contratado -> $($s9fa1.code) (400 FATURA_FORNECEDOR_DISCREPANTE nomeada); valor 1199 x pedido 1200 -> $($s9fa2.code) (400 FATURA_VALOR_DIVERGENTE_DO_PEDIDO nomeada); natureza XML -> $($s9fa0.code) (400 FATURA_NATUREZA_INVALIDA nomeada: so NFE/NFS_E); NFE correta -> $($s9fa3.code) id=$s9faid; replay identico -> $($s9fa4.code) mesmo id (idempotente); outro numero -> $($s9fa5.code) (409 FATURA_JA_VINCULADA_CONFLITO nomeada: 1 fatura por fornecimento — BR-7.5)")
+
+# --- BR-7.7: obrigacao financeira unica, idempotente, liquidacao e estorno ----------
+$s9ob1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s9f1 + ',"referenciaIdempotencia":"OB-C2S9-F1"}')
+$s9ob1j = $null; try { $s9ob1j = ($s9ob1.body | ConvertFrom-Json) } catch {}
+$s9o1 = 0; if ($s9ob1j -and $null -ne $s9ob1j.data) { $s9o1 = [long]$s9ob1j.data.id }
+$s9ob1db = Get-Psql ("select to_char(valor_liquidado,'FM99990.00')||'|'||status||'|'||case when data_liquidacao is null then 'NULL' else 'SET' end from sigov.compras_obrigacao where id=" + $s9o1 + ";")
+$s9ob2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s9f1 + ',"referenciaIdempotencia":"OB-C2S9-F1"}')
+$s9ob2j = $null; try { $s9ob2j = ($s9ob2.body | ConvertFrom-Json) } catch {}
+$s9ob2id = 0; if ($s9ob2j -and $null -ne $s9ob2j.data) { $s9ob2id = [long]$s9ob2j.data.id }
+$s9ob3 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s9f1 + ',"referenciaIdempotencia":"OB-C2S9-OUTRA"}')
+Add-Check 'S9' 'obrigacao.unica-valor-so-aprovado-idempotente' (($s9ob1.code -eq 200) -and ($s9o1 -gt 0) -and ($s9ob1db.text -eq '1000.00|REGISTRADA|NULL') -and ($s9ob2.code -eq 200) -and ($s9ob2id -eq $s9o1) -and ($s9ob3.code -eq 409) -and ($s9ob3.body -like '*OBRIGACAO_DUPLICADA_REFERENCIA*')) ("gerar obrigacao do f1 CONCLUIDO -> $($s9ob1.code) id=$s9o1; banco valor|status|data_liq: $($s9ob1db.text) (BR-7.7: valor = LIQUIDADO = so o aprovado 10x100=1000.00, as 2 rejeitadas fora); replay mesma referencia -> $($s9ob2.code) mesmo id (reprocesso nao duplica); outra referencia para o mesmo fornecimento -> $($s9ob3.code) (409 OBRIGACAO_DUPLICADA_REFERENCIA nomeada: 1 fornecimento aprovado = 1 obrigacao)")
+$s9ob4 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s9o1 + '/liquidar') -Base $ApiBase
+$s9ob4db = Get-Psql ("select status||'|'||case when data_liquidacao is null then 'NULL' else 'SET' end from sigov.compras_obrigacao where id=" + $s9o1 + ";")
+$s9ob5 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s9o1 + '/liquidar') -Base $ApiBase
+Add-Check 'S9' 'obrigacao.liquida-com-fatura-conferida-terminal' (($s9ob4.code -eq 200) -and ($s9ob4db.text -eq 'LIQUIDADA|SET') -and ($s9ob5.code -eq 409) -and ($s9ob5.body -like '*OBRIGACAO_JA_LIQUIDADA*')) ("liquidar (fatura NFE vinculada e conferida no f1) -> $($s9ob4.code); banco status|data_liq: $($s9ob4db.text); nova liquidacao -> $($s9ob5.code) (409 OBRIGACAO_JA_LIQUIDADA nomeada: estado terminal)")
+$s9ob6 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s9f2 + ',"referenciaIdempotencia":"OB-C2S9-F2"}')
+$s9ob6j = $null; try { $s9ob6j = ($s9ob6.body | ConvertFrom-Json) } catch {}
+$s9o2 = 0; if ($s9ob6j -and $null -ne $s9ob6j.data) { $s9o2 = [long]$s9ob6j.data.id }
+$s9ob6db = Get-Psql ("select to_char(valor_liquidado,'FM99990.00')||'|'||status from sigov.compras_obrigacao where id=" + $s9o2 + ";")
+$s9ob7 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s9o2 + '/liquidar') -Base $ApiBase
+$s9ob8 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s9o2 + '/estornar') -Base $ApiBase -Body '{"justificativa":"compensacao por duplicidade c2s9"}'
+$s9ob8db = Get-Psql ("select status||'|'||case when coalesce(justificativa_estorno,'NAO') like '%duplicidade%' then 'JUS' else 'NAO' end||'|'||coalesce(valor_liquidado::text,'NULL') from sigov.compras_obrigacao where id=" + $s9o2 + ";")
+$s9ob9 = Invoke-Api -Bearer $tkS9.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s9o2 + '/liquidar') -Base $ApiBase
+Add-Check 'S9' 'obrigacao.sem-fatura-nao-liquida-estorno-compensacao' (($s9ob6.code -eq 200) -and ($s9o2 -gt 0) -and ($s9ob6db.text -eq '400.00|REGISTRADA') -and ($s9ob7.code -eq 409) -and ($s9ob7.body -like '*OBRIGACAO_LIQUIDACAO_SEM_FATURA*') -and ($s9ob8.code -eq 200) -and ($s9ob8db.text -eq 'ESTORNADA|JUS|400.00') -and ($s9ob9.code -eq 409) -and ($s9ob9.body -like '*OBRIGACAO_JA_LIQUIDADA*')) ("f2 gerou obrigacao 400.00 REGISTRADA; liquidar SEM fatura vinculada -> $($s9ob7.code) (409 OBRIGACAO_LIQUIDACAO_SEM_FATURA nomeada — BR-7.5: fornecimento sem NF-e vinculada nao liquida); estorno com justificativa -> $($s9ob8.code); banco status|justificativa|valor-intacto: $($s9ob8db.text) (BR-7.7: estorno por COMPENSACAO — append-only, sem delete fisico); liquidar apos estorno -> $($s9ob9.code) 409 nomeada")
+
+# --- BR-7.6: destinacao em estoque/patrimonio (movimento referenciado unico) ---------
+$s9dd1 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"ESTOQUE","quantidade":2,"referencia":"D-C2S9-01","localId":' + $s9loc1 + ',"materialId":' + $s9mat + '}')
+$s9dd1j = $null; try { $s9dd1j = ($s9dd1.body | ConvertFrom-Json) } catch {}
+$s9d1id = 0; if ($s9dd1j -and $null -ne $s9dd1j.data) { $s9d1id = [long]$s9dd1j.data.id }
+$s9dd1db = Get-Psql ("select count(*)::text||'|'||min(motivo)||'|'||min(to_char(saldo_antes,'FM9990.000'))||'|'||min(to_char(saldo_depois,'FM9990.000'))||'|'||min(documento_origem) from sigov.almoxarifado_movimentacao where tenant_id=910001 and almoxarifado_id=" + $s9loc1 + " and material_id=" + $s9mat + ";")
+$s9dd2 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"ESTOQUE","quantidade":2,"referencia":"D-C2S9-01","localId":' + $s9loc1 + ',"materialId":' + $s9mat + '}')
+$s9dd2db = Get-Psql ("select count(*)::text from sigov.almoxarifado_movimentacao where tenant_id=910001 and almoxarifado_id=" + $s9loc1 + " and material_id=" + $s9mat + ";")
+$s9dd3 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"ESTOQUE","quantidade":5,"referencia":"D-C2S9-01","localId":' + $s9loc1 + ',"materialId":' + $s9mat + '}')
+Add-Check 'S9' 'destino.estoque-movimento-unico-idempotente-por-referencia' (($s9dd1.code -eq 200) -and ($s9d1id -gt 0) -and ($s9dd1db.text -eq ('1|FORNECIMENTO|0.000|2.000|FORN-' + $s9f1 + '-REC-' + $s9r1)) -and ($s9dd2.code -eq 200) -and ($s9dd2db.text -eq '1') -and ($s9dd3.code -eq 409) -and ($s9dd3.body -like '*DESTINO_REFERENCIA_CONFLITO*')) ("destinar 2 un de r1 (aprovado 6) ao estoque local ativo -> $($s9dd1.code) id=$s9d1id; banco movimento count|motivo|saldo-antes|saldo-depois|documento_origem: $($s9dd1db.text) (BR-7.6: cada destino = 1 movimento referenciado; chave almoxarifado.recebimento.confirmar); replay MESMA referencia/conteudo -> $($s9dd2.code) e o movimento permanece 1 (idempotente, nada duplica); mesma referencia conteudo divergente (5) -> $($s9dd3.code) (409 DESTINO_REFERENCIA_CONFLITO nomeada)")
+$s9dd4 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"PATRIMONIO","quantidade":2,"referencia":"D-C2S9-02","tipoBem":"EQUIPAMENTO","localizacao":"Salao C2S9"}')
+$s9dd4j = $null; try { $s9dd4j = ($s9dd4.body | ConvertFrom-Json) } catch {}
+$s9d2id = 0; if ($s9dd4j -and $null -ne $s9dd4j.data) { $s9d2id = [long]$s9dd4j.data.id }
+$s9dd4db = Get-Psql ("select codigo_tombo||'|'||to_char(valor_aquisicao,'FM99990.00')||'|'||situacao||'|'||contrato_id::text||'|'||coalesce(nota_fiscal,'NULL')||'|'||to_char(data_aquisicao,'YYYY-MM-DD')||'|'||coalesce(localizacao,'NULL') from sigov.patrimonio_bem where tenant_id=910001 and codigo_tombo like 'PAT-FOR-%' limit 1;")
+Add-Check 'S9' 'destino.patrimonio-ficha-gerada-no-ato' (($s9dd4.code -eq 200) -and ($s9d2id -gt 0) -and ($s9dd4db.text -like ("PAT-FOR-*|200.00|ATIVO|" + $s9ctid + "|NF-C2S9-001|2026-11-12|Salao C2S9"))) ("destinar 2 un de r1 ao patrimonio (EQUIPAMENTO) -> $($s9dd4.code) id=$s9d2id; banco ficha patrimonio_bem codigo_tombo|valor-aquisicao|situacao|contrato|nota-fiscal|data-aquisicao|localizacao: $($s9dd4db.text) (BR-7.6: patrimonio SEMPRE gera a ficha no ato — tombamento PAT-FOR-<id>, valor registrado 2x100=200.00, situacao ATIVA, vinculo ao contrato e a NF-e; chave patrimonio.bem.criar)")
+$s9dd5 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"ESTOQUE","quantidade":1,"referencia":"D-C2S9-03","localId":' + $s9loc2 + ',"materialId":' + $s9mat + '}')
+$s9dd6 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"ESTOQUE","quantidade":1,"referencia":"D-C2S9-04","localId":999999999,"materialId":' + $s9mat + '}')
+Add-Check 'S9' 'destino.local-inexistente-inativo-bloqueia' (($s9dd5.code -eq 409) -and ($s9dd5.body -like '*DESTINO_LOCAL_INATIVO*') -and ($s9dd6.code -eq 404) -and ($s9dd6.body -like '*DESTINO_LOCAL_INEXISTENTE*')) ("destino ao local INATIVO -> $($s9dd5.code) (409 DESTINO_LOCAL_INATIVO nomeada); destino ao local INEXISTENTE 999999999 -> $($s9dd6.code) (404 DESTINO_LOCAL_INEXISTENTE nomeada — BR-7.6: destino a local inexistente ou inativo bloqueia)")
+$s9dd7 = Invoke-Api -Bearer $tkS9.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s9r1 + ',"alvoTipo":"ESTOQUE","quantidade":3,"referencia":"D-C2S9-05","localId":' + $s9loc1 + ',"materialId":' + $s9mat + '}')
+Add-Check 'S9' 'destino.excede-quantidade-aprovada-409' (($s9dd7.code -eq 409) -and ($s9dd7.body -like '*DESTINO_EXCEDE_QTD_APROVADA*')) ("destinar mais 3 un de r1 (ja destinadas 2+2=4 das 6 aprovadas; 4+3=7 > 6) -> $($s9dd7.code) (409 DESTINO_EXCEDE_QTD_APROVADA nomeada — BR-7.6: destino total <= quantidade aprovada do recebimento)")
+
+# --- execucao contratual (S8) continua consistente com os espelhos do S9 ------------
+$s9ex = Invoke-Api -Bearer $tkS9.token -Method GET -Path ('/api/compras/integradas/contratos/' + $s9ctid + '/execucao') -Base $ApiBase
+$s9exj = $null; try { $s9exj = ($s9ex.body | ConvertFrom-Json) } catch {}
+Add-Check 'S9' 'execucao.consistente-com-recebimentos-integrados' (($s9ex.code -eq 200) -and ([decimal]$s9exj.data.totalFornecido -eq 1600) -and ([decimal]$s9exj.data.pctExecutado -eq 88.89) -and ($s9exj.data.bloqueiaNovoFornecimento -eq $false)) ("GET execucao do contrato C2S9 -> $($s9ex.code) totalFornecido=$($s9exj.data.totalFornecido) pct=$($s9exj.data.pctExecutado)% bloqueia=$($s9exj.data.bloqueiaNovoFornecimento) (BR-8.5 x BR-7.5: o endpoint S8 agora enxerga os espelhos legados dos recebimentos integrados — 16 un aprovadas x 100 = 1600.00 de 1800.00; as 2 rejeitadas nao contam como executadas; abaixo do teto 100% parametrico, segue liberado)")
+
+# --- limpeza do bloco S9 (auto-limpeza; regra 9) ---------------------------------------
+$s9cl = Get-Psql @"
+create temp table if not exists s9_alvo_d (id bigint); truncate table s9_alvo_d;
+insert into s9_alvo_d select id from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S9-%';
+create temp table if not exists s9_alvo_p (id bigint); truncate table s9_alvo_p;
+insert into s9_alvo_p select id from sigov.compras_processo where tenant_id=910001 and demanda_id in (select id from s9_alvo_d);
+create temp table if not exists s9_alvo_l (id bigint); truncate table s9_alvo_l;
+insert into s9_alvo_l select id from sigov.compras_licitacao where tenant_id=910001 and processo_id in (select id from s9_alvo_p);
+create temp table if not exists s9_alvo_c (id bigint); truncate table s9_alvo_c;
+insert into s9_alvo_c select id from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s9_alvo_l));
+create temp table if not exists s9_alvo_f (id bigint); truncate table s9_alvo_f;
+insert into s9_alvo_f select id from sigov.compras_fornecimento where tenant_id=910001 and contrato_id in (select id from s9_alvo_c);
+delete from sigov.compras_destinacao_integrada where tenant_id=910001 and fornecimento_recebimento_id in (select id from sigov.compras_fornecimento_recebimento where fornecimento_id in (select id from s9_alvo_f));
+delete from sigov.patrimonio_bem where tenant_id=910001 and codigo_tombo like 'PAT-FOR-%';
+delete from sigov.almoxarifado_movimentacao where tenant_id=910001 and documento_origem like 'FORN-%';
+delete from sigov.compras_fatura_integrada where tenant_id=910001 and fornecimento_id in (select id from s9_alvo_f);
+delete from sigov.compras_obrigacao where tenant_id=910001 and fornecimento_id in (select id from s9_alvo_f);
+delete from sigov.compras_recebimento_item where recebimento_id in (select id from sigov.compras_recebimento where tenant_id=910001 and fornecimento_id in (select id from s9_alvo_f));
+delete from sigov.compras_recebimento where tenant_id=910001 and fornecimento_id in (select id from s9_alvo_f);
+delete from sigov.compras_fornecimento_recebimento where fornecimento_id in (select id from s9_alvo_f);
+delete from sigov.compras_fornecimento where id in (select id from s9_alvo_f);
+delete from sigov.compras_contrato_item where contrato_id in (select id from s9_alvo_c);
+delete from sigov.compras_contrato_historico where contrato_id in (select id from s9_alvo_c);
+delete from sigov.compras_contrato where id in (select id from s9_alvo_c);
+delete from sigov.compras_homologacao where licitacao_id in (select id from s9_alvo_l);
+delete from sigov.compras_adjudicacao_item where adjudicacao_id in (select id from sigov.compras_adjudicacao where licitacao_id in (select id from s9_alvo_l));
+delete from sigov.compras_adjudicacao where licitacao_id in (select id from s9_alvo_l);
+delete from sigov.compras_proposta where licitacao_id in (select id from s9_alvo_l);
+delete from sigov.compras_habilitacao where licitacao_id in (select id from s9_alvo_l);
+delete from sigov.compras_lance where licitacao_id in (select id from s9_alvo_l);
+delete from sigov.compras_licitacao_item where licitacao_id in (select id from s9_alvo_l);
+delete from sigov.compras_licitacao where id in (select id from s9_alvo_l);
+delete from sigov.compras_processo_item where tenant_id=910001 and processo_id in (select id from s9_alvo_p);
+delete from sigov.compras_processo where id in (select id from s9_alvo_p);
+delete from sigov.compras_demanda_item where demanda_id in (select id from s9_alvo_d);
+delete from sigov.compras_demanda where id in (select id from s9_alvo_d);
+delete from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S9 %';
+delete from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S9-MAT';
+delete from sigov.almoxarifado_local where tenant_id=910001 and codigo like 'C2S9-LOC%';
+delete from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S9-%';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.perfil_permissao where correlation_id='cf58c2ab-1c20-4a90-88f8-0c2000000001';
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s9.admin');
+delete from sigov.usuario where tenant_id=910001 and login='c2s9.admin';
+delete from sigov.entidade where tenant_id=910001 and codigo_externo='C2S9-ENT';
+select
+ (select count(*) from sigov.almoxarifado_movimentacao where tenant_id=910001 and documento_origem like 'FORN-%')
+ + (select count(*) from sigov.patrimonio_bem where tenant_id=910001 and codigo_tombo like 'PAT-FOR-%')
+ + (select count(*) from sigov.compras_recebimento where tenant_id=910001 and documento like 'REC-FOR-%')
+ + (select count(*) from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S9-MAT')
+ + (select count(*) from sigov.almoxarifado_local where tenant_id=910001 and codigo like 'C2S9-LOC%')
+ + (select count(*) from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S9 %')
+ + (select count(*) from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S9-%')
+ + (select count(*) from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S9-%')
+ + (select count(*) from sigov.compras_licitacao where tenant_id=910001 and objeto like 'C2S9-%')
+ + (select count(*) from sigov.compras_contrato where tenant_id=910001 and objeto like 'C2S9-%')
+ + (select count(*) from sigov.perfil_permissao where correlation_id='cf58c2ab-1c20-4a90-88f8-0c2000000001')
+ + (select count(*) from sigov.usuario where tenant_id=910001 and login='c2s9.admin')
+ + (select count(*) from sigov.entidade where tenant_id=910001 and codigo_externo='C2S9-ENT');
+"@
+Add-Check 'S9' 'fixture.removido-auto-limpeza' (($s9cl.code -eq 0) -and ($s9cl.text -eq '0')) ("cascade delete S9 (destinos, bens PAT-FOR-%, movimentos FORN-%, faturas, obrigacoes, espelho legado REC-FOR-%+items, recebimentos integrados, fornecimentos, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, licitacao_items, licitacoes, processos+items, demandas+items, fornecedores, materiais, locais, centros de custo, sessoes/auditorias do usuario, grants sentinel cf58c2ab, usuario c2s9.admin+grupo, entidade C2S9-ENT) tenant 910001 -> restantes=" + $s9cl.text)
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);

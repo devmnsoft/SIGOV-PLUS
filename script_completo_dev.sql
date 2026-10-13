@@ -265,7 +265,8 @@ select exists (
         ('20261012160000', array['d6d3a34c915d6f1c9725e5aae3e82652039177b29736ced2882188c4a52e4571']::text[]),
         ('20261013120000', array['9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02']::text[]),
         ('20261013130000', array['e87e35090b21be795727aa8616231da8af6c2ab5326e06dcdf534ba5ba3de429']::text[]),
-        ('20261013140000', array['d547233156e8bbf0e86248ff0e4e55f731a7f25799ec6a5deec2a642e90a024e']::text[])
+        ('20261013140000', array['d547233156e8bbf0e86248ff0e4e55f731a7f25799ec6a5deec2a642e90a024e']::text[]),
+        ('20261013150000', array['e3b4252c19513b7477381bd2a066e611268bf7731571f9f8722f971fc94a7d49']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -35492,6 +35493,201 @@ end
 $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261013140000', 'RC-EVO Ciclo 2 Sprint 8 (Compras integradas 1/2: demanda -> contratacao -> contrato; BR-8.1 a BR-8.7 sobre os contratos BR-7.x da S7): schema idempotente da frente integrada - itens de demanda tipada com urgencia/dupla aprovacao e centro de custo (BR-8.1), processo unico vinculado a demanda aprovada com unicidade vigente (BR-8.2, Lei 14.133 art. 128), classificacao ME/EPP do fornecedor, lances 1-por-autor-x-sequencia com zona de preferencias documentada (BR-8.3, LC 123/2006), habilitacao por tipo juridico/fiscal-trabalhista/tecnico, valor total e itens de adjudicacao (BR-8.4), contrato nascendo de homologacao com itens espelhados e valor derivado + eficacia/modo de assinatura + unicidade 1 contrato vigente x homologacao, execucao/prorrogacao (art. 106 parametrico)/rescisao (BR-8.5), catalogo canonico de dispensas art. 75 no banco (BR-8.6), 8 parametros canonicos COMPRAS no parametro_modulo (margem ME/EPP default 5%, prazo homologacao, teto consulta previa, tetos de aditivo/prorrogacao/execucao, prazo substituicao S9) e seed canonica de modalidades Lei 14.133 por tenant ativo com esfera NULL (todas as esferas; regras 21-24); pos-condicao explicita C2S8-POSTCOND', 'd547233156e8bbf0e86248ff0e4e55f731a7f25799ec6a5deec2a642e90a024e', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261013150000_evo_c2s9_compras_integradas_2_2.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: e3b4252c19513b7477381bd2a066e611268bf7731571f9f8722f971fc94a7d49
+-- ==================================================
+-- ============================================================================
+-- RC-EVO Ciclo 2 Sprint 9 - Compras integradas (2/2): fornecimento -> recebimento
+-- -> fatura -> destinacao em estoque/patrimonio -> obrigacao financeira unica.
+-- Contrato: docs/CONTRATOS-FRENTE-ADMINISTRATIVA-C2S7-MULTIESFERA.md (BR-7.5/7.6/7.7).
+-- Idempotente e nao-destrutiva ao legado (regras 5/6): as tabelas existentes
+-- (compras_recebimento/_item) sao relaxadas por alter condicional; nada e dropado.
+-- Banco = autoridade (regras 11/12): parametros ja seedados pela migration S8
+-- (RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS=5, CONTRATO_EXECUCAO_TETO_PCT=100);
+-- nenhuma permissao nova (o catalogo C2S7 cobre fornecimento/recebimento/fatura/
+-- obrigacao e reutiliza almoxarifado.recebimento.confirmar / patrimonio.bem.criar).
+-- Multi-esfera (regras 21-24): a esfera entra do contexto institucional da entidade;
+-- nenhum valor municipal/estadual/federal hardcoded aqui.
+-- ============================================================================
+
+-- 1) Relaxamento idempotente das restricoes legadas compartilhadas pela frente (secao 1c') --
+--    O recebimento integrado nasce de um FORNECIMENTO contra contrato vigente (sem processo
+--    nem processo_item proprio): as colunas NN legadas passam a nullable (nao-destrutivo;
+--    o check de origem contrato_id XOR ata_id permanece intacto). O status legado
+--    PENDENTE/INTEGRADO/CANCELADO e preservado e acrescido dos estados canonicos S9.
+alter table sigov.compras_recebimento alter column processo_id drop not null;
+alter table sigov.compras_recebimento_item alter column processo_item_id drop not null;
+alter table sigov.compras_recebimento add column if not exists fornecimento_id bigint;
+alter table sigov.compras_recebimento drop constraint if exists ck_compras_receb_status;
+alter table sigov.compras_recebimento add constraint ck_compras_receb_status check ((status)::text = any (array['PENDENTE','INTEGRADO','CANCELADO','APROVADO','PARCIAL','REJEITADO']));
+create index if not exists ix_compras_recebimento_fornecimento on sigov.compras_recebimento(fornecimento_id) where fornecimento_id is not null;
+
+-- 2) Fornecimento: pedido/vincao de fornecimento contra ITEM DE CONTRATO VIGENTE (BR-7.5) ---
+--    Quantidade/valor disponiveis conferidos na criacao; valor DERIVADO do unitario do item;
+--    fornecedor derivado do contrato (nunca editavel livre). Chave de idempotencia opcional.
+create table if not exists sigov.compras_fornecimento(
+ id bigint generated by default as identity primary key,
+ tenant_id bigint not null,
+ entidade_id bigint,
+ contrato_id bigint not null,
+ contrato_item_id bigint not null,
+ fornecedor_id bigint not null,
+ quantidade numeric(18,3) not null check (quantidade > 0),
+ valor_unitario numeric(18,2) not null check (valor_unitario >= 0),
+ valor_total numeric(18,2) not null check (valor_total >= 0),
+ status varchar(40) not null default 'FORNECIDO' check ((status)::text = any (array['FORNECIDO','PARCIALMENTE_RECEBIDO','CONCLUIDO'])),
+ chave_idempotencia varchar(80),
+ auditoria jsonb not null default '[]'::jsonb,
+ correlation_id uuid not null default gen_random_uuid(),
+ ativo boolean not null default true,
+ is_deleted boolean not null default false,
+ created_at timestamptz not null default now(),
+ created_by bigint,
+ updated_at timestamptz not null default now(),
+ updated_by bigint
+);
+create unique index if not exists ux_compras_fornecimento_chave on sigov.compras_fornecimento(tenant_id, chave_idempotencia) where chave_idempotencia is not null and ativo and not is_deleted;
+create index if not exists ix_compras_fornecimento_contrato on sigov.compras_fornecimento(contrato_id, contrato_item_id) where ativo and not is_deleted;
+
+-- 3) Recebimento integrado (parcial) por fornecimento (BR-7.5) -----------------------------
+--    Soma de aprovado + rejeitado = recebido; recebido <= fornecido (invariante no servico).
+--    Rejeicao exige motivo + prazo de substituicao parametrico; desfecho obrigatorio
+--    (SUBSTITUIDO/ACATADO) antes que o fornecimento feche. Espelha linha no legado
+--    compras_recebimento/_item para manter a execucao contratual consistente (S8).
+create table if not exists sigov.compras_fornecimento_recebimento(
+ id bigint generated by default as identity primary key,
+ tenant_id bigint not null,
+ entidade_id bigint,
+ fornecimento_id bigint not null,
+ quantidade_aprovada numeric(18,3) not null default 0 check (quantidade_aprovada >= 0),
+ quantidade_rejeitada numeric(18,3) not null default 0 check (quantidade_rejeitada >= 0),
+ status varchar(40) not null check ((status)::text = any (array['APROVADO','PARCIAL','REJEITADO'])),
+ motivo_rejeicao text,
+ data_prazo_substituicao date,
+ desfecho varchar(20) check (desfecho is null or (desfecho)::text = any (array['SUBSTITUIDO','ACATADO'])),
+ desfecho_justificativa text,
+ data_recebimento date not null,
+ legacy_recebimento_id bigint,
+ auditoria jsonb not null default '[]'::jsonb,
+ correlation_id uuid not null default gen_random_uuid(),
+ ativo boolean not null default true,
+ is_deleted boolean not null default false,
+ created_at timestamptz not null default now(),
+ created_by bigint,
+ updated_at timestamptz not null default now(),
+ updated_by bigint
+);
+create index if not exists ix_compras_fornecimento_recebimento_forne on sigov.compras_fornecimento_recebimento(fornecimento_id) where ativo and not is_deleted;
+
+-- 4) Fatura/NF-e/NFS-e vinculada ao fornecimento com conferencia (BR-7.5) -------------------
+--    Unica por fornecimento (indice parcial ativo); conferencia valida fornecedor/CNPJ contra
+--    o contratado e valor contra o pedido (no servico; falhas nomeadas).
+create table if not exists sigov.compras_fatura_integrada(
+ id bigint generated by default as identity primary key,
+ tenant_id bigint not null,
+ entidade_id bigint,
+ fornecimento_id bigint not null,
+ numero varchar(80) not null,
+ serie varchar(40),
+ natureza varchar(10) not null check ((natureza)::text = any (array['NFE','NFS_E'])),
+ cnpj_fornecedor varchar(20) not null,
+ valor numeric(18,2) not null check (valor >= 0),
+ data_emissao date not null,
+ conferida boolean not null default false,
+ auditoria jsonb not null default '[]'::jsonb,
+ correlation_id uuid not null default gen_random_uuid(),
+ ativo boolean not null default true,
+ is_deleted boolean not null default false,
+ created_at timestamptz not null default now(),
+ created_by bigint
+);
+create unique index if not exists ux_compras_fatura_integrada_fornecimento on sigov.compras_fatura_integrada(tenant_id, fornecimento_id) where ativo and not is_deleted;
+
+-- 5) Destinacao em estoque/patrimonio (BR-7.6) ----------------------------------------------
+--    Cada destino e um MOVIMENTO REFERENCIADO UNICO: referencia idempotente (reprocesso com
+--    mesmo conteudo retorna o destino existente; conteudo divergente conflita). Destino total
+--    <= quantidade aprovada do recebimento (no servico). Patrimonio sempre gera ficha no ato
+--    (patrimonio_bem) com codigo de tombamento, valor registrado, localizacao e situacao.
+create table if not exists sigov.compras_destinacao_integrada(
+ id bigint generated by default as identity primary key,
+ tenant_id bigint not null,
+ entidade_id bigint,
+ fornecimento_recebimento_id bigint not null,
+ alvo_tipo varchar(20) not null check ((alvo_tipo)::text = any (array['ESTOQUE','PATRIMONIO'])),
+ quantidade numeric(18,3) not null check (quantidade > 0),
+ valor numeric(18,2) not null check (valor >= 0),
+ referencia varchar(100) not null,
+ alvo_id bigint,
+ auditoria jsonb not null default '[]'::jsonb,
+ correlation_id uuid not null default gen_random_uuid(),
+ ativo boolean not null default true,
+ is_deleted boolean not null default false,
+ created_at timestamptz not null default now(),
+ created_by bigint
+);
+create unique index if not exists ux_compras_destinacao_referencia on sigov.compras_destinacao_integrada(tenant_id, referencia) where ativo and not is_deleted;
+
+-- 6) Obrigacao financeira unica por fornecimento aprovado (BR-7.7) --------------------------
+--    Gerada UMA UNICA VEZ (idempotente por referencia: reprocesso nao duplica; referencia
+--    ja consumida com conteudo divergente conflita). Valor = liquidado (aprovado x unitario).
+--    Estorno por compensacao (status terminal ESTORNADA; sem delete fisico).
+create table if not exists sigov.compras_obrigacao(
+ id bigint generated by default as identity primary key,
+ tenant_id bigint not null,
+ entidade_id bigint,
+ fornecimento_id bigint not null,
+ referencia_idempotencia varchar(100) not null,
+ valor_liquidado numeric(18,2) not null check (valor_liquidado >= 0),
+ status varchar(20) not null default 'REGISTRADA' check ((status)::text = any (array['REGISTRADA','LIQUIDADA','ESTORNADA'])),
+ data_liquidacao timestamptz,
+ justificativa_estorno text,
+ auditoria jsonb not null default '[]'::jsonb,
+ correlation_id uuid not null default gen_random_uuid(),
+ ativo boolean not null default true,
+ is_deleted boolean not null default false,
+ created_at timestamptz not null default now(),
+ created_by bigint,
+ updated_at timestamptz not null default now(),
+ updated_by bigint
+);
+create unique index if not exists ux_compras_obrigacao_referencia on sigov.compras_obrigacao(tenant_id, referencia_idempotencia) where ativo and not is_deleted;
+
+-- 7) Pos-condicao C2S9-POSTCOND: falha explicita se qualquer objeto canonic falta (regra 13) --
+do $$
+begin
+  if not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='compras_fornecimento')
+  or not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='compras_fornecimento_recebimento')
+  or not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='compras_fatura_integrada')
+  or not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='compras_destinacao_integrada')
+  or not exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='sigov' and c.relname='compras_obrigacao') then
+    raise exception 'C2S9-POSTCOND: tabela canonical ausente';
+  end if;
+  if not exists(select 1 from information_schema.columns c where c.table_schema='sigov' and c.table_name='compras_recebimento' and c.column_name='fornecimento_id') then
+    raise exception 'C2S9-POSTCOND: coluna compras_recebimento.fornecimento_id ausente';
+  end if;
+  if exists(select 1 from information_schema.columns c where c.table_schema='sigov' and c.table_name='compras_recebimento' and c.column_name='processo_id' and c.is_nullable <> 'YES') then
+    raise exception 'C2S9-POSTCOND: compras_recebimento.processo_id ainda NOT NULL';
+  end if;
+  if not exists(select 1 from sigov.parametro_modulo p where p.modulo='COMPRAS' and p.codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and p.ativo and not p.is_deleted) then
+    raise exception 'C2S9-POSTCOND: parametro RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS ausente (seed S8)';
+  end if;
+  if not exists(select 1 from sigov.permissao p where p.modulo='compras' and p.ativo and not p.is_deleted and p.chave in
+     ('compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar'))
+  or not exists(select 1 from sigov.permissao p where p.ativo and not p.is_deleted and p.chave in ('almoxarifado.recebimento.confirmar','patrimonio.bem.criar')) then
+    raise exception 'C2S9-POSTCOND: catalogo de permissoes da frente incompleto no banco';
+  end if;
+end
+$$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261013150000', 'RC-EVO Ciclo 2 Sprint 9 (Compras integradas 2/2: fornecimento -> recebimento -> fatura -> destinacao em estoque/patrimonio -> obrigacao financeira unica; BR-7.5/7.6/7.7 sobre os contratos BR-7.x da S7): fornecimento contra item de contrato vigente com valor derivado do unitario e chave de idempotencia (BR-7.5), recebimento parcial por fornecimento (aprovado+rejeitado=recebido <= fornecido) com rejeicao exigindo motivo + prazo de substituicao parametrico e desfecho obrigatorio SUBSTITUIDO/ACATADO antes do fechamento, fatura NFE/NFS_E unica por fornecimento com conferencia (fornecedor/CNPJ contra o contratado, valor contra o pedido), destinacao em estoque como movimento referenciado unico idempotente por referencia (local inexistente/inativo bloqueia) ou em patrimonio com ficha gerada no ato (codigo de tombamento, classe/categoria, valor registrado, localizacao e situacao) (BR-7.6), obrigacao financeira unica idempotente por referencia com valor liquidado e estorno por compensacao sem delete fisico (BR-7.7); relaxamento nao-destrutivo do legado compras_recebimento/_item (processo_id/processo_item_id passam a nullable, status acrescido de APROVADO/PARCIAL/REJEITADO preservando os valores legados, nova coluna fornecimento_id); pos-condicao explicita C2S9-POSTCOND; sem parametros novos (seed canonica ja aplicada na migration S8) e sem permissoes novas (catalogo C2S7 + reutilizacao almoxarifado.recebimento.confirmar / patrimonio.bem.criar)', 'e3b4252c19513b7477381bd2a066e611268bf7731571f9f8722f971fc94a7d49', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

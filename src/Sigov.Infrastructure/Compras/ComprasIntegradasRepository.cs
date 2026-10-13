@@ -949,4 +949,442 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
         await tx.CommitAsync(ct).ConfigureAwait(false);
         log.LogInformation("C2S8 contrato {C} rescindido ({T})", contratoId, t);
     }
+
+    // ============================ SPRINT 9 - BR-7.5 A BR-7.7 =========================
+    // Fornecimento -> recebimento parcial -> fatura -> destinacao estoque/patrimonio ->
+    // obrigacao financeira unica. Invariantes do contrato: recebido <= fornecido; rejeicao
+    // sem desfecho nao fecha o fornecimento; sem NF-e nao liquida; 1 fornecimento aprovado =
+    // 1 obrigacao (idempotente por referencia); cada destino = 1 movimento referenciado unico.
+
+    static DateOnly AdicionarDiasUteis(DateOnly d, int n)
+    {
+        var r = d;
+        for (var i = 0; i < n; i++)
+        {
+            r = r.AddDays(1);
+            while (r.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) r = r.AddDays(1);
+        }
+        return r;
+    }
+
+    static async Task<string> RecomputarStatusFornecimentoAsync(NpgsqlConnection c, NpgsqlTransaction tx, long tenantId, long fornecimentoId, CancellationToken ct)
+    {
+        var f = await c.QuerySingleAsync<(decimal Qtd, decimal Recebido)>(new CommandDefinition(
+            """
+            select f.quantidade, coalesce((select sum(r2.quantidade_aprovada + r2.quantidade_rejeitada) from sigov.compras_fornecimento_recebimento r2 where r2.fornecimento_id=f.id and r2.ativo and not r2.is_deleted),0)
+            from sigov.compras_fornecimento f where f.id=@F and f.tenant_id=@T
+            """, new { F = fornecimentoId, T = tenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (f.Recebido < f.Qtd) return f.Recebido > 0 ? "PARCIALMENTE_RECEBIDO" : "FORNECIDO";
+        var semDesfecho = await c.ExecuteScalarAsync<int>(new CommandDefinition(
+            "select count(1) from sigov.compras_fornecimento_recebimento where fornecimento_id=@F and tenant_id=@T and quantidade_rejeitada>0 and desfecho is null and ativo and not is_deleted",
+            new { F = fornecimentoId, T = tenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        return semDesfecho == 0 ? "CONCLUIDO" : "PARCIALMENTE_RECEBIDO";
+    }
+
+    public async Task<long> FornecimentoCriarAsync(ComprasIntegradasContext x, FornecimentoCriarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_fornecimento", "compras_contrato", "compras_contrato_item", "compras_recebimento", "compras_recebimento_item").ConfigureAwait(false);
+        if (r.Quantidade <= 0) throw new ArgumentException("quantidade do fornecimento deve ser maior que zero.");
+        var user = UsuarioObrigatorio(x);
+        var chave = string.IsNullOrWhiteSpace(r.ChaveIdempotencia) ? null : r.ChaveIdempotencia.Trim();
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        var contrato = await c.QueryFirstOrDefaultAsync<(string Status, long FornecedorId, decimal ValorContratado)>(new CommandDefinition(
+            "select status, fornecedor_id, valor_contratado from sigov.compras_contrato where id=@C and tenant_id=@T",
+            new { C = r.ContratoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (contrato.Status is null) throw new ContratoInexistenteException(r.ContratoId);
+        if (contrato.Status != "VIGENTE") throw new ContratoNaoVigenteException(r.ContratoId, contrato.Status);
+
+        var item = await c.QueryFirstOrDefaultAsync<(decimal QtdMax, decimal Vu, string Descricao)>(new CommandDefinition(
+            "select quantidade_maxima, valor_unitario, descricao from sigov.compras_contrato_item where id=@I and contrato_id=@C and tenant_id=@T",
+            new { I = r.ContratoItemId, C = r.ContratoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (item.Descricao is null) throw new ContratoItemInexistenteException(r.ContratoItemId);
+
+        if (chave is not null)
+        {
+            var exist = await c.QueryFirstOrDefaultAsync<(long Id, decimal Qtd, decimal Vu)>(new CommandDefinition(
+                "select id, quantidade, valor_unitario from sigov.compras_fornecimento where tenant_id=@T and chave_idempotencia=@K and ativo and not is_deleted",
+                new { T = x.TenantId, K = chave }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (exist.Id > 0)
+            {
+                if (exist.Qtd == r.Quantidade && exist.Vu == item.Vu) { await tx.CommitAsync(ct).ConfigureAwait(false); return exist.Id; }
+                throw new FornecimentoChaveIdempotenciaConflitoException(chave, exist.Id);
+            }
+        }
+
+        var fornecidoContrato = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            """
+            select coalesce(sum(i.quantidade * coalesce(i.valor_unitario,0)),0)
+            from sigov.compras_recebimento rc join sigov.compras_recebimento_item i on i.recebimento_id=rc.id
+            where rc.tenant_id=@T and rc.contrato_id=@C
+            """, new { T = x.TenantId, C = r.ContratoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var pct = contrato.ValorContratado > 0 ? Math.Round(fornecidoContrato / contrato.ValorContratado * 100m, 2) : 0m;
+        var teto = await LireParametroIntAsync(c, tx, x, "CONTRATO_EXECUCAO_TETO_PCT", ct).ConfigureAwait(false);
+        if (pct >= teto) throw new FornecimentoExcedeExecucaoDisponivelException(r.ContratoId, pct, (int)teto);
+
+        var fornecidoItem = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            "select coalesce(sum(quantidade),0) from sigov.compras_fornecimento where tenant_id=@T and contrato_item_id=@I and ativo and not is_deleted",
+            new { T = x.TenantId, I = r.ContratoItemId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var disponivel = item.QtdMax - fornecidoItem;
+        if (r.Quantidade > disponivel) throw new FornecimentoExcedeItemContratoException(r.ContratoItemId, r.Quantidade, disponivel);
+
+        var corr = GuidCorr(x.CorrelationId);
+        var valorTotal = Math.Round(r.Quantidade * item.Vu, 2);
+        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_fornecimento(tenant_id,entidade_id,contrato_id,contrato_item_id,fornecedor_id,quantidade,valor_unitario,valor_total,status,chave_idempotencia,correlation_id,created_at,created_by,updated_at)
+            values(@T,@E,@C,@I,@F,@Q,@Vu,@Tot,'FORNECIDO',@K,@Corr,now(),@U,now())
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, C = r.ContratoId, I = r.ContratoItemId, F = contrato.FornecedorId, Q = r.Quantidade, Vu = item.Vu, Tot = valorTotal, K = chave, Corr = corr, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 fornecimento {Id} contra contrato {C} item {I} ({Q} x {Vu})", id, r.ContratoId, r.ContratoItemId, r.Quantidade, item.Vu);
+        return id;
+    }
+
+    public async Task<FornecimentoIntegradoDto> FornecimentoAsync(ComprasIntegradasContext x, long id, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_fornecimento").ConfigureAwait(false);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        var f = await c.QueryFirstOrDefaultAsync<(long Id, long ContratoId, long ItemId, long FornecedorId, decimal Qtd, decimal Vu, decimal Tot, string Status)>(new CommandDefinition(
+            "select id, contrato_id, contrato_item_id, fornecedor_id, quantidade, valor_unitario, valor_total, status from sigov.compras_fornecimento where id=@F and tenant_id=@T",
+            new { F = id, T = x.TenantId }, cancellationToken: ct)).ConfigureAwait(false);
+        if (f.Status is null) throw new FornecimentoInexistenteException(id);
+        return new FornecimentoIntegradoDto(f.Id, f.ContratoId, f.ItemId, f.FornecedorId, f.Qtd, f.Vu, f.Tot, f.Status);
+    }
+
+    public async Task<RecebimentoIntegradoDto> RecebimentoIntegradoRegistrarAsync(ComprasIntegradasContext x, long fornecimentoId, RecebimentoIntegradoRegistrarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_fornecimento", "compras_fornecimento_recebimento", "compras_contrato_item", "compras_recebimento", "compras_recebimento_item").ConfigureAwait(false);
+        if (r.QuantidadeAprovada < 0 || r.QuantidadeRejeitada < 0 || r.QuantidadeAprovada + r.QuantidadeRejeitada <= 0)
+            throw new ArgumentException("aprovada/rejeitada devem ser nao-negativas e soma > 0.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        var f = await c.QueryFirstOrDefaultAsync<(long ContratoId, long ItemId, decimal QtdForn, string Status, decimal Vu)>(new CommandDefinition(
+            """
+            select f.contrato_id, f.contrato_item_id, f.quantidade, f.status, i.valor_unitario
+            from sigov.compras_fornecimento f join sigov.compras_contrato_item i on i.id=f.contrato_item_id
+            where f.id=@F and f.tenant_id=@T
+            """, new { F = fornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (f.Status is null) throw new FornecimentoInexistenteException(fornecimentoId);
+
+        var recebido = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            "select coalesce(sum(quantidade_aprovada + quantidade_rejeitada),0) from sigov.compras_fornecimento_recebimento where fornecimento_id=@F and tenant_id=@T and ativo and not is_deleted",
+            new { F = fornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var novo = recebido + r.QuantidadeAprovada + r.QuantidadeRejeitada;
+        if (novo > f.QtdForn) throw new RecebimentoAcimaFornecidoException(novo, f.QtdForn);
+        if (f.Status == "CONCLUIDO") throw new FornecimentoEncerradoParaRecebimentoException(fornecimentoId);
+        if (r.QuantidadeRejeitada > 0 && string.IsNullOrWhiteSpace(r.MotivoRejeicao))
+            throw new RecebimentoRejeicaoSemMotivoException();
+
+        var prazo = (DateOnly?)null;
+        if (r.QuantidadeRejeitada > 0)
+        {
+            var diasUteis = await LireParametroIntAsync(c, tx, x, "RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS", ct).ConfigureAwait(false);
+            prazo = AdicionarDiasUteis(r.DataRecebimento, (int)diasUteis);
+        }
+        var st = r.QuantidadeAprovada > 0 && r.QuantidadeRejeitada == 0 ? "APROVADO" : r.QuantidadeRejeitada > 0 && r.QuantidadeAprovada == 0 ? "REJEITADO" : "PARCIAL";
+        var corr = GuidCorr(x.CorrelationId);
+        var recId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_fornecimento_recebimento(tenant_id,entidade_id,fornecimento_id,quantidade_aprovada,quantidade_rejeitada,status,motivo_rejeicao,data_prazo_substituicao,data_recebimento,correlation_id,created_at,created_by,updated_at)
+            values(@T,@E,@F,@A,@R,@St,@M,@Pz,@Data,@Corr,now(),@U,now())
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, F = fornecimentoId, A = r.QuantidadeAprovada, R = r.QuantidadeRejeitada, St = st, M = (string?)(r.QuantidadeRejeitada > 0 ? r.MotivoRejeicao?.Trim() : null), Pz = prazo, Data = r.DataRecebimento, Corr = corr, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+        var legacyId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_recebimento(tenant_id,entidade_id,processo_id,contrato_id,documento,data_recebimento,status,fornecimento_id,created_at,created_by)
+            values(@T,@E,null,@C,'REC-FOR-'||@R::text,@Data,@St,@F,now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, C = f.ContratoId, R = recId, Data = r.DataRecebimento, St = st, F = fornecimentoId, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (r.QuantidadeAprovada > 0)
+            await c.ExecuteAsync(new CommandDefinition(
+                "insert into sigov.compras_recebimento_item(tenant_id,entidade_id,recebimento_id,processo_item_id,quantidade,valor_unitario,tipo_material) values(@T,@E,@Rc,null,@A,@Vu,'CONSUMO')",
+                new { T = x.TenantId, E = x.EntidadeId, Rc = legacyId, A = r.QuantidadeAprovada, Vu = f.Vu }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_fornecimento_recebimento set legacy_recebimento_id=@L where id=@R and tenant_id=@T",
+            new { L = legacyId, R = recId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var novoStatus = await RecomputarStatusFornecimentoAsync(c, tx, x.TenantId, fornecimentoId, ct).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_fornecimento set status=@S, updated_at=now(), updated_by=@U where id=@F and tenant_id=@T",
+            new { S = novoStatus, U = user, F = fornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 recebimento {Rc} do fornecimento {F}: {A} aprov / {Rj} rejeitado -> fornecimento {St}", recId, fornecimentoId, r.QuantidadeAprovada, r.QuantidadeRejeitada, novoStatus);
+        return new RecebimentoIntegradoDto(recId, fornecimentoId, r.QuantidadeAprovada, r.QuantidadeRejeitada, st, prazo, null);
+    }
+
+    public async Task<RecebimentoIntegradoDto> RecebimentoDesfechoAsync(ComprasIntegradasContext x, long recebimentoId, RecebimentoDesfechoRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_fornecimento_recebimento", "compras_fornecimento").ConfigureAwait(false);
+        var df = string.IsNullOrWhiteSpace(r.Desfecho) ? "" : r.Desfecho.Trim().ToUpperInvariant();
+        if (df is not ("SUBSTITUIDO" or "ACATADO")) throw new RejecaoDesfechoInvalidoException(r.Desfecho ?? "");
+        if (string.IsNullOrWhiteSpace(r.Justificativa)) throw new ArgumentException("justificativa do desfecho é obrigatória.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var rc = await c.QueryFirstOrDefaultAsync<(long FornecimentoId, decimal Rej, string Desfecho, DateOnly? Prazo, string Status)>(new CommandDefinition(
+            "select fornecimento_id, quantidade_rejeitada, desfecho, data_prazo_substituicao, status from sigov.compras_fornecimento_recebimento where id=@R and tenant_id=@T",
+            new { R = recebimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (rc.Desfecho is null && rc.Rej == 0 && rc.Prazo is null && rc.Status is null) throw new RecebimentoIntegradoInexistenteException(recebimentoId);
+        if (rc.Rej <= 0) throw new ArgumentException("recebimento sem rejeição não possui desfecho a registrar.");
+        if (rc.Desfecho is not null) throw new RejecaoDesfechoJaRegistradoException(recebimentoId);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_fornecimento_recebimento set desfecho=@D, desfecho_justificativa=@J, updated_at=now(), updated_by=@U where id=@R and tenant_id=@T",
+            new { D = df, J = r.Justificativa.Trim(), U = user, R = recebimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var novoStatus = await RecomputarStatusFornecimentoAsync(c, tx, x.TenantId, rc.FornecimentoId, ct).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_fornecimento set status=@S, updated_at=now(), updated_by=@U where id=@F and tenant_id=@T",
+            new { S = novoStatus, U = user, F = rc.FornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 desfecho {D} na rejeicao do recebimento {Rc} (fornecimento {F} -> {St})", df, recebimentoId, rc.FornecimentoId, novoStatus);
+        var dt = await FornecimentoIntegradoRecebimentoDtoAsync(c, x, recebimentoId, ct).ConfigureAwait(false);
+        return dt with { Desfecho = df };
+    }
+
+    static async Task<RecebimentoIntegradoDto> FornecimentoIntegradoRecebimentoDtoAsync(NpgsqlConnection c, ComprasIntegradasContext x, long recebimentoId, CancellationToken ct)
+    {
+        var dt = await c.QueryFirstAsync<(long Id, long F, decimal A, decimal Rj, string St, DateOnly? Pz, string? D)>(new CommandDefinition(
+            "select id, fornecimento_id, quantidade_aprovada, quantidade_rejeitada, status, data_prazo_substituicao, desfecho from sigov.compras_fornecimento_recebimento where id=@R and tenant_id=@T",
+            new { R = recebimentoId, T = x.TenantId }, cancellationToken: ct)).ConfigureAwait(false);
+        return new RecebimentoIntegradoDto(dt.Id, dt.F, dt.A, dt.Rj, dt.St, dt.Pz, dt.D);
+    }
+
+    public async Task<FaturaIntegradaDto> FaturaVincularAsync(ComprasIntegradasContext x, long fornecimentoId, FaturaVincularRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_fatura_integrada", "compras_fornecimento", "compras_fornecedor").ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(r.Numero)) throw new ArgumentException("numero da fatura/NF-e é obrigatório.");
+        var natureza = string.IsNullOrWhiteSpace(r.Natureza) ? "" : r.Natureza.Trim().ToUpperInvariant().Replace("-", "_");
+        if (natureza is not ("NFE" or "NFS_E")) throw new FaturaNaturezaInvalidaException(r.Natureza ?? "");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var f = await c.QueryFirstOrDefaultAsync<(long FornecedorId, decimal ValorTotal, string Cnpj)>(new CommandDefinition(
+            """
+            select fn.fornecedor_id, fn.valor_total, fp.documento
+            from sigov.compras_fornecimento fn join sigov.compras_fornecedor fp on fp.id=fn.fornecedor_id
+            where fn.id=@F and fn.tenant_id=@T
+            """, new { F = fornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (f.Cnpj is null) throw new FornecimentoInexistenteException(fornecimentoId);
+        var num = r.Numero.Trim();
+        var cnpj = r.CnpjFornecedor.Trim();
+        var exist = await c.QueryFirstOrDefaultAsync<(long Id, string Numero, decimal Valor, string CnpjF)>(new CommandDefinition(
+            "select id, numero, valor, cnpj_fornecedor from sigov.compras_fatura_integrada where tenant_id=@T and fornecimento_id=@F and ativo and not is_deleted",
+            new { T = x.TenantId, F = fornecimentoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (exist.Id > 0)
+        {
+            if (exist.Numero == num && exist.Valor == r.Valor && exist.CnpjF == cnpj)
+            {
+                await tx.CommitAsync(ct).ConfigureAwait(false);
+                return new FaturaIntegradaDto(exist.Id, fornecimentoId, exist.Numero, "NFE", exist.Valor, true);
+            }
+            throw new FaturaJaVinculadaConflitoException(fornecimentoId, exist.Id, exist.Numero);
+        }
+        if (!string.Equals(cnpj, f.Cnpj, StringComparison.Ordinal))
+            throw new FaturaFornecedorDiscrepanteException(cnpj, f.Cnpj);
+        if (Math.Round(r.Valor, 2) != Math.Round(f.ValorTotal, 2))
+            throw new FaturaValorDivergenteException(r.Valor, f.ValorTotal);
+        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_fatura_integrada(tenant_id,entidade_id,fornecimento_id,numero,serie,natureza,cnpj_fornecedor,valor,data_emissao,conferida,correlation_id,created_at,created_by)
+            values(@T,@E,@F,@Num,@Ser,@Nat,@Cnpj,@V,@De,true,@Corr,now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, F = fornecimentoId, Num = num, Ser = string.IsNullOrWhiteSpace(r.Serie) ? null : r.Serie.Trim(), Nat = natureza, Cnpj = cnpj, V = Math.Round(r.Valor, 2), De = r.DataEmissao, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 fatura {Id} ({Num}) vinculada e conferida ao fornecimento {F}", id, num, fornecimentoId);
+        return new FaturaIntegradaDto(id, fornecimentoId, num, natureza, Math.Round(r.Valor, 2), true);
+    }
+
+    public async Task<DestinacaoIntegradaDto> DestinacaoRegistrarAsync(ComprasIntegradasContext x, DestinacaoIntegradaRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_destinacao_integrada", "compras_fornecimento_recebimento", "compras_fornecimento", "compras_contrato_item", "almoxarifado_local", "almoxarifado_material", "almoxarifado_movimentacao", "patrimonio_bem", "patrimonio_categoria").ConfigureAwait(false);
+        var alvo = string.IsNullOrWhiteSpace(r.AlvoTipo) ? "" : r.AlvoTipo.Trim().ToUpperInvariant();
+        if (alvo is not ("ESTOQUE" or "PATRIMONIO")) throw new DestinoTipoInvalidoException(r.AlvoTipo ?? "");
+        if (r.Quantidade <= 0) throw new ArgumentException("quantidade do destino deve ser maior que zero.");
+        if (string.IsNullOrWhiteSpace(r.Referencia)) throw new ArgumentException("referencia do movimento referenciado é obrigatória (idempotência por referência).");
+        var referencia = r.Referencia.Trim();
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var rc = await c.QueryFirstOrDefaultAsync<(long FornecimentoId, decimal Aprovada, decimal Vu, long ContratoId, string St, DateOnly DataRec, string Nf)>(new CommandDefinition(
+            """
+            select f.id, r2.quantidade_aprovada, i.valor_unitario, f.contrato_id, f.status, r2.data_recebimento, fa.numero
+            from sigov.compras_fornecimento_recebimento r2
+            join sigov.compras_fornecimento f on f.id=r2.fornecimento_id
+            join sigov.compras_contrato_item i on i.id=f.contrato_item_id
+            left join sigov.compras_fatura_integrada fa on fa.fornecimento_id=f.id and fa.tenant_id=r2.tenant_id and fa.ativo and not fa.is_deleted
+            where r2.id=@R and r2.tenant_id=@T
+            """, new { R = r.FornecimentoRecebimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (rc.St is null) throw new RecebimentoIntegradoInexistenteException(r.FornecimentoRecebimentoId);
+        var valor = Math.Round(r.Quantidade * rc.Vu, 2);
+        // Idempotencia por referencia tem prioridade sobre as regras de negocio: um replay deve
+        // ser sem efeito (ou conflitar por conteudo) independentemente do estado atual; a regra
+        // de teto (excede qtd aprovada) vale apenas para referencias novas.
+        var exist = await c.QueryFirstOrDefaultAsync<(long Id, string Alvo, decimal Qtd, decimal Vl, long Rec)>(new CommandDefinition(
+            "select id, alvo_tipo, quantidade, valor, fornecimento_recebimento_id from sigov.compras_destinacao_integrada where tenant_id=@T and referencia=@Ref and ativo and not is_deleted",
+            new { T = x.TenantId, Ref = referencia }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (exist.Id > 0)
+        {
+            if (exist.Alvo == alvo && exist.Qtd == r.Quantidade && exist.Vl == valor && exist.Rec == r.FornecimentoRecebimentoId)
+            {
+                await tx.CommitAsync(ct).ConfigureAwait(false);
+                return new DestinacaoIntegradaDto(exist.Id, exist.Rec, exist.Alvo, exist.Qtd, exist.Vl, referencia, null);
+            }
+            throw new DestinoReferenciaConflitoException(referencia, exist.Id);
+        }
+        var destinado = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            "select coalesce(sum(quantidade),0) from sigov.compras_destinacao_integrada where tenant_id=@T and fornecimento_recebimento_id=@R and ativo and not is_deleted",
+            new { T = x.TenantId, R = r.FornecimentoRecebimentoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (r.Quantidade + destinado > rc.Aprovada) throw new DestinoExcedeQtdAprovadaException(r.Quantidade, rc.Aprovada - destinado);
+
+        var destId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_destinacao_integrada(tenant_id,entidade_id,fornecimento_recebimento_id,alvo_tipo,quantidade,valor,referencia,correlation_id,created_at,created_by)
+            values(@T,@E,@R,@Alvo,@Q,@V,@Ref,@Corr,now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, R = r.FornecimentoRecebimentoId, Alvo = alvo, Q = r.Quantidade, V = valor, Ref = referencia, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+
+        long alvoId;
+        if (alvo == "ESTOQUE")
+        {
+            if (r.LocalId is null || r.MaterialId is null) throw new ArgumentException("destino ESTOQUE exige localId e materialId.");
+            var locSt = await c.ExecuteScalarAsync<string>(new CommandDefinition(
+                """
+                select case
+                   when not exists(select 1 from sigov.almoxarifado_local where id=@L and tenant_id=@T) then 'INEXISTENTE'
+                   when not exists(select 1 from sigov.almoxarifado_local where id=@L and tenant_id=@T and ativo) then 'INATIVO'
+                   else 'ATIVO' end
+                """, new { L = r.LocalId.Value, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (locSt == "INEXISTENTE") throw new DestinoLocalInexistenteException(r.LocalId.Value);
+            if (locSt == "INATIVO") throw new DestinoLocalInativoException(r.LocalId.Value);
+            if (!(await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.almoxarifado_material where id=@M and tenant_id=@T and ativo)", new { M = r.MaterialId.Value, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false)))
+                throw new DestinoMaterialInexistenteException(r.MaterialId.Value);
+            var saldoAntes = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+                "select coalesce(greatest(coalesce(sum(case when tipo='ENTRADA' then quantidade else -quantidade end),0),0),0) from sigov.almoxarifado_movimentacao where tenant_id=@T and almoxarifado_id=@L and material_id=@M",
+                new { T = x.TenantId, L = r.LocalId.Value, M = r.MaterialId.Value }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            alvoId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+                """
+                insert into sigov.almoxarifado_movimentacao(tenant_id,entidade_id,almoxarifado_id,material_id,tipo,motivo,quantidade,valor_unitario,documento_origem,saldo_antes,saldo_depois,usuario_id,correlation_id)
+                values(@T,@E,@L,@M,'ENTRADA','FORNECIMENTO',@Q,@Vu,'FORN-'||@F||'-REC-'||@R,@SA,@SD,@U,@CorrTxt)
+                returning id
+                """, new { T = x.TenantId, E = x.EntidadeId, L = r.LocalId.Value, M = r.MaterialId.Value, Q = r.Quantidade, Vu = rc.Vu, F = rc.FornecimentoId, R = r.FornecimentoRecebimentoId, SA = saldoAntes, SD = saldoAntes + r.Quantidade, U = user, CorrTxt = x.CorrelationId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        else
+        {
+            if (r.CategoriaId is not null && !(await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.patrimonio_categoria where id=@C and tenant_id=@T and ativo and not is_deleted)", new { C = r.CategoriaId.Value, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false)))
+                throw new ArgumentException($"categoria de patrimônio {r.CategoriaId.Value} inexistente ou inativa.");
+            alvoId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+                """
+                insert into sigov.patrimonio_bem(tenant_id,descricao,codigo_tombo,tipo_bem,categoria_id,localizacao,contrato_id,data_aquisicao,valor_aquisicao,responsavel_usuario_id,nota_fiscal,created_by)
+                values(@T,@Desc,'PAT-FOR-'||@Dest::text,@Tipo,@Cat,@Loc,@C,@Data,@Valor,@U,@Nf,@U)
+                returning id
+                """, new { T = x.TenantId, Desc = referencia, Dest = destId, Tipo = string.IsNullOrWhiteSpace(r.TipoBem) ? "OUTRO" : r.TipoBem.Trim(), Cat = r.CategoriaId, Loc = string.IsNullOrWhiteSpace(r.Localizacao) ? null : r.Localizacao.Trim(), C = rc.ContratoId, Data = rc.DataRec, Valor = valor, U = user, Nf = rc.Nf }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_destinacao_integrada set alvo_id=@A where id=@D and tenant_id=@T",
+            new { A = alvoId, D = destId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 destino {D} ({Alvo} {Q} un ref {Ref}) -> alvo {A}", destId, alvo, r.Quantidade, referencia, alvoId);
+        return new DestinacaoIntegradaDto(destId, r.FornecimentoRecebimentoId, alvo, r.Quantidade, valor, referencia, alvoId);
+    }
+
+    public async Task<ObrigacaoFinanceiraDto> ObrigacaoGerarAsync(ComprasIntegradasContext x, ObrigacaoGerarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_obrigacao", "compras_fornecimento", "compras_fornecimento_recebimento", "compras_contrato_item").ConfigureAwait(false);
+        var referencia = string.IsNullOrWhiteSpace(r.ReferenciaIdempotencia) ? "" : r.ReferenciaIdempotencia.Trim();
+        if (referencia.Length == 0) throw new ArgumentException("referência de idempotência da obrigação é obrigatória.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var st = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+            "select status from sigov.compras_fornecimento where id=@F and tenant_id=@T",
+            new { F = r.FornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (st is null) throw new FornecimentoInexistenteException(r.FornecimentoId);
+        if (st != "CONCLUIDO") throw new ObrigacaoFornecimentoIncompletoException(r.FornecimentoId, st);
+        var valor = Math.Round(await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            """
+            select coalesce(sum(r2.quantidade_aprovada * i.valor_unitario),0)
+            from sigov.compras_fornecimento_recebimento r2
+            join sigov.compras_fornecimento f on f.id=r2.fornecimento_id
+            join sigov.compras_contrato_item i on i.id=f.contrato_item_id
+            where r2.fornecimento_id=@F and r2.tenant_id=@T and r2.ativo and not r2.is_deleted
+            """, new { F = r.FornecimentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false), 2);
+        var exist = await c.QueryFirstOrDefaultAsync<(long Id, string Referencia, decimal Valor, string Status)>(new CommandDefinition(
+            """
+            select id, referencia_idempotencia, valor_liquidado, status
+            from sigov.compras_obrigacao where tenant_id=@T and fornecimento_id=@F and ativo and not is_deleted limit 1
+            """, new { T = x.TenantId, F = r.FornecimentoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (exist.Id > 0)
+        {
+            if (exist.Referencia == referencia && exist.Valor == valor && exist.Status == "REGISTRADA")
+            {
+                await tx.CommitAsync(ct).ConfigureAwait(false);
+                return new ObrigacaoFinanceiraDto(exist.Id, r.FornecimentoId, referencia, exist.Valor, exist.Status);
+            }
+            throw new ObrigacaoDuplicadaReferenciaException(referencia, exist.Id);
+        }
+        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_obrigacao(tenant_id,entidade_id,fornecimento_id,referencia_idempotencia,valor_liquidado,status,correlation_id,created_at,created_by,updated_at)
+            values(@T,@E,@F,@Ref,@V,'REGISTRADA',@Corr,now(),@U,now())
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, F = r.FornecimentoId, Ref = referencia, V = valor, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 obrigacao {Id} gerada para o fornecimento {F} (valor liquidado {V})", id, r.FornecimentoId, valor);
+        return new ObrigacaoFinanceiraDto(id, r.FornecimentoId, referencia, valor, "REGISTRADA");
+    }
+
+    public async Task<ObrigacaoFinanceiraDto> ObrigacaoLiquidarAsync(ComprasIntegradasContext x, long obrigacaoId, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_obrigacao", "compras_fatura_integrada").ConfigureAwait(false);
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var ob = await c.QueryFirstOrDefaultAsync<(long Id, long FornecimentoId, string Referencia, decimal Valor, string Status)>(new CommandDefinition(
+            "select id, fornecimento_id, referencia_idempotencia, valor_liquidado, status from sigov.compras_obrigacao where id=@O and tenant_id=@T",
+            new { O = obrigacaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (ob.Status is null) throw new ObrigacaoInexistenteException(obrigacaoId);
+        if (ob.Status is "LIQUIDADA" or "ESTORNADA") throw new ObrigacaoJaLiquidadaException(obrigacaoId, ob.Status);
+        var comFatura = await c.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "select exists(select 1 from sigov.compras_fatura_integrada where tenant_id=@T and fornecimento_id=@F and conferida and ativo and not is_deleted)",
+            new { T = x.TenantId, F = ob.FornecimentoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (!comFatura) throw new ObrigacaoLiquidacaoSemFaturaException(obrigacaoId);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_obrigacao set status='LIQUIDADA', data_liquidacao=now(), updated_at=now(), updated_by=@U where id=@O and tenant_id=@T",
+            new { U = user, O = obrigacaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 obrigacao {O} liquidada (fornecimento {F}, valor {V})", obrigacaoId, ob.FornecimentoId, ob.Valor);
+        return new ObrigacaoFinanceiraDto(ob.Id, ob.FornecimentoId, ob.Referencia, ob.Valor, "LIQUIDADA");
+    }
+
+    public async Task<ObrigacaoFinanceiraDto> ObrigacaoEstornarAsync(ComprasIntegradasContext x, long obrigacaoId, string justificativa, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_obrigacao").ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(justificativa)) throw new ObrigacaoEstornoSemJustificativaException();
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var ob = await c.QueryFirstOrDefaultAsync<(long Id, long FornecimentoId, string Referencia, decimal Valor, string Status)>(new CommandDefinition(
+            "select id, fornecimento_id, referencia_idempotencia, valor_liquidado, status from sigov.compras_obrigacao where id=@O and tenant_id=@T",
+            new { O = obrigacaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (ob.Status is null) throw new ObrigacaoInexistenteException(obrigacaoId);
+        if (ob.Status is not ("REGISTRADA" or "LIQUIDADA")) throw new ObrigacaoJaLiquidadaException(obrigacaoId, ob.Status);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_obrigacao set status='ESTORNADA', justificativa_estorno=@J, updated_at=now(), updated_by=@U where id=@O and tenant_id=@T",
+            new { J = justificativa.Trim(), U = user, O = obrigacaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S9 obrigacao {O} estornada por compensacao", obrigacaoId);
+        return new ObrigacaoFinanceiraDto(ob.Id, ob.FornecimentoId, ob.Referencia, ob.Valor, "ESTORNADA");
+    }
 }
