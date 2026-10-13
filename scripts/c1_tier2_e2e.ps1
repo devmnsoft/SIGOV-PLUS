@@ -1836,6 +1836,333 @@ foreach ($e20d in $e20deep) {
   Add-Check 'E20' ("telasreais.rota-profunda.$($e20d[0]).componientes") (($e20q.body -like '*id="eduKpis"*') -and ($e20q.body -like '*sigov-filter-bar*') -and ($e20q.body -like '*_loading*' -or $e20q.body -like '*sigov-loading*')) ("compartilhados presentes no HTML (KPIs com origem + _FilterBar + _Loading/_EmptyState, BR-6.3)")
 }
 
+# =============================================================================
+# --- S8 (Ciclo 2 Sprint 8): Compras integradas (1/2) — demanda -> contratacao -> contrato ---
+# BR-8.1 a BR-8.6 sobre o schema generico compras_* (migration 20261013140000; banco =
+# autoridade, regras 11/12: modalidades/dispensas art. 75 e parametros lidos do catalogo):
+#   BR-8.1 demanda tipada (qtd>0/unidade conhecida/preco>0 ou pesquisa/centro de custo
+#           ativo; urgencia com dupla aprovacao por autoridade distinta; imutavel apos
+#           aprovacao; repelida -> reaberta -> cancelada com justificativas);
+#   BR-8.2 processo unico da contratacao (Lei 14.133 art. 128) garantido na aprovacao;
+#   BR-8.3 procedimento com modalidade do catalogo (consulta previa limitada pelo teto
+#           parametrico; dispensa exige base legal do catalogo art. 75), habilitacao por
+#           tipo, lances decrescentes (1 lance = 1 registro, chave idempotente) e zona
+#           ME/EPP com preferencia dentro da margem parametrica (LC 123/2006) documentada;
+#   BR-8.4 julgamento com classificacao (zona aberta bloqueia), rejeicao de proposta
+#           inexequivel entre classificacao e adjudicacao, adjudicacao com valor derivado
+#           dos itens e homologacao separada (autoridade distinta + prazo parametrico);
+#   BR-8.5 contrato nascendo da homologacao (itens espelhados, valor DERIVADO, GED/FISICA),
+#           execucao com teto parametrico, prorrogação art. 106 (teto de anos e maximo de
+#           vezes parametrizados, rastro em historico) e rescisao com ato (unilateral exige
+#           notificacao previa);
+#   BR-8.6 cadeia direta DISPENSA -> adjudicacao com fornecedor -> homologacao -> contrato.
+# Multi-esfera (regras 21-24): entidade fixture com esfera 'estadual' e usuario dedicado
+# c2s8.admin com a MESMA cadeia usuario_grupo/grupo/perfil do admin (autorizacao resolvida
+# pelo banco, regra 11). Marcadores C2S8-%; o bloco se auto-limpa ao final.
+$s8fix = Get-Psql @"
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S8 Entidade Homologacao','00.000.000/0001-91','C2S8-ENT','estadual','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910001 and codigo_externo='C2S8-ENT');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S8 Administrador','c2s8.admin','c2s8.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S8-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s8.admin');
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,910401,910001,true,now(),910301
+from sigov.usuario u
+where u.tenant_id=910001 and u.login='c2s8.admin'
+and not exists(select 1 from sigov.usuario_grupo g where g.usuario_id=u.id and g.grupo_acesso_id=910401 and g.ativo);
+-- Grant das 15 chaves canonicas S7 ao perfil da cadeia copiada (ADMIN_TENANT), marcadas com
+-- correlation_id sentinel C2S8 para limpeza cirurgica; DO NOTHING preserva vinculos preexistentes.
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000001'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.id=(select gp.perfil_acesso_id from sigov.grupo_perfil gp where gp.grupo_acesso_id=910401 limit 1)
+  and p.modulo='compras' and p.ativo and not p.is_deleted
+  and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir','compras.licitacao.abrir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar','compras.julgamento.executar','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar')
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+insert into sigov.financeiro_centro_custo(tenant_id,codigo,nome,descricao,ativo,created_at,updated_at)
+select 910001,'C2S8-CC1','CC C2S8 Ativo','centro de custo ficticio ativo (homologacao)',true,now(),now()
+where not exists(select 1 from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S8-CC1');
+insert into sigov.financeiro_centro_custo(tenant_id,codigo,nome,descricao,ativo,created_at,updated_at)
+select 910001,'C2S8-CC2','CC C2S8 Inativo','centro de custo ficticio inativo (homologacao)',false,now(),now()
+where not exists(select 1 from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S8-CC2');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910001,e.id,'Forneadora C2S8 Alfa','JURIDICA','99.999.000/0001-01','ATIVO',null,now(),now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S8-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910001 and f.documento='99.999.000/0001-01');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910001,e.id,'Forneadora C2S8 Beta Micro','JURIDICA','99.999.000/0002-02','ATIVO','ME',now(),now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S8-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910001 and f.documento='99.999.000/0002-02');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910001,e.id,'Forneadora C2S8 Gama','JURIDICA','99.999.000/0003-03','ATIVO','OUTROS',now(),now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S8-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910001 and f.documento='99.999.000/0003-03');
+select coalesce((select id::text from sigov.entidade where tenant_id=910001 and codigo_externo='C2S8-ENT'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s8.admin'),'0') || '|'
+     || coalesce((select id::text from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S8-CC1'),'0') || '|'
+     || coalesce((select id::text from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S8-CC2'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910001 and documento='99.999.000/0001-01'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910001 and documento='99.999.000/0002-02'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910001 and documento='99.999.000/0003-03'),'0');
+"@
+$s8p = if ($s8fix.code -eq 0 -and ($s8fix.text -ne '')) { @($s8fix.text.Trim() -split '\|') } else { @('0','0','0','0','0','0','0') }
+$s8ent=[long]$s8p[0]; $s8uid=[long]$s8p[1]; $s8cc1=[long]$s8p[2]; $s8cc2=[long]$s8p[3]; $s8f1=[long]$s8p[4]; $s8f2=[long]$s8p[5]; $s8f3=[long]$s8p[6]
+Add-Check 'S8' 'fixture.aplicado-entidade-estadual-usuario-fornecedores' (($s8fix.code -eq 0) -and ($s8ent -gt 0) -and ($s8uid -gt 0) -and ($s8f2 -gt 0)) ("fixture S8 (entidade esfera estadual + usuario c2s8.admin com a mesma cadeia de perfil 910401 do admin + 2 centros de custo + 3 fornecedores (NULL/ME/OUTROS), marcador C2S8-%, tenant 910001) exit=$($s8fix.code); ent=$s8ent uid=$s8uid cc1=$s8cc1 cc2=$s8cc2 f1=$s8f1 f2=$s8f2 f3=$s8f3")
+$lgS8 = New-SigovLogin -User 'c2s8.admin' -Pass $Password -Base $WebBase
+$tkS8 = if ($lgS8.ok) { Get-ApiToken -Jar $lgS8.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+Add-Check 'S8' 'auth.login-dedicado-token-mint' (($lgS8.ok -eq $true) -and ($tkS8.token.Length -eq 64)) ("c2s8.admin POST /Auth/Login -> $($lgS8.post); ApiToken len=$($tkS8.token.Length) (usuario da entidade estadual C2S8-ENT com a cadeia de autorizacao copiada do admin: toda a frente resolve permissoes pelo banco, regra 11)")
+
+# --- BR-8.1: demanda tipada --------------------------------------------------------
+$s8d1b = ('{"objeto":"C2S8-Aquisicao material","justificativa":"necessidade operacional homologacao c2s8","itens":[{"descricao":"Papel A4","quantidade":10,"unidade":"pct","tipoObjeto":"BEM","precoEstimado":25.5,"centroCustoId":' + $s8cc1 + '}],"urgencia":false}')
+$s8d1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s8d1b
+$s8d1j = $null; try { $s8d1j = ($s8d1.body | ConvertFrom-Json) } catch {}
+$s8d1id = 0; if ($s8d1j -and $null -ne $s8d1j.data) { $s8d1id = [long]$s8d1j.data.id }
+$s8d1db = Get-Psql ("select status||'|'||to_char(valor_estimado,'FM999990.00')||'|'||urgencia||'|'||prioridade from sigov.compras_demanda where id=" + $s8d1id + ";")
+$null = Get-Psql ("update sigov.compras_demanda set created_by=910301 where id=" + $s8d1id + ";")
+Add-Check 'S8' 'demanda.criada-tipada-valor-derivado' (($s8d1.code -eq 200) -and ($s8d1id -gt 0) -and ($s8d1db.text -eq 'SOLICITADA|255.00|false|NORMAL')) ("POST /api/compras/integradas/demandas (10 pct x 25.50, tipo BEM, centro de custo ATIVO) -> $($s8d1.code) id=$s8d1id; banco status|valor_estimado|urgencia|prioridade: $($s8d1db.text) (BR-8.1: valor derivado da soma dos itens; created_by reposicionado para 910301 = solicitante DISTINCTO do decisor, como em contratacao real)")
+$s8dq = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-Qtd zero","justificativa":"validacao c2s8","itens":[{"descricao":"Item qtd 0","quantidade":0,"unidade":"un","precoEstimado":10,"centroCustoId":' + $s8cc1 + '}],"urgencia":false}')
+$s8dp = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-Sem preco","justificativa":"validacao c2s8","itens":[{"descricao":"Item sem preco e sem pesquisa","quantidade":1,"unidade":"un","precoEstimado":0,"centroCustoId":' + $s8cc1 + '}],"urgencia":false}')
+$s8dc = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-CC inativo","justificativa":"validacao c2s8","itens":[{"descricao":"Item CC inativo","quantidade":1,"unidade":"un","precoEstimado":10,"centroCustoId":' + $s8cc2 + '}],"urgencia":false}')
+Add-Check 'S8' 'demanda.itens-invalidos-400-nomeados' (($s8dq.code -eq 400) -and ($s8dq.body -like '*DEMANDA_ITEM_INVALIDO*') -and ($s8dp.code -eq 400) -and ($s8dp.body -like '*DEMANDA_ITEM_INVALIDO*') -and ($s8dc.code -eq 400) -and ($s8dc.body -like '*DEMANDA_ITEM_INVALIDO*')) ("qtd=0 -> $($s8dq.code); preco<=0 sem pesquisaPrecoId -> $($s8dp.code); centro de custo INATIVO -> $($s8dc.code) (todos 400 DEMANDA_ITEM_INVALIDO nomeada: qtd>0/unidade conhecida/preco>0 OU pesquisa referenciada/centro de custo valido e ativo — BR-8.1; nada gravado)")
+$s8dn = Invoke-Api -Bearer $tkS8.token -Method GET -Path '/api/compras/integradas/demandas/9999999999' -Base $ApiBase
+Add-Check 'S8' 'demanda.inexistente-404-nomeada' (($s8dn.code -eq 404) -and ($s8dn.body -like '*DEMANDA_INEXISTENTE*')) ("GET /demandas/9999999999 -> $($s8dn.code) (404 DEMANDA_INEXISTENTE nomeada; escopo tenant — regra 13)")
+$s8duj = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-Urgente sem just","justificativa":"urgencia sem justificativa","itens":[{"descricao":"Kit C2S8","quantidade":5,"unidade":"un","precoEstimado":40,"centroCustoId":' + $s8cc1 + '}],"urgencia":true}')
+Add-Check 'S8' 'demanda.urgencia-sem-justificativa-400' (($s8duj.code -eq 400) -and ($s8duj.body -like '*DEMANDA_URGENCIA_SEM_JUSTIFICATIVA*')) ("urgencia=true sem justificativaUrgencia -> $($s8duj.code) (400 DEMANDA_URGENCIA_SEM_JUSTIFICATIVA nomeada — BR-8.1)")
+$s8d2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-Kit urgente","justificativa":"rompimento de estoque do programa estadual","itens":[{"descricao":"Kit C2S8","quantidade":5,"unidade":"un","precoEstimado":40,"centroCustoId":' + $s8cc1 + '}],"urgencia":true,"justificativaUrgencia":"rompimento de estoque do programa estadual c2s8"}')
+$s8d2j = $null; try { $s8d2j = ($s8d2.body | ConvertFrom-Json) } catch {}
+$s8d2id = 0; if ($s8d2j -and $null -ne $s8d2j.data) { $s8d2id = [long]$s8d2j.data.id }
+$null = Get-Psql ("update sigov.compras_demanda set created_by=910301 where id=" + $s8d2id + ";")
+$s8a1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d2id + '/aprovar') -Base $ApiBase
+$s8a1db = Get-Psql ("select status||'|'||coalesce(aprovado_por::text,'NULL')||'|'||coalesce(dupla_aprovado_por::text,'NULL') from sigov.compras_demanda where id=" + $s8d2id + ";")
+$s8dbgLike = [bool]($s8a1db.text -like ("APROVADA_PARCIAL|$s8uid|NULL"))
+$s8dbgBody = $s8a1.body.Substring(0,[Math]::Min(160,$s8a1.body.Length))
+$s8dbgA = ('code=[' + $s8a1.code + '] like=[' + $s8dbgLike + '] uid=' + $s8uid + ' body=[' + $s8dbgBody + ']')
+Add-Check 'S8' 'demanda.urgencia-primeira-aprovacao-parcial' (($s8a1.code -eq 200) -and ($s8a1db.text -like ("APROVADA_PARCIAL|$s8uid|NULL"))) ("aprovar 1a vez (urgencia) -> $($s8a1.code); banco status|aprovado_por|dupla_aprovado_por: $($s8a1db.text) (BR-8.1: urgencia exige DUPLA aprovacao por autoridades distintas — primeira apenas parcial; separacao de funcoes ja validada: o solicitante 910301 nao e o decisor; DBG ' + $s8dbgA + '")
+$s8ab1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d2id + ',"modalidadeCodigo":"PREGAO_ELETRONICO"}')
+Add-Check 'S8' 'demanda.urgencia-abrir-bloqueado-sem-dupla' (($s8ab1.code -eq 409) -and ($s8ab1.body -like '*DEMANDA_URGENCIA_SEM_DUPLA_APROVACAO*')) ("abrir procedimento com APROVADA_PARCIAL -> $($s8ab1.code) (409 DEMANDA_URGENCIA_SEM_DUPLA_APROVACAO nomeada: o processo so nasce apos a dupla aprovacao completa)")
+$s8a2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d2id + '/aprovar') -Base $ApiBase
+Add-Check 'S8' 'demanda.urgencia-mesma-autoridade-409' (($s8a2.code -eq 409) -and ($s8a2.body -like '*SEPARACAO_FUNCOES_VIOLADA*')) ("segunda aprovacao pela MESMA autoridade da primeira -> $($s8a2.code) (409 SEPARACAO_FUNCOES_VIOLADA nomeada — BR-8.1)")
+$null = Get-Psql ("update sigov.compras_demanda set aprovado_por=910402 where id=" + $s8d2id + ";")
+$s8a3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d2id + '/aprovar') -Base $ApiBase
+$s8a3j = $null; try { $s8a3j = ($s8a3.body | ConvertFrom-Json) } catch {}
+$s8a3pid = 0; if ($s8a3j -and $null -ne $s8a3j.data -and $null -ne $s8a3j.data.processoId) { $s8a3pid = [long]$s8a3j.data.processoId }
+$s8a3db = Get-Psql ("select status||'|'||coalesce(dupla_aprovado_por::text,'NULL')||'|'||coalesce((select p.id::text from sigov.compras_processo p where p.tenant_id=910001 and p.demanda_id=" + $s8d2id + " limit 1),'SEM_PROCESSO') from sigov.compras_demanda where id=" + $s8d2id + ";")
+Add-Check 'S8' 'demanda.urgencia-dupla-aprovacao-completa-processo-unico' (($s8a3.code -eq 200) -and ($s8a3pid -gt 0) -and ($s8a3db.text.StartsWith('APROVADA|' + $s8uid + '|') -eq $true)) ("segunda aprovacao por autoridade DISTINTA (fixture reposiciona a 1a para 910402) -> $($s8a3.code) processoId=$s8a3pid; banco status|dupla_aprovado_por|processo_id: $($s8a3db.text) (BR-8.1: dupla aprovacao completa registrada; BR-8.2: processo unico nasce na mesma transacao da segunda aprovacao)")
+$s8a4 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d1id + '/aprovar') -Base $ApiBase
+$s8a4db = Get-Psql ("select count(*)||'|'||min(status)||'|'||case when min(numero) like 'PI-%' then 'PI' else 'NAO' end||'|'||coalesce(min(demanda_id::text),'0') from sigov.compras_processo where tenant_id=910001 and demanda_id=" + $s8d1id + ";")
+Add-Check 'S8' 'demanda.nao-urgente-aprovada-processo-unico-criado' (($s8a4.code -eq 200) -and ($s8a4db.text -eq ('1|ABERTO|PI|' + $s8d1id))) ("aprovar demanda nao urgente -> $($s8a4.code); banco processos count|status|numero|demanda: $($s8a4db.text) (BR-8.2: processo unico da contratacao criado na mesma transacao, numero PI-YYYY-<demanda>, Lei 14.133 art. 128)")
+$s8rp = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d1id + '/repelir') -Base $ApiBase -Body '{"justificativa":"tentativa pos aprovacao"}'
+$s8cx = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d1id + '/cancelar') -Base $ApiBase -Body '{"justificativa":"tentativa pos aprovacao"}'
+Add-Check 'S8' 'demanda.imutavel-pos-aprovacao-409' (($s8rp.code -eq 409) -and ($s8rp.body -like '*DEMANDA_APOS_APROVACAO_IMUTAVEL*') -and ($s8cx.code -eq 409) -and ($s8cx.body -like '*DEMANDA_APOS_APROVACAO_IMUTAVEL*')) ("repelir -> $($s8rp.code) e cancelar -> $($s8cx.code) sobre APROVADA (ambos 409 DEMANDA_APOS_APROVACAO_IMUTAVEL nomeada — BR-8.1: imutavel apos aprovacao)")
+$s8d3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-Terceira chamada","justificativa":"ciclo de decisao c2s8","itens":[{"descricao":"Item C2S8 T","quantidade":2,"unidade":"un","precoEstimado":10,"centroCustoId":' + $s8cc1 + '}],"urgencia":false}')
+$s8d3j = $null; try { $s8d3j = ($s8d3.body | ConvertFrom-Json) } catch {}
+$s8d3id = 0; if ($s8d3j -and $null -ne $s8d3j.data) { $s8d3id = [long]$s8d3j.data.id }
+$null = Get-Psql ("update sigov.compras_demanda set created_by=910301 where id=" + $s8d3id + ";")
+$s8r1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d3id + '/repelir') -Base $ApiBase -Body '{"justificativa":"sem disponibilidade orcamentaria neste ciclo"}'
+$s8rb = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d3id + '/reabrir') -Base $ApiBase -Body '{"justificativa":"nova programacao orcamentaria confirmada"}'
+$s8rbdb = Get-Psql ("select status||'|'||coalesce(aprovado_em::text,'NULL')||'|'||coalesce(justificativa_decisao::text,'NULL') from sigov.compras_demanda where id=" + $s8d3id + ";")
+Add-Check 'S8' 'demanda.repelida-reaberta-ciclo-com-justificativa' (($s8r1.code -eq 200) -and ($s8rb.code -eq 200) -and ($s8rbdb.text -like 'SOLICITADA|NULL|nova programacao*')) ("repelir -> $($s8r1.code) (REPELIDA); reabrir -> $($s8rb.code); banco status|aprovado_em|decisao: $($s8rbdb.text) (BR-8.1: REPELIDA -> SOLICITADA com nova justificativa e campos de aprovacao zerados para novo ciclo)")
+$s8rb2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d3id + '/reabrir') -Base $ApiBase -Body '{"justificativa":"reabrir de novo"}'
+$s8cx2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d3id + '/cancelar') -Base $ApiBase -Body '{"justificativa":"desnecessario apos reprogramacao"}'
+Add-Check 'S8' 'demanda.estado-invalido-e-cancelamento-final' (($s8rb2.code -eq 409) -and ($s8rb2.body -like '*DEMANDA_ESTADO_INVALIDO*') -and ($s8cx2.code -eq 200)) ("reabrir sobre SOLICITADA -> $($s8rb2.code) (409 DEMANDA_ESTADO_INVALIDO nomeada); cancelar sobre SOLICITADA -> $($s8cx2.code) (CANCELADA terminal; BR-8.1 maquina SOLICITADA/APROVADA_PARCIAL -> APROVADA|REPELIDA|CANCELADA)")
+
+# --- BR-8.2/8.6: abertura do procedimento (modalidade do catalogo) ------------------
+$s8m1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d1id + ',"modalidadeCodigo":"LEILAO"}')
+Add-Check 'S8' 'procedimento.modalidade-fora-do-catalogo-404' (($s8m1.code -eq 404) -and ($s8m1.body -like '*MODALIDADE_FORA_DO_CATALOGO*')) ("abrir com modalidade LEILAO (ausente do catalogo do banco) -> $($s8m1.code) (404 MODALIDADE_FORA_DO_CATALOGO nomeada: nada fora do banco vira modalidade — regras 11/12)")
+$s8m2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d1id + ',"modalidadeCodigo":"CONSULTA_PREVIA","orcamentoEstimado":200000.37}')
+Add-Check 'S8' 'procedimento.consulta-previa-acima-do-teto-409' (($s8m2.code -eq 409) -and ($s8m2.body -like '*CONSULTA_PREVIA_ACIMA_TETO*')) ("consulta previa com R$ 200.000,37 (teto parametrico COMPRAS_CONSULTA_PREVIA_TETO=118704.36 no banco) -> $($s8m2.code) (409 CONSULTA_PREVIA_ACIMA_TETO nomeada: limite Lei 14.133 art. 75 II parametrizado, regra 11)")
+$s8m3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d1id + ',"modalidadeCodigo":"PREGAO_ELETRONICO","fonteRecurso":"Fundo Estadual de Manutencao C2S8"}')
+$s8m3j = $null; try { $s8m3j = ($s8m3.body | ConvertFrom-Json) } catch {}
+$s8proc1 = 0; $s8lic1 = 0
+if ($s8m3j -and $null -ne $s8m3j.data) { $s8proc1 = [long]$s8m3j.data.processoId; $s8lic1 = [long]$s8m3j.data.licitacaoId }
+$s8lic1db = Get-Psql ("select status||'|'||zona_me_epp_status||'|'||case when numero like 'LIT-%' then 'LIT' else 'NAO' end||'|'||coalesce((select cfg.modalidade from sigov.compras_modalidade_config cfg where cfg.id=l.modalidade_config_id),'NAO') from sigov.compras_licitacao l where id=" + $s8lic1 + ";")
+Add-Check 'S8' 'procedimento.aberto-pregao-do-catalogo' (($s8m3.code -eq 200) -and ($s8lic1 -gt 0) -and ($s8m3j.data.criterio -eq 'MENOR_PRECO') -and ($s8lic1db.text -eq 'ABERTA|NAO_APLICAVEL|LIT|PREGAO_ELETRONICO')) ("abrir PREGAO_ELETRONICO -> $($s8m3.code) processo=$s8proc1 licitacao=$s8lic1 criterio=$($s8m3j.data.criterio); banco lic status|zona|numero|modalidade: $($s8lic1db.text) (BR-8.2/8.3: licitacao ABERTA vinculada ao processo unico; zona ME/EPP inicia NAO_APLICAVEL; metadados do ato anexados ao processo jsonb)")
+$s8m4 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d1id + ',"modalidadeCodigo":"PREGAO_ELETRONICO"}')
+$s8m4j = $null; try { $s8m4j = ($s8m4.body | ConvertFrom-Json) } catch {}
+$s8m5 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d1id + ',"modalidadeCodigo":"CONCORRENCIA","orcamentoEstimado":500000}')
+Add-Check 'S8' 'procedimento.idempotente-e-unico-por-demanda' (($s8m4.code -eq 200) -and ([long]$s8m4j.data.licitacaoId -eq $s8lic1) -and ($s8m4j.data.jaExiste -eq $true) -and ($s8m5.code -eq 409) -and ($s8m5.body -like '*PROCESSO_JA_VINCULADO_A_DEMANDA*')) ("reabrir MESMA modalidade -> $($s8m4.code) jaExiste=true mesmo licid=$($s8m4j.data.licitacaoId); modalidade DIFERENTE (CONCORRENCIA) -> $($s8m5.code) (409 PROCESSO_JA_VINCULADO_A_DEMANDA nomeada: um processo, um procedimento — BR-8.2 art. 128)")
+
+# --- BR-8.3: habilitacao por tipo ----------------------------------------------------
+$s8h1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/habilitacoes') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f1 + ',"tipo":"JURIDICO","documentoRef":"DOC-C2S8-J1","status":"APROVADO"}')
+$s8h2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/habilitacoes') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f1 + ',"tipo":"TECNICO","documentoRef":"DOC-C2S8-T1","status":"APROVADO"}')
+$s8h3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/habilitacoes') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f3 + ',"tipo":"JURIDICO","documentoRef":"DOC-C2S8-J3","status":"REPROVADO"}')
+$s8h4 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/habilitacoes') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f3 + ',"tipo":"JURIDICO","documentoRef":"DOC-C2S8-J3","status":"REPROVADO","justificativa":"alvara vencido conforme conferencia c2s8"}')
+$s8hdb = Get-Psql ("select (select count(*) from sigov.compras_habilitacao where tenant_id=910001 and licitacao_id=" + $s8lic1 + " and fornecedor_id=" + $s8f1 + ")||'|'||coalesce((select status from sigov.compras_habilitacao where tenant_id=910001 and licitacao_id=" + $s8lic1 + " and fornecedor_id=" + $s8f3 + " and tipo='JURIDICO'),'NAO')||'|'||(select count(*) from sigov.compras_habilitacao where tenant_id=910001 and licitacao_id=" + $s8lic1 + " and fornecedor_id=" + $s8f3 + ");")
+Add-Check 'S8' 'habilitacao.por-tipo-reprovacao-com-justificativa' (($s8h1.code -eq 200) -and ($s8h2.code -eq 200) -and ($s8h3.code -eq 400) -and ($s8h3.body -like '*HABILITACAO_REPROVACAO_SEM_JUSTIFICATIVA*') -and ($s8h4.code -eq 200) -and ($s8hdb.text -eq '2|REPROVADO|1')) ("JURIDICO APROVADO -> $($s8h1.code); TECNICO APROVADO -> $($s8h2.code); REPROVADO sem justificativa -> $($s8h3.code) (400 nomeada); REPROVADO com justificativa -> $($s8h4.code); banco linhas-F1|status-F3|linhas-F3: $($s8hdb.text) (BR-8.3: conferencia por tipo JURIDICO/FISCAL_TRABALHISTA/TECNICO com documento registrado; 1 linha vigente por tipo)")
+
+# --- BR-8.3: lances decrescentes + idempotencia + zona ME/EPP -------------------------
+$s8l1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f1 + ',"valor":1000}')
+$s8l2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f3 + ',"valor":1200}')
+$s8l3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f1 + ',"valor":950}')
+Add-Check 'S8' 'lance.primeiro-e-necessariamente-decrescente' (($s8l1.code -eq 200) -and ($s8l2.code -eq 409) -and ($s8l2.body -like '*LANCE_NAO_DECRESCENTE*') -and ($s8l3.code -eq 200)) ("F1 1000.00 -> $($s8l1.code); F3 1200.00 (>= melhor 1000) -> $($s8l2.code) (409 LANCE_NAO_DECRESCENTE nomeada); F1 950.00 -> $($s8l3.code) (BR-8.3: sessao eletrônica de lances decrescentes; 1 registro por autor x sequencia)")
+$s8k1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f3 + ',"valor":949,"chaveIdempotencia":"C2S8-K1"}')
+$s8k1j = $null; try { $s8k1j = ($s8k1.body | ConvertFrom-Json) } catch {}
+$s8kid = 0; if ($s8k1j -and $null -ne $s8k1j.data) { $s8kid = [long]$s8k1j.data.id }
+$s8k2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f3 + ',"valor":949,"chaveIdempotencia":"C2S8-K1"}')
+$s8k2j = $null; try { $s8k2j = ($s8k2.body | ConvertFrom-Json) } catch {}
+$s8k2id = 0; if ($s8k2j -and $null -ne $s8k2j.data) { $s8k2id = [long]$s8k2j.data.id }
+$s8k3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f3 + ',"valor":948,"chaveIdempotencia":"C2S8-K1"}')
+Add-Check 'S8' 'lance.chave-idempotencia-1-lance-1-registro' (($s8k1.code -eq 200) -and ($s8kid -gt 0) -and ($s8k2.code -eq 200) -and ($s8k2id -eq $s8kid) -and ($s8k3.code -eq 409) -and ($s8k3.body -like '*LANCE_CHAVE_IDEMPOTENCIA_CONFLITO*')) ("F3 949 chave C2S8-K1 -> $($s8k1.code) id=$s8kid; replay mesmo conteudo -> $($s8k2.code) id=$s8k2id (VOLTA o efeito original, nao duplica); mesmo conteudo-chave valor diferente -> $($s8k3.code) (409 LANCE_CHAVE_IDEMPOTENCIA_CONFLITO nomeada; BR-8.3: 1 lance = 1 registro)")
+$s8l4 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f2 + ',"valor":930}')
+$s8zdb = Get-Psql ("select zona_me_epp_status from sigov.compras_licitacao where id=" + $s8lic1 + ";")
+Add-Check 'S8' 'zona.me-epp-aberta-ao-primeiro-lance-me' (($s8l4.code -eq 200) -and ($s8zdb.text -eq 'ABERTA')) ("lance do fornecedor ME (categoria cadastrada no banco) 930.00 -> $($s8l4.code); banco zona_me_epp_status: $($s8zdb.text) (BR-8.3/LC 123/2006: a zona de preferencias ABRE automaticamente com o primeiro lancista ME/EPP)")
+$s8jz = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/julgamento') -Base $ApiBase -Body '{}'
+Add-Check 'S8' 'julgamento.bloqueado-zona-aberta-409' (($s8jz.code -eq 409) -and ($s8jz.body -like '*PREFERENCIA_ME_EPP_NAO_DOCUMENTADA*')) ("julgamento com zona ainda ABERTA -> $($s8jz.code) (409 PREFERENCIA_ME_EPP_NAO_DOCUMENTADA nomeada: o desfecho da preferencia deve ser documentado antes de classificar)")
+$s8p1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/preferencia') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f1 + ',"documentoRef":"DOC-C2S8-P0"}')
+Add-Check 'S8' 'preferencia.fornecedor-fora-da-zona-409' (($s8p1.code -eq 409) -and ($s8p1.body -like '*FORNECEDOR_FORA_DA_ZONA_ME_EPP*')) ("exercer preferencia como fornecedor NAO ME/EPP -> $($s8p1.code) (409 FORNECEDOR_FORA_DA_ZONA_ME_EPP nomeada; somente ME/EPP exerce, LC 123/2006)")
+$s8l5 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/lances') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f2 + ',"valor":900}')
+$s8p2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/preferencia') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f2 + ',"documentoRef":"DOC-C2S8-PREF"}')
+$s8p2j = $null; try { $s8p2j = ($s8p2.body | ConvertFrom-Json) } catch {}
+$s8pdb = Get-Psql ("select zona_me_epp_status||'|'||case when zona_motivo like '%DOC-C2S8-PREF%' then 'DOC' else 'NAO' end from sigov.compras_licitacao where id=" + $s8lic1 + ";")
+Add-Check 'S8' 'preferencia.dentro-da-margem-parametrica-exercida' (($s8l5.code -eq 200) -and ($s8p2.code -eq 200) -and ($s8p2j.data.dentroDaMargem -eq $true) -and ($s8p2j.data.zonaStatus -eq 'ENCERRADA_POR_PREFERENCIA') -and ([decimal]$s8p2j.data.melhorLanceMeEpp -eq 900) -and ([decimal]$s8p2j.data.melhorLanceForaMeEpp -eq 949) -and ([int]$s8p2j.data.margemPct -eq 5) -and ($s8pdb.text -eq 'ENCERRADA_POR_PREFERENCIA|DOC')) ("ME lana 900.00 (melhor fora zona 949.00; margem parametrica LICITACAO_MARGEM_ME_EPP_PCT=5 -> limite 901.55) -> preferencia $($s8p2.code) desfecho=$($s8p2j.data.desfecho) dentroDaMargem=$($s8p2j.data.dentroDaMargem); banco zona|motivo-doc: $($s8pdb.text) (BR-8.3/LC 123: preferencia EXERCIDA por estar a 5% do melhor nao ME/EPP; desfecho documentado com o documento de referencia)")
+$s8p3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/preferencia') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f2 + ',"documentoRef":"DOC-C2S8-PREF2"}')
+Add-Check 'S8' 'preferencia.ja-resolvida-409' (($s8p3.code -eq 409) -and ($s8p3.body -like '*ZONA_ME_EPP_JA_RESOLVIDA*')) ("2a documentacao da zona -> $($s8p3.code) (409 ZONA_ME_EPP_JA_RESOLVIDA nomeada: o desfecho e um ato unico e traceavel)")
+$s8j1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/julgamento') -Base $ApiBase -Body '{}'
+$s8j1j = $null; try { $s8j1j = ($s8j1.body | ConvertFrom-Json) } catch {}
+$s8jdb = Get-Psql ("select string_agg(ordem_classificacao::text||':'||fornecedor_id::text||':'||to_char(valor,'FM999990.00'), ',' order by ordem_classificacao)||'|'||(select status from sigov.compras_licitacao where id=" + $s8lic1 + ") from sigov.compras_proposta where tenant_id=910001 and licitacao_id=" + $s8lic1 + ";")
+$s8jesp = ('1:' + $s8f2 + ':900.00,2:' + $s8f3 + ':949.00,3:' + $s8f1 + ':950.00|JULGADA')
+Add-Check 'S8' 'julgamento.classificacao-automatica-melhores-lances' (($s8j1.code -eq 200) -and ($s8jdb.text -eq $s8jesp)) ("julgamento -> $($s8j1.code); banco classificacao|status-licitacao: $($s8jdb.text) esperado=$s8jesp (BR-8.4: classificacao automatica pelos MELHORES lances de cada fornecedor, menor primeiro; o ME vence na frente apos preferencia exercida; licitacao JULGADA)")
+$s8j2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/julgamento') -Base $ApiBase -Body '{}'
+Add-Check 'S8' 'julgamento.repetido-409' (($s8j2.code -eq 409) -and ($s8j2.body -like '*JULGAMENTO_JA_REALIZADO*')) ("julgamento novamente -> $($s8j2.code) (409 JULGAMENTO_JA_REALIZADO nomeada; o ato e unico por licitacao)")
+$s8pf3 = Get-Psql ("select id from sigov.compras_proposta where tenant_id=910001 and licitacao_id=" + $s8lic1 + " and fornecedor_id=" + $s8f3 + " limit 1;")
+$s8pr = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/propostas/' + $s8pf3.text + '/rejeitar') -Base $ApiBase -Body '{"motivo":"memoria de calculo nao cobre o preco unitario apresentado"}'
+$s8pr2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/propostas/' + $s8pf3.text + '/rejeitar') -Base $ApiBase -Body '{"motivo":"de novo"}'
+Add-Check 'S8' 'proposta.rejeitada-inexequivel-entre-julgamento-e-adjudicacao' (($s8pr.code -eq 200) -and ($s8pr.body -like '*REJEITADA_INEXEQUIVEL*') -and ($s8pr2.code -eq 409) -and ($s8pr2.body -like '*PROPOSTA_JA_REJEITADA*')) ("rejeitar proposta F3 (ordem 2) por inexequibilidade -> $($s8pr.code) (status REJEITADA_INEXEQUIVEL com motivo registrado); rejeitar de novo -> $($s8pr2.code) (409 PROPOSTA_JA_REJEITADA nomeada; BR-8.4: rejeicao so entre classificacao e adjudicacao)")
+$s8ad0 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/adjudicar') -Base $ApiBase -Body '{}'
+Add-Check 'S8' 'adjudicacao.sem-itens-licitados-400' (($s8ad0.code -eq 400) -and ($s8ad0.body -like '*ADJUDICACAO_SEM_ITENS_LICITADOS*')) ("adjudicar antes de haver itens na licitacao -> $($s8ad0.code) (400 ADJUDICACAO_SEM_ITENS_LICITADOS nomeada: o objeto adjudicado espelha os itens licitados)")
+$s8li1 = Get-Psql ("insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910001," + $s8ent + "," + $s8lic1 + ",1,'Papel A4',10,'pct',25.50,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s8lic1 + " and i.numero=1); insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910001," + $s8ent + "," + $s8lic1 + ",2,'Toner C2S8',2,'un',375.00,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s8lic1 + " and i.numero=2); select count(*) from sigov.compras_licitacao_item where licitacao_id=" + $s8lic1 + ";")
+$s8ad1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/adjudicar') -Base $ApiBase -Body '{}'
+$s8ad1j = $null; try { $s8ad1j = ($s8ad1.body | ConvertFrom-Json) } catch {}
+$s8addb = Get-Psql ("select to_char(a.valor_total,'FM999990.00')||'|'||to_char((select coalesce(sum(i.total),0) from sigov.compras_adjudicacao_item i where i.adjudicacao_id=a.id),'FM999990.00')||'|'||(select status from sigov.compras_proposta p where p.id=a.proposta_vencedora_id)||'|'||(select status from sigov.compras_licitacao where id=" + $s8lic1 + ")||'|'||(select count(*) from sigov.compras_adjudicacao_item i join sigov.compras_licitacao_item li on li.id=i.licitacao_item_id where i.adjudicacao_id=a.id) from sigov.compras_adjudicacao a where tenant_id=910001 and licitacao_id=" + $s8lic1 + ";")
+Add-Check 'S8' 'adjudicacao.executada-valor-derivado-vencedora-me' (($s8li1.text -eq '2') -and ($s8ad1.code -eq 200) -and ([long]$s8ad1j.data.fornecedorId -eq $s8f2) -and ([decimal]$s8ad1j.data.valorTotal -eq 900) -and ([int]$s8ad1j.data.nItens -eq 2) -and ($s8addb.text -eq '900.00|900.00|VENCEDORA|ADJUDICADA|2')) ("2 itens licitados (fixture) exit=$($s8li1.code); adjudicar -> $($s8ad1.code) fornecedor=$($s8ad1j.data.fornecedorId) valorTotal=$($s8ad1j.data.valorTotal) nItens=$($s8ad1j.data.nItens); banco adj.valor_total|sum-itens|proposta-vencedora|lic|items-espelhados: $($s8addb.text) (BR-8.4: vencedor = menor ordem nao rejeitada (ME apos preferencia); valor DERIVADO do lance distribuido aos itens espelhados; licitacao ADJUDICADA)")
+$s8ad2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/adjudicar') -Base $ApiBase -Body '{}'
+Add-Check 'S8' 'adjudicacao.repetida-409' (($s8ad2.code -eq 409) -and ($s8ad2.body -like '*ADJUDICACAO_JA_REALIZADA*')) ("adjudicar de novo -> $($s8ad2.code) (409 ADJUDICACAO_JA_REALIZADA nomeada; um ato por licitacao)")
+$s8ho0 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/homologar') -Base $ApiBase
+Add-Check 'S8' 'homologacao.mesma-autoridade-do-adjudicador-409' (($s8ho0.code -eq 409) -and ($s8ho0.body -like '*HOMOLOGADOR_E_ADJUDICADOR_IGUAIS*')) ("homologar pela MESMA autoridade que adjudicou -> $($s8ho0.code) (409 HOMOLOGADOR_E_ADJUDICADOR_IGUAIS nomeada: atos SEPARADOS com autoridade distinta — BR-8.4)")
+$null = Get-Psql ("update sigov.compras_adjudicacao set responsavel_id=910402 where tenant_id=910001 and licitacao_id=" + $s8lic1 + ";")
+$s8ho1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/homologar') -Base $ApiBase
+$s8ho1j = $null; try { $s8ho1j = ($s8ho1.body | ConvertFrom-Json) } catch {}
+$s8hoid = 0; if ($s8ho1j -and $null -ne $s8ho1j.data) { $s8hoid = [long]$s8ho1j.data.id }
+$s8hodb = Get-Psql ("select l.status||'|'||h.id||'|'||h.responsavel_id from sigov.compras_licitacao l join sigov.compras_homologacao h on h.licitacao_id=l.id where l.id=" + $s8lic1 + ";")
+Add-Check 'S8' 'homologacao.homologada-por-autoridade-distinta' (($s8ho1.code -eq 200) -and ($s8hoid -gt 0) -and ($s8hodb.text -like ("HOMOLOGADA|" + $s8hoid + "|" + $s8uid))) ("homologar com autoridade distinta do adjudicador (fixture reposiciona adjudicador para 910402) -> $($s8ho1.code) id=$s8hoid; banco licitacao|homologacao|responsavel: $($s8hodb.text) (BR-8.4: homologacao dentro do prazo parametrico HOMOLOGACAO_PRAZO_MAX_DIAS=30 contado da adjudicacao)")
+$s8ho2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic1 + '/homologar') -Base $ApiBase
+Add-Check 'S8' 'homologacao.repetida-409' (($s8ho2.code -eq 409) -and ($s8ho2.body -like '*HOMOLOGACAO_JA_REALIZADA*')) ("homologar de novo -> $($s8ho2.code) (409 HOMOLOGACAO_JA_REALIZADA nomeada)")
+$s8ct0 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body '{"homologacaoId":9999999999,"dataEficacia":"2026-11-01","dataFim":"2027-10-31","assinaturaModo":"GED"}'
+Add-Check 'S8' 'contrato.homologacao-inexistente-404' (($s8ct0.code -eq 404) -and ($s8ct0.body -like '*HOMOLOGACAO_INEXISTENTE*')) ("gerar contrato da homologacao 9999999999 -> $($s8ct0.code) (404 HOMOLOGACAO_INEXISTENTE nomeada; BR-8.5: contrato NAO nasce sem procedimento homologado)")
+$s8ct1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body ('{"homologacaoId":' + $s8hoid + ',"dataEficacia":"2026-11-01","dataFim":"2027-10-31","assinaturaModo":"GED","gestor":"Gestor C2S8","fiscal":"Fiscal C2S8"}')
+$s8ct1j = $null; try { $s8ct1j = ($s8ct1.body | ConvertFrom-Json) } catch {}
+$s8ct1id = 0; if ($s8ct1j -and $null -ne $s8ct1j.data) { $s8ct1id = [long]$s8ct1j.data.contratoId }
+$s8ctdb = Get-Psql ("select status||'|'||to_char(valor_contratado,'FM999990.00')||'|'||homologacao_id::text||'|'||assinatura_modo||'|'||to_char((select coalesce(sum(i.total),0) from sigov.compras_contrato_item i where i.contrato_id=c.id),'FM999990.00')||'|'||(select count(*) from sigov.compras_contrato_item i where i.contrato_id=c.id) from sigov.compras_contrato c where id=" + $s8ct1id + ";")
+Add-Check 'S8' 'contrato.gerado-da-homologacao-valor-derivado-ged' (($s8ct1.code -eq 200) -and ([decimal]$s8ct1j.data.valorContratado -eq 900) -and ([int]$s8ct1j.data.nItens -eq 2) -and ($s8ctdb.text -like ("VIGENTE|900.00|" + $s8hoid + "|GED|900.00|2"))) ("gerar contrato da homologacao $s8hoid (GED, gestor+fiscal) -> $($s8ct1.code) id=$s8ct1id; banco status|valor|homologacao|assinatura|sum-items|n-items: $($s8ctdb.text) (BR-8.5: contrato NASCE da homologacao com valor DERIVADO da adjudicacao 900.00 (sem edicao livre), itens espelhados 1:1 da adjudicacao e vínculo homologacao_id univoco)")
+$s8ct2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body ('{"homologacaoId":' + $s8hoid + ',"dataEficacia":"2026-11-01","dataFim":"2027-10-31","assinaturaModo":"GED"}')
+Add-Check 'S8' 'contrato.duplicado-para-a-mesma-homologacao-409' (($s8ct2.code -eq 409) -and ($s8ct2.body -like '*CONTRATO_JA_GERADO_PARA_HOMOLOGACAO*')) ("2o contrato da mesma homologacao -> $($s8ct2.code) (409 CONTRATO_JA_GERADO_PARA_HOMOLOGACAO nomeada + indice unico vigente como backstop)")
+$s8rec = Get-Psql ("insert into sigov.compras_processo_item(tenant_id,entidade_id,processo_id,numero,descricao,quantidade,unidade,tipo_material_servico) select 910001," + $s8ent + "," + $s8proc1 + ",1,'ITEM-C2S8-1',10,'UN','MATERIAL' where not exists(select 1 from sigov.compras_processo_item pi where pi.tenant_id=910001 and pi.processo_id=" + $s8proc1 + " and pi.descricao='ITEM-C2S8-1'); insert into sigov.compras_recebimento(tenant_id,entidade_id,processo_id,contrato_id,documento,data_recebimento,status,created_at,created_by) select 910001," + $s8ent + "," + $s8proc1 + "," + $s8ct1id + ",'AT-C2S8-1',current_date,'PENDENTE',now(),910301 where not exists(select 1 from sigov.compras_recebimento r where r.tenant_id=910001 and r.documento='AT-C2S8-1'); insert into sigov.compras_recebimento_item(recebimento_id,tenant_id,entidade_id,processo_item_id,quantidade,valor_unitario,tipo_material) select r.id,910001," + $s8ent + ",pi.id,10,90.00,'CONSUMO' from sigov.compras_recebimento r join sigov.compras_processo_item pi on pi.tenant_id=r.tenant_id and pi.processo_id=r.processo_id and pi.descricao='ITEM-C2S8-1' where r.tenant_id=910001 and r.documento='AT-C2S8-1'; select count(*) from sigov.compras_recebimento where tenant_id=910001 and documento='AT-C2S8-1';")
+$s8ex = Invoke-Api -Bearer $tkS8.token -Method GET -Path ('/api/compras/integradas/contratos/' + $s8ct1id + '/execucao') -Base $ApiBase
+$s8exj = $null; try { $s8exj = ($s8ex.body | ConvertFrom-Json) } catch {}
+Add-Check 'S8' 'execucao.teto-parametrico-bloqueia-novo-fornecimento' (($s8rec.text -eq '1') -and ($s8ex.code -eq 200) -and ([decimal]$s8exj.data.totalFornecido -eq 900) -and ([decimal]$s8exj.data.pctExecutado -eq 100) -and ([int]$s8exj.data.tetoPct -eq 100) -and ($s8exj.data.bloqueiaNovoFornecimento -eq $true)) ("recebimento fixture 10 x 90.00 = 900.00 (100% do contratado); GET execucao -> $($s8ex.code) totalFornecido=$($s8exj.data.totalFornecido) pct=$($s8exj.data.pctExecutado) teto=$($s8exj.data.tetoPct)% bloqueia=$($s8exj.data.bloqueiaNovoFornecimento) (BR-8.5: teto de execucao parametrizado CONTRATO_EXECUCAO_TETO_PCT=100 lido do banco; sinaliza bloqueio de novo fornecimento para a etapa 2/2)")
+$s8pg1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s8ct1id + '/prorrogar') -Base $ApiBase -Body '{"novoFim":"2031-11-02","justificativa":"prorrogo anual c2s8"}'
+$s8pg2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s8ct1id + '/prorrogar') -Base $ApiBase -Body '{"novoFim":"2031-11-01","justificativa":"prorrogo anual c2s8 dentro do teto art 106"}'
+$s8pgdb = Get-Psql ("select to_char(data_fim,'YYYY-MM-DD')||'|'||(select count(*) from sigov.compras_contrato_historico h where h.contrato_id=" + $s8ct1id + " and h.status_novo='PRORROGACAO')||'|'||coalesce((select h.justificativa from sigov.compras_contrato_historico h where h.contrato_id=" + $s8ct1id + " and h.status_novo='PRORROGACAO' limit 1),'NAO') from sigov.compras_contrato where id=" + $s8ct1id + ";")
+$s8dbgB = ('pg1body=[' + $s8pg1.body.Substring(0,[Math]::Min(150,$s8pg1.body.Length)) + '] pg2body=[' + $s8pg2.body.Substring(0,[Math]::Min(150,$s8pg2.body.Length)) + ']')
+Add-Check 'S8' 'prorrogacao.teto-art106-parametrico-e-rastro-historico' (($s8pg1.code -eq 409) -and ($s8pg1.body -like '*PRORROGACAO_EXCEDE_TETO_ART_106*') -and ($s8pg2.code -eq 200) -and ($s8pgdb.text -like '2031-11-01|1|PRORROGACAO ate 2031-11-01:*')) ("prorrogar ate 2031-11-02 (> inicio 2026-11-01 + PRORROGACAO_TETO_ANOS=5) -> $($s8pg1.code) (409 PRORROGACAO_EXCEDE_TETO_ART_106 nomeada); prorrogar ate 2031-11-01 -> $($s8pg2.code); banco data_fim|historico|justificativa: $($s8pgdb.text) (BR-8.5/art. 106: teto de anos E maximo de vezes parametrizados no banco; todo ato deixa rastro append-only em contrato_historico; DBG ' + $s8dbgB + '")
+$s8rs1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s8ct1id + '/rescindir') -Base $ApiBase -Body '{"tipo":"UNILATERAL_INADIMPLEMENTO","justificativa":"inadimplemento documentado c2s8"}'
+$s8rs2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s8ct1id + '/rescindir') -Base $ApiBase -Body '{"tipo":"UNILATERAL_INADIMPLEMENTO","justificativa":"inadimplemento documentado c2s8","notificacaoRef":"NOT-C2S8-77"}'
+$s8rsdb = Get-Psql ("select status||'|'||(select count(*) from sigov.compras_contrato_historico h where h.contrato_id=" + $s8ct1id + " and h.status_novo='RESCINDIDO')||'|'||case when coalesce((select h.justificativa from sigov.compras_contrato_historico h where h.contrato_id=" + $s8ct1id + " and h.status_novo='RESCINDIDO' limit 1),'') like '%NOT-C2S8-77%' then 'NOTIF' else 'NAO' end from sigov.compras_contrato where id=" + $s8ct1id + ";")
+Add-Check 'S8' 'rescisao.unilateral-exige-notificacao-previa-e-atu' (($s8rs1.code -eq 400) -and ($s8rs1.body -like '*RESCISAO_SEM_ATO_JUSTIFICATIVA*') -and ($s8rs2.code -eq 200) -and ($s8rsdb.text -eq 'RESCIDO|1|NOTIF')) ("rescisao unilateral SEM notificacaoRef -> $($s8rs1.code) (400 RESCISAO_SEM_ATO_JUSTIFICATIVA nomeada: art. 129 exige notificação prévia); COM notificacaoRef NOT-C2S8-77 -> $($s8rs2.code); banco status|historico-rescisao|notif-registrada: $($s8rsdb.text) (BR-8.5: toda rescisao e um ATO com justificativa e rastro)")
+$s8pg3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s8ct1id + '/prorrogar') -Base $ApiBase -Body '{"novoFim":"2032-11-01","justificativa":"pos rescisao"}'
+Add-Check 'S8' 'contrato.resciso-nao-prorroga-409' (($s8pg3.code -eq 409) -and ($s8pg3.body -like '*CONTRATO_NAO_VIGENTE*')) ("prorrogar contrato RESCIDO -> $($s8pg3.code) (409 CONTRATO_NAO_VIGENTE nomeada: estado terminal do contrato)")
+
+# --- BR-8.6: cadeia direta DISPENSA -> adjudicacao -> homologacao -> contrato ----------
+$s8d5 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body ('{"objeto":"C2S8-Servico especial","justificativa":"contratacao direta c2s8","itens":[{"descricao":"Servico C2S8","quantidade":5,"unidade":"un","precoEstimado":100,"tipoObjeto":"SERVICO","centroCustoId":' + $s8cc1 + '}],"urgencia":false}')
+$s8d5j = $null; try { $s8d5j = ($s8d5.body | ConvertFrom-Json) } catch {}
+$s8d5id = 0; if ($s8d5j -and $null -ne $s8d5j.data) { $s8d5id = [long]$s8d5j.data.id }
+$null = Get-Psql ("update sigov.compras_demanda set created_by=910301 where id=" + $s8d5id + ";")
+$null = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s8d5id + '/aprovar') -Base $ApiBase
+$s8dp1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d5id + ',"modalidadeCodigo":"DISPENSA"}')
+$s8dp2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d5id + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_ZZZ"}')
+Add-Check 'S8' 'dispensa.base-legal-obrigatoria-do-catalogo' (($s8d5.code -eq 200) -and ($s8dp1.code -eq 400) -and ($s8dp1.body -like '*DISPENSA_BASE_LEGAL_OBRIGATORIA*') -and ($s8dp2.code -eq 404) -and ($s8dp2.body -like '*DISPENSA_BASE_LEGAL_INEXISTENTE*')) ("demanda servico aprovada -> criada id=$s8d5id; abrir DISPENSA sem base legal -> $($s8dp1.code) (400 DISPENSA_BASE_LEGAL_OBRIGATORIA nomeada); com codigo INVENTADO (ART_75_ZZZ) -> $($s8dp2.code) (404 DISPENSA_BASE_LEGAL_INEXISTENTE nomeada: a base legal vem do CATALOGO art. 75 seed no banco, regra 11/12)")
+$s8dp3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s8d5id + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_I"}')
+$s8dp3j = $null; try { $s8dp3j = ($s8dp3.body | ConvertFrom-Json) } catch {}
+$s8lic2 = 0; $s8proc2 = 0
+if ($s8dp3j -and $null -ne $s8dp3j.data) { $s8proc2 = [long]$s8dp3j.data.processoId; $s8lic2 = [long]$s8dp3j.data.licitacaoId }
+$s8dbmet = Get-Psql ("select coalesce(documentos_metadados->>'dispensa_base_legal','NAO')||'|'||coalesce(documentos_metadados->>'modalidade','NAO') from sigov.compras_processo where id=" + $s8proc2 + ";")
+Add-Check 'S8' 'dispensa.aberta-com-base-legal-art75-rastro-no-processo' (($s8dp3.code -eq 200) -and ($s8lic2 -gt 0) -and ($s8dbmet.text -eq 'ART_75_I|DISPENSA')) ("abrir DISPENSA com ART_75_I -> $($s8dp3.code) licitacao=$s8lic2; metadados do processo base_legal|modalidade: $($s8dbmet.text) (BR-8.6: contratacao direta registrada com a base legal escolhida do catalogo, rastreada no processo unico)")
+$s8li2 = Get-Psql ("insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910001," + $s8ent + "," + $s8lic2 + ",1,'Servico especial C2S8',5,'un',100.00,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s8lic2 + "); select count(*) from sigov.compras_licitacao_item where licitacao_id=" + $s8lic2 + ";")
+$s8da1 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic2 + '/adjudicar') -Base $ApiBase -Body '{}'
+Add-Check 'S8' 'adjudicacao.direta-sem-fornecedor-400' (($s8li2.text -eq '1') -and ($s8da1.code -eq 400) -and ($s8da1.body -like '*ADJUDICACAO_DIRETA_SEM_FORNECEDOR*')) ("adjudicar modalidade direta (DISPENSA) sem indicar fornecedor -> $($s8da1.code) (400 ADJUDICACAO_DIRETA_SEM_FORNECEDOR nomeada: sem sessao de lances, o ato SELECIONA o fornecedor)")
+$s8da2 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic2 + '/adjudicar') -Base $ApiBase -Body ('{"fornecedorId":' + $s8f1 + ',"observacao":"contratacao direta c2s8"}')
+$s8da2j = $null; try { $s8da2j = ($s8da2.body | ConvertFrom-Json) } catch {}
+$s8dadb = Get-Psql ("select to_char(a.valor_total,'FM999990.00')||'|'||(select status from sigov.compras_licitacao where id=" + $s8lic2 + ")||'|'||(select p.fornecedor_id::text from sigov.compras_proposta p where p.id=a.proposta_vencedora_id) from sigov.compras_adjudicacao a where tenant_id=910001 and licitacao_id=" + $s8lic2 + ";")
+Add-Check 'S8' 'adjudicacao.direta-executada-valor-derivado-dos-itens' (($s8da2.code -eq 200) -and ([decimal]$s8da2j.data.valorTotal -eq 500) -and ([long]$s8da2j.data.fornecedorId -eq $s8f1) -and ($s8dadb.text -like ("500.00|ADJUDICADA|" + $s8f1))) ("adjudicar direta indicando F1 -> $($s8da2.code) valorTotal=$($s8da2j.data.valorTotal) (5 un x 100.00 dos itens licitados); banco valor_total|status|fornecedor-vencedor: $($s8dadb.text) (BR-8.6: proposta criada e valor DERIVADO da planilha da licitacao)")
+$null = Get-Psql ("update sigov.compras_adjudicacao set responsavel_id=910402 where tenant_id=910001 and licitacao_id=" + $s8lic2 + ";")
+$s8ho3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s8lic2 + '/homologar') -Base $ApiBase
+$s8ho3j = $null; try { $s8ho3j = ($s8ho3.body | ConvertFrom-Json) } catch {}
+$s8ho3id = 0; if ($s8ho3j -and $null -ne $s8ho3j.data) { $s8ho3id = [long]$s8ho3j.data.id }
+$s8ct3 = Invoke-Api -Bearer $tkS8.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body ('{"homologacaoId":' + $s8ho3id + ',"dataEficacia":"2026-11-05","dataFim":"2027-11-04","assinaturaModo":"FISICA","gestor":"Gestor C2S8","fiscal":"Fiscal C2S8"}')
+$s8ct3j = $null; try { $s8ct3j = ($s8ct3.body | ConvertFrom-Json) } catch {}
+$s8ct3db = Get-Psql ("select status||'|'||to_char(valor_contratado,'FM999990.00')||'|'||assinatura_modo||'|'||fornecedor_id::text from sigov.compras_contrato c where c.tenant_id=910001 and c.homologacao_id=" + $s8ho3id + " limit 1;")
+Add-Check 'S8' 'dispensa.cadeia-completa-ate-contrato-assinatura-fisica' (($s8ho3.code -eq 200) -and ($s8ct3.code -eq 200) -and ([decimal]$s8ct3j.data.valorContratado -eq 500) -and ($s8ct3db.text -like ("VIGENTE|500.00|FISICA|" + $s8f1))) ("homologar dispensa -> $($s8ho3.code) id=$s8ho3id; gerar contrato ASSINATURA FISICA -> $($s8ct3.code) valorContratado=$($s8ct3j.data.valorContratado); banco status|valor|assinatura|fornecedor: $($s8ct3db.text) (BR-8.6: cadeia direta completa demanda -> DISPENSA(art.75) -> adjudicacao -> homologacao -> contrato; sem sessao de lances)")
+
+# --- limpeza do bloco S8 (auto-limpeza; regra 9) ---------------------------------------
+$s8cl = Get-Psql @"
+create temp table if not exists s8_alvo_d (id bigint); truncate table s8_alvo_d;
+insert into s8_alvo_d select id from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S8-%';
+create temp table if not exists s8_alvo_p (id bigint); truncate table s8_alvo_p;
+insert into s8_alvo_p select id from sigov.compras_processo where tenant_id=910001 and demanda_id in (select id from s8_alvo_d);
+create temp table if not exists s8_alvo_l (id bigint); truncate table s8_alvo_l;
+insert into s8_alvo_l select id from sigov.compras_licitacao where tenant_id=910001 and processo_id in (select id from s8_alvo_p);
+delete from sigov.compras_recebimento_item where recebimento_id in (select id from sigov.compras_recebimento where tenant_id=910001 and contrato_id in (select id from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s8_alvo_l))));
+delete from sigov.compras_recebimento where tenant_id=910001 and contrato_id in (select id from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s8_alvo_l)));
+delete from sigov.compras_contrato_item where contrato_id in (select id from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s8_alvo_l)));
+delete from sigov.compras_contrato_historico where contrato_id in (select id from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s8_alvo_l)));
+delete from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s8_alvo_l));
+delete from sigov.compras_homologacao where licitacao_id in (select id from s8_alvo_l);
+delete from sigov.compras_adjudicacao_item where adjudicacao_id in (select id from sigov.compras_adjudicacao where licitacao_id in (select id from s8_alvo_l));
+delete from sigov.compras_adjudicacao where licitacao_id in (select id from s8_alvo_l);
+delete from sigov.compras_proposta where licitacao_id in (select id from s8_alvo_l);
+delete from sigov.compras_habilitacao where licitacao_id in (select id from s8_alvo_l);
+delete from sigov.compras_lance where licitacao_id in (select id from s8_alvo_l);
+delete from sigov.compras_licitacao_item where licitacao_id in (select id from s8_alvo_l);
+delete from sigov.compras_licitacao where id in (select id from s8_alvo_l);
+delete from sigov.compras_processo_item where tenant_id=910001 and processo_id in (select id from s8_alvo_p);
+delete from sigov.compras_processo where id in (select id from s8_alvo_p);
+delete from sigov.compras_demanda_item where demanda_id in (select id from s8_alvo_d);
+delete from sigov.compras_demanda where id in (select id from s8_alvo_d);
+delete from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S8 %';
+delete from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S8-%';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.perfil_permissao where correlation_id='cf58c2ab-1c20-4a90-88f8-0c2000000001';
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s8.admin');
+delete from sigov.usuario where tenant_id=910001 and login='c2s8.admin';
+delete from sigov.entidade where tenant_id=910001 and codigo_externo='C2S8-ENT';
+select
+ (select count(*) from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S8-%')
+ + (select count(*) from sigov.compras_licitacao where tenant_id=910001 and objeto like 'C2S8-%')
+ + (select count(*) from sigov.compras_contrato where tenant_id=910001 and objeto like 'C2S8-%')
+ + (select count(*) from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S8 %')
+ + (select count(*) from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S8-%')
+ + (select count(*) from sigov.usuario where tenant_id=910001 and login='c2s8.admin')
+ + (select count(*) from sigov.entidade where tenant_id=910001 and codigo_externo='C2S8-ENT')
+  + (select count(*) from sigov.compras_processo_item where tenant_id=910001 and descricao like 'ITEM-C2S8-%');
+"@
+Add-Check 'S8' 'fixture.removido-auto-limpeza' (($s8cl.code -eq 0) -and ($s8cl.text -eq '0')) ("cascade delete S8 (recebimento+items, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, habilitacoes, lances, licitacao_items, licitacoes, processos+items, demandas+items, fornecedores, centros de custo, sessoes/auditorias do usuario (identidade_sessao/auditoria_evento/autorizacao_decisao/sessao_contexto/contexto_operacional/trilha/historico_login/mfa), grants sentinel cf58c2ab, usuario c2s8.admin+grupo, entidade C2S8-ENT) tenant 910001 -> restantes=" + $s8cl.text)
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -2022,9 +2349,16 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
               + (select count(*) from sigov.educacao_biblioteca_acervo where tenant_id=910001 and codigo like 'C1S6-JORNADA-%')
               + (select count(*) from sigov.educacao_merenda_movimento where tenant_id=910001 and not exists(select 1 from sigov.educacao_merenda_produto p where p.id=sigov.educacao_merenda_movimento.produto_id))
               + (select count(*) from sigov.educacao_merenda_estoque where tenant_id=910001 and not exists(select 1 from sigov.educacao_merenda_produto p where p.id=sigov.educacao_merenda_estoque.produto_id))
-             + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc') as restantes;
+             + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc')              + (select count(*) from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S8-%')
+              + (select count(*) from sigov.compras_licitacao where tenant_id=910001 and objeto like 'C2S8-%')
+              + (select count(*) from sigov.compras_contrato where tenant_id=910001 and objeto like 'C2S8-%')
+              + (select count(*) from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S8 %')
+              + (select count(*) from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S8-%')
+              + (select count(*) from sigov.usuario where tenant_id=910001 and login='c2s8.admin')
+              + (select count(*) from sigov.entidade where tenant_id=910001 and codigo_externo='C2S8-ENT')
+              + (select count(*) from sigov.perfil_permissao where correlation_id='cf58c2ab-1c20-4a90-88f8-0c2000000001') as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + C2S5 fundeb-competencia/rateios/avaliacoes/educacenso-eventos/matriculas/turma/curso/alunos/servidores/escola + S6 jornada acervo C1S6-JORNADA + merenda movimentos/estoques orfaos de produto limpo + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + C2S5 fundeb-competencia/rateios/avaliacoes/educacenso-eventos/matriculas/turma/curso/alunos/servidores/escola + S6 jornada acervo C1S6-JORNADA + merenda movimentos/estoques orfaos de produto limpo + merenda/biblioteca/entidade + C2S8 compras integradas [demandas/licitacoes/contratos/fornecedores/centros-de-custo/usuario c2s8.admin/entidade C2S8-ENT]) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count
